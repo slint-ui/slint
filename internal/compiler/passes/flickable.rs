@@ -11,23 +11,19 @@
 //! binding reference to fake properties
 
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
-use crate::langtype::{ElementType, NativeClass, Type};
+use crate::langtype::{ElementType, Type};
 use crate::layout::{Orientation, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
-use std::sync::Arc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
     matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "Flickable")
 }
 
 pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
-    let mut native_empty = tr.empty_type().as_builtin().native_class.clone();
-    while let Some(p) = native_empty.parent.clone() {
-        native_empty = p;
-    }
+    let empty_type = tr.empty_type();
 
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
@@ -38,12 +34,12 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
             }
 
             fixup_geometry(elem);
-            create_content_element(elem, &native_empty);
+            create_content_element(elem, &empty_type);
         },
     )
 }
 
-fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>) {
+fn create_content_element(flickable: &ElementRc, empty_type: &ElementType) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
     let is_listview = children
         .iter()
@@ -82,7 +78,7 @@ fn create_content_element(flickable: &ElementRc, native_empty: &Arc<NativeClass>
 
     let content = Element::make_rc(Element {
         id: format_smolstr!("{}-content", flickable.borrow().id),
-        base_type: ElementType::Native(native_empty.clone()),
+        base_type: empty_type.clone(),
         children,
         enclosing_component: flickable.borrow().enclosing_component.clone(),
         is_flickable_content: true,

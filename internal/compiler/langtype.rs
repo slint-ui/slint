@@ -475,8 +475,6 @@ pub enum ElementType {
     Component(Rc<Component>),
     /// The element is a builtin element
     Builtin(Rc<BuiltinElement>),
-    /// The native type was resolved by the resolve_native_class pass.
-    Native(Arc<NativeClass>),
     /// The base element couldn't be looked up
     #[default]
     Error,
@@ -491,7 +489,6 @@ impl PartialEq for ElementType {
         match (self, other) {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Self::Native(a), Self::Native(b)) => Arc::ptr_eq(a, b),
             (Self::Error, Self::Error)
             | (Self::Global, Self::Global)
             | (Self::Interface, Self::Interface) => true,
@@ -545,27 +542,6 @@ impl ElementType {
                     },
                 }
             }
-            Self::Native(n) => {
-                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
-                    Cow::Owned(alias_name.to_string())
-                } else {
-                    Cow::Borrowed(name)
-                };
-                let info = n.lookup_property_info(resolved_name.as_ref());
-                PropertyLookupResult {
-                    resolved_name,
-                    property_type: info.map(|p| p.ty.clone()).unwrap_or_default(),
-                    property_visibility: PropertyVisibility::InOut,
-                    declared_pure: info.and_then(|p| p.declared_pure()),
-                    is_local_to_component: false,
-                    is_in_direct_base: false,
-                    is_shadowable: false,
-                    builtin_function: None,
-                    is_slint_sc: false,
-                    internal_name: None,
-                    deprecated: None,
-                }
-            }
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
         }
     }
@@ -600,9 +576,6 @@ impl ElementType {
             }
             Self::Builtin(b) => {
                 b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
-            Self::Native(n) => {
-                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
             _ => Vec::new(),
         }
@@ -709,17 +682,6 @@ impl ElementType {
         }
     }
 
-    /// Assume this is a builtin type, panic if it isn't
-    pub fn as_native(&self) -> &NativeClass {
-        match self {
-            Self::Native(b) => b,
-            Self::Component(_) => {
-                panic!("This should not happen because of native class resolution")
-            }
-            _ => panic!("invalid type"),
-        }
-    }
-
     /// Assume it is a Component, panic if it isn't
     pub fn as_component(&self) -> &Rc<Component> {
         match self {
@@ -733,7 +695,6 @@ impl ElementType {
         match self {
             ElementType::Component(component) => Some(&component.id),
             ElementType::Builtin(b) => Some(&b.name),
-            ElementType::Native(_) => None, // Too late, caller should call this function before the native class lowering
             ElementType::Error => None,
             ElementType::Global => None,
             ElementType::Interface => None,
@@ -746,7 +707,6 @@ impl Display for ElementType {
         match self {
             Self::Component(c) => c.id.fmt(f),
             Self::Builtin(b) => b.name.fmt(f),
-            Self::Native(b) => b.class_name.fmt(f),
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
             Self::Interface => Ok(()),

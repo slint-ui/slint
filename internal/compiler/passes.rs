@@ -55,7 +55,6 @@ mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
-pub mod resolve_native_classes;
 pub mod resolving;
 mod unique_declared_type_names;
 mod unique_id;
@@ -255,9 +254,6 @@ pub async fn run_passes(
             remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
-        if !component.is_global() && !component.is_interface() {
-            resolve_native_classes::resolve_native_classes(component);
-        }
     });
 
     remove_unused_properties::remove_unused_properties(doc);

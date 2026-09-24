@@ -45,8 +45,8 @@ pub fn default_geometry(
             gen_layout_info_prop(elem, diag, symbol_counters);
 
             let builtin_type = match elem.borrow().builtin_type() {
-                Some(b) => b,
-                None => return Some(elem.clone()),
+                Some(b) if !elem.borrow().is_flickable_content => b,
+                _ => return Some(elem.clone()),
             };
 
             let is_image = builtin_type.name == "Image";
@@ -649,7 +649,7 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
 
     if builtin.native_class.properties.keys().any(|p| {
         // Deliberately count synthetic debug hooks here (via binding_cell_including_synthetic): they also count as
-        // "used" in resolve_native_classes, so the ClippedImage native class gets selected —
+        // "used" by the native class selection in the LLR, so the ClippedImage native class gets selected —
         // and a ClippedImage without the synthesized clip defaults renders/measures as a
         // zero-size clip. This condition must match the class-selection semantics.
         elem.borrow().binding_cell_including_synthetic(p).is_some()
