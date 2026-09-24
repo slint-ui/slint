@@ -41,6 +41,9 @@ export component Test inherits Window {
     property <string> j: @tr("hello");
 //            >    <error{The type 'string' is not supported in Slint SC}
 //                       >          <^error{@tr() expressions are not supported in Slint SC}
+    // @from-json
+    property <int> j2: @from-json("from-json-data.json", "j");
+//                     >                                    <error{@from-json() expressions are not supported in Slint SC}
     // @gradient
     property <brush> k: @linear-gradient(0deg, red, blue);
 //            >   <error{The type 'brush' is not supported in Slint SC}

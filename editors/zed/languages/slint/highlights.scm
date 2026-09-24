@@ -179,6 +179,7 @@
   (radial_gradient_identifier)
   (radial_gradient_kind)
   (conic_gradient_identifier)
+  (from_json_identifier)
 ] @attribute
 
 (image_call
