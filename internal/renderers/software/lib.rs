@@ -2050,7 +2050,8 @@ fn process_rectangle_impl(
     } else if let Brush::RadialGradient(g) = &args.background {
         let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
         let (center_x, center_y) = to_rect_center(cx, cy);
-        let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (rx, ry) = g.radii_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (radius_x, radius_y) = if args.rotation.is_transpose() { (ry, rx) } else { (rx, ry) };
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -2062,7 +2063,8 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
-            radius: gradient_radius,
+            radius_x,
+            radius_y,
             clip: gradient_clip,
         };
 
