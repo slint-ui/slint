@@ -62,6 +62,7 @@ targets:
               ../../scripts/build_macos_app_with_cargo.bash \
               --profile package-release \
               --bin slint-editor \
+              --no-default-features \
               ${MACOS_CARGO_TIMINGS:+--timings}
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)

@@ -27,10 +27,11 @@ name = "gallery"
 path = "gallery/main.rs"
 
 [features]
+default = ["system-testing"]
 ## Discover preview targets on the local network.
 preview-remote = ["dep:mdns-sd"]
-## Enable the out-of-process system-testing transport.
-system-testing = ["slint/system-testing"]
+## Enable the out-of-process system-testing and MCP transports, including the headless backend.
+system-testing = ["slint/system-testing", "slint/mcp"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }

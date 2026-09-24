@@ -26,8 +26,11 @@ Build the UI test binary from the repository root:
 
 ```sh
 SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
-  cargo build --locked -p slint-editor --all-features --features slint/mcp
+  cargo build --locked -p slint-editor --all-features
 ```
+
+The default `system-testing` feature also enables `slint/mcp` and the headless backend.
+Published builds use `--no-default-features` instead.
 
 From `tools/editor/ui-tests`, use its installed test environment:
 
