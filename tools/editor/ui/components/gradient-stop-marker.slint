@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GradientMarkerStyle } from "../style.slint";
+import { ColorIndicator } from "../../../lsp/ui/components/widgets/color-indicator.slint";
+
+component ContrastTick inherits Rectangle {
+    in property <GradientMarkerStyle> style;
+    in property <bool> vertical;
+    private property <length> outline: root.style.tick-keyline-width;
+    private property <length> halo: root.style.tick-halo-width;
+    private property <length> surround: root.outline + root.halo;
+    width: (root.vertical ? root.style.tick-width : root.style.tick-length) + 2 * root.surround;
+    height: (root.vertical ? root.style.tick-length : root.style.tick-width) + 2 * root.surround;
+    border-radius: min(self.width, self.height) / 2;
+    background: root.style.inactive.with-alpha(0.62);
+
+    Rectangle {
+        x: root.halo;
+        y: root.halo;
+        width: parent.width - 2 * root.halo;
+        height: parent.height - 2 * root.halo;
+        border-radius: min(self.width, self.height) / 2;
+        background: root.style.keyline-light;
+
+        Rectangle {
+            x: root.outline;
+            y: root.outline;
+            width: parent.width - 2 * root.outline;
+            height: parent.height - 2 * root.outline;
+            border-radius: min(self.width, self.height) / 2;
+            background: root.style.keyline-dark;
+        }
+    }
+}
+
+export component EditorGradientStopMarker inherits Rectangle {
+    in property <GradientMarkerStyle> style;
+    in property <bool> active;
+    in property <color> stop-color;
+    width: root.style.size;
+    height: root.style.size;
+
+    private property <length> center-x: root.width / 2;
+    private property <length> center-y: 23px;
+    private property <length> ring-width: root.active ? root.style.active-ring-width : root.style.inactive-ring-width;
+    private property <length> white-ring-size: root.style.indicator-size + 2 * root.style.inner-ring-width;
+    private property <length> ring-size: root.white-ring-size + 2 * root.ring-width;
+    private property <color> ring-color: root.active ? root.style.active : root.style.inactive;
+
+    Path {
+        x: root.center-x - root.style.pointer-width / 2;
+        y: 0px;
+        width: root.style.pointer-width;
+        height: root.style.pointer-height;
+        viewbox-width: 12;
+        viewbox-height: 10;
+        commands: "M 6 0.5 L 11.5 9.5 L 0.5 9.5 Z";
+        fill: root.style.keyline-light;
+        stroke: root.style.inactive;
+        stroke-width: 1px;
+    }
+
+    Rectangle {
+        x: root.center-x - root.ring-size / 2;
+        y: root.center-y - root.ring-size / 2;
+        width: root.ring-size;
+        height: root.ring-size;
+        border-radius: self.width / 2;
+        background: root.ring-color;
+
+        Rectangle {
+            x: root.ring-width;
+            y: root.ring-width;
+            width: root.white-ring-size;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: root.style.keyline-light;
+        }
+    }
+
+    ColorIndicator {
+        x: root.center-x - root.style.indicator-size / 2;
+        y: root.center-y - root.style.indicator-size / 2;
+        width: root.style.indicator-size;
+        height: self.width;
+        border-radius: self.width / 2;
+        border-width: 0px;
+        color: root.stop-color;
+        checker-light: root.style.checker.light;
+        checker-dark: root.style.checker.dark;
+    }
+
+    ContrastTick {
+        style: root.style;
+        x: 0px;
+        y: root.center-y - self.height / 2;
+    }
+    ContrastTick {
+        style: root.style;
+        x: root.width - self.width;
+        y: root.center-y - self.height / 2;
+    }
+    ContrastTick {
+        style: root.style;
+        vertical: true;
+        x: root.center-x - self.width / 2;
+        y: root.height - self.height;
+    }
+
+    @children
+}

@@ -309,10 +309,21 @@ export struct TransparencyGridStyle {
 }
 
 export struct GradientMarkerStyle {
-    inactive: color,
-    active: color = #0c8ce9,
-    size: length = 24px,
-    radius: length = 5px,
+    inactive: color = #7d8793,
+    active: color = #176fe8,
+    size: length = 40px,
+    pointer-width: length = 12px,
+    pointer-height: length = 10px,
+    indicator-size: length = 24px,
+    inner-ring-width: length = 2px,
+    inactive-ring-width: length = 1px,
+    active-ring-width: length = 2px,
+    tick-length: length = 8px,
+    tick-width: length = 3px,
+    tick-keyline-width: length = 1px,
+    tick-halo-width: length = 1px,
+    keyline-light: color = #ffffff,
+    keyline-dark: color = #171717,
     checker: TransparencyGridStyle,
 }
 
@@ -905,7 +916,7 @@ export global LightTheme {
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #b5ccdd;
+    out property <color> marker-inactive: #7d8793;
 
     out property <color> divider: #e5e5e5;
 
@@ -1192,7 +1203,7 @@ export global DarkTheme {
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #3f3f3f;
+    out property <color> marker-inactive: #7d8793;
 
     out property <color> divider: #414141;
 

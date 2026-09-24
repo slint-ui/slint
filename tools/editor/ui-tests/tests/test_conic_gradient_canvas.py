@@ -318,15 +318,15 @@ def test_conic_seam_handles_and_stop_crossing(
         c = center(control(window, "Gradient center handle"), 130)
         first = stop_center(window, 1, 0)
         last = stop_center(window, 3, 360)
-        assert math.hypot(first.x - c.x, first.y - c.y) == pytest.approx(148, abs=0.001)
-        assert math.hypot(last.x - c.x, last.y - c.y) == pytest.approx(104, abs=0.001)
-        gesture(window, first, around(c, 148, 240))
+        assert math.hypot(first.x - c.x, first.y - c.y) == pytest.approx(152, abs=0.001)
+        assert math.hypot(last.x - c.x, last.y - c.y) == pytest.approx(100, abs=0.001)
+        gesture(window, first, around(c, 152, 240))
         assert float(
             control(
                 window, "Stop 1 position", slint_testing.AccessibleRole.TextInput
             ).accessible_value
         ) == pytest.approx(20, abs=0.01)
-        gesture(window, last, around(c, 104, 200))
+        gesture(window, last, around(c, 100, 200))
         assert float(
             control(
                 window, "Stop 3 position", slint_testing.AccessibleRole.TextInput
@@ -336,7 +336,7 @@ def test_conic_seam_handles_and_stop_crossing(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for degrees in [250, 320, 350, 280, 180, 90, 10, 60]:
-            p = around(c, 148, 220 + degrees)
+            p = around(c, 152, 220 + degrees)
             window.dispatch_event(slint_testing.PointerMoveEvent(p))
             assert float(
                 control(
@@ -469,7 +469,7 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         ).accessible_value = "162"
         c = center(control(window, "Gradient center handle"), 130)
         actual = stop_center(window, 2, 162)
-        expected = around(c, 148, 220 + 162)
+        expected = around(c, 152, 220 + 162)
         assert actual.x == pytest.approx(expected.x, abs=0.001)
         assert actual.y == pytest.approx(expected.y, abs=0.001)
         click(window, "Edit stop 2 color")

@@ -190,8 +190,8 @@ def test_picker_uses_live_preview_stop_markers(
         stop = picker_field(
             window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
         )
-        assert stop.size.width == 24
-        assert stop.size.height == 24
+        assert stop.size.width == 40
+        assert stop.size.height == 40
         (tmp_path / "picker-stop-markers.png").write_bytes(window.grab_window_as_png())
 
 
