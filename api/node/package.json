@@ -3,6 +3,14 @@
   "version": "1.19.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./register": "./register.mjs",
+    "./package.json": "./package.json"
+  },
   "homepage": "https://github.com/slint-ui/slint",
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
@@ -31,7 +39,7 @@
     "vitest": "catalog:"
   },
   "engines": {
-    "node": ">= 10"
+    "node": ">= 22.18"
   },
   "scripts": {
     "artifacts": "napi artifacts",
