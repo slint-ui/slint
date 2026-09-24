@@ -4,6 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(any(feature = "shared-fontique", feature = "color-parsing")), no_std)]
+#![deny(unsafe_code)]
 
 extern crate alloc;
 

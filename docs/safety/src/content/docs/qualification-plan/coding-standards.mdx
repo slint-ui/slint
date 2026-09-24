@@ -19,7 +19,7 @@ The rules differ between the two parts of Slint SC, because the runtime ships in
 
 | Rule | Enforced by |
 | --- | --- |
-| No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `i-slint-compiler`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
+| No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `slint-compiler`, and of the workspace crates it builds on, `i-slint-compiler` and `i-slint-common`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
 | No clippy warnings. | The same CI run as above. |
 
 :::caution[TODO]
