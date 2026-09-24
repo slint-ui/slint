@@ -3,6 +3,11 @@
 
 // cSpell: ignore rsplit Sfixed
 fn main() {
+    // The unit tests compile `slint!` sources that read properties back through the
+    // debug-info channel and declare them `@testable` (experimental).
+    println!("cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1");
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+
     cfg_aliases::cfg_aliases! {
         supports_headless: { any(feature = "renderer-software", feature = "renderer-skia") },
         // Skia's software rasterizer is not built on Android.

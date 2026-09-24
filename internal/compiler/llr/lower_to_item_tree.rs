@@ -438,7 +438,7 @@ fn lower_sub_component(
         row_child_templates: None,
         accessible_prop: Default::default(),
         element_infos: Default::default(),
-        element_properties: Default::default(),
+        testable_properties: Default::default(),
         prop_analysis: Default::default(),
         debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
             source_location: crate::diagnostics::Spanned::to_source_location(
@@ -626,9 +626,9 @@ fn lower_sub_component(
             if elem.repeated.is_some() {
                 return None;
             }
-            let props = collect_element_properties(element, component, &mapping, state);
+            let props = collect_testable_properties(element, component, &mapping, state);
             if !props.is_empty() {
-                sub_component.element_properties.insert(*elem.item_index.get().unwrap(), props);
+                sub_component.testable_properties.insert(*elem.item_index.get().unwrap(), props);
             }
             Some(element.clone())
         });
@@ -1044,23 +1044,18 @@ fn lower_sub_component(
     LoweredSubComponent { sub_component, mapping }
 }
 
-/// Collect the readable properties an element carries, for debug-info introspection:
+/// Collect the `@testable` properties an element carries, for debug-info introspection:
 /// its own declarations, the declarations the move_declarations pass hoisted off it,
-/// and the public API of its base component chain.
+/// and the declarations of its base component chain.
 /// A name declared closer to the element shadows the same name further up the chain.
-fn collect_element_properties(
+fn collect_testable_properties(
     element: &ElementRc,
     component: &Rc<Component>,
     mapping: &LoweredSubComponentMapping,
     state: &LoweringState,
-) -> Vec<ElementProperty> {
-    use crate::object_tree::{PropertyDeclaration, PropertyVisibility};
-    fn readable(decl: &PropertyDeclaration) -> bool {
-        decl.property_type.is_property_type()
-            && (matches!(
-                decl.visibility,
-                PropertyVisibility::Input | PropertyVisibility::Output | PropertyVisibility::InOut
-            ) || decl.testable)
+) -> Vec<TestableProperty> {
+    fn readable(decl: &crate::object_tree::PropertyDeclaration) -> bool {
+        decl.testable && decl.property_type.is_property_type()
     }
 
     let mut seen = std::collections::HashSet::new();
@@ -1081,12 +1076,11 @@ fn collect_element_properties(
             if !seen.insert(name.clone()) {
                 continue;
             }
-            result.push(ElementProperty {
+            result.push(TestableProperty {
                 name: name.clone(),
                 ty: decl.property_type.clone(),
                 prop: mapping
                     .map_property_reference(&NamedReference::new(element, key.clone()), state),
-                pinned: decl.testable,
             });
         }
     }
@@ -1099,14 +1093,13 @@ fn collect_element_properties(
             if !readable(decl) || !seen.insert(source_name.clone()) {
                 continue;
             }
-            result.push(ElementProperty {
+            result.push(TestableProperty {
                 name: source_name.clone(),
                 ty: decl.property_type.clone(),
                 prop: mapping.map_property_reference(
                     &NamedReference::new(&component.root_element, root_key.clone()),
                     state,
                 ),
-                pinned: decl.testable,
             });
         }
     }
@@ -1127,12 +1120,11 @@ fn collect_element_properties(
                 if !seen.insert(name.clone()) {
                     continue;
                 }
-                result.push(ElementProperty {
+                result.push(TestableProperty {
                     name: name.clone(),
                     ty: decl.property_type.clone(),
                     prop: mapping
                         .map_property_reference(&NamedReference::new(element, key.clone()), state),
-                    pinned: decl.testable,
                 });
             }
         }
@@ -1736,15 +1728,14 @@ mod tests {
     /// the introspection table must report the shadowing one,
     /// whichever side of inlining the two declarations end up on.
     #[test]
-    fn element_properties_prefer_the_shadowing_declaration() {
+    fn testable_properties_prefer_the_shadowing_declaration() {
         let source = r#"
 component Base inherits Rectangle {
-    @shadowable in-out property <string> name: "base";
+    @shadowable @testable in-out property <string> name: "base";
     Text { text: root.name; }
 }
 component Derived inherits Base {
-    in-out property <int> name: 42;
-    changed name => { }
+    @testable in-out property <int> name: 42;
 }
 export component TestCase inherits Window {
     d := Derived { }
@@ -1767,7 +1758,7 @@ export component TestCase inherits Window {
         let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
         let mut checked = 0;
         for sc in unit.sub_components.iter() {
-            for props in sc.element_properties.values() {
+            for props in sc.testable_properties.values() {
                 for p in props.iter().filter(|p| p.name == "name") {
                     if sc.name.contains("TestCase") || sc.name.contains("Derived") {
                         assert_eq!(p.ty, crate::langtype::Type::Int32, "in {}", sc.name);
@@ -1800,14 +1791,17 @@ export component TestCase inherits Window {
         (doc, config)
     }
 
-    /// `@testable` guarantees the listing regardless of visibility; an unmarked private
-    /// property that nothing else reads stays unlisted (it never survives to the LLR).
+    /// Only `@testable` declarations are listed, whatever their visibility: an unmarked
+    /// `in-out` property stays unlisted even though it is public and read, and so does an
+    /// unmarked private one that nothing reads (it never survives to the LLR).
     #[test]
-    fn testable_property_listed_regardless_of_visibility() {
+    fn only_testable_properties_are_listed() {
         let source = r#"
 export component TestCase inherits Window {
     @testable property <int> secret: 42;
+    in-out property <int> public: 2;
     property <int> other: 1;
+    Text { text: root.public; }
 }
 "#;
         let (doc, config) = compile_for_test(source, true);
@@ -1815,18 +1809,19 @@ export component TestCase inherits Window {
         let names: Vec<_> = unit
             .sub_components
             .iter()
-            .flat_map(|sc| sc.element_properties.values())
+            .flat_map(|sc| sc.testable_properties.values())
             .flatten()
             .map(|p| p.name.clone())
             .collect();
         assert!(names.iter().any(|n| n == "secret"), "'secret' not listed: {names:?}");
+        assert!(!names.iter().any(|n| n == "public"), "'public' unexpectedly listed: {names:?}");
         assert!(!names.iter().any(|n| n == "other"), "'other' unexpectedly listed: {names:?}");
     }
 
-    /// `visit_property` pins a `@testable` property's own `use_count`, which is what
+    /// `count_property_use` visits every listed property as a read, which is what
     /// `remove_unused` requires to keep the property, its `property_init` entry, and its
-    /// `element_properties` entry (see `testable_property_listed_regardless_of_visibility`
-    /// and the no-pin baseline: removing the pin drops the property everywhere). This test
+    /// `testable_properties` entry (see `only_testable_properties_are_listed` and the
+    /// no-visit baseline: skipping the visit drops the property everywhere). This test
     /// pins the companion invariant: the surviving `property_init` entry still carries the
     /// bound expression rather than a blanked-out placeholder.
     ///
@@ -1846,13 +1841,13 @@ export component TestCase inherits Window {
             .sub_components
             .iter_enumerated()
             .find_map(|(idx, sc)| {
-                sc.element_properties
+                sc.testable_properties
                     .values()
                     .flatten()
                     .find(|p| p.name == "secret")
                     .map(|p| (idx, p))
             })
-            .expect("no 'secret' entry in element_properties");
+            .expect("no 'secret' entry in testable_properties");
         let ctx = crate::llr::EvaluationContext::new_sub_component(&unit, sub_component, (), None);
         let binding =
             ctx.property_info(&prop.prop).binding.map(|(b, _)| b).expect("no binding for 'secret'");
@@ -1861,7 +1856,7 @@ export component TestCase inherits Window {
                 &*binding.expression.borrow(),
                 crate::llr::Expression::CodeBlock(v) if v.is_empty()
             ),
-            "the binding was blanked out despite the pin"
+            "the binding was blanked out despite the read"
         );
     }
 
@@ -1897,8 +1892,7 @@ component Base inherits Rectangle {
     @shadowable @testable private property <string> secret: "base";
 }
 component Derived inherits Base {
-    in-out property <int> secret: 42;
-    changed secret => { }
+    @testable in-out property <int> secret: 42;
 }
 export component TestCase inherits Window {
     d := Derived { }
@@ -1908,7 +1902,7 @@ export component TestCase inherits Window {
         let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
         let mut checked = 0;
         for sc in unit.sub_components.iter() {
-            for props in sc.element_properties.values() {
+            for props in sc.testable_properties.values() {
                 for p in props.iter().filter(|p| p.name == "secret") {
                     if sc.name.contains("TestCase") || sc.name.contains("Derived") {
                         // A leaked entry from the hidden base would carry its String type

@@ -424,7 +424,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         }
     }
 
-    fn element_declared_properties(
+    fn element_testable_properties(
         self: Pin<&Self>,
         item_index: u32,
         result: &mut SharedString,
@@ -436,7 +436,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         }
         if let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) {
             let sc = &cu.sub_components[owner.sub_component_idx];
-            if let Some(props) = sc.element_properties.get(&local_idx) {
+            if let Some(props) = sc.testable_properties.get(&local_idx) {
                 let mut encoded = String::new();
                 for p in props {
                     use std::fmt::Write;
@@ -448,7 +448,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         true
     }
 
-    fn element_property_value(
+    fn element_testable_property_value(
         self: Pin<&Self>,
         item_index: u32,
         property_name: Slice<u8>,
@@ -467,7 +467,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         };
         let sc = &cu.sub_components[owner.sub_component_idx];
         let Some(prop) = sc
-            .element_properties
+            .testable_properties
             .get(&local_idx)
             .and_then(|props| props.iter().find(|p| p.name == name))
         else {
@@ -475,7 +475,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         };
         let ctx = crate::eval::EvalContext::new(owner);
         let value = crate::eval::load_property(&ctx, &prop.prop);
-        format_element_property_value(&value, &prop.ty, result)
+        format_element_testable_property_value(&value, &prop.ty, result)
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
@@ -519,7 +519,7 @@ fn resolve_accessible_item(
     Some((owner, local_idx))
 }
 
-/// Resolve a flat tree index to the sub-component instance whose `element_properties`
+/// Resolve a flat tree index to the sub-component instance whose `testable_properties`
 /// table has an entry for it, plus the local key.
 /// Walks like `item_element_infos`; first match wins.
 fn resolve_element_properties_owner(
@@ -532,7 +532,7 @@ fn resolve_element_properties_owner(
     let mut local_idx = item_index;
     for &sub_step in entry.0.iter() {
         let sc = &cu.sub_components[owner.sub_component_idx];
-        if sc.element_properties.contains_key(&local_idx) {
+        if sc.testable_properties.contains_key(&local_idx) {
             return Some((owner, local_idx));
         }
         let nested = &sc.sub_components[sub_step];
@@ -547,13 +547,13 @@ fn resolve_element_properties_owner(
     }
     let sc = &cu.sub_components[owner.sub_component_idx];
     let item_local_idx = sc.items[entry.1].index_in_tree;
-    sc.element_properties.contains_key(&item_local_idx).then_some((owner, item_local_idx))
+    sc.testable_properties.contains_key(&item_local_idx).then_some((owner, item_local_idx))
 }
 
 /// Encode `value` per [`i_slint_core::debug_info`],
 /// dispatching on the declared type exactly like the generated code does,
 /// so both runtimes produce the same string.
-fn format_element_property_value(
+fn format_element_testable_property_value(
     value: &crate::Value,
     ty: &i_slint_compiler::langtype::Type,
     result: &mut SharedString,

@@ -145,23 +145,23 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ) -> bool,
 
-    /// Writes the names and types of the given item's declared properties into `result`,
+    /// Writes the names and types of the given item's testable properties into `result`,
     /// one `name:type` pair per line.
-    /// Returns false when the item tree carries no declared-property debug info
+    /// Returns false when the item tree carries no testable-property debug info
     /// (built without `SLINT_EMIT_DEBUG_INFO`).
-    /// An empty `result` with a true return means the item declares no readable property.
-    pub element_declared_properties: extern "C" fn(
+    /// An empty `result` with a true return means the item declares no `@testable` property.
+    pub element_testable_properties: extern "C" fn(
         ::core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
         result: &mut SharedString,
     ) -> bool,
 
-    /// Writes the current value of the given item's declared property `property_name`
+    /// Writes the current value of the given item's testable property `property_name`
     /// (UTF-8 encoded) into `result`, in the encoding of [`crate::debug_info`].
     /// Returns false when the property does not exist,
     /// its value has no debug encoding,
-    /// or the item tree carries no declared-property debug info.
-    pub element_property_value: extern "C" fn(
+    /// or the item tree carries no testable-property debug info.
+    pub element_testable_property_value: extern "C" fn(
         ::core::pin::Pin<VRef<ItemTreeVTable>>,
         item_index: u32,
         property_name: Slice<u8>,
@@ -623,13 +623,13 @@ impl ItemRc {
         })
     }
 
-    /// The properties declared on this item's element and its base components,
+    /// The `@testable` properties declared on this item's element and its base components,
     /// as `(name, type)` pairs.
-    /// `None` when the item tree carries no declared-property debug info.
-    pub fn element_declared_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+    /// `None` when the item tree carries no testable-property debug info.
+    pub fn element_testable_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
-        comp_ref_pin.as_ref().element_declared_properties(self.index, &mut result).then(|| {
+        comp_ref_pin.as_ref().element_testable_properties(self.index, &mut result).then(|| {
             result
                 .as_str()
                 .lines()
@@ -642,17 +642,21 @@ impl ItemRc {
         })
     }
 
-    /// The current value of the declared property `name` on this item's element,
+    /// The current value of the testable property `name` on this item's element,
     /// in the string encoding of [`crate::debug_info`].
     /// `None` when the property does not exist,
     /// its value has no debug encoding,
-    /// or the item tree carries no declared-property debug info.
-    pub fn element_property_value(&self, name: &str) -> Option<SharedString> {
+    /// or the item tree carries no testable-property debug info.
+    pub fn element_testable_property_value(&self, name: &str) -> Option<SharedString> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
         let mut result = SharedString::new();
         comp_ref_pin
             .as_ref()
-            .element_property_value(self.index, Slice::from_slice(name.as_bytes()), &mut result)
+            .element_testable_property_value(
+                self.index,
+                Slice::from_slice(name.as_bytes()),
+                &mut result,
+            )
             .then_some(result)
     }
 
@@ -1919,11 +1923,11 @@ mod tests {
             false
         }
 
-        fn element_declared_properties(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+        fn element_testable_properties(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
             false
         }
 
-        fn element_property_value(
+        fn element_testable_property_value(
             self: Pin<&Self>,
             _: u32,
             _: Slice<u8>,
@@ -2901,7 +2905,7 @@ mod tests {
             false
         }
 
-        fn element_declared_properties(
+        fn element_testable_properties(
             self: Pin<&Self>,
             _index: u32,
             _result: &mut SharedString,
@@ -2909,7 +2913,7 @@ mod tests {
             false
         }
 
-        fn element_property_value(
+        fn element_testable_property_value(
             self: Pin<&Self>,
             _index: u32,
             _property_name: Slice<u8>,

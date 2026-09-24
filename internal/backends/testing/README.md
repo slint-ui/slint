@@ -220,12 +220,12 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=8080 cargo run -p my-slint-app --features
 
 `SLINT_EMIT_DEBUG_INFO=1` is required for element introspection to work (it embeds element
 metadata into the compiled UI).
-It also enables `declaredProperties` in `get_element_properties` and `get_element_tree`:
-each element's `in`/`out`/`in-out` properties with name, type, and typed current value,
+It also enables `testableProperties` in `get_element_properties` and `get_element_tree`:
+each element's `@testable` properties with name, type, and typed current value,
 so a client can verify state without diffing screenshots.
-Properties the compiler optimized out (constant, or never read) are not listed, unless the
-declaration is marked with the experimental `@testable` attribute, which lists and keeps
-alive a property regardless of visibility.
+Only properties declared with the experimental `@testable` attribute are listed, whatever
+their visibility; the compiler keeps them alive even when nothing else reads them, so the
+listing does not depend on what the optimizer removes.
 `SLINT_MCP_PORT` controls which port the MCP server listens on.
 If `SLINT_MCP_PORT` is not set, no server is started and there is no runtime overhead.
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features`

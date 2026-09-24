@@ -141,7 +141,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 
 /// Tokens evaluating to `Option<SharedString>`: the value expression encoded per
 /// `i_slint_core::debug_info`, or `None` for a type without a debug encoding.
-fn element_property_value_tokens(
+fn element_testable_property_value_tokens(
     ty: &Type,
     value: proc_macro2::TokenStream,
 ) -> Option<proc_macro2::TokenStream> {
@@ -1603,8 +1603,8 @@ fn generate_sub_component(
         .map(|(item_index, ids)| quote!(#item_index => { return sp::Some(#ids.into()); }))
         .collect::<Vec<_>>();
 
-    let mut element_declared_properties_branch = component
-        .element_properties
+    let mut element_testable_properties_branch = component
+        .testable_properties
         .iter()
         .map(|(item_index, props)| {
             let encoded: String = props.iter().map(|p| format!("{}:{}\n", p.name, p.ty)).collect();
@@ -1612,15 +1612,15 @@ fn generate_sub_component(
         })
         .collect::<Vec<_>>();
 
-    let mut element_property_value_branch = component
-        .element_properties
+    let mut element_testable_property_value_branch = component
+        .testable_properties
         .iter()
         .map(|(item_index, props)| {
             let name_arms = props.iter().filter_map(|p| {
                 let name = p.name.as_str();
                 let value =
                     compile_expression(&Expression::PropertyReference(p.prop.clone()), &ctx);
-                let encoded = element_property_value_tokens(&p.ty, value)?;
+                let encoded = element_testable_property_value_tokens(&p.ty, value)?;
                 Some(quote!(#name => #encoded,))
             });
             quote!(#item_index => { return match property_name { #(#name_arms)* _ => sp::None }; })
@@ -1721,11 +1721,11 @@ fn generate_sub_component(
             item_element_infos_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
             ));
-            element_declared_properties_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_declared_properties(index - #range_begin + 1),
+            element_testable_properties_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_properties(index - #range_begin + 1),
             ));
-            element_property_value_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_property_value(index - #range_begin + 1, property_name),
+            element_testable_property_value_branch.push(quote!(
+                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_property_value(index - #range_begin + 1, property_name),
             ));
         }
 
@@ -2115,20 +2115,20 @@ fn generate_sub_component(
                 }
             }
 
-            fn element_declared_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+            fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
                 #![allow(unused)]
                 let _self = self;
                 match index {
-                    #(#element_declared_properties_branch)*
+                    #(#element_testable_properties_branch)*
                     _ => { ::core::default::Default::default() }
                 }
             }
 
-            fn element_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
+            fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
                 #![allow(unused, unreachable_patterns)]
                 let _self = self;
                 match index {
-                    #(#element_property_value_branch)*
+                    #(#element_testable_property_value_branch)*
                     _ => { ::core::default::Default::default() }
                 }
             }
@@ -2551,21 +2551,21 @@ fn generate_item_tree(
         quote!(false)
     };
 
-    let element_declared_properties_body = if root.has_debug_info {
+    let element_testable_properties_body = if root.has_debug_info {
         quote!(
-            *_result = self.element_declared_properties(_index).unwrap_or_default();
+            *_result = self.element_testable_properties(_index).unwrap_or_default();
             true
         )
     } else {
         quote!(false)
     };
 
-    let element_property_value_body = if root.has_debug_info {
+    let element_testable_property_value_body = if root.has_debug_info {
         quote!(
             let sp::Ok(name) = ::core::str::from_utf8(_property_name.as_slice()) else {
                 return false;
             };
-            if let sp::Some(r) = self.element_property_value(_index, name) {
+            if let sp::Some(r) = self.element_testable_property_value(_index, name) {
                 *_result = r;
                 true
             } else {
@@ -2816,21 +2816,21 @@ fn generate_item_tree(
                 #element_info_body
             }
 
-            fn element_declared_properties(
+            fn element_testable_properties(
                 self: ::core::pin::Pin<&Self>,
                 _index: u32,
                 _result: &mut sp::SharedString,
             ) -> bool {
-                #element_declared_properties_body
+                #element_testable_properties_body
             }
 
-            fn element_property_value(
+            fn element_testable_property_value(
                 self: ::core::pin::Pin<&Self>,
                 _index: u32,
                 _property_name: sp::Slice<'_, u8>,
                 _result: &mut sp::SharedString,
             ) -> bool {
-                #element_property_value_body
+                #element_testable_property_value_body
             }
 
             fn window_adapter(

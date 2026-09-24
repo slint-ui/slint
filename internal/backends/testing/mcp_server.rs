@@ -62,7 +62,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "get_element_properties",
-        description: "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, layout kind, and declaredProperties — the element's declared in/out/in-out properties with name, type and current value (booleans and numbers typed; length in logical px, duration in ms, angle in deg; colors as #rrggbbaa; enums as their .slint spelling). Prefer reading declaredProperties over screenshot diffing to verify state.",
+        description: "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, layout kind, and testableProperties — the element's @testable properties with name, type and current value (booleans and numbers typed; length in logical px, duration in ms, angle in deg; colors as #rrggbbaa; enums as their .slint spelling). Prefer reading testableProperties over screenshot diffing to verify state.",
         request_type: "RequestElementProperties",
         optional_fields: &[],
     },
@@ -240,18 +240,18 @@ enum ToolResult {
     Image { png_data: Vec<u8>, meta: Value },
 }
 
-/// Rewrites each `declaredProperties` entry's string `value` into typed JSON,
+/// Rewrites each `testableProperties` entry's string `value` into typed JSON,
 /// keyed on the property's declared type:
 /// booleans become JSON booleans, numeric types JSON numbers.
 /// Non-finite numbers and every other type stay strings.
 /// Applied to every response that embeds an `ElementPropertiesResponse`,
 /// so `get_element_properties` and `get_element_tree` report one encoding.
-fn convert_declared_property_values(element_node: &mut Value) {
+fn convert_testable_property_values(element_node: &mut Value) {
     let Some(obj) = element_node.as_object_mut() else { return };
     // The availability flag is protobuf-facing; this layer reports unavailability
     // through a note on the get_element_properties response instead.
-    obj.remove("declaredPropertiesAvailable");
-    let Some(props) = obj.get_mut("declaredProperties").and_then(Value::as_array_mut) else {
+    obj.remove("testablePropertiesAvailable");
+    let Some(props) = obj.get_mut("testableProperties").and_then(Value::as_array_mut) else {
         return;
     };
     for prop in props {
@@ -341,18 +341,18 @@ async fn handle_tool_call(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
             let response = dispatch::element_properties(state, element_index)?;
-            let available = response.declared_properties_available;
+            let available = response.testable_properties_available;
             let mut response =
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?;
-            convert_declared_property_values(&mut response);
+            convert_testable_property_values(&mut response);
             if !available && let Some(object) = response.as_object_mut() {
                 let element = state.element("get_element_properties", element_index)?;
                 if element.has_debug_info() {
                     object.insert(
                         "note".into(),
                         Value::String(
-                            "Declared property values are not available: this application \
-                             was generated without declared-property introspection."
+                            "Testable property values are not available: this application \
+                             was generated without testable-property introspection."
                                 .into(),
                         ),
                     );
@@ -361,7 +361,7 @@ async fn handle_tool_call(
                     object.insert(
                         "note".into(),
                         Value::String(format!(
-                            "No declared properties, type names or ids are available. {}",
+                            "No testable properties, type names or ids are available. {}",
                             crate::search_api::MISSING_DEBUG_INFO_MESSAGE
                         )),
                     );
@@ -401,7 +401,7 @@ async fn handle_tool_call(
             let root_props = introspection::element_properties(&root_element);
             let mut root_node =
                 serde_json::to_value(root_props).map_err(|e| format!("serialize error: {e}"))?;
-            convert_declared_property_values(&mut root_node);
+            convert_testable_property_values(&mut root_node);
             if let Some(obj) = root_node.as_object_mut() {
                 obj.insert(
                     "handle".to_string(),
@@ -419,7 +419,7 @@ async fn handle_tool_call(
                 let child_handle = state.element_to_handle(child.clone());
                 let props = introspection::element_properties(&child);
                 if let Ok(mut node) = serde_json::to_value(props) {
-                    convert_declared_property_values(&mut node);
+                    convert_testable_property_values(&mut node);
                     if let (Some(obj), Ok(handle_json)) =
                         (node.as_object_mut(), serde_json::to_value(index_to_handle(child_handle)))
                     {
@@ -674,7 +674,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "9. take_screenshot again to verify the visual effect\n\n",
 
                     "# Requirements\n\n",
-                    "Element type names, ids and declared properties need the application to be built with `SLINT_EMIT_DEBUG_INFO=1`, ",
+                    "Element type names, ids and testable properties need the application to be built with `SLINT_EMIT_DEBUG_INFO=1`, ",
                     "or with `with_debug_info` in `slint_build`'s `CompilerConfiguration`. ",
                     "Without it get_element_tree returns the root element alone, unnamed, and find_elements_by_id fails.\n\n",
 
@@ -720,7 +720,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "# Tips\n\n",
                     "- Start with get_element_tree to understand the UI structure before making targeted queries.\n",
                     "- Element IDs are qualified: 'ComponentName::element-id'. Use get_element_tree to discover them.\n",
-                    "- To verify state after an interaction, read the element's declaredProperties via get_element_properties instead of diffing screenshots. ",
+                    "- To verify state after an interaction, read the element's testableProperties via get_element_properties instead of diffing screenshots. ",
                     "A property the compiler optimized out (constant, or never read) is not listed.\n",
                     "- After clicking or setting values, take a screenshot to verify the visual result.\n",
                     "- For text input: find the TextInput element, then use set_element_value to set its content.\n",
@@ -1329,7 +1329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_element_properties_reports_declared_properties() {
+    fn test_get_element_properties_reports_testable_properties() {
         use slint::ComponentHandle;
 
         crate::init_no_event_loop();
@@ -1337,9 +1337,10 @@ mod tests {
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
-                in-out property <bool> checked: true;
-                in-out property <float> amount: 12.5;
-                in-out property <string> label: "hi";
+                @testable in-out property <bool> checked: true;
+                @testable in-out property <float> amount: 12.5;
+                @testable in-out property <string> label: "hi";
+                in-out property <int> unmarked: 1;
             }
         }
 
@@ -1363,10 +1364,10 @@ mod tests {
         let ToolResult::Json(value) = result else { panic!("expected a json result") };
 
         // The protobuf-facing availability flag is dropped from the JSON encoding.
-        assert!(value.get("declaredPropertiesAvailable").is_none());
+        assert!(value.get("testablePropertiesAvailable").is_none());
         assert!(value.get("note").is_none());
 
-        let props = value["declaredProperties"].as_array().expect("declaredProperties");
+        let props = value["testableProperties"].as_array().expect("testableProperties");
         let by_name = |name: &str| {
             props
                 .iter()
@@ -1380,6 +1381,8 @@ mod tests {
         assert_eq!(by_name("amount")["value"], serde_json::json!(12.5));
         assert_eq!(by_name("label")["typeName"], "string");
         assert_eq!(by_name("label")["value"], serde_json::json!("hi"));
+        // Only `@testable` declarations are listed.
+        assert!(!props.iter().any(|p| p["name"] == "unmarked"));
 
         // The same conversion applies to elements in the tree response.
         let result = block_on(handle_tool_call(
@@ -1392,16 +1395,16 @@ mod tests {
         .expect("get_element_tree failed");
         let ToolResult::Json(tree) = result else { panic!("expected a json result") };
         let root_node = &tree["elements"][0];
-        assert!(root_node.get("declaredPropertiesAvailable").is_none());
-        let props = root_node["declaredProperties"].as_array().expect("declaredProperties");
+        assert!(root_node.get("testablePropertiesAvailable").is_none());
+        let props = root_node["testableProperties"].as_array().expect("testableProperties");
         assert!(props.iter().any(|p| p["name"] == "checked" && p["value"] == true));
     }
 
     #[test]
-    fn test_convert_declared_property_values_typing() {
+    fn test_convert_testable_property_values_typing() {
         let mut node = serde_json::json!({
-            "declaredPropertiesAvailable": true,
-            "declaredProperties": [
+            "testablePropertiesAvailable": true,
+            "testableProperties": [
                 { "name": "b", "typeName": "bool", "value": "false" },
                 { "name": "n", "typeName": "int", "value": "42" },
                 { "name": "d", "typeName": "duration", "value": "250" },
@@ -1411,9 +1414,9 @@ mod tests {
                 { "name": "s", "typeName": "{ a: int,}" },
             ]
         });
-        convert_declared_property_values(&mut node);
-        assert!(node.get("declaredPropertiesAvailable").is_none());
-        let props = node["declaredProperties"].as_array().unwrap();
+        convert_testable_property_values(&mut node);
+        assert!(node.get("testablePropertiesAvailable").is_none());
+        let props = node["testableProperties"].as_array().unwrap();
         assert_eq!(props[0]["value"], serde_json::json!(false));
         assert_eq!(props[1]["value"], serde_json::json!(42));
         assert_eq!(props[2]["value"], serde_json::json!(250));

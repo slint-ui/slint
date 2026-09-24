@@ -798,7 +798,7 @@ pub struct PropertyDeclaration {
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
     /// Declared `@testable`: the property is guaranteed to appear in the declared-property
-    /// introspection channel (see [`crate::llr::ElementProperty`]), regardless of its
+    /// introspection channel (see [`crate::llr::TestableProperty`]), regardless of its
     /// visibility or whether the document reads it.
     pub testable: bool,
     /// The name the declaration had on the element it was moved from, when the
@@ -1192,7 +1192,7 @@ pub struct Element {
     /// For each declaration the move_declarations pass hoisted off this element:
     /// the name as declared in the source, and the root-element key it lives under now.
     /// Debug info uses it to attribute a component's properties back to the declaring
-    /// element (see `SubComponent::element_properties` in the LLR).
+    /// element (see `SubComponent::testable_properties` in the LLR).
     pub moved_property_declarations: Vec<(SmolStr, SmolStr)>,
 
     /// Main owner for a reference to a property.
