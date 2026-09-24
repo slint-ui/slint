@@ -219,6 +219,9 @@ export component App inherits Window { Widget {} }`,
         writeFileSync(
             join(dir, "check.mjs"),
             `import { App, Renamed, Shared, Mode } from "./app.slint";
+import { private_api } from "slint-ui";
+// Instantiate headless: these run beside specs that drive the real event loop.
+private_api.initTesting();
 if (!new App()) throw new Error("declared component missing");
 if (Renamed({ flag: true }).flag !== true) throw new Error("aliased struct missing");
 if (Shared({ value: 3 }).value !== 3) throw new Error("star-exported struct missing");
@@ -298,6 +301,9 @@ test("enum properties round-trip at run time", () => {
         writeFileSync(
             join(dir, "check.mjs"),
             `import { App, Mood } from "./app.slint";
+import { private_api } from "slint-ui";
+// Instantiate headless: these run beside specs that drive the real event loop.
+private_api.initTesting();
 const app = new App();
 if (app.mood !== "very-happy") throw new Error("read gives the string the type promises");
 if (app.mood !== Mood.very_happy) throw new Error("the value object disagrees with the property");
