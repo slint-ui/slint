@@ -231,6 +231,11 @@ export component EditorUi inherits Window {
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
+            MenuSeparator { }
+            MenuItem {
+                title: @tr("Open...");
+                activated => { Project.open-existing-project(); }
+            }
         }
         Menu {
             title: @tr("Edit");
