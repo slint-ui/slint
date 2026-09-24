@@ -212,7 +212,7 @@ fn text_alignment_anchor_stays_fixed() {
 #[test]
 fn shadow_tracks_source_paint() {
     init_skia();
-    let mut compiler = slint_interpreter::Compiler::default();
+    let compiler = slint_interpreter::Compiler::default();
     let compiled = poll_once(compiler.build_from_source(
         r#"
         export component TestCase inherits Window {
