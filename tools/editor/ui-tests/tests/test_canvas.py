@@ -1548,13 +1548,12 @@ def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    source_file.write_bytes(
-        replace_once(
-            source_file.read_bytes(),
-            b"        border-radius: 12px;",
-            b"        border-radius: 0px;",
-        )
+    zero_source = replace_once(
+        source_file.read_bytes(),
+        b"        border-radius: 12px;",
+        b"        border-radius: 0px;",
     )
+    source_file.write_bytes(zero_source)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
@@ -1586,6 +1585,7 @@ def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(corner_position, button)
         )
+        wait_for_source_change(source_file, zero_source)
         radius_handle(window, "top-left")
         for corner, position in radius_handle_positions(window).items():
             assert position_distance(position, initial_positions[corner]) < 1.5

@@ -104,8 +104,9 @@ def assert_visual(
             dx * math.cos(angle) + dy * math.sin(angle),
             -dx * math.sin(angle) + dy * math.cos(angle),
         )
+        expected_radius_offset = max(12, values["radius"])
         return (
-            True if all(abs(v - (10 + values["radius"])) < 1.5 for v in local) else None
+            True if all(abs(v - expected_radius_offset) < 1.5 for v in local) else None
         )
 
     wait_until(radius_matches)
