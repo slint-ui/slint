@@ -2459,15 +2459,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
-name = "cgl"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ced0551234e87afee12411d535648dd89d2e7f34c78b753395567aff3d447ff"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "chacha20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3987,21 +3978,20 @@ dependencies = [
 [[package]]
 name = "glutin"
 version = "0.32.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12124de845cacfebedff80e877bb37b5b75c34c5a4c89e47e1cdd67fb6041325"
+source = "git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108#85888eebc3f512850239a05a59dfffbf5da6b108"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
- "cgl",
  "dispatch2",
- "glutin_egl_sys",
+ "glutin_egl_sys 0.7.1 (git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108)",
  "glutin_glx_sys",
- "glutin_wgl_sys",
+ "glutin_wgl_sys 0.6.1 (git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108)",
  "libloading",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
+ "objc2-open-gl",
  "once_cell",
  "raw-window-handle",
  "wayland-sys",
@@ -4012,13 +4002,12 @@ dependencies = [
 [[package]]
 name = "glutin-winit"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85edca7075f8fc728f28cb8fbb111a96c3b89e930574369e3e9c27eb75d3788f"
+source = "git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108#85888eebc3f512850239a05a59dfffbf5da6b108"
 dependencies = [
  "cfg_aliases",
  "glutin",
  "raw-window-handle",
- "winit 0.30.13",
+ "winit 0.31.0-beta.3",
 ]
 
 [[package]]
@@ -4032,10 +4021,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "glutin_egl_sys"
+version = "0.7.1"
+source = "git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108#85888eebc3f512850239a05a59dfffbf5da6b108"
+dependencies = [
+ "gl_generator",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "glutin_glx_sys"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a7bb2938045a88b612499fbcba375a77198e01306f52272e692f8c1f3751185"
+source = "git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108#85888eebc3f512850239a05a59dfffbf5da6b108"
 dependencies = [
  "gl_generator",
  "x11-dl",
@@ -4046,6 +4043,14 @@ name = "glutin_wgl_sys"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4ee00b289aba7a9e5306d57c2d05499b2e5dc427f84ac708bd2c090212cf3e"
+dependencies = [
+ "gl_generator",
+]
+
+[[package]]
+name = "glutin_wgl_sys"
+version = "0.6.1"
+source = "git+https://github.com/slint-ui/glutin?rev=85888eebc3f512850239a05a59dfffbf5da6b108#85888eebc3f512850239a05a59dfffbf5da6b108"
 dependencies = [
  "gl_generator",
 ]
@@ -4272,7 +4277,7 @@ version = "1.18.1"
 dependencies = [
  "cfg_aliases",
  "futures",
- "glutin_egl_sys",
+ "glutin_egl_sys 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gstreamer",
  "gstreamer-app",
  "gstreamer-audio",
@@ -6201,6 +6206,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
+ "objc2-open-gl",
  "objc2-quartz-core 0.3.2",
 ]
 
@@ -6448,6 +6454,15 @@ dependencies = [
  "block2 0.6.2",
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
+]
+
+[[package]]
+name = "objc2-open-gl"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ecc7fd7519a189d9ba9ed9de51af81e41d096aea1d08cca59fd9d8c65d8f585"
+dependencies = [
+ "objc2 0.6.4",
 ]
 
 [[package]]
@@ -9693,7 +9708,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "glow 0.17.0",
- "glutin_wgl_sys",
+ "glutin_wgl_sys 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gpu-allocator",
  "gpu-descriptor",
  "hashbrown 0.16.1",
@@ -9748,7 +9763,7 @@ dependencies = [
  "cfg_aliases",
  "drm 0.15.0",
  "glow 0.17.0",
- "glutin_wgl_sys",
+ "glutin_wgl_sys 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gpu-allocator",
  "hashbrown 0.17.1",
  "js-sys",

@@ -16,7 +16,7 @@ use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    winit_window: Arc<winit::window::Window>,
+    winit_window: Arc<dyn winit::window::Window>,
 }
 
 unsafe impl i_slint_renderer_femtovg::opengl::OpenGLInterface for OpenGLContext {
@@ -57,9 +57,9 @@ unsafe impl i_slint_renderer_femtovg::opengl::OpenGLInterface for OpenGLContext 
 impl OpenGLContext {
     pub(crate) fn new_context(
         window_attributes: winit::window::WindowAttributes,
-        active_event_loop: &winit::event_loop::ActiveEventLoop,
+        active_event_loop: &dyn winit::event_loop::ActiveEventLoop,
         requested_opengl_version: Option<RequestedOpenGLVersion>,
-    ) -> Result<(Arc<winit::window::Window>, Self), PlatformError> {
+    ) -> Result<(Arc<dyn winit::window::Window>, Self), PlatformError> {
         let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
         // On macOS, there's only one GL config and that's initialized based on the values in the config template
@@ -212,7 +212,7 @@ impl OpenGLContext {
             )
             .ok();
 
-        let window = Arc::new(window);
+        let window: Arc<dyn winit::window::Window> = window.into();
 
         Ok((window.clone(), Self { context, surface, winit_window: window }))
     }

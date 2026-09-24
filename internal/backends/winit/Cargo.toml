@@ -114,7 +114,7 @@ wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(all(target_vendor = "apple", not(target_os = "macos")))))'.dependencies]
 glutin = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
-glutin-winit = { version = "0.5", optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin-winit = { workspace = true, optional = true, default-features = false, features = ["egl", "wgl"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 accesskit = { version = "0.24", optional = true }
 accesskit_winit = { version = "0.33", optional = true, default-features = false, features = ["accesskit_unix", "async-io", "rwh_06"] }
