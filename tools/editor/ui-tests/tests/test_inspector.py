@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center as element_center
 from editor_sync import wait_for_source
 from inspector_interactions import (
     FIELDS,
@@ -79,6 +80,19 @@ def assert_rendered_element(window: slint_testing.Window, element_id: str) -> No
             if (element := next(iter(window.find_elements_by_id(element_id)), None))
             else None
         )
+    )
+
+
+def image_alignment_button(
+    window: slint_testing.Window, vertical: str, horizontal: str
+) -> slint_testing.Element:
+    position = (
+        "center"
+        if vertical == horizontal == "center"
+        else f"{'middle' if vertical == 'center' else vertical} {horizontal}"
+    )
+    return inspector_field(
+        window, f"Align image {position}", slint_testing.AccessibleRole.Button
     )
 
 
@@ -276,20 +290,111 @@ def test_each_image_fit_value_writes_exact_source(
         assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
-@pytest.mark.parametrize("alignment", ("left", "center", "right"))
-def test_each_horizontal_image_alignment_writes_exact_source(
+def test_image_alignment_grid_writes_both_properties(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    alignment: str,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
     baseline = source_file.read_bytes()
-    initial = "left" if alignment == "center" else "center"
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Image")
+        window_element_with_label(
+            window, "Alignment", slint_testing.AccessibleRole.Text
+        )
+        assert image_alignment_button(window, "center", "center").accessible_checked
+        image_alignment_button(
+            window, "center", "center"
+        ).invoke_accessible_default_action()
+        snapshot.assert_unchanged()
+
+        for vertical in ("top", "center", "bottom"):
+            for horizontal in ("left", "center", "right"):
+                button = image_alignment_button(window, vertical, horizontal)
+                if vertical == "top" and horizontal == "left":
+                    position = element_center(button)
+                    mouse_button = slint_testing.PointerEventButton.Left
+                    window.dispatch_event(
+                        slint_testing.PointerPressEvent(position, mouse_button)
+                    )
+                    window.dispatch_event(
+                        slint_testing.PointerReleaseEvent(position, mouse_button)
+                    )
+                else:
+                    button.invoke_accessible_default_action()
+                expected = replace_once(
+                    baseline,
+                    b"        horizontal-alignment: center;",
+                    f"        horizontal-alignment: {horizontal};".encode(),
+                )
+                expected = replace_once(
+                    expected,
+                    b"        vertical-alignment: center;",
+                    f"        vertical-alignment: {vertical};".encode(),
+                )
+                snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+                assert image_alignment_button(
+                    window, vertical, horizontal
+                ).accessible_checked
+                display = (
+                    "Center"
+                    if vertical == horizontal == "center"
+                    else f"{vertical.title() if vertical != 'center' else 'Middle'} {horizontal}"
+                )
+                window_element_with_label(
+                    window, display, slint_testing.AccessibleRole.Text
+                )
+                assert_rendered_element(window, "InspectorCases::inspect-image")
+
+
+def test_image_alignment_grid_one_undo_restores_both_properties(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    expected = replace_once(
+        baseline,
+        b"        horizontal-alignment: center;",
+        b"        horizontal-alignment: right;",
+    )
+    expected = replace_once(
+        expected,
+        b"        vertical-alignment: center;",
+        b"        vertical-alignment: bottom;",
+    )
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Image")
+        image_alignment_button(
+            window, "bottom", "right"
+        ).invoke_accessible_default_action()
+        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+        assert image_alignment_button(window, "center", "center").accessible_checked
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+        assert image_alignment_button(window, "bottom", "right").accessible_checked
+
+
+def test_image_alignment_grid_replaces_custom_expression(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
     starting_source = replace_once(
         baseline,
         b"        horizontal-alignment: center;",
-        f"        horizontal-alignment: {initial};".encode(),
+        b"        horizontal-alignment: (left);",
     )
     source_file.write_bytes(starting_source)
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -297,59 +402,25 @@ def test_each_horizontal_image_alignment_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        edit_field(
-            window,
-            "Image horizontal alignment",
-            alignment,
-            slint_testing.AccessibleRole.Combobox,
+        window_element_with_label(window, "Custom", slint_testing.AccessibleRole.Text)
+        assert not any(
+            image_alignment_button(window, vertical, horizontal).accessible_checked
+            for vertical in ("top", "center", "bottom")
+            for horizontal in ("left", "center", "right")
         )
-        snapshot.wait_for_exact(
-            replace_once(
-                starting_source,
-                f"        horizontal-alignment: {initial};".encode(),
-                f"        horizontal-alignment: {alignment};".encode(),
-            ),
-            relative_path=INSPECTOR_SOURCE,
+        image_alignment_button(window, "top", "left").invoke_accessible_default_action()
+        expected = replace_once(
+            starting_source,
+            b"        horizontal-alignment: (left);",
+            b"        horizontal-alignment: left;",
         )
-        assert_rendered_element(window, "InspectorCases::inspect-image")
-
-
-@pytest.mark.parametrize("alignment", ("top", "center", "bottom"))
-def test_each_vertical_image_alignment_writes_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    alignment: str,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    initial = "top" if alignment == "center" else "center"
-    starting_source = replace_once(
-        baseline,
-        b"        vertical-alignment: center;",
-        f"        vertical-alignment: {initial};".encode(),
-    )
-    source_file.write_bytes(starting_source)
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, "Image")
-        edit_field(
-            window,
-            "Image vertical alignment",
-            alignment,
-            slint_testing.AccessibleRole.Combobox,
+        expected = replace_once(
+            expected,
+            b"        vertical-alignment: center;",
+            b"        vertical-alignment: top;",
         )
-        snapshot.wait_for_exact(
-            replace_once(
-                starting_source,
-                f"        vertical-alignment: {initial};".encode(),
-                f"        vertical-alignment: {alignment};".encode(),
-            ),
-            relative_path=INSPECTOR_SOURCE,
-        )
-        assert_rendered_element(window, "InspectorCases::inspect-image")
+        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+        assert image_alignment_button(window, "top", "left").accessible_checked
 
 
 def test_image_source_writes_exact_source(
@@ -454,22 +525,6 @@ def test_each_font_weight_writes_exact_source(
             b"        image-fit: cover;",
         ),
         (
-            "Image",
-            "Image horizontal alignment",
-            ("center", "left", "right"),
-            "left",
-            b"        horizontal-alignment: center;",
-            b"        horizontal-alignment: left;",
-        ),
-        (
-            "Image",
-            "Image vertical alignment",
-            ("center", "top", "bottom"),
-            "top",
-            b"        vertical-alignment: center;",
-            b"        vertical-alignment: top;",
-        ),
-        (
             "Text",
             "Font weight",
             (
@@ -488,7 +543,7 @@ def test_each_font_weight_writes_exact_source(
             b"        font-weight: 700;",
         ),
     ],
-    ids=("image-fit", "horizontal-alignment", "vertical-alignment", "font-weight"),
+    ids=("image-fit", "font-weight"),
 )
 def test_combobox_opens_options_and_accepts_accessible_choice(
     editor_binary: Path,

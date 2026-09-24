@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
-import { FillSession } from "../ui/components/inspector/fill-session.slint";
+import { FillSession } from "../ui/components/inspector/index.slint";
 
 export enum GalleryPage {
     foundations,
@@ -22,7 +22,7 @@ export global Gallery {
         GalleryPage.picker,
         GalleryPage.outline,
     ];
-    in-out property <GalleryPage> page: GalleryPage.palette;
+    in-out property <GalleryPage> page: GalleryPage.inspector-controls;
     in-out property <int> scenario-index;
     out property <string> title: page-title(page);
     out property <string> description: page-description(page);
