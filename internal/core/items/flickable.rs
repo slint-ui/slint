@@ -1176,19 +1176,19 @@ impl FlickableData {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
-                if inner.capture_events.is_some_and(|f| matches!(f, CaptureEvents::MouseMove)) {
-                    let was_capturing = true;
-                    inner.animate(flick, flick_rc);
-                    inner.capture_events = None;
-                    inner.pressed_mouse_state = None;
-                    if was_capturing {
+                inner.pressed_mouse_state = None;
+                if let Some(c) = inner.capture_events {
+                    if c == CaptureEvents::MouseMove {
+                        inner.animate(flick, flick_rc);
+                        inner.capture_events = None;
+                        InputEventResult::EventAccepted
+                    } else if c == CaptureEvents::MouseStart {
+                        inner.capture_events = None;
                         InputEventResult::EventAccepted
                     } else {
+                        // an accepted wheel event is followed by an Exit, so the wheel states must survive it
                         InputEventResult::EventIgnored
                     }
-                } else if inner.capture_events.is_none() {
-                    inner.pressed_mouse_state = None;
-                    InputEventResult::EventIgnored
                 } else {
                     InputEventResult::EventIgnored
                 }
