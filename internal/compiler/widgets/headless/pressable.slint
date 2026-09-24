@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Shared pointer, keyboard, and focus behavior. Semantic controls own their
+// accessibility contract and state changes.
+export component Pressable inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <bool> activate-on-enter: true;
+    in property <bool> activate-on-space: true;
+
+    out property <bool> has-focus: focus-scope.has-focus;
+    out property <bool> has-hover: root.enabled && touch-area.has-hover;
+    out property <bool> pressed:
+        root.enabled && (touch-area.pressed || root.keyboard-pressed);
+
+    out property <length> pressed-x: root.keyboard-pressed ? root.width / 2 : touch-area.pressed-x;
+    out property <length> pressed-y: root.keyboard-pressed ? root.height / 2 : touch-area.pressed-y;
+
+    callback clicked;
+    callback focus-change(bool);
+
+    private property <bool> keyboard-pressed: false;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+    forward-focus: focus-scope;
+    accessible-role: none;
+
+    changed enabled => {
+        if (!root.enabled) {
+            root.keyboard-pressed = false;
+        }
+    }
+
+    public function activate() {
+        if (root.enabled) {
+            root.clicked();
+        }
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.activate(); }
+
+        content := Rectangle {
+            @children
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+
+        focus-gained => { root.focus-change(true); }
+        focus-lost => {
+            root.keyboard-pressed = false;
+            root.focus-change(false);
+        }
+
+        key-pressed(event) => {
+            if (root.activate-on-enter && event.text == "\n") {
+                if (!event.repeat) {
+                    root.activate();
+                }
+                return accept;
+            }
+
+            if (root.activate-on-space && event.text == " ") {
+                if (!event.repeat) {
+                    root.keyboard-pressed = true;
+                }
+                return accept;
+            }
+
+            return reject;
+        }
+
+        key-released(event) => {
+            if (root.activate-on-space && event.text == " ") {
+                if (root.keyboard-pressed) {
+                    root.keyboard-pressed = false;
+                    root.activate();
+                }
+                return accept;
+            }
+
+            if (root.activate-on-enter && event.text == "\n") {
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+}

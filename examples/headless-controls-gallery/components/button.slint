@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button } from "../../../internal/compiler/widgets/headless/controls.slint";
+
+export enum ButtonVariant { primary, secondary }
+export enum ButtonSize { small, medium, large }
+
+export component GalleryButton inherits Button {
+    in property <ButtonVariant> variant: primary;
+    in property <ButtonSize> size: medium;
+    in property <length> corner-radius: 8px;
+    in property <color> accent: #2563eb;
+
+    min-width: 80px;
+    min-height: root.size == small ? 32px : root.size == large ? 48px : 40px;
+    border-radius: root.corner-radius;
+    border-width: root.has-focus ? 2px : 1px;
+    border-color: root.has-focus ? #93c5fd : root.variant == primary ? root.accent : #cbd5e1;
+    background: !root.enabled ? #e2e8f0 : root.variant == primary
+        ? (root.pressed ? root.accent.darker(25%) : root.has-hover ? root.accent.darker(12%) : root.accent)
+        : (root.pressed ? #cbd5e1 : root.has-hover ? #e2e8f0 : #ffffff);
+
+    HorizontalLayout {
+        padding-left: root.size == small ? 12px : 20px;
+        padding-right: root.size == small ? 12px : 20px;
+        Text {
+            text: root.text;
+            color: !root.enabled ? #64748b : root.variant == primary ? #ffffff : #0f172a;
+            font-size: root.size == small ? 13px : 15px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

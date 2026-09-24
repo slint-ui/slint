@@ -1,0 +1,204 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Pressable } from "../../../internal/compiler/widgets/headless/pressable.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 80px;
+
+    in-out property <bool> first-enabled: true;
+    out property <int> first-clicks;
+    out property <int> second-clicks;
+    out property <bool> first-focused: first.has-focus;
+    out property <bool> first-pressed: first.pressed;
+    out property <length> first-pressed-x: first.pressed-x;
+    out property <length> first-pressed-y: first.pressed-y;
+
+    public function focus-first() { first.focus(); }
+    public function focus-second() { second.focus(); }
+
+    VerticalLayout {
+        first := Pressable {
+            enabled: root.first-enabled;
+            height: 40px;
+            clicked => { root.first-clicks += 1; }
+        }
+
+        second := Pressable {
+            height: 40px;
+            clicked => { root.second-clicks += 1; }
+        }
+    }
+}
+
+/*
+```rust
+fn keyboard_activation_ignores_repeated_keys() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_first();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_first_pressed());
+    assert_eq!(instance.get_first_clicks(), 0);
+    for _ in 0..3 {
+        instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: Key::Space.into() });
+        assert!(instance.get_first_pressed());
+        assert_eq!(instance.get_first_clicks(), 0);
+    }
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert!(!instance.get_first_pressed());
+    assert_eq!(instance.get_first_clicks(), 1);
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_first_clicks(), 1);
+
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Return.into() });
+    assert_eq!(instance.get_first_clicks(), 2);
+    for _ in 0..3 {
+        instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: Key::Return.into() });
+        assert_eq!(instance.get_first_clicks(), 2);
+    }
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Return.into() });
+    assert!(!instance.get_first_pressed());
+    assert_eq!(instance.get_first_clicks(), 2);
+}
+
+keyboard_activation_ignores_repeated_keys();
+```
+
+```rust
+fn focus_loss_cancels_space_press() {
+    use slint::{SharedString, platform::{Key, WindowEvent}};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_first();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_first_pressed());
+    instance.invoke_focus_second();
+    assert!(!instance.get_first_focused());
+    assert!(!instance.get_first_pressed(), "Focus loss must cancel the pending Space press");
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_first_clicks(), 0);
+    assert_eq!(instance.get_second_clicks(), 0);
+    instance.invoke_focus_first();
+    assert!(!instance.get_first_pressed());
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+    assert_eq!(instance.get_first_clicks(), 1);
+}
+
+focus_loss_cancels_space_press();
+```
+
+```rust
+fn disabling_cancels_space_press() {
+    use slint::{SharedString, platform::{Key, WindowEvent}};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_first();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_first_pressed());
+    instance.set_first_enabled(false);
+    assert!(!instance.get_first_pressed());
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_first_clicks(), 0);
+    instance.set_first_enabled(true);
+    instance.invoke_focus_first();
+    assert!(!instance.get_first_pressed());
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_first_clicks(), 0);
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+    assert_eq!(instance.get_first_clicks(), 1);
+}
+
+disabling_cancels_space_press();
+```
+
+```rust
+fn releasing_pointer_outside_cancels_click() {
+    use slint::{LogicalPosition, platform::{PointerEventButton, WindowEvent}};
+
+    let instance = TestCase::new().unwrap();
+    let inside = LogicalPosition::new(100.0, 20.0);
+    let outside = LogicalPosition::new(100.0, 60.0);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: inside });
+    instance.window().dispatch_event(WindowEvent::PointerPressed {
+        position: inside, button: PointerEventButton::Left,
+    });
+    assert!(instance.get_first_pressed());
+    assert_eq!(instance.get_first_clicks(), 0);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: outside });
+    instance.window().dispatch_event(WindowEvent::PointerReleased {
+        position: outside, button: PointerEventButton::Left,
+    });
+    assert!(!instance.get_first_pressed());
+    assert_eq!(instance.get_first_clicks(), 0);
+    assert_eq!(instance.get_second_clicks(), 0);
+    let first = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::first")
+        .next().unwrap();
+    first.mock_single_click(PointerEventButton::Left);
+    assert_eq!(instance.get_first_clicks(), 1);
+}
+
+releasing_pointer_outside_cancels_click();
+```
+
+```rust
+fn reenabling_before_space_release_does_not_restore_press() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_first();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_first_pressed());
+    instance.set_first_enabled(false);
+    slint_testing::mock_elapsed_time(0);
+    assert!(!instance.get_first_pressed());
+    instance.set_first_enabled(true);
+    instance.invoke_focus_first();
+    assert!(!instance.get_first_pressed(), "Re-enabling must not restore a canceled press");
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_first_clicks(), 0, "Releasing a canceled press must not click");
+}
+
+reenabling_before_space_release_does_not_restore_press();
+```
+```rust
+fn press_coordinates_follow_pointer_and_center_held_space() {
+    use slint::{LogicalPosition, platform::{Key, PointerEventButton, WindowEvent}};
+
+    let instance = TestCase::new().unwrap();
+    let position = LogicalPosition::new(30.0, 10.0);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+    instance.window().dispatch_event(WindowEvent::PointerPressed {
+        position, button: PointerEventButton::Left,
+    });
+    assert!(instance.get_first_pressed());
+    assert_eq!(instance.get_first_pressed_x(), 30.0);
+    assert_eq!(instance.get_first_pressed_y(), 10.0);
+    instance.window().dispatch_event(WindowEvent::PointerReleased {
+        position, button: PointerEventButton::Left,
+    });
+
+    instance.invoke_focus_first();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_first_pressed());
+    assert_eq!(instance.get_first_pressed_x(), 100.0);
+    assert_eq!(instance.get_first_pressed_y(), 20.0);
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert!(!instance.get_first_pressed());
+
+    let position = LogicalPosition::new(70.0, 15.0);
+    instance.window().dispatch_event(WindowEvent::PointerPressed {
+        position, button: PointerEventButton::Left,
+    });
+    assert_eq!(instance.get_first_pressed_x(), 70.0);
+    assert_eq!(instance.get_first_pressed_y(), 15.0);
+    instance.window().dispatch_event(WindowEvent::PointerReleased {
+        position, button: PointerEventButton::Left,
+    });
+}
+
+press_coordinates_follow_pointer_and_center_held_space();
+```
+*/

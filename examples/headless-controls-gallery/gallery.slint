@@ -1,0 +1,157 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, CheckBox, ComboBox, LineEdit, Slider } from "std-widgets.slint";
+import { GalleryButton, ButtonVariant, ButtonSize } from "components/button.slint";
+import { GalleryCheckBox, GalleryRadioGroup, GallerySwitch } from "components/selection-controls.slint";
+import { GallerySlider } from "components/slider.slint";
+
+export component HeadlessControlsGallery inherits Window {
+    title: "Slint Headless Controls Gallery";
+    preferred-width: 1000px;
+    preferred-height: 760px;
+    min-width: 800px;
+    min-height: 560px;
+    background: #f8fafc;
+
+    in-out property <string> button-label: "Continue";
+    in-out property <bool> button-disabled: false;
+    in-out property <int> variant-index: 0;
+    in-out property <int> size-index: 1;
+    in-out property <float> corner-radius: 8;
+    out property <int> click-count: 0;
+    in-out property <float> slider-value: 40;
+    in-out property <bool> checkbox-checked: true;
+    in-out property <bool> toggle-checked: false;
+    in-out property <string> radio-value: "comfortable";
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 20px;
+        Text { text: "Headless Controls Gallery"; color: #0f172a; font-size: 24px; font-weight: 700; }
+        Text { text: "Explore components and adjust their properties."; color: #64748b; }
+
+        HorizontalLayout {
+            spacing: 24px;
+            VerticalLayout {
+                padding: 0px;
+                spacing: 12px;
+                min-width: 140px;
+                horizontal-stretch: 0;
+                Text { text: "Components"; color: #64748b; font-weight: 600; }
+                Rectangle {
+                    height: 40px;
+                    border-radius: 8px;
+                    background: #dbeafe;
+                    Text { x: 12px; text: "All controls"; color: #1d4ed8; vertical-alignment: center; }
+                }
+                Rectangle { }
+            }
+
+            Rectangle {
+                background: #ffffff;
+                border-color: #e2e8f0;
+                border-width: 1px;
+                border-radius: 12px;
+                VerticalLayout {
+                    padding: 24px;
+                    spacing: 16px;
+                    Text { text: "Button"; color: #0f172a; font-size: 18px; font-weight: 600; }
+                    VerticalLayout {
+                        alignment: center;
+                        HorizontalLayout {
+                            alignment: center;
+                            preview := GalleryButton {
+                                text: root.button-label;
+                                enabled: !root.button-disabled;
+                                variant: root.variant-index == 0 ? ButtonVariant.primary : ButtonVariant.secondary;
+                                size: root.size-index == 0 ? ButtonSize.small : root.size-index == 2 ? ButtonSize.large : ButtonSize.medium;
+                                corner-radius: root.corner-radius * 1px;
+                                clicked => { root.click-count += 1; }
+                            }
+                        }
+                    }
+                    Text {
+                        text: "Hover: " + (preview.has-hover ? "yes" : "no")
+                            + "  ·  Pressed: " + (preview.pressed ? "yes" : "no")
+                            + "  ·  Focus: " + (preview.has-focus ? "yes" : "no");
+                        color: #64748b;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: "Clicks: " + root.click-count;
+                        color: #334155;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "Click the button, or use Tab to focus it and Space or Enter to activate it.";
+                        color: #64748b;
+                        wrap: word-wrap;
+                        font-size: 12px;
+                    }
+                    Rectangle { height: 1px; background: #e2e8f0; }
+                    Text { text: "Slider"; color: #0f172a; font-size: 18px; font-weight: 600; }
+                    GallerySlider {
+                        text: "Example value";
+                        value <=> root.slider-value;
+                    }
+                    Text {
+                        text: "Value: " + round(root.slider-value);
+                        color: #334155;
+                    }
+                    Rectangle { height: 1px; background: #e2e8f0; }
+                    Text { text: "Selection controls"; color: #0f172a; font-size: 18px; font-weight: 600; }
+                    HorizontalLayout {
+                        spacing: 32px;
+                        GalleryCheckBox {
+                            text: "Show guides";
+                            checked <=> root.checkbox-checked;
+                        }
+                        GallerySwitch {
+                            text: "Live updates";
+                            checked <=> root.toggle-checked;
+                        }
+                    }
+                    GalleryRadioGroup {
+                        text: "Density";
+                        selected-value <=> root.radio-value;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                padding: 0px;
+                spacing: 12px;
+                width: 220px;
+                Text { text: "Properties"; color: #0f172a; font-size: 18px; font-weight: 600; }
+                Text { text: "Label"; }
+                LineEdit { text <=> root.button-label; }
+                Text { text: "Variant"; }
+                ComboBox { model: ["Primary", "Secondary"]; current-index <=> root.variant-index; }
+                Text { text: "Size"; }
+                ComboBox { model: ["Small", "Medium", "Large"]; current-index <=> root.size-index; }
+                CheckBox { text: "Disabled"; checked <=> root.button-disabled; }
+                Text { text: "Corner radius: " + round(root.corner-radius) + "px"; }
+                Slider { minimum: 0; maximum: 24; value <=> root.corner-radius; }
+                Button {
+                    text: "Reset preview";
+                    clicked => {
+                        root.button-label = "Continue";
+                        root.button-disabled = false;
+                        root.variant-index = 0;
+                        root.size-index = 1;
+                        root.corner-radius = 8;
+                        root.click-count = 0;
+                        root.slider-value = 40;
+                        root.checkbox-checked = true;
+                        root.toggle-checked = false;
+                        root.radio-value = "comfortable";
+                    }
+                }
+                Rectangle { }
+            }
+        }
+    }
+}

@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, RadioButton, RadioGroup, Slider, Switch } from "../../../internal/compiler/widgets/headless/controls.slint";
+
+export component TestCase inherits Window {
+    in-out property <bool> enabled: true;
+    in-out property <bool> read-only: false;
+    out property <int> actions;
+    out property <bool> checked: checkbox.checked;
+    out property <bool> toggled: toggle.checked;
+    out property <string> selected-value: group.selected-value;
+    out property <float> slider-value: slider.value;
+
+    public function activate-controls() {
+        button.activate();
+        checkbox.toggle();
+        toggle.toggle();
+        radio.select();
+        slider.set-value(200);
+        slider.decrement();
+        slider.increment();
+    }
+
+    button := Button {
+        enabled: root.enabled;
+        clicked => { root.actions += 1; }
+    }
+    checkbox := CheckBox {
+        enabled: root.enabled;
+        read-only: root.read-only;
+        toggled => { root.actions += 1; }
+    }
+    toggle := Switch {
+        enabled: root.enabled;
+        toggled => { root.actions += 1; }
+    }
+    group := RadioGroup {
+        enabled: root.enabled;
+        read-only: root.read-only;
+        selected(value) => { root.actions += 1; }
+        radio := RadioButton {
+            value: "choice";
+            enabled: group.enabled;
+            read-only: group.read-only;
+            checked: group.selected-value == self.value;
+            selected => { group.select(self.value); }
+        }
+    }
+    slider := Slider {
+        enabled: root.enabled;
+        changed(value) => { root.actions += 1; }
+    }
+}
+
+/*
+```rust
+fn public_operations_respect_control_state() {
+    let instance = TestCase::new().unwrap();
+    instance.set_enabled(false);
+    instance.invoke_activate_controls();
+    assert_eq!(instance.get_actions(), 0);
+    assert!(!instance.get_checked());
+    assert!(!instance.get_toggled());
+    assert!(instance.get_selected_value().is_empty());
+    assert_eq!(instance.get_slider_value(), 0.0);
+
+    instance.set_enabled(true);
+    instance.set_read_only(true);
+    instance.invoke_activate_controls();
+    assert_eq!(instance.get_actions(), 5);
+    assert!(!instance.get_checked());
+    assert!(instance.get_toggled());
+    assert!(instance.get_selected_value().is_empty());
+    assert_eq!(instance.get_slider_value(), 100.0);
+
+    instance.set_read_only(false);
+    instance.invoke_activate_controls();
+    assert_eq!(instance.get_actions(), 11);
+    assert!(instance.get_checked());
+    assert!(!instance.get_toggled());
+    assert_eq!(instance.get_selected_value(), "choice");
+    assert_eq!(instance.get_slider_value(), 100.0);
+}
+
+public_operations_respect_control_state();
+```
+*/

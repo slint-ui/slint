@@ -88,6 +88,9 @@ assert_eq!(blue.accessible_enabled(), Some(false));
 // (keyboard navigation with the arrow keys is not yet implemented).
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Tab));
 assert_eq!(instance.get_has_focus(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "\n");
+assert_eq!(instance.get_selected_count(), 0, "Enter must not select a radio button");
+
 assert_eq!(instance.get_selected_count(), 0);
 assert_eq!(red.accessible_checked(), Some(false));
 

@@ -1,0 +1,147 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBox } from "../../../internal/compiler/widgets/headless/controls.slint";
+
+component StyledCheckBox inherits CheckBox {
+    HorizontalLayout {
+        Rectangle { background: root.checked ? green : gray; width: 20px; }
+        Text { text: root.text; }
+    }
+}
+
+component ComposedCheckBox inherits Rectangle {
+    in-out property <bool> checked <=> behavior.checked;
+    callback toggled <=> behavior.toggled;
+
+    behavior := CheckBox {
+        Rectangle { background: root.checked ? blue : gray; }
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> enabled: true;
+    in-out property <bool> read-only: false;
+    out property <bool> checked: checkbox.checked;
+    out property <int> toggle-count;
+
+    public function focus-checkbox() { checkbox.focus(); }
+
+    VerticalLayout {
+        checkbox := StyledCheckBox {
+            text: "Updates";
+            enabled: root.enabled;
+            read-only: root.read-only;
+            height: 40px;
+            toggled => { root.toggle-count += 1; }
+        }
+
+        ComposedCheckBox { height: 40px; }
+    }
+}
+
+/*
+```rust
+use slint::{SharedString, platform::{Key, PointerEventButton}};
+
+let instance = TestCase::new().unwrap();
+let checkbox = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::checkbox")
+    .next().unwrap();
+
+assert_eq!(checkbox.accessible_label(), Some(SharedString::from("Updates")));
+assert_eq!(checkbox.accessible_checkable(), Some(true));
+assert_eq!(checkbox.accessible_checked(), Some(false));
+assert_eq!(checkbox.accessible_read_only(), Some(false));
+
+checkbox.mock_single_click(PointerEventButton::Left);
+assert!(instance.get_checked());
+assert_eq!(instance.get_toggle_count(), 1);
+
+instance.invoke_focus_checkbox();
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert!(!instance.get_checked());
+assert_eq!(instance.get_toggle_count(), 2);
+
+instance.set_read_only(true);
+assert_eq!(checkbox.accessible_read_only(), Some(true));
+checkbox.mock_single_click(PointerEventButton::Left);
+checkbox.invoke_accessible_default_action();
+assert!(!instance.get_checked());
+assert_eq!(instance.get_toggle_count(), 2);
+
+instance.set_read_only(false);
+instance.set_enabled(false);
+checkbox.mock_single_click(PointerEventButton::Left);
+checkbox.invoke_accessible_default_action();
+assert!(!instance.get_checked());
+assert_eq!(instance.get_toggle_count(), 2);
+```
+
+```rust
+fn enter_does_not_toggle() {
+    use slint::{SharedString, platform::Key};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_checkbox();
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+    assert!(!instance.get_checked(), "Enter must not toggle a checkbox");
+    assert_eq!(instance.get_toggle_count(), 0);
+}
+
+enter_does_not_toggle();
+```
+
+```rust
+fn accessibility_activation_toggles_once() {
+    let instance = TestCase::new().unwrap();
+    let checkbox = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::checkbox")
+        .next().unwrap();
+
+    checkbox.invoke_accessible_default_action();
+    assert!(instance.get_checked());
+    assert_eq!(checkbox.accessible_checked(), Some(true));
+    assert_eq!(instance.get_toggle_count(), 1);
+    checkbox.invoke_accessible_default_action();
+    assert!(!instance.get_checked());
+    assert_eq!(checkbox.accessible_checked(), Some(false));
+    assert_eq!(instance.get_toggle_count(), 2);
+}
+
+accessibility_activation_toggles_once();
+```
+
+```rust
+fn read_only_blocks_keyboard_activation() {
+    use slint::{SharedString, platform::Key};
+
+    let instance = TestCase::new().unwrap();
+    instance.set_read_only(true);
+    instance.invoke_focus_checkbox();
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+    assert!(!instance.get_checked(), "Read-only checkboxes must ignore Space activation");
+    assert_eq!(instance.get_toggle_count(), 0);
+    instance.set_read_only(false);
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+    assert!(instance.get_checked());
+    assert_eq!(instance.get_toggle_count(), 1);
+}
+
+read_only_blocks_keyboard_activation();
+```
+
+```rust
+fn becoming_read_only_before_space_release_blocks_toggle() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    instance.invoke_focus_checkbox();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    instance.set_read_only(true);
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert!(!instance.get_checked(), "Becoming read-only must prevent the pending toggle");
+    assert_eq!(instance.get_toggle_count(), 0);
+}
+
+becoming_read_only_before_space_release_blocks_toggle();
+```
+*/

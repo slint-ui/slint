@@ -68,4 +68,37 @@ assert_eq(b.accessible_checked().value(), true);
 assert_eq(a.accessible_checked().value(), false);
 assert_eq(c.accessible_checked().value(), false);
 ```
+```rust
+fn repeated_selection_tracks_model_updates() {
+    use slint::{Model, ModelRc, SharedString, VecModel};
+    use std::rc::Rc;
+
+    let instance = TestCase::new().unwrap();
+    let model = Rc::new(VecModel::from(vec![SharedString::from("A"), "B".into(), "B".into()]));
+    instance.set_options(ModelRc::from(model.clone()));
+    let buttons: Vec<_> = slint_testing::ElementHandle::find_by_accessible_label(&instance, "B").collect();
+    assert_eq!(buttons.len(), 2);
+    assert_eq!(buttons[1].accessible_item_index(), Some(2));
+    buttons[1].invoke_accessible_default_action();
+    slint_testing::mock_elapsed_time(0);
+    assert_eq!(instance.get_current_value(), "B");
+
+    model.set_row_data(2, "C".into());
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "C").next().is_some());
+    slint_testing::mock_elapsed_time(0);
+    assert_eq!(instance.get_current_value(), "C");
+
+    model.remove(2);
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "C").next().is_none());
+    slint_testing::mock_elapsed_time(0);
+    assert_eq!(instance.get_current_value(), "");
+
+    model.push("D".into());
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "D").next().is_some());
+    slint_testing::mock_elapsed_time(0);
+    assert_eq!(instance.get_current_value(), "D");
+}
+
+repeated_selection_tracks_model_updates();
+```
 */

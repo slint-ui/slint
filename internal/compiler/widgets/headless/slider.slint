@@ -1,0 +1,180 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/// Provides slider interaction and accessibility without prescribing an appearance.
+///
+/// Set `handle-x`, `handle-y`, `handle-width`, and `handle-height` to the bounds of the
+/// visual thumb supplied through `@children`. The slider uses these bounds for pointer
+/// interaction and dragging.
+export component Slider inherits Rectangle {
+    /// Identifies the slider to assistive technologies.
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    in property <Orientation> orientation: Orientation.horizontal;
+    in property <length> handle-x;
+    in property <length> handle-y;
+    in property <length> handle-width;
+    in property <length> handle-height;
+    in-out property <float> value: root.minimum;
+
+    out property <bool> has-focus: focus-scope.has-focus;
+    out property <bool> has-hover: root.enabled && touch-area.has-hover;
+    out property <bool> pressed: root.enabled && touch-area.pressed;
+    out property <bool> handle-has-hover: root.has-hover
+        && touch-area.mouse-x >= root.handle-x
+        && touch-area.mouse-x <= root.handle-x + root.handle-width
+        && touch-area.mouse-y >= root.handle-y
+        && touch-area.mouse-y <= root.handle-y + root.handle-height;
+    out property <bool> handle-pressed;
+    out property <bool> vertical: root.orientation == Orientation.vertical;
+
+    /// Reports each value change during pointer, keyboard, or accessibility interaction.
+    callback changed(value: float);
+    /// Reports the final value when pointer or keyboard interaction ends.
+    callback released(value: float);
+
+    private property <length> handle-size: root.vertical ? root.handle-height : root.handle-width;
+
+    min-width: content.min-width;
+    min-height: content.min-height;
+    forward-focus: focus-scope;
+
+    accessible-role: slider;
+    accessible-orientation: root.orientation;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-action-set-value(new-value) => {
+        if (new-value.is-float()) {
+            root.set-value(new-value.to-float());
+        }
+    }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+
+    /// Clamps the value and invokes `changed` when interaction is enabled and the value changes.
+    public function set-value(new-value: float) {
+        if (!root.enabled) {
+            return;
+        }
+
+        if (root.value != max(root.minimum, min(root.maximum, new-value))) {
+            root.value = max(root.minimum, min(root.maximum, new-value));
+            root.changed(root.value);
+        }
+    }
+
+    public function increment() {
+        if (root.step > 0) {
+            root.set-value(root.value + root.step);
+        }
+    }
+
+    public function decrement() {
+        if (root.step > 0) {
+            root.set-value(root.value - root.step);
+        }
+    }
+
+    pure function distance-to-value(distance: length, range: length) -> float {
+        range > 0px ? distance * (root.maximum - root.minimum) / range : 0;
+    }
+
+    content := Rectangle {
+        @children
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled;
+        property <float> pressed-value;
+
+        pointer-event(event) => {
+            if (event.button != PointerEventButton.left) {
+                return;
+            }
+
+            if (event.kind == PointerEventKind.up) {
+                if (root.handle-pressed) {
+                    root.released(root.value);
+                }
+                root.handle-pressed = false;
+                return;
+            }
+
+            if (event.kind != PointerEventKind.down) {
+                return;
+            }
+
+            if (!root.handle-has-hover) {
+                root.set-value((root.vertical
+                    ? root.distance-to-value(root.height - self.mouse-y, root.height)
+                    : root.distance-to-value(self.mouse-x, root.width)) + root.minimum);
+            }
+
+            self.pressed-value = root.value;
+            focus-scope.focus();
+            root.handle-pressed = true;
+        }
+
+        moved => {
+            if (!root.handle-pressed) {
+                return;
+            }
+
+            root.set-value(self.pressed-value + (root.vertical
+                ? root.distance-to-value(self.pressed-y - self.mouse-y, root.height - root.handle-size)
+                : root.distance-to-value(self.mouse-x - self.pressed-x, root.width - root.handle-size)));
+        }
+    }
+
+    focus-scope := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+
+        key-pressed(event) => {
+            if (root.step <= 0) {
+                return reject;
+            }
+
+            if ((!root.vertical && event.text == Key.RightArrow)
+                    || (root.vertical && event.text == Key.UpArrow)) {
+                root.increment();
+                return accept;
+            }
+            if ((!root.vertical && event.text == Key.LeftArrow)
+                    || (root.vertical && event.text == Key.DownArrow)) {
+                root.decrement();
+                return accept;
+            }
+            if (event.text == Key.Home) {
+                root.set-value(root.minimum);
+                return accept;
+            }
+            if (event.text == Key.End) {
+                root.set-value(root.maximum);
+                return accept;
+            }
+
+            return reject;
+        }
+
+        key-released(event) => {
+            if ((!root.vertical && (event.text == Key.RightArrow || event.text == Key.LeftArrow))
+                    || (root.vertical && (event.text == Key.UpArrow || event.text == Key.DownArrow))
+                    || event.text == Key.Home
+                    || event.text == Key.End) {
+                root.released(root.value);
+                return accept;
+            }
+
+            return reject;
+        }
+    }
+}

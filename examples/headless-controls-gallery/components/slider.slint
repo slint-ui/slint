@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Slider } from "../../../internal/compiler/widgets/headless/controls.slint";
+
+export component GallerySlider inherits Slider {
+    min-width: 160px;
+    min-height: 32px;
+    handle-width: 18px;
+    handle-height: 18px;
+    handle-x: (root.width - root.handle-width)
+        * (root.value - root.minimum) / max(root.maximum - root.minimum, 1);
+    handle-y: (root.height - root.handle-height) / 2;
+
+    Rectangle {
+        x: root.handle-width / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width - root.handle-width;
+        height: 4px;
+        border-radius: self.height / 2;
+        background: #cbd5e1;
+
+        Rectangle {
+            x: 0px;
+            width: max(0px, root.handle-x);
+            border-radius: parent.border-radius;
+            background: root.enabled ? #2563eb : #94a3b8;
+        }
+    }
+
+    Rectangle {
+        x: root.handle-x;
+        y: root.handle-y;
+        width: root.handle-width;
+        height: root.handle-height;
+        border-radius: self.width / 2;
+        background: #ffffff;
+        drop-shadow-blur: 4px;
+        drop-shadow-offset-y: 1px;
+        drop-shadow-color: #0f172a40;
+
+        inner := Rectangle {
+            width: root.handle-pressed ? 10px : root.handle-has-hover ? 14px : 12px;
+            height: self.width;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.width / 2;
+            background: !root.enabled ? #94a3b8
+                : root.handle-pressed ? #1e40af
+                : root.handle-has-hover ? #1d4ed8
+                : #2563eb;
+
+            animate width, height {
+                duration: 100ms;
+                easing: ease-out;
+            }
+        }
+    }
+}

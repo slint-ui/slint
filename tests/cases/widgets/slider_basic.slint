@@ -7,6 +7,8 @@ export component TestCase inherits Window {
     width: 100px;
     height: 100px;
     slider := Slider {
+        accessible-label: "Volume";
+        accessible-description: "Playback volume";
         minimum: 0;
         maximum: 100;
         value: 10;
@@ -280,4 +282,39 @@ slint_testing::send_keyboard_char(&instance, Key::RightArrow.into(), true);
 assert!(changes.borrow().is_empty(), "{:?}", changes.borrow());
 ```
 
+*/
+
+/*
+```rust
+fn hovering_does_not_change_slider_value() {
+    use slint::{LogicalPosition, platform::WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    instance.window().dispatch_event(WindowEvent::PointerMoved {
+        position: LogicalPosition::new(80.0, 50.0),
+    });
+    assert_eq!(instance.get_value(), 10.0);
+}
+
+hovering_does_not_change_slider_value();
+```
+*/
+
+/*
+```rust
+fn styled_slider_preserves_accessibility_metadata() {
+    let instance = TestCase::new().unwrap();
+    let matches: Vec<_> = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Volume")
+        .collect();
+    assert_eq!(matches.len(), 1);
+    let slider = &matches[0];
+    assert_eq!(slider.accessible_role(), Some(slint_testing::AccessibleRole::Slider));
+    assert_eq!(slider.accessible_description().unwrap(), "Playback volume");
+    assert_eq!(slider.accessible_orientation(), Some(slint_testing::Orientation::Horizontal));
+    instance.set_vertical(true);
+    assert_eq!(slider.accessible_orientation(), Some(slint_testing::Orientation::Vertical));
+}
+
+styled_slider_preserves_accessibility_metadata();
+```
 */

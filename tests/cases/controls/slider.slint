@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider } from "../../../internal/compiler/widgets/headless/controls.slint";
+
+component StyledSlider inherits Slider {
+    handle-width: 20px;
+    handle-height: 20px;
+    handle-x: (root.width - root.handle-width)
+        * (root.value - root.minimum) / max(root.maximum - root.minimum, 1);
+    handle-y: (root.height - root.handle-height) / 2;
+
+    Rectangle { background: root.has-focus ? blue : gray; }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 40px;
+    in-out property <bool> enabled <=> slider.enabled;
+    in-out property <float> value <=> slider.value;
+    out property <int> change-count;
+    out property <int> release-count;
+
+    public function focus-slider() { slider.focus(); }
+
+    slider := StyledSlider {
+        text: "Volume";
+        minimum: 0;
+        maximum: 100;
+        step: 5;
+        value: 50;
+        changed => { root.change-count += 1; }
+        released => { root.release-count += 1; }
+    }
+}
+
+/*
+```rust
+use slint::{SharedString, platform::Key};
+
+let instance = TestCase::new().unwrap();
+let slider = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::slider")
+    .next().unwrap();
+
+assert_eq!(slider.accessible_label(), Some(SharedString::from("Volume")));
+assert_eq!(slider.accessible_value(), Some(SharedString::from("50")));
+assert_eq!(slider.accessible_value_minimum(), Some(0.0));
+assert_eq!(slider.accessible_value_maximum(), Some(100.0));
+assert_eq!(slider.accessible_value_step(), Some(5.0));
+
+instance.invoke_focus_slider();
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::RightArrow));
+assert_eq!(instance.get_value(), 55.0);
+assert_eq!(instance.get_change_count(), 1);
+assert_eq!(instance.get_release_count(), 1);
+
+slider.invoke_accessible_increment_action();
+assert_eq!(instance.get_value(), 60.0);
+slider.invoke_accessible_decrement_action();
+assert_eq!(instance.get_value(), 55.0);
+slider.set_accessible_value("75");
+assert_eq!(instance.get_value(), 75.0);
+
+instance.set_enabled(false);
+slider.invoke_accessible_increment_action();
+assert_eq!(instance.get_value(), 75.0);
+```
+*/

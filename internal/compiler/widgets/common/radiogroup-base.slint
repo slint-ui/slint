@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { RadioButtonBase } from "radiobutton-base.slint";
+import { RadioButton as RadioButtonControl } from "../headless/controls.slint";
 
 export component RadioGroupBase {
     in property <bool> enabled: true;
@@ -91,11 +91,13 @@ export component RadioButtonImplBase {
         }
     }
 
-    base := RadioButtonBase {
-        label <=> root.text;
+    base := RadioButtonControl {
+        width: 100%;
+        height: 100%;
+        text <=> root.text;
         checked <=> root.checked;
         enabled: root.enabled && root.group-enabled;
-        item-index <=> root.item-index;
+        accessible-item-index: root.item-index;
         selected => {
             root.group-select();
         }

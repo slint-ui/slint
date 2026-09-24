@@ -6,10 +6,12 @@
 
 import { Switch } from "std-widgets.slint";
 export component TestCase inherits Window {
+    out property <bool> uses-shared-input: Platform.style-name != "qt";
 
     in-out property <string> toggled;
     in-out property <bool> checked <=> a.checked;
     in-out property <bool> enabled <=> a.enabled;
+    public function focus-control() { a.focus(); }
 
     HorizontalLayout {
         alignment: start;
@@ -83,4 +85,31 @@ aaa.invoke_accessible_default_action();
 assert_eq(instance.get_toggled(), "a");
 ```
 
+*/
+
+/*
+```rust
+fn styled_control_uses_shared_activation() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    if !instance.get_uses_shared_input() {
+        return;
+    }
+    instance.invoke_focus_control();
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Return.into() });
+    instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: Key::Return.into() });
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Return.into() });
+    assert_eq!(instance.get_checked(), true);
+    assert_eq!(instance.get_toggled(), "a");
+
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert_eq!(instance.get_checked(), true);
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert_eq!(instance.get_checked(), false);
+    assert_eq!(instance.get_toggled(), "aa");
+}
+
+styled_control_uses_shared_activation();
+```
 */

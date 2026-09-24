@@ -1,58 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Switch as Control } from "../headless/controls.slint";
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
-import { StateLayer } from "components.slint";
+import { StateLayerBase } from "components.slint";
 
-export component Switch {
-    in property <bool> enabled: true;
-    in property <string> text;
-    in-out property <bool> checked;
-    out property <bool> has-focus: state-layer.has-focus;
-
-    callback toggled;
+export component Switch inherits Control {
 
     private property <color> text-color: CosmicPalette.foreground;
-
-    function toggle-checked() {
-        if(!root.enabled) {
-            return;
-        }
-
-        root.checked = !root.checked;
-        root.toggled();
-    }
 
     min-width: max(48px, layout.min-width);
     min-height: max(24px, layout.min-height);
     vertical-stretch: 0;
     horizontal-stretch: 0;
-    accessible-enabled: root.enabled;
-    accessible-label: root.text;
-    accessible-checkable: true;
-    accessible-checked <=> root.checked;
-    accessible-role: switch;
-    accessible-action-default => {
-        if(root.enabled) {
-           root.checked = !root.checked;
-           root.toggled();
-        }
-    }
-    forward-focus: state-layer;
 
     states [
         disabled when !root.enabled : {
             opacity: 0.5;
         }
     ]
-
-    touch-area := TouchArea {
-        enabled <=> root.enabled;
-
-        clicked => {
-            state-layer.clicked();
-        }
-    }
 
     layout := HorizontalLayout {
         spacing: 12px;
@@ -64,7 +30,7 @@ export component Switch {
                 width: 48px;
                 height: 24px;
 
-                background := Rectangle {
+                surface := Rectangle {
                     border-radius: 12px;
                     background: CosmicPalette.neutral-5-background;
                 }
@@ -78,21 +44,18 @@ export component Switch {
                     background: CosmicPalette.accent-foreground;
                 }
 
-                state-layer := StateLayer {
-                    border-radius: background.border-radius;
-
-                    clicked => {
-                        if (root.enabled) {
-                            root.checked = !root.checked;
-                            root.toggled();
-                        }
-                    }
+                StateLayerBase {
+                    border-radius: surface.border-radius;
+                    enabled: root.enabled;
+                    has-focus: root.has-focus;
+                    has-hover: root.has-hover;
+                    pressed: root.pressed;
                 }
             }
 
             states [
                 selected when root.checked : {
-                    background.background: CosmicPalette.accent-background;
+                    surface.background: CosmicPalette.accent-background;
                 }
             ]
         }

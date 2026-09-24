@@ -6,10 +6,12 @@
 
 import { ComboBox, Button } from "std-widgets.slint";
 export component TestCase inherits Window {
+    out property <bool> uses-shared-input: Platform.style-name != "qt";
 
     in-out property <string> clicked;
     in-out property <bool> a-checked <=> a.checked;
     out property <bool> a-focused <=> a.has-focus;
+    out property <bool> a-pressed: a.pressed;
     in-out property <bool> d-checked <=> d.checked;
     in-out property <bool> d-enabled <=> d.enabled;
     public function focus-a() { a.focus(); }
@@ -220,4 +222,35 @@ assert_eq(ddd.accessible_checked().value(), true);
 
 ```
 
+*/
+
+/*
+```rust
+fn styled_button_uses_shared_keyboard_activation() {
+    use slint::platform::{Key, WindowEvent};
+
+    let instance = TestCase::new().unwrap();
+    if !instance.get_uses_shared_input() {
+        return;
+    }
+    instance.invoke_focus_a();
+    assert!(instance.get_a_focused());
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Space.into() });
+    assert!(instance.get_a_pressed());
+    assert!(instance.get_clicked().is_empty());
+    assert!(!instance.get_a_checked());
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Space.into() });
+    assert!(!instance.get_a_pressed());
+    assert_eq!(instance.get_clicked(), "a");
+    assert!(instance.get_a_checked());
+
+    instance.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Return.into() });
+    instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: Key::Return.into() });
+    instance.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Return.into() });
+    assert_eq!(instance.get_clicked(), "aa");
+    assert!(!instance.get_a_checked());
+}
+
+styled_button_uses_shared_keyboard_activation();
+```
 */
