@@ -149,9 +149,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             load_preview(preview_component, LoadBehavior::BringWindowToFront);
         }
         M::OpenProject { root } => {
-            PREVIEW_STATE.with_borrow_mut(|preview_state| {
-                preview_state.current_project_root = Some(root.clone());
-            });
+            reset_project_state(root.clone());
             apply_project_to_file_tree(&root);
             record_current_project();
         }
@@ -379,6 +377,47 @@ fn delete_document(url: &lsp_types::Url) {
         // Trigger a compile error now!
         load_preview(current, LoadBehavior::Reload);
     }
+}
+
+fn reset_project_state(root: Url) {
+    let (api, editor_ui) = PREVIEW_STATE.with_borrow_mut(|state| {
+        state.property_range_declarations = None;
+        state.handle.replace(None);
+        state.document_cache.replace(None);
+        (*state.debug_hook_overrides).borrow_mut().clear();
+        state.selected = None;
+        state.notify_editor_about_selection_after_update = false;
+        state.workspace_edit_sent = false;
+        state.known_components.clear();
+        state.initial_live_data.clear();
+        state.current_live_data.clear();
+        state.undo_redo_stack.clear();
+        state.pending_history.clear();
+        state.inspector_edit = None;
+        state.fill_refresh = None;
+        state.source_code.clear();
+        state.resources.clear();
+        state.dependencies.clear();
+        state.current_previewed_component = None;
+        state.current_project_root = Some(root);
+        (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
+    });
+
+    if let Some(api) = api {
+        api.set_current_element(Default::default());
+        api.set_properties(Default::default());
+        api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
+        api.set_undo_enabled(false);
+        api.set_redo_enabled(false);
+        api.set_inspector_fill_refresh_pending(false);
+        ui::ui_set_known_components(&api, &[], usize::MAX);
+        ui::ui_set_preview_data(&api, Default::default(), None);
+        outline::reset_outline(&api, None);
+    }
+    if let Some(editor_ui) = editor_ui {
+        editor_ui.global::<ui::Preview>().set_can_run(false);
+    }
+    inspector::invalidate_fill();
 }
 
 pub fn set_user_settings(name: String, contents: String) {
@@ -2908,6 +2947,60 @@ mod tests {
         PREVIEW_STATE.with_borrow_mut(|state| {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
+        });
+    }
+
+    #[test]
+    fn opening_project_discards_previous_project_state() {
+        reset_preview_state(Default::default());
+        let old_url = Url::parse("file:///old/main.slint").unwrap();
+        let new_root = Url::parse("file:///new/").unwrap();
+        let live_data_key = preview_data::PreviewDataKey {
+            container: preview_data::PropertyContainer::Main,
+            property_name: "value".into(),
+        };
+        let live_data = preview_data::PreviewData {
+            ty: i_slint_compiler::langtype::Type::Int32,
+            visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+            value: Some(slint_interpreter::Value::Number(42.0)),
+        };
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.insert(
+                old_url.clone(),
+                SourceCodeCacheEntry { version: Some(1), code: "export component Old {}".into() },
+            );
+            state.dependencies.insert(old_url.clone());
+            state.resources.insert(old_url.clone());
+            state.current_previewed_component =
+                Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });
+            state.initial_live_data.insert(live_data_key.clone(), live_data.clone());
+            state.current_live_data.insert(live_data_key, live_data);
+            state.undo_redo_stack.push(
+                "Old project edit".into(),
+                Some(Default::default()),
+                undo_redo::compute_file_hashes(&[text_edit::EditedText {
+                    url: old_url.clone(),
+                    contents: "export component Old {}".into(),
+                }]),
+            );
+        });
+
+        lsp_to_preview(LspToPreviewMessage::OpenProject { root: new_root.clone() });
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            assert_eq!(state.current_project_root, Some(new_root));
+            assert!(state.current_previewed_component.is_none());
+            assert!(state.source_code.is_empty());
+            assert!(state.dependencies.is_empty());
+            assert!(state.resources.is_empty());
+            assert!(state.initial_live_data.is_empty());
+            assert!(state.current_live_data.is_empty());
+            assert!(
+                state
+                    .undo_redo_stack
+                    .check_set_contents_valid(&old_url, "export component Changed {}")
+            );
         });
     }
 
