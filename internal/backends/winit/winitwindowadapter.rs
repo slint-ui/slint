@@ -207,6 +207,30 @@ fn icon_to_winit(
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
 }
 
+/// Images without a cache key, such as ones made from a pixel buffer, compare by identity (#13609).
+fn is_same_icon(previous: &Image, next: &Image) -> bool {
+    let (previous, next): (&ImageInner, &ImageInner) = (previous.into(), next.into());
+    match (ImageCacheKey::new(previous), ImageCacheKey::new(next)) {
+        (Some(previous_key), Some(next_key)) => previous_key == next_key,
+        (None, None) => {
+            matches!((previous, next), (ImageInner::None, ImageInner::None)) || previous == next
+        }
+        _ => false,
+    }
+}
+
+#[test]
+fn test_is_same_icon() {
+    let pixels = || Image::from_rgba8(SharedPixelBuffer::new(16, 16));
+    let icon = pixels();
+
+    assert!(is_same_icon(&Image::default(), &Image::default()));
+    assert!(!is_same_icon(&Image::default(), &icon));
+    assert!(!is_same_icon(&icon, &Image::default()));
+    assert!(is_same_icon(&icon, &icon.clone()));
+    assert!(!is_same_icon(&icon, &pixels()));
+}
+
 fn window_is_resizable(
     min_size: Option<corelib::api::LogicalSize>,
     max_size: Option<corelib::api::LogicalSize>,
@@ -450,7 +474,7 @@ pub struct WinitWindowAdapter {
 
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
-    window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+    window_icon: RefCell<Image>,
 
     custom_cursor_source: Cell<Option<CustomCursorSource>>,
 
@@ -510,7 +534,7 @@ impl WinitWindowAdapter {
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
-            window_icon_cache_key: Default::default(),
+            window_icon: Default::default(),
             custom_cursor_source: Cell::new(None),
             cursor_pos: Default::default(),
             pressed: Default::default(),
@@ -1873,9 +1897,8 @@ impl WindowAdapter for WinitWindowAdapter {
 
         // Update the icon only if it changes, to avoid flashing.
         let icon_image = window_item.icon();
-        let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
-        if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
-            *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
+        if !is_same_icon(&self.window_icon.borrow(), &icon_image) {
+            *self.window_icon.borrow_mut() = icon_image.clone();
             winit_window_or_none.set_window_icon(icon_to_winit(
                 icon_image,
                 i_slint_core::lengths::LogicalSize::new(64., 64.) * ScaleFactor::new(sf),
