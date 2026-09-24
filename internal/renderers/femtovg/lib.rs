@@ -102,6 +102,10 @@ pub trait GraphicsBackend {
         height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
+    /// Largest width or height, in pixels, that this backend can hold in one texture.
+    /// Return `u32::MAX` while suspended, when there is no limit to report.
+    fn max_texture_size(&self) -> u32;
+
     /// Redirect the full frame drawn by `render` offscreen and read back its pixels, using
     /// `canvas` if this backend reads back through it. `width` and `height` are the window
     /// size, guaranteed non-zero by the caller.
@@ -353,6 +357,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
     #[cfg(any(feature = "wgpu-30", feature = "opengl"))]
     pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
+        self.texture_cache.borrow_mut().max_texture_size = self.graphics_backend.max_texture_size();
         self.rendering_first_time.set(true);
     }
 }

@@ -208,6 +208,13 @@ impl GraphicsBackend for WGPUBackend {
         self.device.borrow_mut().take();
     }
 
+    fn max_texture_size(&self) -> u32 {
+        self.device
+            .borrow()
+            .as_ref()
+            .map_or(u32::MAX, |device| device.limits().max_texture_dimension_2d)
+    }
+
     fn begin_surface_rendering(
         &self,
     ) -> Result<BeginRendering<Self::WindowSurface>, Box<dyn std::error::Error + Send + Sync>> {
@@ -479,6 +486,10 @@ impl GraphicsBackend for WgpuTextureBackend {
 
     fn clear_graphics_context(&self) {
         // Nothing to clear here, we don't own the device/queue/texture
+    }
+
+    fn max_texture_size(&self) -> u32 {
+        self.device.limits().max_texture_dimension_2d
     }
 
     fn begin_surface_rendering(

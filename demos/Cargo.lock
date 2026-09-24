@@ -2483,6 +2483,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "image",
  "imgref",
  "lyon_path",
  "pin-weak",
