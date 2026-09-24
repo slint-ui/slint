@@ -5,125 +5,74 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::path::Path;
 
-pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
-    let source = std::fs::read_to_string(&testcase.absolute_path)?;
-
-    let include_paths = test_driver_lib::extract_include_paths(&source)
-        .map(std::path::PathBuf::from)
-        .collect::<Vec<_>>();
-    let library_paths = test_driver_lib::extract_library_paths(&source)
-        .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
-        .collect::<std::collections::HashMap<_, _>>();
-
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+/// Compile a `.slint` file and return the declarations generated for it.
+fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
+    let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
 
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::TypeScript);
-    compiler_config.include_paths = include_paths;
-    compiler_config.library_paths = library_paths;
-    compiler_config.style = testcase.requested_style.map(str::to_string);
+    compiler_config.include_paths =
+        test_driver_lib::extract_include_paths(&source).map(std::path::PathBuf::from).collect();
+    compiler_config.library_paths = test_driver_lib::extract_library_paths(&source)
+        .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
+        .collect();
     compiler_config.debug_info = true;
-    if source.contains("//bundle-translations") {
-        compiler_config.bundled_translations_path =
-            Some(testcase.absolute_path.parent().unwrap().to_path_buf());
-        compiler_config.translation_domain =
-            Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
-    }
+
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse(source, Some(path), &mut diag);
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_errors() {
-        let vec = diag.to_string_vec();
-        return Err(vec.join("\n").into());
+        return Err(diag.to_string_vec().join("\n"));
     }
 
-    let mut generated_ts: Vec<u8> = Vec::new();
-
-    // A `.d.ts` destination: that is what a user of the generated types has.
+    let mut generated = Vec::new();
     generator::generate(
         generator::OutputFormat::TypeScript,
-        &mut generated_ts,
-        Some(Path::new("test.slint.d.ts")),
+        &mut generated,
+        None,
         &root_component,
         &loader.compiler_config,
-    )?;
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(generated)
+}
 
-    let mut ts_test_functions =
+pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
+    let source = std::fs::read_to_string(&testcase.absolute_path)?;
+    let generated = generate_dts(&testcase.absolute_path)?;
+
+    let mut expected =
         test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "d.ts");
 
-    if let Some(expected_ts) = ts_test_functions.next().map(|f| f.source.replace("\r\n", "\n")) {
-        assert!(ts_test_functions.next().is_none());
-
-        let generated_ts_interface = {
-            let code = String::from_utf8(generated_ts).unwrap();
-            let mut lines = code.trim_end().lines().collect::<Vec<_>>();
-
-            let mut pop_front_if = |pattern: &str| {
-                if !lines.is_empty() && lines[0].starts_with(pattern) {
-                    lines.remove(0);
-                }
-            };
-
-            pop_front_if("// This file is auto-generated");
-            pop_front_if("");
-            pop_front_if("import ");
-            pop_front_if("");
-            lines.join("\n").trim_end().to_string()
-        };
-
-        assert_eq!(expected_ts, generated_ts_interface);
+    if let Some(expected_ts) = expected.next().map(|f| f.source.replace("\r\n", "\n")) {
+        assert!(expected.next().is_none());
+        assert_eq!(expected_ts, strip_preamble(&generated));
     };
 
     Ok(())
 }
 
-/// Compile a .slint file and generate .d.ts output.
-/// Returns `None` if the file has compilation errors (expected for some test cases).
-fn generate_dts(slint_path: &Path, dest_path: &Path) -> Option<Vec<u8>> {
-    let source = std::fs::read_to_string(slint_path).ok()?;
+/// Everything after the header and the `import`, which the expected blocks leave out.
+fn strip_preamble(generated: &[u8]) -> String {
+    let code = String::from_utf8(generated.to_vec()).unwrap();
+    let mut lines = code.trim_end().lines().collect::<Vec<_>>();
 
-    let include_paths = test_driver_lib::extract_include_paths(&source)
-        .map(std::path::PathBuf::from)
-        .collect::<Vec<_>>();
-    let library_paths = test_driver_lib::extract_library_paths(&source)
-        .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
-        .collect::<std::collections::HashMap<_, _>>();
+    let mut pop_front_if = |pattern: &str| {
+        if !lines.is_empty() && lines[0].starts_with(pattern) {
+            lines.remove(0);
+        }
+    };
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(slint_path), &mut diag);
-
-    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::TypeScript);
-    compiler_config.include_paths = include_paths;
-    compiler_config.library_paths = library_paths;
-    if source.contains("//bundle-translations") {
-        compiler_config.bundled_translations_path =
-            Some(slint_path.parent().unwrap().to_path_buf());
-        compiler_config.translation_domain =
-            Some(slint_path.file_stem().unwrap().to_str().unwrap().to_string());
-    }
-
-    let (root_component, diag, loader) =
-        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
-
-    if diag.has_errors() {
-        return None;
-    }
-
-    let mut output = Vec::new();
-    generator::generate(
-        generator::OutputFormat::TypeScript,
-        &mut output,
-        Some(dest_path),
-        &root_component,
-        &loader.compiler_config,
-    )
-    .ok()?;
-
-    Some(output)
+    pop_front_if("// This file is auto-generated");
+    pop_front_if("");
+    pop_front_if("import ");
+    pop_front_if("");
+    lines.join("\n").trim_end().to_string()
 }
 
-/// Generate .d.ts files for all test cases and run `tsc --noEmit` to validate
-/// that the generated declarations are consistent with the real slint-ui types.
+/// Generate the declarations for every test case and run `tsc --noEmit` over them, to check
+/// they are consistent with the real slint-ui types.
 pub fn typecheck_all(paths: &[&str]) {
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -133,42 +82,38 @@ pub fn typecheck_all(paths: &[&str]) {
     // Run tsc through node rather than the node_modules/.bin wrapper:
     // the wrapper is a shell script that Command::new can't spawn on Windows.
     let tsc = workspace_root.join("node_modules/typescript/lib/tsc.js");
-    if !tsc.exists() {
-        eprintln!("Skipping typecheck: tsc not found at {}", tsc.display());
-        return;
-    }
-
+    assert!(tsc.exists(), "{} is missing, run `pnpm install`", tsc.display());
     let slint_ui_types = workspace_root.join("api/node/dist/index.d.ts");
-    if !slint_ui_types.exists() {
-        eprintln!("Skipping typecheck: slint-ui types not found at {}", slint_ui_types.display());
-        return;
+    assert!(
+        slint_ui_types.exists(),
+        "{} is missing, run `pnpm -C api/node build`",
+        slint_ui_types.display()
+    );
+
+    let tmp_dir = tempfile::tempdir().unwrap();
+
+    // Compiling every case takes a while, so spread it over the cores. Saved with a `.ts`
+    // extension so that tsc checks it: `skipLibCheck` would skip a `.d.ts`.
+    let chunks = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let generated: Vec<Vec<u8>> = std::thread::scope(|scope| {
+        paths
+            .chunks(paths.len().div_ceil(chunks))
+            .map(|chunk| {
+                scope.spawn(|| {
+                    chunk.iter().filter_map(|p| generate_dts(Path::new(p)).ok()).collect::<Vec<_>>()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect()
+    });
+    for (i, declarations) in generated.iter().enumerate() {
+        std::fs::write(tmp_dir.path().join(format!("test_{i}.slint.ts")), declarations).unwrap();
     }
+    let file_count = generated.len();
+    assert!(file_count > 0, "No declarations were generated — something is wrong with the setup");
 
-    let tmp_dir = std::env::temp_dir().join(format!("slint-ts-typecheck-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&tmp_dir);
-    std::fs::create_dir_all(&tmp_dir).unwrap();
-
-    let mut file_count = 0u32;
-
-    for path_str in paths {
-        let slint_path = Path::new(path_str);
-        // Pass a .d.ts path to the generator so it emits `declare` syntax,
-        // but save with a .ts extension so tsc checks it (skipLibCheck skips .d.ts)
-        let dts_path = tmp_dir.join(format!("test_{file_count}.slint.d.ts"));
-        let ts_path = tmp_dir.join(format!("test_{file_count}.slint.ts"));
-
-        if let Some(output) = generate_dts(slint_path, &dts_path) {
-            std::fs::write(&ts_path, output).unwrap();
-            file_count += 1;
-        }
-    }
-
-    if file_count == 0 {
-        let _ = std::fs::remove_dir_all(&tmp_dir);
-        panic!("No .d.ts files were generated — something is wrong with the test setup");
-    }
-
-    // Write tsconfig.json pointing to the real slint-ui type definitions
     let tsconfig = format!(
         r#"{{
     "compilerOptions": {{
@@ -183,22 +128,21 @@ pub fn typecheck_all(paths: &[&str]) {
 }}"#,
         slint_ui_types.to_string_lossy().replace('\\', "/")
     );
-    std::fs::write(tmp_dir.join("tsconfig.json"), tsconfig).unwrap();
+    std::fs::write(tmp_dir.path().join("tsconfig.json"), tsconfig).unwrap();
 
     let output = std::process::Command::new("node")
         .arg(&tsc)
         .arg("--noEmit")
-        .current_dir(&tmp_dir)
+        .current_dir(tmp_dir.path())
         .output()
         .expect("failed to run tsc");
 
-    let _ = std::fs::remove_dir_all(&tmp_dir);
+    assert!(
+        output.status.success(),
+        "tsc type checking failed ({file_count} files generated):\n{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
 
-    if !output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        panic!("tsc type checking failed ({file_count} files generated):\n{stdout}{stderr}");
-    }
-
-    eprintln!("typecheck passed for {file_count} generated .d.ts files");
+    eprintln!("typecheck passed for {file_count} generated declaration files");
 }

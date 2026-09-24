@@ -141,7 +141,7 @@ pub fn generate(
         }
         #[cfg(feature = "typescript")]
         OutputFormat::TypeScript => {
-            let output = typescript::generate(doc, compiler_config, destination_path)?;
+            let output = typescript::generate(doc, compiler_config)?;
             write!(destination, "{output}")?;
         }
     }
