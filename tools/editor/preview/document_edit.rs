@@ -41,6 +41,7 @@ enum Completion {
 pub(super) struct PendingDocumentEdit {
     submitted_edit: lsp_types::WorkspaceEdit,
     expected: Vec<text_edit::EditedText>,
+    history_generation: u64,
     record_history: bool,
     completion: Option<Completion>,
 }
@@ -121,6 +122,7 @@ fn submit_commit(
     let pending = PendingDocumentEdit {
         submitted_edit: edit,
         expected: result,
+        history_generation: 0,
         record_history: true,
         completion: Some(Completion::Commit { undo, fill, inspector }),
     };
@@ -137,12 +139,13 @@ fn clone_edited_text(edits: &[text_edit::EditedText]) -> Vec<text_edit::EditedTe
         .collect()
 }
 
-fn send(label: String, pending: PendingDocumentEdit) -> SubmitEditOutcome {
+fn send(label: String, mut pending: PendingDocumentEdit) -> SubmitEditOutcome {
     let message_edit = pending.submitted_edit.clone();
     let sender = PREVIEW_STATE.with_borrow_mut(|state| {
         if edit_pending(state) {
             return None;
         }
+        pending.history_generation = state.undo_redo_stack.generation();
         let fill_pending =
             matches!(&pending.completion, Some(Completion::Commit { fill: Some(_), .. }));
         state.pending_document_edit = Some(pending);
@@ -191,6 +194,7 @@ pub(super) fn submit_history(direction: HistoryDirection) {
     let pending = PendingDocumentEdit {
         submitted_edit: item.edit.clone(),
         expected,
+        history_generation: 0,
         record_history: true,
         completion: Some(match direction {
             HistoryDirection::Undo => Completion::Undo { redo: reverse },
@@ -240,9 +244,11 @@ pub(super) fn finished(edit: lsp_types::WorkspaceEdit, applied: bool, changed_on
             return None;
         };
         if applied {
+            let history_is_current =
+                pending.history_generation == state.undo_redo_stack.generation();
             match completion {
                 Completion::Commit { undo, fill: committed_fill, inspector } => {
-                    if pending.record_history {
+                    if pending.record_history && history_is_current {
                         state.undo_redo_stack.push(undo);
                     }
                     if inspector {
@@ -250,8 +256,13 @@ pub(super) fn finished(edit: lsp_types::WorkspaceEdit, applied: bool, changed_on
                     }
                     fill = committed_fill;
                 }
-                Completion::Undo { redo } => state.undo_redo_stack.complete_undo(redo),
-                Completion::Redo { undo } => state.undo_redo_stack.complete_redo(undo),
+                Completion::Undo { redo } if history_is_current => {
+                    state.undo_redo_stack.complete_undo(redo)
+                }
+                Completion::Redo { undo } if history_is_current => {
+                    state.undo_redo_stack.complete_redo(undo)
+                }
+                Completion::Undo { .. } | Completion::Redo { .. } => {}
             }
             if !pending.expected.is_empty() {
                 state.pending_document_edit = Some(pending);
@@ -303,6 +314,7 @@ pub(super) fn mark_pending_for_test(state: &mut PreviewState) {
     state.pending_document_edit = Some(PendingDocumentEdit {
         submitted_edit: Default::default(),
         expected: Vec::new(),
+        history_generation: 0,
         record_history: false,
         completion: Some(Completion::Commit {
             undo: undo_redo::EditItem {
@@ -496,6 +508,79 @@ mod tests {
             assert!(!state.undo_redo_stack.check_set_contents_valid(&url, &external));
         });
         finished(second, true, false);
+        assert_eq!(stack_lengths(), (0, 0));
+        assert!(!PREVIEW_STATE.with_borrow(edit_pending));
+    }
+
+    #[test]
+    fn external_source_change_does_not_restore_pending_undo() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("pending-undo.slint");
+        std::fs::write(&path, SOURCE).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let messages = reset(&[(url.clone(), SOURCE)]);
+        let edit = width_edit(url.clone(), "40");
+        assert_eq!(
+            submit("Change width".into(), edit.clone(), ValidationPolicy::StructuralOnly),
+            SubmitEditOutcome::Submitted
+        );
+
+        let changed = SOURCE.replace("30px", "40px");
+        std::fs::write(&path, &changed).unwrap();
+        reset_cache(&[(url.clone(), changed.as_str())]);
+        assert!(contents_changed(&url, &changed));
+        finished(edit, true, false);
+        assert_eq!(stack_lengths(), (1, 0));
+
+        submit_history(HistoryDirection::Undo);
+        let undo = sent_edit(&messages, 1);
+        let external = SOURCE.replace("30px", "900px");
+        assert!(!contents_changed(&url, &external));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            assert!(!state.undo_redo_stack.check_set_contents_valid(&url, &external));
+        });
+        finished(undo, true, false);
+
+        assert_eq!(stack_lengths(), (0, 0));
+        assert!(!PREVIEW_STATE.with_borrow(edit_pending));
+    }
+
+    #[test]
+    fn external_source_change_does_not_restore_pending_redo() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("pending-redo.slint");
+        std::fs::write(&path, SOURCE).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let messages = reset(&[(url.clone(), SOURCE)]);
+        let edit = width_edit(url.clone(), "40");
+        assert_eq!(
+            submit("Change width".into(), edit.clone(), ValidationPolicy::StructuralOnly),
+            SubmitEditOutcome::Submitted
+        );
+
+        let changed = SOURCE.replace("30px", "40px");
+        std::fs::write(&path, &changed).unwrap();
+        reset_cache(&[(url.clone(), changed.as_str())]);
+        assert!(contents_changed(&url, &changed));
+        finished(edit, true, false);
+
+        submit_history(HistoryDirection::Undo);
+        let undo = sent_edit(&messages, 1);
+        std::fs::write(&path, SOURCE).unwrap();
+        reset_cache(&[(url.clone(), SOURCE)]);
+        assert!(contents_changed(&url, SOURCE));
+        finished(undo, true, false);
+        assert_eq!(stack_lengths(), (0, 1));
+
+        submit_history(HistoryDirection::Redo);
+        let redo = sent_edit(&messages, 2);
+        let external = SOURCE.replace("30px", "900px");
+        assert!(!contents_changed(&url, &external));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            assert!(!state.undo_redo_stack.check_set_contents_valid(&url, &external));
+        });
+        finished(redo, true, false);
+
         assert_eq!(stack_lengths(), (0, 0));
         assert!(!PREVIEW_STATE.with_borrow(edit_pending));
     }

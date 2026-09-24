@@ -54,6 +54,7 @@ fn prepare_history_edit(
 pub struct UndoRedoStack {
     undo_stack: Vec<EditItem>,
     redo_stack: Vec<EditItem>,
+    generation: u64,
 }
 
 impl UndoRedoStack {
@@ -61,11 +62,13 @@ impl UndoRedoStack {
     pub fn clear(&mut self) {
         self.undo_stack.clear();
         self.redo_stack.clear();
+        self.generation = self.generation.wrapping_add(1);
     }
 
     pub(super) fn push(&mut self, item: EditItem) {
         self.undo_stack.push(item);
         self.redo_stack.clear();
+        self.generation = self.generation.wrapping_add(1);
     }
 
     pub(super) fn prepare_undo(
@@ -101,11 +104,17 @@ impl UndoRedoStack {
     pub(super) fn complete_undo(&mut self, redo: EditItem) {
         self.undo_stack.pop();
         self.redo_stack.push(redo);
+        self.generation = self.generation.wrapping_add(1);
     }
 
     pub(super) fn complete_redo(&mut self, undo: EditItem) {
         self.redo_stack.pop();
         self.undo_stack.push(undo);
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    pub(super) fn generation(&self) -> u64 {
+        self.generation
     }
 
     pub fn check_set_contents_valid(&mut self, url: &lsp_types::Url, content: &str) -> bool {
