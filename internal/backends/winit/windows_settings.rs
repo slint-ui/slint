@@ -4,45 +4,29 @@
 //! Windows settings that the backend mirrors into the `SlintContext`.
 
 use i_slint_core::MotionPreference;
-use windows::Foundation::TypedEventHandler;
-use windows::UI::ViewManagement::{UISettings, UISettingsAnimationsEnabledChangedEventArgs};
+use windows::Win32::UI::WindowsAndMessaging::{
+    SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW,
+};
 
 /// The "Animation effects" switch under Settings > Accessibility > Visual effects.
 /// Defaults to animations on when the setting cannot be read.
-pub fn motion_preference() -> MotionPreference {
-    let animations_enabled =
-        UISettings::new().and_then(|settings| settings.AnimationsEnabled()).unwrap_or(true);
-    if animations_enabled { MotionPreference::NoPreference } else { MotionPreference::Reduced }
-}
-
-/// Calls back whenever the "Animation effects" setting changes.
 ///
-/// Windows raises the change on a thread of its own, so `notify` has to hop back to the
-/// event loop before touching the context. The subscription ends when this is dropped.
-pub struct MotionPreferenceObserver {
-    settings: UISettings,
-    token: i64,
-}
-
-impl MotionPreferenceObserver {
-    /// `None` on Windows versions without the change event (before Windows 10 1809),
-    /// where the setting is read once at startup only.
-    pub fn new(notify: impl Fn() + Send + 'static) -> Option<Self> {
-        let settings = UISettings::new().ok()?;
-        let handler =
-            TypedEventHandler::<UISettings, UISettingsAnimationsEnabledChangedEventArgs>::new(
-                move |_, _| {
-                    notify();
-                    Ok(())
-                },
-            );
-        let token = settings.AnimationsEnabledChanged(&handler).ok()?;
-        Some(Self { settings, token })
-    }
-}
-
-impl Drop for MotionPreferenceObserver {
-    fn drop(&mut self) {
-        let _ = self.settings.RemoveAnimationsEnabledChanged(self.token);
+/// There is no change notification a winit window can receive for this setting
+/// (`WM_SETTINGCHANGE` is consumed by winit), so callers read it at startup and
+/// again whenever a window gains focus.
+pub fn motion_preference() -> MotionPreference {
+    let mut animations_enabled = windows::core::BOOL::from(true);
+    let read = unsafe {
+        SystemParametersInfoW(
+            SPI_GETCLIENTAREAANIMATION,
+            0,
+            Some(&mut animations_enabled as *mut _ as *mut core::ffi::c_void),
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        )
+    };
+    if read.is_err() || animations_enabled.as_bool() {
+        MotionPreference::NoPreference
+    } else {
+        MotionPreference::Reduced
     }
 }

@@ -423,8 +423,6 @@ impl BackendBuilder {
             custom_application_handler: self.custom_application_handler.into(),
             #[cfg(xdg_desktop_settings)]
             xdg_watcher: RefCell::new(None),
-            #[cfg(target_os = "windows")]
-            motion_preference_observer: RefCell::new(None),
         })
     }
 }
@@ -722,10 +720,6 @@ pub struct Backend {
     /// and aborted on backend drop.
     #[cfg(xdg_desktop_settings)]
     xdg_watcher: RefCell<Option<i_slint_core::future::JoinHandle<()>>>,
-    /// Watches the Windows "Animation effects" setting. Installed in `bind_context`,
-    /// unsubscribed on backend drop.
-    #[cfg(target_os = "windows")]
-    motion_preference_observer: RefCell<Option<windows_settings::MotionPreferenceObserver>>,
 
     /// This hook is called before a Window is created.
     ///
@@ -905,11 +899,6 @@ impl i_slint_core::platform::Platform for Backend {
             }
 
             ctx.set_motion_preference(windows_settings::motion_preference());
-            let proxy = self.shared_data.event_loop_proxy.clone();
-            *self.motion_preference_observer.borrow_mut() =
-                windows_settings::MotionPreferenceObserver::new(move || {
-                    proxy.send_event(SlintEvent(CustomEvent::MotionPreferenceChanged)).ok();
-                });
         }
     }
 
