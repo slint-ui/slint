@@ -201,3 +201,27 @@ export component TestCase inherits Window {
     assert!(!box_shadow.is_binding_set("border-color", false));
     assert!(!box_shadow.is_binding_set("border-width", false));
 }
+
+#[test]
+fn box_shadow_tracks_a_background_set_through_the_color_alias() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        color: green;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+}
