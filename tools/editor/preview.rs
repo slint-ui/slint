@@ -264,7 +264,7 @@ pub struct PreviewState {
     initial_live_data: preview_data::PreviewDataMap,
     current_live_data: preview_data::PreviewDataMap,
     undo_redo_stack: undo_redo::UndoRedoStack,
-    pending_history: std::collections::VecDeque<bool>,
+    pending_history: std::collections::VecDeque<document_edit::HistoryDirection>,
     inspector_edit: Option<inspector::Edit>,
 
     source_code: SourceCodeCache,
@@ -326,7 +326,7 @@ pub(in crate::preview) fn set_file_tree_controller(
 }
 
 fn file_edit_pending() -> bool {
-    PREVIEW_STATE.with_borrow(undo_redo::edit_pending)
+    PREVIEW_STATE.with_borrow(document_edit::edit_pending)
 }
 
 fn invalidate_file_history() {

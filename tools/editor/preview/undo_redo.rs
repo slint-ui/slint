@@ -22,7 +22,7 @@ pub fn compute_file_hashes(
     edits.iter().map(|e| (e.url.clone(), content_hash(&e.contents))).collect()
 }
 
-fn content_hash(content: &str) -> u64 {
+pub(super) fn content_hash(content: &str) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
     content.hash(&mut hasher);
     hasher.finish()
@@ -31,11 +31,7 @@ fn content_hash(content: &str) -> u64 {
 fn prepare_history_edit(
     document_cache: &i_slint_editor_preview::DocumentCache,
     item: &EditItem,
-) -> Option<(
-    lsp_types::WorkspaceEdit,
-    FileHashes,
-    Vec<i_slint_editor_preview::editing::text_edit::EditedText>,
-)> {
+) -> Option<(lsp_types::WorkspaceEdit, FileHashes)> {
     for (url, expected) in &item.file_hashes {
         let document = document_cache.get_document(url)?;
         let cached = document.node.as_ref()?.source_file.source()?;
@@ -46,8 +42,7 @@ fn prepare_history_edit(
     }
     let result = text_edit::apply_workspace_edit(document_cache, &item.edit).ok()?;
     let reverse = text_edit::reversed_edit(document_cache, &item.edit)?;
-    let file_hashes = compute_file_hashes(&result);
-    Some((reverse, file_hashes, result))
+    Some((reverse, compute_file_hashes(&result)))
 }
 
 #[derive(Default)]
@@ -74,7 +69,7 @@ impl UndoRedoStack {
     pub(super) fn prepare_undo(
         &mut self,
         document_cache: &i_slint_editor_preview::DocumentCache,
-    ) -> Option<(EditItem, EditItem, Vec<text_edit::EditedText>)> {
+    ) -> Option<(EditItem, EditItem)> {
         let item = self.undo_stack.last()?.clone();
         self.prepare(document_cache, item)
     }
@@ -82,7 +77,7 @@ impl UndoRedoStack {
     pub(super) fn prepare_redo(
         &mut self,
         document_cache: &i_slint_editor_preview::DocumentCache,
-    ) -> Option<(EditItem, EditItem, Vec<text_edit::EditedText>)> {
+    ) -> Option<(EditItem, EditItem)> {
         let item = self.redo_stack.last()?.clone();
         self.prepare(document_cache, item)
     }
@@ -91,14 +86,13 @@ impl UndoRedoStack {
         &mut self,
         document_cache: &i_slint_editor_preview::DocumentCache,
         item: EditItem,
-    ) -> Option<(EditItem, EditItem, Vec<text_edit::EditedText>)> {
-        let Some((reverse, file_hashes, expected)) = prepare_history_edit(document_cache, &item)
-        else {
+    ) -> Option<(EditItem, EditItem)> {
+        let Some((reverse, file_hashes)) = prepare_history_edit(document_cache, &item) else {
             self.clear();
             return None;
         };
         let reverse = EditItem { title: item.title.clone(), edit: reverse, file_hashes };
-        Some((item, reverse, expected))
+        Some((item, reverse))
     }
 
     pub(super) fn complete_undo(&mut self, redo: EditItem) {
@@ -151,24 +145,16 @@ pub fn setup(api: &ui::Api<'_>) {
     });
 }
 
-pub(super) fn edit_pending(state: &super::PreviewState) -> bool {
-    super::document_edit::edit_pending(state)
-}
-
 pub(super) fn apply_pending() {
     loop {
         let next = super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if edit_pending(state) {
+            if super::document_edit::edit_pending(state) {
                 return None;
             }
             state.pending_history.pop_front()
         });
-        let Some(redo) = next else { return };
-        if redo {
-            super::document_edit::submit_history(super::document_edit::HistoryDirection::Redo);
-        } else {
-            super::document_edit::submit_history(super::document_edit::HistoryDirection::Undo);
-        }
+        let Some(direction) = next else { return };
+        super::document_edit::submit_history(direction);
     }
 }
 

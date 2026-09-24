@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(response(&request)["ready"], false);
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.pending_document_edit = None;
-            state.pending_history.push_back(false);
+            state.pending_history.push_back(super::super::document_edit::HistoryDirection::Undo);
         });
         assert_eq!(response(&request)["ready"], false);
         PREVIEW_STATE.with_borrow_mut(|state| state.pending_history.clear());
