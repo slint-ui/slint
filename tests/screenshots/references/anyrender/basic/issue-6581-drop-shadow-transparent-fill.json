@@ -7,13 +7,13 @@
         "compose": "SrcOver",
         "mix": "Normal"
       },
-      "clip": "M-11,-11 L161,-11 L161,161 L-11,161 Z",
+      "clip": "M-5,-5 L53,-5 L53,53 L-5,53 Z",
       "filter": {
         "expansion_rect": {
-          "x0": -7.5,
-          "x1": 7.5,
-          "y0": -7.5,
-          "y1": 7.5
+          "x0": -3.0,
+          "x1": 3.0,
+          "y0": -3.0,
+          "y1": 3.0
         },
         "output": 0,
         "primitives": [
@@ -21,7 +21,7 @@
             "effect": {
               "GaussianBlur": {
                 "edge_mode": "None",
-                "std_deviation": 2.5
+                "std_deviation": 1.0
               }
             },
             "inputs": {
@@ -36,8 +36,8 @@
         0.0,
         0.0,
         1.0,
-        20.0,
-        20.0
+        8.0,
+        8.0
       ]
     }
   },
@@ -54,7 +54,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M5,5 L145,5 L145,145 L5,145 Z",
+      "shape": "M2,2 L46,2 L46,46 L2,46 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -62,15 +62,15 @@
         "join": "Miter",
         "miter_limit": 4.0,
         "start_cap": "Round",
-        "width": 10.0
+        "width": 4.0
       },
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
-        20.0,
-        20.0
+        8.0,
+        8.0
       ]
     }
   },
@@ -82,15 +82,15 @@
         "compose": "SrcIn",
         "mix": "Normal"
       },
-      "clip": "M-11,-11 L161,-11 L161,161 L-11,161 Z",
+      "clip": "M-5,-5 L53,-5 L53,53 L-5,53 Z",
       "filter": null,
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
-        20.0,
-        20.0
+        8.0,
+        8.0
       ]
     }
   },
@@ -108,14 +108,14 @@
       },
       "brush_transform": null,
       "fill": "NonZero",
-      "shape": "M-11,-11 L161,-11 L161,161 L-11,161 Z",
+      "shape": "M-5,-5 L53,-5 L53,53 L-5,53 Z",
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
-        20.0,
-        20.0
+        8.0,
+        8.0
       ]
     }
   },
@@ -134,7 +134,7 @@
         }
       },
       "brush_transform": null,
-      "shape": "M5,5 L145,5 L145,145 L5,145 Z",
+      "shape": "M2,2 L46,2 L46,46 L2,46 Z",
       "style": {
         "dash_offset": 0.0,
         "dash_pattern": [],
@@ -142,15 +142,15 @@
         "join": "Miter",
         "miter_limit": 4.0,
         "start_cap": "Round",
-        "width": 10.0
+        "width": 4.0
       },
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
-        10.0,
-        10.0
+        4.0,
+        4.0
       ]
     }
   }
