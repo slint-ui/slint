@@ -76,6 +76,7 @@ type VelocityTracker = MacOsVelocityTracker;
 #[cfg(not(any(target_os = "ios", target_os = "linux", target_os = "none", target_os = "macos")))]
 type VelocityTracker = GeneralVelocityTracker<VELOCITY_TRACKER_SAMPLES>;
 
+#[derive(Clone, Copy)]
 enum Dimension {
     X,
     Y,
@@ -152,14 +153,29 @@ impl Item for Flickable {
                     use_bounce_y,
                 );
 
+                let interacting = flick
+                    .data
+                    .inner
+                    .try_borrow()
+                    .map_or(true, |inner| inner.capture_events.is_some());
                 let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                if *x_out_of_bounds && !x.has_binding() && !use_bounce_x {
-                    x.set(p.x_length());
+                if *x_out_of_bounds && !x.has_binding() {
+                    if !use_bounce_x {
+                        x.set(p.x_length());
+                    } else if !interacting && let Ok(mut inner) = flick.data.inner.try_borrow_mut()
+                    {
+                        inner.start_spring_back(flick, &flick_rc, Dimension::X);
+                    }
                 }
 
                 let y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                if *y_out_of_bounds && !y.has_binding() && !use_bounce_y {
-                    y.set(p.y_length());
+                if *y_out_of_bounds && !y.has_binding() {
+                    if !use_bounce_y {
+                        y.set(p.y_length());
+                    } else if !interacting && let Ok(mut inner) = flick.data.inner.try_borrow_mut()
+                    {
+                        inner.start_spring_back(flick, &flick_rc, Dimension::Y);
+                    }
                 }
             },
         );
@@ -839,6 +855,49 @@ impl FlickableDataInner {
         }
     }
 
+    /// Springs the content back to the limit it is beyond
+    fn spring_back(
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        dimension: Dimension,
+    ) -> Rc<RefCell<dyn PositionSimulation>> {
+        let content = match dimension {
+            Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
+            Dimension::Y => Flickable::FIELD_OFFSETS.content_y(),
+        }
+        .apply_pin(flick);
+        let curr_val = content.get().0 as f32;
+        // Spring back to whichever edge we're already past
+        let limit = Self::flick_limits(flick_rc, curr_val, dimension);
+        Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
+            content.set_physic_animation_value(weak.clone());
+            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit))
+        })
+    }
+
+    /// Springs the content back on one axis and adds the simulation to the running ones.
+    ///
+    /// An existing record keeps its start time, so the new simulation looks further along than it
+    /// is when it is asked for its remaining distance or velocity.
+    fn start_spring_back(
+        &mut self,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        dimension: Dimension,
+    ) {
+        let simulation = Self::spring_back(flick, flick_rc, dimension);
+        let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
+            start_time: crate::animations::current_tick(),
+            weak: flick_rc.downgrade(),
+            x_simulation: None,
+            y_simulation: None,
+        });
+        match dimension {
+            Dimension::X => running.x_simulation = Some(simulation),
+            Dimension::Y => running.y_simulation = Some(simulation),
+        }
+    }
+
     fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
         if self.capture_events.is_some() {
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
@@ -885,16 +944,7 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                let curr_val = content_x.get().0 as f32;
-                // Spring back to whichever edge we're already past, not
-                // wherever the release velocity happens to point.
-                let limit_x = Self::flick_limits(flick_rc, curr_val, Dimension::X);
-                let x_simulation = Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
-                    content_x.set_physic_animation_value(weak.clone());
-                    RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit_x))
-                });
-                Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
+                Some(Self::spring_back(flick, flick_rc, Dimension::X))
             };
 
             let y_simulation = if inside_bounds_y {
@@ -933,16 +983,7 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                let curr_val = content_y.get().0 as f32;
-                // Spring back to whichever edge we're already past, not
-                // wherever the release velocity happens to point.
-                let limit_y = Self::flick_limits(flick_rc, curr_val, Dimension::Y);
-                let y_simulation = Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
-                    content_y.set_physic_animation_value(weak.clone());
-                    RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit_y))
-                });
-                Some(y_simulation as Rc<RefCell<dyn PositionSimulation>>)
+                Some(Self::spring_back(flick, flick_rc, Dimension::Y))
             };
 
             if x_simulation.is_some() || y_simulation.is_some() {

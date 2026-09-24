@@ -309,4 +309,81 @@ assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because 
 slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
 assert_eq!(instance.get_fli_content_y(), 0., "Bouncing is not possible, because the content size is equal to the geometry");
 ```
+
+// Content beyond its limits without any user interaction is brought back into range.
+// With bounce on it bounces back, otherwise it is set back. Here the content shrinks.
+```rust
+use slint::language::AutoBool;
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+
+for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+
+    // The content is larger than the flickable in both directions and scrolled to its end
+    instance.set_fli_content_width(instance.get_fli_width() + 400.);
+    instance.set_fli_content_height(instance.get_fli_height() + 400.);
+    instance.set_fli_content_x(-400.);
+    instance.set_fli_content_y(-400.);
+    slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+    assert_eq!(instance.get_fli_content_x(), -400., "Bounce {name}");
+    assert_eq!(instance.get_fli_content_y(), -400., "Bounce {name}");
+
+    // The content shrinks but still overflows, so it can still be scrolled, just not that far
+    instance.set_fli_content_width(instance.get_fli_width() + 100.);
+    instance.set_fli_content_height(instance.get_fli_height() + 100.);
+    // The change handler runs after the time advanced, so a spring it starts has not moved yet
+    slint_testing::mock_elapsed_time(16);
+    slint_testing::mock_elapsed_time(50);
+    if name == "on" {
+        assert!(instance.get_fli_content_x() > -400. && instance.get_fli_content_x() < -100., "Bounce {name}: content x is on its way back, received: {}", instance.get_fli_content_x());
+        assert!(instance.get_fli_content_y() > -400. && instance.get_fli_content_y() < -100., "Bounce {name}: content y is on its way back, received: {}", instance.get_fli_content_y());
+    }
+    slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+    assert!((instance.get_fli_content_x() - (-100.)).abs() < 0.01, "Bounce {name}: content x is brought back into range, received: {}", instance.get_fli_content_x());
+    assert!((instance.get_fli_content_y() - (-100.)).abs() < 0.01, "Bounce {name}: content y is brought back into range, received: {}", instance.get_fli_content_y());
+}
+```
+
+// Same, but the flickable grows instead of the content shrinking
+```rust
+use slint::language::AutoBool;
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+
+for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+
+    // The content is larger than the flickable in both directions and scrolled to its end
+    instance.set_fli_content_width(instance.get_fli_width() + 400.);
+    instance.set_fli_content_height(instance.get_fli_height() + 400.);
+    instance.set_fli_content_x(-400.);
+    instance.set_fli_content_y(-400.);
+    slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+    assert_eq!(instance.get_fli_content_x(), -400., "Bounce {name}");
+    assert_eq!(instance.get_fli_content_y(), -400., "Bounce {name}");
+
+    // The flickable grows but the content still overflows, so it can only be scrolled by 100 now
+    instance.set_fli_width(instance.get_fli_width() + 300.);
+    instance.set_fli_height(instance.get_fli_height() + 300.);
+    // The change handler runs after the time advanced, so a spring it starts has not moved yet
+    slint_testing::mock_elapsed_time(16);
+    slint_testing::mock_elapsed_time(50);
+    if name == "on" {
+        assert!(instance.get_fli_content_x() > -400. && instance.get_fli_content_x() < -100., "Bounce {name}: content x is on its way back, received: {}", instance.get_fli_content_x());
+        assert!(instance.get_fli_content_y() > -400. && instance.get_fli_content_y() < -100., "Bounce {name}: content y is on its way back, received: {}", instance.get_fli_content_y());
+    }
+    slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+    assert!((instance.get_fli_content_x() - (-100.)).abs() < 0.01, "Bounce {name}: content x is brought back into range, received: {}", instance.get_fli_content_x());
+    assert!((instance.get_fli_content_y() - (-100.)).abs() < 0.01, "Bounce {name}: content y is brought back into range, received: {}", instance.get_fli_content_y());
+}
+```
 */
