@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export interface Switch {
+    in property <string> text;
+    in property <bool> enabled;
+    in-out property <bool> checked;
+
+    out property <bool> has-focus;
+    out property <bool> has-hover;
+    out property <bool> pressed;
+
+    callback toggled;
+
+    public function toggle();
+}

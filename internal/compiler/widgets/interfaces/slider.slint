@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export interface Slider {
+    in property <string> text;
+    in property <bool> enabled;
+    in property <float> minimum;
+    in property <float> maximum;
+    in property <float> step;
+    in property <Orientation> orientation;
+    in-out property <float> value;
+
+    out property <bool> has-focus;
+    out property <bool> has-hover;
+    out property <bool> pressed;
+
+    callback changed(value: float);
+    callback released(value: float);
+
+    public function set-value(new-value: float);
+    public function increment();
+    public function decrement();
+}
