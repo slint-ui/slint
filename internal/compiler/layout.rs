@@ -1018,7 +1018,8 @@ pub fn implicit_layout_info_call(
 /// The binding analysis records that width read, and the box layout lowering
 /// only forwards the layout's width to a repeated cell when this holds: a read
 /// the analysis doesn't see can close a loop that panics at runtime.
-/// `Element::is_builtin_height_for_width` is a looser variant for synthesis.
+/// `Element::is_builtin_height_for_width` is the variant for synthesis,
+/// which runs before `property_analysis` is filled.
 pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
     // Before `resolve_native_classes`, a builtin's native class is its widest one.
     let class = match &elem.base_type {

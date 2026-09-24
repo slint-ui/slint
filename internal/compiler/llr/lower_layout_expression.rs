@@ -87,7 +87,6 @@ pub(super) fn compute_grid_layout_info(
 /// Whether a repeated cell of `layout` measures its vertical axis at a given
 /// width (height-for-width). Only then does forwarding the width to the
 /// repeated cells change anything.
-/// Also requires `builtin_height_depends_on_width` (see there).
 fn box_layout_has_height_for_width_repeated_cell(layout: &crate::layout::BoxLayout) -> bool {
     layout.elems.iter().any(|item| {
         if item.element.borrow().repeated.is_none() {
