@@ -365,7 +365,7 @@ fn default_config() -> cbindgen::Config {
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
             ("Channel".into(), "uint8_t".into()),
-            ("Instant".into(), "uint64_t".into()),
+            ("Instant".into(), "Instant".into()),
         ]
         .iter()
         .cloned()
@@ -616,7 +616,27 @@ fn gen_corelib(
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("properties/ffi.rs"))
         .with_src(crate_dir.join("callbacks.rs"))
-        .with_after_include("namespace slint { class Color; class Brush; }")
+        .with_after_include(
+            "namespace slint { class Color; class Brush; }
+            namespace slint::cbindgen_private {
+                // Rust's `Instant` is a `#[repr(transparent)]` wrapper around `core::time::Duration`,
+                // whose layout cbindgen can't see. This mirrors it: whole seconds, then the
+                // sub-second nanoseconds, with the same target-dependent size and alignment as
+                // `Duration`. `instant_layout_matches_the_cpp_mirror` in animations.rs checks it
+                struct Instant {
+                    uint64_t seconds = 0;
+                    uint32_t nanoseconds = 0;
+
+                    // The transition callbacks hand the start time over in milliseconds
+                    uint64_t as_millis() const { return seconds * 1000 + nanoseconds / 1000000; }
+
+                    bool operator==(const Instant &o) const {
+                        return seconds == o.seconds && nanoseconds == o.nanoseconds;
+                    }
+                    bool operator!=(const Instant &o) const { return !(*this == o); }
+                };
+            }",
+        )
         .generate()
         .context("Unable to generate bindings for slint_properties_internal.h")?
         .write_to_file(include_dir.join("slint_properties_internal.h"));

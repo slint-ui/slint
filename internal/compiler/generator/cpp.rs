@@ -792,7 +792,7 @@ fn handle_property_init(
                             [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
                                 auto [animation, change_time] = {animation};
-                                **start_time = change_time;
+                                **start_time = change_time.as_millis();
                                 return animation;
                             }});",
                         )
