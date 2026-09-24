@@ -21,7 +21,6 @@ export component InspectorGradientStops inherits Rectangle {
     private property <FillData> gesture-value;
     private property <bool> dragging;
     private property <bool> dragged;
-    private property <bool> pressed-existing-stop;
     private property <int> pressed-index: -1;
     private property <Point> press-position;
     private property <length> drag-threshold: 2px;
@@ -31,9 +30,6 @@ export component InspectorGradientStops inherits Rectangle {
     min-height: layout.min-height;
     changed session-key => {
         root.dragging = false;
-        root.dragged = false;
-        root.pressed-existing-stop = false;
-        root.pressed-index = -1;
     }
 
     layout := VerticalLayout {
@@ -102,12 +98,10 @@ export component InspectorGradientStops inherits Rectangle {
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
                         if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - root.style.marker.size) <= root.style.ramp.pick-distance {
                             root.selected-index = index;
-                            root.pressed-existing-stop = true;
                             root.pressed-index = index;
                         } else {
                             FillSession.add-stop-position(position);
-                            root.pressed-existing-stop = false;
-                            root.pressed-index = root.selected-index;
+                            root.pressed-index = -1;
                         }
                         root.dragging = true;
                     } else if event.kind == PointerEventKind.move && root.dragging {
@@ -118,18 +112,13 @@ export component InspectorGradientStops inherits Rectangle {
                             FillSession.move-stop-position(position);
                         }
                     } else if event.kind == PointerEventKind.up && root.dragging {
-                        let edit-color = root.pressed-existing-stop && !root.dragged && root.pressed-index == root.selected-index;
+                        let edit-color = root.pressed-index >= 0 && !root.dragged && root.pressed-index == root.selected-index;
                         root.dragging = false;
-                        root.pressed-existing-stop = false;
-                        root.pressed-index = -1;
                         if edit-color {
                             FillSession.edit-stop-color(root.selected-index);
                         }
                     } else if event.kind == PointerEventKind.cancel && root.dragging {
                         root.dragging = false;
-                        root.dragged = false;
-                        root.pressed-existing-stop = false;
-                        root.pressed-index = -1;
                         root.selected-index = min(root.selected-index, root.gesture-value.stops.length - 1);
                         FillSession.preview-fill(root.gesture-value);
                     }

@@ -8,16 +8,15 @@ component ContrastTick {
     in property <GradientMarkerStyle> style;
     in property <bool> vertical;
     private property <length> outline: root.style.tick-keyline-width;
-    private property <length> halo: root.style.tick-halo-width;
-    private property <length> surround: root.outline + root.halo;
+    private property <length> surround: root.outline + 1px;
     width: (root.vertical ? root.style.tick-width : root.style.tick-length) + 2 * root.surround;
     height: (root.vertical ? root.style.tick-length : root.style.tick-width) + 2 * root.surround;
 
     Rectangle {
-        x: root.halo;
-        y: root.halo;
-        width: parent.width - 2 * root.halo;
-        height: parent.height - 2 * root.halo;
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
         border-radius: min(self.width, self.height) / 2;
         background: root.style.keyline-light;
 
@@ -34,7 +33,7 @@ component ContrastTick {
 
 export component EditorGradientStopMarker inherits Rectangle {
     in property <GradientMarkerStyle> style;
-    in property <bool> active: true;
+    in property <bool> active;
     in property <color> stop-color;
     width: root.style.size;
     height: root.style.size;
@@ -105,6 +104,4 @@ export component EditorGradientStopMarker inherits Rectangle {
         x: root.center-x - self.width / 2;
         y: root.height - self.height + 1px;
     }
-
-    @children
 }

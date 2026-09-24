@@ -21,7 +21,6 @@ component GradientHandle inherits FocusScope {
     in property <color> color;
     in property <bool> selected;
     in property <bool> endpoint;
-    in property <bool> activate-on-click;
     in property <int> focus-generation;
     callback window-point(Point) -> Point;
     changed focus-generation => { if root.selected { root.focus(); } }
@@ -62,7 +61,7 @@ component GradientHandle inherits FocusScope {
         accessible-action-default => {
             root.focus();
             root.focused();
-            if root.activate-on-click { root.activated(); }
+            if !root.endpoint { root.activated(); }
         }
         changed pressed => {
             if self.pressed {
@@ -76,14 +75,14 @@ component GradientHandle inherits FocusScope {
         }
         moved => {
             if self.pressed {
-                if !root.activate-on-click || self.dragged || abs(self.mouse-x - self.pressed-x) >= self.drag-threshold || abs(self.mouse-y - self.pressed-y) >= self.drag-threshold {
+                if root.endpoint || self.dragged || abs(self.mouse-x - self.pressed-x) >= self.drag-threshold || abs(self.mouse-y - self.pressed-y) >= self.drag-threshold {
                     self.dragged = true;
                     root.dragged(root.window-point({ x: self.mouse-x, y: self.mouse-y }));
                 }
             }
         }
         clicked => {
-            if root.activate-on-click && !self.dragged {
+            if !root.endpoint && !self.dragged {
                 root.activated();
             }
         }
@@ -339,7 +338,6 @@ export component GradientOverlay inherits FocusScope {
             transform-rotation: self.marker-angle;
             color: FillSession.working-fill.stops[index].color;
             selected: index == FillSession.selected-stop;
-            activate-on-click: true;
             label: "Gradient stop " + (index + 1);
             focus-generation: root.focus-epoch;
             window-point(p) => {

@@ -124,7 +124,7 @@ def test_ramp_marker_shows_opaque_and_alpha_halves(
         opaque = cast(tuple[int, int, int], image.getpixel((x + 14, y + 23)))
         translucent = cast(tuple[int, int, int], image.getpixel((x + 26, y + 23)))
         horizontal_tick = cast(tuple[int, int, int], image.getpixel((x + 4, y + 23)))
-        bottom_tick = cast(tuple[int, int, int], image.getpixel((x + 20, y + 35)))
+        bottom_tick = cast(tuple[int, int, int], image.getpixel((x + 20, y + 37)))
         pointer = cast(tuple[int, int, int], image.getpixel((x + 20, y + 4)))
 
         assert opaque[0] < 16 and opaque[1] < 16 and opaque[2] > 239
