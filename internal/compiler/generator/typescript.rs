@@ -3,14 +3,17 @@
 
 // cSpell:ignore subcomponent structty enumty
 
-use std::collections::HashMap;
-use std::sync::Arc;
-
-use smol_str::{SmolStr, StrExt, format_smolstr};
-
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
-use std::collections::HashSet;
+use itertools::Itertools;
+use smol_str::{SmolStr, StrExt, format_smolstr};
+
+use crate::CompilerConfiguration;
+use crate::langtype::{BuiltinStruct, StructName, Type};
+use crate::llr;
+use crate::object_tree::Document;
+use typescript_ast::*;
 
 fn is_typescript_keyword(word: &str) -> bool {
     static TS_KEYWORDS: OnceLock<HashSet<&'static str>> = OnceLock::new();
@@ -27,29 +30,6 @@ fn is_typescript_keyword(word: &str) -> bool {
     keywords.contains(word)
 }
 
-/// The built-in enums the Node API exposes as `slint.language.X`. The `pub` ones, which
-/// is the same set `slint::language` re-exports in Rust; the rest are not public API in
-/// any language binding.
-fn is_public_builtin_enum(name: &str) -> bool {
-    static PUBLIC: OnceLock<HashSet<&'static str>> = OnceLock::new();
-    PUBLIC
-        .get_or_init(|| {
-            let mut names = HashSet::new();
-            macro_rules! collect_public {
-                ($(
-                    $(#[doc = $enum_doc:literal])*
-                    $(#[non_exhaustive])?
-                    $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident, )* }
-                )*) => {
-                    $( if stringify!($vis) == "pub" { names.insert(stringify!($Name)); } )*
-                };
-            }
-            i_slint_common::for_each_enums!(collect_public);
-            names
-        })
-        .contains(name)
-}
-
 /// The name of a member: a property, a struct field, or an enum variant.
 /// A keyword is a valid member name, so only the dashes need replacing.
 fn member(name: &str) -> SmolStr {
@@ -57,7 +37,7 @@ fn member(name: &str) -> SmolStr {
 }
 
 /// The name of a declaration: a type or a binding. Those can't be keywords.
-pub fn ident(ident: &str) -> SmolStr {
+fn ident(ident: &str) -> SmolStr {
     let normalized = member(ident);
     if is_typescript_keyword(normalized.as_str()) {
         format_smolstr!("{}_", normalized)
@@ -66,209 +46,85 @@ pub fn ident(ident: &str) -> SmolStr {
     }
 }
 
-struct TsProperty {
-    name: SmolStr,
-    ty: SmolStr,
-    read_only: bool,
-}
-
-impl From<(&SmolStr, &llr::PublicProperty)> for TsProperty {
-    fn from((name, llr_prop): (&SmolStr, &llr::PublicProperty)) -> Self {
-        Self { name: member(name), ty: ts_type_name(&llr_prop.ty), read_only: llr_prop.read_only() }
-    }
-}
-
-enum ComponentType<'a> {
-    Global,
-    Component { associated_globals: &'a [TsComponent] },
-}
-
-struct TsComponent {
-    name: SmolStr,
-    properties: Vec<TsProperty>,
-    aliases: Vec<SmolStr>,
-}
-
-impl TsComponent {
-    fn generate(&self, ty: ComponentType<'_>, file: &mut typescript_ast::File) {
-        let mut interface = typescript_ast::Interface {
-            name: self.name.clone(),
-            extends: None,
-            ..Default::default()
-        };
-
-        interface.fields = self
-            .properties
-            .iter()
-            .map(|prop| typescript_ast::Field {
-                name: prop.name.clone(),
-                ty: prop.ty.clone(),
-                read_only: prop.read_only,
-            })
-            .chain(
-                match ty {
-                    ComponentType::Global => None,
-                    ComponentType::Component { associated_globals } => Some(associated_globals),
-                }
-                .into_iter()
-                .flat_map(|globals| globals.iter())
-                .flat_map(|glob| {
-                    std::iter::once(&glob.name).chain(glob.aliases.iter()).map(|exported_name| {
-                        typescript_ast::Field {
-                            name: member(exported_name),
-                            ty: glob.name.clone(),
-                            read_only: true,
-                        }
-                    })
-                }),
-            )
-            .collect();
-
-        file.declarations.push(typescript_ast::Declaration::Interface(interface));
-
-        file.declarations.extend(type_aliases(&self.name, &self.aliases));
-    }
-}
-
-impl From<&llr::PublicComponent> for TsComponent {
-    fn from(llr_compo: &llr::PublicComponent) -> Self {
-        Self {
-            name: ident(&llr_compo.name),
-            properties: llr_compo.public_properties.iter().map(From::from).collect(),
-            aliases: Vec::new(),
-        }
-    }
-}
-
-impl From<&llr::GlobalComponent> for TsComponent {
-    fn from(llr_global: &llr::GlobalComponent) -> Self {
-        Self {
-            name: ident(&llr_global.name),
-            properties: llr_global.public_properties.iter().map(From::from).collect(),
-            aliases: llr_global.aliases.iter().map(|exported_name| ident(exported_name)).collect(),
-        }
-    }
-}
-
-struct TsStructField {
-    name: SmolStr,
-    ty: SmolStr,
-}
-
-struct TsStruct {
-    name: SmolStr,
-    fields: Vec<TsStructField>,
-    aliases: Vec<SmolStr>,
-}
-
-struct AnonymousStruct;
-
-impl TryFrom<&Arc<crate::langtype::Struct>> for TsStruct {
-    type Error = AnonymousStruct;
-
-    fn try_from(structty: &Arc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
-        let StructName::User { name, .. } = &structty.name else {
-            return Err(AnonymousStruct);
-        };
-        Ok(Self {
-            name: ident(name),
-            fields: structty
-                .fields
-                .iter()
-                .map(|(name, ty)| TsStructField { name: member(name), ty: ts_type_name(ty) })
-                .collect(),
-            aliases: Vec::new(),
-        })
-    }
-}
-
-impl From<&TsStruct> for typescript_ast::Declaration {
-    fn from(ts_struct: &TsStruct) -> Self {
-        typescript_ast::Declaration::Interface(typescript_ast::Interface {
-            name: ts_struct.name.clone(),
-            fields: ts_struct
-                .fields
-                .iter()
-                .map(|field| typescript_ast::Field {
-                    name: field.name.clone(),
-                    ty: field.ty.clone(),
-                    read_only: false,
-                })
-                .collect(),
-            ..Default::default()
-        })
-    }
-}
-
 fn type_aliases<'a>(
     name: &'a SmolStr,
     aliases: &'a [SmolStr],
-) -> impl ExactSizeIterator<Item = typescript_ast::Declaration> + 'a {
-    aliases.iter().map(|alias| {
-        typescript_ast::Declaration::TypeAlias(typescript_ast::TypeAlias {
-            name: ident(alias),
-            value: name.clone(),
-        })
-    })
+) -> impl Iterator<Item = Declaration> + 'a {
+    aliases
+        .iter()
+        .map(|alias| Declaration::TypeAlias(TypeAlias { name: ident(alias), value: name.clone() }))
 }
 
-struct TsEnum {
+/// A component or a global, and the extra names the module exports it under.
+struct TsInterface {
     name: SmolStr,
-    variants: Vec<typescript_ast::EnumVariant>,
     aliases: Vec<SmolStr>,
+    fields: Vec<Field>,
 }
 
-impl From<&Arc<crate::langtype::Enumeration>> for TsEnum {
-    fn from(enumty: &Arc<crate::langtype::Enumeration>) -> Self {
-        Self {
-            name: ident(&enumty.name),
-            variants: enumty
-                .values
-                .iter()
-                .map(|val| typescript_ast::EnumVariant { name: member(val), value: val.clone() })
-                .collect(),
-            aliases: Vec::new(),
-        }
+impl TsInterface {
+    fn new(name: &SmolStr, aliases: Vec<SmolStr>, properties: &llr::PublicProperties) -> Self {
+        let fields = properties
+            .iter()
+            .map(|(name, prop)| Field {
+                name: member(name),
+                ty: ts_type_name(&prop.ty),
+                read_only: prop.read_only(),
+            })
+            .collect();
+        Self { name: ident(name), aliases, fields }
     }
-}
 
-impl From<&TsEnum> for typescript_ast::Declaration {
-    fn from(ts_enum: &TsEnum) -> Self {
-        typescript_ast::Declaration::Enum(typescript_ast::Enum {
-            name: ts_enum.name.clone(),
-            variants: ts_enum.variants.clone(),
-        })
+    /// Every name the `.slint` file exports this under.
+    fn exported_names(&self) -> impl Iterator<Item = &SmolStr> {
+        std::iter::once(&self.name).chain(&self.aliases)
     }
-}
 
-enum TsStructOrEnum {
-    Struct(TsStruct),
-    Enum(TsEnum),
-}
-
-impl TsStructOrEnum {
-    fn declaration(&self) -> typescript_ast::Declaration {
-        match self {
-            TsStructOrEnum::Struct(ts_struct) => ts_struct.into(),
-            TsStructOrEnum::Enum(ts_enum) => ts_enum.into(),
-        }
-    }
-}
-
-impl TsStructOrEnum {
-    fn generate_aliases(&self, file: &mut typescript_ast::File) {
-        let (name, aliases) = match self {
-            TsStructOrEnum::Struct(s) => (&s.name, &s.aliases),
-            TsStructOrEnum::Enum(e) => (&e.name, &e.aliases),
+    /// The interface itself, then one `export type Alias = Name;` per extra exported name.
+    fn declarations(&self, associated_globals: &[TsInterface]) -> Vec<Declaration> {
+        // A global is reached through the component instance, under each of its names.
+        let globals = associated_globals.iter().flat_map(|glob| {
+            glob.exported_names().map(|exported| Field {
+                name: member(exported),
+                ty: glob.name.clone(),
+                read_only: true,
+            })
+        });
+        let interface = Interface {
+            name: self.name.clone(),
+            fields: self.fields.iter().cloned().chain(globals).collect(),
         };
-        file.declarations.extend(type_aliases(name, aliases));
+        std::iter::once(Declaration::Interface(interface))
+            .chain(type_aliases(&self.name, &self.aliases))
+            .collect()
     }
 }
 
-struct TsModule {
-    globals: Vec<TsComponent>,
-    components: Vec<TsComponent>,
-    structs_and_enums: Vec<TsStructOrEnum>,
+/// A struct or an enum declared in the `.slint` file, and the names it is exported under.
+struct TsType {
+    name: SmolStr,
+    aliases: Vec<SmolStr>,
+    kind: TsTypeKind,
+}
+
+enum TsTypeKind {
+    Struct(Vec<Field>),
+    Enum(Vec<EnumVariant>),
+}
+
+impl TsType {
+    fn declarations(&self) -> impl Iterator<Item = Declaration> + '_ {
+        let declaration = match &self.kind {
+            TsTypeKind::Struct(fields) => Declaration::Interface(Interface {
+                name: self.name.clone(),
+                fields: fields.clone(),
+            }),
+            TsTypeKind::Enum(variants) => {
+                Declaration::Enum(Enum { name: self.name.clone(), variants: variants.clone() })
+            }
+        };
+        std::iter::once(declaration).chain(type_aliases(&self.name, &self.aliases))
+    }
 }
 
 /// This module contains data structures that represent a TypeScript file.
@@ -276,14 +132,13 @@ struct TsModule {
 mod typescript_ast {
     use std::fmt::{Display, Error, Formatter};
 
+    use itertools::Itertools;
     use smol_str::SmolStr;
 
-    /// A full TypeScript file
     #[derive(Default, Debug)]
     pub struct File {
         pub imports: Vec<SmolStr>,
         pub declarations: Vec<Declaration>,
-        pub trailing_code: Vec<SmolStr>,
     }
 
     impl Display for File {
@@ -297,54 +152,48 @@ mod typescript_ast {
             }
             for decl in &self.declarations {
                 writeln!(f, "{}", decl)?;
-            }
-            for code in &self.trailing_code {
-                writeln!(f, "{}", code)?;
+                if decl.followed_by_blank_line() {
+                    writeln!(f)?;
+                }
             }
             Ok(())
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, derive_more::Display)]
     pub enum Declaration {
         Interface(Interface),
         Enum(Enum),
         TypeAlias(TypeAlias),
+        DeclaredConst(DeclaredConst),
+        DeclaredFunction(DeclaredFunction),
     }
 
-    impl Display for Declaration {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Declaration::Interface(interface) => write!(f, "{}", interface),
-                Declaration::Enum(en) => write!(f, "{}", en),
-                Declaration::TypeAlias(alias) => write!(f, "{}", alias),
-            }
+    impl Declaration {
+        /// Types are set apart from one another; the runtime values at the end of the file
+        /// read as one list.
+        fn followed_by_blank_line(&self) -> bool {
+            !matches!(self, Declaration::DeclaredConst(_) | Declaration::DeclaredFunction(_))
         }
     }
 
     #[derive(Debug, Default)]
     pub struct Interface {
         pub name: SmolStr,
-        pub extends: Option<SmolStr>,
         pub fields: Vec<Field>,
     }
 
     impl Display for Interface {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            if let Some(extends) = self.extends.as_ref() {
-                writeln!(f, "export interface {} extends {} {{", self.name, extends)?;
-            } else {
-                writeln!(f, "export interface {} {{", self.name)?;
-            }
+            writeln!(f, "export interface {} {{", self.name)?;
             for field in &self.fields {
                 writeln!(f, "    {};", field)?;
             }
-            writeln!(f, "}}")?;
-            Ok(())
+            write!(f, "}}")
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct Field {
         pub name: SmolStr,
         pub ty: SmolStr,
@@ -370,23 +219,22 @@ mod typescript_ast {
     impl Display for Enum {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             // A union of the string literals the runtime uses, rather than a TypeScript
-            // enum: a plain string stays assignable, and two files that both declare the
-            // same built-in enum still describe the same type.
-            let union = self
-                .variants
-                .iter()
-                .map(|variant| format!("\"{}\"", variant.value))
-                .collect::<Vec<_>>()
-                .join(" | ");
-            let union = if union.is_empty() { "never".into() } else { union };
-            writeln!(f, "export type {} = {};", self.name, union)?;
+            // enum: a plain string stays assignable, and `enum` is not erasable syntax,
+            // which node's type stripping rejects.
+            let union =
+                self.variants.iter().map(|variant| format!("\"{}\"", variant.value)).join(" | ");
+            writeln!(
+                f,
+                "export type {} = {};",
+                self.name,
+                if union.is_empty() { "never" } else { &union }
+            )?;
 
             writeln!(f, "export declare const {}: {{", self.name)?;
             for variant in &self.variants {
                 writeln!(f, "    readonly {}: \"{}\";", variant.name, variant.value)?;
             }
-            writeln!(f, "}};")?;
-            Ok(())
+            write!(f, "}};")
         }
     }
 
@@ -396,44 +244,33 @@ mod typescript_ast {
         pub value: SmolStr,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, derive_more::Display)]
+    #[display("export type {name} = {value};")]
     pub struct TypeAlias {
         pub name: SmolStr,
         pub value: SmolStr,
     }
 
-    impl Display for TypeAlias {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            writeln!(f, "export type {} = {};", self.name, self.value)
-        }
+    #[derive(Debug, derive_more::Display)]
+    #[display("export declare const {name}: {ty};")]
+    pub struct DeclaredConst {
+        pub name: SmolStr,
+        pub ty: SmolStr,
+    }
+
+    #[derive(Debug, derive_more::Display)]
+    #[display("export declare function {name}({parameters}): {return_type};")]
+    pub struct DeclaredFunction {
+        pub name: SmolStr,
+        pub parameters: SmolStr,
+        pub return_type: SmolStr,
     }
 }
 
-use crate::langtype::{StructName, Type};
-
-use crate::CompilerConfiguration;
-use crate::llr;
-use crate::object_tree::Document;
-use typescript_ast::*;
-
 /// Returns the text of the TypeScript code produced by the given root component
-pub fn generate(
-    doc: &Document,
-    compiler_config: &CompilerConfiguration,
-    destination_path: Option<&std::path::Path>,
-) -> std::io::Result<File> {
-    let mut file = File { ..Default::default() };
+pub fn generate(doc: &Document, compiler_config: &CompilerConfiguration) -> std::io::Result<File> {
+    let mut file = File::default();
     file.imports.push(SmolStr::new_static("import * as slint from \"slint-ui\";"));
-
-    // The output describes the module that `slint-ui/register` makes of the `.slint` file,
-    // so it is a declaration file. A destination named otherwise would silently be one too.
-    if let Some(name) = destination_path.and_then(|p| p.file_name()).and_then(|n| n.to_str())
-        && !name.ends_with(".d.ts")
-    {
-        return Err(std::io::Error::other(format!(
-            "The TypeScript output is a declaration file, so '{name}' should be named '.d.ts'"
-        )));
-    }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
 
@@ -448,73 +285,87 @@ pub fn generate(
     }
     let aliases_of = |name: &str| aliases.get(name).cloned().unwrap_or_default();
 
-    let mut module =
-        TsModule { globals: Vec::new(), components: Vec::new(), structs_and_enums: Vec::new() };
-
-    for ty in &doc.used_types.borrow().structs_and_enums {
-        match ty {
-            Type::Struct(s) => module.structs_and_enums.extend(
-                TsStruct::try_from(s).ok().and_then(|mut ts_struct| {
-                    let StructName::User { name, .. } = &s.name else {
-                        return None;
-                    };
-                    ts_struct.aliases = aliases_of(name);
-                    Some(TsStructOrEnum::Struct(ts_struct))
-                }),
-            ),
+    let types: Vec<TsType> = doc
+        .used_types
+        .borrow()
+        .structs_and_enums
+        .iter()
+        .filter_map(|ty| match ty {
+            Type::Struct(s) => {
+                let StructName::User { name, .. } = &s.name else { return None };
+                let fields = s
+                    .fields
+                    .iter()
+                    .map(|(name, ty)| Field {
+                        name: member(name),
+                        ty: ts_type_name(ty),
+                        read_only: false,
+                    })
+                    .collect();
+                Some(TsType {
+                    name: ident(name),
+                    aliases: aliases_of(name),
+                    kind: TsTypeKind::Struct(fields),
+                })
+            }
             // A built-in enum is not declared here: it is `slint.language.X` or nothing.
             Type::Enumeration(en) if en.node.is_some() => {
-                module.structs_and_enums.push({
-                    let mut ts_enum = TsEnum::from(en);
-                    ts_enum.aliases = aliases_of(&en.name);
-                    TsStructOrEnum::Enum(ts_enum)
-                });
+                let variants = en
+                    .values
+                    .iter()
+                    .map(|value| EnumVariant { name: member(value), value: value.clone() })
+                    .collect();
+                Some(TsType {
+                    name: ident(&en.name),
+                    aliases: aliases_of(&en.name),
+                    kind: TsTypeKind::Enum(variants),
+                })
             }
-            _ => {}
-        }
-    }
+            _ => None,
+        })
+        .collect();
 
-    let globals = llr.globals.iter().filter(|glob| glob.exported && glob.must_generate());
+    let globals: Vec<TsInterface> = llr
+        .globals
+        .iter()
+        .filter(|glob| glob.exported && glob.must_generate())
+        .map(|glob| {
+            let aliases = glob.aliases.iter().map(|name| ident(name)).collect();
+            TsInterface::new(&glob.name, aliases, &glob.public_properties)
+        })
+        .collect();
 
-    module.globals.extend(globals.clone().map(TsComponent::from));
-    module.components.extend(llr.public_components.iter().map(|llr_compo| {
-        let mut ts_compo = TsComponent::from(llr_compo);
-        ts_compo.aliases = aliases_of(&llr_compo.name);
-        ts_compo
-    }));
+    let components: Vec<TsInterface> = llr
+        .public_components
+        .iter()
+        .map(|compo| {
+            TsInterface::new(&compo.name, aliases_of(&compo.name), &compo.public_properties)
+        })
+        .collect();
 
-    file.declarations.extend(module.structs_and_enums.iter().map(TsStructOrEnum::declaration));
+    file.declarations.extend(types.iter().flat_map(TsType::declarations));
+    file.declarations.extend(globals.iter().flat_map(|glob| glob.declarations(&[])));
+    file.declarations.extend(components.iter().flat_map(|compo| compo.declarations(&globals)));
 
-    for global in &module.globals {
-        global.generate(ComponentType::Global, &mut file);
-    }
-
-    for public_component in &module.components {
-        public_component
-            .generate(ComponentType::Component { associated_globals: &module.globals }, &mut file);
-    }
-
-    for struct_or_enum in &module.structs_and_enums {
-        struct_or_enum.generate_aliases(&mut file);
-    }
-
-    // Declare runtime values so TypeScript allows `new MainWindow()` etc.
-    {
-        for compo in &module.components {
-            file.trailing_code.push(format_smolstr!(
-                "export declare const {name}: {{ new(properties?: Partial<{name}>): {name} & slint.ComponentHandle }};",
+    // Declare the runtime values so TypeScript allows `new MainWindow()` and `Item({ … })`.
+    file.declarations.extend(components.iter().map(|compo| {
+        Declaration::DeclaredConst(DeclaredConst {
+            name: compo.name.clone(),
+            ty: format_smolstr!(
+                "{{ new(properties?: Partial<{name}>): {name} & slint.ComponentHandle }}",
                 name = compo.name
-            ));
-        }
-        for se in &module.structs_and_enums {
-            if let TsStructOrEnum::Struct(s) = se {
-                file.trailing_code.push(format_smolstr!(
-                    "export declare function {name}(properties?: Partial<{name}>): {name};",
-                    name = s.name
-                ));
-            }
-        }
-    }
+            ),
+        })
+    }));
+    file.declarations.extend(
+        types.iter().filter(|ty| matches!(ty.kind, TsTypeKind::Struct(_))).map(|ty| {
+            Declaration::DeclaredFunction(DeclaredFunction {
+                name: ty.name.clone(),
+                parameters: format_smolstr!("properties?: Partial<{}>", ty.name),
+                return_type: ty.name.clone(),
+            })
+        }),
+    );
 
     Ok(file)
 }
@@ -542,24 +393,40 @@ fn ts_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model<{}>", ts_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::Builtin(builtin_struct) if !builtin_struct.is_public() => {
-                SmolStr::new_static("void")
+            // `is_public` also covers three structs that are not in `for_each_builtin_structs`,
+            // so they are not under `slint.language`; the Node API spells two of them itself.
+            StructName::Builtin(BuiltinStruct::LogicalPosition) => {
+                SmolStr::new_static("slint.Point")
             }
-            StructName::Builtin(_) | StructName::None => {
+            StructName::Builtin(BuiltinStruct::LogicalSize) => SmolStr::new_static("slint.Size"),
+            StructName::Builtin(builtin_struct)
+                if builtin_struct.is_public() && *builtin_struct != BuiltinStruct::Color =>
+            {
+                let name: &'static str = builtin_struct.into();
+                format_smolstr!("slint.language.{}", name)
+            }
+            StructName::Builtin(BuiltinStruct::Color) => {
                 let fields = s
                     .fields
                     .iter()
                     .map(|(name, ty)| format!("{}: {}", member(name), ts_type_name(ty)))
-                    .collect::<Vec<_>>();
-                format_smolstr!("{{ {} }}", fields.join("; "))
+                    .join("; ");
+                format_smolstr!("{{ {} }}", fields)
+            }
+            StructName::Builtin(_) => SmolStr::new_static("void"),
+            StructName::None => {
+                let fields = s
+                    .fields
+                    .iter()
+                    .map(|(name, ty)| format!("{}: {}", member(name), ts_type_name(ty)))
+                    .join("; ");
+                format_smolstr!("{{ {} }}", fields)
             }
         },
         // An enum declared in the .slint file is generated here. A built-in one comes from
         // `slint.language` when it is public, and is otherwise unreachable, like in Rust.
-        Type::Enumeration(enumeration) if enumeration.node.is_some() => ident(&enumeration.name),
-        Type::Enumeration(enumeration) if is_public_builtin_enum(&enumeration.name) => {
-            format_smolstr!("slint.language.{}", enumeration.name)
-        }
+        Type::Enumeration(en) if en.node.is_some() => ident(&en.name),
+        Type::Enumeration(en) if en.public => format_smolstr!("slint.language.{}", en.name),
         Type::Enumeration(_) => SmolStr::new_static("void"),
         Type::Callback(function) | Type::Function(function) => {
             let args = function
@@ -567,8 +434,8 @@ fn ts_type_name(ty: &Type) -> SmolStr {
                 .iter()
                 .enumerate()
                 .map(|(i, ty)| format!("arg_{}: {}", i, ts_type_name(ty)))
-                .collect::<Vec<_>>();
-            format_smolstr!("({}) => {}", args.join(", "), ts_type_name(&function.return_type))
+                .join(", ");
+            format_smolstr!("({}) => {}", args, ts_type_name(&function.return_type))
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
         Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),

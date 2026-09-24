@@ -1337,6 +1337,8 @@ pub struct Enumeration {
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
     pub node: Option<SourceLocation>,
+    /// Whether a built-in enum is re-exported as `slint::language::X`.
+    pub public: bool,
     /// The raw text of each `@rust-attr(...)` on the declaration, captured at
     /// build time so the Rust generator does not need the syntax tree.
     pub rust_attributes: Vec<SmolStr>,

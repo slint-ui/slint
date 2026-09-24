@@ -92,6 +92,17 @@ export component TestCase {
 }
 
 /*
+```d.ts
+export interface TestCase {
+    readonly coords: slint.Point;
+    readonly inner_popup: string;
+    readonly inner_popup_expected: string;
+    readonly test: boolean;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+```
+
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());

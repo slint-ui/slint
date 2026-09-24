@@ -17,18 +17,27 @@ const COMPILER = join(ROOT, "target", "debug", "slint-compiler");
 // which is not directly executable on Windows.
 const TSC = join(ROOT, "node_modules", "typescript", "lib", "tsc.js");
 
-function setupTypeCheckDir(): string {
-    const dir = mkdtempSync(join(tmpdir(), "slint-ts-test-"));
-
-    writeFileSync(
-        join(dir, "app.slint"),
-        `export component App inherits Window {
+const DEFAULT_SLINT = `export component App inherits Window {
     in-out property <string> greeting;
     in-out property <int> counter;
     in-out property <color> tint;
     callback clicked();
-}`,
-    );
+}`;
+
+/// The hook only takes effect in a process started with it, so a check that needs it runs
+/// in its own node, the way an application would.
+function runWithRegister(dir: string) {
+    const register = pathToFileURL(join(__dirname, "..", "register.mjs")).href;
+    execSync(`node --import ${JSON.stringify(register)} check.mjs`, {
+        cwd: dir,
+        stdio: "pipe",
+    });
+}
+
+function setupTypeCheckDir(source = DEFAULT_SLINT): string {
+    const dir = mkdtempSync(join(tmpdir(), "slint-ts-test-"));
+
+    writeFileSync(join(dir, "app.slint"), source);
 
     execSync(`${COMPILER} -f typescript app.slint -o app.slint.d.ts`, {
         cwd: dir,
@@ -158,9 +167,6 @@ app.counter = "not a number";
     }
 }, 120_000);
 
-// Full module mode: `-o app.slint.ts` emits a self-contained module with a
-// loadFile() wrapper instead of ambient declarations.
-
 test("the destination has to be a declaration file", () => {
     const dir = mkdtempSync(join(tmpdir(), "slint-ts-dest-"));
     try {
@@ -223,12 +229,7 @@ if (new App().Settings.volume !== 0) throw new Error("global not reachable on th
 `,
         );
 
-        // The hook only takes effect in a process started with it, so the
-        // check runs in its own node, the way an application would.
-        execSync(
-            `node --import ${JSON.stringify(pathToFileURL(join(__dirname, "..", "register.mjs")).href)} check.mjs`,
-            { cwd: dir, stdio: "pipe" },
-        );
+        runWithRegister(dir);
     } finally {
         rmSync(dir, { recursive: true });
     }
@@ -243,30 +244,8 @@ export component App inherits Window {
 }`;
 
 test("a declared enum takes a plain string and the generated value object", () => {
-    const dir = mkdtempSync(join(tmpdir(), "slint-ts-enum-"));
+    const dir = setupTypeCheckDir(ENUM_SLINT);
     try {
-        writeFileSync(join(dir, "app.slint"), ENUM_SLINT);
-        execSync(`${COMPILER} -f typescript app.slint -o app.slint.d.ts`, {
-            cwd: dir,
-        });
-        writeFileSync(
-            join(dir, "tsconfig.json"),
-            JSON.stringify({
-                compilerOptions: {
-                    module: "esnext",
-                    moduleResolution: "bundler",
-                    strict: true,
-                    noEmit: true,
-                    skipLibCheck: true,
-                    paths: {
-                        "slint-ui": [
-                            join(__dirname, "..", "dist", "index.d.ts"),
-                        ],
-                    },
-                },
-            }),
-        );
-
         expect(
             tscCheck(
                 dir,
@@ -327,12 +306,7 @@ if (app.mood !== Mood.happy) throw new Error("a plain string is not accepted");
 `,
         );
 
-        // The hook only takes effect in a process started with it, so the
-        // check runs in its own node, the way an application would.
-        execSync(
-            `node --import ${JSON.stringify(pathToFileURL(join(__dirname, "..", "register.mjs")).href)} check.mjs`,
-            { cwd: dir, stdio: "pipe" },
-        );
+        runWithRegister(dir);
     } finally {
         rmSync(dir, { recursive: true });
     }

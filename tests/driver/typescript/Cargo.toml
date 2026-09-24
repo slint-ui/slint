@@ -19,10 +19,11 @@ name = "test-driver-typescript"
 
 [dependencies]
 spin_on = { workspace = true }
+tempfile = "3"
 
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
-i-slint-compiler = { workspace = true, features = ["default", "typescript", "display-diagnostics", "bundle-translations"] }
+i-slint-compiler = { workspace = true, features = ["default", "typescript", "display-diagnostics"] }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }

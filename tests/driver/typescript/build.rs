@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }) {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let test_function_name = testcase.identifier();
-        let ignored = testcase.is_ignored("ts");
+        let ignored = testcase.is_ignored("d.ts");
 
         write!(
             tests_file,
@@ -45,7 +45,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Generate a single test that runs tsc on all generated .d.ts files at once
     writeln!(tests_file, "\n    #[test]\n    fn typecheck_all_generated_declarations() {{")?;
     writeln!(tests_file, "        typescript::typecheck_all(&[")?;
     for path in &typecheck_paths {
