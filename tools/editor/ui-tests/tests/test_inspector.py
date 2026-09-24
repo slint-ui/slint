@@ -171,6 +171,107 @@ def test_geometry_field_writes_exact_source(
 
 
 @pytest.mark.parametrize(
+    ("property_name", "initial", "old", "new"),
+    [
+        ("x", 32, b"        x: 32px;", b"        x: 44px;"),
+        ("y", 32, b"        y: 32px;", b"        y: 44px;"),
+        ("width", 160, b"        width: 160px;", b"        width: 172px;"),
+        (
+            "height",
+            96,
+            b"        width: 160px;\n        height: 96px;",
+            b"        width: 160px;\n        height: 108px;",
+        ),
+    ],
+    ids=("x", "y", "width", "height"),
+)
+def test_geometry_prefix_scrubs_with_transient_preview(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    property_name: str,
+    initial: int,
+    old: bytes,
+    new: bytes,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    expected = replace_once(baseline, old, new)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        label = FIELDS[property_name]
+        scrubber = inspector_field(
+            window, label + " scrubber", slint_testing.AccessibleRole.Slider
+        )
+        start = element_center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(
+            window,
+            label,
+            str(initial + 12),
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.assert_unchanged()
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+
+
+def test_geometry_scrub_reverts_when_commit_is_rejected(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    background_edit = replace_once(
+        baseline,
+        b"        background: #2563eb;",
+        b"        background: #123456;",
+    )
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        scrubber = inspector_field(
+            window, "Position X scrubber", slint_testing.AccessibleRole.Slider
+        )
+        start = element_center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Position X", "44")
+        snapshot.assert_unchanged_now()
+
+        edit_field(
+            window,
+            "Rectangle background",
+            "#123456",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+
+        wait_for_field(window, "Position X", "32")
+        snapshot.wait_for_applied(background_edit, relative_path=INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+
+
+@pytest.mark.parametrize(
     ("kind", "label", "value", "old", "new"),
     [
         (

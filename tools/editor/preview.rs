@@ -1232,19 +1232,19 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     send_workspace_edit(label, edit, true);
 }
 
-fn persist_selected_element_geometry() {
+fn persist_selected_element_geometry() -> bool {
     let Some(element_selection) = &selected_element() else {
-        return;
+        return false;
     };
     let Some(element_node) = element_selection.as_element_node() else {
-        return;
+        return false;
     };
 
     let Some((edit, label)) = persist_selected_element_geometry_impl(&element_node) else {
-        return;
+        return false;
     };
 
-    send_workspace_edit(label, edit, true);
+    send_workspace_edit(label, edit, true)
 }
 
 fn rotate_selected_element(angle: f32) {
