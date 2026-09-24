@@ -22,6 +22,7 @@ from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
+    elements_with_label,
     file_row,
     first_window,
     launch_editor,
@@ -92,40 +93,33 @@ def test_zoom_scales_content_and_preserves_controls(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize(
+    ("file_name", "row", "width", "height", "angle_degrees"),
+    [
+        ("Main.slint", "root-rectangle", 180, 120, 0),
+        ("RotatedCanvasCases.slint", "rotated-free-rectangle", 140, 96, 30),
+    ],
+)
 def test_zoom_to_selection_uses_largest_fitting_level(
-    editor_binary, editor_environment, fixture_project
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    file_name,
+    row,
+    width,
+    height,
+    angle_degrees,
 ):
-    source = fixture_project / "Main.slint"
+    source = fixture_project / file_name
     original = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        select_outline_row(window, row)
         canvas = window_element_with_label(window, "Editor canvas")
-        expected = expected_fit_zoom(canvas, 180, 120)
-        press_shortcut(window, keys.Shift, "2")
-        wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
-        frame = window_element_with_label(window, "Selected Rectangle")
-        assert center(frame).x == pytest.approx(center(canvas).x)
-        assert center(frame).y == pytest.approx(center(canvas).y)
-        assert frame.size.width == pytest.approx(180 * expected / 100)
-        assert frame.size.height == pytest.approx(120 * expected / 100)
-        original.assert_unchanged()
-
-
-def test_zoom_to_rotated_selection_fits_visual_bounds(
-    editor_binary, editor_environment, fixture_project
-):
-    source = fixture_project / "RotatedCanvasCases.slint"
-    original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "rotated-free-rectangle")
-        canvas = window_element_with_label(window, "Editor canvas")
-        angle = math.radians(30)
-        bounds_width = 140 * abs(math.cos(angle)) + 96 * abs(math.sin(angle))
-        bounds_height = 140 * abs(math.sin(angle)) + 96 * abs(math.cos(angle))
+        angle = math.radians(angle_degrees)
+        bounds_width = width * abs(math.cos(angle)) + height * abs(math.sin(angle))
+        bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
         expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
         press_shortcut(window, keys.Shift, "2")
         wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
@@ -143,31 +137,23 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        window_element_with_label(window, "Selected Rectangle")
         canvas = window_element_with_label(window, "Editor canvas")
         clear_point = slint_testing.LogicalPosition(
             x=canvas.absolute_position.x + 10,
             y=canvas.absolute_position.y + 10,
         )
         button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerMoveEvent(clear_point))
         window.dispatch_event(slint_testing.PointerPressEvent(clear_point, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(clear_point, button))
-        outline = window_element_with_label(
-            window, "Current file outline", slint_testing.AccessibleRole.List
-        )
         wait_until(
             lambda: (
                 True
-                if not any(
-                    row.accessible_item_selected
-                    for row in outline.query_descendants()
-                    .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-                    .find_all()
-                )
+                if not elements_with_label(window.root_element, "Selected Rectangle")
                 else None
             )
         )
-        zoom_canvas(window, 100)
         target = center(canvas)
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(target, delta_x=80, delta_y=-120)
@@ -187,6 +173,9 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
             )
         )
         assert canvas.accessible_value == "100%"
+        zoom_canvas(window, 125)
+        press_shortcut(window, keys.Shift, "2")
+        assert canvas.accessible_value == "125%"
         original.assert_unchanged()
 
 

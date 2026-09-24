@@ -331,36 +331,21 @@ export component CanvasInteractionLayer inherits TouchArea {
     changed zoom => { root.refresh-hover(); }
     private property <Point> canvas-origin: root.absolute-position;
     private property <Size> canvas-size: { width: root.width, height: root.height };
-    private property <bool> has-primary-selection: Api.selection.highlight-index >= 0
-        && Api.selection.highlight-index < root.selections.length;
     private property <SelectionRectangle> primary-selection: root.selections[Api.selection.highlight-index];
     init => {
         FillSession.canvas-origin = root.canvas-origin;
         FillSession.canvas-size = root.canvas-size;
         FillSession.selection = root.primary-selection;
-        root.publish-selection();
+        CanvasView.selection = root.primary-selection;
     }
     changed canvas-origin => {
         FillSession.canvas-origin = root.canvas-origin;
         root.refresh-hover();
     }
     changed canvas-size => { FillSession.canvas-size = root.canvas-size; }
-    changed has-primary-selection => { root.publish-selection(); }
     changed primary-selection => {
         FillSession.selection = root.primary-selection;
-        root.publish-selection();
-    }
-
-    function publish-selection() {
-        CanvasView.selection-position = {
-            x: root.primary-selection.x,
-            y: root.primary-selection.y,
-        };
-        CanvasView.selection-size = {
-            width: root.primary-selection.width,
-            height: root.primary-selection.height,
-        };
-        CanvasView.selection-angle = root.primary-selection.angle;
+        CanvasView.selection = root.primary-selection;
     }
 
     callback real-element-selected();

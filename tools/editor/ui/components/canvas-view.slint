@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { PreviewMetrics, AppState } from "index.slint";
+import { SelectionRectangle } from "../api.slint";
 import { Style } from "../style.slint";
 
 export enum ZoomLevel {
@@ -54,9 +55,7 @@ export global CanvasView {
     in-out property <bool> manipulating;
     in-out property <bool> panning;
     in-out property <bool> space-pressed;
-    in-out property <Point> selection-position;
-    in-out property <Size> selection-size;
-    in-out property <angle> selection-angle;
+    in-out property <SelectionRectangle> selection;
     out property <bool> navigation-enabled: !self.manipulating && !AppState.has-active-drag();
     public pure function canvas-origin(size: Size) -> Point {
         return {
@@ -81,12 +80,7 @@ export global CanvasView {
         let center = { x: self.viewport-size.width / 2, y: self.viewport-size.height / 2 };
         let point = self.to-preview({ x: center.x - self.canvas-origin(self.viewport-size).x, y: center.y - self.canvas-origin(self.viewport-size).y });
         self.zoom-level = level;
-        let origin = self.canvas-origin(self.viewport-size);
-        let scaled = self.to-view(point);
-        self.pan = {
-            x: self.pan.x + center.x - scaled.x - origin.x,
-            y: self.pan.y + center.y - scaled.y - origin.y,
-        };
+        self.center-point(point);
     }
 
     function center-point(point: Point) {
@@ -101,7 +95,7 @@ export global CanvasView {
 
     public function zoom-to-selection(has-selection: bool) {
         if !self.navigation-enabled || self.panning { return; }
-        if !has-selection || self.selection-size.width <= 0px || self.selection-size.height <= 0px {
+        if !has-selection || self.selection.width <= 0px || self.selection.height <= 0px {
             self.center-point({
                 x: PreviewMetrics.canvas-width / 2,
                 y: PreviewMetrics.canvas-height / 2,
@@ -109,10 +103,10 @@ export global CanvasView {
             return;
         }
 
-        let sine = self.selection-angle.sin().abs();
-        let cosine = self.selection-angle.cos().abs();
-        let bounds-width = self.selection-size.width * cosine + self.selection-size.height * sine;
-        let bounds-height = self.selection-size.width * sine + self.selection-size.height * cosine;
+        let sine = self.selection.angle.sin().abs();
+        let cosine = self.selection.angle.cos().abs();
+        let bounds-width = self.selection.width * cosine + self.selection.height * sine;
+        let bounds-height = self.selection.width * sine + self.selection.height * cosine;
         let available-width = max(self.viewport-size.width - 2 * self.fit-padding, 1px);
         let available-height = max(self.viewport-size.height - 2 * self.fit-padding, 1px);
         let fit = min(available-width / bounds-width, available-height / bounds-height);
@@ -125,10 +119,10 @@ export global CanvasView {
             : fit >= 0.75 ? ZoomLevel.percent-75
             : fit >= 0.5 ? ZoomLevel.percent-50
             : ZoomLevel.percent-25;
-        self.set-zoom(level);
+        self.zoom-level = level;
         self.center-point({
-            x: Style.artboard.padding + self.selection-position.x + self.selection-size.width / 2,
-            y: Style.artboard.padding + self.selection-position.y + self.selection-size.height / 2,
+            x: Style.artboard.padding + self.selection.x + self.selection.width / 2,
+            y: Style.artboard.padding + self.selection.y + self.selection.height / 2,
         });
     }
 }
