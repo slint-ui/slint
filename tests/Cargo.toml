@@ -17,6 +17,7 @@ members = [
   'driver/nodejs',
   'driver/python',
   'driver/rust',
+  'driver/typescript',
   'screenshots',
   'backends',
   'manual/windowattributes',
