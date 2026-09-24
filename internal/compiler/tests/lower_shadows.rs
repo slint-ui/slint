@@ -148,3 +148,56 @@ export component TestCase inherits Window {
         .collect::<Vec<_>>();
     assert_eq!(child_types, ["BoxShadow", "Rectangle"]);
 }
+
+#[test]
+fn box_shadow_tracks_a_background_set_from_a_state() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    in-out property <bool> active;
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+        states [
+            on when root.active: { background: green; }
+        ]
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+}
+
+#[test]
+fn box_shadow_omits_the_paint_the_rectangle_never_sets() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        background: green;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+    assert!(!box_shadow.is_binding_set("border-color", false));
+    assert!(!box_shadow.is_binding_set("border-width", false));
+}
