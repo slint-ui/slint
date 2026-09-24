@@ -135,7 +135,8 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             picker_field(window, "Gradient center Y").accessible_value = "61"
         if kind == "radial":
             set_picker_mode(window, "Gradient radius mode", "Custom")
-            picker_field(window, "Gradient radius").accessible_value = "95"
+            picker_field(window, "Gradient radius X").accessible_value = "95"
+            picker_field(window, "Gradient radius Y").accessible_value = "95"
         labels = [
             text.accessible_label
             for text in window.root_element.query_descendants()
@@ -171,6 +172,34 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         click_picker_button(window, "Add gradient stop")
         press_key(window, keys.Escape)
         assert file.read_bytes() == saved
+
+
+def test_non_canvas_ellipse_radii_can_be_edited(
+    editor_binary, editor_environment, tmp_path
+):
+    file = tmp_path / "TextEllipse.slint"
+    file.write_text("""export component TextEllipse inherits Window {
+    width: 400px;
+    height: 400px;
+    label := Text {
+        text: "Gradient";
+        color: @radial-gradient(ellipse 90px 40px, red 0%, blue 100%);
+    }
+}
+""")
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "label")
+        click_picker_button(window, "Text color color picker")
+        assert not elements(window, "Gradient shape")
+        picker_field(window, "Gradient radius X").accessible_value = "120"
+        picker_field(window, "Gradient radius Y").accessible_value = "55"
+        click_picker_button(window, "Close Custom")
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
+        assert b"@radial-gradient(ellipse 120px 55px," in saved
+        original.wait_for_applied(saved, file.name)
 
 
 def set_picker_mode(window, label, value):
@@ -499,10 +528,9 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
-
     rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
     c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    r = center(control(window, "Gradient radius X and rectangle rotation handle"), 35)
     return (
         c.x - rectangle.absolute_position.x,
         c.y - rectangle.absolute_position.y,
@@ -539,16 +567,13 @@ def rotate_conic(window, previous, next_angle):
 def set_radial_geometry(window, x, y, radius):
 
     old_x, old_y, _ = radial_geometry(window)
-    c = center(control(window, "Gradient center handle"), 35)
+    c = center(control(window, "Gradient center handle"))
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius Y handle"), 90)
     gesture(
         window,
         r,
-        shifted(
-            c,
-            x=radius * math.cos(math.radians(35)),
-            y=radius * math.sin(math.radians(35)),
-        ),
+        shifted(c, y=radius),
+        shift=True,
     )

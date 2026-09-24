@@ -1404,6 +1404,23 @@ export component Test { in property <Foobar> test1; }"#,
     }
 
     #[test]
+    fn radial_shape_follows_source_with_equal_radii() {
+        for (gradient, ellipse, radii) in [
+            ("@radial-gradient(circle 40px, red, blue)", false, (40., 40.)),
+            ("@radial-gradient(ellipse 40px 40px, red, blue)", true, (40., 40.)),
+            ("@radial-gradient(ellipse 40px 20px, red, blue)", true, (40., 20.)),
+        ] {
+            let source =
+                format!("export component Test {{ in property <brush> test1: {gradient}; }}");
+            let result = property_conversion_test(&source, 0);
+            assert!(result.value_resolved);
+            assert_eq!(result.fill.kind, ui::BrushKind::Radial);
+            assert_eq!(result.fill.radial_ellipse, ellipse);
+            assert_eq!((result.fill.radius, result.fill.radius_y), radii);
+        }
+    }
+
+    #[test]
     fn test_property_units() {
         let result =
             property_conversion_test(r#"export component Test { in property <length> test1; }"#, 0);
