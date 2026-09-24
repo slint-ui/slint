@@ -1,0 +1,152 @@
+[
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4 L60,4",
+      "style": {
+        "dash_offset": 5.0,
+        "dash_pattern": [
+          10.01,
+          6.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 4.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4 L60,4",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          8.01,
+          4.01,
+          3.01,
+          4.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 3.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        20.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.502,
+            0.0,
+            0.502,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4 L60,4",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          8.01,
+          4.01,
+          2.01,
+          8.01,
+          4.01,
+          2.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 2.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        36.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M4,4 L60,4",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          0.01,
+          12.01
+        ],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 6.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        52.0
+      ]
+    }
+  }
+]
