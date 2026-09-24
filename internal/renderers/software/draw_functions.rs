@@ -707,8 +707,9 @@ pub(super) fn draw_radial_gradient(
         return;
     }
 
-    let center_x = rect.min_x() as f32 + g.center_x;
-    let center_y = rect.min_y() as f32 + g.center_y;
+    // Sample at pixel centers, so a rotated rendering matches the upright one.
+    let center_x = rect.min_x() as f32 + g.center_x - 0.5;
+    let center_y = rect.min_y() as f32 + g.center_y - 0.5;
 
     debug_assert!(
         g.radius >= 0.0,
