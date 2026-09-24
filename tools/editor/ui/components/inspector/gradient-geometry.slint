@@ -116,7 +116,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Text { text: "Radius"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
+            Text { text: "Radii"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorComboBox {
                 accessible-name: "Gradient radius mode";
                 value: root.value.custom-radius ? "Custom" : "Automatic";
@@ -129,9 +129,9 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && root.value.custom-radius && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Rectangle { width: root.style.gradient-label-width; horizontal-stretch: 0; }
+            Text { text: "X / Y"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorTextFieldBase {
-                accessible-name: "Gradient radius";
+                accessible-name: "Gradient radius X";
                 value: root.value.radius.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -139,7 +139,30 @@ export component InspectorGradientGeometry inherits Rectangle {
                         return false;
                     }
                     root.draft = root.value;
+                    if !root.value.radial-ellipse && text.to-float() != root.value.radius {
+                        root.draft.radial-ellipse = true;
+                        root.draft.radius-y = root.value.radius;
+                    }
                     root.draft.radius = text.to-float();
+                    if root.value.radial-ellipse && root.draft.radius == root.draft.radius-y && root.draft.radius != root.value.radius {
+                        root.draft.radial-ellipse = false;
+                    }
+                    return root.preview(root.draft);
+                }
+            }
+            InspectorTextFieldBase {
+                accessible-name: "Gradient radius Y";
+                value: (root.value.radial-ellipse ? root.value.radius-y : root.value.radius).to-fixed(1);
+                commit-key: root.session-key;
+                accepted(text) => {
+                    if !text.is-float() || text.to-float() <= 0 {
+                        return false;
+                    }
+                    root.draft = root.value;
+                    root.draft.radius-y = text.to-float();
+                    if root.draft.radius-y != root.value.radius-y {
+                        root.draft.radial-ellipse = root.draft.radius-y != root.draft.radius;
+                    }
                     return root.preview(root.draft);
                 }
             }

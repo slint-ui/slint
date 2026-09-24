@@ -15,7 +15,10 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_expression(fill_expression);
     api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
     api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
+    api.on_radial_gradient_y_axis(super::radial_gradient::editing_y_axis);
     api.on_remap_radial_gradient(super::radial_gradient::remap);
+    api.on_resize_radial_gradient_x(super::radial_gradient::resize_x);
+    api.on_remap_radial_gradient_y(super::radial_gradient::remap_y);
     api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
     api.on_remap_conic_gradient(super::conic_gradient::remap);
     api.on_conic_gradient_point(super::conic_gradient::point);
@@ -167,7 +170,10 @@ pub fn fill_from_brush(brush: slint::Brush) -> ui::FillData {
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
             fill.radius = g.radius_x_or_default(0., 0.);
-            fill.custom_radius = fill.radius == g.radius_x_or_default(2., 2.);
+            fill.radius_y = g.radius_y_or_default(0., 0.);
+            fill.custom_radius = fill.radius == g.radius_x_or_default(2., 2.)
+                || fill.radius_y == g.radius_y_or_default(2., 2.);
+            fill.radial_ellipse = fill.radius != fill.radius_y;
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -198,7 +204,7 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
             }
             if fill.custom_radius {
                 g = g.with_radius_x(fill.radius);
-                g = g.with_radius_y(fill.radius);
+                g = g.with_radius_y(if fill.radial_ellipse { fill.radius_y } else { fill.radius });
             }
             slint::Brush::RadialGradient(g)
         }
@@ -252,9 +258,18 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         String::new()
     };
     if fill.kind == ui::BrushKind::Radial {
-        let radius = if fill.custom_radius { format!(" {}px", fill.radius) } else { String::new() };
+        let radius = if fill.custom_radius {
+            if fill.radial_ellipse {
+                format!(" {}px {}px", fill.radius, fill.radius_y)
+            } else {
+                format!(" {}px", fill.radius)
+            }
+        } else {
+            String::new()
+        };
+        let shape = if fill.radial_ellipse { "ellipse" } else { "circle" };
         slint::format!(
-            "@radial-gradient(circle{radius}{center}{})",
+            "@radial-gradient({shape}{radius}{center}{})",
             stops
                 .iter()
                 .map(|s| format!(
@@ -403,6 +418,38 @@ mod tests {
 
     fn make_empty_model() -> ModelRc<ui::GradientStop> {
         Rc::new(VecModel::default()).into()
+    }
+
+    #[test]
+    fn elliptical_radial_fill_preserves_both_radii() {
+        let fill = ui::FillData {
+            kind: ui::BrushKind::Radial,
+            radial_ellipse: true,
+            custom_center: true,
+            center_x: 25.,
+            center_y: 35.,
+            custom_radius: true,
+            radius: 120.,
+            radius_y: 40.,
+            stops: Rc::new(VecModel::from(vec![
+                ui::GradientStop { color: slint::Color::from_rgb_u8(255, 0, 0), position: 0. },
+                ui::GradientStop { color: slint::Color::from_rgb_u8(0, 0, 255), position: 1. },
+            ]))
+            .into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            super::fill_expression(fill.clone()).as_str(),
+            "@radial-gradient(ellipse 120px 40px at 25px 35px, #ff0000 0%, #0000ff 100%)"
+        );
+        let slint::Brush::RadialGradient(brush) = super::fill_brush(fill) else {
+            panic!("expected radial brush")
+        };
+        assert_eq!(brush.radius_x_or_default(200., 100.), 120.);
+        assert_eq!(brush.radius_y_or_default(200., 100.), 40.);
+        let parsed = super::fill_from_brush(slint::Brush::RadialGradient(brush));
+        assert!(parsed.radial_ellipse);
+        assert_eq!((parsed.radius, parsed.radius_y), (120., 40.));
     }
 
     #[test]

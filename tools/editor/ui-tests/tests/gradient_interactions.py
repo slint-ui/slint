@@ -6,6 +6,7 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
+from slint_testing import keys
 from ui_driver import elements_with_label, select_outline_row, window_element_with_label
 
 
@@ -30,12 +31,16 @@ def around(c, radius, degrees):
     return shifted(c, x=radius * math.cos(angle), y=radius * math.sin(angle))
 
 
-def gesture(window, start, end):
+def gesture(window, start, end, shift=False):
     button = slint_testing.PointerEventButton.Left
+    if shift:
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     window.dispatch_event(slint_testing.PointerMoveEvent(start))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.PointerMoveEvent(end))
     window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+    if shift:
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
 
 
 def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
