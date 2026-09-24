@@ -150,6 +150,33 @@ def test_conic_keyboard_and_seam_neighbor(
         original.assert_unchanged()
 
 
+def test_conic_swatch_delete_keeps_canvas_element(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
+        window = first_window(editor)
+        open_conic(window)
+        click(window, "Remove stop 3")
+        wait_until(
+            lambda: (
+                not elements_with_label(window.root_element, "Gradient stop 3") or None
+            )
+        )
+        position = control(
+            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+        )
+        gesture(window, center(position), center(position))
+        press_key(window, keys.Tab)
+        press_key(window, keys.Delete)
+        original.assert_unchanged_now()
+        press_key(window, keys.Space)
+        control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
 def test_external_edit_invalidates_conic_session(
     editor_binary, editor_environment, conic_scene
 ):
