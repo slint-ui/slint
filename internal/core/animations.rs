@@ -181,14 +181,14 @@ pub struct Instant(pub Duration);
 impl core::ops::Sub<Instant> for Instant {
     type Output = core::time::Duration;
     fn sub(self, other: Self) -> core::time::Duration {
-        self.0 - other.0
+        self.0.saturating_sub(other.0)
     }
 }
 
 impl core::ops::Sub<core::time::Duration> for Instant {
     type Output = Instant;
     fn sub(self, other: core::time::Duration) -> Instant {
-        Self(self.0 - other)
+        Self(self.0.saturating_sub(other))
     }
 }
 
@@ -207,7 +207,7 @@ impl core::ops::AddAssign<core::time::Duration> for Instant {
 
 impl core::ops::SubAssign<core::time::Duration> for Instant {
     fn sub_assign(&mut self, other: core::time::Duration) {
-        self.0 -= other;
+        self.0 = self.0.saturating_sub(other);
     }
 }
 
