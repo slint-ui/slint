@@ -162,6 +162,10 @@ export component InspectorGradientStops inherits Rectangle {
                                     }
                                 }
                                 key-pressed(event) => {
+                                    if event.text == Key.Delete || event.text == Key.Backspace {
+                                        FillSession.remove-stop(index);
+                                        return accept;
+                                    }
                                     if event.text == Key.Return || event.text == Key.Space {
                                         root.selected-index = index;
                                         root.edit-color();
