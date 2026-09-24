@@ -393,14 +393,13 @@ fn reset_project_state(root: Url) {
         (*state.debug_hook_overrides).borrow_mut().clear();
         state.selected = None;
         state.notify_editor_about_selection_after_update = false;
-        state.workspace_edit_sent = false;
+        state.pending_document_edit = None;
         state.known_components.clear();
         state.initial_live_data.clear();
         state.current_live_data.clear();
         state.undo_redo_stack.clear();
         state.pending_history.clear();
         state.inspector_edit = None;
-        state.fill_refresh = None;
         state.source_code.clear();
         state.resources.clear();
         state.dependencies.clear();
@@ -2944,14 +2943,14 @@ mod tests {
                 Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });
             state.initial_live_data.insert(live_data_key.clone(), live_data.clone());
             state.current_live_data.insert(live_data_key, live_data);
-            state.undo_redo_stack.push(
-                "Old project edit".into(),
-                Some(Default::default()),
-                undo_redo::compute_file_hashes(&[text_edit::EditedText {
+            state.undo_redo_stack.push(undo_redo::EditItem {
+                title: "Old project edit".into(),
+                edit: Default::default(),
+                file_hashes: undo_redo::compute_file_hashes(&[text_edit::EditedText {
                     url: old_url.clone(),
                     contents: "export component Old {}".into(),
                 }]),
-            );
+            });
         });
 
         lsp_to_preview(LspToPreviewMessage::OpenProject { root: new_root.clone() });
