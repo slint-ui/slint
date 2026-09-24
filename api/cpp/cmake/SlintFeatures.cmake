@@ -48,6 +48,10 @@ endfunction()
 
 define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
 
+define_cargo_feature(image-pixel-format-rgb565 "Enable storing an image's pixels in the RGB565 format" OFF)
+
+define_cargo_feature(image-pixel-format-gray8 "Enable storing an image's pixels as a single 8 bit grayscale channel. Also embeds an image whose pixels are all gray in that format" OFF)
+
 # Compat options (must be declared after the STD feature, but before the options they replace)
 function(define_compat_option deprecated replacement)
     cmake_dependent_option("SLINT_FEATURE_${deprecated}" "Compat option equivalent to SLINT_FEATURE_${replacement}" OFF "NOT SLINT_FEATURE_FREESTANDING" OFF)

@@ -54,6 +54,16 @@ image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
+# Store an image's pixels in the RGB565 format.
+# Disabled by default so that applications that don't need it don't pay
+# for the extra rendering code.
+image-pixel-format-rgb565 = []
+
+# Store an image's pixels as a single 8 bit grayscale channel.
+# Disabled by default so that applications that don't
+# need it don't pay for the extra conversion code.
+image-pixel-format-gray8 = []
+
 box-shadow-cache = []
 
 testing = []
@@ -103,6 +113,7 @@ const-field-offset = { version = "0.2.1", path = "../../helper_crates/const-fiel
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
+bytemuck = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true, default-features = false }
@@ -183,7 +194,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565", "image-pixel-format-gray8"] }
 i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }

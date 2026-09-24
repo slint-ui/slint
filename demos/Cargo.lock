@@ -2417,6 +2417,7 @@ dependencies = [
  "accesskit",
  "async-channel 2.5.0",
  "bitflags 2.13.2",
+ "bytemuck",
  "chrono",
  "clru",
  "const-field-offset",

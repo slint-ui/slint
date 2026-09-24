@@ -103,6 +103,23 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
+## Enable storing an image's pixels in the RGB565 format ([`Image::from_rgb565`]).
+## The software renderer then draws such an image
+## without any per-pixel conversion when the render target is RGB565 too.
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-backend-selector/image-pixel-format-rgb565",
+]
+
+## Enable storing an image's pixels as a single 8 bit grayscale channel
+## ([`Image::from_gray8`]).
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-backend-selector/image-pixel-format-gray8",
+]
+
 ## Enable the live preview feature
 ##
 ## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
@@ -357,6 +374,8 @@ features = [
   "log",
   "gettext",
   "renderer-software",
+  "image-pixel-format-rgb565",
+  "image-pixel-format-gray8",
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",
