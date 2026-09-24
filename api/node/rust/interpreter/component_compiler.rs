@@ -141,9 +141,10 @@ impl JsComponentCompiler {
                     let mut o = Object::new(env).ok()?;
 
                     for value in en.values.iter() {
-                        let value = value.replace_smolstr("-", "_");
-                        let str_val = env.create_string(&value).ok()?;
-                        o.set_named_property(&value, str_val).ok()?;
+                        // The property name has the dashes replaced, the value is the
+                        // spelling the runtime accepts.
+                        let str_val = env.create_string(value).ok()?;
+                        o.set_named_property(&value.replace_smolstr("-", "_"), str_val).ok()?;
                     }
                     Some((en.name.to_string(), o.into_unknown(env).ok()?))
                 }
