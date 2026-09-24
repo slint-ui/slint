@@ -84,7 +84,7 @@ struct FileCoverage {
     uncovered_regions: Vec<(u64, u64)>,
     /// Start of each condition with an outcome that never came about, and
     /// that outcome, in document order.
-    untaken_branches: Vec<(u64, u64, bool)>,
+    branches_not_taken: Vec<(u64, u64, bool)>,
 }
 
 /// The llvm-cov HTML report installed under the site's `public/` directory,
@@ -192,7 +192,7 @@ fn shortfalls(files: &[FileCoverage]) -> Vec<String> {
         );
         locate(
             "outcome never taken",
-            f.untaken_branches
+            f.branches_not_taken
                 .iter()
                 .map(|(line, col, outcome)| format!("{path}:{line}:{col} ({outcome})"))
                 .collect(),
@@ -233,14 +233,14 @@ fn parse_export(text: &str) -> anyhow::Result<Vec<FileCoverage>> {
             continue;
         }
         let summary = f.get("summary").with_context(|| format!("{path}: missing `summary`"))?;
-        let untaken_branches =
-            untaken_branches(f).with_context(|| format!("{path}: malformed `branches`"))?;
+        let branches_not_taken =
+            branches_not_taken(f).with_context(|| format!("{path}: malformed `branches`"))?;
         files.push(FileCoverage {
             path,
             summary: parse_summary(summary)?,
             fn_stats: FnStats::default(),
             uncovered_regions: Vec::new(),
-            untaken_branches,
+            branches_not_taken,
         });
     }
     anyhow::ensure!(!files.is_empty(), "no repository-relative files in the coverage export");
@@ -318,7 +318,7 @@ fn parse_fn_stats(data: &Value, files: &mut [FileCoverage]) -> anyhow::Result<()
 /// start line/column and the outcome. The entry lists a condition once per
 /// instantiation, so the counts of the same span are summed first. An export
 /// taken without `--branch` has no branches.
-fn untaken_branches(file: &Value) -> anyhow::Result<Vec<(u64, u64, bool)>> {
+fn branches_not_taken(file: &Value) -> anyhow::Result<Vec<(u64, u64, bool)>> {
     let mut merged: std::collections::BTreeMap<Span, (u64, u64)> = Default::default();
     for b in file.get("branches").and_then(Value::as_array).into_iter().flatten() {
         let [line, col, end_line, end_col, taken, not_taken] = numbers(b)?;
@@ -522,7 +522,7 @@ fn test_shortfalls() {
         ],
         fn_stats: FnStats::default(),
         uncovered_regions: uncovered_regions.to_vec(),
-        untaken_branches: Vec::new(),
+        branches_not_taken: Vec::new(),
     };
 
     // A completely covered file is no gap.
@@ -546,7 +546,7 @@ fn test_shortfalls() {
     // like the false outcome of an `if` without an `else`.
     let mut branch_gap = file("api/slint-sc/lib.rs", 10, &[]);
     branch_gap.summary[3].covered = 3;
-    branch_gap.untaken_branches = vec![(35, 8, false)];
+    branch_gap.branches_not_taken = vec![(35, 8, false)];
     assert_eq!(
         shortfalls(&[branch_gap]),
         ["api/slint-sc/lib.rs: branch coverage 75.0% (3/4); \
@@ -607,7 +607,7 @@ fn test_parse_export() {
     ]"#;
     // A condition per line: listed twice, as by two instantiations, with each
     // outcome taken by one of them (fully covered); never evaluated (both
-    // outcomes untaken); and only ever true.
+    // outcomes not taken); and only ever true.
     let branches = r#"[
         [5,8,5,20,0,0,0,0,4], [5,8,5,20,3,2,0,0,4],
         [7,8,7,20,0,0,0,0,4],
@@ -633,7 +633,7 @@ fn test_parse_export() {
     assert_eq!(regions.cell(), "50.0% (5/10)");
     assert_eq!(branches.cell(), "50.0% (3/6)");
     assert_eq!(sum(&files)[2].cell(), "50.0% (5/10)");
-    assert_eq!(files[0].untaken_branches, [(7, 8, true), (7, 8, false), (9, 8, false)]);
+    assert_eq!(files[0].branches_not_taken, [(7, 8, true), (7, 8, false), (9, 8, false)]);
     let stats = files[0].fn_stats;
     assert_eq!((stats.full, stats.partial, stats.untested), (1, 1, 1));
     assert_eq!(fn_stats_sentence(&stats), "1 fully tested, 1 partially tested, 1 untested");
