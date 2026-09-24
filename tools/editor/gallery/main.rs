@@ -27,6 +27,6 @@ fn main() -> Result<(), slint::PlatformError> {
     brushes::setup(&api);
     element_library::setup(&api);
     recent_fills::setup(&api, <Api as slint::Global<'_, GalleryWindow>>::as_weak(&api));
-    window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page_index(), 0);
+    window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page(), 0);
     window.run()
 }

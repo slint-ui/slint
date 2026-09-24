@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, ComboBox, ScrollView } from "std-widgets.slint";
-import { Gallery } from "state.slint";
+import { Gallery, GalleryPage } from "state.slint";
 import { Api, BrushKind } from "../ui/api.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { PrimerTextInput, MutedLabel, SectionTitle } from "../ui/components/index.slint";
@@ -43,16 +43,16 @@ export component GalleryProperties inherits Rectangle {
             if Gallery.scenarios.length > 1: VerticalLayout {
                 spacing: 6px;
                 MutedLabel { text: "State"; }
-                ComboBox { accessible-label: "Gallery state"; model: Gallery.scenarios; current-index: Gallery.scenario-index; selected(value) => { Gallery.navigate(Gallery.page-index, self.current-index); } }
+                ComboBox { accessible-label: "Gallery state"; model: Gallery.scenarios; current-index: Gallery.scenario-index; selected(value) => { Gallery.navigate(Gallery.page, self.current-index); } }
             }
             SectionTitle { label: "PREVIEW"; }
             NumberProperty { label: "Preview width"; value <=> Gallery.preview-width; }
             NumberProperty { label: "Preview height"; value <=> Gallery.preview-height; }
             MutedLabel { text: "0 fits the available space"; }
-            if Gallery.page == "palette" || Gallery.page == "outline": NumberProperty {
+            if Gallery.page == GalleryPage.palette || Gallery.page == GalleryPage.outline: NumberProperty {
                 label: "Panel width"; value <=> Gallery.panel-width; minimum: 200; maximum: 600;
             }
-            if Gallery.page == "controls": VerticalLayout {
+            if Gallery.page == GalleryPage.controls: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "COMPONENT"; }
                 MutedLabel { text: "Input text"; }
@@ -60,7 +60,7 @@ export component GalleryProperties inherits Rectangle {
                 MutedLabel { text: "Selected segment"; }
                 ComboBox { model: ["One", "Two", "Three"]; current-index <=> Gallery.segment; }
             }
-            if Gallery.page == "inspector-controls": VerticalLayout {
+            if Gallery.page == GalleryPage.inspector-controls: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "COMPONENT"; }
                 MutedLabel { text: "Text"; }
@@ -69,7 +69,7 @@ export component GalleryProperties inherits Rectangle {
                 NumberProperty { label: "Slider value"; value <=> Gallery.slider; maximum: 100; }
                 NumberProperty { label: "Rotation value"; value <=> Gallery.rotation; minimum: -360; maximum: 360; }
             }
-            if Gallery.page == "picker": VerticalLayout {
+            if Gallery.page == GalleryPage.picker: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "FILL"; }
                 if Gallery.fill.kind == BrushKind.solid: VerticalLayout {
@@ -82,7 +82,7 @@ export component GalleryProperties inherits Rectangle {
                 }
                 Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position); } }
             }
-            Button { text: "Reset example"; clicked => { Gallery.preview-width = 0; Gallery.preview-height = 0; Gallery.panel-width = 260; Gallery.navigate(Gallery.page-index, Gallery.scenario-index); } }
+            Button { text: "Reset example"; clicked => { Gallery.preview-width = 0; Gallery.preview-height = 0; Gallery.panel-width = 260; Gallery.navigate(Gallery.page, Gallery.scenario-index); } }
         }
     }
 }
