@@ -38,6 +38,7 @@ pub(crate) mod interfaces;
 mod match_element;
 pub(crate) mod typed_slots;
 
+pub use interfaces::{MissingMembers, missing_interface_members};
 pub use match_element::{CaseValue, MatchSubjectDomain, missing_case_values};
 
 macro_rules! unwrap_or_continue {
