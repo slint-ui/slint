@@ -466,20 +466,6 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-alignment-label() -> string {
-        let column = root.image-horizontal-alignment-index();
-        let row = root.image-vertical-alignment-index();
-        if column < 0 || row < 0 {
-            return "Custom";
-        }
-        if column == 1 && row == 1 {
-            return "Center";
-        }
-        let vertical = row == 0 ? "Top" : row == 1 ? "Middle" : "Bottom";
-        let horizontal = column == 0 ? "left" : column == 1 ? "center" : "right";
-        return vertical + " " + horizontal;
-    }
-
     function set-image-alignment(column: int, row: int) -> bool {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
@@ -859,7 +845,7 @@ export component InspectorPane inherits Rectangle {
                                 spacing: Metrics.space-compact;
 
                                 Text {
-                                    text: "Alignment";
+                                    text: @tr("Alignment");
                                     color: Colors.foreground;
                                     font-size: Typography.caption.size;
                                     font-weight: FontWeight.semi-bold;
@@ -867,15 +853,14 @@ export component InspectorPane inherits Rectangle {
                                 }
 
                                 Text {
-                                    text: root.image-alignment-label();
+                                    text: alignment.selected-label == "" ? @tr("Custom") : alignment.selected-label;
                                     color: Colors.muted;
                                     font-size: Typography.caption.size;
-                                    width: 88px;
                                     horizontal-alignment: right;
                                 }
                             }
 
-                            InspectorImageAlignment {
+                            alignment := InspectorImageAlignment {
                                 selected-column: root.image-horizontal-alignment-index();
                                 selected-row: root.image-vertical-alignment-index();
                                 chosen(column, row) => { root.set-image-alignment(column, row); }

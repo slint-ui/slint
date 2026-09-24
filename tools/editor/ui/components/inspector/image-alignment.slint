@@ -52,18 +52,32 @@ component AlignmentPoint inherits FocusScope {
 export component InspectorImageAlignment inherits Rectangle {
     in property <int> selected-column: -1;
     in property <int> selected-row: -1;
+    out property <string> selected-label: root.position-label(root.selected-row, root.selected-column);
     callback chosen(int, int);
 
     horizontal-stretch: 1;
     height: 120px;
 
-    function point-label(row: int, column: int) -> string {
-        if row == 1 && column == 1 {
-            return "Align image center";
+    pure function position-label(row: int, column: int) -> string {
+        if row < 0 || row > 2 || column < 0 || column > 2 {
+            return "";
         }
-        let vertical = row == 0 ? "top" : row == 1 ? "middle" : "bottom";
-        let horizontal = column == 0 ? "left" : column == 1 ? "center" : "right";
-        return "Align image " + vertical + " " + horizontal;
+        if row == 0 {
+            return column == 0 ? @tr("Top left") : column == 1 ? @tr("Top center") : @tr("Top right");
+        }
+        if row == 1 {
+            return column == 0 ? @tr("Middle left") : column == 1 ? @tr("Center") : @tr("Middle right");
+        }
+        return column == 0 ? @tr("Bottom left") : column == 1 ? @tr("Bottom center") : @tr("Bottom right");
+    }
+
+    pure function point-label(row: int, column: int) -> string {
+        if row == 1 && column == 1 {
+            return @tr("Align image center");
+        }
+        let vertical = row == 0 ? @tr("top") : row == 1 ? @tr("middle") : @tr("bottom");
+        let horizontal = column == 0 ? @tr("left") : column == 1 ? @tr("center") : @tr("right");
+        return @tr("Align image {} {}", vertical, horizontal);
     }
 
     Rectangle {

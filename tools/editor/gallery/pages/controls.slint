@@ -30,14 +30,6 @@ export component GalleryControls inherits Rectangle {
     private property <[float]> corners: [12, 12, 12, 12];
     private property <length> divider: 24px;
     private property <string> action: "Ready";
-    function image-alignment-label() -> string {
-        if root.image-alignment-column == 1 && root.image-alignment-row == 1 {
-            return "Center";
-        }
-        let vertical = root.image-alignment-row == 0 ? "Top" : root.image-alignment-row == 1 ? "Middle" : "Bottom";
-        let horizontal = root.image-alignment-column == 0 ? "left" : root.image-alignment-column == 1 ? "center" : "right";
-        return vertical + " " + horizontal;
-    }
     function reset() {
         root.segment = 0;
         root.text = "Hello Slint";
@@ -95,21 +87,20 @@ export component GalleryControls inherits Rectangle {
                             width: Style.inspector-layout.content-width;
                             spacing: Metrics.space-compact;
                             Text {
-                                text: "Alignment";
+                                text: @tr("Alignment");
                                 color: Colors.foreground;
                                 font-size: Typography.caption.size;
                                 font-weight: FontWeight.semi-bold;
                                 horizontal-stretch: 1;
                             }
                             Text {
-                                text: root.image-alignment-label();
+                                text: alignment.selected-label;
                                 color: Colors.muted;
                                 font-size: Typography.caption.size;
-                                width: 88px;
                                 horizontal-alignment: right;
                             }
                         }
-                        InspectorImageAlignment {
+                        alignment := InspectorImageAlignment {
                             selected-column: root.image-alignment-column;
                             selected-row: root.image-alignment-row;
                             chosen(column, row) => {
