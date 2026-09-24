@@ -87,7 +87,8 @@ jobs:
           cargo +stable build `
             --manifest-path tools/editor/Cargo.toml `
             --target ${{ matrix.target }} `
-            --profile package-release
+            --profile package-release `
+            --no-default-features
 
       # Only the executable differs per architecture. The packaging job builds
       # the layouts around it, so the assets are not shipped back and forth.
