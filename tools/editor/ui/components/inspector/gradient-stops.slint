@@ -9,18 +9,21 @@ import { InspectorSegment } from "segment.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
 
-import { GradientStopMarker } from "../../../../lsp/ui/components/widgets/gradient-stop-marker.slint";
+import { EditorGradientStopMarker } from "../gradient-stop-marker.slint";
 
 export component InspectorGradientStops inherits Rectangle {
     in property <GradientStopsStyle> style: Style.gradient-stops;
     private property <FillData> value: FillSession.working-fill;
     private property <string> session-key: FillSession.request.target.session-key;
     in-out property <int> selected-index <=> FillSession.selected-stop;
-    callback edit-color();
     private property <int> focus-generation: FillSession.focus-stop-generation;
     private property <GradientStopOrder> order: Api.gradient-stop-order(root.value.stops, root.selected-index);
     private property <FillData> gesture-value;
     private property <bool> dragging;
+    private property <bool> dragged;
+    private property <int> pressed-index: -1;
+    private property <Point> press-position;
+    private property <length> drag-threshold: 2px;
     private property <float> units: root.value.kind == BrushKind.conic ? 360 : 100;
     private property <string> suffix: root.value.kind == BrushKind.conic ? "°" : "%";
     preferred-height: layout.preferred-height;
@@ -47,6 +50,10 @@ export component InspectorGradientStops inherits Rectangle {
                     FillSession.remove-stop(root.selected-index);
                     return accept;
                 }
+                if event.text == Key.Return || event.text == Key.Space {
+                    FillSession.edit-stop-color(root.selected-index);
+                    return accept;
+                }
                 return reject;
             }
             Rectangle {
@@ -59,13 +66,8 @@ export component InspectorGradientStops inherits Rectangle {
                 border-width: ramp.has-focus ? Metrics.border-width : 0px;
                 border-color: Colors.accent;
             }
-            for stop[index] in root.value.stops: GradientStopMarker {
-                marker-size: root.style.marker.size;
-                marker-radius: root.style.marker.radius;
-                inactive-color: root.style.marker.inactive;
-                active-color: root.style.marker.active;
-                checker-light: root.style.marker.checker.light;
-                checker-dark: root.style.marker.checker.dark;
+            for stop[index] in root.value.stops: EditorGradientStopMarker {
+                style: root.style.marker;
                 x: stop.position.clamp(0, 1) * (parent.width - root.style.marker.size);
                 y: Style.inspector-field.height + Metrics.space-small;
                 stop-color: stop.color;
@@ -80,6 +82,9 @@ export component InspectorGradientStops inherits Rectangle {
                         FillSession.move-stop-position(text.to-float() / root.units);
                     }
                 }
+                accessible-action-default => {
+                    FillSession.edit-stop-color(index);
+                }
             }
             TouchArea {
                 mouse-cursor: pointer;
@@ -88,15 +93,30 @@ export component InspectorGradientStops inherits Rectangle {
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                         ramp.focus();
                         root.gesture-value = root.value;
+                        root.press-position = { x: self.mouse-x, y: self.mouse-y };
+                        root.dragged = false;
                         let index = Api.nearest-gradient-stop(root.value.stops, position);
                         if index >= 0 && abs(root.value.stops[index].position - position) * (self.width - root.style.marker.size) <= root.style.ramp.pick-distance {
                             root.selected-index = index;
-                        } else { FillSession.add-stop-position(position); }
+                            root.pressed-index = index;
+                        } else {
+                            FillSession.add-stop-position(position);
+                            root.pressed-index = -1;
+                        }
                         root.dragging = true;
                     } else if event.kind == PointerEventKind.move && root.dragging {
-                        FillSession.move-stop-position(position);
-                    } else if event.kind == PointerEventKind.up {
+                        if !root.dragged && (abs(self.mouse-x - root.press-position.x) >= root.drag-threshold || abs(self.mouse-y - root.press-position.y) >= root.drag-threshold) {
+                            root.dragged = true;
+                        }
+                        if root.dragged {
+                            FillSession.move-stop-position(position);
+                        }
+                    } else if event.kind == PointerEventKind.up && root.dragging {
+                        let edit-color = root.pressed-index >= 0 && !root.dragged && root.pressed-index == root.selected-index;
                         root.dragging = false;
+                        if edit-color {
+                            FillSession.edit-stop-color(root.selected-index);
+                        }
                     } else if event.kind == PointerEventKind.cancel && root.dragging {
                         root.dragging = false;
                         root.selected-index = min(root.selected-index, root.gesture-value.stops.length - 1);
@@ -167,8 +187,7 @@ export component InspectorGradientStops inherits Rectangle {
                                         return accept;
                                     }
                                     if event.text == Key.Return || event.text == Key.Space {
-                                        root.selected-index = index;
-                                        root.edit-color();
+                                        FillSession.edit-stop-color(index);
                                         return accept;
                                     }
                                     return reject;
@@ -184,12 +203,10 @@ export component InspectorGradientStops inherits Rectangle {
                                     accessible-label: "Edit stop " + (index + 1) + " color";
                                     clicked => {
                                         parent.focus();
-                                        root.selected-index = index;
-                                        root.edit-color();
+                                        FillSession.edit-stop-color(index);
                                     }
                                     accessible-action-default => {
-                                        root.selected-index = index;
-                                        root.edit-color();
+                                        FillSession.edit-stop-color(index);
                                     }
                                 }
                             }
