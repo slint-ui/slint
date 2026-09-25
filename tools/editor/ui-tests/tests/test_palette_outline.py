@@ -35,11 +35,6 @@ ELEMENTS = {
 """,
     "Text": """Text {
     text: "Text";
-    width: 220px;
-    height: 40px;
-    color: #1f2328;
-    font-size: 24px;
-    vertical-alignment: center;
 }
 """,
     "Image": """Image {
