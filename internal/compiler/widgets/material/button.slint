@@ -2,8 +2,54 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button as ButtonControl } from "../headless/controls.slint";
-import { StateLayerBase } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
+
+component ButtonStateLayer {
+    in property <bool> pressed;
+    in property <bool> has-hover;
+    in property <bool> has-focus;
+    in property <length> pressed-x;
+    in property <length> pressed-y;
+    in property <brush> checked-background;
+    in property <brush> ripple-color;
+    in property <bool> has-ripple;
+    in property <length> border-radius;
+    in property <brush> background;
+    in property <bool> checked;
+
+    states [
+        pressed when root.pressed: {
+            i-ripple.opacity: 0.12;
+        }
+        checked when root.checked: {
+            i-ripple.opacity: 1.0;
+            i-ripple.background: root.checked-background;
+        }
+        hover when root.has-hover: {
+            i-ripple.opacity: 0.08;
+        }
+        focused when root.has-focus: {
+            i-ripple.opacity: 0.12;
+        }
+    ]
+
+    i-ripple := Ripple {
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        active: root.pressed;
+        ripple-x: root.pressed-x;
+        ripple-y: root.pressed-y;
+        clip: true;
+        border-radius: root.border-radius;
+        background: root.background;
+        ripple-color: root.ripple-color;
+        has-effect: root.has-ripple;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
+    }
+}
 
 component MaterialButtonBase inherits ButtonControl {
     in property <image> icon;
@@ -21,7 +67,7 @@ component MaterialButtonBase inherits ButtonControl {
     background << Rectangle {
         @children
 
-        StateLayerBase {
+        ButtonStateLayer {
             width: 100%;
             height: 100%;
             border-radius: root.border-radius;

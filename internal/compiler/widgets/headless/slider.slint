@@ -41,11 +41,26 @@ export component Slider {
 
     private property <length> handle-size: root.vertical ? root.handle-height : root.handle-width;
 
-    preferred-width: 100%;
-    preferred-height: 100%;
-    min-width: content.min-width;
-    min-height: content.min-height;
     forward-focus: focus-scope;
+
+    slot track;
+    slot thumb;
+
+    accessible-role: slider;
+    accessible-orientation: root.orientation;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-action-set-value(new-value) => {
+        if (new-value.is-float()) {
+            root.set-value(new-value.to-float());
+        }
+    }
+    accessible-action-increment => { root.increment(); }
+    accessible-action-decrement => { root.decrement(); }
+    accessible-value-step: root.step;
 
     /// Clamps the value and invokes `changed` when interaction is enabled and the value changes.
     public function set-value(new-value: float) {
@@ -75,9 +90,10 @@ export component Slider {
         range > 0px ? distance * (root.maximum - root.minimum) / range : 0;
     }
 
-    content := Rectangle {
-        @children
-    }
+    track { }
+    thumb { }
+
+    @children
 
     touch-area := TouchArea {
         enabled: root.enabled;

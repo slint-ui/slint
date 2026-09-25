@@ -3,13 +3,12 @@
 
 import { Button, CheckBox, ComboBox, LineEdit, Slider } from "std-widgets.slint";
 import { GalleryButton, ButtonVariant, ButtonSize } from "components/button.slint";
-import { GalleryCheckBox, GalleryRadioGroup, GallerySwitch } from "components/selection-controls.slint";
 import { GallerySlider } from "components/slider.slint";
 
 export component HeadlessControlsGallery inherits Window {
     title: "Slint Headless Controls Gallery";
     preferred-width: 1000px;
-    preferred-height: 760px;
+    preferred-height: 600px;
     min-width: 800px;
     min-height: 560px;
     background: #f8fafc;
@@ -21,9 +20,6 @@ export component HeadlessControlsGallery inherits Window {
     in-out property <float> corner-radius: 8;
     out property <int> click-count: 0;
     in-out property <float> slider-value: 40;
-    in-out property <bool> checkbox-checked: true;
-    in-out property <bool> toggle-checked: false;
-    in-out property <string> radio-value: "comfortable";
 
     VerticalLayout {
         padding: 24px;
@@ -43,7 +39,7 @@ export component HeadlessControlsGallery inherits Window {
                     height: 40px;
                     border-radius: 8px;
                     background: #dbeafe;
-                    Text { x: 12px; text: "All controls"; color: #1d4ed8; vertical-alignment: center; }
+                    Text { x: 12px; text: "Button and Slider"; color: #1d4ed8; vertical-alignment: center; }
                 }
                 Rectangle { }
             }
@@ -101,23 +97,6 @@ export component HeadlessControlsGallery inherits Window {
                         text: "Value: " + round(root.slider-value);
                         color: #334155;
                     }
-                    Rectangle { height: 1px; background: #e2e8f0; }
-                    Text { text: "Selection controls"; color: #0f172a; font-size: 18px; font-weight: 600; }
-                    HorizontalLayout {
-                        spacing: 32px;
-                        GalleryCheckBox {
-                            text: "Show guides";
-                            checked <=> root.checkbox-checked;
-                        }
-                        GallerySwitch {
-                            text: "Live updates";
-                            checked <=> root.toggle-checked;
-                        }
-                    }
-                    GalleryRadioGroup {
-                        text: "Density";
-                        selected-value <=> root.radio-value;
-                    }
                 }
             }
 
@@ -145,9 +124,6 @@ export component HeadlessControlsGallery inherits Window {
                         root.corner-radius = 8;
                         root.click-count = 0;
                         root.slider-value = 40;
-                        root.checkbox-checked = true;
-                        root.toggle-checked = false;
-                        root.radio-value = "comfortable";
                     }
                 }
                 Rectangle { }

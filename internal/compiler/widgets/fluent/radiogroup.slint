@@ -2,28 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { FluentPalette } from "styling.slint";
-import { RadioButtonGroupMemberInterface } from "../common/std-widget-interfaces.slint";
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 import { FocusBorder } from "components.slint";
 
-export component RadioButtonImpl {
-    implement RadioButtonGroupMemberInterface <=> control;
-
-    forward-focus: control;
-
-    accessible-role: radio-button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled && root.group-enabled;
-    accessible-read-only: false;
-    accessible-checkable: true;
-    accessible-checked: root.checked;
-    accessible-item-selectable: true;
-    accessible-item-selected: root.checked;
-    accessible-item-index: root.item-index;
-    accessible-action-default => { root.select(); }
-
-    control := RadioButtonImplBase { }
-
+export component RadioButtonImpl inherits RadioButtonImplBase {
     private property <color> text-color: FluentPalette.foreground;
 
     min-height: max(32px, layout.min-height);

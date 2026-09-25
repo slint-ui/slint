@@ -4,29 +4,22 @@
 import { Slider } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 component StyledSlider inherits Slider {
-    accessible-role: slider;
-    accessible-orientation: root.orientation;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: root.step;
-    accessible-action-set-value(new-value) => {
-        if (new-value.is-float()) {
-            root.set-value(new-value.to-float());
-        }
-    }
-    accessible-action-increment => { root.increment(); }
-    accessible-action-decrement => { root.decrement(); }
-
     handle-width: 20px;
     handle-height: 20px;
     handle-x: (root.width - root.handle-width)
         * (root.value - root.minimum) / max(root.maximum - root.minimum, 1);
     handle-y: (root.height - root.handle-height) / 2;
 
-    Rectangle { background: root.has-focus ? blue : gray; }
+    track << Rectangle { background: root.has-focus ? blue : gray; }
+    thumb << Rectangle {
+        Rectangle {
+            x: root.handle-x;
+            y: root.handle-y;
+            width: root.handle-width;
+            height: root.handle-height;
+            background: white;
+        }
+    }
 }
 
 export component TestCase inherits Window {

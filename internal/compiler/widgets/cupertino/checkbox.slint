@@ -1,43 +1,47 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
-import { CheckBox as Control } from "../headless/controls.slint";
 import { CupertinoPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
-    implement CheckBoxInterface <=> control;
-
-    forward-focus: control;
-
-    accessible-role: checkbox;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-read-only: root.read-only;
-    accessible-checkable: true;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.toggle(); }
-
+    in property <string> text;
+    in property <bool> enabled <=> i-touch-area.enabled;
     in property <length> font-size;
     in property <int> font-weight;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked;
 
-    private property <brush> surface-color: root.checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
+    callback toggled;
+
+    private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.control-background;
     private property <brush> icon-color: CupertinoPalette.accent-foreground;
 
     min-height: max(14px, i-layout.min-height);
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-label: root.text;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+    accessible-action-default => {
+        if (root.enabled) {
+           root.checked = !root.checked;
+           root.toggled();
+	}
+    }
+    forward-focus: i-focus-scope;
 
     states [
         disabled when !root.enabled : {
             opacity: 0.5;
             icon-color: CupertinoPalette.foreground;
         }
-        pressed when root.pressed : {
-            root.surface-color: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
+        pressed when i-touch-area.pressed : {
+            root.background: root.checked ? CupertinoPalette.secondary-accent-background : CupertinoPalette.secondary-control-background;
         }
     ]
 
-    animate surface-color { duration: 150ms; }
+    animate background { duration: 150ms; }
 
     FocusBorder {
         x: (parent.width - self.width) / 2;
@@ -56,7 +60,7 @@ export component CheckBox {
             width: 14px;
             height: self.width;
             border-radius: 4px;
-            background: root.surface-color;
+            background: root.background;
             clip: true;
 
             Rectangle {
@@ -80,14 +84,14 @@ export component CheckBox {
             width: 14px;
             height: self.width;
             border-radius: 4px;
-            background: root.surface-color;
+            background: root.background;
 
             Rectangle {
                 drop-shadow-blur: 2px;
                 drop-shadow-color: #00000026;
                 drop-shadow-offset-y: 1px;
                 border-radius: parent.border-radius;
-                background: root.surface-color;
+                background: root.background;
             }
 
             Rectangle {
@@ -95,7 +99,7 @@ export component CheckBox {
                 drop-shadow-color: #00000026;
                 drop-shadow-offset-y: 0.5px;
                 border-radius: parent.border-radius;
-                background: root.surface-color;
+                background: root.background;
             }
 
             Rectangle {
@@ -127,5 +131,26 @@ export component CheckBox {
         }
     }
 
-    control := Control { }
+    i-touch-area := TouchArea {
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x: 0;
+        width: 0; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == Key.Space || event.text == Key.Return) {
+                i-touch-area.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
 }

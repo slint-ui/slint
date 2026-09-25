@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { RadioButtonGroupMemberInterface, RadioGroupSelectionInterface } from "std-widget-interfaces.slint";
-import { RadioButton as RadioButtonControl } from "../headless/controls.slint";
+import { RadioButtonBase } from "radiobutton-base.slint";
 
 export component RadioGroupBase {
-    implement RadioGroupSelectionInterface <=> self;
-
     in property <bool> enabled: true;
     in-out property <int> current-index: -1;
     out property <string> current-value;
@@ -23,16 +20,9 @@ export component RadioGroupBase {
 }
 
 // Shared wiring between a `RadioGroup`'s `RadioButton` child and its parent
-// group. Each style's `RadioButtonImpl` delegates its interaction to this component.
+// group. Each style's `RadioButtonImpl` inherits this and adds only the visual
+// layer.
 export component RadioButtonImplBase {
-    implement RadioButtonGroupMemberInterface <=> self;
-
-    preferred-width: 100%;
-    preferred-height: 100%;
-    forward-focus: base;
-
-    public function select() { base.select(); }
-
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> group-enabled: true;
@@ -101,10 +91,11 @@ export component RadioButtonImplBase {
         }
     }
 
-    base := RadioButtonControl {
-        text <=> root.text;
+    base := RadioButtonBase {
+        label <=> root.text;
         checked <=> root.checked;
         enabled: root.enabled && root.group-enabled;
+        item-index <=> root.item-index;
         selected => {
             root.group-select();
         }
@@ -123,9 +114,8 @@ export component RadioButtonImplBase {
 // group's `orientation`, so vertical and horizontal layouts come out of
 // the same GridLayout.
 export component RadioGroupImplBase {
-    implement RadioGroupSelectionInterface <=> sel;
-
     in property <string> title;
+    in property <bool> enabled: true;
     in property <Orientation> orientation: Orientation.vertical;
     in property <int> item-count;
 
@@ -135,7 +125,15 @@ export component RadioGroupImplBase {
     in property <length> title-font-size: 13px;
     in property <int> title-font-weight: 400;
 
+    in-out property <int> current-index <=> sel.current-index;
+    out property <string> current-value: sel.current-value;
     out property <bool> has-focus: focus-depth > 0;
+
+    callback selected <=> sel.selected;
+
+    public function select(index: int, label: string) {
+        sel.select(index, label);
+    }
 
     public function on-focus-change(gained: bool) {
         if gained {
@@ -147,7 +145,9 @@ export component RadioGroupImplBase {
 
     private property <int> focus-depth: 0;
 
-    sel := RadioGroupBase { }
+    sel := RadioGroupBase {
+        enabled <=> root.enabled;
+    }
 
     accessible-role: radio-group;
     accessible-label: root.title;

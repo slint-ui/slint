@@ -1,15 +1,16 @@
 # Headless Controls Gallery
 
-Styled buttons, selection controls, and sliders built on experimental headless controls.
-The styled components delegate interaction through interfaces.
+Button and Slider examples built on shared experimental controls.
+The styled components inherit behavior, interfaces, and accessibility from their bases.
 
-The gallery imports the shared headless `Button` as `ButtonBase`.
-This base implements `ButtonInterface` and provides interaction and default accessibility.
-Styled buttons inherit the base, including its accessibility properties and default action.
-`GalleryButton` supplies its appearance through two named slots: `background` and `content`.
-The base places content above the background without layout wrappers.
-The supplied content uses a horizontal layout for padding and text placement.
-See [the base](../../internal/compiler/widgets/headless/button.slint) and [the styled button](components/button.slint).
+`GalleryButton` supplies `background` and `content` slots.
+Its content uses a horizontal layout for padding and text placement.
+See [the button base](../../internal/compiler/widgets/headless/button.slint) and [the styled button](components/button.slint).
+
+`GallerySlider` supplies `track` and `thumb` slots for a straight horizontal slider.
+The style defines the thumb geometry and exposes its bounds through the base's `handle-*` properties.
+The base handles pointer input, dragging, keyboard input, focus, and accessibility.
+See [the slider base](../../internal/compiler/widgets/headless/slider.slint) and [the styled slider](components/slider.slint).
 
 Run from the repository root:
 

@@ -1,83 +1,64 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { SliderInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
 import { Slider } from "../../../internal/compiler/widgets/headless/controls.slint";
 
-export component GallerySlider {
-    implement SliderInterface <=> control;
-
-    forward-focus: control;
-
-    accessible-role: slider;
-    accessible-orientation: root.orientation;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
-    accessible-value-step: root.step;
-    accessible-action-set-value(new-value) => {
-        if (new-value.is-float()) {
-            root.set-value(new-value.to-float());
-        }
-    }
-    accessible-action-increment => { root.increment(); }
-    accessible-action-decrement => { root.decrement(); }
+export component GallerySlider inherits Slider {
+    handle-width: 18px;
+    handle-height: 18px;
+    handle-x: (root.width - root.handle-width)
+        * (root.value - root.minimum) / max(root.maximum - root.minimum, 1);
+    handle-y: (root.height - root.handle-height) / 2;
 
     min-width: 160px;
     min-height: 32px;
 
-    Rectangle {
-        x: control.handle-width / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width - control.handle-width;
-        height: 4px;
-        border-radius: self.height / 2;
-        background: #cbd5e1;
-
+    track << Rectangle {
         Rectangle {
-            x: 0px;
-            width: max(0px, control.handle-x);
-            border-radius: parent.border-radius;
-            background: root.enabled ? #2563eb : #94a3b8;
-        }
-    }
-
-    Rectangle {
-        x: control.handle-x;
-        y: control.handle-y;
-        width: control.handle-width;
-        height: control.handle-height;
-        border-radius: self.width / 2;
-        background: #ffffff;
-        drop-shadow-blur: 4px;
-        drop-shadow-offset-y: 1px;
-        drop-shadow-color: #0f172a40;
-
-        inner := Rectangle {
-            width: control.handle-pressed ? 10px : control.handle-has-hover ? 14px : 12px;
-            height: self.width;
-            x: (parent.width - self.width) / 2;
+            x: root.handle-width / 2;
             y: (parent.height - self.height) / 2;
-            border-radius: self.width / 2;
-            background: !root.enabled ? #94a3b8
-                : control.handle-pressed ? #1e40af
-                : control.handle-has-hover ? #1d4ed8
-                : #2563eb;
+            width: parent.width - root.handle-width;
+            height: 4px;
+            border-radius: self.height / 2;
+            background: #cbd5e1;
 
-            animate width, height {
-                duration: 100ms;
-                easing: ease-out;
+            Rectangle {
+                x: 0px;
+                width: max(0px, root.handle-x);
+                border-radius: parent.border-radius;
+                background: root.enabled ? #2563eb : #94a3b8;
             }
         }
     }
 
-    control := Slider {
-        handle-width: 18px;
-        handle-height: 18px;
-        handle-x: (root.width - self.handle-width)
-            * (root.value - root.minimum) / max(root.maximum - root.minimum, 1);
-        handle-y: (root.height - self.handle-height) / 2;
+    thumb << Rectangle {
+        Rectangle {
+            x: root.handle-x;
+            y: root.handle-y;
+            width: root.handle-width;
+            height: root.handle-height;
+            border-radius: self.width / 2;
+            background: #ffffff;
+            drop-shadow-blur: 4px;
+            drop-shadow-offset-y: 1px;
+            drop-shadow-color: #0f172a40;
+
+            inner := Rectangle {
+                width: root.handle-pressed ? 10px : root.handle-has-hover ? 14px : 12px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: !root.enabled ? #94a3b8
+                    : root.handle-pressed ? #1e40af
+                    : root.handle-has-hover ? #1d4ed8
+                    : #2563eb;
+
+                animate width, height {
+                    duration: 100ms;
+                    easing: ease-out;
+                }
+            }
+        }
     }
 }
