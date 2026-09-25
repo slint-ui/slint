@@ -1315,8 +1315,9 @@ impl WindowInner {
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
-        if item.as_ref().is_some_and(|i| !i.is_visible()) {
-            // Reset the focus... not great, but better than keeping it.
+        // A hidden item loses the focus. An item that a Flickable only scrolled out of view
+        // keeps it, and the key goes to it.
+        if item.as_ref().is_some_and(|i| !i.is_visible_or_clipped_by_flickable()) {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
             item = None;
         }

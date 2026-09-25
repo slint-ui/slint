@@ -318,6 +318,18 @@ impl core::fmt::Debug for ItemRc {
     }
 }
 
+/// Returns true if a `clip` rectangle leaves some of `geometry` visible.
+/// An empty clip hides everything, and a rectangle that only touches its edge counts as visible.
+fn clip_overlaps(clip: LogicalRect, geometry: LogicalRect) -> bool {
+    let clip = clip.to_box2d();
+    let geometry = geometry.to_box2d();
+    !clip.is_empty()
+        && clip.max.x >= geometry.min.x
+        && clip.max.y >= geometry.min.y
+        && clip.min.x <= geometry.max.x
+        && clip.min.y <= geometry.max.y
+}
+
 impl ItemRc {
     /// Create an ItemRc from a ItemTree and an index
     pub fn new(item_tree: vtable::VRc<ItemTreeVTable>, index: u32) -> Self {
@@ -409,13 +421,7 @@ impl ItemRc {
     /// false for `Clip` elements with the `clip` property evaluating to true.
     pub fn is_visible(&self) -> bool {
         let (clip, geometry) = self.absolute_clip_rect_and_geometry();
-        let clip = clip.to_box2d();
-        let geometry = geometry.to_box2d();
-        !clip.is_empty()
-            && clip.max.x >= geometry.min.x
-            && clip.max.y >= geometry.min.y
-            && clip.min.x <= geometry.max.x
-            && clip.min.y <= geometry.max.y
+        clip_overlaps(clip, geometry)
     }
 
     pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
@@ -446,24 +452,19 @@ impl ItemRc {
         // second is needed for a Flickable taller than a clip around it. Every ancestor that
         // hides the item by its own rectangle also hides it by the intersection, so the
         // intersection only has to be asked until it first hides the item.
-        let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
-        let overlaps = |rect: LogicalRect| {
-            let rect = rect.to_box2d();
-            !rect.is_empty()
-                && rect.max.x >= geometry.min.x
-                && rect.max.y >= geometry.min.y
-                && rect.min.x <= geometry.max.x
-                && rect.min.y <= geometry.max.y
-        };
+        let geometry = self.absolute_clip_rect_and_geometry().1;
         let mut hidden_by_intersection = false;
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(ancestor) = parent {
             if ancestor.borrow().as_ref().clips_children() {
                 let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
-                let hidden_by_own_rect = !overlaps(ancestor_geo);
+                let hidden_by_own_rect = !clip_overlaps(ancestor_geo, geometry);
                 if hidden_by_own_rect
                     || (!hidden_by_intersection
-                        && !overlaps(ancestor_geo.intersection(&clip).unwrap_or_default()))
+                        && !clip_overlaps(
+                            ancestor_geo.intersection(&clip).unwrap_or_default(),
+                            geometry,
+                        ))
                 {
                     if ancestor.downcast::<crate::items::Flickable>().is_some()
                         && ancestor.is_visible_or_clipped_by_flickable()
