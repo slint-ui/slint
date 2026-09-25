@@ -607,19 +607,28 @@ fn interpolate_color(
     }
 }
 
-pub(super) trait GradientCommand {
+/// Taken as `dyn` by [`draw_gradient_line`] so it's only instantiated once per pixel type.
+pub(super) trait GradientCommand<T: TargetPixel> {
     fn clip(&self) -> &super::GradientClip;
     fn draw_line(
         &self,
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [impl TargetPixel],
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    );
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
         extra_left_clip: i16,
         extra_right_clip: i16,
     );
 }
 
-impl GradientCommand for super::LinearGradientCommand {
+impl<T: TargetPixel> GradientCommand<T> for super::LinearGradientCommand {
     fn clip(&self) -> &super::GradientClip {
         &self.clip
     }
@@ -627,7 +636,17 @@ impl GradientCommand for super::LinearGradientCommand {
         &self,
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [impl TargetPixel],
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        _extra_right_clip: i16,
+    ) {
+        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
         extra_left_clip: i16,
         _extra_right_clip: i16,
     ) {
@@ -635,7 +654,7 @@ impl GradientCommand for super::LinearGradientCommand {
     }
 }
 
-impl GradientCommand for super::RadialGradientCommand {
+impl<T: TargetPixel> GradientCommand<T> for super::RadialGradientCommand {
     fn clip(&self) -> &super::GradientClip {
         &self.clip
     }
@@ -643,7 +662,17 @@ impl GradientCommand for super::RadialGradientCommand {
         &self,
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [impl TargetPixel],
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
         extra_left_clip: i16,
         extra_right_clip: i16,
     ) {
@@ -651,7 +680,7 @@ impl GradientCommand for super::RadialGradientCommand {
     }
 }
 
-impl GradientCommand for super::ConicGradientCommand {
+impl<T: TargetPixel> GradientCommand<T> for super::ConicGradientCommand {
     fn clip(&self) -> &super::GradientClip {
         &self.clip
     }
@@ -659,7 +688,17 @@ impl GradientCommand for super::ConicGradientCommand {
         &self,
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [impl TargetPixel],
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
         extra_left_clip: i16,
         extra_right_clip: i16,
     ) {
@@ -668,11 +707,11 @@ impl GradientCommand for super::ConicGradientCommand {
 }
 
 /// Draw one line of a gradient, clipped to its rounded shape with anti-aliased corners.
-pub(super) fn draw_gradient_line(
+pub(super) fn draw_gradient_line<T: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
-    g: &impl GradientCommand,
-    buffer: &mut [impl TargetPixel],
+    g: &dyn GradientCommand<T>,
+    buffer: &mut [T],
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
@@ -743,7 +782,7 @@ pub(super) fn draw_gradient_line(
             let scratch = &mut scratch[..chunk.len()];
             scratch.fill(PremultipliedRgbaColor::default());
             let (left_clip, right_clip) = clips(&chunk);
-            g.draw_line(rect, line, scratch, left_clip, right_clip);
+            g.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
             for (x, color) in chunk.zip(scratch.iter()) {
                 let color =
                     interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
