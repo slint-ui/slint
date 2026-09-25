@@ -210,7 +210,28 @@ fn gen_layout_info_prop(
                 .cloned()
                 .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
                 .map(|(h, v)| {
-                    (Some(Expression::PropertyReference(h)), Some(Expression::PropertyReference(v)))
+                    let mut h = Expression::PropertyReference(h);
+                    let mut v = Expression::PropertyReference(v);
+                    // On a fixed axis, the child's own layout info leaves out its explicit
+                    // constraints, so that one may read `self.min-width` without a loop.
+                    let constraints = LayoutConstraints::build(c, None, MergedFixedSize::Ignored);
+                    if constraints.fixed_width {
+                        merge_explicit_constraints(
+                            &mut h,
+                            &constraints,
+                            Orientation::Horizontal,
+                            symbol_counters,
+                        );
+                    }
+                    if constraints.fixed_height {
+                        merge_explicit_constraints(
+                            &mut v,
+                            &constraints,
+                            Orientation::Vertical,
+                            symbol_counters,
+                        );
+                    }
+                    (Some(h), Some(v))
                 })
                 .or_else(|| {
                     if c.borrow().is_legacy_syntax {
