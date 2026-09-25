@@ -56,7 +56,7 @@ jobs:
 
             # This job has no checkout, so there is no packageManager field to
             # read the version from. Keep it in sync with package.json.
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
               with:
                 version: 11.26.0
 
