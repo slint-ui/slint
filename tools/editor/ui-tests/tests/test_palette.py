@@ -248,6 +248,17 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         expect_library(window, list(PALETTE_KINDS))
         heading = window_element_with_label(window, "ELEMENTS")
         search = window_element_with_label(window, "Search elements")
+        library = window_element_with_label(
+            window, "Element library", slint_testing.AccessibleRole.List
+        )
+        pane = window_element_with_label(
+            window,
+            "Project and elements",
+            slint_testing.AccessibleRole.Navigation,
+        )
+        assert library.absolute_position.y + library.size.height == pytest.approx(
+            pane.absolute_position.y + pane.size.height, abs=1
+        )
         heading_y = heading.absolute_position.y
         search_y = search.absolute_position.y
         rows = library_rows(window)
