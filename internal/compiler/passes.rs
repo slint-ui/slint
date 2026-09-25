@@ -14,6 +14,7 @@ mod collect_init_code;
 mod collect_libraries;
 mod collect_structs_and_enums;
 mod collect_subcomponents;
+mod compile_dash_array;
 mod compile_paths;
 pub(crate) mod const_propagation;
 mod deduplicate_property_read;
@@ -167,6 +168,7 @@ pub async fn run_passes(
         // After inlining, so that path elements added through `@children` or to a
         // component inheriting `Path` are direct children of the `Path` element
         compile_paths::compile_paths(component, &doc.local_registry, diag);
+        compile_dash_array::compile_dash_array(component, diag);
         border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);

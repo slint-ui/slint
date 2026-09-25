@@ -2,125 +2,248 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component PathDashArray inherits Window {
-    width: 820px;
-    height: 480px;
-    background: #fbfcfe;
+    title: "Path: stroke-dash-array & stroke-dash-offset";
+    width: 760px;
+    height: 430px;
+    background: Colors.whitesmoke;
 
-    GridLayout {
-        padding: 28px;
-        spacing: 20px;
+    VerticalLayout {
+        padding: 32px;
+        spacing: 18px;
 
-        Row {
+        Text {
+            font-size: 22px;
+            font-weight: 700;
+            color: Colors.darkslategray;
+            text: "Path: stroke-dash-array & stroke-dash-offset";
+        }
+
+        HorizontalLayout {
+            spacing: 26px;
+
             Text {
-                width: 300px;
+                width: 190px;
                 vertical-alignment: center;
-                text: "Simple dashes";
+                color: Colors.slategray;
+                text: "Dashes";
             }
 
             Path {
-                width: 340px;
+                width: 480px;
                 height: 24px;
-                viewbox-width: 340;
+                viewbox-width: 480;
                 viewbox-height: 24;
                 fill: transparent;
-                stroke: Colors.blue;
-                stroke-width: 20px;
-                stroke-dash-array: "0.01 20";
+                stroke: Colors.steelblue;
+                stroke-width: 5px;
                 stroke-line-cap: round;
+                stroke-dash-array: "14 9";
 
                 MoveTo {
-                    x: 0;
+                    x: 2;
                     y: 12;
                 }
 
                 LineTo {
-                    x: 340;
+                    x: 478;
                     y: 12;
                 }
             }
         }
 
-        Row {
+        HorizontalLayout {
+            spacing: 26px;
+
             Text {
-                width: 300px;
+                width: 190px;
                 vertical-alignment: center;
-                text: "Dash-dot";
+                color: Colors.slategray;
+                text: "Dots";
             }
 
             Path {
-                width: 340px;
+                width: 480px;
                 height: 24px;
-                viewbox-width: 340;
+                viewbox-width: 480;
                 viewbox-height: 24;
                 fill: transparent;
-                stroke: Colors.red;
+                stroke: Colors.crimson;
                 stroke-width: 10px;
-                stroke-dash-array: "0 16";
                 stroke-line-cap: round;
+                stroke-dash-array: "0 16";
 
                 MoveTo {
-                    x: 0;
+                    x: 5;
                     y: 12;
                 }
 
                 LineTo {
-                    x: 340;
+                    x: 475;
                     y: 12;
                 }
             }
         }
 
-        Row {
+        HorizontalLayout {
+            spacing: 26px;
+
             Text {
-                width: 300px;
+                width: 190px;
                 vertical-alignment: center;
-                text: "Animated stroke-dash-offset";
+                color: Colors.slategray;
+                text: "Dash-dot on a curve";
             }
 
             Path {
-                width: 340px;
-                height: 24px;
-                viewbox-width: 340;
-                viewbox-height: 24;
+                width: 480px;
+                height: 52px;
+                viewbox-width: 480;
+                viewbox-height: 52;
                 fill: transparent;
-                stroke: Colors.seagreen;
-                stroke-width: 3px;
-                stroke-dash-array: "12 10 0 10 0 10";
-                stroke-dash-offset: (animation-tick() / 1s * 20) * 1px;
+                stroke: Colors.mediumpurple;
+                stroke-width: 4px;
                 stroke-line-cap: round;
+                stroke-line-join: round;
+                // An odd list repeats to make it even: 14 7 0 14 7 0.
+                stroke-dash-array: "14 7 0";
 
                 MoveTo {
-                    x: 0;
-                    y: 12;
+                    x: 2;
+                    y: 26;
                 }
 
                 QuadraticTo {
-                    control-x: 42.5;
+                    control-x: 82;
                     control-y: -6;
-                    x: 85;
-                    y: 12;
+                    x: 162;
+                    y: 26;
                 }
 
                 QuadraticTo {
-                    control-x: 127.5;
-                    control-y: 30;
-                    x: 170;
-                    y: 12;
+                    control-x: 242;
+                    control-y: 58;
+                    x: 322;
+                    y: 26;
                 }
 
                 QuadraticTo {
-                    control-x: 212.5;
+                    control-x: 362;
                     control-y: -6;
-                    x: 255;
-                    y: 12;
+                    x: 402;
+                    y: 26;
                 }
 
-                QuadraticTo {
-                    control-x: 297.5;
-                    control-y: 30;
-                    x: 340;
-                    y: 12;
+                LineTo {
+                    x: 478;
+                    y: 26;
                 }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 26px;
+
+            Text {
+                width: 190px;
+                vertical-alignment: center;
+                color: Colors.slategray;
+                text: "Offset 0 vs 12px";
+            }
+
+            HorizontalLayout {
+                spacing: 20px;
+
+                Path {
+                    width: 230px;
+                    height: 24px;
+                    viewbox-width: 230;
+                    viewbox-height: 24;
+                    fill: transparent;
+                    stroke: Colors.darkorange;
+                    stroke-width: 5px;
+                    stroke-line-cap: round;
+                    stroke-dash-array: "18 10";
+
+                    MoveTo {
+                        x: 2;
+                        y: 12;
+                    }
+
+                    LineTo {
+                        x: 228;
+                        y: 12;
+                    }
+                }
+
+                Path {
+                    width: 230px;
+                    height: 24px;
+                    viewbox-width: 230;
+                    viewbox-height: 24;
+                    fill: transparent;
+                    stroke: Colors.darkorange;
+                    stroke-width: 5px;
+                    stroke-line-cap: round;
+                    stroke-dash-array: "18 10";
+                    stroke-dash-offset: 12px;
+
+                    MoveTo {
+                        x: 2;
+                        y: 12;
+                    }
+
+                    LineTo {
+                        x: 228;
+                        y: 12;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 26px;
+
+            Text {
+                width: 190px;
+                vertical-alignment: center;
+                color: Colors.slategray;
+                text: "Animated offset";
+            }
+
+            Path {
+                width: 480px;
+                height: 96px;
+                viewbox-width: 480;
+                viewbox-height: 96;
+                fill: transparent;
+                stroke: Colors.mediumseagreen;
+                stroke-width: 4px;
+                stroke-line-cap: round;
+                stroke-line-join: round;
+                stroke-dash-array: "16 12";
+                stroke-dash-offset: (animation-tick() / 1s * 44) * 1px;
+
+                MoveTo {
+                    x: 6;
+                    y: 6;
+                }
+
+                LineTo {
+                    x: 474;
+                    y: 6;
+                }
+
+                LineTo {
+                    x: 474;
+                    y: 90;
+                }
+
+                LineTo {
+                    x: 6;
+                    y: 90;
+                }
+
+                Close { }
             }
         }
     }

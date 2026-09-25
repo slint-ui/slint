@@ -764,16 +764,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             border_paint.set_path_effect(skia_safe::PathEffect::dash(
                 &path
                     .stroke_dash_array()
-                    .split_whitespace()
-                    .map(|v| v.parse::<f32>().ok())
-                    .map(|v| match v {
-                        Some(x) if x >= 0.0 => Some(x * self.scale_factor.get()),
-                        _ => None,
-                    })
-                    .collect::<Option<Vec<_>>>()
-                    .map_or_default(|v| if v.len() % 2 == 1 { v.repeat(2) } else { v }),
+                    .iter()
+                    .map(|x| x * self.scale_factor.get())
+                    .collect::<Vec<_>>(),
                 path.stroke_dash_offset().get() * self.scale_factor.get(),
             ));
+
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }

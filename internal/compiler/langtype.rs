@@ -76,6 +76,9 @@ pub enum Type {
     StyledText,
     MouseCursor,
     Closure,
+
+    /// This is a `SharedVector<f32>`
+    DashArray,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -122,6 +125,7 @@ impl core::cmp::PartialEq for Type {
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
             Type::Closure => matches!(other, Type::Closure),
+            Type::DashArray => matches!(other, Type::DashArray),
         }
     }
 }
@@ -183,6 +187,7 @@ impl Display for Type {
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
             Type::Closure => write!(f, "closure"),
+            Type::DashArray => write!(f, "dash-array"),
         }
     }
 }
@@ -346,6 +351,7 @@ impl Type {
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
             Type::Closure => None,
+            Type::DashArray => None,
         }
     }
 

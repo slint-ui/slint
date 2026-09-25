@@ -948,17 +948,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         let stroke_miter_limit = path.stroke_miter_limit();
 
-        let stroke_dash_array = path
-            .stroke_dash_array()
-            .split_whitespace()
-            .map(|v| v.parse::<f32>().ok())
-            .map(|v| match v {
-                Some(x) if x >= 0.0 => Some(x / stroke_width + 0.0001),
-                _ => None,
-            })
-            .collect::<Option<Vec<_>>>()
-            .map_or_default(|v| if v.len() % 2 == 1 { v.repeat(2) } else { v });
-        let stroke_dash_offset = path.stroke_dash_offset().get() / stroke_width;
+        let stroke_dash_array = path.stroke_dash_array();
+        let stroke_dash_array_ptr = stroke_dash_array.as_ptr();
+        let stroke_dash_array_len = stroke_dash_array.len();
+        let stroke_dash_offset = path.stroke_dash_offset().get();
 
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
@@ -997,8 +990,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
         let anti_alias: bool = path.anti_alias();
 
-        let stroke_dash_array_ptr = stroke_dash_array.as_ptr();
-        let stroke_dash_array_len = stroke_dash_array.len();
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [
                 painter as "QPainterPtr*",
@@ -1024,10 +1015,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     QVector<qreal> dash_array;
                     dash_array.reserve(stroke_dash_array_len);
                     for (size_t i = 0; i < stroke_dash_array_len; i++) {
-                        dash_array << stroke_dash_array_ptr[i];
+                        dash_array.push_back(stroke_dash_array_ptr[i] / stroke_width + 0.0001);
                     }
                     pen.setDashPattern(dash_array);
-                    pen.setDashOffset(stroke_dash_offset);
+                    pen.setDashOffset(stroke_dash_offset / stroke_width);
                 }
                 (*painter)->setPen(pen);
             } else {
