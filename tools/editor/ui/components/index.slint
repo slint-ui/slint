@@ -358,6 +358,7 @@ export global AppState {
     in-out property <ElementKind> palette-drag-kind: ElementKind.none;
     in-out property <Point> palette-drag-pointer-position: { x: 0px, y: 0px };
     in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
+    in-out property <Size> palette-text-drag-size;
     in-out property <bool> palette-drag-cancelled: false;
     in-out property <bool> outline-drag-active: false;
     in-out property <bool> outline-drag-cancelled: false;
@@ -381,7 +382,9 @@ export global AppState {
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             if self.palette-drag-kind != kind {
-                self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
+                self.palette-drag-size = kind == ElementKind.text
+                    ? self.palette-text-drag-size
+                    : ElementVisuals.for-kind(kind).preview-size;
             }
             self.palette-drag-kind = kind;
             self.palette-drag-pointer-position = window-position;

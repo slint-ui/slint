@@ -64,8 +64,8 @@ def test_insert_palette_element_writes_exact_source(
         snapshot.assert_unchanged_now()
         begin_palette_drag(window, kind, target)
         if kind == "Text":
-            preview = window_element_with_label(
-                window, "Text drag preview", slint_testing.AccessibleRole.Region
+            preview = element(
+                window, "Text drag preview", role=slint_testing.AccessibleRole.Region
             )
             assert preview.size.width < 100
             assert preview.size.height < 40
@@ -79,7 +79,14 @@ def test_insert_palette_element_writes_exact_source(
         release_palette_drag(window, target)
         expected = (GOLDENS / f"Palette.insert-{kind.lower()}.slint").read_bytes()
         snapshot.wait_for_exact(expected, "Palette.slint")
-        element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
+        if kind == "Text":
+            inline_editor = element(
+                window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
+            )
+            assert inline_editor.accessible_value == "Text"
+        element(
+            window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region
+        )
         outline = element(
             window, "Current file outline", role=slint_testing.AccessibleRole.List
         )
