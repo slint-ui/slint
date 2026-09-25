@@ -7,8 +7,8 @@
 
 use crate::Value;
 use crate::eval::{
-    EvalContext, eval_expression, find_window_adapter, resolve_item_rc_from_ref, store_property,
-    walk_to,
+    EvalContext, eval_expression, find_window_adapter, load_property, resolve_item_rc_from_ref,
+    store_property, walk_to,
 };
 use crate::instance::SubComponentInstance;
 use i_slint_compiler::llr::{Expression, LocalMemberIndex, MemberReference};
@@ -104,6 +104,16 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
             eval_expression(&mut popup_ctx, &pos_expr).try_into().unwrap_or_default()
         })
     };
+    // The anchor is read lazily too, so a change to the anchor property after
+    // `show()` is reflected the next time the backend queries the placement.
+    let access_anchor: Box<dyn Fn() -> i_slint_core::items::PopupAnchor> = {
+        let anchor_ref = popup.anchor.clone();
+        let popup_root = popup_vrc.root_sub_component.clone();
+        Box::new(move || {
+            let popup_ctx = EvalContext::new(popup_root.clone());
+            load_property(&popup_ctx, &anchor_ref).try_into().unwrap_or_default()
+        })
+    };
     // Keeps the caller's synthesized `is-open` property in sync:
     // `show_popup` invokes this setter with `true` on show and `false` from
     // every close path. The reference resolves in the show call's own frame.
@@ -124,6 +134,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
     let popup_id = i_slint_core::window::WindowInner::from_pub(adapter.window()).show_popup(
         &popup_dyn,
         access_position,
+        access_anchor,
         close_policy,
         &parent_item_rc,
         window_kind(),
@@ -424,6 +435,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     let popup_id = window_inner.show_popup(
         &popup_dyn,
         Box::new(move || position),
+        Box::new(|| i_slint_core::items::PopupAnchor::default()),
         i_slint_core::items::PopupClosePolicy::CloseOnClickOutside,
         &context_item_rc,
         i_slint_core::window::WindowKind::Menu,

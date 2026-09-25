@@ -708,6 +708,7 @@ pub mod builtin_structs {
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
         ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
+        ($pub_type:ident, ConstraintAdjustment) => { Type::Struct($pub_type.clone()) };
         ($pub_type:ident, $enum:ident) => { Type::Enumeration(BUILTIN.enums.$enum.clone()) };
     }
 

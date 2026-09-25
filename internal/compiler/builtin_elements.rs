@@ -3271,15 +3271,6 @@ fn build(l: &mut Loader) {
         /// :::
         /// \group:window
         PopupWindow {
-            //property <length> x;
-            //property <length> y;
-            in property <length> width;
-            in property <length> height;
-            /*property <length> anchor_x;
-            in property <length> anchor-y;
-            in property <length> anchor-height;
-            in property <length> anchor-width;*/
-
             @constexpr in property <bool> close-on-click;
             /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
             /// \default close-on-click
@@ -3290,6 +3281,9 @@ fn build(l: &mut Loader) {
             /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
             /// when dismissed by a click, by a selection, or by a programmatic `close()`.
             out property <bool> is-open;
+
+            in property <PopupAnchor> anchor;
+
             /// Show the popup on the screen.
             function show() { BuiltinFunction.ShowPopupWindow }
             /// Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
