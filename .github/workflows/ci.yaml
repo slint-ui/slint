@@ -82,12 +82,24 @@ jobs:
 
     visual_editor:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor (${{ matrix.suite }})
+        name: Visual Editor (${{ matrix.suite }}${{ matrix.name_suffix }})
         strategy:
             fail-fast: false
             matrix:
-                suite: [rust, ui]
-        runs-on: macos-14
+                include:
+                    - suite: rust
+                      os: macos-14
+                      name_suffix: ""
+                    - suite: rust
+                      os: ubuntu-22.04
+                      name_suffix: " on Linux"
+                    - suite: rust
+                      os: windows-2022
+                      name_suffix: " on Windows"
+                    - suite: ui
+                      os: macos-14
+                      name_suffix: ""
+        runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
@@ -98,11 +110,22 @@ jobs:
             UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
             - uses: ./.github/actions/install-skia-dependencies
+            # Skia is built from source here, and ninja resolves cl.exe's relative
+            # includes with the ANSI GetFullPathNameA, so the paths have to stay
+            # below MAX_PATH. Forward slashes keep the target directory usable
+            # from the bash steps below.
+            - name: Shorten the target directory to fit the Skia build under MAX_PATH
+              if: runner.os == 'Windows'
+              shell: bash
+              run: echo "CARGO_TARGET_DIR=${RUNNER_WORKSPACE//\\//}/t" >> $GITHUB_ENV
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-visual-editor-v1-${{ matrix.suite }}
                   save_if: ${{ github.ref == 'refs/heads/master' }}
+                  cache-workspaces: ${{ runner.os == 'Windows' && '. -> ../t' || '' }}
             - uses: actions/setup-python@v7
               if: matrix.suite == 'ui'
               with:
@@ -135,8 +158,8 @@ jobs:
               if: always()
               uses: actions/upload-artifact@v4
               with:
-                  name: visual-editor-${{ matrix.suite }}-timings
-                  path: target/cargo-timings/
+                  name: visual-editor-${{ matrix.suite }}-${{ matrix.os }}-timings
+                  path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: warn
                   retention-days: 7
 
