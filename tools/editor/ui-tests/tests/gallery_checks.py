@@ -7,6 +7,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 import pytest
 import slint_testing
@@ -147,6 +148,40 @@ def test_gallery_scenarios_render(
             image.save(
                 destination / f"{page}-{scenario.lower().replace(' ', '-')}-{theme}.png"
             )
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_gallery_gradient_stop_marker_contrast(
+    gallery_binary, editor_environment, theme
+):
+    with gallery(
+        gallery_binary, editor_environment, "picker", "Linear", theme
+    ) as window:
+        window_element_with_label(
+            window, "Open color picker"
+        ).invoke_accessible_default_action()
+        marker = window_element_with_label(
+            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
+        )
+        assert marker.size.width == 40
+        assert marker.size.height == 40
+
+        image = screenshot(window)
+        if destination := os.environ.get("SLINT_GALLERY_SCREENSHOT_DIR"):
+            output = Path(destination)
+            output.mkdir(parents=True, exist_ok=True)
+            image.save(output / f"gradient-stop-marker-{theme}.png")
+        x = round(marker.absolute_position.x)
+        y = round(marker.absolute_position.y)
+        tick = cast(tuple[int, int, int], image.getpixel((x + 4, y + 23)))
+        tick_keyline = cast(tuple[int, int, int], image.getpixel((x + 1, y + 23)))
+        inner_ring = cast(tuple[int, int, int], image.getpixel((x + 20, y + 10)))
+        pointer = cast(tuple[int, int, int], image.getpixel((x + 20, y + 4)))
+
+        assert max(tick) < 48
+        assert min(tick_keyline) > 224
+        assert min(inner_ring) > 224
+        assert min(pointer) > 224
 
 
 def test_gallery_outline_selection_expansion_and_reset(
@@ -297,6 +332,31 @@ def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environme
         )
         gesture(window, center(visibility), center(visibility))
         window_element_with_label(window, "Clicked visibility")
+
+
+def test_gallery_image_alignment_selection_and_reset(
+    gallery_binary, editor_environment
+):
+    with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
+        center = window_element_with_label(
+            window, "Align image center", slint_testing.AccessibleRole.Button
+        )
+        assert center.accessible_checked
+        window_element_with_label(
+            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        assert window_element_with_label(
+            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        ).accessible_checked
+        window_element_with_label(
+            window, "Bottom right", slint_testing.AccessibleRole.Text
+        )
+        window_element_with_label(
+            window, "Reset example"
+        ).invoke_accessible_default_action()
+        assert window_element_with_label(
+            window, "Align image center", slint_testing.AccessibleRole.Button
+        ).accessible_checked
 
 
 def test_gallery_properties_edit_component_values(gallery_binary, editor_environment):

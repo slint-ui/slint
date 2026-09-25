@@ -231,6 +231,20 @@ export component EditorUi inherits Window {
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
+            MenuSeparator { }
+            MenuItem {
+                title: @tr("Open...");
+                activated => { Project.open-existing-project(); }
+            }
+            Menu {
+                title: @tr("Open Recent");
+                enabled: Project.recent.length > 0;
+
+                for project in Project.recent: MenuItem {
+                    title: project.name;
+                    activated => { Project.open-recent-project(project); }
+                }
+            }
         }
         Menu {
             title: @tr("Edit");
@@ -260,10 +274,27 @@ export component EditorUi inherits Window {
                 activated => { CanvasView.set-zoom(CanvasView.previous-zoom-level); }
             }
             MenuItem {
+                title: @tr("Zoom to Selection");
+                shortcut: @keys(Shift + "2");
+                enabled: root.canvas-zoom-enabled;
+                activated => {
+                    CanvasView.zoom-to-selection(
+                        Api.current-element.source-uri != "" && Api.selection.highlight-index >= 0,
+                    );
+                }
+            }
+            MenuItem {
                 title: @tr("Actual Size");
                 shortcut: @keys(Control + Digit0);
                 enabled: root.canvas-zoom-enabled;
                 activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
+            }
+        }
+        Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("Slint Documentation");
+                activated => { Platform.open-url("https://docs.slint.dev"); }
             }
         }
     }

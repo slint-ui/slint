@@ -13,5 +13,5 @@ export component Derived inherits Base {
 //                        >           <warning{'content-width' shadows the inherited property of the same name}
 //                                       >         <^error{The binding for the property 'content-width' is part of a binding loop (root_window.content-width -> root_window.other -> root_window.content-width)}
     in-out property <int> other: root.content-width;
-//                               >                 <error{The binding for the property 'other' is part of a binding loop (root_window.content-width -> root_window.other -> root_window.content-width)}
+//                               >                 <note{'other' is part of the binding loop reported for 'content-width' at line 12}
 }

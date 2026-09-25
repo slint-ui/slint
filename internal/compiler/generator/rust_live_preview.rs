@@ -188,14 +188,17 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> sp::Result<Self, slint::PlatformError> {
-                let mut compiler = sp::live_preview::Compiler::default();
-                compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
-                compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
-                #(compiler.set_style(#style.to_string());)*
-                #(compiler.set_translation_domain(#translation_domain.to_string());)*
-                #bundled_translations
-                #no_default_translation_context
-                let instance = sp::live_preview::LiveReloadingComponent::new(compiler, #main_file.into(), Some(#component_name.into()))?;
+                let compiler_factory = || {
+                    let mut compiler = sp::live_preview::Compiler::default();
+                    compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
+                    compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
+                    #(compiler.set_style(#style.to_string());)*
+                    #(compiler.set_translation_domain(#translation_domain.to_string());)*
+                    #bundled_translations
+                    #no_default_translation_context
+                    compiler
+                };
+                let instance = sp::live_preview::LiveReloadingComponent::new(compiler_factory, #main_file.into(), Some(#component_name.into()))?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }

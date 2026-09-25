@@ -718,7 +718,7 @@ export global Api {
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
-    callback persist-selected-element-geometry();
+    callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);

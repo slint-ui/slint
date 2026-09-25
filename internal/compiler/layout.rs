@@ -867,21 +867,13 @@ impl FlexboxLayout {
     }
 }
 
-/// Whether the builtin — or the native class it resolves to after the
-/// `resolve_native_classes` pass — has no intrinsic size (Rectangle, Empty,
-/// TouchArea, etc.): its layout info is the static default, never
-/// height-for-width.
+/// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
+/// its layout info is the static default, never height-for-width.
 fn has_no_intrinsic_size(base: &ElementType) -> bool {
-    let name = match base {
-        ElementType::Builtin(b) => b.name.as_str(),
-        ElementType::Native(n) => n.class_name.as_str(),
-        _ => return false,
-    };
+    let ElementType::Builtin(b) = base else { return false };
     matches!(
-        name,
+        b.name.as_str(),
         "Rectangle"
-            | "BasicBorderRectangle"
-            | "BorderRectangle"
             | "Empty"
             | "TouchArea"
             | "FocusScope"
@@ -965,9 +957,7 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            base @ (ElementType::Builtin(_) | ElementType::Native(_))
-                if has_no_intrinsic_size(base) =>
-            {
+            base @ ElementType::Builtin(_) if has_no_intrinsic_size(base) => {
                 if filter == BuiltinFilter::SkipNonImplicit {
                     return None;
                 }
@@ -1021,15 +1011,10 @@ pub fn implicit_layout_info_call(
 /// `Element::is_builtin_height_for_width` is the variant for synthesis,
 /// which runs before `property_analysis` is filled.
 pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
-    // Before `resolve_native_classes`, a builtin's native class is its widest one.
-    let class = match &elem.base_type {
-        ElementType::Builtin(b) => &b.native_class,
-        ElementType::Native(n) => n,
-        _ => return false,
-    };
-    match class.class_name.as_str() {
-        "ImageItem" | "ClippedImage" | "StyledTextItem" => true,
-        "SimpleText" | "ComplexText" | "TextInput" => {
+    let ElementType::Builtin(b) = &elem.base_type else { return false };
+    match b.name.as_str() {
+        "Image" | "StyledText" => true,
+        "Text" | "TextInput" => {
             elem.is_binding_set("wrap", false)
                 || elem
                     .property_analysis

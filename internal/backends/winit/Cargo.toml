@@ -20,6 +20,20 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-femtovg?/image-pixel-format-gray8",
+  "i-slint-renderer-skia?/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-renderer-anyrender?/image-pixel-format-gray8",
+]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-renderer-anyrender?/image-pixel-format-rgb565",
+]
 wayland = [
   "winit/wayland",
   "winit/wayland-csd-adwaita",
@@ -49,10 +63,11 @@ renderer-femtovg = [
   "windows/Win32_Graphics_OpenGL",
 ]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
-renderer-skia = ["i-slint-renderer-skia"]
+renderer-skia = ["i-slint-renderer-skia/default"]
 renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+renderer-skia-software = ["i-slint-renderer-skia/softbuffer"]
 renderer-software = [
   "dep:softbuffer",
   "dep:imgref",
@@ -88,7 +103,7 @@ scopeguard = { version = "1.1.0", default-features = false }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 # For the vello renderer
 i-slint-renderer-anyrender = { workspace = true, optional = true }

@@ -2,27 +2,65 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Typography, FieldStyle } from "../../style.slint";
+import { EditorCursors } from "../index.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
-export component InspectorValueField inherits Rectangle {
+export component InspectorValueField inherits FocusScope {
     in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix;
     in property <int> corner-index: -1;
     in property <string> value;
-    in property <bool> enabled: true;
     in property <string> commit-key: "";
+    in property <bool> scrubbable: false;
+    in property <float> scrub-value;
+    in property <bool> scrub-has-minimum: false;
+    in property <float> scrub-minimum;
     callback accepted(string) -> bool;
+    callback scrub-preview(float) -> bool;
+    callback scrub-accepted(float) -> bool;
+    callback scrub-canceled(float);
+    private property <bool> scrubbing;
+    private property <length> scrub-start-x;
+    private property <float> scrub-initial-value;
+    private property <float> scrub-drag-value;
 
     width: Style.inspector-layout.column-width;
     height: root.style.height;
+
+    changed commit-key => { root.cancel-scrub(); }
+
+    function cancel-scrub() {
+        if root.scrubbing {
+            root.scrubbing = false;
+            root.scrub-canceled(root.scrub-initial-value);
+        }
+    }
+
+    function update-scrub(mouse-x: length) {
+        let delta = (mouse-x - root.scrub-start-x) / 1px;
+        let stepped-value = (root.scrub-initial-value + delta).round();
+        let value = root.scrub-has-minimum ? max(root.scrub-minimum, stepped-value) : stepped-value;
+        root.scrub-drag-value = value;
+        if !root.scrub-preview(value) {
+            root.cancel-scrub();
+        }
+    }
+
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.scrubbing {
+            root.cancel-scrub();
+            return accept;
+        }
+        return reject;
+    }
 
     field := InspectorTextFieldBase {
         style: root.style;
         accessible-name: root.accessible-name;
         width: parent.width;
-        value: root.value;
+        value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
         enabled: root.enabled;
         commit-key: root.commit-key;
         accepted(text) => {
@@ -40,11 +78,47 @@ export component InspectorValueField inherits Rectangle {
             stroke: root.style.appearance.muted;
             stroke-width: Metrics.border-width;
         }
-        if root.corner-index < 0 && root.prefix != "": Text {
-            text: root.prefix;
-            color: field.paint-foreground;
-            font-size: Typography.caption.size;
-            vertical-alignment: center;
+        if root.corner-index < 0 && root.prefix != "": prefix-container := Rectangle {
+            width: prefix-text.preferred-width;
+            height: field.height;
+            prefix-text := Text {
+                width: self.preferred-width;
+                height: parent.height;
+                text: root.prefix;
+                color: root.style.appearance.muted;
+                font-size: Typography.caption.size - 1px;
+                vertical-alignment: center;
+            }
+            if root.scrubbable: prefix-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
+                accessible-role: AccessibleRole.slider;
+                accessible-label: root.accessible-name + " scrubber";
+                accessible-value: "\{root.scrub-value}";
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.focus();
+                        root.scrubbing = true;
+                        root.scrub-start-x = self.mouse-x;
+                        root.scrub-initial-value = root.scrub-value;
+                        root.scrub-drag-value = root.scrub-value;
+                    } else if event.kind == PointerEventKind.move && root.scrubbing {
+                        root.update-scrub(self.mouse-x);
+                    } else if event.kind == PointerEventKind.up && root.scrubbing {
+                        let value = root.scrub-drag-value;
+                        root.scrubbing = false;
+                        if value != root.scrub-initial-value {
+                            if !root.scrub-accepted(value) {
+                                root.scrub-canceled(root.scrub-initial-value);
+                            }
+                        } else {
+                            root.scrub-canceled(root.scrub-initial-value);
+                        }
+                    } else if event.kind == PointerEventKind.cancel {
+                        root.cancel-scrub();
+                    }
+                }
+            }
         }
     }
 }

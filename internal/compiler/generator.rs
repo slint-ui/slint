@@ -10,12 +10,11 @@ There is one sub module for every language
 // cSpell: ignore deque subcomponent
 
 use smol_str::SmolStr;
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
@@ -426,68 +425,6 @@ pub fn handle_property_bindings_init(
                 &mut handle_property,
                 &mut processed,
             );
-        }
-    });
-}
-
-/// Call the given function for each constant property in the Component so one can set
-/// `set_constant` on it.
-pub fn for_each_const_properties(
-    component: &Rc<Component>,
-    mut f: impl FnMut(&ElementRc, &SmolStr),
-) {
-    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
-        if elem.borrow().repeated.is_some() {
-            return;
-        }
-        let mut e = elem.clone();
-        let mut all_prop = BTreeSet::new();
-        loop {
-            all_prop.extend(
-                e.borrow()
-                    .property_declarations
-                    .iter()
-                    .filter(|(_, x)| {
-                        x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo)))
-                    })
-                    .map(|(k, _)| k.clone()),
-            );
-            match &e.clone().borrow().base_type {
-                ElementType::Component(c) => {
-                    e = c.root_element.clone();
-                }
-                ElementType::Native(n) => {
-                    let mut n = n;
-                    loop {
-                        all_prop.extend(
-                            n.properties
-                                .iter()
-                                .filter(|(k, x)| {
-                                    x.ty.is_property_type()
-                                        && (n.class_name != "Flickable"
-                                            || !k.starts_with("content-"))
-                                        && k.as_str() != "commands"
-                                })
-                                .map(|(k, _)| k.clone()),
-                        );
-                        match n.parent.as_ref() {
-                            Some(p) => n = p,
-                            None => break,
-                        }
-                    }
-                    break;
-                }
-                ElementType::Builtin(_) => {
-                    unreachable!("builtin element should have been resolved")
-                }
-                ElementType::Global | ElementType::Interface | ElementType::Error => break,
-            }
-        }
-        for c in all_prop {
-            if NamedReference::new(elem, c.clone()).is_constant() {
-                f(elem, &c);
-            }
         }
     });
 }

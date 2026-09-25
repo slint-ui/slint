@@ -63,6 +63,7 @@ getrandom = { version = "0.2", features = ["js"], optional = true }
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1.48.0", features = ["test-util"] }
+i-slint-backend-testing = { path = "../backends/testing" }
 
 [lib]
 path = "lib.rs"

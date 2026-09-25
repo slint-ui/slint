@@ -149,9 +149,7 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             load_preview(preview_component, LoadBehavior::BringWindowToFront);
         }
         M::OpenProject { root } => {
-            PREVIEW_STATE.with_borrow_mut(|preview_state| {
-                preview_state.current_project_root = Some(root.clone());
-            });
+            reset_project_state(root.clone());
             apply_project_to_file_tree(&root);
             record_current_project();
         }
@@ -278,6 +276,7 @@ pub struct PreviewState {
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
+    project_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -379,6 +378,52 @@ fn delete_document(url: &lsp_types::Url) {
         // Trigger a compile error now!
         load_preview(current, LoadBehavior::Reload);
     }
+}
+
+fn reset_project_state(root: Url) {
+    let (api, editor_ui) = PREVIEW_STATE.with_borrow_mut(|state| {
+        state.property_range_declarations = None;
+        state.handle.replace(None);
+        state.document_cache.replace(None);
+        (*state.debug_hook_overrides).borrow_mut().clear();
+        state.selected = None;
+        state.notify_editor_about_selection_after_update = false;
+        state.workspace_edit_sent = false;
+        state.known_components.clear();
+        state.initial_live_data.clear();
+        state.current_live_data.clear();
+        state.undo_redo_stack.clear();
+        state.pending_history.clear();
+        state.inspector_edit = None;
+        state.fill_refresh = None;
+        state.source_code.clear();
+        state.resources.clear();
+        state.dependencies.clear();
+        state.current_previewed_component = None;
+        state.current_project_root = Some(root);
+        state.project_generation = state.project_generation.wrapping_add(1);
+        (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
+    });
+
+    if let Some(api) = api {
+        api.set_current_element(Default::default());
+        api.set_properties(Default::default());
+        api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
+        api.set_undo_enabled(false);
+        api.set_redo_enabled(false);
+        api.set_inspector_fill_refresh_pending(false);
+        ui::ui_set_known_components(&api, &[], usize::MAX);
+        ui::ui_set_preview_data(&api, Default::default(), None);
+        outline::reset_outline(&api, None);
+    }
+    if let Some(editor_ui) = editor_ui {
+        editor_ui.global::<ui::Preview>().set_can_run(false);
+    }
+    inspector::invalidate_fill();
+}
+
+fn is_current_project_generation(project_generation: u64) -> bool {
+    PREVIEW_STATE.with_borrow(|state| state.project_generation == project_generation)
 }
 
 pub fn set_user_settings(name: String, contents: String) {
@@ -1232,19 +1277,19 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     send_workspace_edit(label, edit, true);
 }
 
-fn persist_selected_element_geometry() {
+fn persist_selected_element_geometry() -> bool {
     let Some(element_selection) = &selected_element() else {
-        return;
+        return false;
     };
     let Some(element_node) = element_selection.as_element_node() else {
-        return;
+        return false;
     };
 
     let Some((edit, label)) = persist_selected_element_geometry_impl(&element_node) else {
-        return;
+        return false;
     };
 
-    send_workspace_edit(label, edit, true);
+    send_workspace_edit(label, edit, true)
 }
 
 fn rotate_selected_element(angle: f32) {
@@ -2072,8 +2117,8 @@ async fn reload_timer_function() {
     });
 
     loop {
-        let Some((preview_component, config, behavior)) =
-            PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let Some((preview_component, config, behavior, project_generation)) = PREVIEW_STATE
+            .with_borrow_mut(|preview_state| {
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
 
@@ -2082,7 +2127,12 @@ async fn reload_timer_function() {
                 preview_state.loading_state = PreviewFutureState::Loading;
                 preview_state.dependencies.clear();
 
-                Some((preview_component, preview_state.config.clone(), behavior))
+                Some((
+                    preview_component,
+                    preview_state.config.clone(),
+                    behavior,
+                    preview_state.project_generation,
+                ))
             })
         else {
             return;
@@ -2091,7 +2141,9 @@ async fn reload_timer_function() {
         // the ComboBox is updated to the resolved style once the build finishes.
         let style = config.style.clone();
 
-        match reload_preview_impl(preview_component, behavior, style, config).await {
+        match reload_preview_impl(preview_component, behavior, style, config, project_generation)
+            .await
+        {
             Ok(()) => {}
             Err(e) => {
                 tracing::debug!("Preview reload failed: {}", e);
@@ -2264,6 +2316,7 @@ async fn reload_preview_impl(
     behavior: LoadBehavior,
     style: String,
     config: PreviewConfig,
+    project_generation: u64,
 ) -> Result<(), PlatformError> {
     start_parsing();
 
@@ -2306,6 +2359,12 @@ async fn reload_preview_impl(
         },
     )
     .await;
+
+    if !is_current_project_generation(project_generation) {
+        tracing::debug!("Discarding preview compiled for an inactive project");
+        finish_parsing();
+        return Ok(());
+    }
 
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
@@ -2909,6 +2968,65 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn opening_project_discards_previous_project_state() {
+        reset_preview_state(Default::default());
+        let old_url = Url::parse("file:///old/main.slint").unwrap();
+        let new_root = Url::parse("file:///new/").unwrap();
+        let old_project_generation = PREVIEW_STATE.with_borrow(|state| state.project_generation);
+        let live_data_key = preview_data::PreviewDataKey {
+            container: preview_data::PropertyContainer::Main,
+            property_name: "value".into(),
+        };
+        let live_data = preview_data::PreviewData {
+            ty: i_slint_compiler::langtype::Type::Int32,
+            visibility: i_slint_compiler::object_tree::PropertyVisibility::Input,
+            value: Some(slint_interpreter::Value::Number(42.0)),
+        };
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.insert(
+                old_url.clone(),
+                SourceCodeCacheEntry { version: Some(1), code: "export component Old {}".into() },
+            );
+            state.dependencies.insert(old_url.clone());
+            state.resources.insert(old_url.clone());
+            state.current_previewed_component =
+                Some(PreviewComponent { url: old_url.clone(), component: Some("Old".into()) });
+            state.initial_live_data.insert(live_data_key.clone(), live_data.clone());
+            state.current_live_data.insert(live_data_key, live_data);
+            state.undo_redo_stack.push(
+                "Old project edit".into(),
+                Some(Default::default()),
+                undo_redo::compute_file_hashes(&[text_edit::EditedText {
+                    url: old_url.clone(),
+                    contents: "export component Old {}".into(),
+                }]),
+            );
+        });
+
+        lsp_to_preview(LspToPreviewMessage::OpenProject { root: new_root.clone() });
+
+        let new_project_generation = PREVIEW_STATE.with_borrow_mut(|state| {
+            assert_eq!(state.current_project_root, Some(new_root));
+            assert_ne!(state.project_generation, old_project_generation);
+            assert!(state.current_previewed_component.is_none());
+            assert!(state.source_code.is_empty());
+            assert!(state.dependencies.is_empty());
+            assert!(state.resources.is_empty());
+            assert!(state.initial_live_data.is_empty());
+            assert!(state.current_live_data.is_empty());
+            assert!(
+                state
+                    .undo_redo_stack
+                    .check_set_contents_valid(&old_url, "export component Changed {}")
+            );
+            state.project_generation
+        });
+        assert!(!is_current_project_generation(old_project_generation));
+        assert!(is_current_project_generation(new_project_generation));
     }
 
     #[test]

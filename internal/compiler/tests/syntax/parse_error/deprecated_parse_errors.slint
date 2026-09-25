@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component Test {
+    // The message is mandatory:
+    @deprecated in-out property <int> no-message <=> other;
+//              >    <error{@deprecated requires a message in parentheses. Use '@deprecated("")' to deprecate without advising on a replacement}
+
     // The message must be a plain string literal:
     @deprecated("foo \{42}") in-out property <int> template-message <=> other;
 //              >     <error{@deprecated message must be a plain string literal, without any '\{}' expressions}

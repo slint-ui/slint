@@ -2,24 +2,31 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
-import { FillSession } from "../ui/components/inspector/fill-session.slint";
+import { FillSession } from "../ui/components/inspector/index.slint";
 
-export struct GalleryPage { id: string, title: string, description: string, scenarios: [string] }
+export enum GalleryPage {
+    foundations,
+    controls,
+    inspector-controls,
+    palette,
+    picker,
+    outline,
+}
+
 export global Gallery {
     out property <[GalleryPage]> pages: [
-        { id: "foundations", title: "Theme and typography", description: "Semantic colors, type, spacing, radii, and icons.", scenarios: ["Default"] },
-        { id: "controls", title: "Basic controls", description: "Inputs, buttons, segments, and a resize divider.", scenarios: ["Default"] },
-        { id: "inspector-controls", title: "Inspector controls", description: "Independent sample values for fields, the slider, and compound controls.", scenarios: ["Default"] },
-        { id: "palette", title: "Element palette", description: "Search and expand element groups.", scenarios: ["Default", "Unavailable"] },
-        { id: "picker", title: "Color and gradients", description: "Edit a sample swatch with the production color and gradient picker.", scenarios: ["Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"] },
-        { id: "outline", title: "Outline", description: "Select and expand sample rows.", scenarios: ["Default", "Collapsed", "Long names", "Empty", "Unavailable"] },
+        GalleryPage.foundations,
+        GalleryPage.controls,
+        GalleryPage.inspector-controls,
+        GalleryPage.palette,
+        GalleryPage.picker,
+        GalleryPage.outline,
     ];
-    in-out property <int> page-index: 3;
+    in-out property <GalleryPage> page: GalleryPage.inspector-controls;
     in-out property <int> scenario-index;
-    out property <string> page: pages[page-index].id;
-    out property <string> title: pages[page-index].title;
-    out property <string> description: pages[page-index].description;
-    out property <[string]> scenarios: pages[page-index].scenarios;
+    out property <string> title: page-title(page);
+    out property <string> description: page-description(page);
+    out property <[string]> scenarios: page-scenarios(page);
     out property <string> scenario: scenarios[scenario-index];
     in-out property <int> reset-generation;
     in-out property <FillData> fill;
@@ -33,6 +40,28 @@ export global Gallery {
     in-out property <float> rotation: 24;
     in-out property <int> segment;
 
+    public pure function page-title(page: GalleryPage) -> string {
+        if page == GalleryPage.foundations { return "Theme and typography"; }
+        if page == GalleryPage.controls { return "Basic controls"; }
+        if page == GalleryPage.inspector-controls { return "Inspector controls"; }
+        if page == GalleryPage.palette { return "Element palette"; }
+        if page == GalleryPage.picker { return "Color and gradients"; }
+        return "Outline";
+    }
+    public pure function page-description(page: GalleryPage) -> string {
+        if page == GalleryPage.foundations { return "Semantic colors, type, spacing, radii, and icons."; }
+        if page == GalleryPage.controls { return "Inputs, buttons, segments, and a resize divider."; }
+        if page == GalleryPage.inspector-controls { return "Independent sample values for fields, the slider, and compound controls."; }
+        if page == GalleryPage.palette { return "Search and expand element groups."; }
+        if page == GalleryPage.picker { return "Edit a sample swatch with the production color and gradient picker."; }
+        return "Select and expand sample rows.";
+    }
+    public pure function page-scenarios(page: GalleryPage) -> [string] {
+        if page == GalleryPage.palette { return ["Default", "Unavailable"]; }
+        if page == GalleryPage.picker { return ["Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"]; }
+        if page == GalleryPage.outline { return ["Default", "Collapsed", "Long names", "Empty", "Unavailable"]; }
+        return ["Default"];
+    }
     pure function row(label: string, kind: ElementKind, type: string, offset: int, expanded: bool) -> OutlineTreeNode {
         return {
             element-id: scenario == "Long names" ? label + "-with-a-long-component-name" : label,
@@ -49,9 +78,9 @@ export global Gallery {
             row("artwork", ElementKind.image, "Image", 3, false),
         ] : [main];
     }
-    public function navigate(page: int, scenario: int) {
+    public function navigate(page: GalleryPage, scenario: int) {
         FillSession.close-picker(false, false);
-        Gallery.page-index = page;
+        Gallery.page = page;
         Gallery.scenario-index = scenario;
         Gallery.reset-generation += 1;
         Api.editor-surface-mode = Gallery.scenario == "Unavailable" ? EditorSurfaceMode.image : EditorSurfaceMode.component;

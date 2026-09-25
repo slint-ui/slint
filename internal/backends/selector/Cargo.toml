@@ -29,6 +29,23 @@ backend-linuxkms-noseat = ["backend-linuxkms-libinput"]
 backend-qt = ["i-slint-backend-qt/enable"]
 backend-testing = ["i-slint-backend-testing/internal"]
 
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-backend-qt?/image-pixel-format-rgb565",
+  "i-slint-backend-winit?/image-pixel-format-rgb565",
+  "i-slint-backend-linuxkms?/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-backend-qt?/image-pixel-format-gray8",
+  "i-slint-backend-winit?/image-pixel-format-gray8",
+  "i-slint-backend-linuxkms?/image-pixel-format-gray8",
+  "i-slint-renderer-femtovg?/image-pixel-format-gray8",
+  "i-slint-renderer-skia?/image-pixel-format-gray8",
+]
+
 renderer-femtovg = [
   "dep:i-slint-renderer-femtovg",
   "i-slint-backend-winit?/renderer-femtovg",
@@ -55,7 +72,10 @@ renderer-skia-vulkan = [
   "i-slint-backend-linuxkms?/renderer-skia-vulkan",
   "i-slint-renderer-skia/vulkan",
 ]
-renderer-skia-software = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia-software"]
+renderer-skia-software = [
+  "i-slint-backend-winit?/renderer-skia-software",
+  "i-slint-backend-linuxkms?/renderer-skia-software",
+]
 renderer-software = [
   "i-slint-backend-winit?/renderer-software",
   "i-slint-backend-linuxkms?/renderer-software",

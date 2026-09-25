@@ -373,19 +373,20 @@ fn default_config() -> cbindgen::Config {
         .collect(),
         ..Default::default()
     };
-    config.defines = [
+    #[rustfmt::skip]
+    let defines: Vec<(String, String)> = vec![
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
         ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
+        ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
+        ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    ];
+    config.defines = defines.into_iter().collect();
     config.structure.associated_constants_in_body = true;
     config.constant.allow_constexpr = true;
     config
@@ -506,6 +507,7 @@ fn gen_corelib(
         "StandardListViewItem",
         "Rgb8Pixel",
         "Rgba8Pixel",
+        "Gray8Pixel",
     ];
 
     config.export.exclude = [
@@ -673,7 +675,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -829,6 +831,8 @@ fn gen_corelib(
             "slint_windowrc_nsview_appkit",
             "GradientStop",
             "ConicGradientBrush",
+            // Handwritten in private/slint_color.h
+            "Rgb565Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
@@ -900,6 +904,11 @@ fn gen_corelib(
     public_config.export.body.insert(
         "Rgba8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
+            .into(),
+    );
+    public_config.export.body.insert(
+        "Gray8Pixel".to_owned(),
+        "/// \\private\nfriend bool operator==(const Gray8Pixel&, const Gray8Pixel&) = default;"
             .into(),
     );
 
@@ -1204,9 +1213,9 @@ fn gen_platform(
         .with_include("private/slint_internal.h")
         .with_after_include(
             r"
-namespace slint::platform { struct Rgb565Pixel; }
+namespace slint { struct Rgb565Pixel; }
 namespace slint::cbindgen_private {
-    struct WindowProperties; using slint::platform::Rgb565Pixel;
+    struct WindowProperties; using slint::Rgb565Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
@@ -1353,9 +1362,12 @@ declare_features! {
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl
+    renderer_skia_software
     renderer_skia_vulkan
     renderer_software
     gettext
+    image_pixel_format_rgb565
+    image_pixel_format_gray8
     accessibility
     system_testing
     mcp

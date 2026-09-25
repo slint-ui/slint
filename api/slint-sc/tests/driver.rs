@@ -279,7 +279,7 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     // Step 6: The coverage of the case must be what the case states, if it
     // does: every point, reached or not.
     let report = coverage::measure(tmp.path(), &generated_rs, &test_bin)?;
-    // The cases of the `coverage` group test the reporting: one that lost its
+    // The cases of the `coverage` group test only the reporting: one that lost its
     // caret lines would pass for stating nothing.
     if rel.starts_with("coverage") && !expectations::is_stated(&source) {
         return Err("a coverage case states its coverage in `//#c` caret lines".into());
@@ -534,6 +534,9 @@ fn compile(
     // `coverage` module); under cargo-llvm-cov, the runtime code the case
     // exercises is in the runtime's coverage too.
     rustc_cmd.arg("-Cinstrument-coverage");
+    // The generated code must build on stable, even when the suite enables
+    // unstable options for the runtime's branch coverage.
+    rustc_cmd.env_remove("RUSTC_BOOTSTRAP");
 
     rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
 }

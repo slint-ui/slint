@@ -190,8 +190,8 @@ def test_picker_uses_live_preview_stop_markers(
         stop = picker_field(
             window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
         )
-        assert stop.size.width == 24
-        assert stop.size.height == 24
+        assert stop.size.width == 40
+        assert stop.size.height == 40
         (tmp_path / "picker-stop-markers.png").write_bytes(window.grab_window_as_png())
 
 
@@ -438,7 +438,13 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             picker_field(window, "No recent fills", slint_testing.AccessibleRole.Text)
             click_picker_button(window, "Add gradient stop")
             click_picker_button(window, "Edit stop 2 color")
-            picker_field(window, "Hex color").accessible_value = "#12345680"
+            color = picker_field(window, "Hex color")
+            color.accessible_value = "#12345680"
+            wait_until(
+                lambda color=color: (
+                    color if color.accessible_value == "#12345680" else None
+                )
+            )
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
             rotate_conic(window, 0, 37)

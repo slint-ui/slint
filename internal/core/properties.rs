@@ -297,6 +297,7 @@ type DependencyListHead = dependency_tracker::DependencyListHead<*const BindingH
 type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
+use core::any::Any;
 use core::cell::{Cell, RefCell, UnsafeCell};
 use core::ffi::c_void;
 use core::marker::PhantomPinned;
@@ -329,14 +330,11 @@ struct BindingVTable {
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
     velocity: unsafe fn(_self: *const BindingHolder) -> Option<f32>,
+    common_property: unsafe fn(_self: *const BindingHolder) -> Option<*const dyn Any>,
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
-///
-/// # Safety
-///
-/// IS_TWO_WAY_BINDING cannot be true if Self is not a TwoWayBinding
-unsafe trait BindingCallable<T> {
+trait BindingCallable<T> {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult;
@@ -367,11 +365,14 @@ unsafe trait BindingCallable<T> {
         None
     }
 
-    /// Set to true if and only if Self is a TwoWayBinding<T>
-    const IS_TWO_WAY_BINDING: bool = false;
+    /// For a two-way binding, returns its common property: a `Pin<Rc<Property<T>>>`,
+    /// or a `MappedCommonProperty` when the binding maps to it.
+    fn common_property(self: Pin<&Self>) -> Option<&dyn Any> {
+        None
+    }
 }
 
-unsafe impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
+impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
         self(value)
     }
@@ -454,8 +455,6 @@ struct BindingHolder<B = ()> {
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
-    /// Specify that B is a `TwoWayBinding<T>`
-    is_two_way_binding: bool,
     pinned: PhantomPinned,
     #[cfg(slint_debug_property)]
     pub debug_name: alloc::string::String,
@@ -531,6 +530,17 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         unsafe { Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).velocity() }
     }
 
+    /// Safety: _self must be a pointer to a `BindingHolder<B>`
+    unsafe fn common_property<T, B: BindingCallable<T>>(
+        _self: *const BindingHolder,
+    ) -> Option<*const dyn Any> {
+        unsafe {
+            Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
+                .common_property()
+                .map(|a| a as *const dyn Any)
+        }
+    }
+
     trait HasBindingVTable<T> {
         const VT: &'static BindingVTable;
     }
@@ -542,6 +552,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
             intercept_set: intercept_set::<T, B>,
             intercept_set_binding: intercept_set_binding::<T, B>,
             velocity: velocity::<T, B>,
+            common_property: common_property::<T, B>,
         };
     }
 
@@ -550,7 +561,6 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
         dep_nodes: Default::default(),
         vtable: <B as HasBindingVTable<T>>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
-        is_two_way_binding: B::IS_TWO_WAY_BINDING,
         pinned: PhantomPinned,
         #[cfg(slint_debug_property)]
         debug_name: Default::default(),
@@ -1197,7 +1207,7 @@ struct StateInfoBinding<F, T> {
     _phantom: core::marker::PhantomData<fn() -> T>,
 }
 
-unsafe impl<F: Fn() -> i32, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
+impl<F: Fn() -> i32, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
 where
     T: Default + From<StateInfo> + 'static,
     StateInfo: TryFrom<T>,
@@ -1284,6 +1294,7 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
             velocity: |_| None,
+            common_property: |_| None,
         };
 
         let holder = BindingHolder {
@@ -1291,7 +1302,6 @@ impl<const NEEDS_SET_DIRTY: bool> Default for PropertyTracker<NEEDS_SET_DIRTY, (
             dep_nodes: Default::default(),
             vtable: VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
-            is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: (),
             #[cfg(slint_debug_property)]
@@ -1409,6 +1419,7 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
                 velocity: |_| None,
+                common_property: |_| None,
             };
         }
 
@@ -1417,7 +1428,6 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
             dep_nodes: Default::default(),
             vtable: <DirtyHandler as HasBindingVTable>::VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
-            is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: handler,
             #[cfg(slint_debug_property)]

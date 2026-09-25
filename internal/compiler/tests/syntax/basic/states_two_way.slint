@@ -69,7 +69,7 @@ export component Cyclic inherits Window {
     in-out property <int> a <=> b;
 //                          >    <error{The binding for the property 'a' is part of a binding loop (root.a -> root.b -> root.a)}
     in-out property <int> b <=> a;
-//                          >    <error{The binding for the property 'b' is part of a binding loop (root.a -> root.b -> root.a)}
+//                          >    <note{'b' is part of the binding loop reported for 'a' at line 69}
 
     states [
         Loop when toggle: {

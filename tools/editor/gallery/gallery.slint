@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button, ScrollView, Palette } from "std-widgets.slint";
-import { Gallery } from "state.slint";
+import { Gallery, GalleryPage } from "state.slint";
 import { GalleryProperties } from "properties.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { Api, EditorSurfaceMode } from "../ui/api.slint";
 import { EditorWindow, MutedLabel } from "../ui/components/index.slint";
 import { ElementPalette } from "../ui/components/element-palette.slint";
 import { OutlinePane } from "../ui/components/outline-pane.slint";
-import { InspectorFillPicker } from "../ui/components/inspector/fill-picker.slint";
-import { FillSession } from "../ui/components/inspector/fill-session.slint";
+import { FillSession, InspectorFillPicker } from "../ui/components/inspector/index.slint";
 import { GalleryControls, GalleryFoundations } from "pages/controls.slint";
 import "../ui/assets/Inter-VariableFont.ttf";
 
@@ -26,7 +25,7 @@ export component GalleryWindow inherits Window {
     in-out property <int> theme-index;
     private property <ColorScheme> system-scheme;
     changed theme-index => { Palette.color-scheme = root.theme-index == 1 ? ColorScheme.light : root.theme-index == 2 ? ColorScheme.dark : root.system-scheme; }
-    init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; if Platform.uses-mock-data { Gallery.navigate(Gallery.page-index, 0); } }
+    init => { root.system-scheme = Palette.color-scheme; EditorWindow.width = root.width; EditorWindow.height = root.height; if Platform.uses-mock-data { Gallery.navigate(Gallery.page, 0); } }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
     HorizontalLayout {
@@ -36,9 +35,9 @@ export component GalleryWindow inherits Window {
             VerticalLayout {
                 padding: 16px; spacing: 12px;
                 Text { text: "Component Gallery"; color: Colors.foreground; font-size: Typography.heading.size; font-weight: Typography.heading.weight; }
-                for page[index] in Gallery.pages: Button {
-                    text: page.title; checked: Gallery.page == page.id;
-                    clicked => { Gallery.navigate(index, 0); }
+                for page in Gallery.pages: Button {
+                    text: Gallery.page-title(page); checked: Gallery.page == page;
+                    clicked => { Gallery.navigate(page, 0); }
                 }
                 Rectangle { vertical-stretch: 1; }
             }
@@ -57,17 +56,17 @@ export component GalleryWindow inherits Window {
                     height: Gallery.preview-height > 0 ? Gallery.preview-height * 1px : parent.height;
                     background: Colors.surface;
                     accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
-                    if Gallery.page == "foundations": GalleryFoundations { }
-                    if Gallery.page == "controls" || Gallery.page == "inspector-controls": GalleryControls { inspector: Gallery.page == "inspector-controls"; }
-                    if Gallery.page == "palette": HorizontalLayout {
+                    if Gallery.page == GalleryPage.foundations: GalleryFoundations { }
+                    if Gallery.page == GalleryPage.controls || Gallery.page == GalleryPage.inspector-controls: GalleryControls { inspector: Gallery.page == GalleryPage.inspector-controls; }
+                    if Gallery.page == GalleryPage.palette: HorizontalLayout {
                         ElementPalette { width: Gallery.panel-width * 1px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; }
                         Rectangle { horizontal-stretch: 1; }
                     }
-                    if Gallery.page == "outline": HorizontalLayout {
+                    if Gallery.page == GalleryPage.outline: HorizontalLayout {
                         OutlinePane { width: Gallery.panel-width * 1px; }
                         Rectangle { horizontal-stretch: 1; }
                     }
-                    if Gallery.page == "picker": VerticalLayout {
+                    if Gallery.page == GalleryPage.picker: VerticalLayout {
                         padding: 24px; spacing: 16px; alignment: start;
                         Rectangle {
                             width: 240px; height: 160px;

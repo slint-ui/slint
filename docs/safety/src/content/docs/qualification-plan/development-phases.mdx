@@ -15,16 +15,20 @@ When in doubt, it's major.
 The ticket, also known as a Github Issue, describes the work to be done: the motivation for the change and a proposed solution.
 
 The ticket also details the impact of the change on the safety of the system.
-This is the impact analysis that [Change Management](/qualification-plan/development-process/#change-management-iso-26262-8-8x) requires, and the review in Phase 3 is where it gets challenged.
+This is the impact analysis that [Change Management](/qualification-plan/development-process/#change-management) requires, and the review in Phase 3 is where it gets challenged.
 
-(TODO: name who approves a ticket. Related: the safety policy's TODO on naming
-the safety manager and who approves a release.)
+:::caution[TODO]
+Name who approves a ticket.
+Related: the [Safety Policy](/qualification-plan/safety-policy/#responsibilities) TODO on naming the safety manager and who approves a release.
+:::
 
 ## Phase 2: Code Development
 
 During this phase, the developer implements the changes described in the ticket.
 
-(TODO: add naming convention of git branches here?)
+:::caution[TODO]
+Decide whether a naming convention for git branches belongs here.
+:::
 
 After work has reached the point where it should be reviewed by others, the developer creates a Pull Request (PR).
 
@@ -49,13 +53,15 @@ For external contributions, the reviewer merges instead.
 The master branch is protected.
 Administrators are technically able to push directly; they shall not, and a direct push to code covered by this document is a process violation to be reported like any other problem.
 
-(TODO: decide the exceptions, if any, e.g. machine-generated commits such as
-automated formatting, and enumerate them here. Until then there are none.)
+:::caution[TODO]
+Decide the exceptions, if any, such as machine-generated commits for automated formatting, and enumerate them here.
+Until then there are none.
+:::
 
 ## Phase 4: Verification Evidence
 
 Testing isn't a phase of its own: CI runs the [test suites](/qualification-plan/test-suites/) on every push, and Phase 3 requires them to pass before anything merges.
 
 What follows the merge is producing the evidence.
-`scripts/slint_sc_test_suite.sh` runs the suites, measures the runtime's coverage, and records the toolchain of the run; the results land in the [Qualification Report](/qualification-report/test-results/).
+`scripts/slint_sc_test_suite.sh` runs the suites, measures the runtime's coverage, and records the toolchain of the run; the results land in the [Qualification Report](/qualification-report/).
 What must hold for a change to count as verified is in [Verification](/qualification-plan/verification/).

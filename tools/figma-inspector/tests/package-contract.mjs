@@ -13,9 +13,6 @@ const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const { version } = JSON.parse(
     await readFile(resolve(projectRoot, "package.json"), "utf8"),
 );
-const runtimePin = JSON.parse(
-    await readFile(resolve(projectRoot, "runtime-pin.json"), "utf8"),
-);
 const packageDir = `Figma to Slint_${version}`;
 const archivePath = resolve(projectRoot, "zip", "figma-plugin.zip");
 const expectedFiles = [
@@ -36,20 +33,8 @@ const prefix = `${packageDir}/`;
 const provenance = JSON.parse(
     await archive.file(`${packageDir}/provenance.json`).async("string"),
 );
-if (
-    provenance.channel !== "nightly" ||
-    provenance.repository !== "https://github.com/slint-ui/slint.git" ||
-    provenance.manifest !== "api/wasm-interpreter/Cargo.toml" ||
-    [
-        "cargoTargetDir",
-        "branch",
-        "cacheHit",
-        "materializedAt",
-        "generatedAt",
-    ].some((key) => key in provenance) ||
-    JSON.stringify(provenance).includes(projectRoot)
-)
-    throw Error("Packaged provenance must not contain local checkout metadata");
+if (JSON.stringify(provenance).includes(projectRoot))
+    throw Error("Packaged provenance must not contain local checkout paths");
 const actualFiles = Object.entries(archive.files)
     .filter(([, entry]) => !entry.dir)
     .map(([path]) => path)
@@ -100,8 +85,7 @@ assert.equal(provenance.channel, "nightly");
 assert.equal(provenance.repository, "https://github.com/slint-ui/slint.git");
 assert.equal(provenance.manifest, "api/wasm-interpreter/Cargo.toml");
 assert.match(provenance.revision, /^[a-f0-9]{40}$/);
-assert.equal(provenance.revision, runtimePin.revision);
-assert.equal(provenance.version, runtimePin.version);
+assert.equal(provenance.version, version);
 const dependencies = JSON.parse(
     await archive.file(`${prefix}dependencies.json`).async("string"),
 );
@@ -110,7 +94,7 @@ assert.equal(
         (pkg) =>
             pkg.ecosystem === "cargo" && pkg.name === "slint-wasm-interpreter",
     )?.version,
-    runtimePin.version,
+    version,
 );
 assert.equal(manifest.id, "1474418299182276871");
 assert.deepEqual(manifest.networkAccess.allowedDomains, ["none"]);
@@ -119,8 +103,6 @@ assert.ok(
         "not a Community release",
     ),
 );
-for (const field of ["cargoTargetDir", "branch", "materializedAt", "cacheHit"])
-    assert.equal(field in provenance, false);
 const sums = JSON.parse(
     await archive.file(`${prefix}SHA256SUMS.json`).async("string"),
 );

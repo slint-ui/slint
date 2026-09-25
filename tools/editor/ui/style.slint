@@ -299,7 +299,7 @@ export struct SelectionFrameStyle {
 
 export struct RadiusHandleStyle {
     size: length = 10px,
-    inset: length = 10px,
+    inset: length = 12px,
 }
 
 export struct TransparencyGridStyle {
@@ -309,10 +309,20 @@ export struct TransparencyGridStyle {
 }
 
 export struct GradientMarkerStyle {
-    inactive: color,
-    active: color = #0c8ce9,
-    size: length = 24px,
-    radius: length = 5px,
+    inactive: color = #7d8793,
+    active: color = #176fe8,
+    size: length = 40px,
+    pointer-width: length = 12px,
+    pointer-height: length = 10px,
+    indicator-size: length = 24px,
+    inner-ring-width: length = 2px,
+    inactive-ring-width: length = 1px,
+    active-ring-width: length = 2px,
+    tick-length: length = 4px,
+    tick-width: length = 2px,
+    tick-keyline-width: length = 1px,
+    keyline-light: color = #ffffff,
+    keyline-dark: color = #171717,
     checker: TransparencyGridStyle,
 }
 
@@ -686,7 +696,6 @@ struct OverlayTheme {
     tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
     floating-panel: PaintStyle,
-    marker-inactive: color,
 }
 
 struct InspectorTheme {
@@ -904,8 +913,6 @@ export global LightTheme {
         border: #d0d7de,
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
-
-    out property <color> marker-inactive: #b5ccdd;
 
     out property <color> divider: #e5e5e5;
 
@@ -1192,8 +1199,6 @@ export global DarkTheme {
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #3f3f3f;
-
     out property <color> divider: #414141;
 
     out property <FillPickerStyle> fill-picker: {
@@ -1407,14 +1412,12 @@ export global Theme {
         tooltip-paint: DarkTheme.tooltip-paint,
         drag-preview: DarkTheme.drag-preview,
         floating-panel: DarkTheme.floating-panel,
-        marker-inactive: DarkTheme.marker-inactive,
     } : {
         gradient-overlay: LightTheme.gradient-overlay,
         slice-label-border: LightTheme.slice-label-border,
         tooltip-paint: LightTheme.tooltip-paint,
         drag-preview: LightTheme.drag-preview,
         floating-panel: LightTheme.floating-panel,
-        marker-inactive: LightTheme.marker-inactive,
     };
 
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
@@ -1703,7 +1706,6 @@ export global Style {
 
     private property <GradientMarkerStyle> gradient-marker: {
         checker: root.transparency-grid,
-        inactive: Theme.overlay.marker-inactive,
     };
 
     out property <InspectorStyle> inspector-layout: {

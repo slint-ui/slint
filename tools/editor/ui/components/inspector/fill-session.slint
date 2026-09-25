@@ -124,6 +124,13 @@ export global FillSession {
             : FillSession.selected-stop - (FillSession.selected-stop > index ? 1 : 0);
         FillSession.preview-fill(FillSession.draft);
     }
+    public function edit-stop-color(index: int) {
+        if !FillSession.editable || FillSession.working-fill.kind == BrushKind.solid || index < 0 || index >= FillSession.working-fill.stops.length {
+            return;
+        }
+        FillSession.selected-stop = index;
+        FillSession.stop-panel-open = true;
+    }
     public function apply-history(redo: bool) {
         FillSession.close-picker(false, false);
         Api.inspector-cancel();

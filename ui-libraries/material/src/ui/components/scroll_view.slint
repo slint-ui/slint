@@ -115,11 +115,10 @@ export component ScrollView {
     in_out property <length> content_x <=> flickable.content_x;
     in_out property <length> content_y <=> flickable.content_y;
     // Compatibility aliases for the former names of the content_* properties.
-    // FIXME: mark these as @deprecated once that annotation is no longer experimental.
-    in_out property <length> viewport_width <=> content_width;
-    in_out property <length> viewport_height <=> content_height;
-    in_out property <length> viewport_x <=> content_x;
-    in_out property <length> viewport_y <=> content_y;
+    @deprecated("Please use 'content-width' instead") in_out property <length> viewport_width <=> content_width;
+    @deprecated("Please use 'content-height' instead") in_out property <length> viewport_height <=> content_height;
+    @deprecated("Please use 'content-x' instead") in_out property <length> viewport_x <=> content_x;
+    @deprecated("Please use 'content-y' instead") in_out property <length> viewport_y <=> content_y;
     in property <ScrollBarPolicy> vertical_scrollbar_policy <=> vertical_bar.policy;
     in property <ScrollBarPolicy> horizontal_scrollbar_policy <=> horizontal_bar.policy;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
