@@ -578,6 +578,7 @@ impl CppType for Type {
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
             Type::MouseCursor => Some("slint::cbindgen_private::MouseCursorInner".into()),
+            Type::DashArray => Some("slint::SharedVector<float>".into()),
             _ => None,
         }
     }
@@ -4413,6 +4414,20 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         )
                     } else {
                         "slint::private_api::PathData()".into()
+                    }
+                }
+                (Type::Array(..), Type::DashArray) => {
+                    let values = match from.as_ref() {
+                        llr::Expression::Array { values, .. } => values
+                            .iter()
+                            .map(|e| format!("float({})", compile_expression(e, ctx)))
+                            .collect::<Vec<_>>(),
+                        _ => unreachable!(),
+                    };
+                    if values.is_empty() {
+                        "slint::SharedVector<float>()".into()
+                    } else {
+                        format!("slint::SharedVector<float>({{ {} }})", values.join(", "))
                     }
                 }
                 (Type::Struct { .. }, Type::PathData)

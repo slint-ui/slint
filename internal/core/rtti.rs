@@ -40,6 +40,7 @@ macro_rules! declare_ValueType_2 {
             crate::graphics::Image,
             crate::Color,
             crate::PathData,
+            crate::SharedVector<f32>,
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,
             crate::items::TableColumn,

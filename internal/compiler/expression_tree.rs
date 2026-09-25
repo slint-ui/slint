@@ -1891,7 +1891,8 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
-            | Type::ArrayOfU16 => Expression::Invalid,
+            | Type::ArrayOfU16
+            | Type::DashArray => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),

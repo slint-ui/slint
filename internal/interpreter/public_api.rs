@@ -75,7 +75,8 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
         | Type::Callback(_)
         | Type::Function(_)
         | Type::ElementReference
-        | Type::Closure => false,
+        | Type::Closure
+        | Type::DashArray => false,
         Type::Float32 | Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
         Type::Color | Type::Brush => matches!(value, Value::Brush(_)),
@@ -131,7 +132,7 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
         Type::Keys => matches!(value, Value::Keys(_)),
-        Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+        Type::LayoutCache => matches!(value, Value::ArrayOfF32(_)),
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),

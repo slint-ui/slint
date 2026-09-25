@@ -125,16 +125,9 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         }
         Type::Keys => Some(quote!(sp::Keys)),
         Type::Brush => Some(quote!(slint::Brush)),
-        Type::LayoutCache => Some(quote!(
-            sp::SharedVector<
-                sp::Coord,
-            >
-        )),
-        Type::ArrayOfU16 => Some(quote!(
-            sp::SharedVector<
-                u16,
-            >
-        )),
+        Type::LayoutCache => Some(quote!(sp::SharedVector<sp::Coord>)),
+        Type::ArrayOfU16 => Some(quote!(sp::SharedVector<u16>)),
+        Type::DashArray => Some(quote!(sp::SharedVector<f32>)),
         _ => None,
     }
 }
@@ -3964,6 +3957,16 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             };
             quote!(sp::PathData::Elements(sp::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
         }
+        (Type::Array(..), Type::DashArray) => {
+            let dash_array = match from.as_ref() {
+                Expression::Array { values, .. } => {
+                    values.iter().map(|e| compile_expression(e, ctx)).collect::<Vec<_>>()
+                }
+                _ => unreachable!(),
+            };
+            quote!(sp::SharedVector::<_>::from_slice(&[#((#dash_array) as f32),*]))
+        }
+
         (Type::Struct { .. }, Type::PathData)
             if matches!(from.as_ref(), Expression::Struct { .. }) =>
         {
