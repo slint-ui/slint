@@ -1067,10 +1067,18 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> N
     NamedReference::new(elem, name)
 }
 
-/// Return true if this type is a layout that has constraints
+/// Return true if this type is a layout that has constraints,
+/// also for a component whose root layout was already lowered
 pub fn is_layout(base_type: &ElementType) -> bool {
     match base_type {
-        ElementType::Component(c) => is_layout(&c.root_element.borrow().base_type),
+        ElementType::Component(c) => {
+            let root = c.root_element.borrow();
+            // `lower_layouts` replaces a layout's base with `Empty`.
+            // A lowered `Dialog` keeps its base and isn't a layout here.
+            let is_lowered_layout = matches!(&root.base_type, ElementType::Builtin(b) if b.name == "Empty")
+                && root.debug.iter().any(|d| d.layout.is_some());
+            is_lowered_layout || is_layout(&root.base_type)
+        }
         ElementType::Builtin(be) => {
             matches!(
                 be.name.as_str(),
