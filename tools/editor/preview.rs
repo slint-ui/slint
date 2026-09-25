@@ -253,6 +253,11 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
     })));
 }
 
+struct PendingTextDropHistory {
+    submitted_edit: lsp_types::WorkspaceEdit,
+    undo: undo_redo::EditItem,
+}
+
 #[derive(Default)]
 pub struct PreviewState {
     pub editor_ui: Option<ui::EditorUi>,
@@ -263,8 +268,10 @@ pub struct PreviewState {
     document_cache: Rc<RefCell<Option<Rc<i_slint_editor_preview::DocumentCache>>>>,
     debug_hook_overrides: DebugHookOverrides,
     selected: Option<element_selection::ElementSelection>,
+    pending_inline_text_edit: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
+    pending_text_drop_history: Option<PendingTextDropHistory>,
     known_components: Vec<ComponentInformation>,
     preview_loading_delay_timer: Option<slint::Timer>,
     initial_live_data: preview_data::PreviewDataMap,
@@ -456,7 +463,9 @@ fn reset_project_state(root: Url) {
             "Preview: resetting project state"
         );
         state.clear_preview();
+        state.pending_inline_text_edit = None;
         state.workspace_edit_sent = false;
+        state.pending_text_drop_history = None;
         state.undo_redo_stack.clear();
         state.pending_history.clear();
         state.source_code.clear();
@@ -471,6 +480,8 @@ fn reset_project_state(root: Url) {
     });
 
     if let Some(api) = api {
+        api.set_inline_text_edit_request_source_uri(Default::default());
+        api.set_inline_text_edit_request_offset(-1);
         api.set_undo_enabled(false);
         api.set_redo_enabled(false);
     }
@@ -1270,6 +1281,11 @@ fn drop_component_with_geometry(
             .map(|(edit, data)| (edit, data, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
+        let pending_inline_text_edit = (component_name == "Text").then(|| ElementSelection {
+            path: drop_data.path.clone(),
+            offset: drop_data.selection_offset,
+            instance_index: 0,
+        });
         element_selection::select_element_at_source_code_position(
             drop_data.path,
             drop_data.selection_offset,
@@ -1277,7 +1293,13 @@ fn drop_component_with_geometry(
             SelectionNotification::AfterUpdate,
         );
 
-        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+        submit_workspace_edit(
+            format!("Add element {component_name}"),
+            edit,
+            false,
+            None,
+            pending_inline_text_edit,
+        );
     };
 }
 
@@ -1872,12 +1894,37 @@ enum CompilationResult {
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
-    let _ =
-        slint::invoke_from_event_loop(move || inspector::workspace_edit_finished(edit, applied));
+    let _ = slint::invoke_from_event_loop(move || {
+        if let Some(edit) = inspector::workspace_edit_finished(edit, applied) {
+            finish_pending_text_drop(edit, applied);
+        }
+    });
+}
+
+fn finish_pending_text_drop(edit: lsp_types::WorkspaceEdit, applied: bool) {
+    let handled = PREVIEW_STATE.with_borrow_mut(|state| {
+        let Some(pending) = state.pending_text_drop_history.take() else { return false };
+        if pending.submitted_edit != edit {
+            state.pending_text_drop_history = Some(pending);
+            return false;
+        }
+
+        if applied {
+            state.undo_redo_stack.push_item(pending.undo);
+        } else {
+            state.workspace_edit_sent = false;
+            state.pending_inline_text_edit = None;
+        }
+        undo_redo::set_undo_redo_enabled(state);
+        true
+    });
+    if handled && !applied {
+        undo_redo::apply_pending();
+    }
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
+    submit_workspace_edit(label, edit, test_edit, None, None)
 }
 
 fn submit_workspace_edit(
@@ -1885,6 +1932,7 @@ fn submit_workspace_edit(
     edit: lsp_types::WorkspaceEdit,
     test_edit: bool,
     fill: Option<ui::FillData>,
+    pending_inline_text_edit: Option<ElementSelection>,
 ) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
@@ -1943,10 +1991,17 @@ fn submit_workspace_edit(
                     file_hashes,
                 }),
             });
+        } else if pending_inline_text_edit.is_some() {
+            let Some(reverse) = reverse_edit else { return false };
+            preview_state.pending_text_drop_history = Some(PendingTextDropHistory {
+                submitted_edit: edit.clone(),
+                undo: undo_redo::EditItem { title: label.clone(), edit: reverse, file_hashes },
+            });
         } else {
             preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         }
         preview_state.workspace_edit_sent = true;
+        preview_state.pending_inline_text_edit = pending_inline_text_edit;
         undo_redo::set_undo_redo_enabled(preview_state);
         preview_state
             .to_lsp
@@ -2263,6 +2318,22 @@ async fn reload_timer_function(project_generation: u64) {
 
     if let Some(selection) = selected {
         element_selection::restore_selection(selection.clone(), SelectionNotification::Never);
+
+        let api = PREVIEW_STATE.with_borrow_mut(|state| {
+            if state.pending_inline_text_edit.as_ref() != state.selected.as_ref() {
+                return None;
+            }
+            state.pending_inline_text_edit = None;
+            state.api.upgrade()
+        });
+        if let Some(api) = api {
+            let element = api.get_current_element();
+            api.set_inline_text_edit_request_source_uri(element.source_uri);
+            api.set_inline_text_edit_request_offset(element.offset);
+            api.set_inline_text_edit_request_generation(
+                api.get_inline_text_edit_request_generation().wrapping_add(1),
+            );
+        }
 
         if notify_editor
             && selected_element().is_some()
@@ -2627,7 +2698,7 @@ pub fn set_remote_connection_state(
 
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().map(SourcePath::from_url) else {
-        element_selection::unselect_element(SelectionNotification::Never);
+        element_selection::unselect_element_from_editor();
         return;
     };
 
@@ -2829,6 +2900,11 @@ fn set_selected_element(
         }
 
         let selection_cleared = had_selection && selection.is_none();
+        if selection.is_some()
+            && preview_state.pending_inline_text_edit.as_ref() != selection.as_ref()
+        {
+            preview_state.pending_inline_text_edit = None;
+        }
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
@@ -3474,6 +3550,36 @@ mod tests {
             }
         }
         reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn rejected_text_drop_clears_inline_edit_request() {
+        reset_preview_state(Default::default());
+        let edit = lsp_types::WorkspaceEdit::default();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.pending_text_drop_history = Some(PendingTextDropHistory {
+                submitted_edit: edit.clone(),
+                undo: undo_redo::EditItem {
+                    title: "Add element Text".into(),
+                    edit: Default::default(),
+                    file_hashes: Default::default(),
+                },
+            });
+            state.pending_inline_text_edit = Some(ElementSelection {
+                path: PathBuf::from("/pending.slint"),
+                offset: TextSize::from(12),
+                instance_index: 0,
+            });
+            state.workspace_edit_sent = true;
+        });
+
+        finish_pending_text_drop(edit, false);
+
+        PREVIEW_STATE.with_borrow(|state| {
+            assert!(state.pending_text_drop_history.is_none());
+            assert!(state.pending_inline_text_edit.is_none());
+            assert!(!state.workspace_edit_sent);
+        });
     }
 
     #[test]
