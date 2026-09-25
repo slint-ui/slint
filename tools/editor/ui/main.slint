@@ -432,6 +432,7 @@ export component EditorUi inherits Window {
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
+                                palette-scale: CanvasView.zoom;
                                 show-outline: false;
                                 visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
