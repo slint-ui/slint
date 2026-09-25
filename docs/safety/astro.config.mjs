@@ -77,24 +77,45 @@ export default defineConfig({
                 // each with its own URL prefix and its own sidebar.
                 starlightSidebarTopics([
                     {
-                        label: "Safety Manual",
-                        link: "/safety-manual/",
+                        label: "User Manual",
+                        link: "/user-manual/",
                         items: [
-                            { label: "Overview", slug: "safety-manual" },
+                            { label: "Overview", slug: "user-manual" },
+                            {
+                                label: "Get Started",
+                                items: [
+                                    {
+                                        label: "Prerequisites",
+                                        slug: "user-manual/get-started/prerequisites",
+                                    },
+                                    {
+                                        label: "Installation",
+                                        slug: "user-manual/get-started/installation",
+                                    },
+                                    {
+                                        label: "Compiling .slint Files",
+                                        slug: "user-manual/get-started/compiling",
+                                    },
+                                    {
+                                        label: "Using the Generated Code",
+                                        slug: "user-manual/get-started/using-generated-code",
+                                    },
+                                ],
+                            },
                             {
                                 label: "Known Problems",
-                                slug: "safety-manual/known-problems",
+                                slug: "user-manual/known-problems",
                             },
                             {
                                 label: "Coverage of Slint Code",
-                                slug: "safety-manual/slint-coverage",
+                                slug: "user-manual/slint-coverage",
                             },
                             {
                                 label: "Slint Compiler",
                                 items: [
                                     {
                                         label: "Constraints",
-                                        slug: "safety-manual/compiler/constraints",
+                                        slug: "user-manual/compiler/constraints",
                                     },
                                 ],
                             },
@@ -103,171 +124,83 @@ export default defineConfig({
                                 items: [
                                     {
                                         label: "Constraints",
-                                        slug: "safety-manual/runtime/constraints",
+                                        slug: "user-manual/runtime/constraints",
                                     },
                                 ],
                             },
                         ],
                     },
                     {
-                        label: "Qualification Plan",
-                        link: "/qualification-plan/",
-                        items: [
-                            { label: "Overview", slug: "qualification-plan" },
-                            {
-                                label: "Safety Policy",
-                                slug: "qualification-plan/safety-policy",
-                            },
-                            {
-                                label: "Architecture Design",
-                                slug: "qualification-plan/architecture",
-                            },
-                            {
-                                label: "Development Process",
-                                slug: "qualification-plan/development-process",
-                            },
-                            {
-                                label: "Development Phases",
-                                slug: "qualification-plan/development-phases",
-                            },
-                            {
-                                label: "Coding Standards",
-                                slug: "qualification-plan/coding-standards",
-                            },
-                            {
-                                label: "Test Suites",
-                                slug: "qualification-plan/test-suites",
-                            },
-                            {
-                                label: "Test Coverage",
-                                slug: "qualification-plan/test-coverage",
-                            },
-                            {
-                                label: "Coverage Tool Verification",
-                                slug: "qualification-plan/slint-coverage",
-                            },
-                            {
-                                label: "Verification",
-                                slug: "qualification-plan/verification",
-                            },
-                            {
-                                label: "Standards Compliance",
-                                slug: "qualification-plan/standards-compliance",
-                            },
-                        ],
-                    },
-                    {
-                        label: "Evaluation Report",
-                        link: "/evaluation-report/use-cases/",
-                        items: [
-                            {
-                                label: "Use Cases",
-                                slug: "evaluation-report/use-cases",
-                            },
-                            {
-                                label: "Potential Errors",
-                                slug: "evaluation-report/potential-errors",
-                            },
-                            {
-                                label: "Safety Analysis",
-                                slug: "evaluation-report/safety-analysis",
-                            },
-                            {
-                                label: "Tool Classification",
-                                slug: "evaluation-report/tool-classification",
-                            },
-                            {
-                                label: "Qualification Method",
-                                slug: "evaluation-report/qualification-method",
-                            },
-                        ],
-                    },
-                    {
-                        label: "Qualification Report",
-                        link: "/qualification-report/traceability-matrix/",
-                        items: [
-                            {
-                                label: "Traceability Matrix",
-                                slug: "qualification-report/traceability-matrix",
-                            },
-                            {
-                                label: "Test Coverage",
-                                slug: "qualification-report/test-coverage",
-                            },
-                            {
-                                label: "Test Results",
-                                slug: "qualification-report/test-results",
-                            },
-                        ],
-                    },
-                    {
-                        label: "Language Specification",
-                        link: "/language/",
-                        items: [
-                            { label: "Introduction", slug: "language" },
-                            {
-                                label: "Source Files",
-                                slug: "language/source-files",
-                            },
-                            {
-                                label: "Lexical Structure",
-                                slug: "language/lexical-structure",
-                            },
-                            {
-                                label: "File Structure",
-                                slug: "language/file-structure",
-                            },
-                            {
-                                label: "Name Resolution",
-                                slug: "language/name-resolution",
-                            },
-                            {
-                                label: "Imports",
-                                slug: "language/imports",
-                            },
-                            {
-                                label: "Exports",
-                                slug: "language/exports",
-                            },
-                            {
-                                label: "Properties",
-                                slug: "language/properties",
-                            },
-                            {
-                                label: "Bindings",
-                                slug: "language/bindings",
-                            },
-                            {
-                                label: "Expressions",
-                                slug: "language/expressions",
-                            },
-                            {
-                                label: "Operators",
-                                slug: "language/operators",
-                            },
-                            {
-                                label: "Callbacks",
-                                slug: "language/callbacks",
-                            },
-                            {
-                                label: "Structs and Enums",
-                                slug: "language/structs-and-enums",
-                            },
-                            {
-                                label: "Geometry",
-                                slug: "language/geometry",
-                            },
-                            {
-                                label: "States and Transitions",
-                                slug: "language/states-and-transitions",
-                            },
-                        ],
-                    },
-                    {
-                        label: "API Reference",
+                        label: "Reference",
                         link: "/reference/",
                         items: [
                             { label: "Overview", slug: "reference" },
+                            {
+                                label: "Language Specification",
+                                collapsed: true,
+                                items: [
+                                    {
+                                        label: "Introduction",
+                                        slug: "reference/language",
+                                    },
+                                    {
+                                        label: "Source Files",
+                                        slug: "reference/language/source-files",
+                                    },
+                                    {
+                                        label: "Lexical Structure",
+                                        slug: "reference/language/lexical-structure",
+                                    },
+                                    {
+                                        label: "File Structure",
+                                        slug: "reference/language/file-structure",
+                                    },
+                                    {
+                                        label: "Name Resolution",
+                                        slug: "reference/language/name-resolution",
+                                    },
+                                    {
+                                        label: "Imports",
+                                        slug: "reference/language/imports",
+                                    },
+                                    {
+                                        label: "Exports",
+                                        slug: "reference/language/exports",
+                                    },
+                                    {
+                                        label: "Properties",
+                                        slug: "reference/language/properties",
+                                    },
+                                    {
+                                        label: "Bindings",
+                                        slug: "reference/language/bindings",
+                                    },
+                                    {
+                                        label: "Expressions",
+                                        slug: "reference/language/expressions",
+                                    },
+                                    {
+                                        label: "Operators",
+                                        slug: "reference/language/operators",
+                                    },
+                                    {
+                                        label: "Callbacks",
+                                        slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Structs and Enums",
+                                        slug: "reference/language/structs-and-enums",
+                                    },
+                                    {
+                                        label: "Geometry",
+                                        slug: "reference/language/geometry",
+                                    },
+                                    {
+                                        label: "States and Transitions",
+                                        slug: "reference/language/states-and-transitions",
+                                    },
+                                ],
+                            },
                             {
                                 label: "Generated Code",
                                 slug: "reference/generated-code",
@@ -321,6 +254,160 @@ export default defineConfig({
                                 label: "slint-sc Runtime API ↗",
                                 link: "/api/slint_sc/",
                                 attrs: { target: "_blank" },
+                            },
+                        ],
+                    },
+                    {
+                        label: "Qualification Plan",
+                        link: "/qualification-plan/",
+                        items: [
+                            {
+                                label: "Overview",
+                                slug: "qualification-plan",
+                            },
+                            {
+                                label: "Scope",
+                                items: [
+                                    {
+                                        label: "Standards Compliance",
+                                        slug: "qualification-plan/standards-compliance",
+                                    },
+                                    {
+                                        label: "Safety Policy",
+                                        slug: "qualification-plan/safety-policy",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Design",
+                                items: [
+                                    {
+                                        label: "Architecture Design",
+                                        slug: "qualification-plan/architecture",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Process",
+                                items: [
+                                    {
+                                        label: "Development Process",
+                                        slug: "qualification-plan/development-process",
+                                    },
+                                    {
+                                        label: "Development Phases",
+                                        slug: "qualification-plan/development-phases",
+                                    },
+                                    {
+                                        label: "Coding Standards",
+                                        slug: "qualification-plan/coding-standards",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Verification",
+                                items: [
+                                    {
+                                        label: "Verification",
+                                        slug: "qualification-plan/verification",
+                                    },
+                                    {
+                                        label: "Test Suites",
+                                        slug: "qualification-plan/test-suites",
+                                    },
+                                    {
+                                        label: "Coverage Criteria",
+                                        slug: "qualification-plan/test-coverage",
+                                    },
+                                    {
+                                        label: "Coverage Tool Verification",
+                                        slug: "qualification-plan/slint-coverage",
+                                    },
+                                ],
+                            },
+                            {
+                                label: "Qualification",
+                                items: [
+                                    {
+                                        label: "Component Qualification Plan",
+                                        slug: "qualification-plan/component-qualification",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        label: "Tool Evaluation Report",
+                        link: "/evaluation-report/",
+                        items: [
+                            {
+                                label: "Overview",
+                                slug: "evaluation-report",
+                            },
+                            {
+                                label: "Use Cases",
+                                slug: "evaluation-report/use-cases",
+                            },
+                            {
+                                label: "Potential Errors",
+                                slug: "evaluation-report/potential-errors",
+                            },
+                            {
+                                label: "Tool Classification",
+                                slug: "evaluation-report/tool-classification",
+                            },
+                            {
+                                label: "Qualification Method",
+                                slug: "evaluation-report/qualification-method",
+                            },
+                        ],
+                    },
+                    {
+                        label: "Component Documentation",
+                        link: "/component-documentation/",
+                        items: [
+                            {
+                                label: "Overview",
+                                slug: "component-documentation",
+                            },
+                            {
+                                label: "Safety Analysis",
+                                slug: "component-documentation/safety-analysis",
+                            },
+                        ],
+                    },
+                    {
+                        label: "Qualification Report",
+                        link: "/qualification-report/",
+                        items: [
+                            {
+                                label: "Overview",
+                                slug: "qualification-report",
+                            },
+                            {
+                                label: "Tool Qualification",
+                                slug: "qualification-report/tool-qualification",
+                            },
+                            {
+                                label: "Component Qualification",
+                                slug: "qualification-report/component-qualification",
+                            },
+                            {
+                                label: "Evidence",
+                                items: [
+                                    {
+                                        label: "Test Results",
+                                        slug: "qualification-report/test-results",
+                                    },
+                                    {
+                                        label: "Traceability Matrix",
+                                        slug: "qualification-report/traceability-matrix",
+                                    },
+                                    {
+                                        label: "Test Coverage",
+                                        slug: "qualification-report/test-coverage",
+                                    },
+                                ],
                             },
                         ],
                     },

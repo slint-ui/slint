@@ -136,6 +136,12 @@ impl<'a> LookupCtx<'a> {
         r
     }
 
+    /// Run `f` with no `expected_type`, for a sub-expression whose type the enclosing
+    /// position doesn't constrain.
+    pub fn without_expected_type<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.with_expected_type(Type::Invalid, f)
+    }
+
     pub fn is_legacy_component(&self) -> bool {
         self.component_scope.first().is_some_and(|e| e.borrow().is_legacy_syntax)
     }
@@ -155,7 +161,7 @@ pub enum LookupResult {
     Expression {
         expression: Expression,
         /// When set, this is deprecated, and the string is the hint message shown after
-        /// "The property 'xxx' has been deprecated." (e.g. "Please use 'yyy' instead")
+        /// "The property 'xxx' has been deprecated:" (e.g. "Please use 'yyy' instead")
         deprecated: Option<SmolStr>,
     },
     Enumeration(Arc<Enumeration>),

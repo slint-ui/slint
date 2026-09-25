@@ -929,6 +929,7 @@ public:
 
     void set_row_data(size_t i, const ModelData &value) override
     {
+        inner->ensure_sorted();
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
 

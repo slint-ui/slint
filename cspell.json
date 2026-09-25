@@ -106,6 +106,9 @@
         "strikethroughs",
         "unlocalized",
         "binstall"
+      ],
+      "ignoreRegExpList": [
+        "/\\bhref=\\{`[^`]*`\\}/g"
       ]
     }
   ],
@@ -264,6 +267,7 @@
     "xcworkspace",
     "xtask",
     "xtensa",
+    "Zcoverage",
     "Zmiri",
     // CSS Color 4 named-color keywords not accepted by the default English dictionary (W3C CSS Color Module Level 4).
     "aliceblue",
@@ -363,6 +367,7 @@
     "mousecursor"
   ],
   "ignorePaths": [
+    "**/.gitignore",
     ".github/**",
     "api/cpp/docs/conf.py",
     "CHANGELOG.md",
@@ -376,10 +381,12 @@
     "tools/viewer/android/fdroid/dev.slint.viewer.yml",
     "**/Cargo.lock",
     "docs/common/src/utils/slint.tmLanguage.json",
-    "ui-libraries/material/docs/vendor/**",
+    "ui-libraries/material/docs/public/fonts/Inter-LICENSE.txt",
     ".cspell/slint-project-words.txt",
     ".cspell/slint-project-words-audit.tsv",
-    "tools/figma-inspector/tests/figma_output.json",
+    "tools/figma-inspector/fixtures/**",
+    "tools/figma-inspector/src/ui/syntax-assets/**",
+    "tools/figma-inspector/.generated/**",
     "**/*.gltf",
     "**/*.po",
     "**/*.pot",
@@ -388,6 +395,39 @@
     "**/node_modules/**"
   ],
   "overrides": [
+    {
+      "filename": "tools/figma-inspector/**",
+      "words": [
+        "aqid",
+        "capturable",
+        "currentpagechange",
+        "desaturation",
+        "dios",
+        "disqualifier",
+        "dppx",
+        "glyphicons",
+        "ihdr",
+        "licen",
+        "materialicons",
+        "materialsymbols",
+        "nodebuffer",
+        "nodechange",
+        "onig",
+        "remixicon",
+        "resizer",
+        "roundoff",
+        "stylechange",
+        "ungenerated",
+        "uninflated",
+        "unoutlined",
+        "unrenderable",
+        "unstub",
+        "uploadlabel",
+        "worktree",
+        "worktrees",
+        "xlink"
+      ]
+    },
     {
       "filename": "tools/editor/ui-tests/**",
       "words": [

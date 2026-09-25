@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct Player {
+    name: string = "unknown",
+    score: int,
+}
+
+export struct Team {
+    captain: Player = {},
+    size: int,
+}
+
+export component TestCase inherits Window {
+    in-out property <Player> named: {};
+    in-out property <{a: int, b: string}> anonymous: {};
+
+    // the value of a code block can be the literal
+    in-out property <Player> in_block: { {} }
+
+    // '{}' means the same in every other position
+    in-out property <{p: Player}> nested: { p: {} };
+    in-out property <[Player]> in_array: [{}, { score: 1 }];
+    in-out property <bool> flag;
+    in-out property <Player> in_condition: flag ? { score: 2 } : {};
+    in-out property <Team> in_field_default;
+    pure function score-of(p: Player) -> int { p.score }
+    in-out property <int> as_argument: score-of({});
+
+    states [
+        reset when flag: {
+            named: {};
+        }
+    ]
+
+    out property <bool> test: named.name == "unknown" && named.score == 0
+        && in_block.name == "unknown"
+        && anonymous.a == 0 && anonymous.b == ""
+        && nested.p.name == "unknown"
+        && in_array[0].score == 0 && in_array[1].score == 1
+        && in_condition.name == "unknown" && in_condition.score == 0
+        && in_field_default.captain.name == "unknown" && in_field_default.size == 0
+        && as_argument == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

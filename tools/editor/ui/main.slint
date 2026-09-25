@@ -4,27 +4,28 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, Hover } from "api.slint";
-import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
-import { FillSession } from "components/inspector/fill-session.slint";
-export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
+import { CanvasPanArea } from "components/canvas-pan-area.slint";
+import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
-import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
-import { EditorTopBar } from "components/top-bar.slint";
+import { ElementVisuals } from "components/element-presentation.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorWindow } from "components/common.slint";
+import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Preview, Project, FillSession }
-export { ElementVisuals } from "components/element-presentation.slint";
-export { EditorCursors, EditorWindow } from "components/common.slint";
+export {
+    Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, Hover, Preview, Project,
+}
 
 component NewFileErrorPopup inherits PopupWindow {
     in property <DialogStyle> style: Style.dialog;
@@ -187,6 +188,12 @@ export component EditorUi inherits Window {
     callback outline-pane-reset();
     callback perform-native-window-zoom() -> bool;
     private property <string> new-file-error;
+    private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
+        && Api.editor-surface-mode == EditorSurfaceMode.component
+        && CanvasView.navigation-enabled && !CanvasView.panning;
+    private property <string> canvas-document: Api.current-element.source-uri;
+    changed canvas-document => { CanvasView.manipulating = false; }
+
 
     function create-new-slint-file() {
         root.new-file-error = Project.create-new-slint-file();
@@ -224,6 +231,20 @@ export component EditorUi inherits Window {
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
+            MenuSeparator { }
+            MenuItem {
+                title: @tr("Open...");
+                activated => { Project.open-existing-project(); }
+            }
+            Menu {
+                title: @tr("Open Recent");
+                enabled: Project.recent.length > 0;
+
+                for project in Project.recent: MenuItem {
+                    title: project.name;
+                    activated => { Project.open-recent-project(project); }
+                }
+            }
         }
         Menu {
             title: @tr("Edit");
@@ -236,6 +257,44 @@ export component EditorUi inherits Window {
                 title: @tr("Redo");
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
+            }
+        }
+        Menu {
+            title: @tr("View");
+            MenuItem {
+                title: @tr("Zoom In");
+                shortcut: @keys(Control + Plus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-400;
+                activated => { CanvasView.set-zoom(CanvasView.next-zoom-level); }
+            }
+            MenuItem {
+                title: @tr("Zoom Out");
+                shortcut: @keys(Control + HyphenMinus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-25;
+                activated => { CanvasView.set-zoom(CanvasView.previous-zoom-level); }
+            }
+            MenuItem {
+                title: @tr("Zoom to Selection");
+                shortcut: @keys(Shift + "2");
+                enabled: root.canvas-zoom-enabled;
+                activated => {
+                    CanvasView.zoom-to-selection(
+                        Api.current-element.source-uri != "" && Api.selection.highlight-index >= 0,
+                    );
+                }
+            }
+            MenuItem {
+                title: @tr("Actual Size");
+                shortcut: @keys(Control + Digit0);
+                enabled: root.canvas-zoom-enabled;
+                activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
+            }
+        }
+        Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("Slint Documentation");
+                activated => { Platform.open-url("https://docs.slint.dev"); }
             }
         }
     }
@@ -259,6 +318,14 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
+                    CanvasView.set-zoom(CanvasView.next-zoom-level);
+                    return accept;
+                }
+                if event.text == Key.Escape && CanvasView.panning {
+                    canvas-pan.cancel();
+                    return accept;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
                     return reject;
@@ -267,6 +334,9 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                if event.text == Key.Space {
+                    CanvasView.space-pressed = false;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
                     return reject;
@@ -275,6 +345,11 @@ export component EditorUi inherits Window {
             }
 
             key-pressed(event) => {
+                if event.text == Key.Space && Api.editor-surface-mode == EditorSurfaceMode.component
+                    && CanvasView.navigation-enabled && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                    CanvasView.space-pressed = true;
+                    return accept;
+                }
                 let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
                 if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
                     root.apply-history(event.modifiers.shift || redo-y);
@@ -294,6 +369,8 @@ export component EditorUi inherits Window {
 
             focus-lost => {
                 self.shift-pressed = false;
+                CanvasView.space-pressed = false;
+                CanvasView.panning = false;
             }
 
             DropArea {
@@ -430,6 +507,14 @@ export component EditorUi inherits Window {
                         Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
                     }
                 }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
+                    }
+                    return reject;
+                }
                 if FillSession.canvas-active: Rectangle {
                     x: canvas-viewport.absolute-position.x - fill-layer.absolute-position.x;
                     y: canvas-viewport.absolute-position.y - fill-layer.absolute-position.y;
@@ -446,6 +531,14 @@ export component EditorUi inherits Window {
                     }
                 }
                 InspectorFillPicker { }
+            }
+            canvas-pan := CanvasPanArea {
+                x: canvas-viewport.absolute-position.x - editor.absolute-position.x;
+                y: canvas-viewport.absolute-position.y - editor.absolute-position.y;
+                width: canvas-viewport.width;
+                height: canvas-viewport.height;
+                component-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+                started => { editor.focus(); }
             }
         }
 

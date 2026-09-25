@@ -8,8 +8,8 @@ use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
 use i_slint_compiler::llr::{
-    self, CompilationUnit, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx,
-    SubComponentInstanceIdx,
+    self, CompilationUnit, ItemInstanceIdx, PublicComponentIdx, RepeatedElementIdx,
+    SubComponentIdx, SubComponentInstanceIdx,
 };
 use i_slint_core::item_tree::{ItemTreeNode, ItemTreeVTable};
 use i_slint_core::model::{Conditional, Repeater};
@@ -225,7 +225,7 @@ pub struct Instance {
     /// Index into `compilation_unit.public_components` for the public
     /// component this instance was built from. `None` for repeated /
     /// nested instances that don't correspond to a public component.
-    pub public_component_index: Option<usize>,
+    pub public_component_index: Option<PublicComponentIdx>,
     /// Lazily-created window adapter, used by `ImplicitLayoutInfo` and the
     /// public window/run helpers.
     pub window_adapter: OnceCell<WindowAdapterRc>,
@@ -474,8 +474,6 @@ impl Instance {
     }
 
     /// Ensure the repeater at `tree_index` is populated from its model.
-    /// Called by `get_subtree_range`, `get_subtree` and
-    /// `visit_dynamic_children` before reading the repeater's instances.
     ///
     /// When the LLR `RepeatedElement` is actually a `ComponentContainer`
     /// placeholder (`container_item_index = Some`), defer to the
@@ -644,7 +642,7 @@ impl Instance {
     /// up `property_init`, `two_way_bindings` and `init_code`.
     pub fn new(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_window(compilation_unit, public_component_index, None, Default::default())
     }
@@ -654,7 +652,7 @@ impl Instance {
     /// the old instance so reloaded components keep the same window frame.
     pub fn new_with_window(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
     ) -> VRc<ItemTreeVTable, Instance> {
@@ -673,7 +671,7 @@ impl Instance {
     /// `parent_node` can walk back into the host tree.
     pub fn new_embedded(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         type_loaders: crate::component::TypeLoaders,
         parent: vtable::VWeak<ItemTreeVTable>,
         parent_item_tree_index: u32,
@@ -689,7 +687,7 @@ impl Instance {
 
     fn new_with_options(
         compilation_unit: Rc<CompilationUnit>,
-        public_component_index: usize,
+        public_component_index: PublicComponentIdx,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
@@ -713,6 +711,17 @@ impl Instance {
         // `init_code` can resolve `parent_node` through the host.
         if let Some((parent, idx)) = embedded_in {
             let _ = vrc.embedded_in.set((parent, idx));
+        }
+        // Register the languages before the bindings are installed, on the context of the window
+        // this instance ends up in.
+        #[cfg(feature = "bundle-translations")]
+        if let Some(translations) = &compilation_unit.translations
+            && let Some(context) =
+                i_slint_core::window::context_for_root(&vtable::VRc::into_dyn(vrc.clone()))
+        {
+            context.set_bundled_languages(
+                translations.languages.iter().map(|(l, s)| (l.to_string(), *s)),
+            );
         }
         finalize_instance(&vrc);
         vrc
@@ -766,7 +775,7 @@ fn build_instance(
     item_tree: &llr::ItemTree,
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
-    public_component_index: Option<usize>,
+    public_component_index: Option<PublicComponentIdx>,
     type_loaders: crate::component::TypeLoaders,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();

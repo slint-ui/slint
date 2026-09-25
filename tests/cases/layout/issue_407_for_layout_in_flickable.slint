@@ -1,23 +1,99 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export Testcase := Window {
+export component TestCase inherits Window {
     preferred-width: 640px;
     preferred-height: 480px;
+
     f := Flickable {
         for blah in 1: HorizontalLayout {
             Rectangle { height: 55px; }
         }
     }
 
-    VerticalLayout {
-        r := Rectangle {
-            for blah in 1: HorizontalLayout {
-                Rectangle { height: 44px; }
-            }
+    // A second Flickable with `height` pinned below the content's natural size, so
+    // `content-height`'s `max(self.height, child.min-height)` fold actually reflects
+    // the child instead of saturating at the first Flickable's (parent-filling)
+    // height -- fixing `height` explicitly disables that same fold's forwarding of
+    // `preferred-height`, so this needs its own element from `f` above.
+    fc := Flickable {
+        height: 10px;
+        for blah in 1: HorizontalLayout {
+            Rectangle { height: 55px; }
         }
     }
 
-    // FIXME(#407)
-    //property <bool> test: f.preferred-height == 55px && f.content-height == 55px && r.preferred-height == 44px;
+    // An empty repeater merges to a zero `preferred`, and the fold takes the
+    // smallest: it must not drag the Flickable down to nothing. `height` is
+    // deliberately not set here -- pinning it disables the very fold under test.
+    fe := Flickable {
+        HorizontalLayout { Rectangle { height: 15px; } }
+        for blah in 0: HorizontalLayout { Rectangle { height: 999px; } }
+    }
+    fe-ref := Flickable {
+        HorizontalLayout { Rectangle { height: 15px; } }
+    }
+
+    // Same, for a condition that is false rather than an empty model.
+    fi := Flickable {
+        HorizontalLayout { Rectangle { height: 15px; } }
+        if false: HorizontalLayout { Rectangle { height: 999px; } }
+    }
+
+    // Differing per-row constraints: the merge must pick up the largest row.
+    fr := Flickable {
+        height: 10px;
+        for h in [10, 30, 20]: HorizontalLayout {
+            Rectangle { height: h * 1px; }
+        }
+    }
+
+    // The horizontal axis, which reverses the orientation the merge is computed
+    // at: a repeated column contributes its width.
+    fw := Flickable {
+        width: 10px;
+        for w in [10, 40, 20]: VerticalLayout {
+            Rectangle { width: w * 1px; }
+        }
+    }
+
+    // An explicit constraint on the repeated body's own root applies too, not
+    // just what its children merge into it (covers `root_constraints`).
+    fk := Flickable {
+        height: 10px;
+        for blah in 1: HorizontalLayout {
+            min-height: 100px;
+            Rectangle { height: 10px; }
+        }
+    }
+
+    out property <bool> test: t-f-pref && t-f-content && t-empty && t-if-false
+        && t-rows && t-width && t-constrained;
+    out property <bool> t-f-pref: f.preferred-height == 55px;
+    out property <bool> t-f-content: fc.content-height == 55px;
+    out property <bool> t-empty: fe.preferred-height == fe-ref.preferred-height;
+    out property <bool> t-if-false: fi.preferred-height == fe-ref.preferred-height;
+    out property <bool> t-rows: fr.content-height == 30px;
+    out property <bool> t-width: fw.content-width == 40px;
+    out property <bool> t-constrained: fk.content-height == 100px;
 }
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

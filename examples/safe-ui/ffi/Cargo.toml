@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-safeui-ffi"
-version = "1.18.1"
+version = "1.19.0"
 edition = "2024"
 publish = false
 build = "build.rs"

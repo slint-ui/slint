@@ -30,12 +30,13 @@ impl Drop for TraitChangeObserver {
     }
 }
 
-/// Invokes `handler` with the changed trait environment whenever `trait_class`
-/// changes on `view`. `registerForTraitChanges:withHandler:` is iOS 17+; on older
-/// iOS this returns `None` and callers fall back to their initial one-shot query.
+/// Invokes `handler` with the changed trait environment whenever the trait class
+/// that `trait_class` returns changes on `view`. `registerForTraitChanges:withHandler:`
+/// and the trait classes are iOS 17+; on older iOS this returns `None` without calling
+/// `trait_class`, and callers fall back to their initial one-shot query.
 pub(crate) fn install_trait_change_observer(
     view: &UIView,
-    trait_class: &AnyClass,
+    trait_class: fn() -> &'static AnyClass,
     handler: impl Fn(&ProtocolObject<dyn UITraitEnvironment>) + 'static,
 ) -> Option<TraitChangeObserver> {
     if !available!(ios = 17.0) {
@@ -49,7 +50,7 @@ pub(crate) fn install_trait_change_observer(
         },
     );
 
-    let traits: Retained<NSArray<AnyClass>> = NSArray::from_slice(&[trait_class]);
+    let traits: Retained<NSArray<AnyClass>> = NSArray::from_slice(&[trait_class()]);
 
     let registration: Retained<ProtocolObject<dyn UITraitChangeRegistration>> = unsafe {
         msg_send![

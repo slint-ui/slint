@@ -52,15 +52,17 @@ overrides:
 catalog:
   '@astrojs/check': 0.9.10
   '@astrojs/sitemap': 3.7.4
-  '@astrojs/starlight': 0.42.0
-  '@biomejs/biome': 2.5.13
+  '@astrojs/starlight': 0.42.2
+  '@biomejs/biome': 2.5.14
   '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.63.0
+  '@vitest/browser-playwright': 5.0.1
   '@types/node': 24.12.0
-  astro: 7.3.2
+  astro: 7.3.3
   astro-embed: 0.14.0
-  cspell: 10.3.0
+  cspell: 10.3.3
+  playwright: 1.63.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
   sharp: 0.35.4
@@ -70,4 +72,4 @@ catalog:
   unified: 11.0.5
   unist-util-visit: 5.1.0
   vite: 8.3.0
-  vitest: 5.0.0
+  vitest: 5.0.1

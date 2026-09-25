@@ -65,10 +65,11 @@ pub fn log_message(message: LogMessage) {
 
 #[doc(hidden)]
 pub fn default_log_message(_arguments: core::fmt::Arguments) {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "log")] {
+    core::cfg_select! {
+        feature = "log" => {
             log::debug!("{_arguments}");
-        } else if #[cfg(target_arch = "wasm32")] {
+        }
+        target_arch = "wasm32" => {
             use wasm_bindgen::prelude::*;
             use std::string::ToString;
 
@@ -79,7 +80,8 @@ pub fn default_log_message(_arguments: core::fmt::Arguments) {
             }
 
             log(&_arguments.to_string());
-        } else if #[cfg(feature = "std")] {
+        }
+        feature = "std" => {
             use std::io::Write;
             // We were seeing intermittent, albeit very rare, crashes due to `eprintln` panicking
             // if the write to stderr fails. Since this is just for debug printing, it's safe
@@ -87,6 +89,7 @@ pub fn default_log_message(_arguments: core::fmt::Arguments) {
             // anyway)
             let _ = writeln!(std::io::stderr(), "{_arguments}");
         }
+        _ => {}
     }
 }
 

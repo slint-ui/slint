@@ -273,6 +273,37 @@ TEST_CASE("Image")
         REQUIRE(size.height == 2);
         REQUIRE(!img.path().has_value());
     }
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
+    auto red565 = Rgb565Pixel(red);
+    auto blu565 = Rgb565Pixel(blu);
+    Rgb565Pixel some_565_data[] = { red565, red565, blu565, red565, blu565, blu565 };
+    img = Image(SharedPixelBuffer<Rgb565Pixel>(3, 2, some_565_data));
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+        auto rgba8 = img.to_rgba8();
+        REQUIRE(rgba8.has_value());
+        // A full component scales back up to 0xff.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xff, 0, 0, 0xff });
+    }
+#endif
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
+    Gray8Pixel some_gray8_data[] = { { 0x00 }, { 0x7f }, { 0xff }, { 0x40 }, { 0x80 }, { 0xc0 } };
+    img = Image(SharedPixelBuffer<Gray8Pixel>(3, 2, some_gray8_data));
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+        auto rgba8 = img.to_rgba8();
+        REQUIRE(rgba8.has_value());
+        // The luminance is written to all three channels, and the image is opaque.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0, 0, 0, 0xff });
+        REQUIRE(*(rgba8->begin() + 2) == Rgba8Pixel { 0xff, 0xff, 0xff, 0xff });
+    }
+#endif
 }
 
 TEST_CASE("Image buffer access")

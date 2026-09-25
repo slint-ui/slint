@@ -1,0 +1,30 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// config:no_inlining
+//
+// A flexbox cell whose constraint reaches the cell's own geometry through a
+// property the instance overrides. The constraint sits on the base, the
+// override on the instance, so the walk in `constraint_reads_own_geometry` has
+// to resolve each hop from the instance again. Inlining merges the two
+// elements and hides that, hence the directive above.
+
+component Card {
+    in property <length> helper: 0px;
+    min-height: root.helper;
+//              >          <error{The binding for the property 'min-height' is part of a binding loop (Card.helper -> root.min-height -> FlexboxLayout.layout-cache -> Card.width -> Card.helper)}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+export component Demo inherits Window {
+    width: 300px;
+    height: 200px;
+
+    FlexboxLayout {
+        flex-direction: column;
+        Card { helper: self.width; }
+//                     >         <note{'helper' is part of the binding loop reported for 'min-height' at line 14}
+    }
+}

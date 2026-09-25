@@ -33,17 +33,20 @@ use i_slint_core_macros::*;
 // real native tray (the `system-tray` feature is off, or Android, WASM, embedded
 // targets, …) so a `SystemTrayIcon`-rooted component constructs without surfacing
 // an icon to any host shell.
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "system-tray", target_os = "macos"))] {
+core::cfg_select! {
+    all(feature = "system-tray", target_os = "macos") => {
         mod appkit;
         use self::appkit::PlatformTray;
-    } else if #[cfg(all(feature = "system-tray", target_os = "windows"))] {
+    }
+    all(feature = "system-tray", target_os = "windows") => {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    }
+    all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")) => {
         mod ksni;
         use self::ksni::PlatformTray;
-    } else {
+    }
+    _ => {
         mod dummy;
         use self::dummy::PlatformTray;
     }

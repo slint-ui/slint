@@ -16,6 +16,6 @@ export component App inherits Window{
     function get_abc1() -> int { return get_abc2(); }
 //  >                                               <error{The binding for the property 'get-abc1' is part of a binding loop (root.get-abc1 -> root.get-abc2 -> root.get-abc1)}
     function get_abc2() -> int { return get_abc1(); }
-//  >                                               <error{The binding for the property 'get-abc2' is part of a binding loop (root.get-abc1 -> root.get-abc2 -> root.get-abc1)}
+//  >                                               <note{'get-abc2' is part of the binding loop reported for 'get-abc1' at line 16}
 
 }

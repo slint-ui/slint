@@ -58,6 +58,12 @@ android {
         }
     }
 
+    // Play's encrypted dependency listing; F-Droid rejects APKs carrying it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

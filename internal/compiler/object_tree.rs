@@ -12,7 +12,7 @@ use crate::expression_tree::{
     self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
 };
 use crate::langtype::{
-    BuiltinElement, Enumeration, EnumerationValue, Function, NativeClass, Struct, StructName, Type,
+    BuiltinElement, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
 };
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -21,6 +21,7 @@ use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use crate::{parser, reject_experimental_feature};
+use interfaces::ImplementedInterface;
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
@@ -313,11 +314,29 @@ impl Document {
         }
     }
 
-    pub fn exported_roots(&self) -> impl DoubleEndedIterator<Item = Rc<Component>> + '_ {
+    /// The names `component` is exported under, the one it is published as first: its own name
+    /// when it is exported under it, and otherwise the first name it is exported as.
+    pub fn export_names(&self, component: &Rc<Component>) -> Vec<SmolStr> {
+        let mut names: Vec<SmolStr> = self
+            .exports
+            .iter()
+            .filter(|(_, item)| matches!(item, Either::Left(c) if Rc::ptr_eq(c, component)))
+            .map(|(export_name, _)| export_name.name.clone())
+            .collect();
+        if let Some(index) = names.iter().position(|name| *name == component.id) {
+            names.swap(0, index);
+        }
+        names
+    }
+
+    /// The exported root components, each one once even when exported under several names.
+    pub fn exported_roots(&self) -> impl Iterator<Item = Rc<Component>> + '_ {
+        let mut seen = HashSet::new();
         self.exports
             .iter()
             .filter_map(|e| e.1.as_ref().left())
             .filter(|c| !c.is_global() && !c.is_interface())
+            .filter(move |c| seen.insert(Rc::as_ptr(c)))
             .cloned()
     }
 
@@ -690,15 +709,9 @@ impl Component {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
     }
 
-    /// True if this component's root resolves to the `SystemTrayIcon` native
-    /// class. Uses `native_class()` rather than `builtin_type()` so the check
-    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
-    /// after `resolve_native_classes`.
+    /// True if this component's root resolves to the `SystemTrayIcon` builtin.
     pub fn inherits_system_tray_icon(&self) -> bool {
-        self.root_element
-            .borrow()
-            .native_class()
-            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
+        self.root_element.borrow().builtin_type().is_some_and(|b| b.name == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -790,9 +803,10 @@ pub struct PropertyDeclaration {
     /// component itself declares, in the source or through the component it
     /// inherits from, keeps this `None`.
     pub moved_from: Option<SmolStr>,
-    /// Some if the property was declared with `@deprecated`. The string is the hint shown after
-    /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
-    /// binding target, or the custom message given as argument to `@deprecated("...")`.
+    /// Some if the member was declared with `@deprecated`. The string is the message given as
+    /// argument, shown after "The property 'xxx' has been deprecated:" in the warning. It is
+    /// empty when the declaration gives no advice on a replacement, and the warning then stops
+    /// after naming the member.
     pub deprecated: Option<SmolStr>,
 }
 
@@ -817,18 +831,6 @@ impl PropertyDeclaration {
     pub fn is_private_shadow(&self) -> bool {
         self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
     }
-
-    /// True when declared `@deprecated` without a custom message, so the hint in
-    /// [`Self::deprecated`] is derived from the two-way binding target.
-    pub fn has_derived_deprecation(&self) -> bool {
-        self.deprecated.is_some()
-            && self
-                .node
-                .as_ref()
-                .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
-                .and_then(|p| p.PropertyDeprecation())
-                .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
-    }
 }
 
 /// Whether the declaration is marked `@shadowable` (an experimental feature).
@@ -840,54 +842,16 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// How a `@deprecated` member without an explicit message derives its replacement hint.
-enum DeprecationHint {
-    /// A property or callback: derive it from the two-way binding target, if any.
-    TwoWayBinding(Option<syntax_nodes::QualifiedName>),
-    /// A function has no two-way binding, so an explicit message is required.
-    MessageRequired,
-}
-
-/// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
-/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+/// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
+/// advice on a replacement. `None` when the member isn't deprecated.
 fn member_deprecation(
     deprecation: Option<syntax_nodes::PropertyDeprecation>,
-    hint: DeprecationHint,
-    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<SmolStr> {
     let deprecation = deprecation?;
-    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-        return None;
-    }
-    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-        return crate::literals::unescape_string(message.text());
-    }
-    let message = match hint {
-        DeprecationHint::TwoWayBinding(target) => {
-            // Derive the hint from the two-way binding target: keep the full path (e.g.
-            // `a-struct.field`), dropping a leading `self`/`root`. The resolving pass checks the
-            // target is actually reachable.
-            if let Some(qn) = target {
-                let mut segments = qn
-                    .children_with_tokens()
-                    .filter(|t| t.kind() == SyntaxKind::Identifier)
-                    .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
-                    .peekable();
-                if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
-                    segments.next();
-                }
-                let path = segments.collect::<Vec<_>>().join(".");
-                if !path.is_empty() {
-                    return Some(format_smolstr!("Please use '{path}' instead"));
-                }
-            }
-            "@deprecated without a message requires a two-way binding to derive the replacement from"
-        }
-        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
-    };
-    diag.push_error(message.into(), &deprecation);
-    None
+    // A missing message is reported by the parser, so don't pile on here.
+    let literal = deprecation.child_token(SyntaxKind::StringLiteral)?;
+    crate::literals::unescape_string_reporting(Some(&literal), diag, &deprecation)
 }
 
 /// Shift the locality flags of a result that came from the element's base rather than itself.
@@ -1609,781 +1573,11 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        // A child element's parent_type is the type of its parent; the root
-        // gets a sentinel from Component::from_node
-        #[cfg(feature = "slint-sc")]
-        let is_component_root =
-            !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
-        let base_type = if let Some(base_node) = node.QualifiedName() {
-            let base = QualifiedTypeName::from_node(base_node.clone());
-            let base_string = base.to_smolstr();
-            match parent_type.lookup_type_for_child_element(&base_string, tr) {
-                Ok(ElementType::Component(c)) if c.is_global() => {
-                    diag.push_error(
-                        "Cannot create an instance of a global component".into(),
-                        &base_node,
-                    );
-                    ElementType::Error
-                }
-                Ok(ty) => {
-                    // Window children, including through a component that
-                    // inherits Window, error in warn_about_child_windows.
-                    #[cfg(feature = "slint-sc")]
-                    if let ElementType::Builtin(b) = &ty
-                        && !b.slint_sc
-                    {
-                        diag.slint_sc_error(
-                            &format!("The builtin element '{}' is", b.name),
-                            &base_node,
-                        );
-                    }
-                    ty
-                }
-                Err(err) => {
-                    diag.push_error(err, &base_node);
-                    ElementType::Error
-                }
-            }
-        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
-            // This must be a global component or interface. It can only have properties and callbacks
-            let mut error_on = |node: &dyn Spanned, what: &str| {
-                let element_type = match parent_type {
-                    ElementType::Global => "A global component",
-                    ElementType::Interface => "An interface",
-                    _ => "An unexpected type",
-                };
-                diag.push_error(format!("{element_type} cannot have {what}"), node);
-            };
-            node.SubElement().for_each(|n| error_on(&n, "sub elements"));
-            node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
-            if let Some(n) = node.ChildrenPlaceholder() {
-                error_on(&n, "sub elements");
-            }
-            node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
-            node.States().for_each(|n| error_on(&n, "states"));
-            node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            node.CallbackDeclaration().for_each(|cb| {
-                if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.CallbackConnection().for_each(|cb| {
-                if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
-            node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
-
-            if parent_type == ElementType::Interface {
-                node.Binding().for_each(|n| error_on(&n, "bindings"));
-                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
-
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Interfaces cannot implement another interface".into(), &stmt);
-                });
-            } else {
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Globals cannot implement an interface".into(), &stmt);
-                });
-            }
-
-            parent_type
-        } else if parent_type != ElementType::Error {
-            // This should normally never happen because the parser does not allow for this
-            assert!(diag.has_errors());
+        let Some((r, implemented_interfaces, child_implements)) =
+            Self::element_without_children(&node, id, parent_type, is_legacy_syntax, diag, tr)
+        else {
             return ElementRc::default();
-        } else {
-            tr.empty_type()
         };
-        let is_interface = base_type == ElementType::Interface;
-        // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
-        let qualified_id = (!id.is_empty()).then(|| id.clone());
-        if let ElementType::Component(c) = &base_type {
-            c.used.set(true);
-        }
-        let type_name = base_type
-            .type_name()
-            .filter(|_| base_type != tr.empty_type())
-            .unwrap_or_default()
-            .to_string();
-        let mut r = Element {
-            id,
-            base_type: base_type.clone(),
-            debug: vec![ElementDebugInfo {
-                qualified_id,
-                element_hash: 0,
-                type_name,
-                node: node.clone(),
-                layout: None,
-                element_boundary: false,
-            }],
-            is_legacy_syntax,
-            ..Default::default()
-        };
-
-        let mut property_bindings: Vec<(
-            SmolStr,
-            syntax_nodes::BindingExpression,
-            syntax_nodes::DeclaredIdentifier,
-        )> = Vec::new();
-
-        let mut two_way_bindings: Vec<(
-            SmolStr,
-            syntax_nodes::TwoWayBinding,
-            syntax_nodes::DeclaredIdentifier,
-        )> = Vec::new();
-
-        for prop_decl in node.PropertyDeclaration() {
-            // Only the root element's properties become part of the component's API
-            #[cfg(feature = "slint-sc")]
-            if !is_component_root {
-                diag.slint_sc_error(
-                    "Declaring a property on an element other than the root is",
-                    &prop_decl,
-                );
-            }
-            let prop_type = prop_decl
-                .Type()
-                .map(|type_node| type_from_node(type_node, diag, tr))
-                // Type::Void is used for two way bindings without type specified
-                .unwrap_or(Type::InferredProperty);
-
-            let unresolved_prop_name =
-                unwrap_or_continue!(parser::identifier_text(&prop_decl.DeclaredIdentifier()); diag);
-            let declaration = r.member_declaration(&unresolved_prop_name);
-            let name_token =
-                prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
-            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
-                match existing_type {
-                    Type::Callback { .. } => diag.push_error(
-                        format!("Cannot declare property '{unresolved_prop_name}' when a callback with the same name exists"),
-                        &name_token,
-                    ),
-                    Type::Function { .. } => diag.push_error(
-                        format!("Cannot declare property '{unresolved_prop_name}' when a function with the same name exists"),
-                        &name_token,
-                    ),
-                    _ => diag.push_error(
-                        cannot_override_message(Some("property"), &unresolved_prop_name, declared_in),
-                        &name_token,
-                    ),
-                }
-                continue;
-            }
-            let prop_name = declaration.register(&mut r, &unresolved_prop_name, &name_token, diag);
-            let shadowed_name =
-                (prop_name != unresolved_prop_name).then(|| unresolved_prop_name.clone());
-
-            let mut visibility = None;
-            for token in prop_decl.children_with_tokens() {
-                if token.kind() != SyntaxKind::Identifier {
-                    continue;
-                }
-                match (token.as_token().unwrap().text(), visibility) {
-                    ("in", None) => visibility = Some(PropertyVisibility::Input),
-                    ("in", Some(_)) => diag.push_error("Extra 'in' keyword".into(), &token),
-                    ("out", None) => visibility = Some(PropertyVisibility::Output),
-                    ("out", Some(_)) => diag.push_error("Extra 'out' keyword".into(), &token),
-                    ("in-out" | "in_out", None) => visibility = Some(PropertyVisibility::InOut),
-                    ("in-out" | "in_out", Some(_)) => {
-                        diag.push_error("Extra 'in-out' keyword".into(), &token)
-                    }
-                    ("private", None) => visibility = Some(PropertyVisibility::Private),
-                    ("private", Some(_)) => {
-                        diag.push_error("Extra 'private' keyword".into(), &token)
-                    }
-                    _ => (),
-                }
-            }
-            let visibility = visibility.unwrap_or({
-                if is_legacy_syntax {
-                    PropertyVisibility::InOut
-                } else {
-                    PropertyVisibility::Private
-                }
-            });
-
-            if is_interface {
-                if let Some(binding_expression) = &prop_decl.BindingExpression() {
-                    diag.push_error(
-                        "Interface properties cannot have default values".into(),
-                        binding_expression,
-                    )
-                }
-                if let Some(two_way) = &prop_decl.TwoWayBinding() {
-                    diag.push_error(
-                        "Interface properties cannot have default bindings".into(),
-                        two_way,
-                    )
-                }
-                if visibility == PropertyVisibility::Private {
-                    diag.push_error(
-                        "'private' properties are inaccessible in an interface".into(),
-                        &prop_decl,
-                    );
-                }
-            }
-
-            let deprecated = member_deprecation(
-                prop_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
-
-            r.property_declarations.insert(
-                prop_name.clone(),
-                PropertyDeclaration {
-                    property_type: prop_type,
-                    node: Some(prop_decl.clone().into()),
-                    visibility,
-                    shadowed_name,
-                    shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
-                    deprecated,
-                    ..Default::default()
-                },
-            );
-
-            if let Some(csn) = prop_decl.BindingExpression() {
-                property_bindings.push((prop_name.clone(), csn, prop_decl.DeclaredIdentifier()));
-            }
-
-            if let Some(csn) = prop_decl.TwoWayBinding() {
-                #[cfg(feature = "slint-sc")]
-                diag.slint_sc_error("Two-way bindings are", &csn);
-                two_way_bindings.push((prop_name, csn, prop_decl.DeclaredIdentifier()));
-            }
-        }
-
-        let (implemented_interfaces, child_implements) =
-            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
-                // Already rejected above with a more specific diagnostic.
-                (Vec::new(), Vec::new())
-            } else if r.id == "root" {
-                interfaces::get_implemented_interfaces(&r, &node, tr, diag)
-            } else {
-                interfaces::disallow_implement_in_non_root(&node, tr, diag);
-                (Vec::new(), Vec::new())
-            };
-
-        for (prop_name, csn, source) in property_bindings {
-            match r.bindings.0.entry(prop_name.clone()) {
-                Entry::Vacant(e) => {
-                    e.insert(BindingExpression::new_uncompiled(csn.into()).into());
-                }
-                Entry::Occupied(_) => {
-                    diag.push_error("Duplicated property binding".into(), &source);
-                }
-            }
-        }
-
-        for (prop_name, csn, source) in two_way_bindings {
-            if r.bindings
-                .0
-                .insert(prop_name, BindingExpression::new_uncompiled(csn.into()).into())
-                .is_some()
-            {
-                diag.push_error("Duplicated property binding".into(), &source);
-            }
-        }
-
-        r.parse_bindings(
-            node.Binding().filter_map(|b| {
-                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
-            }),
-            is_legacy_syntax,
-            diag,
-        );
-        r.parse_bindings(
-            node.TwoWayBinding()
-                .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
-            is_legacy_syntax,
-            diag,
-        );
-
-        apply_default_type_properties(&mut r);
-
-        for sig_decl in node.CallbackDeclaration() {
-            let name =
-                unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
-
-            let pure = Some(
-                sig_decl.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "pure"),
-            );
-
-            #[cfg(feature = "slint-sc")]
-            {
-                // Only the root element's callbacks become part of the component's API
-                if !is_component_root {
-                    diag.slint_sc_error(
-                        "Declaring a callback on an element other than the root is",
-                        &sig_decl,
-                    );
-                }
-                if pure == Some(true) {
-                    diag.slint_sc_error("Pure callbacks are", &sig_decl);
-                }
-                if let Some(param) = sig_decl.CallbackDeclarationParameter().next() {
-                    diag.slint_sc_error("Callback parameters are", &param);
-                }
-                if let Some(ret) = sig_decl.ReturnType() {
-                    diag.slint_sc_error("Callback return types are", &ret);
-                }
-            }
-
-            let declaration = r.member_declaration(&name);
-            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
-                if matches!(existing_type, Type::Callback { .. }) {
-                    // Already declared on this very element, rather than inherited
-                    if r.declaration(&name).is_some() {
-                        diag.push_error(
-                            "Duplicated callback declaration".into(),
-                            &sig_decl.DeclaredIdentifier(),
-                        );
-                    } else {
-                        diag.push_error(
-                            cannot_override_message(Some("callback"), &name, declared_in),
-                            &sig_decl.DeclaredIdentifier(),
-                        )
-                    }
-                } else {
-                    diag.push_error(
-                        format!(
-                            "Cannot declare callback '{name}' when a {} with the same name exists",
-                            if matches!(existing_type, Type::Function { .. }) {
-                                "function"
-                            } else {
-                                "property"
-                            }
-                        ),
-                        &sig_decl.DeclaredIdentifier(),
-                    );
-                }
-                continue;
-            }
-            let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
-            let deprecated = member_deprecation(
-                sig_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
-            let source_name = name;
-            let name =
-                declaration.register(&mut r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
-            let shadowed_name = (name != source_name).then_some(source_name);
-
-            if let Some(csn) = sig_decl.TwoWayBinding() {
-                #[cfg(feature = "slint-sc")]
-                diag.slint_sc_error("Callback aliases are", &csn);
-                r.bindings
-                    .0
-                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
-                r.property_declarations.insert(
-                    name,
-                    PropertyDeclaration {
-                        property_type: Type::InferredCallback,
-                        node: Some(sig_decl.into()),
-                        visibility: PropertyVisibility::InOut,
-                        pure,
-                        shadowed_name,
-                        shadowable,
-                        deprecated,
-                        ..Default::default()
-                    },
-                );
-                continue;
-            }
-
-            let args = sig_decl
-                .CallbackDeclarationParameter()
-                .map(|p| type_from_node(p.Type(), diag, tr))
-                .collect();
-            let return_type = sig_decl
-                .ReturnType()
-                .map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr))
-                .unwrap_or(Type::Void);
-            let arg_names = sig_decl
-                .CallbackDeclarationParameter()
-                .map(|a| {
-                    a.DeclaredIdentifier()
-                        .and_then(|x| parser::identifier_text(&x))
-                        .unwrap_or_default()
-                })
-                .collect();
-            r.property_declarations.insert(
-                name,
-                PropertyDeclaration {
-                    property_type: Type::Callback(Arc::new(Function {
-                        return_type,
-                        args,
-                        arg_names,
-                    })),
-                    node: Some(sig_decl.into()),
-                    visibility: PropertyVisibility::InOut,
-                    pure,
-                    shadowed_name,
-                    shadowable,
-                    deprecated,
-                    ..Default::default()
-                },
-            );
-        }
-
-        for func in node.Function() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Function declarations are", &func);
-            let name =
-                unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
-
-            let member_decl = r.member_declaration(&name);
-            if let MemberDeclaration::Conflict { existing_type, declared_in } = &member_decl {
-                if matches!(existing_type, Type::Callback { .. } | Type::Function { .. }) {
-                    diag.push_error(
-                        cannot_override_message(None, &name, declared_in),
-                        &func.DeclaredIdentifier(),
-                    )
-                } else {
-                    diag.push_error(
-                        format!("Cannot declare function '{name}' when a property with the same name exists"),
-                        &func.DeclaredIdentifier(),
-                    );
-                }
-                continue;
-            }
-            let source_name = name;
-            let name = member_decl.register(&mut r, &source_name, &func.DeclaredIdentifier(), diag);
-            let shadowed_name = (name != source_name).then_some(source_name);
-
-            let mut args = Vec::new();
-            let mut arg_names = Vec::new();
-            for a in func.ArgumentDeclaration() {
-                args.push(type_from_node(a.Type(), diag, tr));
-                let name =
-                    unwrap_or_continue!(parser::identifier_text(&a.DeclaredIdentifier()); diag);
-                if arg_names.contains(&name) {
-                    diag.push_error(
-                        format!("Duplicated argument name '{name}'"),
-                        &a.DeclaredIdentifier(),
-                    );
-                }
-                arg_names.push(name);
-            }
-            let return_type = func
-                .ReturnType()
-                .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
-
-            let mut visibility = PropertyVisibility::Private;
-            let mut pure = None;
-            for token in func.children_with_tokens() {
-                if token.kind() != SyntaxKind::Identifier {
-                    continue;
-                }
-                match token.as_token().unwrap().text() {
-                    "pure" => pure = Some(true),
-                    "public" => {
-                        visibility = PropertyVisibility::Public;
-                        pure = pure.or(Some(false));
-                    }
-                    "protected" => {
-                        visibility = PropertyVisibility::Protected;
-                        pure = pure.or(Some(false));
-                    }
-                    _ => (),
-                }
-            }
-
-            if is_interface && visibility != PropertyVisibility::Public {
-                diag.push_error(
-                    "Function declarations in an interface must be public".into(),
-                    &func,
-                );
-            }
-
-            let declaration = PropertyDeclaration {
-                property_type: Type::Function(Arc::new(Function { return_type, args, arg_names })),
-                node: Some(func.clone().into()),
-                visibility,
-                pure,
-                shadowed_name,
-                shadowable: shadowable_attribute(func.ShadowableAttribute(), tr, diag),
-                deprecated: member_deprecation(
-                    func.PropertyDeprecation(),
-                    DeprecationHint::MessageRequired,
-                    tr,
-                    diag,
-                ),
-                ..Default::default()
-            };
-
-            match (base_type.clone(), func.CodeBlock()) {
-                (ElementType::Interface, Some(code_block)) => {
-                    diag.push_error(
-                        "Function declarations in interfaces must not have a body".into(),
-                        &code_block,
-                    );
-                    continue;
-                }
-                (ElementType::Interface, None) => {
-                    // Do not create a binding for this function, as it is just a declaration without body. It will be
-                    // implemented by the component that implements the interface.
-                    r.property_declarations.insert(name, declaration);
-                    continue;
-                }
-                (_, None) => {
-                    diag.push_error("Functions must have a code block".into(), &func);
-                }
-                (_, Some(_)) => {}
-            }
-
-            if r.bindings
-                .0
-                .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
-                .is_some()
-            {
-                assert!(diag.has_errors());
-            }
-
-            r.property_declarations.insert(name, declaration);
-        }
-
-        for con_node in node.CallbackConnection() {
-            let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let lookup_result =
-                r.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
-            #[cfg(feature = "slint-sc")]
-            {
-                // A callback declared in the file is in the subset by construction;
-                // a builtin one only when marked in its declaration, which keeps
-                // `init` and the rest of TouchArea out.
-                if !r.is_user_declared_member(&unresolved_name) && !lookup_result.is_slint_sc {
-                    diag.slint_sc_error(
-                        &format!("The callback '{unresolved_name}' is"),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                }
-                // The application implements the callbacks of the root element,
-                // so a handler here would be a second answer to one invocation.
-                if is_component_root
-                    && r.property_declarations
-                        .get(lookup_result.internal_or_resolved_name().as_str())
-                        .is_some_and(|d| d.node.is_some())
-                {
-                    diag.slint_sc_error(
-                        "A handler for a callback declared on the root element is",
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                }
-                if let Some(param) = con_node.DeclaredIdentifier().next() {
-                    diag.slint_sc_error("Callback handler parameters are", &param);
-                }
-            }
-            // Setting a handler on a deprecated callback from outside the declaring component warns,
-            // like assigning a deprecated property does.
-            let deprecation =
-                lookup_result.deprecated.clone().filter(|_| !lookup_result.is_local_to_component);
-            let resolved_name = lookup_result.internal_or_resolved_name();
-            let property_type = lookup_result.property_type;
-            if let Type::Callback(callback) = &property_type {
-                let num_arg = con_node.DeclaredIdentifier().count();
-                if num_arg > callback.args.len() {
-                    diag.push_error(
-                        format!(
-                            "'{}' only has {} arguments, but {} were provided",
-                            unresolved_name,
-                            callback.args.len(),
-                            num_arg
-                        ),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                }
-            } else if property_type == Type::InferredCallback {
-                // argument matching will happen later
-            } else {
-                if r.base_type != ElementType::Error {
-                    diag.push_error(
-                        format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                }
-                continue;
-            }
-            if let Some(message) = &deprecation {
-                diag.push_property_deprecation_warning_with_message(
-                    &unresolved_name,
-                    message,
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                );
-            }
-            match r.bindings.0.entry(resolved_name) {
-                Entry::Vacant(e) => {
-                    e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
-                }
-                Entry::Occupied(mut e) => {
-                    // A global may implement a callback declared in another global: the
-                    // callback is declared as a two-way alias (`callback foo <=> Other.foo;`)
-                    // and also given a handler (`foo => { ... }`). The alias node stays on
-                    // the declaration, and the handler takes the binding expression slot.
-                    let is_global_alias = r.base_type == ElementType::Global
-                        && matches!(
-                            &e.get().borrow().expression,
-                            Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
-                        );
-                    if is_global_alias {
-                        // Keep the handler as the binding and point its span at the handler
-                        // name, so a duplicate-implementation error refers to the
-                        // implementation rather than the alias. The alias is recovered from
-                        // the declaration node, so dropping it from the binding is fine.
-                        let mut handler =
-                            BindingExpression::new_uncompiled(con_node.clone().into());
-                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
-                            handler.span = Some(name.to_source_location());
-                        }
-                        e.insert(handler.into());
-                    } else {
-                        diag.push_error(
-                            "Duplicated callback".into(),
-                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                        );
-                    }
-                }
-            }
-        }
-
-        for anim in node.PropertyAnimation() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Animations are", &anim);
-            if let Some(star) = anim.child_token(SyntaxKind::Star) {
-                diag.push_error(
-                    "catch-all property is only allowed within transitions".into(),
-                    &star,
-                )
-            };
-            for prop_name_token in anim.QualifiedName() {
-                match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
-                    [unresolved_prop_name] => {
-                        if r.base_type == ElementType::Error {
-                            continue;
-                        };
-                        let lookup_result = r.lookup_property(
-                            unresolved_prop_name,
-                            PropertyLookupMode::ComponentLocal,
-                        );
-                        let valid_assign = lookup_result.is_valid_for_assignment();
-                        let binding_name = lookup_result.internal_or_resolved_name();
-                        if let Some(anim_element) = animation_element_from_node(
-                            &anim,
-                            &prop_name_token,
-                            lookup_result.property_type.clone(),
-                            diag,
-                            tr,
-                        ) {
-                            if !valid_assign {
-                                diag.push_error(
-                                    format!(
-                                        "Cannot animate '{}' property '{}'",
-                                        lookup_result.property_visibility, unresolved_prop_name
-                                    ),
-                                    &prop_name_token,
-                                );
-                            }
-
-                            if unresolved_prop_name != lookup_result.resolved_name.as_ref() {
-                                diag.push_property_deprecation_warning(
-                                    unresolved_prop_name,
-                                    &lookup_result.resolved_name,
-                                    &prop_name_token,
-                                );
-                            } else if let Some(message) = lookup_result
-                                .deprecated
-                                .as_ref()
-                                .filter(|_| !lookup_result.is_local_to_component)
-                            {
-                                diag.push_property_deprecation_warning_with_message(
-                                    unresolved_prop_name,
-                                    message,
-                                    &prop_name_token,
-                                );
-                            }
-
-                            let expr_binding =
-                                r.bindings.0.entry(binding_name).or_insert_with(|| {
-                                    let mut r = BindingExpression::from(Expression::Invalid);
-                                    r.priority = 1;
-                                    r.span = Some(prop_name_token.to_source_location());
-                                    r.into()
-                                });
-                            if expr_binding
-                                .get_mut()
-                                .animation
-                                .replace(PropertyAnimation::Static(anim_element))
-                                .is_some()
-                            {
-                                diag.push_error("Duplicated animation".into(), &prop_name_token)
-                            }
-                        }
-                    }
-                    _ => diag.push_error(
-                        "Can only refer to property in the current element".into(),
-                        &prop_name_token,
-                    ),
-                }
-            }
-        }
-
-        for ch in node.PropertyChangedCallback() {
-            #[cfg(feature = "slint-sc")]
-            diag.slint_sc_error("Change callbacks are", &ch);
-            let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
-            let lookup_result = r.lookup_property(&prop, PropertyLookupMode::ComponentLocal);
-            if !lookup_result.is_valid() {
-                if r.base_type != ElementType::Error {
-                    diag.push_error(
-                        format!("Property '{prop}' does not exist"),
-                        &ch.DeclaredIdentifier(),
-                    );
-                }
-            } else if !lookup_result.property_type.is_property_type() {
-                let what = match lookup_result.property_type {
-                    Type::Function { .. } => "a function",
-                    Type::Callback { .. } => "a callback",
-                    _ => "not a property",
-                };
-                diag.push_error(
-                    format!(
-                        "Change callback can only be set on properties, and '{prop}' is {what}"
-                    ),
-                    &ch.DeclaredIdentifier(),
-                );
-            } else if lookup_result.property_visibility == PropertyVisibility::Private
-                && !lookup_result.is_local_to_component
-            {
-                diag.push_error(
-                    format!("Change callback on a private property '{prop}'"),
-                    &ch.DeclaredIdentifier(),
-                );
-            }
-            let handler = Expression::Uncompiled(ch.clone().into());
-            match r.change_callbacks.entry(lookup_result.internal_or_resolved_name()) {
-                Entry::Vacant(e) => {
-                    e.insert(vec![handler].into());
-                }
-                Entry::Occupied(mut e) => {
-                    diag.push_error(
-                        format!("Duplicated change callback on '{prop}'"),
-                        &ch.DeclaredIdentifier(),
-                    );
-                    e.get_mut().get_mut().push(handler);
-                }
-            }
-        }
-
-        let r = r.make_rc();
 
         for se in node.children() {
             if se.kind() != SyntaxKind::SlotForwarding {
@@ -2740,6 +1934,775 @@ impl Element {
         interfaces::apply_child_implement_statements(&r, child_implements, diag);
 
         r
+    }
+
+    fn element_without_children(
+        node: &syntax_nodes::Element,
+        id: SmolStr,
+        parent_type: ElementType,
+        is_legacy_syntax: bool,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
+        // A child element's parent_type is the type of its parent; the root
+        // gets a sentinel from Component::from_node
+        #[cfg(feature = "slint-sc")]
+        let is_component_root =
+            !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
+        let base_type = if let Some(base_node) = node.QualifiedName() {
+            let base = QualifiedTypeName::from_node(base_node.clone());
+            let base_string = base.to_smolstr();
+            match parent_type.lookup_type_for_child_element(&base_string, tr) {
+                Ok(ElementType::Component(c)) if c.is_global() => {
+                    diag.push_error(
+                        "Cannot create an instance of a global component".into(),
+                        &base_node,
+                    );
+                    ElementType::Error
+                }
+                Ok(ty) => {
+                    // Window children, including through a component that
+                    // inherits Window, error in warn_about_child_windows.
+                    #[cfg(feature = "slint-sc")]
+                    if let ElementType::Builtin(b) = &ty
+                        && !b.slint_sc
+                    {
+                        diag.slint_sc_error(
+                            &format!("The builtin element '{}' is", b.name),
+                            &base_node,
+                        );
+                    }
+                    ty
+                }
+                Err(err) => {
+                    diag.push_error(err, &base_node);
+                    ElementType::Error
+                }
+            }
+        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
+            // This must be a global component or interface. It can only have properties and callbacks
+            let mut error_on = |node: &dyn Spanned, what: &str| {
+                let element_type = match parent_type {
+                    ElementType::Global => "A global component",
+                    ElementType::Interface => "An interface",
+                    _ => "An unexpected type",
+                };
+                diag.push_error(format!("{element_type} cannot have {what}"), node);
+            };
+            node.SubElement().for_each(|n| error_on(&n, "sub elements"));
+            node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+            if let Some(n) = node.ChildrenPlaceholder() {
+                error_on(&n, "sub elements");
+            }
+            node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
+            node.States().for_each(|n| error_on(&n, "states"));
+            node.Transitions().for_each(|n| error_on(&n, "transitions"));
+            node.CallbackDeclaration().for_each(|cb| {
+                if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
+                    error_on(&cb, "an 'init' callback")
+                }
+            });
+            node.CallbackConnection().for_each(|cb| {
+                if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
+                    error_on(&cb, "an 'init' callback")
+                }
+            });
+            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
+            node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
+
+            if parent_type == ElementType::Interface {
+                node.Binding().for_each(|n| error_on(&n, "bindings"));
+                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+
+                node.ImplementStatement().for_each(|stmt| {
+                    diag.push_error("Interfaces cannot implement another interface".into(), &stmt);
+                });
+            } else {
+                node.ImplementStatement().for_each(|stmt| {
+                    diag.push_error("Globals cannot implement an interface".into(), &stmt);
+                });
+            }
+
+            parent_type
+        } else if parent_type != ElementType::Error {
+            // This should normally never happen because the parser does not allow for this
+            assert!(diag.has_errors());
+            return None;
+        } else {
+            tr.empty_type()
+        };
+        let is_interface = base_type == ElementType::Interface;
+        // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
+        let qualified_id = (!id.is_empty()).then(|| id.clone());
+        if let ElementType::Component(c) = &base_type {
+            c.used.set(true);
+        }
+        let type_name = base_type
+            .type_name()
+            .filter(|_| base_type != tr.empty_type())
+            .unwrap_or_default()
+            .to_string();
+        let mut r = Element {
+            id,
+            base_type: base_type.clone(),
+            debug: vec![ElementDebugInfo {
+                qualified_id,
+                element_hash: 0,
+                type_name,
+                node: node.clone(),
+                layout: None,
+                element_boundary: false,
+            }],
+            is_legacy_syntax,
+            ..Default::default()
+        };
+
+        let mut property_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::BindingExpression,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
+
+        let mut two_way_bindings: Vec<(
+            SmolStr,
+            syntax_nodes::TwoWayBinding,
+            syntax_nodes::DeclaredIdentifier,
+        )> = Vec::new();
+
+        for prop_decl in node.PropertyDeclaration() {
+            // Only the root element's properties become part of the component's API
+            #[cfg(feature = "slint-sc")]
+            if !is_component_root {
+                diag.slint_sc_error(
+                    "Declaring a property on an element other than the root is",
+                    &prop_decl,
+                );
+            }
+            let prop_type = prop_decl
+                .Type()
+                .map(|type_node| type_from_node(type_node, diag, tr))
+                // Type::Void is used for two way bindings without type specified
+                .unwrap_or(Type::InferredProperty);
+
+            let unresolved_prop_name =
+                unwrap_or_continue!(parser::identifier_text(&prop_decl.DeclaredIdentifier()); diag);
+            let declaration = r.member_declaration(&unresolved_prop_name);
+            let name_token =
+                prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap();
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
+                match existing_type {
+                    Type::Callback { .. } => diag.push_error(
+                        format!("Cannot declare property '{unresolved_prop_name}' when a callback with the same name exists"),
+                        &name_token,
+                    ),
+                    Type::Function { .. } => diag.push_error(
+                        format!("Cannot declare property '{unresolved_prop_name}' when a function with the same name exists"),
+                        &name_token,
+                    ),
+                    _ => diag.push_error(
+                        cannot_override_message(Some("property"), &unresolved_prop_name, declared_in),
+                        &name_token,
+                    ),
+                }
+                continue;
+            }
+            let prop_name = declaration.register(&mut r, &unresolved_prop_name, &name_token, diag);
+            let shadowed_name =
+                (prop_name != unresolved_prop_name).then(|| unresolved_prop_name.clone());
+
+            let mut visibility = None;
+            for token in prop_decl.children_with_tokens() {
+                if token.kind() != SyntaxKind::Identifier {
+                    continue;
+                }
+                match (token.as_token().unwrap().text(), visibility) {
+                    ("in", None) => visibility = Some(PropertyVisibility::Input),
+                    ("in", Some(_)) => diag.push_error("Extra 'in' keyword".into(), &token),
+                    ("out", None) => visibility = Some(PropertyVisibility::Output),
+                    ("out", Some(_)) => diag.push_error("Extra 'out' keyword".into(), &token),
+                    ("in-out" | "in_out", None) => visibility = Some(PropertyVisibility::InOut),
+                    ("in-out" | "in_out", Some(_)) => {
+                        diag.push_error("Extra 'in-out' keyword".into(), &token)
+                    }
+                    ("private", None) => visibility = Some(PropertyVisibility::Private),
+                    ("private", Some(_)) => {
+                        diag.push_error("Extra 'private' keyword".into(), &token)
+                    }
+                    _ => (),
+                }
+            }
+            let visibility = visibility.unwrap_or({
+                if is_legacy_syntax {
+                    PropertyVisibility::InOut
+                } else {
+                    PropertyVisibility::Private
+                }
+            });
+
+            if is_interface {
+                if let Some(binding_expression) = &prop_decl.BindingExpression() {
+                    diag.push_error(
+                        "Interface properties cannot have default values".into(),
+                        binding_expression,
+                    )
+                }
+                if let Some(two_way) = &prop_decl.TwoWayBinding() {
+                    diag.push_error(
+                        "Interface properties cannot have default bindings".into(),
+                        two_way,
+                    )
+                }
+                if visibility == PropertyVisibility::Private {
+                    diag.push_error(
+                        "'private' properties are inaccessible in an interface".into(),
+                        &prop_decl,
+                    );
+                }
+            }
+
+            let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
+
+            r.property_declarations.insert(
+                prop_name.clone(),
+                PropertyDeclaration {
+                    property_type: prop_type,
+                    node: Some(prop_decl.clone().into()),
+                    visibility,
+                    shadowed_name,
+                    shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
+                    deprecated,
+                    ..Default::default()
+                },
+            );
+
+            if let Some(csn) = prop_decl.BindingExpression() {
+                property_bindings.push((prop_name.clone(), csn, prop_decl.DeclaredIdentifier()));
+            }
+
+            if let Some(csn) = prop_decl.TwoWayBinding() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Two-way bindings are", &csn);
+                two_way_bindings.push((prop_name, csn, prop_decl.DeclaredIdentifier()));
+            }
+        }
+
+        let (implemented_interfaces, child_implements) =
+            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
+                // Already rejected above with a more specific diagnostic.
+                (Vec::new(), Vec::new())
+            } else if r.id == "root" {
+                interfaces::get_implemented_interfaces(&r, node, tr, diag)
+            } else {
+                interfaces::disallow_implement_in_non_root(node, tr, diag);
+                (Vec::new(), Vec::new())
+            };
+
+        for (prop_name, csn, source) in property_bindings {
+            match r.bindings.0.entry(prop_name.clone()) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(csn.into()).into());
+                }
+                Entry::Occupied(_) => {
+                    diag.push_error("Duplicated property binding".into(), &source);
+                }
+            }
+        }
+
+        for (prop_name, csn, source) in two_way_bindings {
+            if r.bindings
+                .0
+                .insert(prop_name, BindingExpression::new_uncompiled(csn.into()).into())
+                .is_some()
+            {
+                diag.push_error("Duplicated property binding".into(), &source);
+            }
+        }
+
+        r.parse_bindings(
+            node.Binding().filter_map(|b| {
+                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+            }),
+            is_legacy_syntax,
+            diag,
+        );
+        r.parse_bindings(
+            node.TwoWayBinding()
+                .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
+            is_legacy_syntax,
+            diag,
+        );
+
+        apply_default_type_properties(&mut r);
+
+        for sig_decl in node.CallbackDeclaration() {
+            let name =
+                unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
+
+            let pure = Some(
+                sig_decl.child_token(SyntaxKind::Identifier).is_some_and(|t| t.text() == "pure"),
+            );
+
+            #[cfg(feature = "slint-sc")]
+            {
+                // Only the root element's callbacks become part of the component's API
+                if !is_component_root {
+                    diag.slint_sc_error(
+                        "Declaring a callback on an element other than the root is",
+                        &sig_decl,
+                    );
+                }
+                if pure == Some(true) {
+                    diag.slint_sc_error("Pure callbacks are", &sig_decl);
+                }
+                if let Some(param) = sig_decl.CallbackDeclarationParameter().next() {
+                    diag.slint_sc_error("Callback parameters are", &param);
+                }
+                if let Some(ret) = sig_decl.ReturnType() {
+                    diag.slint_sc_error("Callback return types are", &ret);
+                }
+            }
+
+            let declaration = r.member_declaration(&name);
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &declaration {
+                if matches!(existing_type, Type::Callback { .. }) {
+                    // Already declared on this very element, rather than inherited
+                    if r.declaration(&name).is_some() {
+                        diag.push_error(
+                            "Duplicated callback declaration".into(),
+                            &sig_decl.DeclaredIdentifier(),
+                        );
+                    } else {
+                        diag.push_error(
+                            cannot_override_message(Some("callback"), &name, declared_in),
+                            &sig_decl.DeclaredIdentifier(),
+                        )
+                    }
+                } else {
+                    diag.push_error(
+                        format!(
+                            "Cannot declare callback '{name}' when a {} with the same name exists",
+                            if matches!(existing_type, Type::Function { .. }) {
+                                "function"
+                            } else {
+                                "property"
+                            }
+                        ),
+                        &sig_decl.DeclaredIdentifier(),
+                    );
+                }
+                continue;
+            }
+            let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
+            let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
+            let source_name = name;
+            let name =
+                declaration.register(&mut r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
+            let shadowed_name = (name != source_name).then_some(source_name);
+
+            if let Some(csn) = sig_decl.TwoWayBinding() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Callback aliases are", &csn);
+                r.bindings
+                    .0
+                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
+                r.property_declarations.insert(
+                    name,
+                    PropertyDeclaration {
+                        property_type: Type::InferredCallback,
+                        node: Some(sig_decl.into()),
+                        visibility: PropertyVisibility::InOut,
+                        pure,
+                        shadowed_name,
+                        shadowable,
+                        deprecated,
+                        ..Default::default()
+                    },
+                );
+                continue;
+            }
+
+            let args = sig_decl
+                .CallbackDeclarationParameter()
+                .map(|p| type_from_node(p.Type(), diag, tr))
+                .collect();
+            let return_type = sig_decl
+                .ReturnType()
+                .map(|ret_ty| type_from_node(ret_ty.Type(), diag, tr))
+                .unwrap_or(Type::Void);
+            let arg_names = sig_decl
+                .CallbackDeclarationParameter()
+                .map(|a| {
+                    a.DeclaredIdentifier()
+                        .and_then(|x| parser::identifier_text(&x))
+                        .unwrap_or_default()
+                })
+                .collect();
+            r.property_declarations.insert(
+                name,
+                PropertyDeclaration {
+                    property_type: Type::Callback(Arc::new(Function {
+                        return_type,
+                        args,
+                        arg_names,
+                    })),
+                    node: Some(sig_decl.into()),
+                    visibility: PropertyVisibility::InOut,
+                    pure,
+                    shadowed_name,
+                    shadowable,
+                    deprecated,
+                    ..Default::default()
+                },
+            );
+        }
+
+        for func in node.Function() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Function declarations are", &func);
+            let name =
+                unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
+
+            let member_decl = r.member_declaration(&name);
+            if let MemberDeclaration::Conflict { existing_type, declared_in } = &member_decl {
+                if matches!(existing_type, Type::Callback { .. } | Type::Function { .. }) {
+                    diag.push_error(
+                        cannot_override_message(None, &name, declared_in),
+                        &func.DeclaredIdentifier(),
+                    )
+                } else {
+                    diag.push_error(
+                        format!("Cannot declare function '{name}' when a property with the same name exists"),
+                        &func.DeclaredIdentifier(),
+                    );
+                }
+                continue;
+            }
+            let source_name = name;
+            let name = member_decl.register(&mut r, &source_name, &func.DeclaredIdentifier(), diag);
+            let shadowed_name = (name != source_name).then_some(source_name);
+
+            let mut args = Vec::new();
+            let mut arg_names = Vec::new();
+            for a in func.ArgumentDeclaration() {
+                args.push(type_from_node(a.Type(), diag, tr));
+                let name =
+                    unwrap_or_continue!(parser::identifier_text(&a.DeclaredIdentifier()); diag);
+                if arg_names.contains(&name) {
+                    diag.push_error(
+                        format!("Duplicated argument name '{name}'"),
+                        &a.DeclaredIdentifier(),
+                    );
+                }
+                arg_names.push(name);
+            }
+            let return_type = func
+                .ReturnType()
+                .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr));
+
+            let mut visibility = PropertyVisibility::Private;
+            let mut pure = None;
+            for token in func.children_with_tokens() {
+                if token.kind() != SyntaxKind::Identifier {
+                    continue;
+                }
+                match token.as_token().unwrap().text() {
+                    "pure" => pure = Some(true),
+                    "public" => {
+                        visibility = PropertyVisibility::Public;
+                        pure = pure.or(Some(false));
+                    }
+                    "protected" => {
+                        visibility = PropertyVisibility::Protected;
+                        pure = pure.or(Some(false));
+                    }
+                    _ => (),
+                }
+            }
+
+            if is_interface && visibility != PropertyVisibility::Public {
+                diag.push_error(
+                    "Function declarations in an interface must be public".into(),
+                    &func,
+                );
+            }
+
+            let declaration = PropertyDeclaration {
+                property_type: Type::Function(Arc::new(Function { return_type, args, arg_names })),
+                node: Some(func.clone().into()),
+                visibility,
+                pure,
+                shadowed_name,
+                shadowable: shadowable_attribute(func.ShadowableAttribute(), tr, diag),
+                deprecated: member_deprecation(func.PropertyDeprecation(), diag),
+                ..Default::default()
+            };
+
+            match (base_type.clone(), func.CodeBlock()) {
+                (ElementType::Interface, Some(code_block)) => {
+                    diag.push_error(
+                        "Function declarations in interfaces must not have a body".into(),
+                        &code_block,
+                    );
+                    continue;
+                }
+                (ElementType::Interface, None) => {
+                    // Do not create a binding for this function, as it is just a declaration without body. It will be
+                    // implemented by the component that implements the interface.
+                    r.property_declarations.insert(name, declaration);
+                    continue;
+                }
+                (_, None) => {
+                    diag.push_error("Functions must have a code block".into(), &func);
+                }
+                (_, Some(_)) => {}
+            }
+
+            if r.bindings
+                .0
+                .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
+                .is_some()
+            {
+                assert!(diag.has_errors());
+            }
+
+            r.property_declarations.insert(name, declaration);
+        }
+
+        for con_node in node.CallbackConnection() {
+            let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
+            let lookup_result =
+                r.lookup_property(&unresolved_name, PropertyLookupMode::ComponentLocal);
+            #[cfg(feature = "slint-sc")]
+            {
+                // A callback declared in the file is in the subset by construction;
+                // a builtin one only when marked in its declaration, which keeps
+                // `init` and the rest of TouchArea out.
+                if !r.is_user_declared_member(&unresolved_name) && !lookup_result.is_slint_sc {
+                    diag.slint_sc_error(
+                        &format!("The callback '{unresolved_name}' is"),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                // The application implements the callbacks of the root element,
+                // so a handler here would be a second answer to one invocation.
+                if is_component_root
+                    && r.property_declarations
+                        .get(lookup_result.internal_or_resolved_name().as_str())
+                        .is_some_and(|d| d.node.is_some())
+                {
+                    diag.slint_sc_error(
+                        "A handler for a callback declared on the root element is",
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                if let Some(param) = con_node.DeclaredIdentifier().next() {
+                    diag.slint_sc_error("Callback handler parameters are", &param);
+                }
+            }
+            // Setting a handler on a deprecated callback from outside the declaring component warns,
+            // like assigning a deprecated property does.
+            let deprecation =
+                lookup_result.deprecated.clone().filter(|_| !lookup_result.is_local_to_component);
+            let resolved_name = lookup_result.internal_or_resolved_name();
+            let property_type = lookup_result.property_type;
+            if let Type::Callback(callback) = &property_type {
+                let num_arg = con_node.DeclaredIdentifier().count();
+                if num_arg > callback.args.len() {
+                    diag.push_error(
+                        format!(
+                            "'{}' only has {} arguments, but {} were provided",
+                            unresolved_name,
+                            callback.args.len(),
+                            num_arg
+                        ),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+            } else if property_type == Type::InferredCallback {
+                // argument matching will happen later
+            } else {
+                if r.base_type != ElementType::Error {
+                    diag.push_error(
+                        format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
+                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                }
+                continue;
+            }
+            if let Some(message) = &deprecation {
+                diag.push_member_deprecation_warning(
+                    "callback",
+                    &unresolved_name,
+                    message,
+                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                );
+            }
+            match r.bindings.0.entry(resolved_name) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
+                }
+                Entry::Occupied(mut e) => {
+                    // A global may implement a callback declared in another global: the
+                    // callback is declared as a two-way alias (`callback foo <=> Other.foo;`)
+                    // and also given a handler (`foo => { ... }`). The alias node stays on
+                    // the declaration, and the handler takes the binding expression slot.
+                    let is_global_alias = r.base_type == ElementType::Global
+                        && matches!(
+                            &e.get().borrow().expression,
+                            Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
+                        );
+                    if is_global_alias {
+                        // Keep the handler as the binding and point its span at the handler
+                        // name, so a duplicate-implementation error refers to the
+                        // implementation rather than the alias. The alias is recovered from
+                        // the declaration node, so dropping it from the binding is fine.
+                        let mut handler =
+                            BindingExpression::new_uncompiled(con_node.clone().into());
+                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
+                            handler.span = Some(name.to_source_location());
+                        }
+                        e.insert(handler.into());
+                    } else {
+                        diag.push_error(
+                            "Duplicated callback".into(),
+                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        );
+                    }
+                }
+            }
+        }
+
+        for anim in node.PropertyAnimation() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Animations are", &anim);
+            if let Some(star) = anim.child_token(SyntaxKind::Star) {
+                diag.push_error(
+                    "catch-all property is only allowed within transitions".into(),
+                    &star,
+                )
+            };
+            for prop_name_token in anim.QualifiedName() {
+                match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
+                    [unresolved_prop_name] => {
+                        if r.base_type == ElementType::Error {
+                            continue;
+                        };
+                        let lookup_result = r.lookup_property(
+                            unresolved_prop_name,
+                            PropertyLookupMode::ComponentLocal,
+                        );
+                        let valid_assign = lookup_result.is_valid_for_assignment();
+                        let binding_name = lookup_result.internal_or_resolved_name();
+                        if let Some(anim_element) = animation_element_from_node(
+                            &anim,
+                            &prop_name_token,
+                            lookup_result.property_type.clone(),
+                            diag,
+                            tr,
+                        ) {
+                            if !valid_assign {
+                                diag.push_error(
+                                    format!(
+                                        "Cannot animate '{}' property '{}'",
+                                        lookup_result.property_visibility, unresolved_prop_name
+                                    ),
+                                    &prop_name_token,
+                                );
+                            }
+
+                            if unresolved_prop_name != lookup_result.resolved_name.as_ref() {
+                                diag.push_property_deprecation_warning(
+                                    unresolved_prop_name,
+                                    &lookup_result.resolved_name,
+                                    &prop_name_token,
+                                );
+                            } else if let Some(message) = lookup_result
+                                .deprecated
+                                .as_ref()
+                                .filter(|_| !lookup_result.is_local_to_component)
+                            {
+                                diag.push_member_deprecation_warning(
+                                    "property",
+                                    unresolved_prop_name,
+                                    message,
+                                    &prop_name_token,
+                                );
+                            }
+
+                            let expr_binding =
+                                r.bindings.0.entry(binding_name).or_insert_with(|| {
+                                    let mut r = BindingExpression::from(Expression::Invalid);
+                                    r.priority = 1;
+                                    r.from_source = true;
+                                    r.span = Some(prop_name_token.to_source_location());
+                                    r.into()
+                                });
+                            if expr_binding
+                                .get_mut()
+                                .animation
+                                .replace(PropertyAnimation::Static(anim_element))
+                                .is_some()
+                            {
+                                diag.push_error("Duplicated animation".into(), &prop_name_token)
+                            }
+                        }
+                    }
+                    _ => diag.push_error(
+                        "Can only refer to property in the current element".into(),
+                        &prop_name_token,
+                    ),
+                }
+            }
+        }
+
+        for ch in node.PropertyChangedCallback() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Change callbacks are", &ch);
+            let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
+            let lookup_result = r.lookup_property(&prop, PropertyLookupMode::ComponentLocal);
+            if !lookup_result.is_valid() {
+                if r.base_type != ElementType::Error {
+                    diag.push_error(
+                        format!("Property '{prop}' does not exist"),
+                        &ch.DeclaredIdentifier(),
+                    );
+                }
+            } else if !lookup_result.property_type.is_property_type() {
+                let what = match lookup_result.property_type {
+                    Type::Function { .. } => "a function",
+                    Type::Callback { .. } => "a callback",
+                    _ => "not a property",
+                };
+                diag.push_error(
+                    format!(
+                        "Change callback can only be set on properties, and '{prop}' is {what}"
+                    ),
+                    &ch.DeclaredIdentifier(),
+                );
+            } else if lookup_result.property_visibility == PropertyVisibility::Private
+                && !lookup_result.is_local_to_component
+            {
+                diag.push_error(
+                    format!("Change callback on a private property '{prop}'"),
+                    &ch.DeclaredIdentifier(),
+                );
+            }
+            let handler = Expression::Uncompiled(ch.clone().into());
+            match r.change_callbacks.entry(lookup_result.internal_or_resolved_name()) {
+                Entry::Vacant(e) => {
+                    e.insert(vec![handler].into());
+                }
+                Entry::Occupied(mut e) => {
+                    diag.push_error(
+                        format!("Duplicated change callback on '{prop}'"),
+                        &ch.DeclaredIdentifier(),
+                    );
+                    e.get_mut().get_mut().push(handler);
+                }
+            }
+        }
+
+        Some((r.make_rc(), implemented_interfaces, child_implements))
     }
 
     fn from_sub_element_node(
@@ -3157,11 +3120,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = match existing.property_type {
-                    Type::Callback { .. } => "callback",
-                    Type::Function { .. } => "function",
-                    _ => "property",
-                };
+                let kind = existing.property_type.member_kind();
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }
@@ -3287,7 +3246,8 @@ impl Element {
             } else if let Some(message) =
                 lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
             {
-                diag.push_property_deprecation_warning_with_message(
+                diag.push_member_deprecation_warning(
+                    lookup_result.property_type.member_kind(),
                     &unresolved_name,
                     message,
                     &name_token,
@@ -3367,20 +3327,6 @@ impl Element {
             return Some(twb);
         }
         self.callback_alias_declaration_node(name)
-    }
-
-    pub fn native_class(&self) -> Option<Arc<NativeClass>> {
-        let mut base_type = self.base_type.clone();
-        loop {
-            match &base_type {
-                ElementType::Component(component) => {
-                    base_type = component.root_element.clone().borrow().base_type.clone();
-                }
-                ElementType::Builtin(builtin) => break Some(builtin.native_class.clone()),
-                ElementType::Native(native) => break Some(native.clone()),
-                _ => break None,
-            }
-        }
     }
 
     pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {
@@ -3510,6 +3456,10 @@ impl Element {
     ///
     /// Synthetic debug hooks (materialized for unbound properties) are never considered set
     /// (`has_binding` treats them as "no expression").
+    ///
+    /// A caller that supplies a default almost always wants
+    /// [`Self::is_binding_set_outside_states`]: a state leaves a binding behind whose value while
+    /// no state applies is the type default.
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
         self.any_in_inheritance_chain(|element| {
             element.bindings.0.get(property_name).is_some_and(|binding| {
@@ -3656,6 +3606,22 @@ impl Element {
         self.bindings.0.get(property_name)
     }
 
+    /// Whether a state is what binds `property_name` on this element.
+    ///
+    /// Unlike [`Self::is_binding_set`] this doesn't look at the base types: inlining copies the
+    /// mark onto the instance, and a base's own root fills its fallback when its component is
+    /// processed.
+    pub fn is_binding_from_state(&self, property_name: &str) -> bool {
+        self.binding_cell_including_synthetic(property_name)
+            .is_some_and(|cell| cell.borrow().from_state)
+    }
+
+    /// Like [`Self::is_binding_set`], except a binding a state created doesn't count.
+    pub fn is_binding_set_outside_states(&self, property_name: &str, need_explicit: bool) -> bool {
+        self.is_binding_set(property_name, need_explicit)
+            && !self.is_binding_from_state(property_name)
+    }
+
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set.
     ///
@@ -3669,6 +3635,18 @@ impl Element {
         property_name: SmolStr,
         expression_fn: impl FnOnce() -> Expression,
     ) -> bool {
+        // A state leaves a binding behind whose value while no state applies is the type
+        // default, so put the default there instead of skipping the property (#8852).
+        if let Some(cell) = self.binding_cell_including_synthetic(&property_name) {
+            let cell = cell.borrow_mut();
+            if let Ok(mut fallback) =
+                RefMut::filter_map(cell, BindingExpression::state_fallback_mut)
+            {
+                *fallback = expression_fn();
+                return true;
+            }
+        }
+
         if self.is_binding_set(&property_name, false) {
             return false;
         }
@@ -4927,16 +4905,10 @@ impl Exports {
             .map(|index| self.components_or_types[index].1.clone())
     }
 
-    /// The `(original, alias)` pairs for renamed `export { Original as Alias }`
-    /// of components (non-global), structs and enums — the aliases the
-    /// generators attach to the generated type. Global aliases are handled
-    /// separately, through `GlobalComponent::aliases`.
+    /// The types exported under a name other than their own, as (declared name, export name).
     pub fn named_type_aliases(&self) -> Vec<(SmolStr, SmolStr)> {
         self.iter()
             .filter_map(|(exported, item)| match item {
-                Either::Left(component) if !component.is_global() => {
-                    Some((component.id.clone(), exported.name.clone()))
-                }
                 Either::Right(ty) => match ty {
                     Type::Struct(s) if s.node().is_some() => match &s.name {
                         StructName::User { name, .. } => {

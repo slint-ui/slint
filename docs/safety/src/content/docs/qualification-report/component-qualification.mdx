@@ -1,0 +1,23 @@
+---
+title: Component Qualification
+description: The qualification of the slint-sc runtime as a software component.
+---
+
+**Addresses:** ISO 26262-8 12.5.2, from 12.4.2.2 to 12.4.2.5
+
+This chapter records the qualification of the runtime specified in the [Component Documentation](/component-documentation/), following the [Component Qualification Plan](/qualification-plan/component-qualification/).
+12.4.2.5 asks it to state the following.
+
+| Item | slint-sc runtime |
+| --- | --- |
+| a) Identification | The `slint-sc` crate of the release under qualification; [Test Results](/qualification-report/test-results/) records the commit |
+| b) Configuration | The crate has one configuration; see the [Component Documentation](/component-documentation/#specification) |
+| c) Who carried out the qualification | SixtyFPS GmbH |
+| d) Environment used for qualification | [Test Results](/qualification-report/test-results/) records the toolchain of the run |
+| e) Results of the verification | [Test Results](/qualification-report/test-results/), the [Traceability Matrix](/qualification-report/traceability-matrix/), and [Test Coverage](/qualification-report/test-coverage/) |
+| f) Maximum ASIL | ASIL B; see [Integrity Level](/qualification-plan/standards-compliance/#integrity-level) |
+
+:::caution[TODO]
+State the verdict of the qualification here, once there is a release to qualify.
+12.5.3 also asks for a qualification verification report, from 12.4.3; see the [Component Qualification Plan](/qualification-plan/component-qualification/#activities).
+:::

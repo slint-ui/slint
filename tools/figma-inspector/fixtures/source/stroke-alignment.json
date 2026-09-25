@@ -1,0 +1,76 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "stroke:aligned",
+    "name": "Outside stroke container",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 8,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": { "r": 1, "g": 1, "b": 1 },
+          "opacity": 1
+        }
+      ],
+      "strokes": [
+        {
+          "type": "SOLID",
+          "color": { "r": 1, "g": 0, "b": 0 },
+          "opacity": 1
+        }
+      ],
+      "strokeWeight": 10,
+      "strokeTopWeight": 10,
+      "strokeRightWeight": 10,
+      "strokeBottomWeight": 10,
+      "strokeLeftWeight": 10,
+      "strokeAlign": "OUTSIDE",
+      "dashPattern": [],
+      "clipsContent": true,
+      "effects": [],
+      "layoutMode": "NONE"
+    },
+    "children": [
+      {
+        "id": "stroke:child",
+        "name": "Clipped child",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": -20,
+          "y": 20,
+          "width": 140,
+          "height": 20,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "ABSOLUTE",
+          "cornerRadius": 0,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": { "r": 0, "g": 0, "b": 1 },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

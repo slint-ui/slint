@@ -6,14 +6,17 @@ use itertools::Either;
 use std::sync::Arc;
 
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
+use super::native_class_selection::{dropped_defaults, select_native_class};
 use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{BuiltinStruct, ElementType, PropertyLookupMode, Struct, StructName, Type};
+use crate::langtype::{
+    BuiltinStruct, ElementType, NativeClass, PropertyLookupMode, Struct, StructName, Type,
+};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 use typed_index_collections::TiVec;
 
@@ -21,7 +24,10 @@ use typed_index_collections::TiVec;
 /// name (deprecated when not reachable from the public API), the renamed export aliases,
 /// and the deprecated pre-rename names. Collision-renamed types are omitted — they were
 /// never public.
-fn type_exports(document: &object_tree::Document) -> Vec<TypeExport> {
+fn type_exports(
+    document: &object_tree::Document,
+    exported_roots: &[(Rc<Component>, Vec<SmolStr>)],
+) -> Vec<TypeExport> {
     let used_types = document.used_types.borrow();
     let public = public_facing_type_names(document);
     let mut list = Vec::new();
@@ -43,6 +49,24 @@ fn type_exports(document: &object_tree::Document) -> Vec<TypeExport> {
     }
     for (internal_name, exported_name) in document.exports.named_type_aliases() {
         list.push(TypeExport { exported_name, internal_name, deprecated: false });
+    }
+    for (component, names) in exported_roots {
+        let (internal_name, aliases) =
+            names.split_first().expect("an exported root has at least one export name");
+        for exported_name in aliases {
+            list.push(TypeExport {
+                exported_name: exported_name.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: false,
+            });
+        }
+        if component.id != *internal_name {
+            list.push(TypeExport {
+                exported_name: component.id.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: true,
+            });
+        }
     }
     for (old_name, new_name) in &used_types.deprecated_type_aliases {
         list.push(TypeExport {
@@ -107,27 +131,35 @@ pub fn lower_to_item_tree(
         state.sub_component_mapping.insert(ByAddress(c.clone()), idx);
     }
 
-    let public_components = document
+    let exported_roots: Vec<(Rc<Component>, Vec<SmolStr>)> = document
         .exported_roots()
-        .map(|component| {
+        .map(|c| {
+            let names = document.export_names(&c);
+            (c, names)
+        })
+        .collect();
+    let public_components = exported_roots
+        .iter()
+        .map(|(component, names)| {
+            let name = &names[0];
             let top_level_type = if component.inherits_system_tray_icon() {
                 TopLevelComponentType::SystemTrayIcon
             } else {
                 TopLevelComponentType::Window
             };
-            let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
-            let public_properties = public_properties(&component, &sc.mapping, &state);
-            sc.sub_component.name = component.id.clone();
+            let mut sc = lower_sub_component(component, &mut state, None, compiler_config);
+            let public_properties = public_properties(component, &sc.mapping, &state);
+            // For C++ codegen, the root component must have the same name as the public component
+            sc.sub_component.name = name.clone();
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
                 root: state.push_sub_component(sc),
             };
-            // For C++ codegen, the root component must have the same name as the public component
             PublicComponent {
                 item_tree,
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
-                name: component.id.clone(),
+                name: name.clone(),
                 top_level_type,
             }
         })
@@ -171,7 +203,7 @@ pub fn lower_to_item_tree(
             .collect(),
         has_debug_info: compiler_config.debug_info,
         popup_menu,
-        type_exports: type_exports(document),
+        type_exports: type_exports(document, &exported_roots),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
     };
@@ -281,6 +313,8 @@ pub struct LoweringState {
     global_properties: HashMap<NamedReference, MemberReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
+    /// The native class selected for each element lowered to an item.
+    native_classes: HashMap<ByAddress<ElementRc>, Arc<NativeClass>>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
     /// Counter for the unique `struct_assignment{n}` local variable names. Local
@@ -417,6 +451,8 @@ fn lower_sub_component(
     let mut repeated = TiVec::new();
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
+    #[allow(clippy::mutable_key_type, reason = "ByAddress<ElementRc> keys hash by pointer")]
+    let mut dropped_bindings = HashSet::new();
 
     if let Some(parent) = component.parent_element() {
         // Add properties for the model data and index
@@ -525,9 +561,15 @@ fn lower_sub_component(
                 repeater_offset += comp.repeater_count();
             }
 
-            ElementType::Native(n) => {
+            ElementType::Builtin(b) => {
+                let ty = select_native_class(&elem, b);
+                dropped_bindings.extend(
+                    dropped_defaults(&elem, b, &ty)
+                        .map(|p| (ByAddress(element.clone()), p.clone())),
+                );
+                state.native_classes.insert(ByAddress(element.clone()), ty.clone());
                 let item_index = sub_component.items.push_and_get_key(Item {
-                    ty: n.clone(),
+                    ty,
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
                 });
@@ -557,6 +599,9 @@ fn lower_sub_component(
         }
 
         for (prop, expr) in &elem.change_callbacks {
+            if !has_runtime_property(state, element, prop) {
+                continue;
+            }
             change_callbacks
                 .push((NamedReference::new(element, prop.clone()), expr.borrow().clone()));
         }
@@ -588,6 +633,9 @@ fn lower_sub_component(
     }
 
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
+        if dropped_bindings.contains(&(ByAddress(e.clone()), p.clone())) {
+            return;
+        }
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
 
@@ -709,7 +757,7 @@ fn lower_sub_component(
 
     sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
 
-    crate::generator::for_each_const_properties(component, |elem, n| {
+    for_each_const_properties(ctx.state, component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
         // ensure that all const properties have analysis
         sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
@@ -993,6 +1041,85 @@ fn lower_geometry(
     super::Expression::Struct { ty: Arc::new(Struct::new(fields, StructName::None)), values }
 }
 
+/// Call the given function for each constant property in the Component so one can set
+/// `set_constant` on it.
+fn for_each_const_properties(
+    state: &LoweringState,
+    component: &Rc<Component>,
+    mut f: impl FnMut(&ElementRc, &SmolStr),
+) {
+    object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
+        if elem.borrow().repeated.is_some() {
+            return;
+        }
+        let mut e = elem.clone();
+        let mut all_prop = BTreeSet::new();
+        loop {
+            all_prop.extend(
+                e.borrow()
+                    .property_declarations
+                    .iter()
+                    .filter(|(_, x)| {
+                        x.property_type.is_property_type() &&
+                            !matches!( &x.property_type, Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo)))
+                    })
+                    .map(|(k, _)| k.clone()),
+            );
+            let base_type = e.borrow().base_type.clone();
+            match base_type {
+                ElementType::Component(c) => {
+                    e = c.root_element.clone();
+                }
+                ElementType::Builtin(_) => {
+                    let mut n = &state.native_classes[&ByAddress(e.clone())];
+                    loop {
+                        all_prop.extend(
+                            n.properties
+                                .iter()
+                                .filter(|(k, x)| {
+                                    x.ty.is_property_type()
+                                        && (n.class_name != "Flickable"
+                                            || !k.starts_with("content-"))
+                                        && k.as_str() != "commands"
+                                })
+                                .map(|(k, _)| k.clone()),
+                        );
+                        match n.parent.as_ref() {
+                            Some(p) => n = p,
+                            None => break,
+                        }
+                    }
+                    break;
+                }
+                ElementType::Global | ElementType::Interface | ElementType::Error => break,
+            }
+        }
+        for c in all_prop {
+            if NamedReference::new(elem, c.clone()).is_constant() {
+                f(elem, &c);
+            }
+        }
+    });
+}
+
+/// Whether `prop` exists at runtime on `elem`: declared, or in the native class selected for it.
+fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> bool {
+    let mut e = elem.clone();
+    loop {
+        if e.borrow().property_declarations.contains_key(prop) {
+            return true;
+        }
+        let base_type = e.borrow().base_type.clone();
+        match base_type {
+            ElementType::Component(c) => e = c.root_element.clone(),
+            ElementType::Builtin(_) => {
+                return state.native_classes[&ByAddress(e)].lookup_property(prop).is_some();
+            }
+            ElementType::Global | ElementType::Interface | ElementType::Error => return false,
+        }
+    }
+}
+
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
     let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
     let mut elem = elem.clone();
@@ -1005,7 +1132,9 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
         }
         let base = elem.borrow().base_type.clone();
         match base {
-            ElementType::Native(n) if n.properties.get(p).is_some_and(|p| p.is_native_output()) => {
+            ElementType::Builtin(b)
+                if b.properties.get(p).is_some_and(|p| p.is_native_output()) =>
+            {
                 a.is_set = true;
             }
             ElementType::Component(c) => {
@@ -1192,7 +1321,8 @@ fn lower_global(
         );
     }
 
-    let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
+    let is_builtin = if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
             let property_index = properties.push_and_get_key(Property {
@@ -1294,7 +1424,8 @@ fn lower_global_expressions(
         lowered.change_callbacks.insert(property_index, expression.into());
     }
 
-    if let Some(builtin) = global.root_element.borrow().native_class() {
+    if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         if lowered.exported {
             lowered.public_properties = builtin
                 .properties

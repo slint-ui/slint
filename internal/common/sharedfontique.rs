@@ -185,11 +185,8 @@ impl std::ops::DerefMut for Collection {
     }
 }
 
-pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
-    // FemtoVG renderer needs SansSerif first, as it has difficulties rendering from SystemUi on macOS
-    fontique::GenericFamily::SansSerif,
-    fontique::GenericFamily::SystemUi,
-];
+pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] =
+    [fontique::GenericFamily::SystemUi, fontique::GenericFamily::SansSerif];
 
 /// Wrapper around fontique::Blob to permit use of the blob as a key in the cache in the different renderers,
 /// to map the blob to the native type face representation (skia_safe::Typeface, femtovg::FontId, QRawFont, etc.).

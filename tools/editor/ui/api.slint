@@ -55,6 +55,11 @@ export struct ComponentListItem {
     components: [ComponentItem]
 }
 
+export struct InspectorNumberChange {
+    name: string,
+    value: float,
+}
+
 /// Some `Diagnostics` as raised by the compiler
 export enum DiagnosticSummary {
     NothingDetected,
@@ -85,6 +90,9 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and is being redialed. Connecting elsewhere
+    /// replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for it to be
     /// typed in here.
     PairingRequired,
@@ -710,7 +718,7 @@ export global Api {
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
-    callback persist-selected-element-geometry();
+    callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
@@ -750,6 +758,8 @@ export global Api {
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
+    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);

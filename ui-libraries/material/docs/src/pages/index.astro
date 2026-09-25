@@ -1,213 +1,269 @@
 ---
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
-import Layout from "~/layouts/PageLayout.astro";
+import { Image, getImage } from "astro:assets";
+import { Icon } from "@astrojs/starlight/components";
+import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
+import SlintLogo from "../assets/slint-logo-small-light.svg";
+import heroImage from "../assets/images/material-tablet.webp";
+import buttonsIcon from "../assets/images/icons/hand-click.svg?url";
+import formsIcon from "../assets/images/icons/files.svg?url";
+import cardsIcon from "../assets/images/icons/play-card.svg?url";
+import dialogsIcon from "../assets/images/icons/message-circle.svg?url";
+import navigationIcon from "../assets/images/icons/navigation.svg?url";
+import appbarIcon from "../assets/images/icons/layout-navbar.svg?url";
+import progressIcon from "../assets/images/icons/loader.svg?url";
+import snackbarsIcon from "../assets/images/icons/bell-ringing.svg?url";
+import tooltipsIcon from "../assets/images/icons/info-octagon.svg?url";
+import "../assets/styles/homepage.css";
 
-import Hero from "~/components/widgets/Hero.astro";
-import Features from "~/components/widgets/Features.astro";
-import Features2 from "~/components/widgets/Features2.astro";
-import CallToAction from "~/components/widgets/CallToAction.astro";
-
-const metadata = {
-    title: "Slint + Material Design",
-    ignoreTitleTemplate: true,
-};
+const base = import.meta.env.BASE_URL;
+const title = "Slint + Material Design";
+const description =
+    "A collection of modern, easy-to-use touch-friendly components.";
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const hero = await getImage({ src: heroImage, width: 1024 });
+const socialImage = new URL(hero.src, Astro.site).href;
+const faviconHead = slintStarlightFaviconHead((filename) => base + filename);
+const navigation = [
+    { text: "Documentation", href: base + "getting-started/" },
+    { text: "Demo", href: base + "wasm/index.html" },
+    { text: "Slint Home", href: "https://slint.dev" },
+];
+const homepageSocialOrder = [
+    "github",
+    "x.com",
+    "blueSky",
+    "mastodon",
+    "linkedin",
+    "youtube",
+];
+const social = homepageSocialOrder.flatMap((icon) => {
+    const link = slintStarlightSocial.find(
+        (candidate) => candidate.icon === icon,
+    );
+    if (!link) return [];
+    return [
+        link.icon === "github"
+            ? {
+                  ...link,
+                  href: "https://github.com/slint-ui/slint/tree/master/ui-libraries/material",
+              }
+            : link,
+    ];
+});
+const features = [
+    {
+        title: "Make your product shine",
+        description:
+            "Stand out from the crowd with an award winning design system. Material components aren't just functional, they are beautiful.",
+        icon: "star",
+    },
+    {
+        title: "Unbelievably easy to develop with",
+        description:
+            "There has never been an easier way to build a Material design product. Slint's simple syntax and powerful tooling will have you shipping in days.",
+        icon: "rocket",
+    },
+    {
+        title: "10 years in the making",
+        description:
+            "Build your product with the world's most used design system. It's been the foundation of Android phones since 2014 and proven in billions of devices.",
+        icon: "document",
+    },
+    {
+        title: "Build anything - deploy everywhere",
+        description:
+            "Watches, medical devices, in-car infotainment, and more. Material UI components work seamlessly across desktop, mobile, and embedded platforms.",
+        icon: "vscode",
+    },
+    {
+        title: "Touch-Optimized",
+        description:
+            "Designed specifically for touch interfaces with appropriate touch targets and gestures.",
+        icon: "approve-check-circle",
+    },
+    {
+        title: "Customizable Themes",
+        description:
+            "Easy theming with Material Theme builder support, allowing you to match your brand colors and design preferences.",
+        icon: "figma",
+    },
+] as const;
+const components = [
+    {
+        title: "Buttons",
+        description:
+            "Multiple button variants including filled, outlined, and tonal styles for different interaction contexts.",
+        icon: buttonsIcon,
+    },
+    {
+        title: "Form Controls",
+        description:
+            "Text fields, checkboxes, switches, and other input components for user data collection.",
+        icon: formsIcon,
+    },
+    {
+        title: "Cards",
+        description:
+            "Content containers with elevation and various layouts for displaying information in organized, visually appealing ways.",
+        icon: cardsIcon,
+    },
+    {
+        title: "Dialogs",
+        description:
+            "Modal interfaces for important actions, confirmations, and detailed information that require user attention.",
+        icon: dialogsIcon,
+    },
+    {
+        title: "Navigation",
+        description:
+            "Drawers, navigation rails, and bottom navigation bars for seamless app navigation and structure.",
+        icon: navigationIcon,
+    },
+    {
+        title: "App Bars",
+        description:
+            "Top-level navigation components with actions, titles, and search functionality for your app's main interface.",
+        icon: appbarIcon,
+    },
+    {
+        title: "Progress Indicators",
+        description:
+            "Loading spinners and progress bars to provide feedback during operations and data loading.",
+        icon: progressIcon,
+    },
+    {
+        title: "Snackbars",
+        description:
+            "Brief notifications that appear at the bottom of the screen to provide feedback and confirm actions.",
+        icon: snackbarsIcon,
+    },
+    {
+        title: "Tooltips",
+        description:
+            "Contextual help and information that appears when users hover or focus on interface elements.",
+        icon: tooltipsIcon,
+    },
+];
 ---
 
-<Layout metadata={metadata}>
-  <!-- Hero Widget ******************* -->
-
-  <Hero
-  actions={[
-    { text: 'Get Started', href: '/getting-started/' },
-  ]}
-    image={{ src: '~/assets/images/material-tablet.webp', alt: 'Material Components Hero Image' }}
-  >
-    <Fragment slot="title">
-        <span class="icon-slint-logo-small-light slint-logo-inline"></span>
-        Slint
-      +
-      <span
-        class="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent dark:from-cyan-400 dark:via-fuchsia-500 dark:to-yellow-400"
-      >
-      Material Design
-      </span>
-    </Fragment>
-
-    <Fragment slot="subtitle">
-      <span class="hidden sm:inline">
-        It's never been easier to build a touch based device. </span
-      >
-      Combine Slint's production grade toolkit with everyone's favorite <span class="font-semibold">Material Design Components</span>
-    </Fragment>
-
-  </Hero>
-
-
-  <Features
-    id="features"
-    tagline="Features"
-    title="Not everyone wants to build their own UI components"
-    subtitle="But every product should have a great design."
-    items={[
-      {
-        title: 'Make your product shine',
-        description:
-          'Stand out from the crowd with an award winning design system. Material components arn\'t just functional, they are beautiful.',
-        icon: 'tabler:award',
-      },
-      {
-        title: 'Unbelievably easy to develop with',
-        description:
-          'There has never been an easier way to build a Material design product. Slint\'s simple syntax and powerful tooling will have you shipping in days.',
-        icon: 'tabler:gauge',
-      },
-      {
-        title: '10 years in the making',
-        description:
-          "Build your product with the worlds most used design system. It\'s been the foundation of Android phones since 2014 and proven in billions of devices.",
-        icon: 'tabler:play-card-10',
-      },
-      {
-        title: 'Build anything - deploy everywhere',
-        description:
-          'Watches, medical devices, in-car infotainment, and more. Material UI components work seamlessly across desktop, mobile, and embedded platforms.',
-        icon: 'tabler:devices',
-      },
-
-      {
-        title: 'Touch-Optimized',
-        description:
-          'Designed specifically for touch interfaces with appropriate touch targets and gestures.',
-        icon: 'tabler:hand-click',
-      },
-      {
-        title: 'Customizable Themes',
-        description:
-          'Easy theming with Material Theme builder support, allowing you to match your brand colors and design preferences.',
-        icon: 'tabler:paint',
-      },
-    ]}
-  />
-
-  <CallToAction
-  actions={[
-    {
-      variant: 'primary',
-      text: 'Download APK',
-      href: 'https://material.slint.dev/apk/slint_material.apk',
-      target: '_blank',
-      icon: 'tabler:download',
-    },
-    {
-      variant: 'secondary',
-      text: 'Web Gallery',
-      href: 'https://material.slint.dev/wasm/',
-      target: '_blank',
-      icon: 'open-book',
-    },
-  ]}
->
-  <Fragment slot="title">
-    <a>
-      Try Slint + Material Now!
-    </a>
-  </Fragment>
-
-  <Fragment slot="subtitle">
-    Android user? Download the APK and try the gallery on your phone. Otherwise try out the browser version.
-  </Fragment>
-</CallToAction>
-
-
-  <!-- Features2 Widget ************** -->
-
-  <Features2
-    title="Core Material UI Components"
-    subtitle="Essential components for building modern Slint applications with Material Design"
-    tagline="Components"
-    items={[
-      {
-        title: 'Buttons',
-        description:
-          "Multiple button variants including filled, outlined, and tonal styles for different interaction contexts.",
-        icon: 'buttons',
-      },
-      {
-        title: 'Form Controls',
-        description: 'Text fields, checkboxes, switches, and other input components for user data collection.',
-        icon: 'forms',
-      },
-      {
-        title: 'Cards',
-        description:
-          'Content containers with elevation and various layouts for displaying information in organized, visually appealing ways.',
-        icon: 'cards',
-      },
-      {
-        title: 'Dialogs',
-        description:
-          "Modal interfaces for important actions, confirmations, and detailed information that require user attention.",
-        icon: 'dialogs',
-      },
-      {
-        title: 'Navigation',
-        description:
-          'Drawers, navigation rails, and bottom navigation bars for seamless app navigation and structure.',
-        icon: 'navigation',
-      },
-      {
-        title: 'App Bars',
-        description: "Top-level navigation components with actions, titles, and search functionality for your app's main interface.",
-        icon: 'appbar',
-      },
-
-      {
-        title: 'Progress Indicators',
-        description: 'Loading spinners and progress bars to provide feedback during operations and data loading.',
-        icon: 'progress-indicators',
-      },
-      {
-        title: 'Snackbars',
-        description:
-          'Brief notifications that appear at the bottom of the screen to provide feedback and confirm actions.',
-        icon: 'snackbars',
-      },
-      {
-        title: 'Tooltips',
-        description: "Contextual help and information that appears when users hover or focus on interface elements.",
-        icon: 'tooltips',
-      },
-    ]}
-  >
-    <Fragment slot="bg">
-      <div class="absolute inset-0 bg-blue-50 dark:bg-transparent"></div>
-    </Fragment>
-  </Features2>
-
-  <!-- FAQs Widget ******************* -->
-
-  <!-- <FAQs
-    title="Frequently Asked Questions"
-    subtitle="Learn more about Slint Material UI components and how they can enhance your application development."
-    tagline="FAQs"
-    classes={{ container: 'max-w-6xl' }}
-    items={[
-      {
-        title: 'What platforms does Slint Material UI support?',
-        description:
-          "These component",
-      },
-      {
-        title: 'How do I integrate Material UI into my Slint project?',
-        description:
-          'Simply include the Material UI components in your Slint project, import the components you need, and start building your interface with Material Design principles.',
-      },
-      {
-        title: 'Can I customize the Material Design theme?',
-        description:
-          "Yes! Slint Material UI is fully compatible with Material Theme builder, allowing you to customize colors, typography, and component styles to match your brand.",
-      },
-    ]}
-  /> -->
-</Layout>
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Slint Material Components" />
+    <meta property="og:image" content={socialImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:site" content="@slint_ui" />
+    <meta name="twitter:creator" content="@slint_ui" />
+    {faviconHead.map(({ attrs }) => <link {...attrs} />)}
+    <script is:inline>
+      const storedTheme = localStorage.getItem("starlight-theme");
+      const theme = storedTheme || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href={base}>
+          <SlintLogo width="30" height="30" aria-hidden="true" />
+          <span>Slint Material Components</span>
+        </a>
+        <nav class="desktop-nav" aria-label="Main navigation">
+          {navigation.map(({ text, href }) => <a href={href}>{text}</a>)}
+        </nav>
+        <details class="mobile-menu">
+          <summary role="button" aria-label="Toggle Menu"><Icon name="bars" size="1.5rem" /></summary>
+          <nav aria-label="Mobile navigation">
+            {navigation.map(({ text, href }) => <a href={href}>{text}</a>)}
+          </nav>
+        </details>
+        <div class="header-actions">
+          <ul class="social-links">
+            {social.map(({ label, icon, href }) => <li><a href={href} aria-label={label} target="_blank" rel="noopener noreferrer"><Icon name={icon} size="1rem" /></a></li>)}
+          </ul>
+          <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+            <Icon name="sun" class="theme-light" size="1.25rem" />
+            <Icon name="moon" class="theme-dark" size="1.25rem" />
+          </button>
+        </div>
+      </div>
+    </header>
+    <main id="main">
+      <section class="material-hero">
+        <div class="hero-copy">
+          <h1><SlintLogo class="title-logo" aria-hidden="true" />Slint + <span class="gradient-title">Material Design</span></h1>
+          <p><span class="intro">It's never been easier to build a touch based device.</span>{" "}Combine Slint's production grade toolkit with everyone's favorite{" "}<strong>Material Design Components</strong></p>
+          <a class="button" href={base + "getting-started/"}>Get Started</a>
+        </div>
+        <Image class="hero-image" src={heroImage} width={1024} widths={[400, 768, 1024, 2040]} sizes="(max-width: 767px) 400px, (max-width: 1023px) 768px, 1024px" alt="Material Components Hero Image" loading="eager" />
+      </section>
+      <section class="features section" id="features">
+        <div class="section-heading">
+          <p class="eyebrow">Features</p>
+          <h2>Not everyone wants to build their own UI components</h2>
+          <p class="subtitle">But every product should have a great design.</p>
+        </div>
+        <div class="feature-grid">
+          {features.map(({ title, description, icon }) => <article class="feature"><span class="feature-icon"><Icon name={icon} size="1.5rem" /></span><div><h3>{title}</h3><p>{description}</p></div></article>)}
+        </div>
+      </section>
+      <section class="download section">
+        <div class="download-panel">
+          <h2>Try Slint + Material Now!</h2>
+          <p class="subtitle">Android user? Download the APK and try the gallery on your phone. Otherwise try out the browser version.</p>
+          <div class="download-actions">
+            <a class="button primary" href={base + "apk/slint_material.apk"} target="_blank" rel="noopener"><span>Download APK</span><Icon name="down-arrow" size="1.25rem" /></a>
+            <a class="button" href={base + "wasm/"} target="_blank" rel="noopener"><span>Web Gallery</span><Icon name="open-book" size="1.25rem" /></a>
+          </div>
+        </div>
+      </section>
+      <section class="components section">
+        <div class="section-heading">
+          <p class="eyebrow">Components</p>
+          <h2>Core Material UI Components</h2>
+          <p class="subtitle">Essential components for building modern Slint applications with Material Design</p>
+        </div>
+        <div class="component-grid">
+          {components.map(({ title, description, icon }) => <article class="component"><img src={icon} width="40" height="40" alt="" loading="lazy" /><h3>{title}</h3><p>{description}</p></article>)}
+        </div>
+      </section>
+    </main>
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-top">
+          <a class="footer-brand" href={base}>Slint Material Components</a>
+          <div class="company"><h2>Company</h2><a href="https://slint.dev/">Learn more about Slint</a><a href="https://slint.dev/imprint">Privacy Policy</a></div>
+        </div>
+        <div class="footer-bottom">
+          <p>Copyright © {new Date().getFullYear()} SixtyFPS GmbH</p>
+          <ul class="social-links">
+            {social.map(({ label, icon, href }) => <li><a href={href} aria-label={label}><Icon name={icon} size="1.25rem" /></a></li>)}
+          </ul>
+        </div>
+      </div>
+    </footer>
+    <script>
+      document.querySelector(".theme-toggle")?.addEventListener("click", () => {
+        const theme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem("starlight-theme", theme);
+      });
+    </script>
+  </body>
+</html>

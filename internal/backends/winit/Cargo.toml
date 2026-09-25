@@ -20,6 +20,20 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-femtovg?/image-pixel-format-gray8",
+  "i-slint-renderer-skia?/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-renderer-anyrender?/image-pixel-format-gray8",
+]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-renderer-anyrender?/image-pixel-format-rgb565",
+]
 wayland = [
   "winit/wayland",
   "winit/wayland-csd-adwaita",
@@ -49,10 +63,11 @@ renderer-femtovg = [
   "windows/Win32_Graphics_OpenGL",
 ]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-30"]
-renderer-skia = ["i-slint-renderer-skia"]
+renderer-skia = ["i-slint-renderer-skia/default"]
 renderer-vello = ["dep:i-slint-renderer-anyrender", "i-slint-renderer-anyrender/vello", "unstable-wgpu-29"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+renderer-skia-software = ["i-slint-renderer-skia/softbuffer"]
 renderer-software = [
   "dep:softbuffer",
   "dep:imgref",
@@ -76,7 +91,6 @@ i-slint-core = { workspace = true, features = ["default"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 
-cfg-if = "1"
 lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
@@ -89,7 +103,7 @@ scopeguard = { version = "1.1.0", default-features = false }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 # For the vello renderer
 i-slint-renderer-anyrender = { workspace = true, optional = true }
@@ -144,7 +158,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default"] }
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "NSRunLoop", "objc2-core-foundation"] }
-objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApplication", "UIScene", "UISceneOptions", "UISceneSession", "UIScreen", "UIWindow", "UIWindowScene", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "UIInterface", "UIPasteboard", "UITrait", "UITraitCollection", "UIFont", "UIFontDescriptor", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApplication", "UIScene", "UISceneDefinitions", "UISceneOptions", "UISceneSession", "UIScreen", "UIWindow", "UIWindowScene", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "UIInterface", "UIPasteboard", "UITrait", "UITraitCollection", "UIFont", "UIFontDescriptor", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction", "CAFrameRateRange"] }
 # Match version in objc2
 block2 = "0.6.2"
@@ -165,4 +179,13 @@ rustdoc-args = ["--generate-link-to-definition"]
 
 [[test]]
 name = "menubar_borrow"
+harness = false
+
+# These create a window and run the event loop, so they need the main thread.
+[[test]]
+name = "hide_from_window_event"
+harness = false
+
+[[test]]
+name = "hide_with_external_reference"
 harness = false

@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -44,9 +45,10 @@ def open_linear(window):
     control(window, "Gradient start")
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(
-    editor_binary, editor_environment, scene, tmp_path, rotation
+    editor_binary, editor_environment, scene, tmp_path, rotation, percent
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -58,14 +60,17 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
     with launch_editor(editor_binary, editor_environment, scene) as editor:
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_linear(window)
         start = center(control(window, "Gradient stop 2"), rotation)
 
         def destination(distance):
             return shifted(
                 start,
-                x=distance * math.cos(math.radians(rotation)),
-                y=distance * math.sin(math.radians(rotation)),
+                x=distance * percent / 100 * math.cos(math.radians(rotation)),
+                y=distance * percent / 100 * math.sin(math.radians(rotation)),
             )
 
         button = slint_testing.PointerEventButton.Left
@@ -167,9 +172,12 @@ def test_linear_endpoint_drag_and_session_history(
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
+        saved = replace_once(
+            original.sources[Path(scene.name)],
+            b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
+            b"@linear-gradient(90deg, #568fb8 20%, #264052 64%, #7e3b66 100%)",
+        )
         original.wait_for_applied(saved, scene.name)
-        assert b"20%" in saved
         press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
         press_shortcut(window, keys.Control, keys.Shift, "z")

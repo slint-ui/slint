@@ -11,14 +11,12 @@
 
 component Inner {
     preferred-height: self.width;
-//                    >         <error{The binding for the property 'preferred-height' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
+//                    >         <error{The binding for the property 'preferred-height' is part of a binding loop (Inner.preferred-height -> FlexboxLayout.layout-cache -> Inner.width -> Inner.preferred-height)}
     Rectangle {}
 }
 
 export component Demo inherits Window {
     FlexboxLayout {
-//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
-//  >            <^error{The binding for the property 'width' is part of a binding loop (preferred-height -> layout-cache -> width -> preferred-height)}
         Inner {}
     }
 }

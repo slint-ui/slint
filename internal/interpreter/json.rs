@@ -182,18 +182,21 @@ pub fn value_from_json(t: &langtype::Type, v: &serde_json::Value) -> Result<Valu
             _ => Err("Got an array where none was expected".into()),
         },
         serde_json::Value::Object(obj) => match t {
-            langtype::Type::Struct(s) => Ok(crate::Struct(
-                obj.iter()
-                    .map(|(k, v)| {
-                        let k = crate::api::normalize_identifier(k);
-                        match s.fields.get(&k) {
-                            Some(t) => value_from_json(t, v).map(|v| (k, v)),
-                            None => Err(format!("Found unknown field in struct: {k}")),
-                        }
-                    })
-                    .collect::<Result<HashMap<smol_str::SmolStr, Value>, _>>()?,
-            )
-            .into()),
+            langtype::Type::Struct(s) => {
+                let mut value = crate::Struct(
+                    obj.iter()
+                        .map(|(k, v)| {
+                            let k = crate::api::normalize_identifier(k);
+                            match s.fields.get(&k) {
+                                Some(t) => value_from_json(t, v).map(|v| (k, v)),
+                                None => Err(format!("Found unknown field in struct: {k}")),
+                            }
+                        })
+                        .collect::<Result<HashMap<smol_str::SmolStr, Value>, _>>()?,
+                );
+                crate::eval::fill_missing_struct_fields(&mut value, s);
+                Ok(value.into())
+            }
             _ => Err("Got a struct where none was expected".into()),
         },
     }
@@ -461,6 +464,20 @@ fn test_from_json() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn test_from_json_struct_missing_field() {
+    let ty = langtype::Type::Struct(std::sync::Arc::new(langtype::Struct::new(
+        [("name".into(), langtype::Type::String), ("on".into(), langtype::Type::Bool)]
+            .into_iter()
+            .collect(),
+        langtype::StructName::None,
+    )));
+    let v = value_from_json_str(&ty, r#"{"on": true}"#).unwrap();
+    let Value::Struct(s) = v else { panic!("not a struct: {v:?}") };
+    assert_eq!(s.get_field("on"), Some(&Value::Bool(true)));
+    assert_eq!(s.get_field("name"), Some(&Value::String(Default::default())));
 }
 
 #[test]

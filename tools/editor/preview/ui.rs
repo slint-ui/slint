@@ -62,19 +62,15 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-mod conic_gradient;
-mod linear_gradient;
-mod radial_gradient;
 pub(super) use brushes::{fill_brush, fill_expression};
-mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_fills;
 pub mod search_model;
 
-slint::include_modules!();
+use slint_editor::component_support::{element_library, recent_fills};
+pub use slint_editor::ui::*;
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
@@ -96,6 +92,29 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             })
             .clone()
     });
+    let resize_cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_resize_image(move |angle| {
+        let angle = angle.round().rem_euclid(180.0) as i32;
+        resize_cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/resize.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid resize cursor SVG");
+                slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
+            })
+            .clone()
+    });
+    let scrub_horizontal_cursor = {
+        let image = slint::Image::load_from_svg_data(include_bytes!(
+            "../ui/assets/cursors/scrub-horizontal.svg"
+        ))
+        .expect("valid horizontal scrub cursor SVG");
+        slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
+    };
+    ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
     Ok(ui)
 }
 
@@ -221,6 +240,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_preview_shadow(super::inspector::preview_shadow);
+    api.on_inspector_commit_shadow(super::inspector::commit_shadow);
     api.on_inspector_fill_preview(super::inspector::preview_fill);
     api.on_inspector_fill_commit(super::inspector::commit_fill);
     let editor_weak = editor_ui.as_weak();
@@ -1631,6 +1652,96 @@ mod tests {
     };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn resize_cursor_rotates_and_reuses_half_turns() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursors = editor.global::<super::EditorCursors>();
+        let horizontal = cursors.invoke_resize_image(0.);
+        assert_eq!(horizontal, cursors.invoke_resize_image(180.));
+        assert_ne!(horizontal, cursors.invoke_resize_image(90.));
+    }
+
+    #[test]
+    fn scrub_cursor_uses_fixed_pixel_size() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!(cursor.size().width, 32);
+        assert_eq!(cursor.size().height, 32);
+    }
+
+    #[test]
+    fn rotated_edge_cursor_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                angle: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+
+        let edge = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Rectangle resize right",
+        )
+        .next()
+        .unwrap();
+        let position = edge.absolute_position();
+        let size = edge.size();
+        let angle = 30_f32.to_radians();
+        let start = LogicalPosition::new(
+            position.x + size.width / 2. * angle.cos() - size.height / 2. * angle.sin(),
+            position.y + size.width / 2. * angle.sin() + size.height / 2. * angle.cos(),
+        );
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let resize_cursor = cursor();
+        assert_eq!(
+            resize_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor {
+                image: editor.global::<super::EditorCursors>().invoke_resize_image(30.),
+                hotspot_x: 16,
+                hotspot_y: 16,
+            }
+        );
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+        });
+        assert_eq!(cursor(), resize_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+            button: PointerEventButton::Left,
+        });
+    }
 
     #[test]
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {

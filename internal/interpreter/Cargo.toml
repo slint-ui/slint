@@ -39,6 +39,10 @@ system-tray = ["i-slint-core/system-tray"]
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
+## Enable [`Compiler::set_bundled_translations_path`] to bundle the translations from `.po` files
+## into the compiled component, so that `slint::select_bundled_translation` can select them.
+bundle-translations = ["i-slint-compiler/bundle-translations"]
+
 ## Enable the embedded MCP (Model Context Protocol) server.
 ##
 ## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
@@ -127,6 +131,9 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 ## Render using [vello](https://crates.io/crates/vello) on WGPU. Experimental: it is never
 ## selected automatically, use `SLINT_BACKEND=winit-vello` or `SLINT_BACKEND=linuxkms-vello`.
 renderer-vello = ["i-slint-backend-selector/renderer-vello", "std"]
+
+## Same as `renderer-skia`, but compiles only Skia's CPU rendering path, without a GPU renderer.
+renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software", "std"]
 
 ## Make the winit backend capable of rendering using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software"]

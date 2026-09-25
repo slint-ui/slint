@@ -326,7 +326,7 @@ impl FittedPath {
     pub fn sample_at(&self, t: f32) -> Option<(Point2D<f32, LogicalPx>, f32)> {
         use lyon_algorithms::measure::SampleType;
 
-        let mut rem = t.rem_euclid(1.);
+        let mut rem = num_traits::Euclid::rem_euclid(&t, &1.);
         if rem == 0.0 && t != 0.0 {
             // This makes the path end at the end and not the start
             rem = 1.0;
@@ -338,7 +338,7 @@ impl FittedPath {
         let sample = sampler.sample(rem);
         let pos = Point2D::new(sample.position().x, sample.position().y);
         let angle = sample.tangent().angle_from_x_axis().to_degrees();
-        Some((pos + self.offset, angle))
+        Some((pos + self.offset.cast(), angle))
     }
 }
 

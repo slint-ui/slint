@@ -13,25 +13,44 @@ Each commitment names where it's implemented, so it can be checked rather than t
 * Every change is approved by an independent reviewer, someone who hasn't committed code to the change, before it's merged. The merge requirements are in [Development Phases](/qualification-plan/development-phases/#phase-3-code-review).
 * Every change is verified by automated tests before it's merged. See [Test Suites](/qualification-plan/test-suites/).
 * Every requirement is traced to the tests that verify it. See [Traceability Matrix](/qualification-report/traceability-matrix/).
-* Known safety-critical problems are recorded, with the fix and the test that covers each. See [Known Problems](/safety-manual/known-problems/).
+* Known safety-critical problems are recorded, with the fix and the test that covers each. See [Known Problems](/user-manual/known-problems/).
 * The process and the tooling are improved as we go, and what can be automated is automated.
 
-Two things ISO 26262 asks for that we don't document yet:
+:::caution[TODO]
+Two things ISO 26262 asks for aren't documented yet:
 
 * Competence requirements and training records for the people working on Slint SC.
-  (TODO)
 * Independence of verification beyond review.
-  The reviewer is independent of the change, but the standard asks for more independence at higher integrity levels, e.g. of the people writing the tests.
-  (TODO: decide what further independence we claim, and change the process to match.)
+  The reviewer is independent of the change, but the standard asks for more independence at higher integrity levels, such as of the people writing the tests.
+  Decide what further independence we claim, and change the process to match.
+:::
 
 ## Responsibilities
 
-The administrators of the slint-ui Github organization are the founders of SixtyFPS GmbH.
+The administrators of the slint-ui GitHub organization are the founders of SixtyFPS GmbH.
 All employees of SixtyFPS GmbH are members of the organization.
-External contributors may also be invited to become members of the Github organization.
+External contributors may also be invited to become members of the GitHub organization.
 
-(TODO: name the safety manager, who approves a release, and who may waive a review.)
+:::caution[TODO]
+Name the safety manager, who approves a release, and who may waive a review.
+:::
 
-## External Assessment
+## Confirmation Measures
 
-The functional safety of Slint SC will be assessed independently by TÜV Nord in Germany.
+**Addresses:** ISO 26262-2 Clause 6
+
+Confirmation measures check that the work products, the process, and the resulting safety are adequate.
+Each one needs a level of independence from the people who did the work, which depends on the ASIL.
+
+| Measure | Independence at ASIL B | Performed by |
+| --- | --- | --- |
+| Confirmation reviews of the work products | Not stated yet | Not decided yet |
+| Functional safety audit of the process | Not stated yet | Not decided yet |
+| Functional safety assessment | Not stated yet | TÜV Nord |
+
+:::caution[TODO]
+List the confirmation reviews that apply to Slint SC, including the one of the tool qualification.
+State the independence level of each measure at ASIL B, from ISO 26262-2:2018.
+Check the clause this section addresses against that edition too.
+Name who performs the reviews and the audit.
+:::

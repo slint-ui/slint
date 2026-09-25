@@ -113,7 +113,10 @@ fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
             }
         }
         value if value.starts_with(|c: char| c.is_ascii_alphabetic()) => {
-            let (qualifier, value) = value.split_once('.').unwrap();
+            // Handling enums
+            let (qualifier, value) = value.split_once('.').unwrap_or_else(|| panic!(
+                "enum values must contain also the qualifier in the format `qualifier.value`: {value}"
+            ));
             let Type::Enumeration(enumeration) = ty else {
                 panic!("enum default `{qualifier}.{value}` on a property of type {ty}")
             };
@@ -1546,9 +1549,8 @@ fn build(l: &mut Loader) {
         /// respectively, the element becomes scrollable.
         ///
         /// When unset, the `content-width` and `content-height` are
-        /// calculated automatically based on the `Flickable`'s children. This isn't the
-        /// case when using a `for` loop to populate the elements. This is a bug tracked in
-        /// issue [#407](https://github.com/slint-ui/slint/issues/407).
+        /// calculated automatically based on the `Flickable`'s layout children,
+        /// including ones populated with a `for`/`if`.
         /// The maximum and preferred size of the `Flickable` are based on the content size.
         ///
         /// Note that the `Flickable` doesn't create a scrollbar.

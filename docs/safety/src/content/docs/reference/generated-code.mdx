@@ -47,7 +47,7 @@ When the length of `frame_buffer` isn't `width * height * 3` for that size, `ren
 ## Properties
 
 The generated component holds the value of each
-[property declared](/language/properties/#sls.prop.decl.form) on the
+[property declared](/reference/language/properties/#sls.prop.decl.form) on the
 root element. \{#sls.gen.prop.values.meta}
 
 Kebab-case property names become snake_case in the generated names:
@@ -95,7 +95,7 @@ row-major order together with the image's width, four bytes per pixel:
 alpha, red, green, and blue.
 The default is `Image::None`. \{#sls.gen.prop.types.image}
 
-The image of an [`@image-url()`](/language/expressions/#sls.expr.image.form)
+The image of an [`@image-url()`](/reference/language/expressions/#sls.expr.image.form)
 literal is decoded when the code is generated and embedded in it as a
 `static` holding an `Image::StaticArgb`; the literals of one `.slint` file
 that name the same image file share one embedded
@@ -103,7 +103,7 @@ copy. \{#sls.gen.image.static}
 
 ## Callbacks
 
-The application reacts to the [callbacks declared](/language/callbacks/#sls.callback.decl.form) on the root
+The application reacts to the [callbacks declared](/reference/language/callbacks/#sls.callback.decl.form) on the root
 element by implementing a generated trait. \{#sls.gen.callback.meta}
 
 ### The Callbacks Trait
@@ -142,8 +142,8 @@ at a position, to the component as described in [Touch Input](/reference/input/)
 
 ## Types
 
-Each [struct](/language/structs-and-enums/#sls.struct.decl) or
-[enum](/language/structs-and-enums/#sls.enum.decl) declared in the `.slint` file
+Each [struct](/reference/language/structs-and-enums/#sls.struct.decl) or
+[enum](/reference/language/structs-and-enums/#sls.enum.decl) declared in the `.slint` file
 generates a public Rust type of the same name. \{#sls.gen.types}
 
 ### Structs

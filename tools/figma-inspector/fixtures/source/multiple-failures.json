@@ -1,0 +1,116 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "source:1",
+    "name": "Captured rectangle",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 12,
+      "y": 24,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": -1,
+      "fills": [
+        {
+          "type": "GRADIENT_RADIAL"
+        },
+        {
+          "type": "SOLID",
+          "color": {
+            "r": 1,
+            "g": 0,
+            "b": 0
+          },
+          "opacity": 1
+        }
+      ],
+      "strokes": [],
+      "effects": [
+        {
+          "type": "DROP_SHADOW",
+          "radius": -1
+        }
+      ],
+      "layoutMode": "NONE"
+    },
+    "children": [
+      {
+        "id": "broken",
+        "name": "Captured rectangle",
+        "type": "VECTOR",
+        "errors": [],
+        "properties": {
+          "x": 12,
+          "y": 24,
+          "width": 100,
+          "height": 60,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 4,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        },
+        "exports": {
+          "svg": {
+            "error": "injected SVG export failure"
+          },
+          "png": {
+            "error": "injected PNG export failure"
+          }
+        }
+      },
+      {
+        "id": "good",
+        "name": "Captured rectangle",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 12,
+          "y": 24,
+          "width": 100,
+          "height": 60,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 4,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": true,
+  "options": {}
+}

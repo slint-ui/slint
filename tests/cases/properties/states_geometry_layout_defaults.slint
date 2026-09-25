@@ -1,0 +1,94 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A size that only some states set keeps its default in the places a parent doesn't supply it:
+// inside a layout, on an Image, and on a Flickable's viewport (#8852).
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    in-out property <int> step: 1;
+
+    VerticalLayout {
+        // A layout pins a child that has its own size, so the state's fallback is what it pins to.
+        txt := Text {
+            text: "hello";
+            states [
+                taller when step == 0: {
+                    height: 80px;
+                }
+            ]
+        }
+
+        // Still height-for-width while no state gives it a height.
+        layout-image := Image {
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+            states [
+                shorter when step == 0: {
+                    height: 30px;
+                }
+            ]
+        }
+    }
+
+    // The aspect-ratio binding must not scale a zero width into the height.
+    img := Image {
+        source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+        states [
+            narrow when step == 0: {
+                width: 100px;
+            }
+        ]
+    }
+
+    // One dimension explicit sends the other down the aspect-ratio path, which must still
+    // reach the value the state falls back to.
+    half := Image {
+        source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+        width: 100px;
+        states [
+            squat when step == 0: {
+                height: 50px;
+            }
+        ]
+    }
+
+    fl := Flickable {
+        width: 100px;
+        height: 100px;
+        states [
+            tall when step == 0: {
+                viewport-height: 500px;
+            }
+        ]
+        Rectangle { background: red; width: 80px; height: 300px; }
+    }
+
+    out property <bool> test: txt.height > 0px && layout-image.height > 0px
+        && img.width == 128px && img.height == 128px
+        && half.height == 100px && fl.viewport-height == 100px;
+    out property <bool> states-applied: txt.height == 80px && layout-image.height == 30px
+        && img.width == 100px && img.height == 100px
+        && half.height == 50px && fl.viewport-height == 500px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_step(0);
+assert!(instance.get_states_applied());
+instance.set_step(1);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_step(0);
+assert(instance.get_states_applied());
+instance.set_step(1);
+assert(instance.get_test());
+```
+*/

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore dedupe
+#![deny(unsafe_code)]
+
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
@@ -279,7 +281,7 @@ fn main() -> std::io::Result<()> {
     }
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = args.bundle_translations {
-        compiler_config.translation_path_bundle = Some(path);
+        compiler_config.bundled_translations_path = Some(path);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =

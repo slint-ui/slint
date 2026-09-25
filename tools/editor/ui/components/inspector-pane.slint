@@ -2,28 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
-import { InspectorComboOption } from "inspector/control-data.slint";
-import { Api, CodeBinding, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "common.slint";
+import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
-
-import { InspectorInfoIcon } from "inspector/info-icon.slint";
-import { InspectorValueField } from "inspector/value-field.slint";
-import { InspectorEditableField } from "inspector/editable-field.slint";
-import { InspectorComboBox } from "inspector/combo-box.slint";
-import { InspectorColorField } from "inspector/color-field.slint";
-import { InspectorCodeField } from "inspector/code-field.slint";
-import { InspectorSection } from "inspector/section.slint";
-import { InspectorEffectDial } from "inspector/effect-dial.slint";
-import { InspectorEffectSlider } from "inspector/effect-slider.slint";
-import { InspectorPropertyRow } from "inspector/property-row.slint";
-import { InspectorRotationKnob } from "inspector/rotation-knob.slint";
-import { InspectorCornerEditor } from "inspector/corner-editor.slint";
-import { ScrollView } from "std-widgets.slint";
+import {
+    InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
+    InspectorCornerEditor, InspectorEditableField, InspectorEffectDial, InspectorEffectSlider,
+    InspectorImageAlignment, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
+    InspectorValueField,
+} from "inspector/index.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
+    private property <angle> shadow-drag-angle;
+    private property <bool> shadow-distance-dragging;
 
     out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
 
@@ -63,16 +57,6 @@ export component InspectorPane inherits Rectangle {
         { value: "preserve", label: "preserve" },
         { value: "contain", label: "contain" },
         { value: "cover", label: "cover" },
-    ];
-    property <[InspectorComboOption]> image-horizontal-alignment-options: [
-        { value: "center", label: "center" },
-        { value: "left", label: "left" },
-        { value: "right", label: "right" },
-    ];
-    property <[InspectorComboOption]> image-vertical-alignment-options: [
-        { value: "center", label: "center" },
-        { value: "top", label: "top" },
-        { value: "bottom", label: "bottom" },
     ];
     property <[InspectorComboOption]> text-font-weight-options: [
         { value: "100", label: "Thin" },
@@ -192,6 +176,23 @@ export component InspectorPane inherits Rectangle {
         }
 
         return false;
+    }
+
+    function preview-geometry-property(name: string, value: float) -> bool {
+        if !root.has-backend-rect() {
+            return false;
+        }
+        Api.override-selected-element-geometry(
+            name == "x" ? value * 1px : root.selected-x(),
+            name == "y" ? value * 1px : root.selected-y(),
+            name == "width" ? value * 1px : root.selected-width(),
+            name == "height" ? value * 1px : root.selected-height(),
+        );
+        return true;
+    }
+
+    function accept-geometry-scrub() -> bool {
+        return Api.persist-selected-element-geometry();
     }
 
     function commit-code(property-name: string, value: string) -> bool {
@@ -349,17 +350,21 @@ export component InspectorPane inherits Rectangle {
     }
 
     function commit-shadow-number(property-name: string, value: float) -> bool {
-        return root.commit-code(property-name, "\{value.round()}px");
+        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]);
     }
 
-    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+    pure function shadow-offset-changes(angle: angle, distance: float) -> [InspectorNumberChange] {
         let prefix = root.current-shadow-prefix();
         let x = (angle.cos() * distance).round();
         let y = (angle.sin() * distance).round();
-        return root.commit-codes([
-            { name: prefix + "offset-x", value: x == 0 ? "0px" : "\{x}px" },
-            { name: prefix + "offset-y", value: y == 0 ? "0px" : "\{y}px" },
-        ]);
+        return [
+            { name: prefix + "offset-x", value: x == 0 ? 0 : x },
+            { name: prefix + "offset-y", value: y == 0 ? 0 : y },
+        ];
+    }
+
+    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance));
     }
 
     function shadow-code(property-name: string, fallback: string) -> string {
@@ -382,6 +387,8 @@ export component InspectorPane inherits Rectangle {
         if value != "none" && value != "drop" && value != "inner" {
             return false;
         }
+        Api.inspector-cancel();
+        root.shadow-distance-dragging = false;
         let drop = root.shadow-bindings("drop-shadow-", value == "drop");
         let inner = root.shadow-bindings("inner-shadow-", value == "inner");
         return root.commit-codes([
@@ -450,10 +457,10 @@ export component InspectorPane inherits Rectangle {
 
     function image-horizontal-alignment-index() -> int {
         let value = Api.current-property-value("horizontal-alignment", "center");
-        if value == "center" {
+        if value == "left" {
             return 0;
         }
-        if value == "left" {
+        if value == "center" {
             return 1;
         }
         if value == "right" {
@@ -462,17 +469,12 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-horizontal-alignment-value() -> string {
-        let index = root.image-horizontal-alignment-index();
-        return index >= 0 ? root.image-horizontal-alignment-options[index].value : "center";
-    }
-
     function image-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "center");
-        if value == "center" {
+        if value == "top" {
             return 0;
         }
-        if value == "top" {
+        if value == "center" {
             return 1;
         }
         if value == "bottom" {
@@ -481,9 +483,17 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-vertical-alignment-value() -> string {
-        let index = root.image-vertical-alignment-index();
-        return index >= 0 ? root.image-vertical-alignment-options[index].value : "center";
+    function set-image-alignment(column: int, row: int) -> bool {
+        if column < 0 || column > 2 || row < 0 || row > 2 {
+            return false;
+        }
+        if column == root.image-horizontal-alignment-index() && row == root.image-vertical-alignment-index() {
+            return true;
+        }
+        return root.commit-codes([
+            { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
+            { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
+        ]);
     }
 
     function text-font-weight-index() -> int {
@@ -528,7 +538,7 @@ export component InspectorPane inherits Rectangle {
         background: root.style.divider;
     }
 
-    inspector-scroll := ScrollView {
+    inspector-scroll := EditorScrollView {
         x: root.content-x;
         y: 0px;
         width: root.width - root.content-x;
@@ -537,7 +547,7 @@ export component InspectorPane inherits Rectangle {
         content-height: content.height;
         content-y <=> root.inspector-scroll-y;
         mouse-drag-pan-enabled: false;
-        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
         content := Rectangle {
@@ -556,12 +566,20 @@ export component InspectorPane inherits Rectangle {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position X"; prefix: "X";
                             value: root.selected-x-label(); commit-key: root.field-key("x");
+                            scrubbable: true; scrub-value: root.selected-x() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("x", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("x", value); }
                             accepted(text) => { return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label()); }
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position Y"; prefix: "Y";
                             value: root.selected-y-label(); commit-key: root.field-key("y");
+                            scrubbable: true; scrub-value: root.selected-y() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("y", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("y", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label()); }
                         }
                     }
@@ -571,12 +589,22 @@ export component InspectorPane inherits Rectangle {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Width"; prefix: "W";
                             value: root.selected-width-label(); commit-key: root.field-key("width");
+                            scrubbable: true; scrub-value: root.selected-width() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("width", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("width", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label()); }
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Height"; prefix: "H";
                             value: root.selected-height-label(); commit-key: root.field-key("height");
+                            scrubbable: true; scrub-value: root.selected-height() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("height", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("height", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text); }
                         }
                     }
@@ -595,6 +623,10 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Rotation"; prefix: "°";
                             value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
                             commit-key: root.inspector-key;
+                            scrubbable: true; scrub-value: knob.visual-value;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "transform-rotation", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("transform-rotation", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
                             accepted(text) => { return text.is-float() && root.commit-inspector("transform-rotation", text.to-float()); }
                         }
                     }
@@ -698,9 +730,13 @@ export component InspectorPane inherits Rectangle {
                                 accessible-name: "Shadow angle";
                                 commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
                                 value: root.shadow-angle();
+                                preview(angle) => {
+                                    return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
+                                }
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
                                 }
+                                canceled => { Api.inspector-cancel(); }
                             }
 
                             VerticalLayout {
@@ -738,9 +774,19 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 96;
                             commit-key: root.field-key(root.current-shadow-prefix() + "offset");
-                            accepted(value) => {
-                                return root.commit-shadow-offsets(root.shadow-angle(), value);
+                            started => {
+                                root.shadow-drag-angle = root.shadow-angle();
+                                root.shadow-distance-dragging = true;
                             }
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(root.shadow-drag-angle, value));
+                            }
+                            accepted(value) => {
+                                let accepted = root.commit-shadow-offsets(root.shadow-distance-dragging ? root.shadow-drag-angle : root.shadow-angle(), value);
+                                root.shadow-distance-dragging = false;
+                                return accepted;
+                            }
+                            canceled => { root.shadow-distance-dragging = false; Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -750,9 +796,13 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 128;
                             commit-key: root.field-key(root.current-shadow-prefix() + "blur");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "blur", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -762,9 +812,13 @@ export component InspectorPane inherits Rectangle {
                             minimum: -64;
                             maximum: 64;
                             commit-key: root.field-key(root.current-shadow-prefix() + "spread");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "spread", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
                     }
                 }
@@ -822,31 +876,33 @@ export component InspectorPane inherits Rectangle {
                             }
                         }
 
-                        HorizontalLayout {
-                            spacing: root.style.column-gap;
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
 
-                            InspectorComboBox {
-                                accessible-name: "Image horizontal alignment";
-                                prefix: "H";
-                                value: root.image-horizontal-alignment-value();
-                                selected-index: root.image-horizontal-alignment-index();
-                                options: root.image-horizontal-alignment-options;
-                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
-                                accepted(text) => {
-                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                            HorizontalLayout {
+                                width: root.style.content-width;
+                                spacing: Metrics.space-compact;
+
+                                Text {
+                                    text: @tr("Alignment");
+                                    color: Colors.foreground;
+                                    font-size: Typography.caption.size;
+                                    font-weight: FontWeight.semi-bold;
+                                    horizontal-stretch: 1;
+                                }
+
+                                Text {
+                                    text: alignment.selected-label == "" ? @tr("Custom") : alignment.selected-label;
+                                    color: Colors.muted;
+                                    font-size: Typography.caption.size;
+                                    horizontal-alignment: right;
                                 }
                             }
 
-                            InspectorComboBox {
-                                accessible-name: "Image vertical alignment";
-                                prefix: "V";
-                                value: root.image-vertical-alignment-value();
-                                selected-index: root.image-vertical-alignment-index();
-                                options: root.image-vertical-alignment-options;
-                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
-                                accepted(text) => {
-                                    return text != "" && root.commit-code("vertical-alignment", text);
-                                }
+                            alignment := InspectorImageAlignment {
+                                selected-column: root.image-horizontal-alignment-index();
+                                selected-row: root.image-vertical-alignment-index();
+                                chosen(column, row) => { root.set-image-alignment(column, row); }
                             }
                         }
                     }

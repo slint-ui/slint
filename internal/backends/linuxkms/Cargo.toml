@@ -19,11 +19,26 @@ build = "build.rs"
 path = "lib.rs"
 
 [features]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-skia?/image-pixel-format-gray8",
+  "i-slint-renderer-femtovg?/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-renderer-anyrender?/image-pixel-format-gray8",
+]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-skia?/image-pixel-format-rgb565",
+  "i-slint-renderer-femtovg?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-renderer-anyrender?/image-pixel-format-rgb565",
+]
 renderer-skia = ["renderer-skia-opengl"]
 renderer-skia-vulkan = ["unstable-wgpu-30", "i-slint-renderer-skia/vulkan"]
 unstable-wgpu-29 = ["i-slint-renderer-skia/wgpu-29", "drm", "dep:memmap2"]
 unstable-wgpu-30 = ["i-slint-renderer-skia/wgpu-30", "drm", "dep:memmap2", "dep:wgpu-30"]
 renderer-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle", "dep:memmap2"]
+renderer-skia-software = ["i-slint-renderer-skia", "drm", "dep:memmap2"]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "drm", "dep:wgpu-30"]
 renderer-software = ["i-slint-renderer-software/std", "drm", "dep:bytemuck", "dep:memmap2"]
@@ -45,7 +60,7 @@ default = []
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "image-decoders", "svg"] }
 i-slint-common = { workspace = true, features = ["default"] }
-i-slint-renderer-skia = { workspace = true, features = ["default", "kms"], optional = true }
+i-slint-renderer-skia = { workspace = true, features = ["kms"], optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }
 i-slint-renderer-femtovg = { workspace = true, features = ["default"], optional = true }
 i-slint-renderer-software = { workspace = true, optional = true }

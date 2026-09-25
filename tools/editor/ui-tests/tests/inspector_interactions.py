@@ -14,6 +14,24 @@ FIELDS = {
 }
 
 
+def slider_position(
+    window: slint_testing.Window, label: str, progress: float
+) -> slint_testing.LogicalPosition:
+    slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
+    return slider_track_position(slider, progress)
+
+
+def slider_track_position(
+    slider: slint_testing.Element, progress: float
+) -> slint_testing.LogicalPosition:
+    track = slider.query_descendants().match_id("InspectorSlider::track").find_all()
+    assert len(track) == 1
+    position, size = track[0].absolute_position, track[0].size
+    return slint_testing.LogicalPosition(
+        x=position.x + size.width * progress, y=position.y + size.height / 2
+    )
+
+
 def inspector_field(
     window: slint_testing.Window,
     label: str,

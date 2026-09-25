@@ -36,6 +36,7 @@ use slint::*;
 use slint::platform::WindowEvent;
 use slint_testing::{BackendMouseEvent, TouchPhase, LogicalPoint};
 
+const DISTANCE_THRESHOLD: f32 = 8.;
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 
@@ -47,16 +48,16 @@ window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position:
 slint_testing::mock_elapsed_time(1);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-assert_eq!(instance.get_content_y(), -10.);
+assert_eq!(instance.get_content_y(), -10. + DISTANCE_THRESHOLD);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Moved })); // To reduce the delta t
 slint_testing::mock_elapsed_time(5);
-assert_eq!(instance.get_content_y(), -10.);
+assert_eq!(instance.get_content_y(), -10. + DISTANCE_THRESHOLD);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: -10., phase: TouchPhase::Moved }));
-assert_eq!(instance.get_content_y(), -20.);
+assert_eq!(instance.get_content_y(), -20. + DISTANCE_THRESHOLD);
 slint_testing::mock_elapsed_time(5);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));
 slint_testing::mock_elapsed_time(10000000); // Let the animation finish
-assert!(instance.get_content_y() < -20., "Received: {}, Desired: smaller than {}", instance.get_content_y(), -20.);
+assert!(instance.get_content_y() < -20. + DISTANCE_THRESHOLD, "Received: {}, Desired: smaller than {}", instance.get_content_y(), -20. + DISTANCE_THRESHOLD);
 
 let content_y = instance.get_content_y();
 println!("Viewport y: {}", content_y);
@@ -66,7 +67,7 @@ window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position:
 slint_testing::mock_elapsed_time(1);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 10., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(10000); // No animation shall be triggered
-assert!(instance.get_content_y() == content_y + 10., "Received: {}, Desired: {}", instance.get_content_y(),content_y + 10.);
+assert!(instance.get_content_y() == content_y + 10. - DISTANCE_THRESHOLD, "Received: {}, Desired: {}", instance.get_content_y(), content_y + 10. - DISTANCE_THRESHOLD);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 100., phase: TouchPhase::Moved })); // To reduce the delta t
 slint_testing::mock_elapsed_time(1);
 window.dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pressed_position, delta_x: 0., delta_y: 0., phase: TouchPhase::Ended }));

@@ -139,11 +139,8 @@ fn text_alignment_anchor_stays_fixed() {
                 } else {
                     ""
                 };
-                let prepare = if input {
-                    "field.focus(); field.set-selection-offsets(1, 3);"
-                } else {
-                    ""
-                };
+                let prepare =
+                    if input { "field.focus(); field.set-selection-offsets(1, 3);" } else { "" };
                 let source = format!(
                     r#"
                     export component TestCase inherits Window {{
@@ -171,7 +168,8 @@ fn text_alignment_anchor_stays_fixed() {
                 );
                 let mut compiler = slint_interpreter::Compiler::default();
                 compiler.set_style("fluent".into());
-                let result = poll_once(compiler.build_from_source(source, Default::default())).unwrap();
+                let result =
+                    poll_once(compiler.build_from_source(source, Default::default())).unwrap();
                 assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
                 let definition = result.components().last().unwrap();
                 for scale_factor in [1.0, 1.25, 1.5, 2.0] {
@@ -190,8 +188,13 @@ fn text_alignment_anchor_stays_fixed() {
                         component.set_property("box-width", (80.0 + delta).into()).unwrap();
                         component.set_property("box-height", (40.0 + delta).into()).unwrap();
                         let actual = component.window().take_snapshot().unwrap();
-                        let max_difference = actual.as_bytes().iter().zip(reference.as_bytes())
-                            .map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                        let max_difference = actual
+                            .as_bytes()
+                            .iter()
+                            .zip(reference.as_bytes())
+                            .map(|(a, b)| a.abs_diff(*b))
+                            .max()
+                            .unwrap();
                         // Selection clips can change coverage by a few color levels as the box resizes.
                         let tolerance = if input { 4 } else { 0 };
                         assert!(

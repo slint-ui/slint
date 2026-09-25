@@ -13,7 +13,7 @@ export Foo := Rectangle {
 //                            >                   <error{The binding for the property 'base-prop' is part of a binding loop (root_window.base-prop -> alias.ps-width -> root_window.base-prop)}
 
     alias := Alias { ps_width: base-prop; }
-//                             >        <error{The binding for the property 'ps-width' is part of a binding loop (root_window.base-prop -> alias.ps-width -> root_window.base-prop)}
+//                             >        <note{'ps-width' is part of the binding loop reported for 'base-prop' at line 12}
 
     Text {
         text: base-prop;

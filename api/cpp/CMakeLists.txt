@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.18.1)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.19.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -26,7 +26,7 @@ if (NOT Corrosion_FOUND)
 endif ()
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.92 REQUIRED MODULE)
+find_package(Rust 1.95 REQUIRED MODULE)
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
 # auto-configure the Rust target and pick platform-level defaults.
@@ -298,7 +298,7 @@ if (SLINT_BUILD_RUNTIME)
         endif()
     endif()
 
-    if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
+    if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_SOFTWARE OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)
         find_program(CLANGCC clang)
         find_program(CLANGCXX clang++)
         if(CLANGCC AND NOT DEFINED ENV{CLANGCC})

@@ -20,6 +20,8 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
+image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 wayland = ["glutin/wayland", "softbuffer/wayland", "softbuffer/wayland-dlopen"]
 x11 = ["glutin/x11", "glutin/glx", "softbuffer/x11", "softbuffer/x11-dlopen"]
 opengl = []
@@ -50,7 +52,6 @@ i-slint-common = { workspace = true, features = ["default"] }
 const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { workspace = true }
 
-cfg-if = "1"
 lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"

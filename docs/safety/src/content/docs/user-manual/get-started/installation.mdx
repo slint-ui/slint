@@ -1,0 +1,37 @@
+---
+title: Installation
+description: Unpack the Slint SC archive, vendor the runtime into your Cargo project, and put the Slint SC tools on your PATH.
+---
+
+Slint SC comes as one archive, a tarball or a zip file.
+It contains:
+
+| Part | What it is |
+|---|---|
+| `slint-sc` | The source code of the runtime crate your application links. |
+| `slint-compiler` | Binaries that compile `.slint` files into Rust code, one for each supported host platform. |
+| `slint-sc-coverage` | Binaries that report the coverage of your `.slint` code, one for each supported host platform. |
+| Safety Manual | This manual, as HTML. |
+
+Every part of the archive comes from the same release.
+The generated code only compiles with the runtime of the version that generated it ([`sls.gen.version`](/reference/generated-code/#sls.gen.version)).
+
+## Add the Runtime
+
+Copy the `slint-sc` source directory from the archive into your repository, for example to `vendor/slint-sc`.
+Then add it to the dependencies in your application's `Cargo.toml`:
+
+```toml
+[dependencies]
+slint-sc = { path = "vendor/slint-sc" }
+```
+
+## Install the Tools
+
+Put the `slint-compiler` and `slint-sc-coverage` binaries for your host platform in a directory on your `PATH`.
+Check that they run, and that they print the version of the archive:
+
+```sh
+slint-compiler --version
+slint-sc-coverage --version
+```
