@@ -535,6 +535,7 @@ rasterizer
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable
