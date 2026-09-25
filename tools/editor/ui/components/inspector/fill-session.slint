@@ -9,6 +9,7 @@ export struct FillSessionTarget {
     property-name: string,
     size: Size,
     canvas: bool,
+    element-rotation: float,
 }
 
 export struct FillSessionRequest {
@@ -34,6 +35,9 @@ export global FillSession {
 
     private property <FillData> draft;
     out property <FillData> working-fill;
+    out property <float> element-rotation;
+    private property <angle> initial-selection-angle;
+    out property <angle> canvas-rotation: FillSession.initial-selection-angle + (FillSession.element-rotation - FillSession.request.target.element-rotation) * 1deg;
     in-out property <int> selected-stop;
     in-out property <bool> stop-panel-open;
     in-out property <int> focus-stop-generation;
@@ -51,7 +55,7 @@ export global FillSession {
     out property <bool> canvas-active: canvas-editable && working-fill.kind != BrushKind.solid;
 
     in-out property <LinearGradientAxis> axis;
-    in-out property <angle> radial-direction: 35deg;
+    out property <LinearGradientAxis> y-axis: Api.radial-gradient-y-axis(FillSession.working-fill, FillSession.request.target.size);
     in-out property <Point> canvas-origin;
     in-out property <Size> canvas-size;
     in-out property <SelectionRectangle> selection;
@@ -66,7 +70,7 @@ export global FillSession {
         FillSession.axis = FillSession.working-fill.kind == BrushKind.conic
             ? Api.conic-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
             : FillSession.working-fill.kind == BrushKind.radial
-            ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.request.target.size, FillSession.radial-direction / 1deg)
+            ? Api.radial-gradient-axis(FillSession.working-fill, FillSession.request.target.size)
             : Api.linear-gradient-axis(FillSession.working-fill, FillSession.request.target.size);
     }
     public function move-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) {
@@ -79,10 +83,25 @@ export global FillSession {
             ? Api.remap-radial-gradient(fill, previous, next)
             : Api.remap-linear-gradient(fill, FillSession.request.target.size, previous, next);
         if FillSession.preview-fill(updated) {
-            if fill.kind == BrushKind.radial {
-                FillSession.radial-direction = atan2(dy, dx);
-            }
             FillSession.axis = next;
+        }
+    }
+    public function move-y-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) {
+        if next.end.y - next.start.y < 1px { return; }
+        let updated = Api.remap-radial-gradient-y(fill, previous, next, match-radius);
+        if FillSession.preview-fill(updated) {
+            FillSession.reset-axis();
+        }
+    }
+    public function move-rotated-axis(fill: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, rotation: float, match-radius: bool) {
+        if next.end.x - next.start.x < 1px { return; }
+        let updated = Api.resize-radial-gradient-x(fill, previous, next, match-radius);
+        let old-rotation = FillSession.element-rotation;
+        FillSession.element-rotation = rotation;
+        if FillSession.preview-fill(updated) {
+            FillSession.reset-axis();
+        } else {
+            FillSession.element-rotation = old-rotation;
         }
     }
     public pure function stop-point(position: float) -> Point {
@@ -153,7 +172,7 @@ export global FillSession {
         if !FillSession.session-active || !FillSession.editable {
             return false;
         }
-        if Api.inspector-fill-preview(FillSession.request.target.key, FillSession.request.target.property-name, fill) {
+        if Api.inspector-fill-preview(FillSession.request.target.key, FillSession.request.target.property-name, fill, FillSession.element-rotation, FillSession.request.target.canvas) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-center-initialized = FillSession.radial-center-initialized || fill.custom-center;
                 FillSession.radius-initialized = FillSession.radius-initialized || fill.custom-radius;
@@ -166,6 +185,13 @@ export global FillSession {
             return true;
         }
         FillSession.close-picker(false, false);
+        return false;
+    }
+    public function restore-gesture(fill: FillData, rotation: float) -> bool {
+        let previous = FillSession.element-rotation;
+        FillSession.element-rotation = rotation;
+        if FillSession.preview-fill(fill) { return true; }
+        FillSession.element-rotation = previous;
         return false;
     }
     public function preview-color(c: color) -> bool {
@@ -222,6 +248,7 @@ export global FillSession {
         FillSession.draft.custom-radius = custom;
         if custom && !FillSession.radius-initialized {
             FillSession.draft.radius = max(1, sqrt((FillSession.request.target.size.width / 1px) * (FillSession.request.target.size.width / 1px) + (FillSession.request.target.size.height / 1px) * (FillSession.request.target.size.height / 1px)) / 2);
+            FillSession.draft.radius-y = FillSession.draft.radius;
         }
         return FillSession.preview-fill(FillSession.draft);
     }
@@ -245,8 +272,9 @@ export global FillSession {
     public function begin(request: FillSessionRequest) {
         FillSession.close-picker(true, false);
         FillSession.request = request;
+        FillSession.element-rotation = request.target.element-rotation;
+        FillSession.initial-selection-angle = FillSession.selection.angle;
         FillSession.request.fill.stops = Api.clone-gradient-stops(request.fill.stops);
-        FillSession.radial-direction = 35deg;
         FillSession.stop-panel-open = false;
         FillSession.selected-stop = 0;
         FillSession.working-fill = FillSession.request.fill;
@@ -270,12 +298,15 @@ export global FillSession {
         }
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
-        let changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill);
-        if !accept || !changed || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill) {
+        let fill-changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill)
+            || (FillSession.working-fill.kind == BrushKind.radial && FillSession.working-fill.radial-ellipse != FillSession.request.fill.radial-ellipse);
+        let rotation-changed = FillSession.request.target.canvas && FillSession.element-rotation != FillSession.request.target.element-rotation;
+        if !accept || (!fill-changed && !rotation-changed) || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill, FillSession.element-rotation, fill-changed, rotation-changed) {
             if FillSession.has-preview {
                 Api.inspector-cancel();
             }
             FillSession.working-fill = FillSession.request.fill;
+            FillSession.element-rotation = FillSession.request.target.element-rotation;
         }
         FillSession.has-preview = false;
         FillSession.open = false;

@@ -19,7 +19,12 @@ from ui_driver import (
 
 
 @pytest.mark.parametrize(
-    "label", ["Gradient center handle", "Gradient radius handle", "Gradient stop 2"]
+    "label",
+    [
+        "Gradient center handle",
+        "Gradient radius X and rectangle rotation handle",
+        "Gradient stop 2",
+    ],
 )
 def test_escape_restores_radial_gesture(
     editor_binary, editor_environment, radial_scene, tmp_path, label
@@ -29,14 +34,14 @@ def test_escape_restores_radial_gesture(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        start = center(control(window, label), 35)
+        start = center(control(window, label))
         end = shifted(start, x=25, y=-15)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         press_key(window, keys.Escape)
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        restored = center(control(window, label), 35)
+        restored = center(control(window, label))
         assert restored.x == pytest.approx(start.x, abs=0.001)
         assert restored.y == pytest.approx(start.y, abs=0.001)
         control(window, "Close Custom")
@@ -52,17 +57,19 @@ def test_radial_keyboard_and_collapsed_radius(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius handle"), 35)
+        c = center(control(window, "Gradient center handle"))
+        r = center(control(window, "Gradient radius X and rectangle rotation handle"))
         gesture(window, r, c)
-        unchanged = center(control(window, "Gradient radius handle"), 35)
+        unchanged = center(
+            control(window, "Gradient radius X and rectangle rotation handle")
+        )
         assert unchanged.x == pytest.approx(r.x, abs=0.001)
         assert unchanged.y == pytest.approx(r.y, abs=0.001)
         click(window, "Gradient center handle")
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.DownArrow)
-        after = center(control(window, "Gradient center handle"), 35)
-        end = center(control(window, "Gradient radius handle"), 35)
+        after = center(control(window, "Gradient center handle"))
+        end = center(control(window, "Gradient radius X and rectangle rotation handle"))
         assert after.x == pytest.approx(c.x + 1, abs=0.001)
         assert after.y == pytest.approx(c.y + 10, abs=0.001)
         assert math.hypot(end.x - after.x, end.y - after.y) == pytest.approx(
@@ -93,7 +100,7 @@ def test_external_edit_invalidates_radial_session(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), 35)
+        c = center(control(window, "Gradient center handle"))
         gesture(window, c, shifted(c, x=25, y=15))
         external = original.replace("#7e3b66", "#abcdef")
         radial_scene.write_text(external)

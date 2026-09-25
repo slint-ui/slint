@@ -274,6 +274,8 @@ export struct FillData {
     center-y: float,
     custom-radius: bool,
     radius: float,
+    radial-ellipse: bool,
+    radius-y: float,
 }
 
 /// Data about the property value for use in "simple" mode
@@ -760,8 +762,8 @@ export global Api {
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
-    callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
+    callback inspector-fill-preview(key: string, name: string, value: FillData, rotation: float, rotate-element: bool) -> bool;
+    callback inspector-fill-commit(key: string, name: string, value: FillData, rotation: float, fill-changed: bool, rotation-changed: bool) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // ## Property Editor
@@ -777,8 +779,11 @@ export global Api {
     pure callback fill-brush(value: FillData) -> brush;
     pure callback fill-expression(value: FillData) -> string;
     pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
-    pure callback radial-gradient-axis(value: FillData, size: Size, direction: float) -> LinearGradientAxis;
+    pure callback radial-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
+    pure callback radial-gradient-y-axis(value: FillData, size: Size) -> LinearGradientAxis;
     pure callback remap-radial-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
+    pure callback resize-radial-gradient-x(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
+    pure callback remap-radial-gradient-y(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis, match-radius: bool) -> FillData;
     pure callback conic-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
     pure callback remap-conic-gradient(value: FillData, previous: LinearGradientAxis, next: LinearGradientAxis) -> FillData;
     pure callback conic-gradient-point(axis: LinearGradientAxis, position: float) -> Point;

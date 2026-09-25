@@ -21,6 +21,7 @@ export component InspectorColorField inherits Rectangle {
     in property <string> preview-key: "";
     in property <string> session-key: "";
     in property <string> property-name: "";
+    in property <float> element-rotation;
     callback accepted(string) -> bool;
     private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
 
@@ -100,6 +101,7 @@ export component InspectorColorField inherits Rectangle {
                 property-name: root.property-name,
                 size: root.target-size,
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
+                element-rotation: root.element-rotation,
             },
             expression: root.value,
             unsupported: !root.property-data.value-resolved,

@@ -523,6 +523,7 @@ export component EditorUi inherits Window {
                     clip: true;
 
                     GradientOverlay {
+                        shift-pressed: editor.shift-pressed;
                         x: FillSession.canvas-origin.x - parent.absolute-position.x;
                         y: FillSession.canvas-origin.y - parent.absolute-position.y;
                         width: FillSession.canvas-size.width;

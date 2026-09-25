@@ -6,6 +6,15 @@ use slint::VecModel;
 pub use slint_editor::component_support::brushes::*;
 use std::rc::Rc;
 
+pub(super) fn radial_gradient_is_ellipse(expression: &str) -> bool {
+    let Some((name, parameters)) = expression.trim_start().split_once('(') else {
+        return false;
+    };
+    matches!(name.trim_end(), "@radial-gradient" | "@radial_gradient")
+        && parameters.trim_start().split(|c: char| c.is_whitespace() || c == ',' || c == ')').next()
+            == Some("ellipse")
+}
+
 pub fn fill_from_expression(
     expression: &i_slint_compiler::expression_tree::Expression,
     mut fill: ui::FillData,
@@ -23,7 +32,7 @@ pub fn fill_from_expression(
     let (stops, angle, center, radius) = match expression {
         Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
         Expression::RadialGradient { stops, center, radius } => {
-            (stops, None, center.as_ref(), radius.as_deref())
+            (stops, None, center.as_ref(), radius.as_ref())
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             (stops, Some(&**from_angle), center.as_ref(), None)
@@ -38,9 +47,11 @@ pub fn fill_from_expression(
         fill.center_x = number(x)?;
         fill.center_y = number(y)?;
     }
-    if let Some(radius) = radius {
+    if let Some((radius_x, radius_y)) = radius {
         fill.custom_radius = true;
-        fill.radius = number(radius)?;
+        fill.radius = number(radius_x)?;
+        fill.radius_y = number(radius_y)?;
+        fill.radial_ellipse = fill.radius != fill.radius_y;
     }
     let stops = stops
         .iter()

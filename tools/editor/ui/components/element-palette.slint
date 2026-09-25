@@ -130,7 +130,7 @@ component ElementPaletteGroup inherits VerticalLayout {
         for row in ceil(root.matches.length / 2): HorizontalLayout {
             spacing: Metrics.space-small;
             for column in 2: Rectangle {
-                horizontal-stretch: 1;
+                width: (root.width - Metrics.space-small) / 2;
                 height: Metrics.control-large;
                 if row * 2 + column < root.matches.length: ComponentPaletteRow {
                     width: parent.width;

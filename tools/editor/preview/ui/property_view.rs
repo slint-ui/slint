@@ -64,6 +64,11 @@ fn map_property_to_ui(
 
     if let Some(expression) = &expression {
         value.code = SharedString::from(expression.text().to_string());
+        if value.fill.kind == ui::BrushKind::Radial
+            && ui::brushes::radial_gradient_is_ellipse(value.code.as_str())
+        {
+            value.fill.radial_ellipse = true;
+        }
 
         if let Some(qualified_name) = expression.QualifiedName() {
             let name = SharedString::from(&qualified_name.text().to_string());
@@ -1086,6 +1091,23 @@ export component Test { in property <Foobar> test1; }"#,
             ]
         );
         assert_eq!(result.code, "@conic-gradient(white 36deg, #239 126deg, red 306deg)");
+    }
+
+    #[test]
+    fn radial_shape_follows_source_with_equal_radii() {
+        for (gradient, ellipse, radii) in [
+            ("@radial-gradient(circle 40px, red, blue)", false, (40., 40.)),
+            ("@radial-gradient(ellipse 40px 40px, red, blue)", true, (40., 40.)),
+            ("@radial-gradient(ellipse 40px 20px, red, blue)", true, (40., 20.)),
+        ] {
+            let source =
+                format!("export component Test {{ in property <brush> test1: {gradient}; }}");
+            let result = property_conversion_test(&source, 0);
+            assert!(result.value_resolved);
+            assert_eq!(result.fill.kind, ui::BrushKind::Radial);
+            assert_eq!(result.fill.radial_ellipse, ellipse);
+            assert_eq!((result.fill.radius, result.fill.radius_y), radii);
+        }
     }
 
     #[test]
