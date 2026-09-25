@@ -85,7 +85,7 @@ lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
-winit = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f", default-features = false }
+winit = {  version = "0.31.0-beta.3", default-features = false }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -128,8 +128,8 @@ image = { workspace = true }
 url = "2"
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
-winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f", optional = true }
-winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f", optional = true }
+winit-wayland = {  version = "0.31.0-beta.3", optional = true }
+winit-x11 = {  version = "0.31.0-beta.3", optional = true }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }

@@ -2221,7 +2221,8 @@ impl WindowAdapter for WinitWindowAdapter {
         use winit::dpi::{LogicalPosition, LogicalSize};
 
         let offset = LogicalPosition::new(anchor.x as i32, anchor.y as i32);
-        let anchor_size = LogicalSize::new(anchor.width as i32, anchor.height as i32);
+        let anchor_size =
+            LogicalSize::new((anchor.width as i32).max(1), (anchor.height as i32).max(1));
         let winit_window_or_none = self.winit_window_or_none.borrow_mut();
         match *winit_window_or_none {
             WinitWindowOrNone::HasWindow { ref window, .. } => {
