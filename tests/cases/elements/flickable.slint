@@ -34,6 +34,30 @@ export component TestCase inherits Window {
             double-clicked => {
                 root.double-clicked = self.mouse_x/1phx * 100000 + self.mouse_y/1phx;
             }
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.cancel { root.inner_ta_events += "C"; }
+                else if event.kind == PointerEventKind.down { root.inner_ta_events += "D"; }
+                else if event.kind == PointerEventKind.up { root.inner_ta_events += "U"; }
+            }
+        }
+
+        inner_f := Flickable {
+            x: 250phx;
+            y: 250phx;
+            width: 100phx;
+            height: 100phx;
+            content_width: 400phx;
+            content_height: 400phx;
+
+            ta2 := TouchArea {
+                x: 10phx;
+                y: 10phx;
+                width: 60phx;
+                height: 60phx;
+                Rectangle {
+                    background: parent.pressed ? blue : parent.has_hover ? green : red;
+                }
+            }
         }
 
     }
@@ -42,6 +66,10 @@ export component TestCase inherits Window {
     in-out property<length> offset_y: -f.content_y;
     in-out property<bool> inner_ta_pressed: inner_ta.pressed;
     in-out property<bool> inner_ta_has_hover: inner_ta.has_hover;
+    in-out property<string> inner_ta_events;
+    in-out property<bool> ta2_has_hover: ta2.has_hover;
+    in-out property<length> inner_offset_x: -inner_f.content_x;
+    in-out property<length> inner_offset_y: -inner_f.content_y;
     in-out property<int> clicked;
     in-out property<int> double-clicked;
     in-out property <int> flicked;
@@ -232,6 +260,130 @@ assert_eq!(instance.get_clicked(), -1);
 assert_eq!(instance.get_double_clicked(), 0);
 assert!((instance.get_offset_x() - 75.).abs() < 5.); // only small animation on release
 assert!((instance.get_offset_y() - 55.).abs() < 5.);
+```
+
+```rust
+// Test 1b
+// Same idea as Test 1's pan, but the pan threshold is crossed by a *gradual* drag
+// (a small move under the 8px threshold, then a bigger one) instead of a single big jump,
+// and entirely within the 100ms DelayForwarding window (no mock_elapsed_time before the pan
+// is detected). A gradual real-world drag routinely produces small moves before crossing the
+// threshold, unlike a single scripted jump. https://github.com/slint-ui/slint/issues/5262
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+assert!(instance.get_inner_ta_has_hover());
+
+// Small move, still under the 8px pan threshold: forwarded to inner_ta (hover tracking runs),
+// while the press itself is still held back by the Flickable's DelayForwarding.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(178.0, 176.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+// Now cross the pan threshold, all still within the 100ms delay: the Flickable intercepts
+// and pans directly, without ever forwarding this event to inner_ta.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover(), "inner_ta should no longer be hovered once the Flickable took over the pan");
+```
+
+```rust
+// Test 1c
+// Bounding case for Test 1b: same gradual drag, but the 100ms delay is allowed to resolve
+// (delivering a real Pressed to inner_ta) *before* the drag crosses the pan threshold, matching
+// Test 1's ordering. The press is no longer pending when the Flickable claims the pan,
+// so the ordinary exit-event path in `send_exit_events` applies.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
+assert!(instance.get_inner_ta_has_hover());
+
+slint_testing::mock_elapsed_time(150);
+assert!(instance.get_inner_ta_pressed()); // the delayed press has resolved for real
+assert!(instance.get_inner_ta_has_hover());
+
+// Small move, still under the 8px pan threshold.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(178.0, 176.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+// Cross the pan threshold: the Flickable intercepts and pans.
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover());
+```
+
+```rust
+// Test 1d
+// A sub-threshold move during the delayed press enters inner_ta for the first time.
+// Crossing the pan threshold then takes inner_ta out of the dispatch path.
+// #5262
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(156.0, 180.0) });
+assert!(!instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(156.0, 180.0), button: PointerEventButton::Left });
+assert!(!instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(162.0, 181.0) });
+assert!(instance.get_inner_ta_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
+assert!(!instance.get_inner_ta_has_hover());
+assert!(!instance.get_inner_ta_pressed());
+assert_eq!(instance.get_inner_ta_events(), "");
+```
+
+```rust
+// Test 1e
+// A nested Flickable also leaves the dispatch path when the outer one claims the pan.
+// The nested Flickable never received the press, so it holds no capture and must not scroll.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(266.0, 300.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(266.0, 300.0), button: PointerEventButton::Left });
+assert!(!instance.get_ta2_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(272.0, 301.0) });
+assert!(instance.get_ta2_has_hover());
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 220.0) });
+assert!(!instance.get_ta2_has_hover());
+assert_eq!(instance.get_inner_offset_x(), 0.);
+assert_eq!(instance.get_inner_offset_y(), 0.);
+assert!(instance.get_offset_x() > 0.);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(200.0, 220.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_inner_offset_x(), 0.);
+assert_eq!(instance.get_inner_offset_y(), 0.);
+```
+
+```rust
+// Test 1f
+// The Flickable takes the grab from a pressed inner_ta and cancels it.
+// inner_ta reports one Cancel for the whole pan, not one per event.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(180.0, 180.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(180.0, 180.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(150);
+assert!(instance.get_inner_ta_pressed());
+assert_eq!(instance.get_inner_ta_events(), "D");
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(120.0, 130.0) });
+assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_has_hover());
+assert_eq!(instance.get_inner_ta_events(), "DC");
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(120.0, 130.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_inner_ta_events(), "DC");
+assert!(!instance.get_inner_ta_pressed());
 ```
 
 ```rust
