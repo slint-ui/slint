@@ -266,23 +266,23 @@ impl EspBackend {
                             .to_logical(window.scale_factor());
 
                         let event = if let Some(previous_pos) = last_touch.replace(pos) {
-                            // If the position changed, send a PointerMoved event.
-                            if previous_pos != pos {
-                                WindowEvent::PointerMoved { position: pos }
-                            } else {
-                                // If the position is unchanged, skip event generation.
-                                continue;
-                            }
+                            // Only a change of position is an event. A still finger is
+                            // not, but the frame must still be drawn below: timers and
+                            // animations keep changing the UI while it is held down.
+                            (previous_pos != pos)
+                                .then_some(WindowEvent::PointerMoved { position: pos })
                         } else {
                             // No previous touch recorded, generate a PointerPressed event.
-                            WindowEvent::PointerPressed {
+                            Some(WindowEvent::PointerPressed {
                                 position: pos,
                                 button: PointerEventButton::Left,
-                            }
+                            })
                         };
 
                         // Dispatch the event to Slint.
-                        window.dispatch_event_with_result(event)?;
+                        if let Some(event) = event {
+                            window.dispatch_event_with_result(event)?;
+                        }
                     }
                     // No active touch: if a previous touch existed, dispatch pointer release.
                     Ok(None) => {
