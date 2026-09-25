@@ -12,8 +12,12 @@
 //! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/gestures/lsq_solver.dart>
 //!
 //! Changes to the original:
-//!     - no need to have generic weights (all are one for the scrolling in flutter and anywhere else yet used)
 //!     - generic over the float type
+//!     - [`LeastSquaresSolver::solve_weighted`] is an addition, not present in the original:
+//!       Flutter's own velocity tracker always passes a weight of 1 for every sample, but an
+//!       unweighted fit lets a single old, disproportionate sample (such as the synthetic
+//!       zero-delta sample a press seeds the history with) dominate the fitted curve's slope at
+//!       the most recent sample, which is exactly the value used as the fling's initial velocity
 //!
 //! [`LeastSquaresSolver::solve`] takes the polynomial `degree` as a runtime
 //! argument, matching the original API, rather than as a const generic:
@@ -126,9 +130,30 @@ where
     ///
     /// Returns `None` when there isn't enough data to fit a curve, or when
     /// the data is degenerate (linearly dependent).
+    #[cfg_attr(not(test), expect(dead_code, reason = "kept for its own unweighted test coverage"))]
     pub fn solve<const MAX_COEFFS: usize>(
         &self,
         degree: usize,
+    ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
+        self.solve_impl(degree, None)
+    }
+
+    /// Like [`Self::solve`], but a sample with half the `weight` of another counts for half as
+    /// much toward minimizing the fit's residual. `weights` has one entry per data point, like
+    /// `x` and `y`.
+    pub fn solve_weighted<const MAX_COEFFS: usize>(
+        &self,
+        degree: usize,
+        weights: &[T],
+    ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
+        debug_assert_eq!(weights.len(), self.x.len());
+        self.solve_impl(degree, Some(weights))
+    }
+
+    fn solve_impl<const MAX_COEFFS: usize>(
+        &self,
+        degree: usize,
+        weights: Option<&[T]>,
     ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
         // Shorthand for notation equivalence with the original algorithm:
         // the number of coefficients.
@@ -142,12 +167,16 @@ where
         }
 
         let tolerance = T::from(PRECISION_ERROR_TOLERANCE).unwrap();
+        // A weighted fit is equivalent to an unweighted fit of every sample's `x` powers and `y`
+        // scaled by the square root of its weight: squaring that factor back out in the residual
+        // `(sqrt(w) * y - sqrt(w) * poly(x))^2` gives back the weighted term `w * (y - poly(x))^2`.
+        let sqrt_weight = |h: usize| weights.map_or(T::one(), |w| w[h].sqrt());
 
-        // Expand the x vector to a matrix A of powers of x: row 0 is all
-        // ones, row i is row i - 1 multiplied element-wise by x.
+        // Expand the x vector to a matrix A of powers of x times sqrt_weight: row 0 is
+        // sqrt_weight, row i is row i - 1 multiplied element-wise by x.
         let mut a = Matrix::<T, MAX_COEFFS, MAX_SAMPLES>::new(m);
         for h in 0..m {
-            a.set(0, h, T::one());
+            a.set(0, h, sqrt_weight(h));
             for i in 1..n {
                 a.set(i, h, a.get(i - 1, h) * self.x[h]);
             }
@@ -185,12 +214,16 @@ where
             }
         }
 
-        // Solve R B = Qt Y to find B. This is easy because R is upper
-        // triangular: work from bottom-right to top-left, computing each
+        // Solve R B = Qt Y' to find B, where Y' is Y times sqrt_weight (see above). This is easy
+        // because R is upper triangular: work from bottom-right to top-left, computing each
         // coefficient of B in turn.
+        let mut weighted_y = [T::zero(); MAX_SAMPLES];
+        for (h, wy) in weighted_y.iter_mut().enumerate().take(m) {
+            *wy = self.y[h] * sqrt_weight(h);
+        }
         let mut coefficients = [T::zero(); MAX_COEFFS];
         for i in (0..n).rev() {
-            coefficients[i] = dot(q.row(i), self.y);
+            coefficients[i] = dot(q.row(i), &weighted_y[..m]);
             for j in (i + 1..n).rev() {
                 coefficients[i] -= r.get(i, j) * coefficients[j];
             }
@@ -201,8 +234,10 @@ where
         //   1 - (sum_squared_error / sum_squared_total)
         // where sum_squared_error is the residual sum of squares (variance of
         // the error) and sum_squared_total is the total sum of squares
-        // (variance of the data).
-        let y_mean = self.y.iter().copied().sum::<T>() / T::from(m).unwrap();
+        // (variance of the data), both weighted the same way as the fit itself.
+        let sum_weight = (0..m).map(|h| weights.map_or(T::one(), |w| w[h])).sum::<T>();
+        let y_mean =
+            (0..m).map(|h| weights.map_or(T::one(), |w| w[h]) * self.y[h]).sum::<T>() / sum_weight;
 
         let mut sum_squared_error = T::zero();
         let mut sum_squared_total = T::zero();
@@ -213,9 +248,10 @@ where
                 term *= self.x[h];
                 err -= term * *coefficient;
             }
-            sum_squared_error += err * err;
+            let weight = weights.map_or(T::one(), |w| w[h]);
+            sum_squared_error += weight * err * err;
             let v = self.y[h] - y_mean;
-            sum_squared_total += v * v;
+            sum_squared_total += weight * v * v;
         }
 
         let confidence = if sum_squared_total <= tolerance {

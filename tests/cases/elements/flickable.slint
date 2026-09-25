@@ -93,7 +93,7 @@ slint_testing::mock_elapsed_time(80);
 assert!(instance.get_offset_x() > 240.);
 assert!(instance.get_offset_y() > 100., "Expected > 100, Received: {}", instance.get_offset_y());
 assert!(instance.get_offset_x() < 800., "Expected < 800, Received: {}", instance.get_offset_x());
-assert!(instance.get_offset_y() < 150., "Expected <= 150, Received: {}", instance.get_offset_y());
+assert!(instance.get_offset_y() < 260., "Expected <= 260, Received: {}", instance.get_offset_y());
 
 slint_testing::mock_elapsed_time(2000); // Let it run until the animation is finished
 // end of the animation
@@ -460,9 +460,11 @@ assert_eq!(instance.get_offset_y(), 0.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
-slint_testing::mock_elapsed_time(200);
+slint_testing::mock_elapsed_time(30);
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 50.0) });
+slint_testing::mock_elapsed_time(30);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
@@ -473,7 +475,7 @@ assert_eq!(instance.get_offset_y(), 50.);
 slint_testing::mock_elapsed_time(50);
 // middle of the animation
 // NOTE: the value were changed compared to the first test because the timing is different
-assert!(instance.get_offset_x() > 200.2, "Expected > 200.2, Received: {}", instance.get_offset_x());
+assert!(instance.get_offset_x() > 210., "Expected > 210, Received: {}", instance.get_offset_x());
 assert!(instance.get_offset_y() > 41.);
 assert!(instance.get_offset_x() < 290.);
 assert!(instance.get_offset_y() < 70.);

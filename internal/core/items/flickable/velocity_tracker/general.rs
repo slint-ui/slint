@@ -18,6 +18,16 @@ use euclid::Vector2D;
 
 const HORIZON: Duration = Duration::from_millis(100);
 const MIN_SAMPLE_SIZE: usize = 2;
+/// A sample's weight in the fit halves every `oldest_sample_age / RECENCY_HALF_LIFE_DIVISOR`
+/// milliseconds. An unweighted fit lets one old, disproportionate sample (such as the zero-delta
+/// sample a press seeds the history with, or a real but brief pause mid-gesture) dominate the
+/// fitted curve's slope at the most recent sample, which is exactly the value used as the fling's
+/// initial velocity; weighting recent samples more favors the sustained, most current motion.
+///
+/// The half-life scales with the sample window's own span, rather than using a fixed one, so that
+/// the ratio between the oldest and newest sample's weight - and so the floating-point precision
+/// the fit needs - stays roughly the same regardless of how far apart samples happen to be.
+const RECENCY_HALF_LIFE_DIVISOR: f32 = 14.;
 
 #[derive(Default, Debug)]
 pub(crate) struct GeneralVelocityTracker<const N: usize> {
@@ -67,8 +77,15 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
             // so deriving a second order function a*t^2 + b * t + c by x results in 2 * a * t + b
             // Evaluating at t = 0 leads to b. So the second coefficient is the velocity we are searching
             let degree = (count - 1).min(2);
-            let res_x = LeastSquaresSolver::<'_, _, N>::new(&time, &x).solve::<3>(degree);
-            let res_y = LeastSquaresSolver::<'_, _, N>::new(&time, &y).solve::<3>(degree);
+            // `time` holds ages in chronological order, most negative (oldest) last.
+            let oldest_age = -*time.last().unwrap();
+            let half_life = oldest_age / RECENCY_HALF_LIFE_DIVISOR;
+            let weight: Vec<f32> =
+                time.iter().map(|t| 0.5f32.powf(-t / half_life.max(f32::EPSILON))).collect();
+            let res_x =
+                LeastSquaresSolver::<'_, _, N>::new(&time, &x).solve_weighted::<3>(degree, &weight);
+            let res_y =
+                LeastSquaresSolver::<'_, _, N>::new(&time, &y).solve_weighted::<3>(degree, &weight);
 
             if let (Some(res_x), Some(res_y)) = (res_x, res_y) {
                 // Convert values
