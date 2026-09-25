@@ -660,7 +660,8 @@ jobs:
               with:
                   target: wasm32-unknown-unknown
                   key: figma
-            - run: cargo install wasm-pack --version 0.13.1 --locked
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
             - run: pnpm install --frozen-lockfile
             - run: pnpm exec playwright install --with-deps chromium
               working-directory: tools/figma-inspector

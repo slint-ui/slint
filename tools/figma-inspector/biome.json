@@ -2,10 +2,7 @@
     "files": {
         "includes": [
             "**",
-            "!**/.generated",
             "!**/.cache",
-            "!**/.pnpm-store",
-            "!**/.worktrees",
             "!**/dist",
             "!**/fixtures",
             "!**/node_modules",

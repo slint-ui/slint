@@ -22,8 +22,7 @@ default. Use preview and project export for the complete selected tree.
 ## Development
 
 Use the repository's Node.js and pnpm versions, Rust with the
-`wasm32-unknown-unknown` target, and the wasm-pack version in
-`runtime-pin.json`.
+`wasm32-unknown-unknown` target, and wasm-pack.
 
 ```sh
 pnpm install --frozen-lockfile # from the repository root
@@ -37,14 +36,13 @@ and import `dist-dev/manifest.json`.
 Run `pnpm verify` for the full checks and tests.
 
 The plugin captures Figma nodes as JSON, converts them to Slint, and uses that
-output for preview and export. Its Slint runtime is built from the exact commit
-in `runtime-pin.json`. The build prepares that source under `.generated`.
-Set `SLINT_REPO` to use an existing clean checkout of the pinned commit.
+output for preview and export.
+`pnpm build:slint` builds its Slint runtime from `api/wasm-interpreter` in this repository.
 Use `pnpm build:slint:dev` for a development interpreter build.
 
-The runtime build verifies the checked-in font capability manifest against its embedded fonts.
+`pnpm check` verifies the checked-in font capability manifest against the runtime's embedded fonts.
 The manifest records font families, glyph coverage, weight axes, and italic availability.
-When changing the runtime pin, run `node scripts/build-font-capabilities.mjs --update` and review the manifest.
+When the runtime's embedded fonts change, run `node scripts/build-font-capabilities.mjs --update` and review the manifest.
 Static checks do not need a runtime build.
 Preview uses native text only when those capabilities cover the captured text and supported font settings.
 Otherwise, it uses Figma's rendered image.

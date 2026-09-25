@@ -2,15 +2,14 @@
 
 ## Project
 
-Offline Figma-to-Slint plugin in the Slint monorepo. Target Slint 1.18+; no backwards compatibility.
+Offline Figma-to-Slint plugin in the Slint monorepo. Target the Slint version in this repository; no backwards compatibility.
 
 ## Sources of truth
 
-- Build the interpreter from the exact clean Slint checkout in `runtime-pin.json`.
-- Treat an explicit `SLINT_REPO` checkout as read-only.
+- Build the interpreter from `api/wasm-interpreter` in this repository.
 - Use the root pnpm workspace, dependency catalog and lockfile.
 - Import the shared Slint grammar from `docs/common`; plugin themes live in `src/ui/syntax-assets`.
-- Never edit generated files in `.generated/` or `dist/`.
+- Never edit generated files in `dist/`.
 
 ## Architecture
 

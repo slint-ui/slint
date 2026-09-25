@@ -23,7 +23,7 @@
         ],
         "paths": {
             "@interpreter/*": [
-                "./.generated/slint-wasm/*"
+                "../../api/wasm-interpreter/pkg/*"
             ]
         },
         "allowJs": true
