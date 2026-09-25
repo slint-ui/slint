@@ -32,6 +32,7 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    screenshot,
     select_fixture_element,
     select_outline_row,
     wait_until,
@@ -87,6 +88,22 @@ PALETTE_DROP_SIZES = {
     "Text": (220, 40),
     "Image": (160, 96),
 }
+SELECTION_ACCENT = (11, 153, 254)
+
+
+def selection_outline_pixel_count(window: slint_testing.Window, kind: str) -> int:
+    x, y, width, height = selection_frame(window, kind)
+    image = screenshot(window)
+    scale = image.width / window.root_element.size.width
+    padding = round(3 * scale)
+    bounds = (
+        round(x * scale) - padding,
+        round(y * scale) - padding,
+        round((x + width) * scale) + padding,
+        round((y + height) * scale) + padding,
+    )
+    outline = image.crop(bounds)
+    return sum(pixel == SELECTION_ACCENT for pixel in outline.get_flattened_data())
 
 
 def finish_palette_drag(
@@ -494,6 +511,48 @@ def test_unselected_rectangle_direct_drag_starts_before_release(
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         assert selection_frame(window, "Rectangle") != initial_frame
         assert not elements_with_label(window.root_element, "Rectangle resize top-left")
+        assert selection_outline_pixel_count(window, "Rectangle") == 0
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+
+
+@pytest.mark.parametrize(
+    ("element_id", "kind"),
+    [("empty-image", "Image"), ("touch-area", "TouchArea")],
+)
+@pytest.mark.parametrize("direct_drag", [False, True])
+def test_invisible_element_keeps_selection_outline_during_drag(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    element_id: str,
+    kind: str,
+    direct_drag: bool,
+) -> None:
+    source_file = fixture_project / "DragOutlineCases.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        element = wait_until(
+            lambda: next(
+                iter(window.find_elements_by_id(f"DragOutlineCases::{element_id}")),
+                None,
+            )
+        )
+        if direct_drag:
+            start = center(element)
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            window_element_with_label(window, f"Hovered {kind}")
+        else:
+            select_outline_row(window, element_id)
+            start = center(window_element_with_label(window, f"{kind} move handle"))
+        end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+
+        assert selection_outline_pixel_count(window, kind) > 10
+        assert not elements_with_label(window.root_element, f"{kind} resize top-left")
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
