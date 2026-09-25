@@ -411,7 +411,8 @@ impl Expression {
             | Type::ElementReference
             | Type::LayoutCache
             | Type::ArrayOfU16
-            | Type::Closure => return None,
+            | Type::Closure
+            | Type::DashArray => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -1166,6 +1167,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
+                }
+                if prop_name == "stroke-dash-array" {
+                    return &Type::DashArray;
                 }
                 let item = &sc.items[*item_index];
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {

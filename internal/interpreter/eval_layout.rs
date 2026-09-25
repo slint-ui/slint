@@ -215,8 +215,8 @@ pub(crate) fn call_extra_builtin(
         }
         "solve_grid_layout" => {
             let (c, ri, rs) = (to_cells(&a[1]), to_u32_vec(&a[3]), to_u32_vec(&a[4]));
-            let Value::Struct(s) = &a[0] else { return Value::LayoutCache(Default::default()) };
-            Value::LayoutCache(i_slint_core::layout::solve_grid_layout(
+            let Value::Struct(s) = &a[0] else { return Value::ArrayOfF32(Default::default()) };
+            Value::ArrayOfF32(i_slint_core::layout::solve_grid_layout(
                 &GridLayoutData {
                     size: sf32(s, "size"),
                     spacing: sf32(s, "spacing"),
@@ -234,9 +234,9 @@ pub(crate) fn call_extra_builtin(
         }
         "solve_box_layout" => {
             let ri = to_u32_vec(&a[1]);
-            let Value::Struct(s) = &a[0] else { return Value::LayoutCache(Default::default()) };
+            let Value::Struct(s) = &a[0] else { return Value::ArrayOfF32(Default::default()) };
             let cells = s.get_field("cells").map(to_cells).unwrap_or_default();
-            Value::LayoutCache(i_slint_core::layout::solve_box_layout(
+            Value::ArrayOfF32(i_slint_core::layout::solve_box_layout(
                 &BoxLayoutData {
                     size: sf32(s, "size"),
                     spacing: sf32(s, "spacing"),
@@ -249,9 +249,9 @@ pub(crate) fn call_extra_builtin(
         }
         "solve_box_layout_ortho" => {
             let ri = to_u32_vec(&a[1]);
-            let Value::Struct(s) = &a[0] else { return Value::LayoutCache(Default::default()) };
+            let Value::Struct(s) = &a[0] else { return Value::ArrayOfF32(Default::default()) };
             let cells = s.get_field("cells").map(to_cells).unwrap_or_default();
-            Value::LayoutCache(i_slint_core::layout::solve_box_layout_ortho(
+            Value::ArrayOfF32(i_slint_core::layout::solve_box_layout_ortho(
                 &i_slint_core::layout::BoxLayoutOrthoData {
                     size: sf32(s, "size"),
                     padding: s.get_field("padding").map(to_padding).unwrap_or_default(),
@@ -266,13 +266,13 @@ pub(crate) fn call_extra_builtin(
         }
         "solve_flexbox_layout" => {
             let ri = to_u32_vec(&a[1]);
-            let Value::Struct(s) = &a[0] else { return Value::LayoutCache(Default::default()) };
+            let Value::Struct(s) = &a[0] else { return Value::ArrayOfF32(Default::default()) };
             let (ch, cv) = (
                 s.get_field("cells-h").map(to_cells).unwrap_or_default(),
                 s.get_field("cells-v").map(to_cells).unwrap_or_default(),
             );
             let fp = s.get_field("flex-props").map(to_flex_props).unwrap_or_default();
-            Value::LayoutCache(i_slint_core::layout::solve_flexbox_layout(
+            Value::ArrayOfF32(i_slint_core::layout::solve_flexbox_layout(
                 &FlexboxLayoutData {
                     width: sf32(s, "width"),
                     height: sf32(s, "height"),
@@ -417,7 +417,7 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     };
     let ri = to_u32_vec(&eval_expression(ctx, repeater_indices));
     let data = eval_expression(ctx, data);
-    let Value::Struct(s) = &data else { return Value::LayoutCache(Default::default()) };
+    let Value::Struct(s) = &data else { return Value::ArrayOfF32(Default::default()) };
     let (ch, cv) = (
         s.get_field("cells-h").map(to_cells).unwrap_or_default(),
         s.get_field("cells-v").map(to_cells).unwrap_or_default(),
@@ -427,7 +427,7 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     let flat = flatten_measure_cells(ctx, measure_cells);
     let mut measure = |index: usize, w: f32, h: f32| measure_flexbox_cell(ctx, &flat, index, w, h);
 
-    Value::LayoutCache(i_slint_core::layout::solve_flexbox_layout_with_measure(
+    Value::ArrayOfF32(i_slint_core::layout::solve_flexbox_layout_with_measure(
         &FlexboxLayoutData {
             width: sf32(s, "width"),
             height: sf32(s, "height"),
