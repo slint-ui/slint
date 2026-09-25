@@ -1,0 +1,73 @@
+---
+title: Globals
+description: Global singletons for properties and callbacks shared across the project.
+---
+
+A *global* is a singleton declared at the top level of a `.slint` file with the `global` keyword.
+It holds properties, callbacks, and functions that are shared across the whole project
+rather than belonging to an element:
+
+```slint no-test
+global Name {
+    // property, callback, and function declarations
+}
+```
+
+A global is declared once and referred to by name.
+It is never instantiated as an element; writing `Name { }` in an element tree is an error.
+
+## Contents
+
+The body of a global may contain:
+
+- *Property declarations* — `in`, `out`, `in-out`, or private, each with an optional binding (see [Properties](../properties/)).
+- *Callback declarations* — optionally `pure` (see [Callbacks](../callbacks/)).
+- *Function declarations* — optionally `pure`, and `private`, `protected`, or `public` (see [Functions](../functions/)).
+
+Nothing else is allowed.
+A global cannot contain elements or child components, `@children`, an `animate` block,
+`states`, `transitions`, or an `init` callback; each is a compile error.
+
+A global exists independently of any window, so it has no scale factor and no default font size.
+Expressions inside a global therefore cannot convert between logical (`px`) and physical (`phx`) lengths,
+nor between `rem` and logical lengths.
+
+## Accessing members
+
+Reach a global's members through its name, from any binding, callback, or function in the project,
+and from other globals:
+
+```slint no-test
+Name.property
+Name.callback(arguments)
+Name.function(arguments)
+```
+
+As with all identifiers, `-` and `_` are interchangeable.
+
+A global is a singleton: one instance is shared by every component in a component tree.
+Separate windows — and a window and a `SystemTrayIcon` exported alongside it — each hold their own
+instance, so their globals are initialized independently.
+
+```slint
+global Palette {
+    in-out property<color> primary: blue;
+    in-out property<color> secondary: green;
+}
+
+export component Example inherits Rectangle {
+    background: Palette.primary;
+    border-color: Palette.secondary;
+    border-width: 2px;
+}
+```
+
+## Exporting
+
+An [exported](../exports/) global can be imported into other files.
+A global re-exported from the file that also exports the application's root component is additionally
+exposed to the native API, where the business logic reads and writes its properties and sets its callbacks.
+The [Globals](../../../guide/language/coding/globals/) guide shows this for each language.
+
+A global's property or callback can be the target of a [two-way binding](../two-way-bindings/),
+which re-exposes it on a component.

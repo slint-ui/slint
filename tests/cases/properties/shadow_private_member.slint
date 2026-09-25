@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A private declaration that shadows a public `@shadowable` member is invisible outside its
+// component: external code still reaches the inherited public member, while inside the component the
+// private declaration wins.
+
+component PublicBase {
+    @shadowable in-out property <int> value: 1;
+    out property <int> base-sees: self.value;
+}
+
+component PrivateShadow inherits PublicBase {
+    private property <int> value: 2;
+    out property <int> derived-sees: self.value;
+}
+
+// The private shadow can be more than one level up: `Leaf` inherits `MidPrivate`, whose private
+// `deep` shadows `DeepBase`. From `Leaf` (a different component) and from outside, `deep` is the
+// inherited public property; only `MidPrivate`'s own code sees the private one.
+component DeepBase {
+    @shadowable in-out property <int> deep: 10;
+}
+component MidPrivate inherits DeepBase {
+    private property <int> deep: 20;
+    out property <int> mid-sees: self.deep;
+}
+component Leaf inherits MidPrivate {
+    out property <int> leaf-sees: self.deep;
+}
+
+export component TestCase inherits Window {
+    ps := PrivateShadow { }
+
+    // From outside `ps`, `value` is the inherited public property, not the private shadow.
+    out property <int> external-value: ps.value;
+    out property <int> derived-sees: ps.derived-sees;
+    out property <int> base-sees: ps.base-sees;
+
+    lf := Leaf { }
+    out property <int> leaf-external: lf.deep;
+    out property <int> leaf-sees: lf.leaf-sees;
+    out property <int> mid-sees: lf.mid-sees;
+
+    out property <bool> test: external-value == 1 && derived-sees == 2 && base-sees == 1
+        && leaf-external == 10 && leaf-sees == 10 && mid-sees == 20;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_external_value(), 1);
+assert_eq!(instance.get_derived_sees(), 2);
+assert_eq!(instance.get_base_sees(), 1);
+assert_eq!(instance.get_leaf_external(), 10);
+assert_eq!(instance.get_leaf_sees(), 10);
+assert_eq!(instance.get_mid_sees(), 20);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_external_value(), 1);
+assert_eq(instance.get_derived_sees(), 2);
+assert_eq(instance.get_base_sees(), 1);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.external_value, 1);
+assert.equal(instance.derived_sees, 2);
+assert.equal(instance.base_sees, 1);
+assert(instance.test);
+```
+*/

@@ -17,10 +17,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+mod builtin_elements;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
-pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
@@ -30,7 +30,6 @@ pub mod layout;
 pub mod lexer;
 pub mod literals;
 pub mod llr;
-pub(crate) mod load_builtins;
 pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
@@ -192,6 +191,11 @@ pub struct CompilerConfiguration {
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
 
+    /// Write, next to the generated code, the map of its coverage points of
+    /// the `.slint` source, for `slint-sc-coverage`. Only the Slint SC
+    /// generator honors it, and only when writing to a file.
+    pub coverage: bool,
+
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
 
@@ -208,6 +212,11 @@ pub struct CompilerConfiguration {
     /// safety-critical subset.
     #[cfg(feature = "slint-sc")]
     pub(crate) slint_sc: bool,
+
+    /// Set by tools such as `slint-viewer`, the LSP (editor diagnostics/preview), and the
+    /// live-reload runtime to indicate that the `.slint` file is being previewed rather than
+    /// driven by real host application logic.
+    pub is_preview: bool,
 }
 
 impl CompilerConfiguration {
@@ -247,6 +256,13 @@ impl CompilerConfiguration {
             // Currently, the interpreter needs the inlining to be on.
             Err(_) => output_format == OutputFormat::Interpreter,
         };
+
+        // The Slint SC generator flattens the exported component's element
+        // tree, so user-defined components must be inlined away. This
+        // overrides a SLINT_INLINING=false env override.
+        #[cfg(feature = "slint-sc")]
+        let inline_all_elements =
+            inline_all_elements || matches!(output_format, OutputFormat::SlintSc);
 
         let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
@@ -297,6 +313,7 @@ impl CompilerConfiguration {
             cpp_namespace,
             error_on_binding_loop_with_window_layout: false,
             debug_info,
+            coverage: false,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
@@ -309,6 +326,7 @@ impl CompilerConfiguration {
             rust_module: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
+            is_preview: false,
         }
     }
 }
@@ -414,4 +432,22 @@ pub async fn load_root_file_with_raw_type_loader(
         loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
 
     (path, diagnostics, loader, raw_type_loader)
+}
+
+/// Returns true and emits an error if experimental features should be disabled.
+///
+/// Some experimental features are used internally which is why this function also checks
+/// `TypeRegister::expose_internal_types`.
+fn reject_experimental_feature(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
+    type_register: &typeregister::TypeRegister,
+    feature: &str,
+    source: &dyn diagnostics::Spanned,
+) -> bool {
+    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
+        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
+        true
+    } else {
+        false
+    }
 }

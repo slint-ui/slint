@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore Wunused
+
 use super::accessor_names::{self, AccessorKind};
 use super::cpp::{Config, concatenate_ident, cpp_ast::*, ident};
 use crate::CompilerConfiguration;
@@ -38,18 +40,21 @@ pub fn generate(
     }
 
     for glob in &llr.globals {
-        if glob.must_generate() {
+        // Only exported globals are reachable through the `global<T>()`
+        // accessor; the rust_live_preview generator applies the same filter.
+        if glob.exported && glob.must_generate() {
             generate_global(&mut file, glob);
             file.definitions.extend(glob.aliases.iter().map(|name| {
                 Declaration::TypeAlias(TypeAlias {
                     old_name: ident(&glob.name),
                     new_name: ident(name),
+                    deprecated: None,
                 })
             }));
         };
     }
 
-    super::cpp::generate_type_aliases(&mut file, doc);
+    super::cpp::generate_type_aliases(&mut file, &llr);
 
     let cpp_files = file.split_off_cpp_files(config.header_include, config.cpp_files.len());
     for (cpp_file_name, cpp_file) in config.cpp_files.iter().zip(cpp_files) {
@@ -245,7 +250,11 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
     global_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "const slint::private_api::live_preview::LiveReloadingComponent&".into(),
+            // A global without public properties generates no accessor that
+            // reads the member; clang's -Wunused-private-field rejects it
+            // under -Werror.
+            ty: "[[maybe_unused]] const slint::private_api::live_preview::LiveReloadingComponent&"
+                .into(),
             name: "live_preview".into(),
             ..Default::default()
         }),
@@ -282,9 +291,7 @@ fn generate_public_api_for_properties(
     public_properties: &llr::PublicProperties,
     private_properties: &llr::PrivateProperties,
 ) {
-    for p in public_properties {
-        let prop_name = &p.name;
-
+    for (prop_name, p) in public_properties {
         if let Type::Callback(callback) = &p.ty {
             let ret = callback.return_type.cpp_type().unwrap();
             let param_types =
@@ -297,7 +304,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -327,7 +334,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Handler),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Handler),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -354,7 +361,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -376,14 +383,14 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Getter),
+                    name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Getter),
                     signature: format!("() const -> {cpp_property_type}"),
                     statements: Some(prop_getter),
                     ..Default::default()
                 }),
             ));
 
-            if !p.read_only {
+            if !p.read_only() {
                 let prop_setter: Vec<String> = vec![
                     "using slint::private_api::live_preview::into_slint_value;".into(),
                     format!(
@@ -394,7 +401,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
+                        name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Setter),
                         signature: format!("(const {} &value) const -> void", cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -404,9 +411,9 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
+                        name: accessor_names::cpp_accessor_name(prop_name, AccessorKind::Setter),
                         signature: format!(
-                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", prop_name
                         ),
                         ..Default::default()
                     }),

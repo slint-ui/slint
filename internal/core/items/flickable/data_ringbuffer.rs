@@ -22,7 +22,8 @@ pub(crate) struct VelocityRingBuffer<const N: usize> {
 
 impl<const N: usize> Default for VelocityRingBuffer<N> {
     fn default() -> Self {
-        Self { curr_index: 0, full: false, values: [(Instant::now(), Vector2D::default()); N] }
+        // Placeholder timestamps; `curr_index`/`full` track which entries are real.
+        Self { curr_index: 0, full: false, values: [(Instant::default(), Vector2D::default()); N] }
     }
 }
 
@@ -103,7 +104,7 @@ mod tests {
     #[test]
     fn test_push_single_element() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let time = Instant::now();
+        let time = Instant::default();
         let delta = Vector2D::new(10.0, 20.0);
 
         buffer.push(time, delta);
@@ -120,7 +121,7 @@ mod tests {
     #[test]
     fn test_push_two_elements() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let time = Instant::now();
+        let time = Instant::default();
 
         buffer.push(time, Vector2D::new(10.0, 20.0));
         buffer.push(time + Duration::from_millis(100), Vector2D::new(13.0, -5.0));
@@ -137,7 +138,7 @@ mod tests {
     #[test]
     fn test_push_until_full() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let base_time = Instant::now();
+        let base_time = Instant::default();
 
         // Push elements to fill the buffer
         for i in 0..5 {
@@ -158,7 +159,7 @@ mod tests {
     fn test_push_beyond_capacity() {
         const CAP: usize = 5;
         let mut buffer: VelocityRingBuffer<CAP> = VelocityRingBuffer::default();
-        let base_time = Instant::now();
+        let base_time = Instant::default();
 
         // Push more than capacity
         for i in 0..(CAP + 2) {
@@ -179,7 +180,7 @@ mod tests {
     fn test_push_beyond_capacity_wrap_back() {
         const CAP: usize = 5;
         let mut buffer: VelocityRingBuffer<CAP> = VelocityRingBuffer::default();
-        let base_time = Instant::now();
+        let base_time = Instant::default();
 
         // Push more than capacity
         for i in 0..CAP {

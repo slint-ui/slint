@@ -114,6 +114,8 @@ inline bool operator==(const EasingCurve &a, const EasingCurve &b)
         return false;
     } else if (a.tag == EasingCurve::Tag::CubicBezier) {
         return std::equal(a.cubic_bezier._0, a.cubic_bezier._0 + 4, b.cubic_bezier._0);
+    } else if (a.tag == EasingCurve::Tag::Spring) {
+        return a.spring._0 == b.spring._0;
     }
     return true;
 }
@@ -229,10 +231,22 @@ inline SharedVector<float> solve_flexbox_layout(const cbindgen_private::FlexboxL
     return result;
 }
 
-// Like `solve_flexbox_layout`, but with a measure callback used for
-// height-for-width: `measure(index, known_w, known_h)` returns `{width,
-// height}`; an absent optional means "compute it". A negative value over the C
-// ABI denotes an absent dimension.
+// C thunk for the flexbox measure callbacks: unpack the type-erased functor
+// and forward. `measure(index, w, h)` returns `{width, height}`.
+// See `FlexboxMeasureFn` in i-slint-core for when it is called and what the
+// sizes mean.
+template<typename MeasureFn>
+inline void flexbox_measure_thunk(void *user_data, uintptr_t child_index, float width, float height,
+                                  float *out_width, float *out_height)
+{
+    auto *f = reinterpret_cast<MeasureFn *>(user_data);
+    auto wh = (*f)(child_index, width, height);
+    *out_width = wh.first;
+    *out_height = wh.second;
+}
+
+// Like `solve_flexbox_layout`, but with a measure callback (see
+// `flexbox_measure_thunk`) used for height-for-width.
 template<typename MeasureFn>
 inline SharedVector<float>
 solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &data,
@@ -241,48 +255,63 @@ solve_flexbox_layout_with_measure(const cbindgen_private::FlexboxLayoutData &dat
     SharedVector<float> result;
     cbindgen_private::Slice<uint32_t> ri =
             make_slice(reinterpret_cast<uint32_t *>(repeater_indices.ptr), repeater_indices.len);
-    auto thunk = [](void *user_data, uintptr_t child_index, float known_width, float known_height,
-                    float *out_width, float *out_height) {
-        auto *f = reinterpret_cast<MeasureFn *>(user_data);
-        auto wh = (*f)(
-                child_index,
-                known_width < 0 ? std::optional<float> {} : std::optional<float> { known_width },
-                known_height < 0 ? std::optional<float> {} : std::optional<float> { known_height });
-        *out_width = wh.first;
-        *out_height = wh.second;
-    };
-    cbindgen_private::slint_solve_flexbox_layout(&data, ri, &result,
-                                                 reinterpret_cast<const void *>(+thunk),
-                                                 reinterpret_cast<void *>(&measure));
+    cbindgen_private::slint_solve_flexbox_layout(
+            &data, ri, &result, reinterpret_cast<const void *>(&flexbox_measure_thunk<MeasureFn>),
+            reinterpret_cast<void *>(&measure));
     return result;
 }
 
-inline cbindgen_private::LayoutInfo flexbox_layout_info_main_axis(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
-        const cbindgen_private::Padding &padding, cbindgen_private::FlexboxLayoutWrap flex_wrap)
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info_main_axis(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
+                              float spacing, const cbindgen_private::Padding &padding,
+                              cbindgen_private::FlexboxLayoutWrap flex_wrap)
 {
     return cbindgen_private::slint_flexbox_layout_info_main_axis(cells, spacing, &padding,
                                                                  flex_wrap);
 }
 
-inline float flexbox_layout_unwrapped_main(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
-        const cbindgen_private::Padding &padding)
+inline float
+flexbox_layout_unwrapped_main(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells,
+                              float spacing, const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, spacing, &padding);
 }
 
-inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis(
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_h,
-        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_v, float spacing_h,
+inline cbindgen_private::LayoutInfo
+flexbox_layout_info_cross_axis(cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+                               cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+                               cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props,
+                               float spacing_h, float spacing_v,
+                               const cbindgen_private::Padding &padding_h,
+                               const cbindgen_private::Padding &padding_v,
+                               cbindgen_private::FlexboxLayoutDirection direction,
+                               cbindgen_private::LayoutAlignment alignment,
+                               cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size)
+{
+    return cbindgen_private::slint_flexbox_layout_info_cross_axis(
+            cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
+            alignment, flex_wrap, constraint_size);
+}
+
+// Like `flexbox_layout_info_cross_axis`, but with a measure callback (see
+// `flexbox_measure_thunk`) so height-for-width cells are re-measured at the
+// size taffy assigns them.
+template<typename MeasureFn>
+inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis_with_measure(
+        cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_h,
+        cbindgen_private::Slice<cbindgen_private::LayoutItemInfo> cells_v,
+        cbindgen_private::Slice<cbindgen_private::FlexItemProps> flex_props, float spacing_h,
         float spacing_v, const cbindgen_private::Padding &padding_h,
         const cbindgen_private::Padding &padding_v,
         cbindgen_private::FlexboxLayoutDirection direction,
-        cbindgen_private::FlexboxLayoutWrap flex_wrap, float constraint_size)
+        cbindgen_private::LayoutAlignment alignment, cbindgen_private::FlexboxLayoutWrap flex_wrap,
+        float constraint_size, MeasureFn measure)
 {
-    return cbindgen_private::slint_flexbox_layout_info_cross_axis(
-            cells_h, cells_v, spacing_h, spacing_v, &padding_h, &padding_v, direction, flex_wrap,
-            constraint_size);
+    return cbindgen_private::slint_flexbox_layout_info_cross_axis_with_measure(
+            cells_h, cells_v, flex_props, spacing_h, spacing_v, &padding_h, &padding_v, direction,
+            alignment, flex_wrap, constraint_size,
+            reinterpret_cast<const void *>(&flexbox_measure_thunk<MeasureFn>),
+            reinterpret_cast<void *>(&measure));
 }
 
 /// Access the layout cache of an item within a repeater (standard cache)
@@ -367,6 +396,24 @@ inline void setup_popup_menu_from_menu_item_tree(
             [shared](const auto &entry) { shared.vtable()->activate(shared.borrow(), &entry); });
 }
 
+// Set up a menu bar from a menu item tree: register its shortcuts, install the native menu bar when
+// the platform provides one, and always wire the fallback handlers, which also keep the tree alive
+// on the component (the native menu bar holds only a weak reference to it).
+inline void setup_menu_bar_from_menu_item_tree(
+        const cbindgen_private::WindowAdapterRcOpaque *window_handle, bool no_native,
+        const vtable::VRc<cbindgen_private::MenuVTable> &shared,
+        Property<std::shared_ptr<Model<cbindgen_private::MenuEntry>>> &entries,
+        Callback<std::shared_ptr<Model<cbindgen_private::MenuEntry>>(cbindgen_private::MenuEntry)>
+                &sub_menu,
+        Callback<void(cbindgen_private::MenuEntry)> &activated)
+{
+    cbindgen_private::slint_windowrc_setup_menu_bar_shortcuts(window_handle, &shared);
+    if (!no_native && cbindgen_private::slint_windowrc_supports_native_menu_bar(window_handle)) {
+        cbindgen_private::slint_windowrc_setup_native_menu_bar(window_handle, &shared);
+    }
+    setup_popup_menu_from_menu_item_tree(shared, entries, sub_menu, activated);
+}
+
 inline SharedString translate(const SharedString &original, const SharedString &context,
                               const SharedString &domain,
                               cbindgen_private::Slice<SharedString> arguments, int n,
@@ -381,6 +428,13 @@ inline SharedString decimal_separator()
 {
     SharedString out;
     cbindgen_private::slint_decimal_separator(&out);
+    return out;
+}
+
+inline SharedString default_window_title()
+{
+    SharedString out;
+    cbindgen_private::slint_default_window_title(&out);
     return out;
 }
 
@@ -593,6 +647,15 @@ cbindgen_private::Flickable::Flickable()
 cbindgen_private::Flickable::~Flickable()
 {
     slint_flickable_data_free(&data);
+}
+
+cbindgen_private::Path::Path()
+{
+    slint_path_fitted_cache_init(&fitted_path);
+}
+cbindgen_private::Path::~Path()
+{
+    slint_path_fitted_cache_free(&fitted_path);
 }
 
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()

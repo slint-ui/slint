@@ -1,0 +1,693 @@
+---
+title: Packaging
+description: Package a desktop Slint app for distribution on Linux, using Flatpak
+---
+
+{/* cSpell: ignore Flatpaks yourorganization pulseaudio jpegd jpege Metainfo metainfo Flathub launchable appstreamcli tomlkit DFETCHCONTENT */}
+
+import { Aside } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Code } from '@astrojs/starlight/components';
+import Link from '@slint/common-files/src/components/Link.astro';
+import skiaGenerator from './../../../../../../../../../scripts/flatpak-skia-generator.py?raw'
+
+Distribution on Linux takes a few forms.
+The easiest to get started with is [Flatpak](https://flatpak.org/), so that's what this guide covers.
+Flatpaks are sandboxed, work across distributions, and are straightforward to create.
+
+<Aside type="note">
+[Snap](https://snapcraft.io/), [AppImage](https://appimage.org/), and your distribution's own package manager are the alternatives to Flatpak,
+each with a different trade-off between integration, sandboxing, and how many systems you have to build on.
+</Aside>
+
+## Prerequisites
+
+The tools needed are the `flatpak` and `flatpak-builder` tools.
+Add the Flathub remote as well.
+That's where the runtime and the SDK your application builds against come from:
+
+```bash
+flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+Depending on your programming language, you also need a tool that converts your build tool's lockfile into dependencies that `flatpak-builder` understands.
+The build process is sandboxed just like Flatpaks themselves, and nothing inside it reaches the network.
+Every dependency that would otherwise be downloaded has to be declared up front.
+
+Lockfile conversion scripts exist for every programming language Slint supports:
+
+- Rust
+  - [`cargo`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
+- NodeJS
+  - [`node`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node) - this is the recommended method, supporting `npm`, `yarn` and `pnpm`
+  - [`npm`](https://github.com/flatpak/flatpak-builder-tools/tree/master/npm) (if the `node` script does not work)
+  - [`yarn`](https://github.com/flatpak/flatpak-builder-tools/tree/master/yarn) (if the `node` script does not work)
+- Deno
+  - [`deno`](https://github.com/flatpak/flatpak-builder-tools/tree/master/deno)
+- Python
+  - [`pip`](https://github.com/flatpak/flatpak-builder-tools/tree/master/pip)
+  - [`poetry`](https://github.com/flatpak/flatpak-builder-tools/tree/master/poetry)
+
+C++ has no standard, cross-platform package manager.
+Vendor your dependencies instead.
+Slint supports Bun, but Flatpak doesn't.
+
+## Creating a Build File
+
+Flatpak build files are named after the package ID, which is a domain you control written backwards.
+This guide uses `com.yourorganization.YourApp`, so the build file is named `com.yourorganization.YourApp.yml`.
+
+```yaml
+# The ID, explained above.
+id: com.yourorganization.YourApp
+
+# The runtime your application runs against
+runtime: org.freedesktop.Platform
+# A new major version comes out every August and is supported for two years.
+# See https://docs.flatpak.org/en/latest/available-runtimes.html
+runtime-version: "25.08"
+
+# The command that starts your application, installed by the build below
+command: your-app
+
+# The matching SDK, which the build runs in
+sdk: org.freedesktop.Sdk
+
+# The set of permissions that this application requires
+finish-args:
+  # OpenGL/Vulkan rendering
+  - --device=dri
+  # Allow use of IPC (required by Wayland and X11)
+  - --share=ipc
+  # Allow using Wayland via the Freedesktop sandbox protocol extensions
+  - --socket=wayland
+  # Use X11 as a fallback. There is also `--socket=x11` for applications
+  # that require X11, but `--socket=fallback-x11` overrides it
+  - --socket=fallback-x11
+```
+
+Those permissions are the minimum every Slint application needs.
+For anything beyond them, see [Flatpak's documentation](https://docs.flatpak.org/en/latest/sandbox-permissions.html).
+The common additions are `--share=network` for network access, `--socket=pulseaudio` for audio, and `--allow=bluetooth` for Bluetooth.
+
+## Specifying the Build Process
+
+Next comes the part that depends on your language: the dependencies and the build process.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+Run the [`flatpak-cargo-generator.py`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo) script mentioned above over your lockfile.
+It declares its own dependencies inline, so [`uv`](https://docs.astral.sh/uv/) runs it without a virtual environment:
+
+```bash
+curl -O https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+uv run flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+```
+
+Pass `-o`, or the script writes `generated-sources.json` instead.
+To run it with `python3` rather than `uv`, install its `aiohttp` and `tomlkit` dependencies first.
+
+```yaml
+# ...
+
+# This ensures that the Rust toolchain is installed inside the build environment.
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+modules:
+  # The module name is arbitrary, but Flatpak will create a `/run/build/your-module-name`
+  # directory and build the package inside of it, so it should match any `/run/build/..`
+  # paths in the build config. It does not need to match the command name.
+  - name: your-app
+    # This tells Flatpak that you will be writing the build commands out manually, in
+    # `build-commands` (see below)
+    buildsystem: simple
+    build-options:
+      # This adds the Rust SDK to your PATH
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        # Required to keep the Cargo build artifacts inside Flatpak's sandboxed build
+        # directory
+        CARGO_HOME: /run/build/your-app/cargo
+        CARGO_NET_OFFLINE: "true"
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      # For the sake of this example, we assume that this build command produces a binary
+      # named `your-app`.
+      - cargo build --release --offline
+      # The right-hand side of this must be `${FLATPAK_DEST}/bin/your-command`, where
+      # `your-command` matches the top-level `command` field mentioned in the previous
+      # section
+      - install -Dm0755 target/release/your-app ${FLATPAK_DEST}/bin/your-app
+    sources:
+      - type: git
+        # This assumes that this yaml file is in the root of your project
+        path: ./
+        # `HEAD` builds the commit your checkout is on. Without a ref,
+        # flatpak-builder builds the repository's default branch instead
+        branch: HEAD
+      # If you named your generated sources file something different, or put it somewhere
+      # other than in the same directory as this file, you should specify the path to it
+      # here
+      - cargo-sources.json
+```
+
+That covers everything the default renderer needs.
+The <Link type="skia_renderer" label="Skia renderer" /> needs more, as the section below explains.
+
+### The Skia Renderer
+
+Skia is a large graphics library written in C++.
+Building Slint with the Skia renderer normally downloads a prebuilt copy of it, but nothing inside the sandbox reaches the network, so the build has to compile Skia itself.
+That means declaring Skia's own sources in the manifest, all few hundred megabytes of them.
+
+The script below does that.
+It looks up the exact Skia revision your version of Slint expects, then turns Skia's list of dependencies into sources pinned to a commit each.
+Save it next to `flatpak-cargo-generator.py` and run it from the root of your project, whenever your dependencies change:
+
+```bash
+python3 flatpak-skia-generator.py
+```
+
+It uses the standard library alone, so it needs no dependencies of its own.
+
+<Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
+
+Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc.
+That makes for four additions to the manifest:
+
+```yaml
+# ...
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  # clang, and the libclang that the bindings generator loads
+  - org.freedesktop.Sdk.Extension.llvm20
+
+# Applies to every module, unlike the build-options of a single module, so that
+# both gn and Skia find clang
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
+# gn is only needed to build Skia, so keep it out of the finished application
+cleanup:
+  - /bin/gn
+
+modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        # The generator prints the revision Skia itself uses
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        # gn stamps its version from a tag, which a shallow clone leaves behind
+        disable-shallow-clone: true
+
+  - name: your-app
+    # ...
+    build-options:
+      env:
+        # ...
+        # Points the build at the prepared Skia sources, which is what makes it
+        # compile them instead of downloading anything
+        SKIA_SOURCE_DIR: /run/build/your-app/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        # Use the gn built above rather than the one Skia would fetch
+        SKIA_GN_COMMAND: /app/bin/gn
+    sources:
+      # ...
+      - skia-sources.json
+```
+
+Building Skia takes a while, and its sources are large.
+Every input is pinned to a commit, so the build stays reproducible, works on every architecture the runtime supports, and follows your version of Slint when you re-run the generator.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+Projects created from the Slint template call `find_package(Slint)` and fall back to downloading Slint, and Slint in turn downloads Corrosion.
+The sandbox has no network for either, so both become sources in the manifest, and Slint gets built as its own module that installs into `/app` where `find_package` picks it up.
+
+A C++ project has no lockfile of its own, but Slint's C++ library is built from Rust sources, so its crates have to be declared as well.
+Configure your project once outside the sandbox, and everything the manifest needs is on disk:
+
+```bash
+# Downloads Slint and Corrosion, as an ordinary build does
+cmake -B build
+
+# The crates Slint needs, taken from the revision CMake just fetched
+uv run flatpak-cargo-generator.py build/_deps/slint-src/Cargo.lock -o cargo-sources.json
+
+# The revisions to pin below
+git -C build/_deps/slint-src rev-parse HEAD
+git -C build/_deps/corrosion-src rev-parse HEAD
+```
+
+Taking the lockfile and the revision from the same checkout keeps them in step.
+Crates generated from a different revision than the one you build leave `cargo` unable to resolve its dependencies, and it says so in terms of the crate that differs rather than the mismatch itself.
+
+```yaml
+# ...
+
+# Slint's C++ library is built from Rust sources
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+modules:
+  - name: slint-cpp
+    buildsystem: cmake-ninja
+    subdir: api/cpp
+    build-options:
+      env:
+        CARGO_HOME: /run/build/slint-cpp/cargo
+        CARGO_NET_OFFLINE: "true"
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      # The runtime searches /app/lib, while the SDK's CMake defaults to lib64
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      # Slint's own CMake downloads Corrosion unless it is already there
+      - -DFETCHCONTENT_SOURCE_DIR_CORROSION=/run/build/slint-cpp/corrosion
+      # Leave out what your application doesn't use, to shorten the build
+      - -DSLINT_FEATURE_INTERPRETER=OFF
+      - -DSLINT_FEATURE_TESTING=OFF
+    sources:
+      - type: git
+        url: https://github.com/slint-ui/slint.git
+        # The revisions printed above
+        commit: <slint revision>
+      - type: git
+        url: https://github.com/corrosion-rs/corrosion.git
+        commit: <corrosion revision>
+        dest: corrosion
+      - cargo-sources.json
+
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      # find_package(Slint) picks up the library installed above, so the
+      # FetchContent fallback never runs
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - cmake --build build
+      # The template has no install rule, so place the binary by hand
+      - install -Dm0755 build/your-app ${FLATPAK_DEST}/bin/your-app
+    sources:
+      - type: git
+        path: ./
+        branch: HEAD
+```
+
+The C++ library builds with the FemtoVG renderer and without Skia, which takes a few minutes.
+
+#### With the Skia Renderer
+
+Skia is a large graphics library written in C++.
+Building Slint with it normally downloads a prebuilt copy, and since nothing inside the sandbox reaches the network, the build compiles Skia from source instead.
+That adds roughly fifteen minutes, and means declaring Skia's own sources in the manifest.
+
+The script below writes them to `skia-sources.json`.
+It looks up the Skia revision that your Slint version expects, then turns Skia's list of dependencies into sources pinned to a commit each.
+Run it inside the Slint checkout that CMake fetched, because that is the version being built:
+
+```bash
+project=$PWD
+(cd build/_deps/slint-src && python3 "$project/flatpak-skia-generator.py" -o "$project/skia-sources.json")
+```
+
+<Code code={skiaGenerator} lang="python" title="flatpak-skia-generator.py" />
+
+Skia is configured with `gn`, a build tool the SDK doesn't ship, and it's compiled with clang rather than the SDK's gcc:
+
+```yaml
+# ...
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  # clang, and the libclang that Skia's bindings generator loads
+  - org.freedesktop.Sdk.Extension.llvm20
+
+# Applies to every module, so that both gn and Skia find clang
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
+# gn is only needed to build Skia, so keep it out of the finished application
+cleanup:
+  - /bin/gn
+
+modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        # The generator prints the revision Skia itself uses
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        # gn stamps its version from a tag, which a shallow clone leaves behind
+        disable-shallow-clone: true
+
+  - name: slint-cpp
+    # ...
+    config-opts:
+      # ...
+      - -DSLINT_FEATURE_RENDERER_SKIA=ON
+    build-options:
+      env:
+        # ...
+        # Pointing the build at the prepared Skia sources is what makes it
+        # compile them instead of downloading anything
+        SKIA_SOURCE_DIR: /run/build/slint-cpp/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        # Use the gn built above rather than the one Skia would fetch
+        SKIA_GN_COMMAND: /app/bin/gn
+    sources:
+      # ...
+      - skia-sources.json
+```
+
+The environment and the sources belong to the module that builds Slint, not to your application.
+Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds, so nothing else needs pointing at it.
+
+</TabItem>
+</Tabs>
+
+## Icons and Desktop Metadata
+
+To make your application show up in the launcher, write a `.desktop` file and provide an icon.
+For this example the desktop entry looks like this:
+
+```ini
+[Desktop Entry]
+# The version of the desktop entry specification this file follows, not the
+# version of your application
+Version=1.0
+Type=Application
+Terminal=false
+# This should be the same as the binary specified in the `command` section
+# of your build `.yaml`
+Exec=your-app
+# This should be the human-readable name of your application
+Name=Your App
+# This should be the same as your Flatpak package ID, see below for details
+Icon=com.yourorganization.YourApp
+```
+
+Check the file with `desktop-file-validate`, which comes with the Freedesktop SDK:
+
+```bash
+flatpak run --command=desktop-file-validate org.freedesktop.Sdk//25.08 com.yourorganization.YourApp.desktop
+```
+
+Install it from `build-commands`:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      - install -Dm0644 path/to/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      # ...
+```
+
+Flatpak looks for the icon in these directories:
+
+- `.png` files in `${FLATPAK_DEST}/share/icons/hicolor/WIDTHxHEIGHT/apps/`, where `WIDTHxHEIGHT` matches the width and height of your image (up to 512)
+- `.svg` files in `${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/`
+
+Whichever format you choose, name the file after your Flatpak package ID and install it from `build-commands`:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      # Replace 512x512 with the width and height of your icon
+      - install -Dm0644 path/to/icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      # ..or...
+      - install -Dm0644 path/to/icon.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      # ...
+```
+
+## Metainfo
+
+Finally, your package needs a `.metainfo.xml` file.
+Package managers and Flathub read it to describe your application to users.
+The [full specification](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines) is out of scope here, so below are the minimum fields that pass validation:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<component type="desktop-application">
+    <!-- This must be the same as your Flatpak package ID -->
+    <id>com.yourorganization.YourApp</id>
+
+    <name>Your App</name>
+    <summary>A short line describing what your application does</summary>
+
+    <categories>
+        <category>Development</category>
+    </categories>
+
+    <keywords>
+        <keyword>development</keyword>
+    </keywords>
+
+    <developer id="com.yourorganization">
+        <name>Your Organization</name>
+    </developer>
+
+    <icon type="stock">com.yourorganization.YourApp</icon>
+
+    <metadata_license>MIT</metadata_license>
+    <project_license>MIT</project_license>
+
+    <description>
+        <p>
+            A paragraph about your application. Software centers show this
+            underneath its name, so write a sentence or two rather than
+            repeating the summary above.
+        </p>
+    </description>
+
+    <url type="homepage">https://slint.dev/</url>
+
+    <!-- The name of your .desktop file, including the extension -->
+    <launchable type="desktop-id">com.yourorganization.YourApp.desktop</launchable>
+
+    <!-- Required by Flathub. `oars-1.1` with no attributes declares that
+         your application has nothing to disclose -->
+    <content_rating type="oars-1.1"/>
+
+    <releases>
+        <release version="1.0" date="2026-07-07"/>
+    </releases>
+</component>
+```
+
+Validate the file before you build, with `appstreamcli` from the Freedesktop SDK:
+
+```bash
+flatpak run --command=appstreamcli org.freedesktop.Sdk//25.08 validate --no-net com.yourorganization.YourApp.metainfo.xml
+```
+
+Install it from `build-commands`, like the desktop entry and the icon:
+
+```yaml
+# ...
+    build-commands:
+      # ...
+      - install -Dm0644 path/to/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      # ...
+```
+
+<Aside type="note">
+Flathub requires at least one screenshot, added as a `<screenshots>` section.
+Leave the section out while you develop: an empty one fails validation,
+and `flatpak-builder` runs the same validation over the metadata it installs.
+</Aside>
+
+## Putting It All Together
+
+The build file grew in fragments, so here it is complete and without the annotations, ready to copy and adapt.
+It assumes the desktop entry, the icon, and the metainfo sit next to the manifest in the root of your project.
+Commit them before you build: the `git` source packages what the repository holds, not your working tree.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+
+```yaml
+id: com.yourorganization.YourApp
+
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+
+command: your-app
+
+sdk: org.freedesktop.Sdk
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.llvm20
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+
+cleanup:
+  - /bin/gn
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin
+
+modules:
+  - name: gn
+    buildsystem: simple
+    build-commands:
+      - python3 build/gen.py --out-path=out --allow-warnings
+      - ninja -C out gn
+      - install -Dm0755 out/gn ${FLATPAK_DEST}/bin/gn
+    sources:
+      - type: git
+        url: https://gn.googlesource.com/gn.git
+        commit: b2afae122eeb6ce09c52d63f67dc53fc517dbdc8
+        disable-shallow-clone: true
+
+  - name: your-app
+    buildsystem: simple
+    build-options:
+      env:
+        CARGO_HOME: /run/build/your-app/cargo
+        CARGO_NET_OFFLINE: "true"
+        SKIA_SOURCE_DIR: /run/build/your-app/deps/skia-src
+        LIBCLANG_PATH: /usr/lib/sdk/llvm20/lib
+        SKIA_GN_COMMAND: /app/bin/gn
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo build --release --offline
+      - install -Dm0755 target/release/your-app ${FLATPAK_DEST}/bin/your-app
+      - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: git
+        path: ./
+        branch: HEAD
+      - cargo-sources.json
+      - skia-sources.json
+```
+
+For the FemtoVG renderer, drop the `llvm20` extension, the `gn` module, the `cleanup` entry, the three Skia environment variables, and `skia-sources.json`.
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+```yaml
+id: com.yourorganization.YourApp
+
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+command: your-app
+
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+
+modules:
+  - name: slint-cpp
+    buildsystem: cmake-ninja
+    subdir: api/cpp
+    build-options:
+      env:
+        CARGO_HOME: /run/build/slint-cpp/cargo
+        CARGO_NET_OFFLINE: "true"
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DFETCHCONTENT_SOURCE_DIR_CORROSION=/run/build/slint-cpp/corrosion
+      - -DSLINT_FEATURE_INTERPRETER=OFF
+      - -DSLINT_FEATURE_TESTING=OFF
+    sources:
+      - type: git
+        url: https://github.com/slint-ui/slint.git
+        # The revisions printed above
+        commit: <slint revision>
+      - type: git
+        url: https://github.com/corrosion-rs/corrosion.git
+        commit: <corrosion revision>
+        dest: corrosion
+      - cargo-sources.json
+
+  - name: your-app
+    buildsystem: simple
+    build-commands:
+      - cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/app
+      - cmake --build build
+      - install -Dm0755 build/your-app ${FLATPAK_DEST}/bin/your-app
+      - install -Dm0644 ${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: git
+        path: ./
+        branch: HEAD
+```
+
+</TabItem>
+</Tabs>
+
+## Building and Running
+
+With the manifest, the desktop entry, the icon, and the metainfo in place,
+build the package and install it for your own user:
+
+```bash
+flatpak-builder --user --install --force-clean --install-deps-from=flathub \
+    build-dir com.yourorganization.YourApp.yml
+```
+
+`build-dir` is a scratch directory that `flatpak-builder` fills,
+and `--force-clean` empties it first.
+`--install-deps-from=flathub` fetches the runtime and the SDK if they're missing.
+The first build downloads a couple of gigabytes and compiles every dependency,
+later builds reuse the cache in `.flatpak-builder`.
+Add that directory to your `.gitignore`, together with the generated sources.
+
+Run it the way your users will:
+
+```bash
+flatpak run com.yourorganization.YourApp
+```
+
+To hand the package to someone else,
+export it into a repository and turn that into a single file:
+
+```bash
+flatpak-builder --user --force-clean --repo=repo build-dir com.yourorganization.YourApp.yml
+flatpak build-bundle repo com.yourorganization.YourApp.flatpak com.yourorganization.YourApp \
+    --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+Install the result with `flatpak install ./com.yourorganization.YourApp.flatpak`.
+A bundle holds your application alone,
+so `--runtime-repo` tells the other machine where to fetch the runtime.
+It's also a snapshot: `flatpak update` can't update an application installed from one.
+To ship updates, serve the `repo` directory over HTTPS and have your users add it as a remote.

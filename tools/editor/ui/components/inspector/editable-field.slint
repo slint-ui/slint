@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Typography, FieldStyle } from "../../style.slint";
+
+import { InspectorTextFieldBase } from "text-field-base.slint";
+
+export component InspectorEditableField inherits Rectangle {
+    in property <FieldStyle> style: Style.editable-field;
+    in property <string> accessible-name: "";
+    in property <string> prefix: "";
+    in property <string> value;
+    in property <bool> wide: false;
+    in property <string> commit-key: "";
+    callback accepted(string) -> bool;
+
+    width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
+    height: root.style.height;
+
+    field := InspectorTextFieldBase {
+        style: root.style;
+        accessible-name: root.accessible-name;
+        width: parent.width;
+        value: root.value;
+        commit-key: root.commit-key;
+        accepted(text) => {
+            return root.accepted(text);
+        }
+
+        if root.prefix != "": Text {
+            text: root.prefix;
+            color: field.paint-foreground;
+            font-size: Typography.caption.size;
+            vertical-alignment: center;
+        }
+    }
+}

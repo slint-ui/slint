@@ -1,0 +1,354 @@
+[
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L16,0 L16,32 L0,32 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.25,
+        0.0,
+        0.0,
+        0.25,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L16,0 L16,32 L0,32 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.125,
+        0.0,
+        0.0,
+        0.25,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        16.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 0.5,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M0,0 L1000000000,0 L1000000000,1000000000 L0,1000000000 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.125,
+        0.0,
+        0.0,
+        0.125,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,16 L0,16 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        0.0
+      ]
+    }
+  },
+  "PopLayer",
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -112.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        48.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.25,
+        0.0,
+        0.0,
+        0.25,
+        -16.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,32 L0,32 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        32.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.125,
+        0.0,
+        0.0,
+        0.125,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,16 L0,16 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        16.0,
+        48.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        0.125,
+        0.0,
+        0.0,
+        0.125,
+        0.0,
+        0.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,16 L0,16 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        32.0,
+        40.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Image": {
+          "image": 0,
+          "sampler": {
+            "alpha": 1.0,
+            "quality": "Medium",
+            "x_extend": "Pad",
+            "y_extend": "Pad"
+          }
+        }
+      },
+      "brush_transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        -15.0,
+        -78.0
+      ],
+      "fill": "NonZero",
+      "shape": "M0,0 L16,0 L16,25 L0,25 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        48.0,
+        39.0
+      ]
+    }
+  }
+]

@@ -39,11 +39,11 @@ export component TestCase inherits Window {
     out property <bool> no_overflow: b3.x + b3.width <= 300px && b1.x + b1.width <= 300px;
 
     // --- Test 2 -------------------------------------------------------------
-    // Per-item `flex-align-self: stretch` must win even when the container's
+    // Per-item `cross-axis-self-alignment: stretch` must win even when the container's
     // `cross-axis-alignment` is NOT stretch. Here the container aligns items to
     // the start (so plain items keep their preferred 100px width), but s3 opts
     // into stretch and must therefore fill its flex line's cross size, which the
-    // default `align-content: stretch` grows wider than 100px.
+    // default `cross-axis-line-alignment: stretch` grows wider than 100px.
     Rectangle { x: 0; y: 200px; width: 300px; height: 96px; border-width: 1px; border-color: gray; }
     flex2 := FlexboxLayout {
         flex-direction: column;
@@ -56,7 +56,7 @@ export component TestCase inherits Window {
 
         s1 := Rectangle { preferred-width: 100px; height: 40px; background: #c33; Text { text: "start"; color: white; } }
         s2 := Rectangle { preferred-width: 100px; height: 40px; background: #3c3; Text { text: "start"; color: white; } }
-        s3 := Rectangle { preferred-width: 100px; height: 40px; flex-align-self: stretch; background: #36c; Text { text: "stretch"; color: white; } }
+        s3 := Rectangle { preferred-width: 100px; height: 40px; cross-axis-self-alignment: stretch; background: #36c; Text { text: "stretch"; color: white; } }
     }
 
     // s1 keeps its preferred width (container start-aligns it); s3 stretches to
@@ -119,7 +119,7 @@ assert(handle->get_test());
 let instance = TestCase::new().unwrap();
 assert!(instance.get_wrapped(), "b3 should wrap to a 2nd column");
 assert!(instance.get_no_overflow(), "column contents overflow the 300px flex");
-assert!(instance.get_align_self_stretches(), "s3 with flex-align-self:stretch should be wider than start-aligned s1");
+assert!(instance.get_align_self_stretches(), "s3 with cross-axis-self-alignment:stretch should be wider than start-aligned s1");
 assert!(instance.get_widths_differ(), "reference heights are equal, so h4w_at_own_width would hold trivially");
 assert!(instance.get_h4w_at_own_width(), "h4w item measured at the container width, not its own");
 assert!(instance.get_test());

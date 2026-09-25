@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Imported by the tests in the parent directory. Files in this directory are
+// not tests themselves: the driver only collects the .slint files directly in
+// each syntax test directory.
+
+export component Frame inherits Rectangle {
+    width: 24px;
+    height: 24px;
+}
+
+component Hidden inherits Rectangle { }
+//>                                     <<<warning{Component is neither used nor exported}

@@ -10,8 +10,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
- - In the compiler: builtins.slint
- - In the interpreter (new item only): dynamic_item_tree.rs
+ - In the compiler: internal/compiler/builtin_elements.rs
+ - In the interpreter (new item only): item_registry.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item
  - Don't forget to update the documentation
 */
@@ -730,6 +730,7 @@ pub struct Clip {
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
+    pub is_visibility_clip: Property<bool>,
 }
 
 impl Item for Clip {
@@ -1240,7 +1241,7 @@ pub struct PropertyAnimation {
 impl Default for PropertyAnimation {
     fn default() -> Self {
         // Defaults for PropertyAnimation are defined here (for internal Rust code doing programmatic animations)
-        // as well as in `builtins.slint` (for generated C++ and Rust code)
+        // as well as in `internal/compiler/builtin_elements.rs` (for generated C++ and Rust code)
         Self {
             delay: 0,
             duration: 0,
@@ -1434,13 +1435,9 @@ impl WindowItem {
                 return Some(result);
             }
 
-            match window_item_rc
+            window_item_rc = window_item_rc
                 .parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents)
-                .and_then(|p| next_window_item(&p))
-            {
-                Some(item) => window_item_rc = item,
-                None => return None,
-            }
+                .and_then(|p| next_window_item(&p))?;
         }
     }
 
@@ -1453,6 +1450,7 @@ impl WindowItem {
         local_font_weight: i32,
         local_font_size: LogicalLength,
         local_letter_spacing: LogicalLength,
+        local_line_height_factor: f32,
         local_italic: bool,
     ) -> FontRequest {
         let Some(window_item_rc) = next_window_item(self_rc) else {
@@ -1492,6 +1490,12 @@ impl WindowItem {
                 }
             },
             letter_spacing: Some(local_letter_spacing),
+            // 1 is neutral and negative or non-finite values behave like 1, all mapping to
+            // None (the font's natural line height); 0 is a valid factor and collapses lines.
+            line_height_factor: (local_line_height_factor.is_finite()
+                && local_line_height_factor >= 0.0
+                && local_line_height_factor != 1.0)
+                .then_some(local_line_height_factor),
             italic: local_italic,
         }
     }
@@ -1505,12 +1509,11 @@ impl WindowItem {
             return false;
         }
         let inner = WindowInner::from_pub(window_adapter.window());
-        if inner.request_close()
-            && let Err(err) = inner.hide()
-        {
+        let accepted = inner.request_close();
+        if accepted && let Err(err) = inner.hide() {
             crate::debug_log!("Slint: Failed to hide window after close request: {err}");
         }
-        true
+        accepted
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1632,12 +1635,11 @@ impl Item for ContextMenu {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                self.long_press_timer.start(
+                let ctx = WindowInner::from_pub(_window_adapter.window()).context();
+                self.long_press_timer.start_on(
+                    ctx,
                     crate::timers::TimerMode::SingleShot,
-                    WindowInner::from_pub(_window_adapter.window())
-                        .context()
-                        .platform()
-                        .long_press_interval(crate::InternalToken),
+                    ctx.platform().long_press_interval(crate::InternalToken),
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return };
                         let Some(self_) = self_rc.downcast::<ContextMenu>() else { return };
@@ -2120,7 +2122,12 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        self.timer.start(
+        // Start on the context this item's window belongs to, not on whichever one is
+        // current: a component built with `new_with_context` must keep its timers there.
+        let Some(window_adapter) = self_rc.window_adapter() else { return };
+        let ctx = crate::window::WindowInner::from_pub(window_adapter.window()).context();
+        self.timer.start_on(
+            ctx,
             crate::timers::TimerMode::SingleShot,
             Duration::from_millis(delay_ms),
             move || {
@@ -2168,28 +2175,91 @@ declare_item_vtable! {
     fn slint_get_TooltipAreaVTable() -> TooltipAreaVTable for TooltipArea
 }
 
+/// Expands to a builtin struct field's declared default value,
+/// or to the zero value of the field's type when no default is declared.
+/// Number literals for `Coord` fields are cast, because `Coord` is `f32` or `i32`
+/// depending on `cfg(slint_int_coord)`.
+macro_rules! builtin_struct_field_default {
+    (Coord, $default:expr) => {
+        ($default) as Coord
+    };
+    ($field_type:ident, $default:expr) => {
+        $default
+    };
+    ($field_type:ident) => {
+        ::core::default::Default::default()
+    };
+}
+
+/// Expands to the documentation text of a builtin struct field's declared default value:
+/// an intra-doc link to the variant for an enum value, plain code for a literal.
+/// The parentheses an enum value needs to be a single token tree are dropped.
+macro_rules! builtin_struct_field_default_doc {
+    (($($default:tt)*)) => {
+        builtin_struct_field_default_doc!($($default)*)
+    };
+    ($enum:ident :: $value:ident) => {
+        concat!("[`", stringify!($enum), "::", stringify!($value), "`]")
+    };
+    ($default:literal) => {
+        concat!("`", stringify!($default), "`")
+    };
+}
+
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
         $vis:vis struct $Name:ident {
-            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ident $(= $field_default:tt)?, )*
         }
     )*) => {
         $(
-            #[derive(Clone, Debug, Default, PartialEq)]
+            #[derive(Clone, Debug, PartialEq)]
             #[repr(C)]
             $(#[$struct_attr])*
             pub struct $Name {
                 $(
                     $(#[$field_attr])*
+                    $(
+                        #[doc = ""]
+                        #[doc = concat!("Defaults to ", builtin_struct_field_default_doc!($field_default), ".")]
+                    )?
                     pub $field : $field_type,
                 )*
+            }
+
+            // Not derived, so that the fields take their declared default values
+            impl ::core::default::Default for $Name {
+                fn default() -> Self {
+                    Self {
+                        $($field: builtin_struct_field_default!($field_type $(, $field_default)?),)*
+                    }
+                }
             }
         )*
     };
 }
 
 i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
+
+#[test]
+fn builtin_struct_field_defaults() {
+    // Fields without a declared default value take the zero value of their type,
+    // like with derive(Default)
+    let table_column = TableColumn::default();
+    assert_eq!(table_column.sort_order, SortOrder::Unsorted);
+    assert_eq!(table_column.min_width, 0 as Coord);
+    assert_eq!(table_column.horizontal_stretch, 0.0);
+    assert_eq!(table_column.title, SharedString::default());
+    assert!(!KeyEvent::default().repeat);
+    assert_eq!(PointerEvent::default().touch_finger_id, 0);
+
+    // Fields with a declared default value take it
+    let hints = InputMethodHints::default();
+    assert_eq!(hints.capitalization, CapitalizationMode::Sentences);
+    assert!(hints.auto_correct);
+    assert!(hints.auto_complete);
+}
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
@@ -2198,5 +2268,7 @@ pub unsafe extern "C" fn slint_item_absolute_position(
     self_index: u32,
 ) -> crate::lengths::LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.map_to_window(Default::default())
+    // Map the item's own geometry origin through the ancestor transforms so the result is the
+    // item's absolute position, not its parent's.
+    self_rc.map_to_window(self_rc.geometry().origin)
 }

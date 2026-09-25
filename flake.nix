@@ -1,3 +1,4 @@
+# cSpell:ignore stdenv
 {
   inputs.nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
@@ -5,14 +6,19 @@
     self,
     nixpkgs,
   }: let
-    system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
+    systems = [ "x86_64-linux" "aarch64-darwin" "aarch64-linux" ];
+    mapListToAttrs = list: func:
+        builtins.listToAttrs (builtins.map (v: { name = v; value = (func v); }) list);
   in {
-    devShells.${system} = {
+    devShells = mapListToAttrs systems (system:
+    let
+      inherit (pkgs) lib;
+      pkgs = import nixpkgs {inherit system;};
+    in
+    {
       default = with pkgs; let
         runtime-libs = [
           fontconfig
-          wayland
           libxkbcommon
           libGL
 
@@ -21,18 +27,36 @@
           libxi
           libxrandr
           vulkan-loader
-        ];
+        ] ++
+        (
+          lib.optionals pkgs.stdenv.hostPlatform.isLinux
+          [
+            wayland
+          ]
+        );
       in
         mkShell {
           nativeBuildInputs = [
             pkg-config
-            perf
-          ];
+          ] ++ (lib.optional pkgs.stdenv.hostPlatform.isLinux perf);
           hardeningDisable = ["fortify"];
           buildInputs = [
             # Not strictly required, but helps with
             # https://github.com/NixOS/nixpkgs/issues/370494
             rust-jemalloc-sys
+            libxkbcommon
+            openssl
+            libGL
+            freetype
+            fontconfig
+            nodejs
+            pnpm
+
+            fontconfig
+            runtime-libs
+          ] ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+            libgbm
+            libinput
             # Merge the qt packages together to make a lighter version of qt6.full
             (symlinkJoin {
               name = "qt packages";
@@ -42,21 +66,10 @@
                 qt6.qtwayland
               ];
             })
-            libxkbcommon
-            openssl
-            udev
-            libGL
             seatd
-            libgbm
-            libinput
-            freetype
-            fontconfig
-            nodejs
-            pnpm
+            udev
 
             alsa-lib
-            fontconfig
-            runtime-libs
           ];
           LD_LIBRARY_PATH = lib.makeLibraryPath runtime-libs;
         };
@@ -66,6 +79,6 @@
             (aspellWithDicts (d: [d.en]))
           ];
         };
-    };
+    });
   };
 }

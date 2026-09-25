@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property read several times within one expression is stored in a local variable.
+// Passing it to a function takes it by value, so the remaining reads need their own copy.
+
+struct Info {
+    name: string,
+    ok: bool,
+}
+
+// Exported so that the calls below are real calls rather than inlined bodies.
+export global Utils {
+    public pure function is-ok(i: Info) -> bool {
+        i.ok
+    }
+    public pure function non-empty(s: string) -> bool {
+        s != ""
+    }
+    public pure function first(a: [int]) -> int {
+        a[0]
+    }
+}
+
+export component TestCase {
+    in property <Info> info: { name: "hello", ok: true };
+    in property <string> str: "world";
+    in property <[int]> arr: [1, 2, 3];
+
+    out property <string> t1: Utils.is-ok(root.info) ? root.info.name : "no";
+    out property <string> t2: Utils.non-empty(root.str) ? root.str : "short";
+    out property <int> t3: Utils.first(root.arr) > 0 ? root.arr[1] : -1;
+
+    out property <bool> test: root.t1 == "hello" && root.t2 == "world" && root.t3 == 2;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_t1(), "hello");
+assert_eq(instance.get_t2(), "world");
+assert_eq(instance.get_t3(), 2);
+assert_eq(instance.get_test(), true);
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_t1(), "hello");
+assert_eq!(instance.get_t2(), "world");
+assert_eq!(instance.get_t3(), 2);
+assert_eq!(instance.get_test(), true);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, "hello");
+assert.equal(instance.t2, "world");
+assert.equal(instance.t3, 2);
+assert(instance.test);
+```
+*/

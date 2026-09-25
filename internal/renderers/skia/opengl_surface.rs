@@ -209,7 +209,7 @@ impl super::Surface for OpenGLSurface {
                 },
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Unpremul,
-                None,
+                crate::sampled_texture_color_space(crate::TextureEncoding::Unorm),
             )
         }
     }
@@ -433,7 +433,7 @@ impl OpenGLSurface {
 
         let context = not_current_gl_context.make_current(&surface)
             .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
-                format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
+                format!("Skia Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
                 .into()
         })?;
 
@@ -493,7 +493,7 @@ impl OpenGLSurface {
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::BottomLeft,
             skia_safe::ColorType::RGBA8888,
-            None,
+            crate::attachment_color_space(crate::TextureEncoding::Unorm),
             None,
         ) {
             Some(surface) => Ok(surface),

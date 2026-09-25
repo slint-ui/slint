@@ -33,7 +33,7 @@ pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis
     // simplification folded the conversion away, the binding is constant after all:
     // promote it back.
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        for binding in elem.borrow().bindings.values() {
+        for (_, binding) in elem.borrow().real_bindings() {
             let Ok(mut binding) = binding.try_borrow_mut() else { continue };
             let Some(analysis) = binding.analysis.as_ref() else { continue };
             if analysis.is_const || matches!(binding.expression, Expression::Invalid) {
@@ -121,7 +121,7 @@ fn simplify_binary_expression(
     ga: &GlobalAnalysis,
     cache: &mut ConstPropCache,
 ) -> bool {
-    let Expression::BinaryExpression { lhs, op, rhs } = expr else { unreachable!() };
+    let Expression::BinaryExpression { lhs, op, rhs, .. } = expr else { unreachable!() };
     let mut can_inline = simplify_expression(lhs, ga, cache);
     can_inline &= simplify_expression(rhs, ga, cache);
 
@@ -149,6 +149,30 @@ fn fold_binary_expression(
         }
         ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
             Some(Expression::NumberLiteral(*a + *b, *un1))
+        }
+        // `LayoutInfo + LayoutInfo` merges layout constraints, mirroring
+        // `impl Add for LayoutInfo` in internal/core/layout.rs. Fold it when
+        // every field of both operands is a number literal; merging only
+        // selects one of the two literals, so the folded value is exactly
+        // what the runtime merge would produce.
+        ('+', Expression::Struct { ty, values: a }, Expression::Struct { values: b, .. })
+            if matches!(ty.name, StructName::Builtin(BuiltinStruct::LayoutInfo)) =>
+        {
+            let ty = ty.clone();
+            ty.fields
+                .keys()
+                .map(|name| {
+                    let Some(Expression::NumberLiteral(x, u)) = a.get(name) else { return None };
+                    let Some(Expression::NumberLiteral(y, _)) = b.get(name) else { return None };
+                    let v = match name.as_str() {
+                        "min" | "min_percent" | "preferred" => x.max(*y),
+                        "max" | "max_percent" | "stretch" => x.min(*y),
+                        _ => return None,
+                    };
+                    Some((name.clone(), Expression::NumberLiteral(v, *u)))
+                })
+                .collect::<Option<_>>()
+                .map(|values| Expression::Struct { ty, values })
         }
         ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
             Some(Expression::NumberLiteral(*a - *b, *un1))
@@ -327,7 +351,9 @@ fn simplify_condition(
     ga: &GlobalAnalysis,
     cache: &mut ConstPropCache,
 ) -> bool {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
+    let Expression::Condition { condition, true_expr, false_expr, .. } = expr else {
+        unreachable!()
+    };
     let mut can_inline = simplify_expression(condition, ga, cache);
     can_inline &= match &**condition {
         Expression::BoolLiteral(true) => {
@@ -414,14 +440,13 @@ fn extract_constant_property_reference_impl(
     // find the binding.
     let mut element = nr.element();
     let mut expression = loop {
-        if let Some(binding) = element.borrow().bindings.get(nr.name()) {
-            let binding = binding.borrow();
+        if let Some(binding) = element.borrow().binding(nr.name()) {
             if !binding.two_way_bindings.is_empty() {
                 // TODO: In practice, we should still find out what the real binding is
                 // and solve that.
                 return None;
             }
-            if !matches!(binding.expression, Expression::Invalid) {
+            if !matches!(binding.value_expression(), Expression::Invalid) {
                 break binding.expression.clone();
             }
         };
@@ -560,26 +585,27 @@ export component Foo {
 
     let expected_p = 3.0 * 2.0 + 15.0;
     let expected_w = -expected_p / 2.0;
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let out1_binding = bindings.get("out1").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let out1_binding = root_element.borrow().binding("out1").unwrap().expression.clone();
     match &out1_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_w),
         _ => panic!("not number {out1_binding:?}"),
     }
-    let out2_binding = bindings.get("out2").unwrap().borrow().expression.clone();
+    let out2_binding = root_element.borrow().binding("out2").unwrap().expression.clone();
     match &out2_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_p),
         _ => panic!("not number {out2_binding:?}"),
     }
-    let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
+    let out3_binding = root_element.borrow().binding("out3").unwrap().expression.clone();
     match &out3_binding {
         // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
-            Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
-            {
-                Expression::BoolLiteral(b) => assert!(*b),
-                _ => panic!("false_expr not optimized in : {out3_binding:?}"),
-            },
+            Expression::Condition { condition: _, true_expr: _, false_expr, .. } => {
+                match &**false_expr {
+                    Expression::BoolLiteral(b) => assert!(*b),
+                    _ => panic!("false_expr not optimized in : {out3_binding:?}"),
+                }
+            }
             _ => panic!("not condition:  {out3_binding:?}"),
         },
         _ => panic!("not code block: {out3_binding:?}"),
@@ -611,10 +637,11 @@ export component Foo {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let binding = |name: &str| bindings.get(name).unwrap().borrow().clone();
-    let is_const =
-        |name: &str| bindings.get(name).unwrap().borrow().analysis.as_ref().unwrap().is_const;
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let binding = |name: &str| root_element.borrow().binding(name).unwrap().clone();
+    let is_const = |name: &str| {
+        root_element.borrow().binding(name).unwrap().analysis.as_ref().unwrap().is_const
+    };
 
     // Conversions whose result contains no decimal separator are folded and stay constant
     assert!(
@@ -656,7 +683,7 @@ fn test_propagate_font_size() {
     fn assert_expr_is_mul(e: &Expression, l: f64, r: f64) {
         assert!(
             matches!(e, Expression::Cast { from, .. }
-                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*'}
+                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*', ..}
                         if matches!((lhs.as_ref(), rhs.as_ref()), (Expression::NumberLiteral(lhs, _), Expression::NumberLiteral(rhs, _)) if *lhs == l && *rhs == r ))),
             "Expression {e:?} is not a {l} * {r} expected"
         );
@@ -747,8 +774,8 @@ export component Foo inherits Window {{
             spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
         assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-        let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-        let out1_binding = bindings.get("test").unwrap().borrow().expression.clone();
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        let out1_binding = root_element.borrow().binding("test").unwrap().expression.clone();
         check_expression(&out1_binding);
     }
 }
@@ -774,8 +801,8 @@ export component Foo inherits Window {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let mut test_binding = bindings.get("test").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let mut test_binding = root_element.borrow().binding("test").unwrap().expression.clone();
     if let Expression::Cast { from, to: _ } = test_binding {
         test_binding = *from;
     }
@@ -800,10 +827,8 @@ fn test_unit_normalization() {
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{expr}: {:#?}", diag.to_string_vec());
-        doc.inner_components.last().unwrap().root_element.borrow().bindings["a"]
-            .borrow()
-            .expression
-            .clone()
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        root_element.borrow().binding("a").unwrap().expression.clone()
     }
 
     // A literal is stored in its type's canonical unit, not the one it was written in.
@@ -848,4 +873,60 @@ fn test_unit_normalization() {
     // Equality folds for numbers (now via the ordering arm) and bools.
     assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
     assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
+}
+
+#[test]
+fn test_fold_layout_info_merge() {
+    use smol_str::SmolStr;
+    let ty = crate::typeregister::layout_info_type();
+    let info = |min: f64, max: f64, preferred: f64, stretch: f64| Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([
+            ("min", Expression::NumberLiteral(min, Unit::Px)),
+            ("max", Expression::NumberLiteral(max, Unit::Px)),
+            ("preferred", Expression::NumberLiteral(preferred, Unit::Px)),
+            ("min_percent", Expression::NumberLiteral(0., Unit::None)),
+            ("max_percent", Expression::NumberLiteral(100., Unit::None)),
+            ("stretch", Expression::NumberLiteral(stretch, Unit::None)),
+        ])
+        .map(|(k, v)| (SmolStr::new_static(k), v))
+        .collect(),
+    };
+
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(info(20., 100., 30., 0.)),
+        op: '+',
+        source_location: None,
+    };
+    fold_const_expression(&mut expr);
+    // The merge takes the max of the lower bounds and the preferred size,
+    // and the min of the upper bounds and the stretch.
+    let Expression::Struct { values, .. } = expr else { panic!("not folded: {expr:?}") };
+    let field = |name: &str| match values.get(name) {
+        Some(Expression::NumberLiteral(v, _)) => *v,
+        other => panic!("field {name} not a literal: {other:?}"),
+    };
+    assert_eq!(field("min"), 20.);
+    assert_eq!(field("max"), 100.);
+    assert_eq!(field("preferred"), 50.);
+    assert_eq!(field("stretch"), 0.);
+
+    // A non-literal field keeps the merge unfolded.
+    let non_literal = Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([(
+            SmolStr::new_static("min"),
+            Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength },
+        )])
+        .collect(),
+    };
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(non_literal),
+        op: '+',
+        source_location: None,
+    };
+    fold_const_expression(&mut expr);
+    assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
 }

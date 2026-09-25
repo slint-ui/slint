@@ -1,0 +1,21 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Documentation of a feature that isn't part of the safety-certified surface.
+// The safety manual omits it; every other site reads as if the tag weren't
+// there, since the distinction only means something to Slint SC users.
+//
+// The specification chapters are synced into the safety manual verbatim, so
+// both sites import this from the same path and the component has to tell
+// them apart itself: the safety manual sets SLINT_SC_SAFETY_MANUAL in its
+// dev and build scripts.
+//
+// A paragraph in here states no requirement, so it carries no `{#sls.…}`
+// identifier -- see rehype-sls-ids.mjs, which exempts it from the
+// completeness check, and traceability.rs, which skips the region when it
+// scans for anchors.
+const omit = process.env.SLINT_SC_SAFETY_MANUAL === "1";
+---
+
+{!omit && <slot />}

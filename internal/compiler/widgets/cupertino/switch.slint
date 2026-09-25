@@ -106,6 +106,7 @@ export component Switch {
             color: root.text-color;
             vertical-alignment: center;
             horizontal-alignment: left;
+            accessible-role: none;
         }
     }
 
@@ -123,7 +124,7 @@ export component Switch {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                  root.toggle-checked();
                  return accept;
             }

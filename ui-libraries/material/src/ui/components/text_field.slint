@@ -174,8 +174,8 @@ export component TextField {
         }
     }
 
-    public function set_selection_offsets(start: int, end: int) {
-        input.set_selection_offsets(start, end);
+    public function set_selection_offsets(anchor: int, focus: int) {
+        input.set_selection_offsets(anchor, focus);
     }
 
     public function select_all() {

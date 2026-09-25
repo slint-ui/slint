@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! No-op fallback backend for platforms without a real system tray
-//! (Android, WASM, embedded targets, …). All operations succeed and do
-//! nothing visible — the tray icon simply never reaches a host shell.
+//! Fallback backend for builds without a real system tray (the `system-tray`
+//! feature is off, or Android, WASM, embedded targets, …). Handle creation
+//! fails with [`Error::Unsupported`], which the tray item reports through
+//! `debug_log`; the application keeps running without an icon.
 
 use super::{Error, Params};
 use crate::graphics::Image;
@@ -19,7 +20,7 @@ impl PlatformTray {
         _self_weak: ItemWeak,
         _context: &crate::SlintContext,
     ) -> Result<Self, Error> {
-        Ok(Self)
+        Err(Error::Unsupported)
     }
 
     pub fn rebuild_menu(

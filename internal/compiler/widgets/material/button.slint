@@ -49,6 +49,7 @@ component MaterialButtonBase {
             min-height: root.icon-size;
             opacity: root.text-opacity;
             colorize: root.colorize-icon ? root.text-color : transparent;
+            accessible-role: none;
         }
 
         if root.text != "": Text {

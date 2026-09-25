@@ -346,7 +346,7 @@ impl ImageCacheKey {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
-            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+            #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
@@ -378,29 +378,28 @@ impl OpaqueImage for NineSliceImage {
 }
 
 /// Represents a `wgpu::Texture` for each version of WGPU we support.
-/// Represents a `wgpu::Texture` for each version of WGPU we support.
-#[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
 #[derive(Clone, Debug)]
 pub enum WGPUTexture {
-    /// A texture for WGPU version 28.
-    #[cfg(feature = "unstable-wgpu-28")]
-    WGPU28Texture(wgpu_28::Texture),
     /// A texture for WGPU version 29.
     #[cfg(feature = "unstable-wgpu-29")]
     WGPU29Texture(wgpu_29::Texture),
+    /// A texture for WGPU version 30.
+    #[cfg(feature = "unstable-wgpu-30")]
+    WGPU30Texture(wgpu_30::Texture),
 }
 
-#[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
 impl OpaqueImage for WGPUTexture {
     fn size(&self) -> IntSize {
         match self {
-            #[cfg(feature = "unstable-wgpu-28")]
-            Self::WGPU28Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-29")]
+            Self::WGPU29Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
-            #[cfg(feature = "unstable-wgpu-29")]
-            Self::WGPU29Texture(texture) => {
+            #[cfg(feature = "unstable-wgpu-30")]
+            Self::WGPU30Texture(texture) => {
                 let size = texture.size();
                 (size.width, size.height).into()
             }
@@ -435,7 +434,7 @@ pub enum ImageInner {
     #[cfg(not(target_arch = "wasm32"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
-    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+    #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     WGPUTexture(WGPUTexture) = 8,
 }
 
@@ -474,25 +473,23 @@ impl ImageInner {
                         let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
                         match t.format {
                             TexturePixelFormat::Rgb => {
-                                let mut iter = source.chunks_exact(3).map(|p| Rgba8Pixel {
-                                    r: p[0],
-                                    g: p[1],
-                                    b: p[2],
-                                    a: 255,
-                                });
+                                let mut iter = source
+                                    .as_chunks::<3>()
+                                    .0
+                                    .iter()
+                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
                             TexturePixelFormat::RgbaPremultiplied => {
-                                let mut iter = source.chunks_exact(4).map(|p| Rgba8Pixel {
-                                    r: p[0],
-                                    g: p[1],
-                                    b: p[2],
-                                    a: p[3],
-                                });
+                                let mut iter = source
+                                    .as_chunks::<4>()
+                                    .0
+                                    .iter()
+                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
                             TexturePixelFormat::Rgba => {
-                                let mut iter = source.chunks_exact(4).map(|p| {
+                                let mut iter = source.as_chunks::<4>().0.iter().map(|p| {
                                     let a = p[3];
                                     Rgba8Pixel {
                                         r: (p[0] as u16 * a as u16 / 255) as u8,
@@ -554,7 +551,7 @@ impl ImageInner {
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
-            #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
+            #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(texture) => texture.size(),
         }
     }
@@ -597,7 +594,10 @@ impl ImageInner {
         #[cfg(not(target_arch = "wasm32"))]
         {
             #[cfg(feature = "svg")]
-            if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
+            if format.as_slice() == b"svg"
+                || format.as_slice() == b"svgz"
+                || (format.is_empty() && (data.starts_with(b"<?xml") || data.starts_with(b"<svg")))
+            {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     svg::load_from_data(data.as_slice(), cache_key).map_or_else(
                         |svg_err| {
@@ -862,16 +862,6 @@ impl Image {
         self.render_to_rgba8(None)
     }
 
-    /// Same as [`Self::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
-    /// `target_size` (in physical pixels) instead of their intrinsic size.
-    /// Returns None if the pixels cannot be obtained.
-    pub fn to_rgba8_with_target_size(
-        &self,
-        target_size: IntSize,
-    ) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
-        self.render_to_rgba8(Some(target_size.cast_unit()))
-    }
-
     fn render_to_rgba8(
         &self,
         target_size: Option<euclid::Size2D<u32, PhysicalPx>>,
@@ -941,19 +931,6 @@ impl Image {
         }
     }
 
-    /// Returns the [WGPU](http://wgpu.rs) 28.x texture that this image wraps; returns None if the image does not
-    /// hold such a previously wrapped texture.
-    ///
-    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
-    ///         as new major WGPU releases become available.
-    #[cfg(feature = "unstable-wgpu-28")]
-    pub fn to_wgpu_28_texture(&self) -> Option<wgpu_28::Texture> {
-        match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU28Texture(texture)) => Some(texture.clone()),
-            _ => None,
-        }
-    }
-
     /// Returns the [WGPU](http://wgpu.rs) 29.x texture that this image wraps; returns None if the image does not
     /// hold such a previously wrapped texture.
     ///
@@ -963,6 +940,19 @@ impl Image {
     pub fn to_wgpu_29_texture(&self) -> Option<wgpu_29::Texture> {
         match &self.0 {
             ImageInner::WGPUTexture(WGPUTexture::WGPU29Texture(texture)) => Some(texture.clone()),
+            _ => None,
+        }
+    }
+
+    /// Returns the [WGPU](http://wgpu.rs) 30.x texture that this image wraps; returns None if the image does not
+    /// hold such a previously wrapped texture.
+    ///
+    /// *Note*: This function is behind a feature flag and may be removed or changed in future minor releases,
+    ///         as new major WGPU releases become available.
+    #[cfg(feature = "unstable-wgpu-30")]
+    pub fn to_wgpu_30_texture(&self) -> Option<wgpu_30::Texture> {
+        match &self.0 {
+            ImageInner::WGPUTexture(WGPUTexture::WGPU30Texture(texture)) => Some(texture.clone()),
             _ => None,
         }
     }
@@ -1015,6 +1005,25 @@ impl Image {
                 svg::load_from_data(buffer, cache_key).map_err(|_| LoadImageError(()))?,
             ))))
         }
+    }
+
+    /// Creates a new Image from a buffer in memory holding the content of an encoded image file,
+    /// such as a PNG, JPEG or SVG.
+    ///
+    /// `format` is the lowercase file extension of the encoded data (for example `"png"`, `"jpg"`
+    /// or `"svg"`). Pass `None` to guess the format from the data; SVG is only recognized by this
+    /// guess when the data begins with an `<?xml` or `<svg` tag, otherwise pass `Some("svg")`.
+    ///
+    /// The supported formats are the same as for [`Self::load_from_path`].
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    pub fn load_from_data(data: &[u8], format: Option<&str>) -> Result<Self, LoadImageError> {
+        ImageInner::load_from_data_with_cache_key(
+            ImageCacheKey::Invalid,
+            Slice::from_slice(data),
+            Slice::from_slice(format.unwrap_or_default().as_bytes()),
+        )
+        .map(Image)
+        .ok_or(LoadImageError(()))
     }
 
     /// Sets the nine-slice edges of the image.
@@ -1071,6 +1080,16 @@ impl Image {
             _ => None,
         }
     }
+}
+
+/// Like [`Image::to_rgba8`], but scalable sources (such as SVGs) are rasterized to
+/// `target_size` (in physical pixels) instead of their intrinsic size.
+/// Returns None if the pixels cannot be obtained.
+pub fn image_to_rgba8_with_target_size(
+    image: &Image,
+    target_size: IntSize,
+) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    image.render_to_rgba8(Some(target_size.cast_unit()))
 }
 
 #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
@@ -1285,6 +1304,59 @@ fn test_image_invalid_svg() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "svg")]
+#[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
+fn test_image_load_from_data_svg() {
+    let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
+    // The leading `<svg` tag lets the format be guessed.
+    let guessed = Image::load_from_data(simple_svg.as_bytes(), None).unwrap();
+    assert_eq!(guessed.size(), [320, 200].into());
+    // An explicit format hint works too.
+    let hinted = Image::load_from_data(simple_svg.as_bytes(), Some("svg")).unwrap();
+    assert_eq!(hinted.size(), [320, 200].into());
+}
+
+#[cfg(feature = "svg")]
+#[test]
+// memchr's manually aligned SIMD loads are a false positive under -Zmiri-symbolic-alignment-check
+#[cfg_attr(miri, ignore)]
+fn test_image_load_from_data_svgz() {
+    // usvg gates gzip decompression behind its `svgz` feature, so a missing feature would
+    // silently turn every compressed SVG into a load error. Gzip of the `simple_svg` above.
+    const SIMPLE_SVGZ: &[u8] = &[
+        0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x03, 0xb3, 0x29, 0x2e, 0x4b, 0x57,
+        0x28, 0xcf, 0x4c, 0x29, 0xc9, 0xb0, 0x55, 0x32, 0x36, 0x32, 0x50, 0x52, 0xc8, 0x48, 0xcd,
+        0x4c, 0xcf, 0x28, 0xb1, 0x55, 0x32, 0x32, 0x00, 0x72, 0x2a, 0x72, 0x73, 0xf2, 0x8a, 0x6d,
+        0x95, 0x32, 0x4a, 0x4a, 0x0a, 0xac, 0xf4, 0xf5, 0xcb, 0xcb, 0xcb, 0xf5, 0xca, 0x8d, 0xf5,
+        0xf2, 0x8b, 0xd2, 0xf5, 0x81, 0xb2, 0x06, 0xfa, 0x40, 0xad, 0x4a, 0x76, 0x36, 0x20, 0xca,
+        0x0e, 0x00, 0x37, 0x91, 0x7a, 0xd6, 0x47, 0x00, 0x00, 0x00,
+    ];
+    let image = Image::load_from_data(SIMPLE_SVGZ, Some("svgz")).unwrap();
+    assert_eq!(image.size(), [320, 200].into());
+}
+
+#[cfg(feature = "image-decoders")]
+#[test]
+#[cfg_attr(miri, ignore)]
+fn test_image_load_from_data_png() {
+    let mut png = std::io::Cursor::new(std::vec::Vec::new());
+    image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(2, 3, image::Rgb([0, 255, 0])))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    let png = png.into_inner();
+
+    // The PNG magic bytes let the format be guessed.
+    let guessed = Image::load_from_data(&png, None).unwrap();
+    assert_eq!(guessed.size(), [2, 3].into());
+    // An explicit format hint works too.
+    let hinted = Image::load_from_data(&png, Some("png")).unwrap();
+    assert_eq!(hinted.size(), [2, 3].into());
+
+    assert!(Image::load_from_data(b"not an image", None).is_err());
+}
+
 /// The result of the fit function
 #[derive(Debug)]
 pub struct FitResult {
@@ -1469,6 +1541,38 @@ pub fn fit(
     .adjust_for_tiling(ratio, alignment, tiling)
 }
 
+/// The pixel size a scalable image (an SVG) needs to be rasterized at to fill `target`
+/// under `image_fit`, i.e. its intrinsic size scaled by what [`fit`] would scale it by.
+///
+/// Returns `None` when the source has no area to scale from, or when the fitted size
+/// collapses to nothing.
+pub fn scalable_render_size(
+    source_size: IntSize,
+    image_fit: ImageFit,
+    target: euclid::Size2D<f32, PhysicalPx>,
+    scale_factor: ScaleFactor,
+    tiling: (ImageTiling, ImageTiling),
+) -> Option<euclid::Size2D<u32, PhysicalPx>> {
+    let source = source_size.cast::<f32>();
+    if source.is_empty() {
+        return None;
+    }
+    let fit = fit(
+        image_fit,
+        target,
+        IntRect::from_size(source_size.cast()),
+        scale_factor,
+        // Only the size is of interest here, so the alignment doesn't matter.
+        Default::default(),
+        tiling,
+    );
+    let size = euclid::size2(
+        (source.width * fit.source_to_target_x) as u32,
+        (source.height * fit.source_to_target_y) as u32,
+    );
+    (!size.is_empty()).then_some(size)
+}
+
 /// Generate an iterator of  [`FitResult`] for each slice of a nine-slice border image
 pub fn fit9slice(
     source_rect: IntSize,
@@ -1586,6 +1690,20 @@ pub(crate) mod ffi {
         image: *mut Image,
     ) {
         unsafe { core::ptr::write(image, super::load_image_from_embedded_data(data, format)) };
+    }
+
+    /// Unlike `slint_image_load_from_embedded_data`, this does not go through the image cache,
+    /// so `data` does not have to be `'static`.
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_image_load_from_data(
+        data: Slice<'_, u8>,
+        format: Slice<'_, u8>,
+        image: *mut Image,
+    ) {
+        let format = core::str::from_utf8(format.as_slice()).ok();
+        let loaded = super::Image::load_from_data(data.as_slice(), format).unwrap_or_default();
+        unsafe { core::ptr::write(image, loaded) };
     }
 
     #[unsafe(no_mangle)]

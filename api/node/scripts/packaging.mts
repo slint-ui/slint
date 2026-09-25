@@ -24,6 +24,8 @@ const repoRoot = join(nodeDir, "..", ".."); // repository root
 export const NAPI_TARGETS = [
     "linux-x64-gnu",
     "linux-arm64-gnu",
+    "linux-x64-musl",
+    "linux-arm64-musl",
     "darwin-arm64",
     "win32-x64-msvc",
     "win32-arm64-msvc",
@@ -151,6 +153,11 @@ export function setMainBinaryDeps(opts: {
  * Assemble and pack the slint-ui-dev meta-package: it ships the dev loader and
  * pulls in the matching platform's dev binary. Requires the dev loader
  * (rust-module-dev.cjs) to be built in api/node.
+ *
+ * The files copied in here are generated, so api/node/.gitignore covers them and
+ * pnpm would leave them out of the tarball. That's why dev-package/package.json
+ * lists them in "files": an explicit list wins over any ignore file. Keep the two
+ * in sync when adding a file here.
  */
 export async function packDevMeta(opts: {
     version: string;

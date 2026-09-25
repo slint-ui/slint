@@ -187,6 +187,10 @@ We provide templates for a few off-the-shelf development boards from some of the
 </TabItem>
 </Tabs>
 
+The Rust sections below show how to run the Slint Printer demo on various boards. The commands
+are meant to be run from the root of a checkout of the [Slint repository](https://github.com/slint-ui/slint);
+the demo lives in the `demos` Cargo workspace, hence the explicit `--manifest-path`.
+
 ### Espressif (ESP32)
 
 <Tabs syncKey="dev-language">
@@ -204,7 +208,7 @@ When flashing, with `espflash`, you will be prompted to select a USB port. If th
 To compile and run the Slint Printer demo:
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --release --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
@@ -223,7 +227,7 @@ Follow the steps below to run the Slint Printer Demo
 Using [probe-rs](https://probe.rs).
 
 ```sh
-CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
+CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-rs run --chip STM32H735IGKx" cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
@@ -251,7 +255,7 @@ rustup target add thumbv6m-none-eabi
 Build the Slint Printer demo with:
 
 ```sh
-cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 The resulting file can be flashed with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using:
@@ -301,7 +305,7 @@ elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 Build the Slint Printer demo with:
 
 ```sh
-cargo build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
+cargo build --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico2-st7789 --target=thumbv8m.main-none-eabihf --release
 ```
 
 The resulting file can be flashed conveniently with [picotool](https://github.com/raspberrypi/picotool). You should build it from source.
@@ -326,7 +330,7 @@ This requires [probe-rs](https://probe.rs) and to connect the pico via a probe
 Then you can simply run with `cargo run`
 
 ```sh
-CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
+CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-rs run --chip RP2040" cargo run --manifest-path demos/printerdemo_mcu/Cargo.toml --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 #### Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
@@ -342,7 +346,7 @@ Add this build task to your `.vscode/tasks.json`:
 			"type": "cargo",
 			"command": "build",
 			"args": [
-				"--package=printerdemo_mcu",
+				"--manifest-path=demos/printerdemo_mcu/Cargo.toml",
 				"--features=mcu-pico-st7789",
 				"--target=thumbv6m-none-eabi",
 				"--profile=release-with-debug"
@@ -359,7 +363,7 @@ Add this build task to your `.vscode/tasks.json`:
 
 The `release-with-debug` profile is needed, because the debug build does not fit into flash.
 
-You can define it like this in your top level `Cargo.toml`:
+You can define it like this in the `demos/Cargo.toml` workspace manifest:
 
 ```toml
 [profile.release-with-debug]

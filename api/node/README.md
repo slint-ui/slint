@@ -92,7 +92,9 @@ export component MainWindow inherits Window {
 ```
 
 Each exported Window component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
+an object which allow to initialize the value of public properties or callbacks. A name declared with a
+dash in `.slint` can be given either as declared (`"my-property"`) or with underscores (`my_property`),
+which is how it is exposed on the instance.
 
 **`main.js`**
 

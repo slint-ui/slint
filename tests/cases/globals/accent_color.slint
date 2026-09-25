@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The style palette reads the system accent color in a global, which has no
+// enclosing component to reach the window from.
+
+import { Palette } from "std-widgets.slint";
+
+global AccentObserver {
+    out property <brush> accent: Palette.accent-background;
+}
+
+export component TestCase inherits Window {
+    out property <brush> accent: AccentObserver.accent;
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let before = instance.get_accent();
+slint_testing::set_system_accent_color(slint::Color::from_rgb_u8(255, 0, 0));
+assert_ne!(instance.get_accent(), before);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto before = instance.get_accent();
+slint_testing::set_system_accent_color(slint::Color::from_rgb_uint8(255, 0, 0));
+assert(instance.get_accent() != before);
+```
+*/

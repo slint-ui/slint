@@ -11,8 +11,9 @@ must consult the declared `Type` (Int32 vs Float32) and convert accordingly.
 
 import typing
 from pathlib import Path
-from slint import slint as native
+
 from slint import models
+from slint import slint as native
 
 
 def _build(source: str, name: str = "Test") -> native.ComponentInstance:

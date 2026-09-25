@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Removing a row destroys the repeated item tree of that row right away, while the handler that
+// triggered the removal keeps running: the event dispatch holds the inner element's own item tree
+// alive, but its parent chain is gone. Reaching an item through that dead chain — here row-fs in
+// the removed row and fs in the root — must not panic; it simply does nothing.
+
+export component TestCase {
+    width: 300px;
+    height: 300px;
+
+    in-out property <[int]> model;
+    callback remove-row();
+
+    out property <int> clicked;
+    out property <bool> fs-has-focus: fs.has-focus;
+
+    fs := FocusScope { }
+
+    for row in model: Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+
+        row-fs := FocusScope { }
+
+        for _idx in 1: TouchArea {
+            clicked => {
+                root.clicked += 1;
+                root.remove-row();
+                // This row is gone, so neither target is reachable anymore.
+                row-fs.focus();
+                fs.focus();
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+let model = std::rc::Rc::new(slint::VecModel::from(vec![1i32]));
+instance.set_model(model.clone().into());
+let m = model.clone();
+instance.on_remove_row(move || { m.remove(0); });
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked(), 1);
+assert_eq!(model.row_count(), 0);
+assert!(!instance.get_fs_has_focus());
+
+// the row is gone, so a second click hits nothing
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1});
+instance.set_model(model);
+instance.on_remove_row([model] { model->erase(0); });
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked(), 1);
+assert_eq(model->row_count(), 0);
+assert(!instance.get_fs_has_focus());
+
+// the row is gone, so a second click hits nothing
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked(), 1);
+```
+
+```js
+let model = new slintlib.ArrayModel([1]);
+var instance = new slint.TestCase({});
+// The instance accessor takes the translated name; the constructor's object would need "remove-row".
+instance.remove_row = function() { model.pop(); };
+instance.model = model;
+
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked, 1);
+assert.equal(instance.model.length, 0);
+assert(!instance.fs_has_focus);
+
+// the row is gone, so a second click hits nothing
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked, 1);
+```
+*/

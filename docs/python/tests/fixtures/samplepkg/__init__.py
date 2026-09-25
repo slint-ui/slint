@@ -5,7 +5,7 @@
 
 import enum
 
-from . import sub  # noqa: F401  # documented submodule (mirrors slint.language)
+from . import sub  # documented submodule (mirrors slint.language)
 from .models import ListThing, Point, Thing
 from .native import Base  # noqa: F401  # imported but not in __all__ -> not documented
 
@@ -23,4 +23,4 @@ def do_it(count: int) -> None:
     """Do it `count` times; see `Thing`."""
 
 
-__all__ = ["Thing", "ListThing", "Point", "Mode", "do_it", "sub"]
+__all__ = ["ListThing", "Mode", "Point", "Thing", "do_it", "sub"]

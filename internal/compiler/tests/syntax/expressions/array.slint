@@ -13,6 +13,8 @@ export component Test {
 //        >    <error{This method needs 2 arguments, but 0 were provided}
         a.insert(1);
 //        >    <error{This method needs 2 arguments, but 1 were provided}
+        a.index-of();
+//        >      <error{This method needs 1 argument, but 0 were provided}
     }
 
     public function test_too_many_args() {
@@ -22,6 +24,8 @@ export component Test {
 //        >    <error{This method needs 1 argument, but 3 were provided}
         a.insert(1, 2, 3, 4);
 //        >    <error{This method needs 2 arguments, but 4 were provided}
+        a.index-of(1, 2);
+//        >      <error{This method needs 1 argument, but 2 were provided}
     }
 
     public function test_arg_incorrect_type() {
@@ -29,6 +33,8 @@ export component Test {
 //             >      <error{Cannot convert string to int}
         a.insert(1, "string");
 //                  >      <error{Cannot convert string to int}
+        a.index-of("string");
+//                 >      <error{Cannot convert string to int}
 
     }
 

@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, Typography, Colors } from "../../style.slint";
+import { InspectorIconButton } from "icon-button.slint";
+
+import { SectionTitle } from "../common.slint";
+
+export component InspectorSection inherits Rectangle {
+    in property <string> title;
+    in property <bool> use-shared-title: false;
+    in property <bool> show-appearance-icons: false;
+    in property <bool> show-typography-icons: false;
+
+    horizontal-stretch: 1;
+    height: section-layout.preferred-height;
+
+    section-layout := VerticalLayout {
+        width: root.width;
+        padding-top: Metrics.space-regular;
+        padding-bottom: Metrics.space-regular;
+        spacing: Metrics.space-compact;
+
+        Rectangle {
+            height: Typography.section-heading.size + Metrics.space-small;
+
+            if root.use-shared-title: SectionTitle {
+                x: Style.inspector-layout.padding;
+                width: parent.width - 2 * Style.inspector-layout.padding;
+                height: parent.height;
+                label: root.title;
+                vertical-alignment: center;
+            }
+
+            if !root.use-shared-title: Text {
+                x: Style.inspector-layout.padding;
+                text: root.title;
+                color: Colors.foreground;
+                font-size: Typography.section-heading.size;
+                font-weight: FontWeight.bold;
+                vertical-alignment: center;
+            }
+
+            if root.show-appearance-icons: HorizontalLayout {
+                x: parent.width - Style.inspector-layout.padding - self.preferred-width;
+                y: 0.5px;
+                height: Metrics.icon-large;
+                spacing: Metrics.space-regular;
+
+                InspectorIconButton { kind: "eye"; }
+                InspectorIconButton { kind: "drop"; }
+            }
+
+            if root.show-typography-icons: HorizontalLayout {
+                x: parent.width - Style.inspector-layout.padding - self.preferred-width;
+                y: 0.5px;
+                height: Metrics.icon-large;
+
+                InspectorIconButton { kind: "type-grid"; }
+            }
+        }
+
+        @children
+    }
+
+    Rectangle {
+        y: root.height - self.height;
+        height: Metrics.border-width;
+        background: Style.inspector-layout.divider;
+    }
+}

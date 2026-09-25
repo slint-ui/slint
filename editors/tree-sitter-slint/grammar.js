@@ -12,9 +12,13 @@ module.exports = grammar({
     [$.assignment_block],
     // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
     [$.unary_prec_operator, $.add_prec_operator]
-],
+  ],
 
   externals: ($) => [$.block_comment],
+
+  // Substituted into their call sites: as rules of their own they would add a
+  // reduction that conflicts with $.anon_struct_assignment.
+  inline: ($) => [$._statement_identifier, $._statement_type_identifier],
 
   rules: {
     sourcefile: ($) => repeat($._definition),
@@ -49,7 +53,7 @@ module.exports = grammar({
     export_statement: ($) => seq(
       "export",
       "{", commaSep($.export_type), optional(","), "}",
-      optional(seq("from", field("from", $.string_value), ";"))
+      optional(seq("from", field("from", alias($._import_string, $.string_value)), ";"))
     ),
 
     _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
@@ -60,7 +64,7 @@ module.exports = grammar({
       seq(
         "import",
         optional(seq("{", commaSep($.import_type), optional(","), "}", "from")),
-        $.string_value,
+        alias($._import_string, $.string_value),
         ";",
       ),
 
@@ -72,8 +76,8 @@ module.exports = grammar({
 
     component: ($) =>
       seq(
-        optional(seq(field("id", $.simple_identifier), ":=")),
-        field("type", $.user_type_identifier),
+        optional(seq(field("id", $._statement_identifier), ":=")),
+        field("type", $._statement_type_identifier),
         $.block,
       ),
 
@@ -96,30 +100,7 @@ module.exports = grammar({
         $.block,
       ),
 
-    component_modifier: ($) =>
-      choice(
-        $.uses_clause,
-        $.implements_clause,
-        seq("inherits", field("base_type", $.user_type_identifier)),
-      ),
-
-    uses_clause: ($) =>
-      seq(
-        "uses",
-        "{",
-        commaSep1($.used_interface),
-        optional(","),
-        "}",
-      ),
-
-    used_interface: ($) =>
-      seq(
-        field("interface", $.user_type_identifier),
-        "from",
-        field("source", $.simple_identifier),
-      ),
-
-    implements_clause: ($) => seq("implements", commaSep1($.user_type_identifier)),
+    component_modifier: ($) => seq("inherits", field("base_type", $.user_type_identifier)),
 
     _property_type: ($) => seq("<", field("type", $.type), ">"),
 
@@ -152,8 +133,21 @@ module.exports = grammar({
         choice(seq($.imperative_block, optional(";")), seq($.expression, ";")),
       ),
 
+    property_deprecation: ($) =>
+      seq(
+        "@deprecated",
+        optional(seq("(", field("message", $.string_value), ")")),
+      ),
+
+    shadowable: (_) => "@shadowable",
+
+    // `@deprecated` / `@shadowable` prefixing a member declaration, in any order
+    _member_attributes: ($) =>
+      repeat1(choice($.property_deprecation, $.shadowable)),
+
     property: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         field("visibility", optional($.property_visibility)),
         "property",
         seq(
@@ -169,11 +163,21 @@ module.exports = grammar({
 
     binding_alias: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         field("visibility", optional($.property_visibility)),
         optional("property"),
-        field("name", $.simple_identifier),
+        field("name", $._statement_identifier),
         "<=>",
         field("alias", $.expression),
+        ";",
+      ),
+
+    implement_statement: ($) =>
+      seq(
+        "implement",
+        field("interface", $.user_type_identifier),
+        "<=>",
+        field("target", $.simple_identifier),
         ";",
       ),
 
@@ -280,16 +284,40 @@ module.exports = grammar({
         $.for_loop,
         $.function_definition,
         $.if_statement,
-        $.match_statement,
+        $.implement_statement,
+        $.match_element,
         $.property,
         $.property_assignment,
+        $.slot_declaration,
+        $.slot_assignment,
+        $.slot_forwarding,
         $.states_definition,
         $.transitions_definition,
       ),
 
+    slot_declaration: ($) =>
+      seq("slot", field("name", $.simple_identifier), ";"),
+
+    // `slot` is a contextual keyword: it only introduces a slot declaration when a
+    // name follows it, so it stays a valid identifier everywhere else. As with
+    // "changed" in $.callback_event, the lexer would otherwise always prefer the
+    // "slot" keyword over the identifier regex, so alias it back to an identifier
+    // in every statement that may start with one.
+    _statement_identifier: ($) =>
+      choice($.simple_identifier, alias("slot", $.simple_identifier)),
+
+    _statement_type_identifier: ($) =>
+      choice($.user_type_identifier, alias("slot", $.user_type_identifier)),
+
+    slot_assignment: ($) =>
+      seq(field("name", $._statement_identifier), "<<", $.component),
+
+    slot_forwarding: ($) =>
+      seq(field("name", $._statement_identifier), "<<", field("value", $.expression), ";"),
+
     property_assignment: ($) =>
       seq(
-        field("property", $.simple_identifier),
+        field("property", $._statement_identifier),
         ":",
         field(
           "value",
@@ -376,9 +404,9 @@ module.exports = grammar({
 
     for_range: ($) => choice($.value_list, $.expression),
 
-    match_statement: ($) =>
+    match_element: ($) =>
       seq("match",
-        field("value", $.simple_identifier),
+        field("value", $.expression),
         "{",
         repeat($.match_case),
         optional($.wildcard_match_case),
@@ -388,13 +416,14 @@ module.exports = grammar({
     match_case: ($) =>
       seq(
         field("case", choice($._basic_value,
+          $.user_type_identifier,
           seq($.user_type_identifier, ".", $.user_type_identifier))),
         ":",
         choice($.component, seq("{", "}"))
       ),
 
     wildcard_match_case: ($) =>
-      seq("*", ":", $.component),
+      seq("*", ":", choice($.component, seq("{", "}"))),
 
     type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
@@ -424,6 +453,7 @@ module.exports = grammar({
     expression: ($) =>
       prec.right(
         choice(
+          $.closure_expression,
           $.keys,
           $.parens_op,
           $.index_op,
@@ -444,6 +474,21 @@ module.exports = grammar({
       ),
 
     parens_op: ($) => seq("(", field("left", $.expression), ")"),
+
+    closure_expression: ($) =>
+      prec.right(
+        1,
+        seq(
+          "(",
+          field("argument", $.simple_identifier),
+          $._closure_arrow,
+          field("body", $.expression),
+        ),
+      ),
+
+    // Keep `)` and `=>` together so `(foo)` remains a parenthesized expression
+    // when no arrow follows.
+    _closure_arrow: (_) => token(seq(")", /[\s\r\n]*/, "=>")),
 
     index_op: ($) =>
       prec(
@@ -598,6 +643,7 @@ module.exports = grammar({
 
     callback: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         optional($.purity),
         "callback",
         field("name", $.simple_identifier),
@@ -612,6 +658,7 @@ module.exports = grammar({
 
     function_definition: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         repeat(choice($.purity, $.function_visibility)),
         "function",
         field("name", $.simple_identifier),
@@ -622,6 +669,7 @@ module.exports = grammar({
 
     function_declaration: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         repeat(choice($.purity, $.function_visibility)),
         "function",
         field("name", $.simple_identifier),
@@ -632,6 +680,7 @@ module.exports = grammar({
 
     callback_alias: ($) =>
       seq(
+        field("attributes", optional($._member_attributes)),
         optional($.purity),
         "callback",
         field("name", $.simple_identifier),
@@ -650,7 +699,7 @@ module.exports = grammar({
     // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
       seq(
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", choice($._statement_identifier, alias("changed", $.simple_identifier))),
         optional(field("arguments", $.arguments)),
         "=>",
         field("action", $._binding),
@@ -795,16 +844,41 @@ module.exports = grammar({
     _unescaped_string_fragment: (_) => token.immediate(prec(1, /[^"\\]+/)),
 
     escape_sequence: ($) =>
-      seq(
-        "\\",
-        choice(
-          /u\{[0-9a-fA-F]+\}/,
-          "n",
-          "\\",
-          '"',
-          seq("{", $.expression, "}"),
+      choice(
+        // A single token, so the longest match decides between the three
+        // alternatives here and no whitespace can sneak in after the backslash.
+        token.immediate(
+          seq("\\", choice(/u\{[0-9a-fA-F]+\}/, "n", "\\", '"')),
         ),
+        // The "}" is not immediate: the expression may be followed by
+        // whitespace, as in "\{ 1 + 2 }".
+        seq(token.immediate("\\{"), $.expression, "}"),
+        // A backslash that starts no known escape is a semantic error, not a
+        // syntax one. Keeping it a node rather than an ERROR avoids wrecking
+        // the tree while an escape is still being typed.
+        token.immediate("\\"),
       ),
+
+    // Strings in import statements are special.
+    // Even though the escape sequences are respected at lexing time, they
+    // are then later ignored, so \" does not close the string, but actually produces
+    // \" and not ".
+    //
+    // e.g.:
+    //
+    // import {Foo} from "\"x";
+    //
+    // Actually imports from the file \"x
+    _import_string: ($) => seq(
+      '"',
+      repeat(choice(
+        $._unescaped_string_fragment,
+        token.immediate("\\\\"),
+        token.immediate("\\\""),
+        token.immediate("\\"))),
+      '"',
+    ),
+
     /////////////////////////////////////////////////////////////////////
 
     property_visibility: (_) => choice("private", "in", "out", "in-out", "in_out"),

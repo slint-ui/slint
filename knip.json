@@ -4,7 +4,7 @@
   "workspaces": {
     ".": {
       "ignoreBinaries": ["local-package", "test_grammar", "build", "check", "biome"],
-      "ignoreDependencies": ["@cspell/dict-fr-fr"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
@@ -74,10 +74,12 @@
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
     "examples/system-tray": { "ignoreBinaries": ["compile"] },
+    "examples/virtual_keyboard/node": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
         "src/styles/starlight-slint-theme.css",
+        "src/styles/sls-ids.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
@@ -96,11 +98,6 @@
     "docs/python": {
       "ignoreBinaries": ["uv"],
       "ignoreFiles": ["src/components/Signature.astro"]
-    },
-    "docs/safety": {
-      "ignoreFiles": [
-        "src/styles/sls-ids.css"
-      ]
     },
     "docs/cpp": {
       "ignoreBinaries": ["doxygen"],

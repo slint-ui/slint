@@ -1,0 +1,77 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a subcomponent whose base carries `height: self.width` (and
+// whose subtree contains a height-for-width descendant, so
+// `layoutinfo-v-with-constraint` is synthesized on it) must still have that
+// height constraint applied when placed as a cell in a plain VerticalLayout.
+//
+// Commit 5e122db stripped the cell's inherited `height` restriction unconditionally
+// in the LLR lowering (mirroring the interpreter's flex-only fix). Box layouts,
+// unlike flex, don't bake the height binding into the measured layout-info, so
+// the cross-axis-derived height was dropped and cells collapsed to zero on the
+// codegen backends (rust/cpp). The interpreter kept working because its fix was
+// scoped to the flex code path.
+//
+// The Text with `wrap: word-wrap` is only there to trigger the synthesis of
+// `layoutinfo-v-with-constraint` on Card (via `is_builtin_height_for_width`);
+// the assertion checks the enclosing cell's height, which is font-independent.
+
+component Card inherits Rectangle {
+    height: self.width;
+    // A height-for-width descendant, so the compiler synthesizes
+    // `layoutinfo-v-with-constraint` on Card.
+    Text { wrap: word-wrap; text: "x"; color: black; }
+}
+
+export component TestCase inherits Window {
+    width: 45px;
+    height: 300px;
+
+    VerticalLayout {
+        alignment: start;
+        b1 := Card { background: red; }
+        b2 := Card { background: green; }
+        b3 := Card { background: blue; }
+    }
+
+    out property <bool> h1_ok: b1.height == 45px;
+    out property <bool> h2_ok: b2.height == 45px;
+    out property <bool> h3_ok: b3.height == 45px;
+    out property <bool> stacked_ok:
+        b1.y == 0px && b2.y == 45px && b3.y == 90px;
+
+    out property <bool> test: h1_ok && h2_ok && h3_ok && stacked_ok;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_h1_ok(), "b1 height wrong");
+assert!(instance.get_h2_ok(), "b2 height wrong");
+assert!(instance.get_h3_ok(), "b3 height wrong");
+assert!(instance.get_stacked_ok(), "cells not stacked at y=0,45,90");
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_h1_ok());
+assert(instance.get_h2_ok());
+assert(instance.get_h3_ok());
+assert(instance.get_stacked_ok());
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.h1_ok);
+assert(instance.h2_ok);
+assert(instance.h3_ok);
+assert(instance.stacked_ok);
+assert(instance.test);
+```
+
+*/

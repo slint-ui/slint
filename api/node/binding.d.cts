@@ -5,4 +5,4 @@
 // generated type definitions of the default binary describe both. See
 // binding.cjs for the runtime loading logic.
 
-export * from "./rust-module.d.cts";
+export * from "./rust-module.cjs";

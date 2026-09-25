@@ -4,10 +4,10 @@
 export interface Foo {
     out property <string> message;
         match message {
-//      >error{An interface cannot have match statements}
+//      >error{An interface cannot have match elements}
             "hi": Rectangle { Text { text: "Hello!"; } }
             "bye": Rectangle { Text { text: "Bye!"; } }
             *: Rectangle { Text { text: "Welcome"; } }
     }
-//  <error{An interface cannot have match statements}
+//  <error{An interface cannot have match elements}
 }

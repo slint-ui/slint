@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=192x64
+// ROTATION_THRESHOLD=45  - the border radius algorithm doesn't give the same result from every rotation
+
+// `clip: true` clips children at the border's inner edge (#1988): the oversized green
+// child must not extend into the semi-transparent border ring, which stays purple
+// (red border over blue background) all the way around. The purple ring also shows
+// that the background extends under the border.
+//
+// The child is translucent, so every pixel shows what it sits on: green over blue
+// inside the clip, and green over purple wherever the clip would wrongly leak into
+// the border ring.
+//
+// The third rectangle has a radius smaller than half its border width, where the
+// outer radius is clamped up to keep a rounded corner at all and the inner radius
+// clamps to zero.
+
+export component TestCase inherits Window {
+    width: 192px;
+    height: 64px;
+
+    background: black;
+
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: 56px;
+        height: 56px;
+        background: blue;
+        border-width: 12px;
+        border-color: #ff00006f;
+        border-radius: 16px;
+        clip: true;
+        Rectangle {
+            x: -8px;
+            y: -8px;
+            width: 72px;
+            height: 72px;
+            background: #00800080;
+        }
+    }
+
+    Rectangle {
+        x: 68px;
+        y: 4px;
+        width: 56px;
+        height: 56px;
+        background: blue;
+        border-width: 12px;
+        border-color: #ff00006f;
+        clip: true;
+        Rectangle {
+            x: -8px;
+            y: -8px;
+            width: 72px;
+            height: 72px;
+            background: #00800080;
+        }
+    }
+
+    Rectangle {
+        x: 132px;
+        y: 4px;
+        width: 56px;
+        height: 56px;
+        background: blue;
+        border-width: 20px;
+        border-color: #ff00006f;
+        border-radius: 8px;
+        clip: true;
+        Rectangle {
+            x: -8px;
+            y: -8px;
+            width: 72px;
+            height: 72px;
+            background: #00800080;
+        }
+    }
+}

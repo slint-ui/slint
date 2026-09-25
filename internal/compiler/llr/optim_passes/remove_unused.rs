@@ -16,7 +16,7 @@ impl Mapping {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
             LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
-            LocalMemberIndex::Native { .. } => true,
+            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => true,
         }
     }
 }
@@ -85,7 +85,6 @@ pub fn remove_unused(root: &mut CompilationUnit) {
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
-        g.animations.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
     macro_rules! remap_index {
@@ -243,6 +242,7 @@ mod visitor {
             globals,
             popup_menu,
             has_debug_info: _,
+            type_exports: _,
             #[cfg(feature = "bundle-translations")]
                 translations: _,
         }: &mut crate::llr::CompilationUnit,
@@ -275,8 +275,29 @@ mod visitor {
         visitor: &mut (impl Visitor + ?Sized),
     ) {
         let scope = EvaluationScope::SubComponent(item_tree.root, None);
-        for p in public_properties {
+        for p in public_properties.values_mut() {
             visit_public_property(p, &scope, state, visitor);
+        }
+        visit_tree_node_z_properties(&mut item_tree.tree, &scope, state, visitor);
+    }
+
+    /// The z property paths are relative to the tree root, so `scope` must be the
+    /// scope of the tree root sub-component.
+    fn visit_tree_node_z_properties(
+        node: &mut crate::llr::TreeNode,
+        scope: &EvaluationScope,
+        state: &VisitorState,
+        visitor: &mut (impl Visitor + ?Sized),
+    ) {
+        if let Some(z_props) = &mut node.z_sort_order_property {
+            for z_source in z_props {
+                if let crate::llr::ZSource::Expression(e) = z_source {
+                    visit_expression(e.get_mut(), scope, state, visitor);
+                }
+            }
+        }
+        for child in &mut node.children {
+            visit_tree_node_z_properties(child, scope, state, visitor);
         }
     }
 
@@ -307,14 +328,18 @@ mod visitor {
             child_of_layout: _,
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
+            cross_axis_self_alignment_for_repeated,
+            layout_order_for_repeated,
             layout_info_v_constrained_for_repeated,
             layout_info_v_at_cross_width_for_repeated,
+            grid_row_child_cross_width,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
             element_infos: _,
             row_child_templates: _,
             prop_analysis,
+            debug_info: _,
         }: &mut SubComponent,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
@@ -327,6 +352,7 @@ mod visitor {
             model,
             index_prop,
             data_prop,
+            dynamic_z,
             sub_tree,
             index_in_tree: _,
             listview,
@@ -341,11 +367,20 @@ mod visitor {
             if let Some(data_prop) = data_prop {
                 visitor.visit_property_idx(data_prop, &inner_scope, state);
             }
+            if let Some(dynamic_z) = dynamic_z {
+                visit_member_reference(dynamic_z, &inner_scope, state, visitor);
+            }
+
+            visit_tree_node_z_properties(&mut sub_tree.tree, &inner_scope, state, visitor);
 
             if let Some(listview) = listview {
-                visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);
-                visit_member_reference(&mut listview.viewport_height, &scope, state, visitor);
-                visit_member_reference(&mut listview.viewport_width, &scope, state, visitor);
+                visit_member_reference(&mut listview.content_y, &scope, state, visitor);
+                if let Some(content_height) = &mut listview.content_height {
+                    visit_member_reference(content_height, &scope, state, visitor);
+                }
+                if let Some(content_width) = &mut listview.content_width {
+                    visit_member_reference(content_width, &scope, state, visitor);
+                }
                 visit_member_reference(&mut listview.listview_width, &scope, state, visitor);
                 visit_member_reference(&mut listview.listview_height, &scope, state, visitor);
 
@@ -358,6 +393,7 @@ mod visitor {
             let popup_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
             visit_expression(p.position.get_mut(), &popup_scope, state, visitor);
             visit_member_reference(&mut p.anchor, &popup_scope, state, visitor);
+            visit_tree_node_z_properties(&mut p.item_tree.tree, &popup_scope, state, visitor);
         }
         for t in timers {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);
@@ -402,10 +438,19 @@ mod visitor {
         if let Some(e) = flexbox_layout_item_info_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
+        if let Some((_, e)) = cross_axis_self_alignment_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some((_, e)) = layout_order_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
         if let Some(e) = layout_info_v_constrained_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = layout_info_v_at_cross_width_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = grid_row_child_cross_width {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {
@@ -434,7 +479,6 @@ mod visitor {
             callbacks: _,
             functions,
             init_values,
-            animations,
             change_callbacks,
             const_properties: _,
             public_properties,
@@ -462,15 +506,6 @@ mod visitor {
             })
             .collect();
 
-        *animations = std::mem::take(animations)
-            .into_iter()
-            .map(|(mut k, mut v)| {
-                visit_member_index(&mut k, &scope, state, visitor);
-                visit_expression(&mut v, &scope, state, visitor);
-                (k, v)
-            })
-            .collect();
-
         *change_callbacks = std::mem::take(change_callbacks)
             .into_iter()
             .map(|(mut k, mut v)| {
@@ -480,7 +515,7 @@ mod visitor {
             })
             .collect();
 
-        for p in public_properties {
+        for p in public_properties.values_mut() {
             visit_public_property(p, &scope, state, visitor);
         }
     }
@@ -495,10 +530,11 @@ mod visitor {
         visit_member_reference(activated, &scope, state, visitor);
         visit_member_reference(close, &scope, state, visitor);
         visit_member_reference(entries, &scope, state, visitor);
+        visit_tree_node_z_properties(&mut item_tree.tree, &scope, state, visitor);
     }
 
     pub fn visit_public_property(
-        PublicProperty { name: _, ty: _, prop, read_only: _ }: &mut PublicProperty,
+        PublicProperty { prop, .. }: &mut PublicProperty,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
@@ -536,7 +572,7 @@ mod visitor {
     }
 
     pub fn visit_binding_expression(
-        BindingExpression { expression, animation, is_constant: _, is_state_info: _, use_count: _ }: &mut BindingExpression,
+        BindingExpression { expression, animation, kind: _, use_count: _ }: &mut BindingExpression,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
@@ -605,7 +641,7 @@ mod visitor {
             LocalMemberIndex::Callback(c) => {
                 visitor.visit_callback_idx(c, scope, state);
             }
-            LocalMemberIndex::Native { .. } => {}
+            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => {}
         }
     }
 }

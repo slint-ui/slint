@@ -7,6 +7,7 @@ import typing
 from pathlib import Path
 
 import pytest
+
 import slint
 
 
@@ -83,8 +84,14 @@ def test_round_trip_through_slint_property(tmp_path: Path) -> None:
     assert app.s == slint.LogicalSize(13.0, 14.0)
 
     # NamedTuple writes (with matching field names) round-trip too.
-    PointNT = typing.NamedTuple("PointNT", [("x", float), ("y", float)])
-    SizeNT = typing.NamedTuple("SizeNT", [("width", float), ("height", float)])
+    class PointNT(typing.NamedTuple):
+        x: float
+        y: float
+
+    class SizeNT(typing.NamedTuple):
+        width: float
+        height: float
+
     app.p = PointNT(21.0, 22.0)
     assert app.p == slint.LogicalPosition(21.0, 22.0)
     app.s = SizeNT(23.0, 24.0)

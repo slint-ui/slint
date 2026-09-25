@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Icons, PickerStyles } from "../styling.slint";
+import { ColorIndicator } from "color-indicator.slint";
+
+export component GradientStopMarker inherits Rectangle {
+    in property <bool> active;
+    in property <color> stop-color;
+    in property <length> marker-size: 24px;
+    in property <length> marker-radius: 5px;
+    in property <color> inactive-color: PickerStyles.slider-color;
+    in property <color> active-color: PickerStyles.focused-color;
+    in property <color> checker-light: white;
+    in property <color> checker-dark: #e1e1e1;
+    width: root.marker-size;
+    height: self.width;
+    background: active ? root.active-color : root.inactive-color;
+    border-radius: root.marker-radius;
+
+    Rectangle {
+        y: 1px;
+        width: 0;
+        height: 0;
+        Image {
+            width: 10px;
+            transform-rotation: 45deg;
+            source: Icons.black-square;
+            colorize: root.background;
+        }
+    }
+
+    ColorIndicator {
+        color: root.stop-color;
+        checker-light: root.checker-light;
+        checker-dark: root.checker-dark;
+    }
+
+    @children
+}

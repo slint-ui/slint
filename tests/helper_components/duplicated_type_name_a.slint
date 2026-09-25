@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum SharedEnum { AaFirst, AaSecond }
+export struct SharedStruct { a-value: int }
+
+export component DupUserA {
+    in property <int> pick;
+    property <SharedEnum> sel: pick == 1 ? SharedEnum.AaSecond : SharedEnum.AaFirst;
+    out property <int> result: sel == SharedEnum.AaSecond ? 21 : 11;
+    out property <SharedStruct> the-struct: { a-value: 7 };
+}

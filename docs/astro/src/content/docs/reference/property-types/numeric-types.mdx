@@ -1,0 +1,109 @@
+---
+title: Primitive & Numeric Types
+description: The boolean, numeric, and unit types of the Slint language.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+<SC>
+## Primitive Types
+
+### bool
+<SlintProperty propName="bool" typeName="bool" defaultValue='false'>
+boolean whose value can be either `true` or `false`.
+</SlintProperty>
+
+The default `bool` is `false`. \{#sls.type.bool}
+
+## Numeric Types
+
+</SC>
+
+### angle
+<SlintProperty propName="angle" typeName="angle" defaultValue='0deg'>
+Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0 25turn`
+</SlintProperty>
+
+### duration
+<SlintProperty propName="duration" typeName="duration" defaultValue='0ms'>
+Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.
+</SlintProperty>
+
+### float
+<SlintProperty propName="float" typeName="float" defaultValue='0'>
+Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.
+</SlintProperty>
+
+`float` and `int` values have the following member functions:
+
+#### to-fixed(digits: int) -> string
+
+Returns a string representation of the number with `digits` digits after the decimal point.
+It behaves like JavaScript's [`toFixed()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toFixed).
+
+#### to-precision(digits: int) -> string
+
+Returns a string representation of the number with `digits` significant digits.
+It behaves like JavaScript's [`toPrecision()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toPrecision).
+
+Both functions format the number using the decimal separator of the current locale.
+See [Converting Between Numbers and Strings](../../language/type-conversions/#converting-between-numbers-and-strings).
+
+```slint
+export component FloatToString {
+    property<float> pi: 3.14159;
+    property<string> fixed: pi.to-fixed(2); // "3.14"
+    property<string> precision: pi.to-precision(4); // "3.142"
+}
+```
+
+In addition, call the <Link type="MathRef" label="math functions"/> in postfix style on any numeric value,
+for example `(-10).abs()` or `x.round()`.
+
+#### to-string-unlocalized() -> string
+
+Returns a string representation of the number but not localized. This means the decimal separator will always be a dot.
+
+<SC>
+
+### int
+<SlintProperty propName="int" typeName="int" defaultValue='0'>
+Signed integral number.
+</SlintProperty>
+
+The default `int` is zero. \{#sls.type.int}
+
+### length
+<SlintProperty propName="length" typeName="length" defaultValue='0px'>
+<NotInSC>
+The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.
+</NotInSC>
+</SlintProperty>
+
+A `length` is a distance.
+The default `length` is zero. \{#sls.type.length}
+
+</SC>
+
+### percent
+<SlintProperty propName="percent" typeName="percent" defaultValue='0%'>
+Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.
+</SlintProperty>
+
+### physical-length
+<SlintProperty propName="physical-length" typeName="physical-length" defaultValue='0phx'>
+This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.
+</SlintProperty>
+
+### relative-font-size
+<SlintProperty propName="relative-font-size" typeName="relative-font-size" defaultValue='0rem'>
+Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.
+</SlintProperty>
+
+
+
+Please see the language specific API references how these types are mapped to the APIs of the different programming languages.

@@ -20,6 +20,7 @@ publish = false
 slint = { workspace = true, default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
 i-slint-backend-winit = { workspace = true, features = ["x11", "wayland", "renderer-software"] }
 i-slint-backend-qt = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true }
 
 # TODO: Add additional test for LinuxKMS, but that requires root permissions.
 # TODO: Add additional test for Android Activity, but that requires an Android device and the Android SDK setup.

@@ -161,7 +161,7 @@ impl JsComponentCompiler {
     pub fn set_file_loader(
         &mut self,
         env: &Env,
-        callback: crate::DynFunction<'_>,
+        #[napi(ts_arg_type = "(path: string) => string")] callback: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
         let func_ref = std::rc::Rc::new(callback.create_ref()?);
         let env = *env;

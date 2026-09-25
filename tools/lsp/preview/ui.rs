@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
@@ -15,11 +16,48 @@ use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
-use crate::common::{self, ComponentInformation};
+use crate::editor_preview::{self, component_catalog::ComponentInformation};
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
+
+fn fuzzy_filter_iter<Item: std::fmt::Debug>(
+    input: &mut impl Iterator<Item = Item>,
+    transformer: impl Fn(&Item) -> String,
+    needle: &str,
+) -> Vec<Item> {
+    use nucleo_matcher::{Config, Matcher, pattern};
+
+    let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
+    let pattern = pattern::Pattern::parse(
+        needle,
+        pattern::CaseMatching::Ignore,
+        pattern::Normalization::Smart,
+    );
+
+    let mut all_matches = input
+        .filter_map(|item| {
+            let terms = [transformer(&item)];
+            pattern.match_list(terms.iter(), &mut matcher).pop().map(|(_, value)| (value, item))
+        })
+        .collect::<Vec<_>>();
+
+    all_matches.sort_by_key(|matched_item| std::cmp::Reverse(matched_item.0));
+
+    let cut_off = {
+        let lowest_value = all_matches.last().map(|(value, _)| *value).unwrap_or_default();
+        let highest_value = all_matches.first().map(|(value, _)| *value).unwrap_or_default();
+
+        if all_matches.len() < 10 {
+            lowest_value
+        } else {
+            highest_value - (highest_value - lowest_value) / 2
+        }
+    };
+
+    all_matches.drain(..).take_while(|(value, _)| *value >= cut_off).map(|(_, item)| item).collect()
+}
 
 mod brushes;
 pub mod log_messages;
@@ -93,8 +131,66 @@ impl AppWindow {
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
+pub fn preview_user_settings_from_values(
+    always_on_top: bool,
+    show_library: bool,
+    show_properties: bool,
+    show_outline: bool,
+    show_simulation_data: bool,
+    show_console: bool,
+) -> PreviewUserSettings {
+    PreviewUserSettings {
+        version: PreviewUserSettings::CURRENT_VERSION,
+        always_on_top,
+        show_library,
+        show_properties,
+        show_outline,
+        show_simulation_data,
+        show_console,
+    }
+}
+
+pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUserSettings) {
+    // The `changed` handlers triggered by these setters run deferred and report
+    // back through `preview::update_user_settings_from_ui`, which dedupes them
+    // against the last synced settings, so no echo guard is needed here.
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+
+    match app_window {
+        AppWindow::Preview(ui) => {
+            ui.set_library_widget(settings.show_library);
+            ui.set_properties_widget(settings.show_properties);
+            ui.set_outline_widget(settings.show_outline);
+            ui.set_data_widget(settings.show_simulation_data);
+            ui.set_console_panel_expanded(settings.show_console);
+        }
+        AppWindow::Editor(_) => {}
+    }
+}
+
+pub fn setup_preview_user_settings(api: &Api<'_>) {
+    api.on_preview_user_settings_changed(
+        |always_on_top,
+         show_library,
+         show_properties,
+         show_outline,
+         show_simulation_data,
+         show_console| {
+            preview::update_user_settings_from_ui(preview_user_settings_from_values(
+                always_on_top,
+                show_library,
+                show_properties,
+                show_outline,
+                show_simulation_data,
+                show_console,
+            ));
+        },
+    );
+}
+
 pub fn create_ui(
-    to_lsp: &Rc<dyn common::PreviewToLsp>,
+    to_lsp: &Rc<dyn editor_preview::PreviewToLsp>,
     style: &str,
     use_editor_ui: bool,
 ) -> Result<AppWindow, PlatformError> {
@@ -232,6 +328,8 @@ pub fn create_ui(
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);
+    setup_preview_user_settings(&api);
+    apply_preview_user_settings(&app_window, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&app_window, to_lsp);
@@ -301,7 +399,7 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
 
 pub fn ui_set_known_components(
     api: &Api<'_>,
-    known_components: &[crate::common::ComponentInformation],
+    known_components: &[crate::editor_preview::component_catalog::ComponentInformation],
     current_component_index: usize,
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
@@ -1470,7 +1568,7 @@ fn update_properties(
 pub fn ui_set_properties(
     api: &Api<'_>,
     window: &slint::Window,
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
 ) -> PropertyDeclarations {
     let win = i_slint_core::window::WindowInner::from_pub(window).window_adapter();
@@ -1571,6 +1669,22 @@ mod tests {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn preview_user_settings_from_values_maps_all_toggles() {
+        assert_eq!(
+            super::preview_user_settings_from_values(true, false, true, false, true, false),
+            super::PreviewUserSettings {
+                version: super::PreviewUserSettings::CURRENT_VERSION,
+                always_on_top: true,
+                show_library: false,
+                show_properties: true,
+                show_outline: false,
+                show_simulation_data: true,
+                show_console: false,
+            }
+        );
     }
 
     fn generate_preview_data(

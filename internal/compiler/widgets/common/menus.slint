@@ -168,9 +168,15 @@ export component MenuBarImpl {
             entry: entry;
 
             clicked => {
-                last-open-entry-index = idx;
-                context-menu.entries = root.sub-menu(entry);
-                context-menu.show({ x: e.x, y: root.height });
+                if last-open-entry-index == idx && context-menu.is-open() {
+                    // Clicking the entry whose menu is already open closes it again.
+                    last-open-entry-index = -1;
+                    context-menu.close();
+                } else {
+                    last-open-entry-index = idx;
+                    context-menu.entries = root.sub-menu(entry);
+                    context-menu.show({ x: e.x, y: root.height });
+                }
             }
             hovered => {
                 if last-open-entry-index != idx && context-menu.is-open() {

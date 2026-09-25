@@ -87,14 +87,14 @@ fn navigation_view(ui: &MainWindow) {
         }
     });
 
-    adapter.set_radio_buttons(radio_buttons.into());
+    adapter.set_radio_buttons(radio_buttons);
 }
 
 fn color_item(name: &str, red: u8, green: u8, blue: u8, ui: &MainWindow) -> ListItem {
     ListItem {
         text: name.into(),
         avatar_background: Color::from_rgb_u8(red, green, blue),
-        action_button_icon: OutlinedIcons::get(&ui).get_share(),
+        action_button_icon: OutlinedIcons::get(ui).get_share(),
         ..Default::default()
     }
 }
@@ -110,9 +110,9 @@ mod date_picker {
         let adapter = DatePickerAdapter::get(ui);
 
         adapter.on_month_day_count(|month, year| {
-            month_day_count(month as u32, year).unwrap_or_default() as i32
+            month_day_count(month as u32, year).unwrap_or_default()
         });
-        adapter.on_month_offset(|month, year| month_offset(month as u32, year) as i32);
+        adapter.on_month_offset(|month, year| month_offset(month as u32, year));
         adapter.on_format_date(|format, day, month, year| {
             format_date(format.as_str(), day as u32, month as u32, year)
         });
@@ -253,58 +253,58 @@ mod theme {
         pub surfaceContainerHighest: String,
     }
 
-    impl Into<crate::MaterialScheme> for MaterialScheme {
-        fn into(self) -> crate::MaterialScheme {
+    impl From<MaterialScheme> for crate::MaterialScheme {
+        fn from(scheme: MaterialScheme) -> Self {
             crate::MaterialScheme {
-                background: string_to_color(self.background),
-                error: string_to_color(self.error),
-                errorContainer: string_to_color(self.errorContainer),
-                inverseOnSurface: string_to_color(self.inverseOnSurface),
-                inversePrimary: string_to_color(self.inversePrimary),
-                inverseSurface: string_to_color(self.inverseSurface),
-                onBackground: string_to_color(self.onBackground),
-                onError: string_to_color(self.onError),
-                onErrorContainer: string_to_color(self.onErrorContainer),
-                onPrimary: string_to_color(self.onPrimary),
-                onPrimaryContainer: string_to_color(self.onPrimaryContainer),
-                onPrimaryFixed: string_to_color(self.onPrimaryFixed),
-                onPrimaryFixedVariant: string_to_color(self.onPrimaryFixedVariant),
-                onSecondary: string_to_color(self.onSecondary),
-                onSecondaryContainer: string_to_color(self.onSecondaryContainer),
-                onSecondaryFixed: string_to_color(self.onSecondaryFixed),
-                onSecondaryFixedVariant: string_to_color(self.onSecondaryFixedVariant),
-                onSurface: string_to_color(self.onSurface),
-                onSurfaceVariant: string_to_color(self.onSurfaceVariant),
-                onTertiary: string_to_color(self.onTertiary),
-                onTertiaryContainer: string_to_color(self.onTertiaryContainer),
-                onTertiaryFixed: string_to_color(self.onTertiaryFixed),
-                onTertiaryFixedVariant: string_to_color(self.onTertiaryFixedVariant),
-                outline: string_to_color(self.outline),
-                outlineVariant: string_to_color(self.outlineVariant),
-                primary: string_to_color(self.primary),
-                primaryContainer: string_to_color(self.primaryContainer),
-                primaryFixed: string_to_color(self.primaryFixed),
-                primaryFixedDim: string_to_color(self.primaryFixedDim),
-                scrim: string_to_color(self.scrim),
-                secondary: string_to_color(self.secondary),
-                secondaryContainer: string_to_color(self.secondaryContainer),
-                secondaryFixed: string_to_color(self.secondaryFixed),
-                secondaryFixedDim: string_to_color(self.secondaryFixedDim),
-                shadow: string_to_color(self.shadow),
-                surface: string_to_color(self.surface),
-                surfaceBright: string_to_color(self.surfaceBright),
-                surfaceContainer: string_to_color(self.surfaceContainer),
-                surfaceContainerHigh: string_to_color(self.surfaceContainerHigh),
-                surfaceContainerHighest: string_to_color(self.surfaceContainerHighest),
-                surfaceContainerLow: string_to_color(self.surfaceContainerLow),
-                surfaceContainerLowest: string_to_color(self.surfaceContainerLowest),
-                surfaceDim: string_to_color(self.surfaceDim),
-                surfaceTint: string_to_color(self.surfaceTint),
-                surfaceVariant: string_to_color(self.surfaceVariant),
-                tertiary: string_to_color(self.tertiary),
-                tertiaryContainer: string_to_color(self.tertiaryContainer),
-                tertiaryFixed: string_to_color(self.tertiaryFixed),
-                tertiaryFixedDim: string_to_color(self.tertiaryFixedDim),
+                background: string_to_color(scheme.background),
+                error: string_to_color(scheme.error),
+                errorContainer: string_to_color(scheme.errorContainer),
+                inverseOnSurface: string_to_color(scheme.inverseOnSurface),
+                inversePrimary: string_to_color(scheme.inversePrimary),
+                inverseSurface: string_to_color(scheme.inverseSurface),
+                onBackground: string_to_color(scheme.onBackground),
+                onError: string_to_color(scheme.onError),
+                onErrorContainer: string_to_color(scheme.onErrorContainer),
+                onPrimary: string_to_color(scheme.onPrimary),
+                onPrimaryContainer: string_to_color(scheme.onPrimaryContainer),
+                onPrimaryFixed: string_to_color(scheme.onPrimaryFixed),
+                onPrimaryFixedVariant: string_to_color(scheme.onPrimaryFixedVariant),
+                onSecondary: string_to_color(scheme.onSecondary),
+                onSecondaryContainer: string_to_color(scheme.onSecondaryContainer),
+                onSecondaryFixed: string_to_color(scheme.onSecondaryFixed),
+                onSecondaryFixedVariant: string_to_color(scheme.onSecondaryFixedVariant),
+                onSurface: string_to_color(scheme.onSurface),
+                onSurfaceVariant: string_to_color(scheme.onSurfaceVariant),
+                onTertiary: string_to_color(scheme.onTertiary),
+                onTertiaryContainer: string_to_color(scheme.onTertiaryContainer),
+                onTertiaryFixed: string_to_color(scheme.onTertiaryFixed),
+                onTertiaryFixedVariant: string_to_color(scheme.onTertiaryFixedVariant),
+                outline: string_to_color(scheme.outline),
+                outlineVariant: string_to_color(scheme.outlineVariant),
+                primary: string_to_color(scheme.primary),
+                primaryContainer: string_to_color(scheme.primaryContainer),
+                primaryFixed: string_to_color(scheme.primaryFixed),
+                primaryFixedDim: string_to_color(scheme.primaryFixedDim),
+                scrim: string_to_color(scheme.scrim),
+                secondary: string_to_color(scheme.secondary),
+                secondaryContainer: string_to_color(scheme.secondaryContainer),
+                secondaryFixed: string_to_color(scheme.secondaryFixed),
+                secondaryFixedDim: string_to_color(scheme.secondaryFixedDim),
+                shadow: string_to_color(scheme.shadow),
+                surface: string_to_color(scheme.surface),
+                surfaceBright: string_to_color(scheme.surfaceBright),
+                surfaceContainer: string_to_color(scheme.surfaceContainer),
+                surfaceContainerHigh: string_to_color(scheme.surfaceContainerHigh),
+                surfaceContainerHighest: string_to_color(scheme.surfaceContainerHighest),
+                surfaceContainerLow: string_to_color(scheme.surfaceContainerLow),
+                surfaceContainerLowest: string_to_color(scheme.surfaceContainerLowest),
+                surfaceDim: string_to_color(scheme.surfaceDim),
+                surfaceTint: string_to_color(scheme.surfaceTint),
+                surfaceVariant: string_to_color(scheme.surfaceVariant),
+                tertiary: string_to_color(scheme.tertiary),
+                tertiaryContainer: string_to_color(scheme.tertiaryContainer),
+                tertiaryFixed: string_to_color(scheme.tertiaryFixed),
+                tertiaryFixedDim: string_to_color(scheme.tertiaryFixedDim),
             }
         }
     }
@@ -320,9 +320,9 @@ mod theme {
         pub light: MaterialScheme,
     }
 
-    impl Into<crate::MaterialSchemes> for MaterialSchemes {
-        fn into(self) -> crate::MaterialSchemes {
-            crate::MaterialSchemes { dark: self.dark.into(), light: self.light.into() }
+    impl From<MaterialSchemes> for crate::MaterialSchemes {
+        fn from(schemes: MaterialSchemes) -> Self {
+            crate::MaterialSchemes { dark: schemes.dark.into(), light: schemes.light.into() }
         }
     }
 

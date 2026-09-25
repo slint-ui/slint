@@ -22,38 +22,25 @@ Slint's property system is the reactive foundation of the entire framework. Ever
 | `internal/core/properties.rs` | Core Property<T>, bindings, dependency tracking |
 | `internal/core/properties/change_tracker.rs` | ChangeTracker for property change callbacks |
 | `internal/core/properties/properties_animations.rs` | Animated property values |
+| `internal/core/properties/two_way_binding.rs` | Two-way binding via a shared common property |
 | `internal/core/properties/ffi.rs` | FFI bindings for C++ interop |
 
 ## Core Data Structures
 
 ### Property<T>
 
-The main property type that holds a value and optional binding:
-
-```rust
-#[repr(C)]
-pub struct Property<T> {
-    handle: PropertyHandle,      // Binding state + dependency list
-    value: UnsafeCell<T>,        // The actual value (interior mutability)
-    pinned: PhantomPinned,       // Must be pinned for dependency tracking
-}
-```
+A `Property<T>` is a `PropertyHandle` (the binding state and dependency list), the value itself
+in an `UnsafeCell` — only safe to touch while the handle's lock flag is clear — and a
+`PhantomPinned`. See `Property` in `internal/core/properties.rs`.
 
 **Important**: Properties must be `Pin`ned because dependency nodes store raw pointers back to them. Moving a property would invalidate these pointers.
 
 ### PropertyHandle
 
-The handle manages binding state using bit flags in a single `usize`:
-
-```rust
-struct PropertyHandle {
-    handle: Cell<usize>,
-}
-
-// Bit flags:
-const BINDING_BORROWED: usize = 0b01;           // Lock flag (prevents recursion)
-const BINDING_POINTER_TO_BINDING: usize = 0b10; // Has binding vs dependency list
-```
+`PropertyHandle` wraps a single `Cell<*mut ()>`. The pointer is always aligned, so its two least
+significant bits are free for flags: `BINDING_BORROWED` (0b01), the lock flag that catches
+recursion, and `BINDING_POINTER_TO_BINDING` (0b10), which says whether the pointer is a binding.
+See `internal/core/properties.rs`.
 
 The handle serves dual purpose:
 - **With binding**: Points to a `BindingHolder` (bit 1 set)
@@ -61,33 +48,18 @@ The handle serves dual purpose:
 
 ### BindingHolder
 
-Wraps a binding callable with metadata:
-
-```rust
-#[repr(C)]
-struct BindingHolder<B = ()> {
-    dependencies: Cell<usize>,   // Head of dependents list (who depends on us)
-    dep_nodes: Cell<...>,        // Nodes in other properties' dependency lists
-    vtable: &'static BindingVTable,
-    dirty: Cell<bool>,           // Needs re-evaluation?
-    is_two_way_binding: bool,
-    binding: B,                  // The actual binding callable
-}
-```
+`BindingHolder<B>` wraps the binding callable `B` with: the head of the list of bindings that
+depend on it, the nodes that link it into the dependency lists of the properties it reads, its
+`BindingVTable`, a `dirty` flag, and a flag saying whether `B` is a `TwoWayBinding<T>`.
+See `internal/core/properties.rs`.
 
 ### Dependency Tracking Structures
 
-```rust
-// Head of a doubly-linked list of dependents
-pub struct DependencyListHead<T>(Cell<*const DependencyNode<T>>);
-
-// Node in the dependency list
-pub struct DependencyNode<T> {
-    next: Cell<*const DependencyNode<T>>,
-    prev: Cell<*const Cell<*const DependencyNode<T>>>,  // Points to prev.next
-    binding: T,  // Pointer to the BindingHolder that depends on us
-}
-```
+`DependencyListHead<T>` is the head of a doubly-linked list of dependents: a cell holding a
+pointer to the first `DependencyNode<T>`. A `DependencyNode<T>` holds its `next` pointer, a `prev`
+pointer that points at the *cell* pointing to itself (so the head and the nodes are unlinked the
+same way), and the `T` — in practice a pointer to the `BindingHolder` that depends on us.
+See `internal/core/properties.rs`.
 
 ## Dependency Tracking Flow
 
@@ -147,35 +119,19 @@ When a property value changes:
 
 ### Lazy Evaluation
 
-Bindings don't evaluate immediately when marked dirty. Instead:
-
-```rust
-// In Property::get()
-unsafe { self.handle.update(self.value.get()) };  // Only evaluates if dirty
-
-// In PropertyHandle::update()
-if binding.dirty.get() {
-    // Clear old dependencies
-    binding.dep_nodes.set(Default::default());
-
-    // Evaluate with CURRENT_BINDING set to this binding
-    CURRENT_BINDING.set(Some(binding), || {
-        (binding.vtable.evaluate)(...)
-    });
-
-    binding.dirty.set(false);
-}
-```
+Bindings don't evaluate immediately when marked dirty. `Property::get()` calls
+`PropertyHandle::update()`, which does nothing unless the binding's `dirty` flag is set. When it
+is, it clears the binding's dependency nodes, sets it as the current binding for the duration of
+the call (`current_binding_storage::set()`, backed by the `CURRENT_BINDING` thread-local), invokes
+the vtable's `evaluate`, and clears `dirty`. If `evaluate` returns `RemoveBinding`, the binding is
+dropped and the value stays as it was left.
+See `PropertyHandle::update` in `internal/core/properties.rs`.
 
 ## Two-Way Bindings
 
-Two-way bindings link properties so changes to either propagate to both:
-
-```rust
-struct TwoWayBinding<T> {
-    common_property: Pin<Rc<Property<T>>>,  // Shared backing property
-}
-```
+Two-way bindings link properties so changes to either propagate to both. A `TwoWayBinding<T>`
+holds nothing but the shared backing property, a `Pin<Rc<Property<T>>>`.
+See `internal/core/properties/two_way_binding.rs`.
 
 **How it works:**
 1. Both properties get a `TwoWayBinding` that points to a shared "common property"
@@ -195,13 +151,12 @@ struct TwoWayBinding<T> {
 
 ## PropertyTracker
 
-For tracking dependencies outside of property bindings:
-
-```rust
-pub struct PropertyTracker<DirtyHandler = ()> {
-    holder: BindingHolder<DirtyHandler>,
-}
-```
+For tracking dependencies outside of property bindings. A `PropertyTracker` is just a
+`BindingHolder` around a dirty handler, which implements `PropertyDirtyHandler`. Its
+`NEEDS_SET_DIRTY` const parameter says whether the tracker can also be dirtied from outside via
+`set_dirty()`; when it can't — the default — a tracker with no tracked dependencies of its own
+skips registering itself as a dependency of outer bindings, since nothing could ever dirty it.
+See `internal/core/properties.rs`.
 
 **Usage:**
 ```rust
@@ -250,14 +205,10 @@ ChangeTracker::run_change_handlers();
 
 Animated properties use special bindings:
 
-```rust
-pub struct AnimatedBindingCallable<T, A> {
-    original_binding: PropertyHandle,  // The underlying binding
-    state: Cell<AnimatedBindingState>, // Animating/NotAnimating/ShouldStart
-    animation_data: RefCell<PropertyValueAnimationData<T>>,
-    compute_animation_details: A,      // Returns animation parameters
-}
-```
+`AnimatedBindingCallable<T, A>` holds the underlying binding as a `PropertyHandle`, the
+`Animating` / `NotAnimating` / `ShouldStart` state, the animation data, the closure `A` that
+returns the animation parameters, and the tick captured by `mark_dirty`.
+See `internal/core/properties/properties_animations.rs`.
 
 **Animation flow:**
 1. When the underlying binding changes, `mark_dirty` sets state to `ShouldStart`
@@ -270,14 +221,8 @@ pub struct AnimatedBindingCallable<T, A> {
 
 Properties can be marked constant to optimize dependency tracking:
 
-```rust
-static CONSTANT_PROPERTY_SENTINEL: u32 = 0;
-
-// A property is constant if its dependency list head points to the sentinel
-pub fn set_constant(&self) {
-    // ... sets dependency head to point to CONSTANT_PROPERTY_SENTINEL
-}
-```
+`set_constant()` points the property's dependency list head at the `CONSTANT_PROPERTY_SENTINEL`
+static; `is_constant()` tests for it. See `internal/core/properties.rs`.
 
 When reading a constant property, no dependency is registered (optimization).
 
@@ -299,15 +244,10 @@ Properties must be pinned because:
 
 ### Safe Accessors
 
-```rust
-// Safe way to access binding - handles lock flag
-fn access<R>(&self, f: impl FnOnce(Option<Pin<&mut BindingHolder>>) -> R) -> R {
-    assert!(!self.lock_flag(), "Recursion detected");
-    self.set_lock_flag(true);
-    scopeguard::defer! { self.set_lock_flag(false); }
-    // ... access binding ...
-}
-```
+`PropertyHandle::access()` is how the binding is reached for evaluation: it asserts the lock flag
+is clear (that assert is the "Recursion detected" panic), sets it, and clears it again from a
+`scopeguard::defer!` so an unwinding binding still leaves the flag clean.
+See `internal/core/properties.rs`.
 
 ## Common Patterns
 
@@ -359,14 +299,9 @@ Property::link_two_way(prop1.as_ref(), prop2.as_ref());
 
 ### Enable Debug Names
 
-Compile with `RUSTFLAGS='--cfg slint_debug_property'` to enable property debug names:
-
-```rust
-#[cfg(slint_debug_property)]
-pub debug_name: RefCell<String>,
-```
-
-This helps identify which property is involved in recursion errors.
+Compile with `RUSTFLAGS='--cfg slint_debug_property'` to add a `debug_name` field to `Property`
+and to `BindingHolder`. The "Recursion detected" panic then names the property involved. Note
+that the field changes the struct layout, so such a build is not binary-compatible with C++.
 
 ### Common Issues
 
@@ -380,9 +315,6 @@ This helps identify which property is involved in recursion errors.
 ### Tracing Dependency Graph
 
 ```rust
-// Check if property has binding
-prop.handle.access(|b| b.is_some())
-
 // Check if property is dirty
 prop.is_dirty()
 

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A renamed re-export (RenamedEnum) of an enum whose name (ReExpEnum) collides with a local enum.
+// RenamedEnum must keep the imported variants, not resolve to the local ReExpEnum. #9094
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+//include_path: ../../helper_components
+import { RenamedEnum } from "reexport_dup_enum.slint";
+
+export enum ReExpEnum { MainX, MainY }
+
+export component TestCase {
+    property <RenamedEnum> r: RenamedEnum.OtherC;
+    property <ReExpEnum> m: ReExpEnum.MainY;
+    out property <bool> test: (r == RenamedEnum.OtherC) && (m == ReExpEnum.MainY);
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+// The local ReExpEnum keeps its name and variants; the imported one didn't overwrite it.
+assert(ReExpEnum::MainY == ReExpEnum::MainY);
+// The imported enum collided, so it was renamed to ReExpEnum2 but kept its own variants.
+assert(ReExpEnum2::OtherC == ReExpEnum2::OtherC);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// The local ReExpEnum keeps its name and variants.
+assert_eq!(ReExpEnum::MainY, ReExpEnum::MainY);
+// The imported enum collided, so it was renamed and, never being public, is not exposed here.
+```
+*/

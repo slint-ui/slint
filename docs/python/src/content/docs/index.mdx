@@ -132,6 +132,57 @@ component.model.append(4)
 del component.model[0]
 ```
 
+## Threading
+
+The event loop runs on the main thread, and components must be created and
+accessed from that same thread.
+Doing blocking work there stalls rendering and input, so move it to another
+thread and apply the result back on the main thread.
+
+Pass a coroutine to <XRef to="run_event_loop" /> to run `asyncio` alongside the
+Slint event loop.
+Use `asyncio.to_thread()` for blocking work: it runs the function on a worker
+thread, and the code after the `await` continues on the main thread, where it is
+safe to update a model.
+
+```python
+import asyncio
+import slint
+
+def enumerate_devices() -> list[str]:
+    # Runs on a worker thread, so it may block.
+    return scan_usb_bus()
+
+async def main(component: slint.Component) -> None:
+    names = await asyncio.to_thread(enumerate_devices)
+    # Back on the main thread: safe to touch the model.
+    for name in names:
+        component.devices.append(name)
+
+component.devices = slint.ListModel([])
+slint.run_event_loop(main(component))
+```
+
+When the work happens on a thread you don't drive yourself, such as a device
+callback or a `threading.Thread`, hand the update back with
+`loop.call_soon_threadsafe()`:
+
+```python
+import asyncio
+import slint
+import threading
+
+def worker(loop: asyncio.AbstractEventLoop, model: slint.ListModel) -> None:
+    for name in scan_usb_bus():
+        loop.call_soon_threadsafe(model.append, name)
+
+async def main(model: slint.ListModel) -> None:
+    loop = asyncio.get_running_loop()
+    threading.Thread(target=worker, args=(loop, model), daemon=True).start()
+```
+
+Calling a model method directly from another thread is not supported.
+
 ## Type mappings
 
 Each type used for properties in the Slint language translates to a specific
@@ -142,12 +193,12 @@ Python type:
 | <SlintRef type="int" /> | `int` |
 | <SlintRef type="float" /> | `float` |
 | <SlintRef type="bool" /> | `bool` |
-| <SlintRef type="StringType" label="string" /> | `str` |
+| <SlintRef type="string" /> | `str` |
 | <SlintRef type="color" /> | <XRef to="Color" /> |
 | <SlintRef type="brush" /> | <XRef to="Brush" /> |
-| <SlintRef type="ImageType" label="image" /> | <XRef to="Image" /> |
-| <SlintRef type="styled_text" label="styled-text" /> | <XRef to="StyledText" /> |
-| <SlintRef type="data_transfer" label="data-transfer" /> | <XRef to="DataTransfer" /> |
+| <SlintRef type="image" /> | <XRef to="Image" /> |
+| <SlintRef type="styled-text" /> | <XRef to="StyledText" /> |
+| <SlintRef type="data-transfer" /> | <XRef to="DataTransfer" /> |
 | `length`, `physical-length`, `duration`, `angle`, `relative-font-size` | `float` |
 | structure | `dict` / `Struct` |
 | array | <XRef to="Model" /> |

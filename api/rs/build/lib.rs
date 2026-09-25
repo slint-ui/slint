@@ -43,6 +43,10 @@ fn main() {
 }
 ```
 */
+#![cfg_attr(
+    feature = "document-features",
+    doc = concat!("## Feature flags\n\n", document_features::document_features!())
+)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
@@ -295,6 +299,10 @@ impl CompilerConfiguration {
             to_absolute_path(path);
         }
 
+        if let Some(path) = config.translation_path_bundle.as_mut() {
+            to_absolute_path(path);
+        }
+
         Self { config }
     }
 }
@@ -524,6 +532,11 @@ pub fn compile_with_config(
             println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
         }
     }
+    // Cargo scans a directory dependency recursively, so this also catches an added language.
+    if let Some(bundle_path) = &config.config.translation_path_bundle {
+        println!("cargo:rerun-if-changed={}", bundle_path.display());
+    }
+
     let paths_dependencies =
         compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
 
@@ -538,6 +551,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+    println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",

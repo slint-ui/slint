@@ -14,10 +14,11 @@ To build this example a suitable UEFI rust target must be installed first:
 rustup target install x86_64-unknown-uefi
 ```
 
-To build, simply pass the `--package` and `--target` arguments to cargo:
+To build, pass the `--manifest-path` and `--target` arguments to cargo from the
+root of the repository:
 
 ```shell
-cargo build --package uefi-demo --target x86_64-unknown-uefi
+cargo build --manifest-path examples/uefi-demo/Cargo.toml --target x86_64-unknown-uefi
 ```
 
 The produced UEFI binary can then either be tested on real hardware by booting

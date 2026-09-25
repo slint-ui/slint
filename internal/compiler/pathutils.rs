@@ -466,17 +466,17 @@ pub fn dirname(path: &Path) -> PathBuf {
 /// The result will be a `clean_path(...)`.
 pub fn join(base: &Path, path: &Path) -> Option<PathBuf> {
     if is_absolute(path) {
-        return Some(path.to_owned());
+        return Some(clean_path(path));
     }
 
     let Some(base_str) = base.to_str() else {
-        return Some(path.to_owned());
+        return Some(clean_path(path));
     };
     let Some(path_str) = path.to_str() else {
-        return Some(path.to_owned());
+        return Some(clean_path(path));
     };
     if base_str.is_empty() {
-        return Some(path.to_owned());
+        return Some(clean_path(path));
     }
 
     let path_separator = find_path_separator(path_str);
@@ -532,4 +532,15 @@ fn test_join() {
     th("some/relative", "hello.txt", Some("some/relative/hello.txt"));
     th("", "foo/hello.txt", Some("foo/hello.txt"));
     th("some/relative", "/foo/hello.txt", Some("/foo/hello.txt"));
+
+    // An absolute `path` ignores `base`, but is still cleaned up (#12798): a stray
+    // backslash used to be returned verbatim, which then mismatched the cleaned
+    // path used to look the document up again, panicking the type loader.
+    th("some/base", "/ddd\\\"dd", Some("/ddd/\"dd"));
+    th("some/base", "/a/../b", Some("/b"));
+    th("some/base", "/a\\b\\c", Some("/a/b/c"));
+    // Windows drive-absolute paths keep their backslashes.
+    th("some/base", "C:\\a\\b", Some("C:\\a\\b"));
+    // An empty base also cleans the path instead of returning it raw.
+    th("", "a/../b", Some("b"));
 }

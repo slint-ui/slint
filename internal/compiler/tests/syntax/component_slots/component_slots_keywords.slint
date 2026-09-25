@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component PropertyNamedSlot {
+    in property <int> slot;
+}
+
+component CallbackNamedSlot {
+    callback slot;
+}
+
+component CallbackWithArgumentNamedSlot {
+    callback slot(int);
+    in-out property <int> received;
+}
+
+component FunctionNamedSlot {
+    public function slot() {}
+}
+
+component TwoWayNamedSlot {
+    in-out property <int> slot;
+}
+
+component slot { }
+
+export component InstantiateComponentNamedSlot {
+    slot { }
+}
+
+export component Header { }
+
+export component WarnThatSlotShadowsComponent inherits Rectangle {
+    slot Header;
+    VerticalLayout {
+        Header { }
+//      >        <warning{The slot 'Header' shadows an element type of the same name. This element is a slot placeholder, not an instance of 'Header'}
+    }
+}
+
+export component ChildIdentifierSlot {
+    slot := PropertyNamedSlot {
+        slot: 42;
+    }
+
+    CallbackNamedSlot {
+        slot => {}
+    }
+
+    CallbackWithArgumentNamedSlot {
+        slot(value) => { self.received = value; }
+    }
+
+    function-component := FunctionNamedSlot { }
+
+    init => function-component.slot();
+}
+
+// `slot` as a property of the element declaring it, and as a loop variable
+export component SelfPropertyNamedSlot inherits Rectangle {
+    in-out property <int> slot;
+    in-out property <int> mirror;
+    in-out property <int> change-count;
+
+    animate slot { duration: 100ms; }
+    changed slot => { self.change-count += 1; }
+
+    TwoWayNamedSlot {
+        slot <=> root.mirror;
+    }
+
+    for slot in [1, 2, 3]: Rectangle {
+        width: slot * 1px;
+    }
+}

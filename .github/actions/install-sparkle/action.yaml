@@ -1,0 +1,33 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+---
+name: Install Sparkle
+description: >
+    Put Sparkle.framework in the repository root, where the visual editor
+    packaging expects it. Does nothing outside of macOS, so it is safe to call
+    from a workflow that runs on several platforms.
+
+runs:
+    using: composite
+    steps:
+        # Downloads fail often enough on the runners to be worth caching a copy.
+        # The key covers the script because that is where the version and its
+        # checksum are pinned, so a bump invalidates the entry on its own.
+        # No restore-keys, so that a hit always carries the pinned version and
+        # the step below has nothing left to do. A prefix match would only give
+        # the script an older copy to throw away and download over.
+        - name: Restore Sparkle.framework
+          if: runner.os == 'macOS'
+          uses: actions/cache@v6
+          with:
+              path: |
+                  Sparkle.framework
+                  sparkle-bin
+              key: ${{ runner.os }}-${{ runner.arch }}-sparkle-${{ hashFiles('scripts/download-sparkle.sh') }}
+
+        # A no-op once the cache restored both directories.
+        - name: Download Sparkle.framework
+          if: runner.os == 'macOS'
+          shell: bash
+          run: ./scripts/download-sparkle.sh

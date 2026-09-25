@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// An `image` property holds an image that @image-url() decodes at compile
+// time into pixels embedded in the generated code.
+
+export component TestCase inherits Window {
+    // An image literal names an image file relative to this .slint file.
+    //#sls.expr.image.form
+    //#sls.expr.image.path
+    //#sls.expr.image.type
+    in property <image> picture: @image-url("image_2x2.png");
+    out property <image> picture-again: @image-url("image_2x2.png");
+    // The empty string is no image.
+    //#sls.expr.image.empty
+    out property <image> no-image: @image-url("");
+    in-out property <image> writable;
+}
+
+/*
+```rust
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+
+// The image pixels are embedded in the generated code as packed bytes, four
+// per pixel (alpha, red, green, blue with straight alpha), row by row from
+// the top-left corner.
+//#sls.type.image
+//#sls.gen.prop.types.image
+let picture = x.get_picture();
+let slint_sc::Image::StaticArgb { argb, width } = picture else {
+    panic!("expected a packed static image");
+};
+assert_eq!(width, 2);
+assert_eq!((picture.width(), picture.height()), (2, 2));
+let expected = [
+    0xff, 0xff, 0x00, 0x00, // opaque red
+    0x80, 0x00, 0xff, 0x00, // half-transparent green
+    0xff, 0x00, 0x00, 0xff, // opaque blue
+    0x00, 0x00, 0x00, 0x00, // fully transparent
+];
+assert_eq!(argb, &expected[..]);
+
+// Two @image-url() of the same file share one embedded copy.
+//#sls.gen.image.static
+let slint_sc::Image::StaticArgb { argb: again, .. } = x.get_picture_again() else {
+    panic!("expected a packed static image");
+};
+assert_eq!(argb.as_ptr(), again.as_ptr());
+
+// @image-url("") and an unbound property hold no image, which has no size.
+//#sls.type.image.none
+assert_eq!(x.get_no_image(), slint_sc::Image::None);
+assert_eq!(x.get_writable(), slint_sc::Image::None);
+assert_eq!((slint_sc::Image::None.width(), slint_sc::Image::None.height()), (0, 0));
+
+// The image is Copy, and is set and read back.
+x.set_writable(picture);
+assert_eq!(x.get_writable(), picture);
+```
+*/

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore exitcode lldb lslint NDEBUG
+// cSpell: ignore exitcode Iprelude lldb lslint NDEBUG Ycprelude Yuprelude
 use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
@@ -140,6 +140,13 @@ namespace slint_testing = slint::private_api::testing;
         compiler_command.arg("-std=c++20");
         compiler_command.arg("-g");
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
+        if let Some(prelude) = precompiled_header(&compiler) {
+            compiler_command.arg("-include").arg(prelude);
+            // vtable.h turns this warning off with a pragma, but the compilers
+            // don't replay the diagnostic state recorded in the precompiled
+            // header.
+            compiler_command.arg("-Wno-invalid-offsetof");
+        }
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
@@ -154,6 +161,16 @@ namespace slint_testing = slint::private_api::testing;
         }
     } else if compiler.is_like_msvc() {
         compiler_command.arg("/std:c++20");
+        if let Some(prelude) = precompiled_header(&compiler) {
+            let dir = prelude.parent().unwrap();
+            compiler_command.arg(format!("/I{}", dir.display()));
+            compiler_command.arg("/FIprelude.h");
+            compiler_command.arg("/Yuprelude.h");
+            compiler_command.arg(format!("/Fp{}", prelude.with_extension("pch").display()));
+            // The object compiled along with the precompiled header holds its
+            // definitions and must be linked into every user.
+            compiler_command.arg(dir.join("prelude.obj"));
+        }
         compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
@@ -206,6 +223,77 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     Ok(())
+}
+
+/// The headers included by every generated test program. Compiling them once
+/// into a precompiled header roughly halves the compilation time of each test.
+const PCH_PRELUDE: &str = r"#include <array>
+#include <limits>
+#include <slint.h>
+#ifdef SLINT_FEATURE_LIVE_PREVIEW
+#include <private/slint_live_preview.h>
+#endif
+#include <assert.h>
+#include <cmath>
+#include <iostream>
+#include <private/slint_tests_helpers.h>
+";
+
+/// Build the precompiled header once per process, and return the path of the
+/// prelude header. Returns None for compilers without precompiled header
+/// support. When building the header fails, abort the process: the headers
+/// are broken, so every test would fail with the same error.
+fn precompiled_header(compiler: &cc::Tool) -> Option<&'static std::path::Path> {
+    static PCH: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    PCH.get_or_init(|| {
+        if !compiler.is_like_gnu() && !compiler.is_like_clang() && !compiler.is_like_msvc() {
+            return None;
+        }
+        Some(build_precompiled_header(compiler).unwrap_or_else(|message| {
+            // Write to the real stderr: the test harness's output capture
+            // would swallow the message when the process exits.
+            let _ = std::io::stderr().write_all(message.as_bytes());
+            let _ = std::io::stderr().write_all(b"\nCould not build the precompiled header\n");
+            std::process::exit(1);
+        }))
+    })
+    .as_deref()
+}
+
+fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, String> {
+    // OUT_DIR is per-configuration, so eg the normal and live-preview builds
+    // can't pick up each other's precompiled header.
+    let dir = std::path::Path::new(env!("OUT_DIR")).join("pch");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let prelude = dir.join("prelude.h");
+    std::fs::write(&prelude, PCH_PRELUDE).map_err(|e| e.to_string())?;
+    let mut command = compiler.to_command();
+    if compiler.is_like_msvc() {
+        // MSVC compiles a stub source that includes the prelude; the tests use
+        // the result with /Yu and /Fp.
+        let pch_source = dir.join("prelude_pch.cpp");
+        std::fs::write(&pch_source, "#include \"prelude.h\"\n").map_err(|e| e.to_string())?;
+        command.arg("/std:c++20");
+        command.arg(format!("/I{}", dir.display()));
+        command.arg("/Ycprelude.h");
+        command.arg(format!("/Fp{}", prelude.with_extension("pch").display()));
+        command.arg(format!("/Fo{}", dir.join("prelude.obj").display()));
+        command.arg("/c").arg(&pch_source);
+    } else {
+        // With `-include prelude.h`, gcc loads prelude.h.gch and clang loads
+        // prelude.h.pch when the file exists.
+        let output = prelude.with_extension(if compiler.is_like_gnu() { "h.gch" } else { "h.pch" });
+        command.args(["-std=c++20", "-g", "-x", "c++-header"]).arg(&prelude).arg("-o").arg(&output);
+    }
+    let output = command.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    Ok(prelude)
 }
 
 fn library_search_path_env_with(

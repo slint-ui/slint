@@ -86,6 +86,11 @@ impl super::SoftwareBufferDisplay for DumbBufferDisplay {
             .and_then(|mut buffer| callback(buffer.as_mut(), age, format))
     }
 
+    fn is_write_combined_memory(&self) -> bool {
+        // The kernel maps dumb buffers write-combined on most architectures.
+        true
+    }
+
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {
         self
     }

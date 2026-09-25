@@ -20,10 +20,10 @@ export TestCase := Text {
     }
 
     vertical_alignment: TextVerticalAlignment.top.right;
-//                                                >   <error{Cannot access the field 'right' of enum TextVerticalAlignment}
+//                                                >   <error{Cannot access the field 'right' of TextVerticalAlignment}
     Text {
         horizontal-alignment: right.foo;
-//                                  > <error{Cannot access the field 'foo' of enum TextHorizontalAlignment}
+//                                  > <error{Cannot access the field 'foo' of TextHorizontalAlignment}
         vertical_alignment: TextVerticalAlignment;
 //                          >                   <error{Cannot take reference to an enum}
     }

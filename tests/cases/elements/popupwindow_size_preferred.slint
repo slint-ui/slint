@@ -1,0 +1,99 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that a popup whose content can shrink below its preferred size (for example wrapped text)
+// is sized to its preferred size clamped to [min, max], and not just to its minimum size.
+// This must hold both for a simulated (ChildWindow) popup and for a native (TopLevel) popup.
+
+export global Properties {
+    in-out property <length> popup-width: -1px;
+    in-out property <length> popup-height: -1px;
+}
+
+export component TestCase {
+    callback show_popup();
+    show_popup => {
+        popup.show();
+    }
+
+    width: 600px;
+    height: 400px;
+
+    popup := PopupWindow {
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        changed width => {
+            Properties.popup-width = self.width;
+        }
+        changed height => {
+            Properties.popup-height = self.height;
+        }
+        init => {
+            Properties.popup-width = self.width;
+            Properties.popup-height = self.height;
+        }
+
+        // Shrinkable content: min < preferred < max, mimicking a wrapped Text whose
+        // preferred (single-line) width is larger than its min (narrowest breakable) width.
+        Rectangle {
+            min-width: 50px;
+            preferred-width: 150px;
+            max-width: 300px;
+            min-height: 40px;
+            preferred-height: 80px;
+            max-height: 300px;
+        }
+    }
+}
+
+/*
+
+```rust
+// Simulated popup (PopupWindowLocation::ChildWindow)
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+
+instance.invoke_show_popup();
+
+assert_eq!(inner.active_popups.borrow().len(), 1);
+assert!(
+    matches!(
+        inner.active_popups.borrow().first().unwrap().location,
+        slint_testing::PopupWindowLocation::ChildWindow(..)
+    ),
+    "The popup is expected to be a ChildWindow"
+);
+
+// The popup must be sized to its preferred size (150x80), not its minimum size (50x40).
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 150.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 80.);
+```
+
+```rust
+// Native popup (PopupWindowLocation::TopLevel)
+use slint::*;
+
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+instance.invoke_show_popup();
+
+assert_eq!(inner.active_popups.borrow().len(), 1);
+assert!(
+    matches!(
+        inner.active_popups.borrow().first().unwrap().location,
+        slint_testing::PopupWindowLocation::TopLevel(..)
+    ),
+    "The popup is expected to be a TopLevel window"
+);
+
+// A native popup must be sized identically to a simulated one: preferred size (150x80),
+// not its minimum size (50x40).
+assert_eq!(instance.global::<Properties<'_>>().get_popup_width(), 150.);
+assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), 80.);
+```
+
+*/

@@ -32,19 +32,23 @@ define_class!(
     impl DisplayLinkTarget {
         #[unsafe(method(tick:))]
         fn tick(&self, display_link: &CADisplayLink) {
-            corelib::platform::update_timers_and_animations();
-            if let Some(adapter) = self.ivars().window_adapter.upgrade() {
-                // Call draw() directly rather than request_redraw(), because
-                // during modal tracking loops (e.g. context menus) winit's
-                // event loop is blocked and would never process RedrawRequested.
-                if let Err(e) = adapter.draw() {
-                    i_slint_core::debug_log!("Error rendering during modal loop: {e}");
-                    display_link.setPaused(true);
-                    return;
-                }
-                if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
-                    display_link.setPaused(true);
-                }
+            let Some(adapter) = self.ivars().window_adapter.upgrade() else {
+                // The window is gone, so there is nothing for this display link to drive.
+                return;
+            };
+            corelib::window::WindowInner::from_pub(adapter.window())
+                .context()
+                .update_timers_and_animations();
+            // Call draw() directly rather than request_redraw(), because
+            // during modal tracking loops (e.g. context menus) winit's
+            // event loop is blocked and would never process RedrawRequested.
+            if let Err(e) = adapter.draw() {
+                i_slint_core::debug_log!("Error rendering during modal loop: {e}");
+                display_link.setPaused(true);
+                return;
+            }
+            if !adapter.window().has_active_animations() && !adapter.pending_redraw() {
+                display_link.setPaused(true);
             }
         }
     }
@@ -71,9 +75,55 @@ impl Drop for CADisplayLinkFrameThrottle {
 }
 
 impl super::FrameThrottle for CADisplayLinkFrameThrottle {
-    fn request_throttled_redraw(&self, _winit_window: &dyn winit::window::Window) {
+    fn request_throttled_redraw(&self, winit_window: &dyn winit::window::Window) {
+        request_screen_frame_rate(&self.display_link, winit_window);
         self.display_link.setPaused(false);
     }
+}
+
+/// macOS already drives the link at the display's rate, so there is nothing to ask for.
+#[cfg(target_os = "macos")]
+fn request_screen_frame_rate(
+    _display_link: &CADisplayLink,
+    _winit_window: &dyn winit::window::Window,
+) {
+}
+
+/// Ask for the screen's full refresh rate, which iOS otherwise limits to 60Hz.
+///
+/// On iPhone the request is granted only when the bundle sets
+/// `CADisableMinimumFrameDurationOnPhone`; see the iOS platform guide under `docs/astro`.
+/// The minimum leaves the system room to halve the rate when it needs to.
+#[cfg(ios_and_friends)]
+fn request_screen_frame_rate(
+    display_link: &CADisplayLink,
+    winit_window: &dyn winit::window::Window,
+) {
+    use objc2::sel;
+    use objc2_quartz_core::CAFrameRateRange;
+
+    // -[CADisplayLink setPreferredFrameRateRange:] is only available on iOS 15.0+,
+    // while the platform guide's template still deploys back to 13.0.
+    if !display_link.respondsToSelector(sel!(setPreferredFrameRateRange:)) {
+        return;
+    }
+
+    // Ask on every redraw rather than once at creation, so that a window moving to
+    // a screen with a different rate picks the new one up.
+    let Some(millihertz) = winit_window
+        .current_monitor()
+        .and_then(|monitor| monitor.current_video_mode())
+        .and_then(|mode| mode.refresh_rate_millihertz())
+    else {
+        return;
+    };
+    let max = millihertz.get() as f32 / 1000.;
+    // A 60Hz screen has nothing to unlock, and asking would only widen the range
+    // downwards, leaving the system free to settle at 30.
+    if max <= 60. {
+        return;
+    }
+    display_link.setPreferredFrameRateRange(CAFrameRateRange::new(max / 2., max, max));
 }
 
 /// Register `display_link` on the main run loop and wrap it into a throttle that
@@ -100,8 +150,6 @@ pub(super) fn try_create(
 ) -> Option<Box<dyn super::FrameThrottle>> {
     use objc2::runtime::AnyClass;
     use objc2::sel;
-    use objc2_app_kit::NSView;
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
     // -[NSView displayLinkWithTarget:selector:] is only available on macOS
     // 14.0+. The CADisplayLink class itself is reachable on older macOS via
@@ -112,10 +160,7 @@ pub(super) fn try_create(
 
     let mtm = MainThreadMarker::new().expect("frame throttle must be created on main thread");
 
-    let RawWindowHandle::AppKit(handle) = winit_window.window_handle().ok()?.as_raw() else {
-        return None;
-    };
-    let ns_view: &NSView = unsafe { handle.ns_view.cast().as_ref() };
+    let ns_view = crate::macos::ns_view(winit_window)?;
 
     let target = DisplayLinkTarget::new(mtm, window_adapter);
     let display_link = unsafe { ns_view.displayLinkWithTarget_selector(&target, sel!(tick:)) };

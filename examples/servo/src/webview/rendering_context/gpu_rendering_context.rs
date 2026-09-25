@@ -6,7 +6,7 @@ use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use euclid::default::Size2D;
 use image::RgbaImage;
-use slint::wgpu_29::wgpu;
+use slint::wgpu_30::wgpu;
 use winit::dpi::PhysicalSize;
 
 use servo::{DeviceIntRect, RenderingContext};
@@ -83,7 +83,7 @@ impl GPURenderingContext {
         // to enable zero-copy texture sharing via shared handles.
         // This requires WGPU to be running on the DX12 backend.
         let wgpu_luid = unsafe {
-            use slint::wgpu_29::wgpu::hal::api::Dx12;
+            use slint::wgpu_30::wgpu::hal::api::Dx12;
             wgpu_device
                 .as_hal::<Dx12>()
                 .ok_or(surfman::Error::Failed)?
@@ -136,7 +136,7 @@ impl GPURenderingContext {
 
     fn print_wgpu_backend(wgpu_device: &wgpu::Device) {
         let backend = unsafe {
-            use slint::wgpu_29::wgpu::hal::api;
+            use slint::wgpu_30::wgpu::hal::api;
 
             #[cfg(target_os = "windows")]
             {

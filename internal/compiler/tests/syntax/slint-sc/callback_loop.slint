@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Each invocation runs the handler of the callback, so a cycle of handlers
+// would never end.
+
+component Inner inherits Rectangle {
+    callback first;
+    callback second;
+}
+
+export component Test inherits Window {
+    //#sls.callback.handler.no-cycle
+    inner := Inner {
+        first => { inner.second(); }
+//      >error{The binding for the property 'first' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+        second => { inner.first(); }
+//      >error{The binding for the property 'second' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+//     <^error{The binding for the property 'first' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+    }
+// <error{The binding for the property 'second' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+    TouchArea {
+        clicked => { inner.first(); }
+    }
+}

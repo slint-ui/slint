@@ -1,0 +1,25 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The counterpart of binding_loop_flexbox_cell_own_other_axis: a cell whose
+// constraint is inherited rather than set on the instance must NOT be reported.
+// 'Card' forwards a height-for-width layout's min-height, which the flexbox
+// solve reads through the cell's own layout-info, not through the constraint.
+// No diagnostic is expected anywhere in this file. Keep the Window's explicit
+// size: an auto-sized one warns for its own reasons and hides what this pins.
+
+component Card {
+    min-height: inner.min-height;
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+export component Demo inherits Window {
+    width: 200px;
+    height: 400px;
+    FlexboxLayout {
+        flex-direction: column;
+        Card { }
+    }
+}

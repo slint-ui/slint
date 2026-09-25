@@ -1,0 +1,183 @@
+---
+title: Generated Code
+description: The Rust API that the Slint SC compiler generates.
+---
+
+The Slint SC compiler translates a `.slint` file into Rust code that depends
+only on the [`slint-sc`](/api/slint_sc/) runtime crate. \{#sls.gen.output}
+
+The generated code compiles only with the [`slint-sc`](/api/slint_sc/) runtime
+of the same version as the compiler that generated it. \{#sls.gen.version}
+
+## The Component Struct
+
+The generated code contains a struct named after the exported component.
+\{#sls.gen.component}
+
+An exported component shall inherit `Window`. \{#sls.gen.window-root}
+
+## `new()`
+
+```rust
+pub fn new(size: slint_sc::Size) -> Self
+```
+
+Creates an instance of the component for a window of `size`, a [`slint_sc::Size`](/api/slint_sc/struct.Size.html)
+in pixels. \{#sls.gen.new}
+
+## `render_rgb8()`
+
+```rust
+pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError>
+```
+
+Renders the window into `frame_buffer` as described in [Rendering](/reference/rendering/):
+`width * height` pixels of the size the window was created with, in row-major order,
+each pixel three bytes — red, green, blue. \{#sls.gen.render-rgb8}
+
+```rust
+let instance = Foo::new(slint_sc::Size::new(320, 240));
+let mut frame_buffer = [0u8; 320 * 240 * 3];
+instance.render_rgb8(&mut frame_buffer)?;
+```
+
+When the length of `frame_buffer` isn't `width * height * 3` for that size, `render_rgb8` returns
+[`Err(RenderError::InvalidFrameBufferSize)`](/api/slint_sc/enum.RenderError.html) and paints nothing. \{#sls.gen.render-error}
+
+## Properties
+
+The generated component holds the value of each
+[property declared](/language/properties/#sls.prop.decl.form) on the
+root element. \{#sls.gen.prop.values.meta}
+
+Kebab-case property names become snake_case in the generated names:
+the accessors of a property `foo-bar` are `get_foo_bar()` and
+`set_foo_bar()`. \{#sls.gen.prop.names}
+
+### `get_foo()`
+
+```rust
+pub fn get_foo(&self) -> T
+```
+
+Returns the value of the property `foo`.
+It is generated for `in`, `out`, and `in-out` properties,
+but not for private ones. \{#sls.gen.prop.get}
+
+### `set_foo()`
+
+```rust
+pub fn set_foo(&mut self, value: T)
+```
+
+Sets the value of the property `foo`.
+It is generated for `in` and `in-out` properties,
+but not for `out` and private ones. \{#sls.gen.prop.set}
+
+### Property Types
+
+The Rust type `T` of a property maps from its Slint type:
+\{#sls.gen.prop.types}
+
+| Slint type | Rust type |
+| --- | --- |
+| `int` | `i32` |
+| `color` | [`slint_sc::Color`](/api/slint_sc/struct.Color.html) |
+| `length` | `i32` |
+| `bool` | `bool` |
+| `image` | `slint_sc::Image` |
+| a declared `struct` | the generated struct of the same name |
+| a declared `enum` | the generated enum of the same name |
+
+An `slint_sc::Image` is either `Image::None`, no image, or
+`Image::StaticArgb`, a reference to `'static` packed pixel bytes in
+row-major order together with the image's width, four bytes per pixel:
+alpha, red, green, and blue.
+The default is `Image::None`. \{#sls.gen.prop.types.image}
+
+The image of an [`@image-url()`](/language/expressions/#sls.expr.image.form)
+literal is decoded when the code is generated and embedded in it as a
+`static` holding an `Image::StaticArgb`; the literals of one `.slint` file
+that name the same image file share one embedded
+copy. \{#sls.gen.image.static}
+
+## Callbacks
+
+The application reacts to the [callbacks declared](/language/callbacks/#sls.callback.decl.form) on the root
+element by implementing a generated trait. \{#sls.gen.callback.meta}
+
+### The Callbacks Trait
+
+```rust
+pub trait FooCallbacks {
+    fn on_bar(&mut self, component: &mut Foo);
+}
+```
+
+The trait is named after the component with `Callbacks` appended, and is generated whether or not the
+component declares a callback. \{#sls.gen.callback.trait}
+
+It has one method per declared callback, named after the callback with `on_` prepended and `-` replaced by `_`:
+the method of a callback `alarm-raised` is `on_alarm_raised`. \{#sls.gen.callback.names}
+
+No method has a default body, so an application that leaves a callback of the component unimplemented
+doesn't compile. \{#sls.gen.callback.required}
+
+A method takes the implementing value and the component, both by mutable reference, so a handler reads and
+writes the state of the application and [sets properties](#sls.gen.prop.set) of the component. \{#sls.gen.callback.args}
+
+## `dispatch_touch_event()`
+
+```rust
+pub fn dispatch_touch_event(
+    &mut self,
+    event: slint_sc::TouchEvent,
+    callbacks: &mut impl FooCallbacks,
+)
+```
+
+Delivers `event`, a [`slint_sc::TouchEvent`](/api/slint_sc/enum.TouchEvent.html) carrying a press or a release
+at a position, to the component as described in [Touch Input](/reference/input/), calling the methods of
+`callbacks` for the callbacks that the event invokes. \{#sls.gen.dispatch-touch-event}
+
+## Types
+
+Each [struct](/language/structs-and-enums/#sls.struct.decl) or
+[enum](/language/structs-and-enums/#sls.enum.decl) declared in the `.slint` file
+generates a public Rust type of the same name. \{#sls.gen.types}
+
+### Structs
+
+A struct generates a Rust `struct` whose fields are public and of the mapped
+Rust type, each named after the Slint field with `-` replaced by `_`
+(so `line-width` becomes `line_width`);
+it derives `Default`, `Clone`, `PartialEq`, and `Debug`. \{#sls.gen.types.struct}
+
+### Enums
+
+An enum generates a Rust `enum` deriving `Default`, `Clone`, `Copy`,
+`PartialEq`, and `Debug`. \{#sls.gen.types.enum}
+
+Its `Default` returns the variant of the enum's first value. \{#sls.gen.types.enum.default}
+
+A variant name is formed from the Slint value by removing every `-` and `_`
+and capitalizing the first letter of the name and the first letter after each
+removed separator; every other letter keeps its case, so a value already in
+this form is unchanged and `FOO_BAR` and `Foo_Bar` yield different
+variants. \{#sls.gen.types.enum.names}
+
+| Slint value | Rust variant |
+| --- | --- |
+| `up` | `Up` |
+| `hello-world` | `HelloWorld` |
+| `FooBar` | `FooBar` |
+| `Foo_Bar` | `FooBar` |
+| `FOO_BAR` | `FOOBAR` |
+| `FooBar-x` | `FooBarX` |
+
+:::caution[Names become Rust identifiers]
+A component, struct, enum, or struct field whose name is a Rust keyword, or an
+enum value whose variant name is one (a value `self` becomes `Self`), generates
+code that does not compile; rename it. Property names are unaffected: their
+accessors are always prefixed with `get_` or `set_`.
+:::

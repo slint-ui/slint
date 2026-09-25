@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data {
+    text: string,
+    color: color,
+    bg: color,
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> test: true;
+
+    out property<[Data]> data: test ? [] : [
+                { text: "Blue", color: #0000ff, bg: #eeeeee},
+                { text: "Red", color: #ff0000, bg: #eeeeee},
+                { text: "Green", color: #00ff00, bg: #eeeeee},
+                { text: "Yellow", color: #ffff00, bg: #222222 },
+                { text: "Black", color: #000000, bg: #eeeeee },
+                { text: "White", color: #ffffff, bg: #222222 },
+                { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+                { text: "Cyan", color: #00ffff, bg: #222222 },
+            ];
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_data().row_count(), 0);
+
+instance.set_test(false);
+assert_eq!(instance.get_test(), false);
+assert_eq!(instance.get_data().row_count(), 8);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+assert_eq(instance.get_data()->row_count(), 0);
+
+instance.set_test(false);
+assert_eq(instance.get_test(), false);
+assert_eq(instance.get_data()->row_count(), 8);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.data.rowCount(), 0);
+
+instance.test = false;
+assert(!instance.test);
+assert.equal(instance.data.rowCount(), 8);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+assert len(list(instance.data)) == 0
+
+instance.test = False
+assert not instance.test
+assert len(list(instance.data)) == 8
+```
+*/

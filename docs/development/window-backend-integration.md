@@ -58,138 +58,70 @@ Slint's window system provides an abstraction layer between the UI framework and
 
 ## WindowAdapter Trait
 
-The main interface backends must implement:
+The main interface backends must implement. Only three methods have no default: `window()`
+returns the public `Window`, `size()` the current size in physical pixels excluding the frame,
+and `renderer()` the renderer to draw with.
 
-```rust
-pub trait WindowAdapter {
-    /// Returns the window API object
-    fn window(&self) -> &Window;
-
-    /// Show or hide the window
-    fn set_visible(&self, visible: bool) -> Result<(), PlatformError>;
-
-    /// Get window position (physical screen coordinates)
-    fn position(&self) -> Option<PhysicalPosition>;
-
-    /// Set window position
-    fn set_position(&self, position: WindowPosition);
-
-    /// Get window size (physical pixels, excluding frame)
-    fn size(&self) -> PhysicalSize;
-
-    /// Set window size
-    fn set_size(&self, size: WindowSize);
-
-    /// Request asynchronous redraw
-    fn request_redraw(&self);
-
-    /// Return the renderer
-    fn renderer(&self) -> &dyn Renderer;
-
-    /// Update window properties (title, constraints, etc.)
-    fn update_window_properties(&self, properties: WindowProperties<'_>);
-}
-```
+The rest are optional: `set_visible()`, `position()` / `set_position()`, `set_size()`,
+`request_redraw()`, `update_window_properties()` (title, constraints, ... — see
+[Window Properties](#window-properties)), `internal()` to expose the extra trait below, and
+`window_handle_06()` / `display_handle_06()` for raw-window-handle interop.
+See `WindowAdapter` in `internal/core/window.rs`.
 
 ### WindowAdapterInternal
 
-Additional internal methods (not public API):
+Additional internal methods, reached through `WindowAdapter::internal()` and not part of the
+public API. Every one has a default, so a backend implements only what it supports:
 
-```rust
-pub trait WindowAdapterInternal {
-    /// Called when component tree is created
-    fn register_item_tree(&self);
+- `register_item_tree()` / `unregister_item_tree()` when a component tree appears or goes away
+- `get_parent()` and `create_child_window_adapter()`, the latter returning a separate top-level
+  window for a popup, or `None` to render it embedded in the parent
+- `set_mouse_cursor()`, `input_method_request()`, `handle_focus_change()` (for accessibility)
+- `supports_native_menu_bar()`, `setup_menubar()`, `show_native_popup_menu()`
+- `window_handle_06_rc()` / `display_handle_06_rc()`, `bring_to_front()`, `start_window_move()`,
+  `start_drag()`
+- `safe_area_inset()` for notches and system bars
 
-    /// Called when component tree is destroyed
-    fn unregister_item_tree(&self, component: ItemTreeRef, items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>);
-
-    /// Create a separate window for popup (or None for embedded)
-    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>>;
-
-    /// Set the mouse cursor
-    fn set_mouse_cursor(&self, cursor: MouseCursor);
-
-    /// Handle input method requests
-    fn input_method_request(&self, request: InputMethodRequest);
-
-    /// Handle focus change (for accessibility)
-    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>);
-
-    /// Get the color scheme (light/dark)
-    fn color_scheme(&self) -> ColorScheme;
-
-    /// Returns safe area insets (for notches, system bars)
-    fn safe_area_inset(&self) -> PhysicalEdges;
-}
-```
+See `WindowAdapterInternal` in `internal/core/window.rs`.
 
 ## Platform Trait
 
-Factory for windows and event loop management:
+Factory for windows and event loop management. `create_window_adapter()` is the only required
+method. The rest have defaults:
 
-```rust
-pub trait Platform {
-    /// Create a new window adapter
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError>;
+- `run_event_loop()` runs the loop until it is asked to quit. `process_events()` handles the
+  pending events and waits for new ones up to a timeout, for an application driving the loop
+  itself; it is `#[doc(hidden)]` and takes an `InternalToken`, and a backend implements the two
+  separately — neither default calls the other.
+- `new_event_loop_proxy()` returns the handle for cross-thread communication. Its
+  `quit_event_loop()` exits the loop; there is no `quit_event_loop` directly on `Platform`.
+  (`set_event_loop_quit_on_last_window_closed()` is hidden and deprecated — i-slint-core owns
+  that behavior now.)
+- `clipboard_text()` / `set_clipboard_text()`, both taking which `Clipboard` to use.
+- `duration_since_start()` drives the animations, `click_interval()` the double-click detection,
+  and `cursor_flash_cycle()` the text cursor blink.
+- `debug_log()` receives the output of Slint's `debug()`, and `open_url()` hands a URL to an
+  external browser.
 
-    /// Run the event loop (blocking)
-    fn run_event_loop(&self) -> Result<(), PlatformError>;
-
-    /// Process pending events and wait for new ones up to `timeout`
-    /// (the actual per-iteration entry point; `run_event_loop()` is built on top of it)
-    fn process_events(
-        &self,
-        timeout: Option<Duration>,
-    ) -> Result<core::ops::ControlFlow<()>, PlatformError>;
-
-    /// Get event loop proxy for cross-thread communication (its `quit_event_loop()`
-    /// exits the loop; there is no `quit_event_loop` directly on `Platform`)
-    fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>>;
-
-    /// Get clipboard contents
-    fn clipboard_text(&self, clipboard: Clipboard) -> Option<String>;
-
-    /// Set clipboard contents
-    fn set_clipboard_text(&self, text: &str, clipboard: Clipboard);
-
-    /// Duration since application start (for animations)
-    fn duration_since_start(&self) -> Duration;
-
-    /// Click interval for double-click detection
-    fn click_interval(&self) -> Duration;
-}
-```
+See `Platform` in `internal/core/platform.rs`.
 
 ## WindowEvent
 
-Events dispatched from platform to Slint:
+Events dispatched from platform to Slint. `WindowEvent` has:
 
-```rust
-pub enum WindowEvent {
-    // Pointer events
-    PointerPressed { position: LogicalPosition, button: PointerEventButton },
-    PointerReleased { position: LogicalPosition, button: PointerEventButton },
-    PointerMoved { position: LogicalPosition },
-    PointerScrolled { position: LogicalPosition, delta_x: f32, delta_y: f32 },
-    PointerExited,
+- **Pointer events**: `PointerPressed` and `PointerReleased` (a logical position and a
+  `PointerEventButton`), `PointerMoved`, `PointerScrolled` (a position plus an x and y delta) and
+  `PointerExited`.
+- **Keyboard events**: `KeyPressed`, `KeyPressRepeated` and `KeyReleased`, each carrying the text
+  the key produced.
+- **Window state events**: `ScaleFactorChanged`, `Resized` (a logical size), `CloseRequested` and
+  `WindowActiveChanged`.
 
-    // Touch events
-    TouchPressed { touch_finger_id: i32, position: LogicalPosition },
-    TouchReleased { touch_finger_id: i32, position: LogicalPosition },
-    TouchMoved { touch_finger_id: i32, position: LogicalPosition },
+See `WindowEvent` in `internal/core/platform.rs`.
 
-    // Keyboard events
-    KeyPressed { text: SharedString },
-    KeyPressRepeated { text: SharedString },
-    KeyReleased { text: SharedString },
-
-    // Window state events
-    ScaleFactorChanged { scale_factor: f32 },
-    Resized { size: LogicalSize },
-    CloseRequested,
-    WindowActiveChanged(bool),
-}
-```
+There is no public touch variant. A backend with real touch input dispatches
+`WindowEvent::Internal(InternalEvent::Touch { .. })` instead, because the pointer events the
+runtime synthesizes from a touch point carry a finger id that `WindowEvent` cannot express.
 
 **Dispatching events:**
 ```rust
@@ -202,71 +134,30 @@ window.dispatch_event(WindowEvent::PointerPressed {
 
 ## WindowInner
 
-Internal state management for windows:
+`WindowInner` (`internal/core/window.rs`) holds everything the public `Window` does not. Its
+fields group into:
 
-```rust
-pub struct WindowInner {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
-    component: RefCell<ItemTreeWeak>,
-    strong_component_ref: RefCell<Option<ItemTreeRc>>,
-
-    // Input state
-    mouse_input_state: Cell<MouseInputState>,
-    modifiers: Cell<InternalKeyboardModifierState>,
-    click_state: ClickState,
-
-    // Focus
-    focus_item: RefCell<ItemWeak>,
-    cursor_blinker: RefCell<PinWeak<TextCursorBlinker>>,
-
-    // Property tracking
-    pinned_fields: Pin<Box<WindowPinnedFields>>,  // scale_factor, active, etc.
-
-    // Window state
-    maximized: Cell<bool>,
-    minimized: Cell<bool>,
-
-    // Popups
-    active_popups: RefCell<Vec<PopupWindow>>,
-    next_popup_id: Cell<NonZeroU32>,
-
-    // Callbacks
-    close_requested: Callback<(), CloseRequestResponse>,
-}
-```
+- The weak adapter it belongs to, the shown component, and a strong reference to it kept only
+  while the window is visible.
+- **Input state**: the mouse input state, the touch state, and a `ClickState` for double-click
+  detection.
+- **Focus**: the focused item and a tracker for its visibility, the text cursor blinker, the last
+  text sent to the input method, and a `prevent_focus_change` flag that keeps a
+  `ComponentContainer`'s init code from stealing the focus.
+- **Property tracking**: `WindowPinnedFields`, the pinned block holding `scale_factor`, `active`,
+  `text_input_focused`, `menubar_shortcuts` and the redraw / window-properties trackers.
+- **Popups**: the stack of active popups, the id to hand out next, and whether one was open at
+  the last press.
+- The menu bar, the `close_requested` callback, the `SlintContext`, and the native drag in flight.
 
 ### Property Tracking
 
-Windows use `PropertyTracker` to automatically request updates:
-
-```rust
-// Redraw tracker - requests redraw when any rendered property changes
-struct WindowRedrawTracker {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
-}
-
-impl PropertyDirtyHandler for WindowRedrawTracker {
-    fn notify(self: Pin<&Self>) {
-        if let Some(adapter) = self.window_adapter_weak.upgrade() {
-            adapter.request_redraw();
-        }
-    }
-}
-
-// Properties tracker - notifies when window properties change
-struct WindowPropertiesTracker {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
-}
-
-impl PropertyDirtyHandler for WindowPropertiesTracker {
-    fn notify(self: Pin<&Self>) {
-        // Deferred update via timer
-        Timer::single_shot(Default::default(), move || {
-            // ... update_window_properties() ...
-        });
-    }
-}
-```
+Windows use `PropertyTracker`s parameterized on a `PropertyDirtyHandler`, so a dependency going
+dirty calls straight into the window. Both handlers hold a weak adapter: `WindowRedrawTracker`
+calls `request_redraw()` as soon as a rendered property goes dirty, and
+`WindowPropertiesTracker` defers `update_window_properties()` to a single-shot timer so a burst of
+changes results in one update. `PopupWindowPropertiesTracker` does the same for a popup's
+geometry. See `internal/core/window.rs`.
 
 ## Popup Management
 
@@ -276,44 +167,23 @@ impl PropertyDirtyHandler for WindowPropertiesTracker {
 `PopupClosePolicy` is defined in `internal/common/enums.rs` and re-exported via
 `crate::items::PopupClosePolicy`.
 
-```rust
-pub struct PopupWindow {
-    pub popup_id: NonZeroU32,
-    pub location: PopupWindowLocation,
-    pub component: ItemTreeRc,
-    pub close_policy: PopupClosePolicy,
-    focus_item_in_parent: ItemWeak,
-    pub parent_item: ItemWeak,
-    is_menu: bool,
-}
+A `PopupWindow` is its id, its `PopupWindowLocation`, the component providing the content, the
+`PopupClosePolicy`, the item it was invoked from, the item that had the focus in the parent
+window, a `WindowKind` (a tooltip does not steal focus and is placed unclamped, while a context
+or popup menu joins the menu chain for hit testing and cascading close), a closure returning the
+popup's desired position relative to the parent, a hook keeping the parent's
+`PopupWindow::is-open` property in sync, and its own properties tracker.
 
-pub enum PopupWindowLocation {
-    /// Separate top-level window
-    TopLevel(Rc<dyn WindowAdapter>),
-    /// Embedded in parent at position
-    ChildWindow(LogicalPoint),
-}
+A `PopupWindowLocation` is either `TopLevel`, its own window known to the windowing system, or
+`ChildWindow` at a position inside the parent.
 
-pub enum PopupClosePolicy {
-    CloseOnClick,        // Close on any click
-    CloseOnClickOutside, // Close only on click outside
-    NoAutoClose,         // Manual close only
-}
-```
+`PopupClosePolicy` is `CloseOnClick` (any click), `CloseOnClickOutside`, or `NoAutoClose`.
 
 ### Popup Placement
 
-```rust
-pub enum Placement {
-    Fixed(LogicalRect),
-}
-
-/// Place popup within clip region (window/screen bounds)
-pub fn place_popup(
-    placement: Placement,
-    clip_region: &Option<LogicalRect>,
-) -> LogicalRect;
-```
+`place_popup()` takes a `Placement` — currently only `Fixed`, a requested rectangle — and an
+optional clip region, typically the window or the screen it is on, and returns where the popup
+actually goes. See `internal/core/window/popup.rs`.
 
 The placement algorithm:
 1. If popup fits within clip region, use requested position
@@ -330,14 +200,9 @@ Cross-platform backend using the winit library:
 - **Renderers**: FemtoVG (OpenGL/WGPU), Skia, Software
 - **Features**: Accessibility (AccessKit), menus (muda)
 
-```rust
-pub trait WinitCompatibleRenderer {
-    fn render(&self, window: &Window) -> Result<DrawOutcome, PlatformError>;
-    fn as_core_renderer(&self) -> &dyn Renderer;
-    fn suspend(&self) -> Result<(), PlatformError>;
-    fn resume(&self, ...) -> Result<Arc<winit::window::Window>, PlatformError>;
-}
-```
+Renderers plug in through the `WinitCompatibleRenderer` trait in
+`internal/backends/winit/lib.rs`; see
+[custom-renderer.md](custom-renderer.md#winitcompatiblerenderer-internalbackendswinit).
 
 ### Qt Backend (`internal/backends/qt/`)
 
@@ -367,56 +232,22 @@ Headless testing:
 
 Properties exposed to backends via `WindowProperties`:
 
-```rust
-impl WindowProperties<'_> {
-    /// Window title
-    pub fn title(&self) -> SharedString;
-
-    /// Background color/brush
-    pub fn background(&self) -> Brush;
-
-    /// Layout constraints (min, max, preferred size)
-    pub fn layout_constraints(&self) -> LayoutConstraints;
-
-    /// Fullscreen state
-    pub fn is_fullscreen(&self) -> bool;
-
-    /// Maximized state
-    pub fn is_maximized(&self) -> bool;
-
-    /// Minimized state
-    pub fn is_minimized(&self) -> bool;
-}
-
-pub struct LayoutConstraints {
-    pub min: Option<LogicalSize>,
-    pub max: Option<LogicalSize>,
-    pub preferred: LogicalSize,
-}
-```
+`WindowProperties` borrows the `WindowInner` and exposes getters for the `Window` element's
+properties: `title()`, `background()`, `layout_constraints()`, and `is_fullscreen()`,
+`is_maximized()`, `is_minimized()`. `LayoutConstraints` here is the window-level one — an
+optional min and max plus a preferred `LogicalSize` — not the compiler's.
+See `internal/core/window.rs`.
 
 ## Input Method Support
 
-For text input with IME:
+For text input with IME. An `InputMethodRequest` is `Enable` or `Update` with the properties, or
+`Disable`.
 
-```rust
-pub enum InputMethodRequest {
-    Enable(InputMethodProperties),
-    Update(InputMethodProperties),
-    Disable,
-}
-
-pub struct InputMethodProperties {
-    pub text: SharedString,           // Surrounding text
-    pub cursor_position: usize,       // Cursor byte offset
-    pub anchor_position: Option<usize>, // Selection anchor
-    pub preedit_text: SharedString,   // Pre-edit/composition text
-    pub preedit_offset: usize,
-    pub cursor_rect_origin: LogicalPosition,
-    pub cursor_rect_size: LogicalSize,
-    pub input_type: InputType,        // Text, Number, Password, etc.
-}
-```
+`InputMethodProperties` carries the text surrounding the cursor (pre-edit excluded), the cursor
+byte offset within it, the selection anchor if there is one, the pre-edit text and its offset, the
+cursor rectangle's origin and size, the clip rectangle, the anchor point, the `InputType` (text,
+number, password, ...) and the `InputMethodHints`.
+See `internal/core/window.rs`.
 
 ## Common Patterns
 
@@ -496,19 +327,13 @@ window.on_close_requested(|| {
 | **Logical** | DPI-independent pixels (physical / scale_factor) |
 
 ```rust
-// Conversion
 let logical = physical_size.to_logical(scale_factor);
 let physical = logical_size.to_physical(scale_factor);
-
-// Window API uses both
-fn position(&self) -> Option<PhysicalPosition>;  // Physical
-fn set_size(&self, size: WindowSize);            // Can be either
-
-pub enum WindowSize {
-    Physical(PhysicalSize),
-    Logical(LogicalSize),
-}
 ```
+
+The window API uses both: `WindowAdapter::position()` and `size()` are physical, while
+`set_size()` takes a `WindowSize` — either `Physical` or `Logical` — and `set_position()` a
+`WindowPosition` the same way.
 
 ## Debugging Tips
 
@@ -526,7 +351,7 @@ pub enum WindowSize {
 
 ```rust
 // Get current focus
-let focus = window.focus_item();
+let focus = WindowInner::from_pub(&window).focus_item.borrow().clone();
 
 // Check scale factor
 let scale = WindowInner::from_pub(&window).scale_factor();

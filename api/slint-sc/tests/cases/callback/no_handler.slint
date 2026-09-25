@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+component Button inherits Rectangle {
+    callback pressed;
+    background: #405060;
+    TouchArea {
+        clicked => { root.pressed(); }
+    }
+}
+
+export component TestCase inherits Window {
+    callback never-invoked;
+    background: #202020;
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 24px;
+        height: 24px;
+        background: #405060;
+        // No handler for `pressed`, so a click on the button does nothing
+        //#sls.callback.call.handler
+        Button { }
+    }
+}
+
+/*
+```rust
+struct Application {
+    invoked: u32,
+}
+impl TestCaseCallbacks for Application {
+    fn on_never_invoked(&mut self, _component: &mut TestCase) { self.invoked += 1; }
+}
+
+let mut x = TestCase::new(crate::harness::WINDOW_SIZE);
+let mut application = Application { invoked: 0 };
+let at = slint_sc::Point::new(16, 16);
+x.dispatch_touch_event(slint_sc::TouchEvent::pressed(at), &mut application);
+x.dispatch_touch_event(slint_sc::TouchEvent::released(at), &mut application);
+assert_eq!(application.invoked, 0);
+```
+*/

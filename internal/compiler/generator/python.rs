@@ -7,8 +7,9 @@
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals enumty fundecl pycompo pyenum structty
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::OnceLock;
-use std::{collections::HashSet, rc::Rc};
 
 use smol_str::{SmolStr, StrExt, format_smolstr};
 
@@ -59,9 +60,9 @@ impl From<&PyProperty> for python_ast::Field {
     }
 }
 
-impl From<&llr::PublicProperty> for PyProperty {
-    fn from(llr_prop: &llr::PublicProperty) -> Self {
-        Self { name: ident(&llr_prop.name), ty: python_type_name(&llr_prop.ty) }
+impl From<(&SmolStr, &llr::PublicProperty)> for PyProperty {
+    fn from((name, llr_prop): (&SmolStr, &llr::PublicProperty)) -> Self {
+        Self { name: ident(name), ty: python_type_name(&llr_prop.ty) }
     }
 }
 
@@ -154,10 +155,10 @@ pub struct PyStruct {
 
 pub struct AnonymousStruct;
 
-impl TryFrom<&Rc<crate::langtype::Struct>> for PyStruct {
+impl TryFrom<&Arc<crate::langtype::Struct>> for PyStruct {
     type Error = AnonymousStruct;
 
-    fn try_from(structty: &Rc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
+    fn try_from(structty: &Arc<crate::langtype::Struct>) -> Result<Self, Self::Error> {
         let StructName::User { name, .. } = &structty.name else {
             return Err(AnonymousStruct);
         };
@@ -234,8 +235,8 @@ pub struct PyEnum {
     aliases: Vec<SmolStr>,
 }
 
-impl From<&Rc<crate::langtype::Enumeration>> for PyEnum {
-    fn from(enumty: &Rc<crate::langtype::Enumeration>) -> Self {
+impl From<&Arc<crate::langtype::Enumeration>> for PyEnum {
+    fn from(enumty: &Arc<crate::langtype::Enumeration>) -> Self {
         Self {
             name: ident(&enumty.name),
             variants: enumty
@@ -333,56 +334,37 @@ impl PyModule {
     }
 }
 
-pub fn generate_py_module(
-    doc: &Document,
-    compiler_config: &CompilerConfiguration,
-) -> std::io::Result<PyModule> {
+/// Build the Python API description from the lowered LLR plus the source-level
+/// `structs_and_enums`, which the LLR does not carry. Both are available without
+/// the object-tree `Document`, so the interpreter can generate the API from a
+/// `CompilationResult` alone.
+pub fn generate_py_module(unit: &llr::CompilationUnit, structs_and_enums: &[Type]) -> PyModule {
     let mut module = PyModule::default();
 
-    let mut compo_aliases: HashMap<SmolStr, Vec<SmolStr>> = Default::default();
-    let mut struct_aliases: HashMap<SmolStr, Vec<SmolStr>> = Default::default();
-    let mut enum_aliases: HashMap<SmolStr, Vec<SmolStr>> = Default::default();
-
-    for export in doc.exports.iter() {
-        match &export.1 {
-            Either::Left(component) if !component.is_global() && export.0.name != component.id => {
-                compo_aliases.entry(component.id.clone()).or_default().push(export.0.name.clone());
-            }
-            Either::Right(ty) => match &ty {
-                Type::Struct(s) if s.node().is_some() => {
-                    if let StructName::User { name: orig_name, .. } = &s.name
-                        && export.0.name != *orig_name
-                    {
-                        struct_aliases
-                            .entry(orig_name.clone())
-                            .or_default()
-                            .push(export.0.name.clone());
-                    }
-                }
-                Type::Enumeration(en) if export.0.name != en.name => {
-                    enum_aliases.entry(en.name.clone()).or_default().push(export.0.name.clone());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
+    let mut aliases: HashMap<&str, Vec<SmolStr>> = Default::default();
+    for export in unit.type_exports.iter().filter(|e| e.is_alias()) {
+        aliases
+            .entry(export.internal_name.as_str())
+            .or_default()
+            .push(export.exported_name.clone());
     }
+    let aliases_of = |name: &str| aliases.get(name).cloned().unwrap_or_default();
 
-    for ty in &doc.used_types.borrow().structs_and_enums {
+    for ty in structs_and_enums {
         match ty {
             Type::Struct(s) => module.structs_and_enums.extend(
                 PyStruct::try_from(s).ok().and_then(|mut pystruct| {
                     let StructName::User { name, .. } = &s.name else {
                         return None;
                     };
-                    pystruct.aliases = struct_aliases.remove(name).unwrap_or_default();
+                    pystruct.aliases = aliases_of(name);
                     Some(PyStructOrEnum::Struct(pystruct))
                 }),
             ),
             Type::Enumeration(en) => {
                 module.structs_and_enums.push({
                     let mut pyenum = PyEnum::from(en);
-                    pyenum.aliases = enum_aliases.remove(&en.name).unwrap_or_default();
+                    pyenum.aliases = aliases_of(&en.name);
                     PyStructOrEnum::Enum(pyenum)
                 });
             }
@@ -390,18 +372,19 @@ pub fn generate_py_module(
         }
     }
 
-    let llr = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
-
-    let globals = llr.globals.iter().filter(|glob| glob.exported && glob.must_generate());
-
-    module.globals.extend(globals.clone().map(PyComponent::from));
-    module.components.extend(llr.public_components.iter().map(|llr_compo| {
+    module.globals.extend(
+        unit.globals
+            .iter()
+            .filter(|glob| glob.exported && glob.must_generate())
+            .map(PyComponent::from),
+    );
+    module.components.extend(unit.public_components.iter().map(|llr_compo| {
         let mut pycompo = PyComponent::from(llr_compo);
-        pycompo.aliases = compo_aliases.remove(&llr_compo.name).unwrap_or_default();
+        pycompo.aliases = aliases_of(&llr_compo.name);
         pycompo
     }));
 
-    Ok(module)
+    module
 }
 
 /// This module contains some data structures that helps represent a Python file.
@@ -572,7 +555,7 @@ use crate::langtype::{StructName, Type};
 use crate::CompilerConfiguration;
 use crate::llr;
 use crate::object_tree::Document;
-use itertools::{Either, Itertools};
+use itertools::Itertools;
 use python_ast::*;
 
 /// Returns the text of the Python code produced by the given root component
@@ -585,7 +568,8 @@ pub fn generate(
     file.imports.push(SmolStr::new_static("slint"));
     file.imports.push(SmolStr::new_static("typing"));
 
-    let pymodule = generate_py_module(doc, compiler_config)?;
+    let unit = llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
+    let pymodule = generate_py_module(&unit, &doc.used_types.borrow().structs_and_enums);
 
     if pymodule.structs_and_enums.iter().any(|se| matches!(se, PyStructOrEnum::Enum(_))) {
         file.imports.push(SmolStr::new_static("enum"));

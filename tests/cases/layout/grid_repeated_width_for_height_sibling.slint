@@ -1,0 +1,118 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A repeated wrapping column FlexboxLayout (gray, on the right) in a grid next
+// to a wrapped text. The flex is measured as one column (see
+// flexbox_column_wrap_width.slint), so the grid's horizontal solve never reads
+// the instance's height, and the vertical pass measures the text at its solved
+// column width like any other repeated cell.
+//
+// Reading the rendered window: the caption reports the row height the grid
+// settled on; the test only asserts that the layout solves at all and lands
+// somewhere sane.
+
+// The cell whose width would depend on its height: a column flex that flows
+// into more columns as it gets shorter. Measured as one column here.
+component WrapCol inherits FlexboxLayout {
+    flex-direction: column;
+    flex-wrap: wrap;
+    spacing: 0px;
+    padding: 0px;
+    cross-axis-line-alignment: start;
+    Rectangle { width: 44px; height: 30px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+        Text { x: 0px; width: 100%; height: 100%; text: "col"; font-size: 9px; color: #333333;
+            horizontal-alignment: center; vertical-alignment: center; } }
+    Rectangle { width: 44px; height: 30px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+        Text { x: 0px; width: 100%; height: 100%; text: "col"; font-size: 9px; color: #333333;
+            horizontal-alignment: center; vertical-alignment: center; } }
+    Rectangle { width: 44px; height: 30px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+        Text { x: 0px; width: 100%; height: 100%; text: "col"; font-size: 9px; color: #333333;
+            horizontal-alignment: center; vertical-alignment: center; } }
+    Rectangle { width: 44px; height: 30px; background: #dcdcdc; border-width: 1px; border-color: #a0a0a0;
+        Text { x: 0px; width: 100%; height: 100%; text: "col"; font-size: 9px; color: #333333;
+            horizontal-alignment: center; vertical-alignment: center; } }
+}
+
+export component TestCase inherits Window {
+    width: 460px;
+    height: block.y + block-height + ref.height + 12px;
+
+    property <[int]> one: [1];
+    property <length> block-height: 30px + ref.height * 8;
+
+    // Single-line reference for a font-independent line height. Parked below
+    // everything else, faint and labeled, so it does not read as a stray word.
+    ref := Text {
+        x: 4px;
+        y: block.y + block-height + 6px;
+        font-size: 11px;
+        text: "(line-height reference)";
+        color: #bbbbbb;
+    }
+
+    legend := Text {
+        x: 4px;
+        y: 2px;
+        width: 400px;
+        font-size: 11px;
+        color: #555555;
+        wrap: word-wrap;
+        text: "blue = the wrapped-text cell; gray = the repeated column flexbox, measured as one column\nmagenta bar = the asserted extent, its top is the text row's height";
+    }
+
+    cap := Text { x: 4px; y: legend.y + legend.height + 10px; width: 440px;
+        font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "repeated column flexbox sibling — row \{round(marker.y / 1px)}px (the text may overflow it)"; }
+
+    block := GridLayout {
+        x: 0; y: cap.y + cap.height + 4px;
+        width: 440px; height: block-height;
+        spacing: 0px; padding: 0px;
+        Row {
+            for x in one: Rectangle {
+                background: #cce6ff;
+                border-width: 1px;
+                border-color: #5b8db8;
+                VerticalLayout {
+                    padding: 0px;
+                    Text {
+                        text: "A long wrapped cell: the quick brown fox jumps over the lazy dog, twice over.";
+                        wrap: word-wrap;
+                        color: #003366;
+                    }
+                }
+            }
+            for y in one: WrapCol { }
+        }
+        Row {
+            marker := Rectangle {
+                height: 14px;
+                background: #ffe6ff;
+                border-width: 1px;
+                border-color: #f0f;
+            }
+        }
+        Row { Rectangle { vertical-stretch: 1; } }
+    }
+
+    // The layout solved instead of panicking, and the text row is a real row:
+    // at least one line tall, and no taller than the block of tiles beside it.
+    out property <bool> test: marker.y >= ref.height && marker.y <= 4 * 30px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore timedelta
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use pyo3::prelude::*;
+use pyo3::{PyTraverseError, gc::PyVisit};
 
 /// The TimerMode specifies what should happen after the timer fired.
 ///
@@ -54,13 +58,16 @@ impl From<PyTimerMode> for i_slint_core::timers::TimerMode {
 #[pyclass(name = "Timer", unsendable)]
 pub struct PyTimer {
     timer: i_slint_core::timers::Timer,
+    /// Shared with the closure i-slint-core keeps in its (GC-invisible) timer list, so
+    /// that `__clear__` releases the core closure's reference too, not just ours.
+    callback: Rc<RefCell<Option<Py<PyAny>>>>,
 }
 
 #[pymethods]
 impl PyTimer {
     #[new]
     fn py_new() -> Self {
-        PyTimer { timer: Default::default() }
+        PyTimer { timer: Default::default(), callback: Default::default() }
     }
 
     /// Starts the timer with the given mode and interval, in order for the callback to called when the
@@ -80,8 +87,22 @@ impl PyTimer {
         let interval = interval
             .to_std()
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
+        // Bind the old callback rather than discarding it in place: releasing it may run
+        // Python code that touches this timer, and a binding keeps that until after the
+        // borrow ends. (`let _ =` would drop it while the borrow is still held.)
+        let previous = self.callback.borrow_mut().replace(callback);
+        drop(previous);
+
+        let slot = self.callback.clone();
         self.timer.start(mode.into(), interval, move || {
             Python::attach(|py| {
+                // Take a strong reference and release the borrow before calling into
+                // Python: the callback may start or stop this very timer.
+                let Some(callback) = slot.borrow().as_ref().map(|cb| cb.clone_ref(py)) else {
+                    // Cleared by `__clear__` while the timer was still armed.
+                    return;
+                };
                 if let Err(err) = callback.call0(py) {
                     crate::handle_unraisable(
                         py,
@@ -156,5 +177,27 @@ impl PyTimer {
     #[getter]
     fn interval(&self) -> core::time::Duration {
         self.timer.interval()
+    }
+
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        // i-slint-core stores the callback inside a boxed closure in a thread local, where
+        // Python's cyclic GC can't see it. Report it here, so that the common
+        // `self.timer.start(..., self.on_tick)` pattern - a cycle through the timer - stays
+        // collectable.
+        if let Ok(slot) = self.callback.try_borrow()
+            && let Some(callback) = slot.as_ref()
+        {
+            visit.call(callback)?;
+        }
+        Ok(())
+    }
+
+    fn __clear__(&mut self) {
+        // Stop first: the closure in the core timer list outlives this call and would
+        // otherwise keep firing as a no-op until the timer is dropped.
+        self.timer.stop();
+        // `and_then` drops the borrow before yielding the callback, so releasing it here
+        // is already outside the borrow.
+        let _ = self.callback.try_borrow_mut().ok().and_then(|mut slot| slot.take());
     }
 }

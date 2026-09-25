@@ -43,6 +43,9 @@ fn text_input_cursor_rect_does_not_recurse_into_font_context() {
     // doesn't ship its own bitmap font. See `parley_disabled()` in the software
     // renderer.
     //
+    // The renderer reads this once and caches it, so it has to be set before the
+    // first text is laid out, i.e. before the window below is set up.
+    //
     // SAFETY: this is the only test in this binary, so no other thread reads
     // env vars concurrently.
     unsafe {

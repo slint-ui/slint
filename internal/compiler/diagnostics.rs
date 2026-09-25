@@ -3,7 +3,7 @@
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::parser::TextSize;
 use std::collections::BTreeSet;
@@ -11,14 +11,10 @@ use std::collections::BTreeSet;
 /// Span represent an error location within a file.
 ///
 /// Currently, it is just an offset in byte within the file + the corresponding length.
-///
-/// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Span {
     pub offset: usize,
     pub length: usize,
-    #[cfg(feature = "proc_macro_span")]
-    pub span: Option<proc_macro::Span>,
 }
 
 impl Span {
@@ -26,33 +22,14 @@ impl Span {
         self.offset != usize::MAX
     }
 
-    #[allow(clippy::needless_update)] // needed when `proc_macro_span` is enabled
     pub fn new(offset: usize, length: usize) -> Self {
-        Self { offset, length, ..Default::default() }
+        Self { offset, length }
     }
 }
 
 impl Default for Span {
     fn default() -> Self {
-        Span {
-            offset: usize::MAX,
-            length: 0,
-            #[cfg(feature = "proc_macro_span")]
-            span: Default::default(),
-        }
-    }
-}
-
-impl PartialEq for Span {
-    fn eq(&self, other: &Span) -> bool {
-        self.offset == other.offset && self.length == other.length
-    }
-}
-
-#[cfg(feature = "proc_macro_span")]
-impl From<proc_macro::Span> for Span {
-    fn from(span: proc_macro::Span) -> Self {
-        Self { span: Some(span), ..Default::default() }
+        Span { offset: usize::MAX, length: 0 }
     }
 }
 
@@ -73,7 +50,7 @@ pub struct SourceFileInner {
     source: Option<String>,
 
     /// The offset of each linebreak
-    line_offsets: std::cell::OnceCell<Vec<usize>>,
+    line_offsets: std::sync::OnceLock<Vec<usize>>,
 }
 
 impl std::fmt::Debug for SourceFileInner {
@@ -92,8 +69,8 @@ impl SourceFileInner {
     }
 
     /// Create a SourceFile that has just a path, but no contents
-    pub fn from_path_only(path: PathBuf) -> Rc<Self> {
-        Rc::new(Self { path, ..Default::default() })
+    pub fn from_path_only(path: PathBuf) -> Arc<Self> {
+        Arc::new(Self { path, ..Default::default() })
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
@@ -187,7 +164,7 @@ pub enum ByteFormat {
     Utf16,
 }
 
-pub type SourceFile = Rc<SourceFileInner>;
+pub type SourceFile = Arc<SourceFileInner>;
 
 pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
     let string = (if path == Path::new("-") {
@@ -384,6 +361,21 @@ impl IntoIterator for BuildDiagnostics {
 }
 
 impl BuildDiagnostics {
+    /// Diagnostics for analyzing code that may already be in error, and whose
+    /// messages are thrown away.
+    ///
+    /// Seeded with an error because the compiler asserts that an error was
+    /// reported before it produces an `ElementType::Error` or an invalid
+    /// expression.
+    pub fn discarded() -> Self {
+        let mut diag = Self::default();
+        diag.push_error_with_span(
+            "Dummy error because some of the code asserts there was an error".into(),
+            Default::default(),
+        );
+        diag
+    }
+
     pub fn push_diagnostic_with_span(
         &mut self,
         message: String,
@@ -418,6 +410,16 @@ impl BuildDiagnostics {
         self.inner.push(error);
     }
 
+    /// Whether the compilation targets the Slint SC subset. Callable without
+    /// the `slint-sc` feature, unlike reading the field, so call sites need
+    /// no `cfg` of their own.
+    pub fn is_slint_sc(&self) -> bool {
+        #[cfg(feature = "slint-sc")]
+        return self.slint_sc;
+        #[cfg(not(feature = "slint-sc"))]
+        false
+    }
+
     /// If in safety-critical mode, push an error saying that `feature` is not
     /// supported.
     ///
@@ -440,10 +442,23 @@ impl BuildDiagnostics {
         new_property: &str,
         source: &dyn Spanned,
     ) {
+        self.push_property_deprecation_warning_with_message(
+            old_property,
+            &format!("Please use '{new_property}' instead"),
+            source,
+        )
+    }
+
+    /// Same as [`Self::push_property_deprecation_warning`], but with a free-form message shown
+    /// after "The property 'xxx' has been deprecated."
+    pub fn push_property_deprecation_warning_with_message(
+        &mut self,
+        old_property: &str,
+        message: &str,
+        source: &dyn Spanned,
+    ) {
         self.push_diagnostic_with_span(
-            format!(
-                "The property '{old_property}' has been deprecated. Please use '{new_property}' instead"
-            ),
+            format!("The property '{old_property}' has been deprecated. {message}"),
             source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
         )
@@ -529,28 +544,26 @@ impl BuildDiagnostics {
 
     #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
     /// Will convert the diagnostics that only have offsets to the actual proc_macro::Span
+    ///
+    /// `tokens` are the tokens the document was parsed from, in document order.
     pub fn report_macro_diagnostic(
         self,
-        span_map: &[crate::parser::Token],
+        tokens: &[crate::parser::Token],
     ) -> proc_macro::TokenStream {
         let mut result = proc_macro::TokenStream::default();
         let mut needs_error = self.has_errors();
         let output = self.call_diagnostics(
             Some(&mut |diag| {
-                let span = diag.span.span.span.or_else(|| {
-                    //let pos =
-                    //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
-                    //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
-                    let mut offset = 0;
-                    span_map.iter().find_map(|t| {
-                        if diag.span.span.offset <= offset {
-                            t.span
-                        } else {
-                            offset += t.text.len();
-                            None
-                        }
-                    })
-                });
+                // A diagnostic only carries an offset into the document, which is the
+                // concatenation of the token texts: find the token that offset lands in.
+                let span = if diag.span.span.is_valid() {
+                    let index = tokens
+                        .binary_search_by_key(&diag.span.span.offset, |t| t.offset)
+                        .unwrap_or_else(|i| i.saturating_sub(1));
+                    tokens.get(index).and_then(|t| t.span)
+                } else {
+                    None
+                };
                 let message = &diag.message;
 
                 let span: proc_macro2::Span = if let Some(span) = span {

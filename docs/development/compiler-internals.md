@@ -100,7 +100,7 @@ The interpreter (`internal/interpreter/`) compiles `.slint` at runtime and uses 
 
 ### Adding a New Built-in Element
 
-1. **Define the element** in `internal/compiler/builtins.slint`
+1. **Declare the element** in `internal/compiler/builtin_elements.rs`
 2. **Add runtime item** in `internal/core/items/` (new file or existing)
 3. **Register the item** in `internal/core/items.rs` (add to `ItemVTable`)
 4. **Update type registry** in `internal/compiler/typeregister.rs`
@@ -110,9 +110,9 @@ The interpreter (`internal/interpreter/`) compiles `.slint` at runtime and uses 
 ### Adding a New Compiler Pass
 
 1. **Create pass file** in `internal/compiler/passes/your_pass.rs`
-2. **Add to mod.rs** in `internal/compiler/passes/mod.rs`
-3. **Register in pipeline** in `internal/compiler/passes.rs` (choose appropriate phase)
-4. **Add tests** - either unit tests in the pass file or `.slint` test cases
+2. **Declare the module and register it in the pipeline**, both in
+   `internal/compiler/passes.rs` (choose appropriate phase)
+3. **Add tests** - either unit tests in the pass file or `.slint` test cases
 
 ### Adding a New Property Type
 

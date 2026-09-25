@@ -28,6 +28,8 @@ Below are the rules agents most often get wrong.
 
 - Use layouts (`VerticalLayout`, `HorizontalLayout`, `GridLayout`, or the
   padded `*Box` widgets); reserve `x`/`y` for overlays and custom drawing.
+- `FlexboxLayout` is for *wrapping* (`flex-wrap` defaults to `wrap`, unlike
+  CSS); without wrapping, prefer `HorizontalLayout`/`VerticalLayout`.
 - `padding`/`spacing` only work on layout elements. To inset a `Text`, wrap
   it: `HorizontalLayout { padding-left: 6px; Text {…} }`.
 - Fill vs. preferred size: containers and graphics elements (`Rectangle`,

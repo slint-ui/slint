@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::graphics::euclid::{Point2D, Size2D};
+use i_slint_core::graphics::{
+    FontRequest,
+    euclid::{Point2D, Size2D},
+};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
@@ -14,7 +17,7 @@ use i_slint_core::window::{
 
 use i_slint_core::SharedString;
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::input::MouseEvent;
+use i_slint_core::input::BackendDragEvent;
 use i_slint_core::items::{AllowedDragActions, DragAction, DropEvent, TextWrap};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -140,6 +143,11 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
     family.as_ref().is_some_and(|f| f == FIXED_TEST_FONT)
 }
 
+fn fixed_test_font_line_height(font_request: &FontRequest, pixel_size: f32) -> f32 {
+    // The test font's natural line height is exactly the pixel size (ascent 0.7 + descent 0.3).
+    font_request.line_height_for_natural_height(pixel_size).unwrap_or(pixel_size)
+}
+
 #[derive(Default)]
 pub struct TestingBackendOptions {
     pub mock_time: bool,
@@ -154,6 +162,7 @@ pub struct TestingBackendOptions {
 }
 
 pub struct TestingBackend {
+    context: std::cell::OnceCell<i_slint_core::SlintContextWeak>,
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
@@ -166,6 +175,7 @@ pub struct TestingBackend {
 impl TestingBackend {
     pub fn new(options: TestingBackendOptions) -> Self {
         Self {
+            context: Default::default(),
             clipboard: Mutex::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
@@ -178,6 +188,10 @@ impl TestingBackend {
 }
 
 impl i_slint_core::platform::Platform for TestingBackend {
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let _ = self.context.set(ctx);
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
@@ -201,7 +215,11 @@ impl i_slint_core::platform::Platform for TestingBackend {
             #[cfg(supports_headless)]
             renderer,
         });
-        ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
+        ALL_TESTING_WINDOWS.with(|list| {
+            let mut list = list.borrow_mut();
+            list.retain(|w| w.upgrade().is_some());
+            list.push(Rc::downgrade(&window));
+        });
         Ok(window)
     }
 
@@ -239,13 +257,17 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
         loop {
             let e = queue.0.lock().unwrap().pop_front();
+            let ctx =
+                self.context.get().and_then(|ctx| ctx.upgrade()).expect(
+                    "the testing backend's event loop runs inside the context that owns it",
+                );
             if !self.mock_time {
-                i_slint_core::platform::update_timers_and_animations();
+                ctx.update_timers_and_animations();
             }
             match e {
                 Some(Event::Quit) => break Ok(()),
                 Some(Event::Event(e)) => e(),
-                None => match i_slint_core::platform::duration_until_next_timer_update() {
+                None => match ctx.duration_until_next_timer_update() {
                     Some(duration) if !self.mock_time => std::thread::park_timeout(duration),
                     _ => std::thread::park(),
                 },
@@ -309,9 +331,28 @@ pub struct TestingWindow {
     renderer: Option<Box<dyn Renderer>>,
 }
 
+impl Drop for TestingWindow {
+    fn drop(&mut self) {
+        let self_ptr = self as *const TestingWindow;
+        ALL_TESTING_WINDOWS
+            .try_with(|list| {
+                list.borrow_mut().retain(|w| w.as_ptr() != self_ptr);
+            })
+            .ok();
+    }
+}
+
 impl TestingWindow {
     pub fn use_native_popup(&self, native: bool) {
         self.native_popup.set(native);
+    }
+
+    pub fn ime_requests(&self) -> Vec<InputMethodRequest> {
+        self.ime_requests.borrow().clone()
+    }
+
+    pub fn clear_ime_requests(&self) {
+        self.ime_requests.borrow_mut().clear();
     }
 
     #[allow(dead_code)] // Used by various tests
@@ -379,14 +420,11 @@ impl TestingWindow {
         event.proposed_action =
             i_slint_core::items::compute_proposed_action(Default::default(), allowed);
         let event = if drop {
-            MouseEvent::Drop { event, allowed }
+            BackendDragEvent::Drop { event, allowed }
         } else {
-            MouseEvent::DragMove { event, allowed }
+            BackendDragEvent::Move { event, allowed }
         };
-        WindowInner::from_pub(target)
-            .process_mouse_input(event)
-            .and_then(|r| r.drag_action)
-            .unwrap_or(DragAction::None)
+        WindowInner::from_pub(target).process_drag_event(event).unwrap_or(DragAction::None)
     }
 }
 
@@ -515,18 +553,58 @@ impl RendererSealed for TestingWindow {
                     i_slint_core::styled_text::get_raw_text(&s).into_owned()
                 }
             };
+            // Whitespace-separated words rather than real line breaking, and byte lengths
+            // rather than character counts, to match text_size() above.
             let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
             let (max_line_len, num_lines) = text
                 .lines()
                 .take(max_lines)
                 .fold((0, 0), |(len, count), line| (len.max(line.len()), count + 1));
             let width = max_line_len as f32 * pixel_size;
-            let height = num_lines.max(1) as f32 * pixel_size;
+            let height =
+                num_lines.max(1) as f32 * fixed_test_font_line_height(&font_request, pixel_size);
             LogicalSize::new(width, height)
         } else {
             sharedparley::text_size(self, text_item, item_rc, max_width, text_wrap, None)
                 .unwrap_or_default()
         }
+    }
+
+    fn text_content_widths(
+        &self,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
+        item_rc: &i_slint_core::item_tree::ItemRc,
+    ) -> Option<i_slint_core::renderer::ContentWidths> {
+        let font_request = text_item.font_request(item_rc);
+        if is_fixed_test_font(&font_request.family) {
+            let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let text: String = match text_item.text() {
+                i_slint_core::item_rendering::PlainOrStyledText::Plain(s) => s.to_string(),
+                i_slint_core::item_rendering::PlainOrStyledText::Styled(s) => {
+                    i_slint_core::styled_text::get_raw_text(&s).into_owned()
+                }
+            };
+            let max_lines = text_item.line_limit().unwrap_or(usize::MAX);
+            let lines = text.lines().take(max_lines);
+            let longest_word =
+                lines.clone().flat_map(str::split_whitespace).map(str::len).max().unwrap_or(0);
+            let longest_line = lines.map(str::len).max().unwrap_or(0);
+            Some(i_slint_core::renderer::ContentWidths {
+                min: LogicalLength::new(longest_word as f32 * pixel_size),
+                max: LogicalLength::new(longest_line as f32 * pixel_size),
+            })
+        } else {
+            sharedparley::text_content_widths(self, text_item, item_rc, self.text_layout_cache())
+        }
+    }
+
+    fn text_line_height(
+        &self,
+        font_request: i_slint_core::graphics::FontRequest,
+    ) -> Option<LogicalLength> {
+        let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+        is_fixed_test_font(&font_request.family)
+            .then(|| LogicalLength::new(fixed_test_font_line_height(&font_request, pixel_size)))
     }
 
     fn char_size(
@@ -538,7 +616,7 @@ impl RendererSealed for TestingWindow {
         let font_request = text_item.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
-            LogicalSize::new(pixel_size, pixel_size)
+            LogicalSize::new(pixel_size, fixed_test_font_line_height(&font_request, pixel_size))
         } else {
             let Some(ctx) = self.slint_context() else {
                 return LogicalSize::default();
@@ -574,27 +652,26 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         pos: LogicalPoint,
-    ) -> usize {
+    ) -> (usize, i_slint_core::items::TextCursorAffinity) {
+        use i_slint_core::items::TextCursorAffinity;
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
+            // The fixed test font never wraps, so the affinity is always next-character.
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let line_height = fixed_test_font_line_height(&font_request, pixel_size);
             let text = text_input.text();
             if pos.y < 0. {
-                return 0;
+                return (0, TextCursorAffinity::NextCharacter);
             }
-            let line = (pos.y / pixel_size) as usize;
-            let offset = if line >= 1 {
-                text.split('\n').take(line - 1).map(|l| l.len() + 1).sum()
-            } else {
-                0
-            };
+            let line = (pos.y / line_height) as usize;
+            let offset: usize = text.split('\n').take(line).map(|l| l.len() + 1).sum();
             let Some(line) = text.split('\n').nth(line) else {
-                return text.len();
+                return (text.len(), TextCursorAffinity::NextCharacter);
             };
             let column = ((pos.x / pixel_size).max(0.) as usize).min(line.len());
-            offset + column
+            (offset + column, TextCursorAffinity::NextCharacter)
         } else {
-            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos)
+            sharedparley::text_input_byte_offset_for_position(self, text_input, item_rc, pos, None)
         }
     }
 
@@ -603,16 +680,18 @@ impl RendererSealed for TestingWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         byte_offset: usize,
+        affinity: i_slint_core::items::TextCursorAffinity,
     ) -> LogicalRect {
         let font_request = text_input.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
+            let line_height = fixed_test_font_line_height(&font_request, pixel_size);
             let text = text_input.text();
             let line = text[..byte_offset].chars().filter(|c| *c == '\n').count();
             let column = text[..byte_offset].split('\n').nth(line).unwrap_or("").len();
             LogicalRect::new(
-                Point2D::new(column as f32 * pixel_size, line as f32 * pixel_size),
-                Size2D::new(1., pixel_size),
+                Point2D::new(column as f32 * pixel_size, line as f32 * line_height),
+                Size2D::new(1., line_height),
             )
         } else {
             sharedparley::text_input_cursor_rect_for_byte_offset(
@@ -620,28 +699,10 @@ impl RendererSealed for TestingWindow {
                 text_input,
                 item_rc,
                 byte_offset,
+                affinity,
+                None,
             )
         }
-    }
-
-    fn register_font_from_memory(
-        &self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().register_static_font(data);
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
-        let contents = std::fs::read(requested_path)?;
-        let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
-        Ok(())
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
@@ -717,5 +778,41 @@ impl i_slint_core::platform::EventLoopProxy for Queue {
         self.0.lock().unwrap().push_back(Event::Event(event));
         self.1.unpark();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::platform::Platform;
+
+    /// Windows that were created and dropped must leave no trace in the
+    /// `ALL_TESTING_WINDOWS` registry, so their backing allocation is returned
+    /// to the allocator immediately. Previously the dead weak reference stayed
+    /// in the registry until the next `mock_elapsed_time` call, pinning the
+    /// allocation for the whole process lifetime.
+    #[test]
+    fn dropped_windows_are_removed_from_the_registry() {
+        let backend = TestingBackend::new(TestingBackendOptions::default());
+
+        let adapter = backend.create_window_adapter().unwrap();
+        assert_eq!(
+            ALL_TESTING_WINDOWS.with(|list| list.borrow().len()),
+            1,
+            "the live window is tracked"
+        );
+
+        drop(adapter);
+        assert_eq!(
+            ALL_TESTING_WINDOWS.with(|list| list.borrow().len()),
+            0,
+            "the dropped window must be untracked"
+        );
+
+        // A later window creation immediately reuses the empty slot.
+        let adapter = backend.create_window_adapter().unwrap();
+        assert_eq!(ALL_TESTING_WINDOWS.with(|list| list.borrow().len()), 1);
+        drop(adapter);
+        assert_eq!(ALL_TESTING_WINDOWS.with(|list| list.borrow().len()), 0);
     }
 }

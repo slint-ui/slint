@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
 use i_slint_core::graphics::{SharedImageBuffer, TexturePixelFormat};
-use i_slint_core::lengths::{PointLengths as _, SizeLengths as _};
+use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
 pub struct SceneVectors {
@@ -378,14 +378,14 @@ impl SceneTextureExtra {
         texture: &super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
-        let geometry: PhysicalRect = euclid::rect(
-            texture.dst_x as i16,
-            texture.dst_y as i16,
-            texture.dst_width as i16,
-            texture.dst_height as i16,
+        let geometry: euclid::Rect<i32, PhysicalPx> = euclid::rect(
+            texture.dst_x as i32,
+            texture.dst_y as i32,
+            texture.dst_width as i32,
+            texture.dst_height as i32,
         );
         let geometry = geometry.to_box2d();
-        let clipped_geometry = geometry.intersection(&clip.to_box2d())?;
+        let clipped_geometry = geometry.intersection(&clip.cast::<i32>().to_box2d())?;
 
         let mut offset = match texture.rotation {
             RenderingRotation::NoRotation => clipped_geometry.min - geometry.min,
@@ -428,10 +428,10 @@ impl SceneTextureExtra {
                 rotation: texture.rotation,
                 dx: Fixed::try_from_fixed(dx).ok()?,
                 dy: Fixed::try_from_fixed(dy).ok()?,
-                off_x: Fixed::try_from_fixed(dx * offset.x as i32).ok()?,
-                off_y: Fixed::try_from_fixed(dy * offset.y as i32).ok()?,
+                off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,
+                off_y: Fixed::try_from_fixed(dy * offset.y).ok()?,
             },
-            clipped_geometry.to_rect(),
+            clipped_geometry.to_rect().cast(),
         ))
     }
 }

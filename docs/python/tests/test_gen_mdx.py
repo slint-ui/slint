@@ -32,14 +32,12 @@ def _inventory(body: str) -> bytes:
 
 
 def test_parse_inventory_keeps_only_py_type_roles():
-    body = "\n".join(
-        [
-            "int py:class 1 library/functions.html#$ -",
-            "list comprehension 1 - -",  # decoy: non-py role for the same name
-            "dict std:2to3fixer 1 library/2to3.html#x -",  # decoy: std domain
-            "pathlib.Path py:class 1 library/pathlib.html#$ -",
-            "typing.Optional py:data 1 library/typing.html#$ -",
-        ]
+    body = (
+        "int py:class 1 library/functions.html#$ -\n"
+        "list comprehension 1 - -\n"  # decoy: non-py role for the same name
+        "dict std:2to3fixer 1 library/2to3.html#x -\n"  # decoy: std domain
+        "pathlib.Path py:class 1 library/pathlib.html#$ -\n"
+        "typing.Optional py:data 1 library/typing.html#$ -"
     )
     base = "https://docs.python.org/3.12/"
     links = gen_mdx.parse_inventory(_inventory(body), base)
@@ -123,7 +121,6 @@ def test_class_members_inherit_and_hide(sample):
     assert "### greet" in out  # own method
     assert "### shared" in out  # inherited from the in-package base
     assert "### name" in out  # annotated attribute -> property
-    assert "init_self" not in out  # inherited helper excluded by name
     assert "secret" not in out  # @private docstring excluded
     assert "_internal" not in out  # underscore-prefixed excluded
 

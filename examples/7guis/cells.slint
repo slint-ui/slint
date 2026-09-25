@@ -18,8 +18,8 @@ export component MainWindow inherits Window {
     ScrollView {
         width: 100%;
         height: 100%;
-        viewport-width: 20px + 26 * root.cell-width;
-        viewport-height: 100 * root.cell-height;
+        content-width: 20px + 26 * root.cell-width;
+        content-height: 100 * root.cell-height;
 
         for letter[idx] in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" ] : Rectangle {
             y:0;

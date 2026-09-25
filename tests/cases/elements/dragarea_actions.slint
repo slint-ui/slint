@@ -62,7 +62,7 @@ assert_eq!(instance.get_dragging(), true);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_current_action(), DragAction::Move);
-assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Move));
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default));
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);

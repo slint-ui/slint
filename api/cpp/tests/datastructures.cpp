@@ -3,6 +3,10 @@
 
 #include <ranges>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <set>
+#include <vector>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
@@ -179,6 +183,30 @@ TEST_CASE("Track model row data changes")
     REQUIRE(tracker.is_dirty());
 }
 
+TEST_CASE("Track model row data changes outside a binding")
+{
+    using namespace slint::private_api;
+
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker tracker;
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 1);
+    REQUIRE(!tracker.is_dirty());
+
+    // Tracking a row while no binding is being evaluated registers no dependency, so it
+    // must not make later changes to that row dirty bindings that never asked for it.
+    model->track_row_data_changes(0);
+    model->set_row_data(0, 100);
+    REQUIRE(!tracker.is_dirty());
+
+    // The row the tracker did ask for still works.
+    model->set_row_data(1, 100);
+    REQUIRE(tracker.is_dirty());
+}
+
 TEST_CASE("Image")
 {
     using namespace slint;
@@ -204,6 +232,27 @@ TEST_CASE("Image")
         auto actual_path = img.path();
         REQUIRE(actual_path.has_value());
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
+    }
+
+    {
+        std::ifstream file(SOURCE_DIR "/redpixel.png", std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
+                                  std::istreambuf_iterator<char>());
+        auto from_data = Image::load_from_data(data);
+        auto size = from_data.size();
+        REQUIRE(size.width == 1);
+        REQUIRE(size.height == 1);
+        REQUIRE(!from_data.path().has_value());
+    }
+
+    {
+        static constexpr unsigned char svg[] =
+                R"(<svg xmlns="http://www.w3.org/2000/svg" width="16" height="8"></svg>)";
+        // The format is guessed from the leading `<svg` tag.
+        auto from_data = Image::load_from_data(std::span(svg, sizeof(svg) - 1));
+        auto size = from_data.size();
+        REQUIRE(size.width == 16);
+        REQUIRE(size.height == 8);
     }
 #endif
 
@@ -527,6 +576,82 @@ TEST_CASE("DataTransfer")
         REQUIRE(a.has_image());
     }
 
+    SECTION("File paths round-trip")
+    {
+        DataTransfer a;
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(!a.file_paths().has_value());
+
+        std::filesystem::path paths[] = { "/tmp/plain.txt", u8"/tmp/gr\u00fc\u00dfe.txt" };
+        a.set_file_paths(paths);
+        REQUIRE(a.has_file_paths());
+        REQUIRE(!a.is_empty());
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE(fetched->size() == 2);
+        REQUIRE((*fetched)[0] == paths[0]);
+        REQUIRE((*fetched)[1] == paths[1]);
+
+        a.set_file_paths({});
+        REQUIRE(!a.has_file_paths());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("File paths accept arbitrary ranges")
+    {
+        DataTransfer a;
+
+        // A non-contiguous container, not expressible as a std::span.
+        std::set<std::filesystem::path> as_set = { "/tmp/a.txt", "/tmp/b.txt" };
+        a.set_file_paths(as_set);
+        auto from_set = a.file_paths();
+        REQUIRE(from_set.has_value());
+        REQUIRE(from_set->size() == 2);
+
+        // Elements merely convertible to std::filesystem::path.
+        std::vector<std::string> as_strings = { "/tmp/one.txt", "/tmp/two.txt" };
+        a.set_file_paths(as_strings);
+        auto from_strings = a.file_paths();
+        REQUIRE(from_strings.has_value());
+        REQUIRE(from_strings->size() == 2);
+        REQUIRE((*from_strings)[0] == std::filesystem::path("/tmp/one.txt"));
+
+        // A lazy view producing path temporaries on the fly.
+        a.set_file_paths(as_strings | std::views::transform([](const std::string &s) {
+                             return std::filesystem::path(s + ".bak");
+                         }));
+        auto from_view = a.file_paths();
+        REQUIRE(from_view.has_value());
+        REQUIRE(from_view->size() == 2);
+        REQUIRE((*from_view)[0] == std::filesystem::path("/tmp/one.txt.bak"));
+    }
+
+#ifdef _WIN32
+    SECTION("File paths keep unpaired surrogates")
+    {
+        // A lone surrogate is representable in a Windows filename; it must
+        // survive the conversion to Rust's WTF-8 encoded PathBuf and back.
+        std::filesystem::path lone_surrogate(L"C:\\tmp\\lone-\xD800.txt");
+        std::filesystem::path paths[] = { lone_surrogate };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == lone_surrogate.native());
+    }
+#else
+    SECTION("File paths keep non-UTF-8 bytes")
+    {
+        std::filesystem::path invalid_utf8(std::string("/tmp/\xFF\xFE-invalid"));
+        std::filesystem::path paths[] = { invalid_utf8 };
+        DataTransfer a;
+        a.set_file_paths(paths);
+        auto fetched = a.file_paths();
+        REQUIRE(fetched.has_value());
+        REQUIRE((*fetched)[0].native() == invalid_utf8.native());
+    }
+#endif
+
     SECTION("User data round-trip")
     {
         DataTransfer a;
@@ -633,5 +758,41 @@ TEST_CASE("DataTransfer")
         std::any v = a.user_data();
         REQUIRE(std::any_cast<int>(&v) != nullptr);
         REQUIRE(*std::any_cast<int>(&v) == 42);
+    }
+}
+
+TEST_CASE("Keys::from_parts accepts arbitrary ranges")
+{
+    using slint::Keys;
+
+    // Braced initializer list, handled by the initializer_list overload.
+    auto braced = Keys::from_parts({ "Control", "C" });
+    REQUIRE(braced.has_value());
+
+    SECTION("Ranges of different container and element types")
+    {
+        // A std::vector of std::string: not accepted by the former std::span
+        // overload without an explicit conversion to std::string_view.
+        std::vector<std::string> as_strings = { "Control", "C" };
+        auto from_strings = Keys::from_parts(as_strings);
+        REQUIRE(from_strings.has_value());
+        REQUIRE(*from_strings == *braced);
+
+        // A non-contiguous container.
+        std::set<std::string> as_set = { "Control", "C" };
+        auto from_set = Keys::from_parts(as_set);
+        REQUIRE(from_set.has_value());
+        REQUIRE(*from_set == *braced);
+
+        // A lazy view producing std::string temporaries on the fly.
+        auto from_view = Keys::from_parts(
+                as_strings | std::views::transform([](const std::string &s) { return s; }));
+        REQUIRE(from_view.has_value());
+        REQUIRE(*from_view == *braced);
+    }
+
+    SECTION("Parse failure still returns nullopt")
+    {
+        REQUIRE(!Keys::from_parts({ "NotARealKeyName" }).has_value());
     }
 }

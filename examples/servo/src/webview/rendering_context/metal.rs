@@ -16,7 +16,7 @@ use objc2_metal::{
 
 use winit::dpi::PhysicalSize;
 
-use slint::wgpu_29::wgpu::{
+use slint::wgpu_30::wgpu::{
     self, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, Device, FilterMode,
     Queue, ShaderStages, Texture, TextureFormat, TextureUsages,
 };
@@ -134,6 +134,7 @@ fn wgpu_hal_texture(
             0,
             0,
             wgpu::hal::CopyExtent { width: size.width, height: size.height, depth: 0 },
+            None,
         );
 
         let descriptor = create_wgpu_texture_descriptor(
@@ -143,7 +144,13 @@ fn wgpu_hal_texture(
             TextureFormat::Bgra8Unorm,
         );
 
-        wgpu_device.create_texture_from_hal::<wgpu::wgc::api::Metal>(hal_texture, &descriptor)
+        // UNINITIALIZED is the tracker state wgpu 29 implicitly assigned to hal-imported
+        // textures; it only seeds barrier tracking and does not cause a zero-init clear.
+        wgpu_device.create_texture_from_hal::<wgpu::wgc::api::Metal>(
+            hal_texture,
+            &descriptor,
+            wgpu::TextureUses::UNINITIALIZED,
+        )
     }
 }
 

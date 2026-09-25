@@ -80,7 +80,10 @@ impl JsComponentInstance {
             } else if let Ok(value) = super::to_value(&env, result, &return_type, &owner) {
                 value
             } else {
-                eprintln!("Node.js: cannot convert return type of callback {callback_name}");
+                crate::console_err!(
+                    env,
+                    "Node.js: cannot convert return type of callback {callback_name}"
+                );
                 slint_interpreter::default_value_for_type(&return_type)
             }
         }
@@ -193,7 +196,7 @@ impl JsComponentInstance {
         env: &Env,
         mut this: This<Object<'_>>,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner
@@ -236,7 +239,7 @@ impl JsComponentInstance {
         mut this: This<Object<'_>>,
         global_name: String,
         callback_name: String,
-        callback: DynFunction<'_>,
+        #[napi(ts_arg_type = "(...args: any[]) => any")] callback: DynFunction<'_>,
     ) -> Result<()> {
         let (ty, _) = self
             .inner

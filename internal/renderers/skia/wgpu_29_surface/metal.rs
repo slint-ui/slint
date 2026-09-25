@@ -16,6 +16,7 @@ unsafe fn wrap_metal_texture(
     gr_context: &mut skia_safe::gpu::DirectContext,
     metal_handle: mtl::Handle,
     color_type: skia_safe::ColorType,
+    color_space: skia_safe::ColorSpace,
 ) -> Option<skia_safe::Surface> {
     unsafe {
         let texture_info = mtl::TextureInfo::new(metal_handle);
@@ -26,7 +27,7 @@ unsafe fn wrap_metal_texture(
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
             color_type,
-            None,
+            color_space,
             None,
         )
     }
@@ -52,15 +53,24 @@ pub unsafe fn make_metal_surface(
             wgpu::TextureFormat::Rgba8UnormSrgb => skia_safe::ColorType::SRGBA8888,
             _ => return None,
         };
-        wrap_metal_texture(size.width as i32, size.height as i32, gr_context, handle, color_type)
+        wrap_metal_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            handle,
+            color_type,
+            super::attachment_color_space(texture),
+        )
     }
 }
 
+#[cfg_attr(not(feature = "unstable-wgpu-29"), allow(dead_code))]
 pub unsafe fn import_metal_texture(
     canvas: &skia_safe::Canvas,
     texture: wgpu::Texture,
 ) -> Option<skia_safe::Image> {
     unsafe {
+        let color_space = super::sampled_texture_color_space(&texture);
         let metal_texture = texture.as_hal::<wgpu::wgc::api::Metal>();
 
         let texture_info = mtl::TextureInfo::new(metal_texture.unwrap().raw_handle()
@@ -85,10 +95,26 @@ pub unsafe fn import_metal_texture(
                     _ => return None,
                 },
                 skia_safe::AlphaType::Unpremul,
-                None,
+                color_space,
             )
             .unwrap(),
         )
+    }
+}
+
+pub fn set_layer_contents_gravity(surface: &wgpu::Surface<'_>) {
+    // SAFETY: The hal surface is only borrowed for the duration of this call, to adjust a
+    // CAMetalLayer property that wgpu itself neither reads nor writes.
+    unsafe {
+        if let Some(hal_surface) = surface.as_hal::<wgpu::wgc::api::Metal>() {
+            let layer = hal_surface.render_layer().lock();
+            let gravity = if !layer.contentsAreFlipped() {
+                objc2_quartz_core::kCAGravityTopLeft
+            } else {
+                objc2_quartz_core::kCAGravityBottomLeft
+            };
+            layer.setContentsGravity(gravity);
+        }
     }
 }
 

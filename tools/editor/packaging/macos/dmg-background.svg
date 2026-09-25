@@ -1,0 +1,18 @@
+<svg width="660" height="420" viewBox="0 0 660 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="82" y1="42" x2="610" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9FBFC"/>
+      <stop offset="0.58" stop-color="#EEF7FF"/>
+      <stop offset="1" stop-color="#F8FAFF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="660" height="420" rx="0" fill="url(#bg)"/>
+  <path d="M0 319C96 287 154 303 238 328C346 361 433 357 660 286V420H0V319Z" fill="#DDEFFD" opacity="0.62"/>
+
+  <text x="330" y="109" text-anchor="middle" fill="#172033" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Helvetica, Arial, sans-serif" font-size="34" font-weight="650">Install Slint Visual Editor</text>
+  <text x="330" y="145" text-anchor="middle" fill="#637083" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Helvetica, Arial, sans-serif" font-size="16">Drag the app to Applications</text>
+
+  <path d="M255 277C300 247 351 247 401 277" stroke="#7CBFF5" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M388 256L412 279L388 302" stroke="#7CBFF5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

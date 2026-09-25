@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component RepeatedPaletteDrops inherits Window {
+    width: 388px;
+    height: 718px;
+    background: #f8fafc;
+
+    drop-target := Rectangle {
+        x: 64px;
+        y: 96px;
+        width: 260px;
+        height: 200px;
+        background: #2563eb;
+        Text {
+            text: "Text";
+            x: 20px;
+            y: 80px;
+            width: 220px;
+            height: 40px;
+            color: #1f2328;
+            font-size: 24px;
+            vertical-alignment: center;
+        }
+    }
+
+    Text {
+        y: 320px;
+        text: "Reload probe";
+    }
+}

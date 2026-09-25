@@ -1,20 +1,29 @@
 ---
 title: Slint SC Safety Manual
 description: Safety Manual and Qualification Plan for Slint SC, the ISO 26262 compliant subset of Slint.
+# The landing page belongs to no topic, so it has no sidebar to show. Without
+# this, Starlight renders the topic groups starlight-sidebar-topics injects,
+# which are labelled by index and read as a list of bare numbers.
+template: splash
 ---
 
 Slint SC is the "ISO 26262 compliant subset" of Slint.
-It does not yet exist. This document is a Work In Progress.
+It doesn't exist yet, and these documents are a Work In Progress.
 
-## Purpose of Document
+## Purpose of These Documents
 
-This document contains a Safety Manual and a Qualification Plan.
+Together they make up the qualification package for Slint SC.
 
-The Safety Manual lists the requirements for ISO 26262, and
-contains a description of the architecture of Slint SC.
+Read the [Safety Manual](/safety-manual/) if you build with Slint SC.
+It's the only one that changes what you do, and every rule in it is a condition of the qualification holding.
 
-The Qualification Plan contains lists of possible failures, known issues, and descriptions of related test cases. This document needs to be updated after each version release.
+The rest record how Slint SC is built and tested, so an assessor can check the work.
 
-### Audience
+## Documents
 
-Currently, this is an internal document for Slint SC developers, but when there is a Slint SC product ready, this document will be for people who want to use Slint SC to build automotive software and certify it for ISO 26262.
+* **[Safety Manual](/safety-manual/)**: what you must do, and not do, so your use of Slint SC stays covered by its qualification.
+* **[Qualification Plan](/qualification-plan/)**: how we organize, develop, test, and release Slint SC, and the architecture we do it to.
+* **[Evaluation Report](/evaluation-report/use-cases/)**: what can go wrong in the compiler and the runtime, and what we do about each.
+* **[Qualification Report](/qualification-report/traceability-matrix/)**: the traceability matrix, the measured coverage, and the test results.
+* **[Language Specification](/language/)**: the language Slint SC accepts, and the requirements the tests trace to.
+* **[API Reference](/reference/)**: the elements, property types, and the code the compiler generates.

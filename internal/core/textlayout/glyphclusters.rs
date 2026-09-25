@@ -65,8 +65,9 @@ impl<Length: Copy + Clone + Zero + core::ops::AddAssign> Iterator
         let mut cluster_byte_offset;
         loop {
             let glyph = &self.shaped_text.glyphs[self.glyph_index];
-            // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = current_run.byte_range.start + glyph.text_byte_offset;
+            // ShapeBuffer::new folds the run's start into the cluster index
+            // the shaper reports, so this offset is already absolute.
+            cluster_byte_offset = glyph.text_byte_offset;
             if cluster_byte_offset != self.byte_offset {
                 break;
             }

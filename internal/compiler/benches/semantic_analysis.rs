@@ -22,7 +22,7 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileInne
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[global_allocator]
 static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
@@ -198,7 +198,7 @@ fn parse_source(source: &str) -> parser::SyntaxNode {
     let mut diagnostics = BuildDiagnostics::default();
     let tokens = i_slint_compiler::lexer::lex(source);
     let source_file: SourceFile =
-        Rc::new(SourceFileInner::new(PathBuf::from("bench.slint"), source.to_string()));
+        Arc::new(SourceFileInner::new(PathBuf::from("bench.slint"), source.to_string()));
     parser::parse_tokens(tokens, source_file, &mut diagnostics)
 }
 

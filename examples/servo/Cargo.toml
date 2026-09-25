@@ -2,10 +2,18 @@
 # SPDX-License-Identifier: MIT
 
 # cSpell: ignore rustls thiserror
-# This example is part of the examples workspace (examples/Cargo.toml).
+
+# This example has its own workspace: servo's font stack links against a
+# different major version of the native freetype library than `font-kit` (which
+# the `plotter` example pulls in via `plotters`), and cargo allows only one
+# package per resolve graph to set the same `links` value. It is built
+# separately in CI (.github/workflows/servo_example.yaml).
+[workspace]
+resolver = "3"
+
 [package]
 name = "servo-example"
-version = "1.18.0"
+version = "1.18.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 publish = false
@@ -38,12 +46,16 @@ time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
 
-surfman = { version = "0.12.1", features = ["chains"] }
-servo = "0.3.0"
+surfman = { version = "0.13.0", features = ["chains"] }
+servo = "0.5.0"
+
+# Internal to servo 0.5, which doesn't build with the incompatible 0.8.3.
+# https://github.com/rust-ammonia/rust-content-security-policy/issues/81
+content-security-policy = "=0.8.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-surfman = { version = "0.12.1", features = ["chains", "sm-angle-default"] }
-servo = { version = "0.3.0", features = ["no-wgl"] }
+surfman = { version = "0.13.0", features = ["chains", "sm-angle-default"] }
+servo = { version = "0.5.0", features = ["no-wgl"] }
 windows = { version = "0.62.2", features = ["Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Foundation", "Win32_Graphics_Dxgi_Common"] }
 wio = "0.2"
 
@@ -51,10 +63,10 @@ wio = "0.2"
 ash = "0.38.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-29"] }
+slint = { path = "../../api/rs/slint", features = ["backend-android-activity-06", "unstable-wgpu-30"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = { path = "../../api/rs/slint", features = ["unstable-winit-031", "unstable-wgpu-29", "renderer-femtovg-wgpu"] }
+slint = { path = "../../api/rs/slint", features = ["unstable-winit-031", "unstable-wgpu-30", "renderer-femtovg-wgpu"] }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6.3"

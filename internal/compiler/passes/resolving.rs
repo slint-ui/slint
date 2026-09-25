@@ -12,16 +12,21 @@
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype;
-use crate::langtype::{ElementType, KeyboardModifiers, Struct, StructName, Type};
+use crate::langtype::{
+    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
+};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
+use crate::parser::{
+    NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
+};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
 mod remove_noop;
@@ -54,6 +59,7 @@ fn resolve_expression(
             type_loader: Some(type_loader),
             current_token: None,
             local_variables: Vec::new(),
+            expected_type_probe: None,
         };
         lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
@@ -63,7 +69,10 @@ fn resolve_expression(
                 if let Some(property_name) = property_name {
                     check_callback_alias_validity(&node, elem, property_name, lookup_ctx.diag);
                 }
-                Expression::from_callback_connection(node, &mut lookup_ctx)
+                let expr = Expression::from_callback_connection(node.clone(), &mut lookup_ctx);
+                #[cfg(feature = "slint-sc")]
+                check_slint_sc_handler_body(&expr, &node, &mut lookup_ctx);
+                expr
             }
             SyntaxKind::Function => Expression::from_function(node.clone().into(), &mut lookup_ctx),
             SyntaxKind::Expression => {
@@ -109,65 +118,264 @@ fn resolve_expression(
             Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
-    // Specifically used to resolve match expressions
-    } else if let Expression::BinaryExpression { lhs, rhs, op } = expr {
-        let op = *op;
-        let rhs_node =
-            if let Expression::Uncompiled(node) = rhs.as_ref() { Some(node.clone()) } else { None };
+    }
+}
 
+/// Resolve the subject and the case values to create a standard conditional element
+fn resolve_match_elements(
+    elem: &ElementRc,
+    scope: &[ElementRc],
+    type_register: &TypeRegister,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut match_elements = std::mem::take(&mut elem.borrow_mut().match_elements);
+    for match_element in &mut match_elements {
+        if match_element.cases.is_empty()
+            && matches!(match_element.wildcard, WildcardMatchCaseInfo::None)
+        {
+            continue;
+        }
         resolve_expression(
             elem,
-            lhs,
-            property_name,
+            &mut match_element.subject,
+            None,
             Type::Invalid,
             scope,
             type_register,
             type_loader,
             diag,
         );
-        resolve_expression(
-            elem,
-            rhs,
-            property_name,
-            lhs.ty(),
-            scope,
-            type_register,
-            type_loader,
-            diag,
-        );
-        if op == '=' {
-            let is_literal = matches!(
-                rhs.as_ref(),
-                Expression::NumberLiteral(..)
-                    | Expression::StringLiteral(..)
-                    | Expression::BoolLiteral(..)
-                    | Expression::EnumerationValue(..)
+        let case_type = match_element.subject.ty();
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
             );
-            let is_cast = matches!(rhs.as_ref(), Expression::Cast { .. });
-            let is_valid_cast = matches!(
-                rhs.as_ref(),
-                Expression::Cast { from, to, .. }
-                    if matches!(from.as_ref(), Expression::NumberLiteral(..))
-                        && matches!(to, Type::Color | Type::Int32)
+        } else if is_literal_only(&match_element.subject) {
+            diag.push_warning(
+                "Match subject is a constant expression, so the same case always applies".into(),
+                &match_element.node.Expression(),
             );
-            if let Expression::NumberLiteral(val, unit) = rhs.as_ref()
-                && *unit == Unit::None
-                && val.fract() != 0.0
-                && let Some(node) = &rhs_node
-            {
-                diag.push_warning("Floating point comparison is not recommended".into(), node);
-            }
-
-            if let Some(node) = rhs_node {
-                if is_literal || is_valid_cast {
-                    // pass
-                } else if is_cast {
-                    diag.push_error("Cannot perform type conversion".into(), &node);
-                } else {
-                    diag.push_error("Match expressions must be literal values".into(), &node);
-                }
-            }
         }
+        for case in &mut match_element.cases {
+            resolve_expression(
+                elem,
+                &mut case.value,
+                None,
+                case_type.clone(),
+                scope,
+                type_register,
+                type_loader,
+                diag,
+            );
+            check_case_value(&case.value, &case.node, diag);
+        }
+        let values: Vec<Option<CaseValue>> =
+            match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
+        check_duplicate_cases(&match_element.cases, &values, diag);
+        check_exhaustiveness(match_element, &values, diag);
+
+        let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
+        let subject = std::mem::replace(
+            &mut match_element.subject,
+            Expression::PropertyReference(subject_ref.clone()),
+        );
+        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+
+        match_element.lower_to_conditional_elements();
+    }
+}
+
+/// Confirms that each case is a literal value and matches the type of the subject
+fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
+    let is_literal = as_number_literal(value).is_some()
+        || matches!(
+            value,
+            Expression::StringLiteral(..)
+                | Expression::BoolLiteral(..)
+                | Expression::EnumerationValue(..)
+        );
+    let is_valid_cast = matches!(
+        value,
+        Expression::Cast { from, to, .. }
+            if as_number_literal(from).is_some()
+                && matches!(to, Type::Color | Type::Int32)
+    );
+
+    if let Some((number, Unit::None)) = as_number_literal(value)
+        && number.fract() != 0.0
+    {
+        diag.push_warning("Floating point comparison is not recommended".into(), node);
+    }
+
+    if is_literal || is_valid_cast {
+        // pass
+    } else if matches!(value, Expression::Cast { .. }) {
+        diag.push_error("Cannot perform type conversion".into(), node);
+    } else {
+        diag.push_error("Cases must be literal values".into(), node);
+    }
+}
+
+fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
+    match value {
+        Expression::NumberLiteral(number, unit) => Some((*number, *unit)),
+        Expression::UnaryOp { sub, op: '-' } => as_number_literal(sub).map(|(n, u)| (-n, u)),
+        _ => None,
+    }
+}
+
+fn is_literal_only(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(..)
+        | Expression::StringLiteral(..)
+        | Expression::BoolLiteral(..)
+        | Expression::EnumerationValue(..) => true,
+        Expression::Cast { from, .. } => is_literal_only(from),
+        Expression::UnaryOp { sub, .. } => is_literal_only(sub),
+        Expression::BinaryExpression { lhs, rhs, .. } => {
+            is_literal_only(lhs) && is_literal_only(rhs)
+        }
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
+            is_literal_only(condition) && is_literal_only(true_expr) && is_literal_only(false_expr)
+        }
+        _ => false,
+    }
+}
+
+#[derive(PartialEq)]
+enum CaseValue {
+    Number(f64, Unit),
+    String(SmolStr),
+    Bool(bool),
+    Enumeration(langtype::EnumerationValue),
+}
+
+impl CaseValue {
+    fn new(value: &Expression) -> Option<Self> {
+        match value {
+            Expression::Cast { from, .. } => Self::new(from),
+            Expression::UnaryOp { sub, op: '-' } => match Self::new(sub)? {
+                Self::Number(number, unit) => Some(Self::Number(-number, unit)),
+                _ => None,
+            },
+            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
+            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
+            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
+            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
+            _ => None, // For invalid non-literals
+        }
+    }
+}
+
+// `f64` has no total order/equality (NaN), but case values are always parsed
+// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
+impl Eq for CaseValue {}
+
+impl std::hash::Hash for CaseValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
+            CaseValue::Number(number, unit) => {
+                debug_assert!(!number.is_nan());
+                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
+                unit.hash(state);
+            }
+            CaseValue::String(string) => string.hash(state),
+            CaseValue::Bool(boolean) => boolean.hash(state),
+            CaseValue::Enumeration(value) => value.hash(state),
+        }
+    }
+}
+
+/// Reports every case whose value is already covered by an earlier case
+fn check_duplicate_cases(
+    cases: &[MatchCaseInfo],
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut seen = HashSet::with_capacity(values.len());
+    for (case, value) in cases.iter().zip(values) {
+        let Some(value) = value else {
+            continue; // not a valid literal
+        };
+        if !seen.insert(value) {
+            diag.push_error("Duplicate case value".into(), &case.node);
+        }
+    }
+}
+
+impl std::fmt::Display for CaseValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CaseValue::Number(number, _) => write!(f, "{number}"),
+            CaseValue::String(string) => write!(f, "{string:?}"),
+            CaseValue::Bool(boolean) => write!(f, "{boolean}"),
+            CaseValue::Enumeration(value) => write!(f, "{value}"),
+        }
+    }
+}
+
+/// Reports a match element that does not cover every value its subject can take
+fn check_exhaustiveness(
+    match_element: &MatchElementInfo,
+    values: &[Option<CaseValue>],
+    diag: &mut BuildDiagnostics,
+) {
+    if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
+        return;
+    }
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
+    for value in values {
+        let Some(value) = value else {
+            return;
+        };
+        covered.insert(value);
+    }
+    let subject_node = match_element.node.Expression();
+    let subject_type = match_element.subject.ty();
+    let expected: Vec<CaseValue> = match &subject_type {
+        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
+        Type::Enumeration(enumeration) => (0..enumeration.values.len())
+            .map(|value| {
+                CaseValue::Enumeration(langtype::EnumerationValue {
+                    value,
+                    enumeration: enumeration.clone(),
+                })
+            })
+            .collect(),
+        // The subject expression failed to resolve, so an error was already reported
+        Type::Invalid => return,
+        _ => {
+            diag.push_error(
+                format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
+                &subject_node,
+            );
+            return;
+        }
+    };
+
+    let mut missing = Vec::new();
+    for value in &expected {
+        if !covered.contains(value) {
+            missing.push(format!("'{value}'"));
+        }
+    }
+    if !missing.is_empty() {
+        diag.push_error(
+            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            &subject_node,
+        );
     }
 }
 
@@ -218,6 +426,8 @@ pub fn resolve_expressions(
                     });
                 }
 
+                resolve_match_elements(elem, &scope.0, &doc.local_registry, type_loader, diag);
+
                 resolve_two_way_bindings_for_element(elem, &scope.0, &doc.local_registry, diag);
 
                 visit_element_expressions_excluding_repeater_model(
@@ -248,6 +458,22 @@ enum LookupPhase {
     #[default]
     UnspecifiedPhase,
     ResolvingTwoWayBindings,
+}
+
+/// The range of `node`, extended to cover any blank space before it so a cursor there
+/// (like the empty rhs of `x ==  `) still resolves to this node.
+fn probe_range(node: &SyntaxNode) -> TextRange {
+    let range = node.text_range();
+    let mut start = range.start();
+    let mut prev = node.node.prev_sibling_or_token();
+    while let Some(rowan::NodeOrToken::Token(t)) = &prev {
+        if !matches!(t.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment) {
+            break;
+        }
+        start = t.text_range().start();
+        prev = t.prev_sibling_or_token();
+    }
+    TextRange::new(start, range.end())
 }
 
 impl Expression {
@@ -447,6 +673,12 @@ impl Expression {
     }
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
+        // LSP probe: the innermost node containing the offset wins (depth-first descent).
+        if ctx.expected_type_probe.is_some() {
+            let ty = ctx.expected_type.clone();
+            ctx.record_expected_type_probe(probe_range(&node), &ty);
+        }
+
         // This function recurses for nested expressions. Dispatch with early returns
         // instead of a `find_map` closure: in unoptimized builds, every arm of a match
         // producing a value gets its own stack slot for the resulting `Expression`,
@@ -457,8 +689,6 @@ impl Expression {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => return Self::from_expression_node(node.into(), ctx),
                     SyntaxKind::AtImageUrl => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("@image-url() expressions are", &node);
                         return Self::from_at_image_url_node(node.into(), ctx);
                     }
                     SyntaxKind::AtGradient => {
@@ -482,18 +712,29 @@ impl Expression {
                         return Self::from_at_keys_node(node.into(), ctx);
                     }
                     SyntaxKind::QualifiedName => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Identifier references are", &node);
-                        return Self::from_qualified_name_node(node.clone().into(), ctx);
+                        return Self::from_qualified_name_node(node.into(), ctx);
                     }
                     SyntaxKind::FunctionCallExpression => {
+                        let expr = Self::from_function_call_node(node.clone().into(), ctx);
+                        // Invoking a callback from a handler is the one call the
+                        // Slint SC subset has.
                         #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Function calls are", &node);
-                        return Self::from_function_call_node(node.into(), ctx);
+                        if !matches!(
+                            (&expr, &ctx.property_type),
+                            (Expression::Invalid, _)
+                                | (
+                                    Expression::FunctionCall {
+                                        function: Callable::Callback(..),
+                                        ..
+                                    },
+                                    Type::Callback(..)
+                                )
+                        ) {
+                            ctx.diag.slint_sc_error("Function calls are", &node);
+                        }
+                        return expr;
                     }
                     SyntaxKind::MemberAccess => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Member access expressions are", &node);
                         return Self::from_member_access_node(node.into(), ctx);
                     }
                     SyntaxKind::IndexExpression => {
@@ -507,23 +748,19 @@ impl Expression {
                         return Self::from_self_assignment_node(node.into(), ctx);
                     }
                     SyntaxKind::BinaryExpression => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Binary expressions are", &node);
                         return Self::from_binary_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::UnaryOpExpression => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Unary expressions are", &node);
+                        // Every unary operator (`+`, `-`, `!`) is in the Slint SC
+                        // subset, so there is nothing to reject here.
                         return Self::from_unaryop_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ConditionalExpression => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Conditional expressions are", &node);
+                        // A conditional is in the Slint SC subset; its condition,
+                        // branches, and result type are each restricted on their own.
                         return Self::from_conditional_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ObjectLiteral => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Object literal expressions are", &node);
                         return Self::from_object_literal_node(node.into(), ctx);
                     }
                     SyntaxKind::Array => {
@@ -541,6 +778,9 @@ impl Expression {
                         ctx.diag.slint_sc_error("String interpolation expressions are", &node);
                         return Self::from_string_template_node(node.into(), ctx);
                     }
+                    SyntaxKind::Closure => {
+                        return Self::from_closure_node(node.into(), ctx, None);
+                    }
                     _ => {}
                 },
                 NodeOrToken::Token(token) => match token.kind() {
@@ -556,21 +796,38 @@ impl Expression {
                         .unwrap_or(Self::Invalid);
                     }
                     SyntaxKind::NumberLiteral => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Number literals are", &token);
-                        return crate::literals::parse_number_literal(token.text().into())
-                            .map(|(value, unit)| {
+                        return match crate::literals::parse_number_literal(token.text().into()) {
+                            Ok((value, unit)) => {
+                                #[cfg(feature = "slint-sc")]
+                                {
+                                    use crate::expression_tree::WrittenUnit;
+                                    match unit {
+                                        WrittenUnit::Px if value.fract() != 0. => ctx
+                                            .diag
+                                            .slint_sc_error("Non-integral lengths are", &token),
+                                        WrittenUnit::Px => {}
+                                        // A unit-less integer is an `int` literal; a
+                                        // fractional one would be a `float`.
+                                        WrittenUnit::None if value.fract() != 0. => ctx
+                                            .diag
+                                            .slint_sc_error("Non-integral numbers are", &token),
+                                        WrittenUnit::None => {}
+                                        _ => ctx.diag.slint_sc_error(
+                                            &format!("Number literals with the unit '{unit}' are"),
+                                            &token,
+                                        ),
+                                    }
+                                }
                                 let (value, unit) = unit.normalize(value);
                                 Expression::NumberLiteral(value, unit)
-                            })
-                            .unwrap_or_else(|e| {
+                            }
+                            Err(e) => {
                                 ctx.diag.push_error(e.to_string(), &node);
                                 Self::Invalid
-                            });
+                            }
+                        };
                     }
                     SyntaxKind::ColorLiteral => {
-                        #[cfg(feature = "slint-sc")]
-                        ctx.diag.slint_sc_error("Color literals are", &token);
                         return i_slint_common::color_parsing::parse_color_literal(token.text())
                             .map(|i| Expression::Cast {
                                 from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
@@ -632,6 +889,17 @@ impl Expression {
             ImageReference::from_resolved(absolute_source_path)
         };
 
+        // Slint SC decodes the image at compile time, so only a file on disk
+        // can be referenced.
+        #[cfg(feature = "slint-sc")]
+        match &resource_ref {
+            ImageReference::DataUri(_) => {
+                ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
+            }
+            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            _ => {}
+        }
+
         let nine_slice = node
             .children_with_tokens()
             .filter_map(|n| n.into_token())
@@ -663,6 +931,11 @@ impl Expression {
                 None
             }
         };
+
+        #[cfg(feature = "slint-sc")]
+        if nine_slice.is_some() {
+            ctx.diag.slint_sc_error("Nine-slice borders in @image-url() are", &node);
+        }
 
         Expression::ImageReference {
             resource_ref,
@@ -966,9 +1239,12 @@ impl Expression {
                     *e = Expression::BinaryExpression {
                         lhs: Box::new(begin.clone()),
                         rhs: Box::new(Expression::BinaryExpression {
+                            source_location: None,
                             lhs: Box::new(Expression::BinaryExpression {
+                                source_location: None,
                                 lhs: Box::new(Expression::NumberLiteral(i as f64 + 1., Unit::None)),
                                 rhs: Box::new(Expression::BinaryExpression {
+                                    source_location: None,
                                     lhs: Box::new(end.clone()),
                                     rhs: Box::new(begin.clone()),
                                     op: '-',
@@ -979,6 +1255,7 @@ impl Expression {
                             op: '/',
                         }),
                         op: '+',
+                        source_location: None,
                     };
                 }
             }
@@ -1005,6 +1282,7 @@ impl Expression {
                             lhs: Box::new(angle_typed),
                             rhs: Box::new(Expression::NumberLiteral(360., Unit::Deg)),
                             op: '/',
+                            source_location: None,
                         };
                         (color, normalized_pos)
                     })
@@ -1506,6 +1784,10 @@ impl Expression {
         };
         match r {
             LookupResult::Expression { expression, .. } => expression,
+            // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
+            LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
+                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
+            }
             LookupResult::Callable(c) => {
                 let what = match c {
                     LookupResultCallable::Callable(Callable::Callback(..)) => "Callback",
@@ -1538,6 +1820,8 @@ impl Expression {
         let mut sub_expr = node.Expression();
 
         let func_expr = sub_expr.next().unwrap();
+        // The argument list `(...)`, for placing the probe on an empty argument slot.
+        let args_range = TextRange::new(func_expr.text_range().end(), node.text_range().end());
 
         let (function, source_location) = if let Some(qn) = func_expr.QualifiedName() {
             let sl = qn.last_token().unwrap().to_source_location();
@@ -1555,30 +1839,66 @@ impl Expression {
             }
             return Self::Invalid;
         };
-        // Convert the arguments once the parameter types are known, so a bare color/enum
-        // literal in argument position resolves against its parameter type.
+        // For `.any(predicate)` / `.all(predicate)` / `.find-index(predicate)` the
+        // closure's argument type is structurally derived from the base array's
+        // element type. Compute it here so we can hand it to the closure when
+        // resolving that specific argument.
+        let expected_closure_arg_type = match &function {
+            Some(LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base,
+                member,
+                ..
+            })) if matches!(
+                **member,
+                LookupResultCallable::Callable(Callable::Builtin(
+                    BuiltinFunction::ArrayAny
+                        | BuiltinFunction::ArrayAll
+                        | BuiltinFunction::ArrayFindIndex
+                ))
+            ) =>
+            {
+                let Type::Array(elem_ty) = base.ty() else { unreachable!() };
+                Some((*elem_ty).clone())
+            }
+            _ => None,
+        };
+
+        // Convert the arguments once the parameter types are known, so type-directed
+        // literals resolve against the parameter type at their exact argument position.
         let arg_nodes = sub_expr.collect::<Vec<_>>();
         let convert_args = |ctx: &mut LookupCtx, expected: &[Type]| {
+            // Empty trailing-comma argument has no node: record its parameter type for the probe.
+            if let Some(offset) = ctx.expected_type_probe_offset() {
+                let idx = arg_nodes.iter().take_while(|n| n.text_range().end() <= offset).count();
+                if let Some(ty) = expected.get(idx).cloned() {
+                    ctx.record_expected_type_probe(args_range, &ty);
+                }
+            }
             arg_nodes
                 .iter()
                 .enumerate()
                 .map(|(i, n)| {
                     let ty = expected.get(i).cloned().unwrap_or(Type::Invalid);
-                    let e = ctx.with_expected_type(ty, |ctx| {
-                        Self::from_expression_node((*n).clone(), ctx)
+                    let expression = ctx.with_expected_type(ty, |ctx| {
+                        Self::from_argument_expression_node(
+                            (*n).clone(),
+                            ctx,
+                            &expected_closure_arg_type,
+                        )
                     });
-                    (e, Some(NodeOrToken::from((**n).clone())))
+                    (expression, Some(NodeOrToken::from((**n).clone())))
                 })
                 .collect::<Vec<_>>()
         };
+
         let Some(function) = function else {
-            // Check sub expressions anyway
+            // Check sub-expressions anyway.
             convert_args(ctx, &[]);
             assert!(ctx.diag.has_errors());
             return Self::Invalid;
         };
         let LookupResult::Callable(function) = function else {
-            // Check sub expressions anyway
+            // Check sub-expressions anyway.
             convert_args(ctx, &[]);
             ctx.diag.push_error("The expression is not a function".into(), &node);
             return Self::Invalid;
@@ -1597,8 +1917,8 @@ impl Expression {
                     &ctx.symbol_counters,
                 );
             }
-            LookupResultCallable::MemberFunction { member, base, base_node } => {
-                arguments.push((base, base_node));
+            LookupResultCallable::MemberFunction { member, base, source_node } => {
+                arguments.push((base, source_node));
                 adjust_arg_count = 1;
                 match *member {
                     LookupResultCallable::Callable(c) => c,
@@ -1737,24 +2057,36 @@ impl Expression {
         node: syntax_nodes::BinaryExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let op = node
+        let (op, operator) = node
             .children_with_tokens()
-            .find_map(|n| match n.kind() {
-                SyntaxKind::Plus => Some('+'),
-                SyntaxKind::Minus => Some('-'),
-                SyntaxKind::Star => Some('*'),
-                SyntaxKind::Div => Some('/'),
-                SyntaxKind::LessEqual => Some('≤'),
-                SyntaxKind::GreaterEqual => Some('≥'),
-                SyntaxKind::LAngle => Some('<'),
-                SyntaxKind::RAngle => Some('>'),
-                SyntaxKind::EqualEqual => Some('='),
-                SyntaxKind::NotEqual => Some('!'),
-                SyntaxKind::AndAnd => Some('&'),
-                SyntaxKind::OrOr => Some('|'),
-                _ => None,
+            .find_map(|n| {
+                let op = match n.kind() {
+                    SyntaxKind::Plus => '+',
+                    SyntaxKind::Minus => '-',
+                    SyntaxKind::Star => '*',
+                    SyntaxKind::Div => '/',
+                    SyntaxKind::LessEqual => '≤',
+                    SyntaxKind::GreaterEqual => '≥',
+                    SyntaxKind::LAngle => '<',
+                    SyntaxKind::RAngle => '>',
+                    SyntaxKind::EqualEqual => '=',
+                    SyntaxKind::NotEqual => '!',
+                    SyntaxKind::AndAnd => '&',
+                    SyntaxKind::OrOr => '|',
+                    _ => return None,
+                };
+                Some((op, Some(n.to_source_location())))
             })
-            .unwrap_or('_');
+            .unwrap_or(('_', None));
+
+        // In Slint SC, arithmetic (`+`, `-`, `*`), logical (`&&`, `||`), and
+        // comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) are in the subset; `/` is
+        // not. Operands are checked as they resolve, and a result that leaves the
+        // subset (a `length * length` unit product) is rejected where it is used.
+        #[cfg(feature = "slint-sc")]
+        if op == '/' {
+            ctx.diag.slint_sc_error("Operator '/'", &node);
+        }
 
         let op_class = operator_class(op);
         let (lhs_n, rhs_n) = node.Expression();
@@ -1832,7 +2164,12 @@ impl Expression {
             Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
             None => rhs,
         };
-        Expression::BinaryExpression { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+        Expression::BinaryExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+            op,
+            source_location: operator,
+        }
     }
 
     fn from_unaryop_expression_node(
@@ -1908,6 +2245,9 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
+            source_location: node
+                .child_token(SyntaxKind::Question)
+                .map(|t| ConditionLocation::Question(t.to_source_location())),
         }
     }
 
@@ -1948,7 +2288,7 @@ impl Expression {
                 (name, value)
             })
             .collect();
-        let ty = Rc::new(Struct::new(
+        let ty = Arc::new(Struct::new(
             values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             StructName::None,
         ));
@@ -1960,6 +2300,8 @@ impl Expression {
             Type::Array(el) => (**el).clone(),
             _ => Type::Invalid,
         };
+        // Empty trailing-comma element has no node: record the element type for the probe.
+        ctx.record_expected_type_probe(node.text_range(), &element_expected);
         let mut values: Vec<Expression> = node
             .Expression()
             .map(|e| {
@@ -1987,6 +2329,95 @@ impl Expression {
         Expression::Array { element_ty, values }
     }
 
+    /// Resolve a closure expression. `arg_type` is `Some` only when the closure appears in a
+    /// position whose callee constrains the argument's type (currently `.any` / `.all`); in
+    /// that case the body is also required to evaluate to `bool`. When `arg_type` is `None`
+    /// the closure is still a valid expression of type [`Type::Closure`], but its body cannot
+    /// be meaningfully typed and any later type-conversion error will be reported at the
+    /// position that consumes it.
+    fn from_closure_node(
+        node: syntax_nodes::Closure,
+        ctx: &mut LookupCtx,
+        arg_type: Option<Type>,
+    ) -> Expression {
+        if crate::reject_experimental_feature(ctx.diag, ctx.type_register, "closures", &node) {
+            return Expression::Invalid;
+        }
+        let has_expected_arg_type = arg_type.is_some();
+        let ty = arg_type.unwrap_or(Type::Invalid);
+        let arg_name = node.DeclaredIdentifier().to_smolstr();
+        let internal_arg_name: SmolStr = format!("local_{arg_name}").into();
+
+        ctx.local_variables.push(vec![(internal_arg_name.clone(), ty)]);
+        let body_expected_type = if has_expected_arg_type { Type::Bool } else { Type::Invalid };
+        let expression = ctx.with_expected_type(body_expected_type, |ctx| {
+            Expression::from_expression_node(node.Expression(), ctx)
+        });
+        ctx.local_variables.pop();
+
+        let body_ty = expression.ty();
+        if has_expected_arg_type && body_ty != Type::Bool && body_ty != Type::Invalid {
+            ctx.diag.push_error(
+                format!("Closure body must be of type bool, but is {body_ty}"),
+                &node.Expression(),
+            );
+            return Expression::Invalid;
+        }
+
+        Expression::Closure { arg_name: internal_arg_name, expression: Box::new(expression) }
+    }
+
+    /// Resolve a function call argument. If the argument is a closure expression (possibly
+    /// nested in zero or more parenthesizing `Expression` wrappers), dispatch directly to
+    /// `from_closure_node` with the expected argument type. Otherwise fall back to the
+    /// generic expression resolver, in which case any closure encountered inside has no
+    /// expected argument type.
+    ///
+    /// A closure-typed argument that is not written inline (for example a local variable
+    /// holding a closure) is rejected: the code generators and the interpreter evaluate
+    /// the closure body directly at the call site, so they require the argument to be a
+    /// literal [`Expression::Closure`].
+    fn from_argument_expression_node(
+        node: syntax_nodes::Expression,
+        ctx: &mut LookupCtx,
+        expected_closure_arg_type: &Option<Type>,
+    ) -> Expression {
+        if expected_closure_arg_type.is_some() {
+            let mut current = node.clone();
+            loop {
+                let first_meaningful_child = current
+                    .children()
+                    .find(|n| matches!(n.kind(), SyntaxKind::Expression | SyntaxKind::Closure));
+                match first_meaningful_child {
+                    Some(child) if child.kind() == SyntaxKind::Closure => {
+                        return Self::from_closure_node(
+                            child.into(),
+                            ctx,
+                            expected_closure_arg_type.clone(),
+                        );
+                    }
+                    Some(child) if child.kind() == SyntaxKind::Expression => {
+                        current = child.into();
+                    }
+                    _ => break,
+                }
+            }
+        }
+        let expression = Self::from_expression_node(node.clone(), ctx);
+        if expected_closure_arg_type.is_some()
+            && expression.ty() == Type::Closure
+            && !matches!(expression, Expression::Closure { .. })
+        {
+            ctx.diag.push_error(
+                "Closures must be written inline as the argument of 'any', 'all' or 'find-index'"
+                    .into(),
+                &node,
+            );
+            return Expression::Invalid;
+        }
+        expression
+    }
+
     fn from_string_template_node(
         node: syntax_nodes::StringTemplate,
         ctx: &mut LookupCtx,
@@ -2010,6 +2441,7 @@ impl Expression {
                     lhs: Box::new(result),
                     rhs: Box::new(expr),
                     op: '+',
+                    source_location: None,
                 }),
                 None => Some(expr),
             }
@@ -2048,7 +2480,7 @@ impl Expression {
                         }
                         // The field defaults must come from the same struct as the name
                         let source = if result.name.is_some() { &result } else { &elem };
-                        Type::Struct(Rc::new(Struct {
+                        Type::Struct(Arc::new(Struct {
                             fields,
                             field_defaults: source.field_defaults.clone(),
                             name: source.name.clone(),
@@ -2100,7 +2532,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
     fn merge_struct(origin: &Struct, other: &Struct) -> Type {
         let mut fields = other.fields.clone();
         fields.extend(origin.fields.iter().map(|(k, v)| (k.clone(), v.clone())));
-        Rc::new(Struct::new(fields, StructName::None)).into()
+        Arc::new(Struct::new(fields, StructName::None)).into()
     }
 
     if let Expression::Struct { ty, values } = true_expr {
@@ -2118,7 +2550,7 @@ fn common_expression_type(true_expr: &Expression, false_expr: &Expression) -> Ty
                     fields.insert(k.clone(), v.ty());
                 }
             }
-            return Type::Struct(Rc::new(Struct::new(fields, StructName::None)));
+            return Type::Struct(Arc::new(Struct::new(fields, StructName::None)));
         } else if let Type::Struct(false_ty) = false_expr.ty() {
             return merge_struct(&false_ty, ty);
         }
@@ -2167,6 +2599,16 @@ fn lookup_qualified_name_node(
     let global_lookup = crate::lookup::global_lookup();
     let result = match global_lookup.lookup(ctx, &first_str) {
         None => {
+            if let Some(slot_element) =
+                resolve_slot_reference_element(first_str.as_str(), ctx, &node)
+            {
+                return continue_lookup_within_element(&slot_element, &mut it, node, ctx);
+            }
+            if first_str == "children" || is_declared_slot_in_scope(first_str.as_str(), ctx) {
+                // resolve_slot_reference_element() already emitted a slot-specific diagnostic.
+                return None;
+            }
+
             if let Some(minus_pos) = first.text().find('-') {
                 // Attempt to recover if the user wanted to write "-" for minus
                 let first_str = &first.text()[0..minus_pos];
@@ -2198,8 +2640,17 @@ fn lookup_qualified_name_node(
             if it.next().is_some() {
                 ctx.diag.push_error(format!("Cannot access id '{}'", first.text()), &node);
             } else {
+                let mut parts = crate::lookup::enum_or_color_suggestions(ctx, &first_str)
+                    .iter()
+                    .map(|s| format!("'{s}'"))
+                    .collect::<Vec<_>>();
+                let hint = match parts.pop() {
+                    None => String::new(),
+                    Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
+                    Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
+                };
                 ctx.diag.push_error(
-                    format!("Unknown unqualified identifier '{}'", first.text()),
+                    format!("Unknown unqualified identifier '{}'{hint}", first.text()),
                     &node,
                 );
             }
@@ -2209,7 +2660,7 @@ fn lookup_qualified_name_node(
     };
 
     if let Some(depr) = result.deprecated() {
-        ctx.diag.push_property_deprecation_warning(&first_str, depr, &first);
+        ctx.diag.push_property_deprecation_warning_with_message(&first_str, depr, &first);
     }
 
     match result {
@@ -2230,6 +2681,63 @@ fn lookup_qualified_name_node(
         }
         result => maybe_lookup_object(result, it, ctx),
     }
+}
+
+fn resolve_slot_reference_element(
+    name: &str,
+    ctx: &mut LookupCtx,
+    node: &dyn Spanned,
+) -> Option<ElementRc> {
+    if name == "children" {
+        ctx.diag.push_error(
+            "The default slot '@children' cannot be referenced in expressions".into(),
+            node,
+        );
+        return None;
+    }
+
+    for scope_elem in ctx.component_scope.iter().rev() {
+        let scope_elem_ref = scope_elem.borrow();
+        let repeated = scope_elem_ref.repeated.is_some();
+        let mut matches = scope_elem_ref.children.iter().filter(|child| {
+            child.borrow().slot_target.as_ref().is_some_and(|slot| slot.as_str() == name)
+        });
+        if let Some(found) = matches.next() {
+            if matches.next().is_some() {
+                ctx.diag.push_error(format!("Duplicate assignment to slot '{name}'"), node);
+                return None;
+            }
+
+            if repeated {
+                ctx.diag.push_error(
+                    format!(
+                        "Slot '{name}' cannot be referenced inside repeated or conditional elements"
+                    ),
+                    node,
+                );
+                return None;
+            }
+
+            return Some(found.clone());
+        }
+    }
+
+    if is_declared_slot_in_scope(name, ctx) {
+        ctx.diag.push_error(format!("Slot '{name}' is not assigned in this instance"), node);
+        return None;
+    }
+
+    None
+}
+
+fn is_declared_slot_in_scope(name: &str, ctx: &LookupCtx) -> bool {
+    ctx.component_scope.iter().rev().any(|scope_elem| {
+        let scope_elem_ref = scope_elem.borrow();
+        let ElementType::Component(component) = &scope_elem_ref.base_type else {
+            return false;
+        };
+        component.declared_slots.borrow().iter().any(|slot| slot.name == name)
+    })
 }
 
 fn continue_lookup_within_element(
@@ -2282,10 +2790,19 @@ fn continue_lookup_within_element(
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
-    let lookup_result = elem.borrow().lookup_property(&prop_name);
-    let local_to_component = lookup_result.is_local_to_component && ctx.is_local_element(elem);
+    let is_local_element = ctx.is_local_element(elem);
+    let mode = if is_local_element {
+        PropertyLookupMode::ComponentLocal
+    } else {
+        PropertyLookupMode::FromOutside
+    };
+    let lookup_result = elem.borrow().lookup_property(&prop_name, mode);
+    let local_to_component = lookup_result.is_local_to_component && is_local_element;
+    // A property or function whose type is outside the Slint SC subset
+    // doesn't resolve; callbacks do, so a handler can invoke them.
+    let sc_resolves = !ctx.diag.is_slint_sc() || lookup_result.property_type.is_slint_sc();
 
-    if lookup_result.property_type.is_property_type() {
+    if sc_resolves && lookup_result.property_type.is_property_type() {
         if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
             ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
             return None;
@@ -2302,24 +2819,36 @@ fn continue_lookup_within_element(
                 &lookup_result.resolved_name,
                 &second,
             );
+        } else if let Some(message) =
+            lookup_result.deprecated.as_ref().filter(|_| !local_to_component)
+        {
+            // `@deprecated` properties only warn when accessed from outside the declaring component
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
         } else if let Some(deprecated) =
             crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
-            ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second);
+            ctx.diag.push_property_deprecation_warning_with_message(
+                &prop_name,
+                &deprecated,
+                &second,
+            );
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
-            lookup_result.resolved_name.to_smolstr(),
+            lookup_result.internal_or_resolved_name(),
         ));
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
+        if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+        }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
         Some(LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
-            NamedReference::new(elem, lookup_result.resolved_name.to_smolstr()),
+            NamedReference::new(elem, lookup_result.internal_or_resolved_name()),
         ))))
-    } else if let Type::Function(fun) = lookup_result.property_type {
+    } else if sc_resolves && let Type::Function(fun) = &lookup_result.property_type {
         if lookup_result.property_visibility == PropertyVisibility::Private && !local_to_component {
             let message = format!(
                 "The function '{}' is private. Annotate it with 'public' to make it accessible from other components",
@@ -2337,6 +2866,9 @@ fn continue_lookup_within_element(
         {
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
         }
+        if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+        }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
         }
@@ -2344,13 +2876,13 @@ fn continue_lookup_within_element(
             Some(builtin) => Callable::Builtin(builtin),
             None => Callable::Function(NamedReference::new(
                 elem,
-                lookup_result.resolved_name.to_smolstr(),
+                lookup_result.internal_or_resolved_name(),
             )),
         };
         if matches!(fun.args.first(), Some(Type::ElementReference)) {
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base: Expression::ElementReference(Rc::downgrade(elem)),
-                base_node: Some(NodeOrToken::Node(node.into())),
+                source_node: Some(NodeOrToken::Node(node.into())),
                 member: Box::new(LookupResultCallable::Callable(callable)),
             })
             .into()
@@ -2382,7 +2914,10 @@ fn continue_lookup_within_element(
             // Attempt to recover if the user wanted to write "-"
             if elem
                 .borrow()
-                .lookup_property(&crate::parser::normalize_identifier(&second.text()[0..minus_pos]))
+                .lookup_property(
+                    &crate::parser::normalize_identifier(&second.text()[0..minus_pos]),
+                    mode,
+                )
                 .property_type
                 != Type::Invalid
             {
@@ -2482,13 +3017,13 @@ fn resolve_two_way_bindings_for_element(
     // borrow on `elem` that blocks `borrow_mut`.
     let mut to_infer: Vec<(SmolStr, Type)> = Vec::new();
 
-    for (prop_name, binding) in &elem.borrow().bindings {
+    for (prop_name, binding) in elem.borrow().real_bindings() {
         let mut binding = binding.borrow_mut();
         // The alias node is normally the binding's own (uncompiled) expression. But a
         // global callback may both alias another global's callback and provide a handler:
         // the handler then occupies the expression slot and the alias node lives on the
         // callback declaration, in which case the handler expression must be preserved.
-        let twb_from_expression = match binding.expression.ignore_debug_hooks() {
+        let twb_from_expression = match binding.value_expression() {
             Expression::Uncompiled(node) => syntax_nodes::TwoWayBinding::new(node.clone()),
             _ => None,
         };
@@ -2497,14 +3032,22 @@ fn resolve_two_way_bindings_for_element(
             .or_else(|| elem.borrow().callback_alias_declaration_node(prop_name));
         if let Some(n) = twb_node {
             let node: SyntaxNode = n.clone().into();
-            let lhs_lookup = elem.borrow().lookup_property(prop_name);
+            let lhs_lookup =
+                elem.borrow().lookup_property(prop_name, PropertyLookupMode::InternalName);
             if !lhs_lookup.is_valid() {
                 // An attempt to resolve this already failed when trying to resolve the property type
                 assert!(diag.has_errors());
                 continue;
             }
+            // Diagnostics name the property as written in the source, not by its mangled key.
+            let declared_name = elem
+                .borrow()
+                .property_declarations
+                .get(prop_name)
+                .and_then(|d| d.shadowed_name.clone())
+                .unwrap_or_else(|| prop_name.clone());
             let mut lookup_ctx = LookupCtx {
-                property_name: Some(prop_name.as_str()),
+                property_name: Some(declared_name.as_str()),
                 property_type: lhs_lookup.property_type.clone(),
                 expected_type: lhs_lookup.property_type.clone(),
                 component_scope: scope,
@@ -2516,6 +3059,7 @@ fn resolve_two_way_bindings_for_element(
                 type_loader: None,
                 current_token: Some(node.clone().into()),
                 local_variables: Vec::new(),
+                expected_type_probe: None,
             };
 
             // Only the alias-only case stores the two-way binding in the expression slot;
@@ -2551,13 +3095,33 @@ fn resolve_two_way_bindings_for_element(
                 }
 
                 // Check the compatibility.
-                let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                let mut rhs_lookup = nr
+                    .element()
+                    .borrow()
+                    .lookup_property(nr.name(), PropertyLookupMode::InternalName);
                 if rhs_lookup.property_type == Type::Invalid {
                     // An attempt to resolve this already failed when trying to resolve the property type
                     assert!(diag.has_errors());
                     continue;
                 }
                 rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
+
+                // The derived replacement only helps callers if the target is a public property
+                // of the same element, reached through the same object. Otherwise the hint is
+                // unreachable, so require an explicit message instead.
+                if elem
+                    .borrow()
+                    .property_declarations
+                    .get(prop_name)
+                    .is_some_and(|d| d.has_derived_deprecation())
+                    && !(Rc::ptr_eq(&nr.element(), elem)
+                        && rhs_lookup.property_visibility != PropertyVisibility::Private)
+                {
+                    lookup_ctx.diag.push_error(
+                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
+                        &node,
+                    );
+                }
 
                 if !rhs_lookup.is_valid_for_assignment() {
                     match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {
@@ -2584,7 +3148,7 @@ fn resolve_two_way_bindings_for_element(
                             if lookup_ctx.is_legacy_component() {
                                 diag.push_warning(
                                     format!(
-                                        "Link to a {} property is deprecated",
+                                        "Link to an '{}' property is deprecated",
                                         rhs_lookup.property_visibility
                                     ),
                                     &node,
@@ -2592,7 +3156,7 @@ fn resolve_two_way_bindings_for_element(
                             } else {
                                 diag.push_error(
                                     format!(
-                                        "Cannot link to a {} property",
+                                        "Cannot link to an '{}' property",
                                         rhs_lookup.property_visibility
                                     ),
                                     &node,
@@ -2607,12 +3171,18 @@ fn resolve_two_way_bindings_for_element(
                         if lookup_ctx.is_legacy_component() {
                             debug_assert!(!diag.is_empty()); // warning should already be reported
                         } else {
-                            diag.push_error("Cannot link input property".into(), &node);
+                            diag.push_error(
+                                format!("Cannot link '{}' property", PropertyVisibility::Input),
+                                &node,
+                            );
                         }
                     } else if rhs_lookup.property_visibility == PropertyVisibility::InOut {
                         diag.push_warning(
-                            "Linking input properties to input output properties is deprecated"
-                                .into(),
+                            format!(
+                                "Linking '{}' properties to '{}' properties is deprecated",
+                                PropertyVisibility::Input,
+                                PropertyVisibility::InOut
+                            ),
                             &node,
                         );
                         marked_linked_read_only(&nr.element(), nr.name());
@@ -2784,7 +3354,7 @@ fn check_callback_alias_validity(
         }
         return;
     };
-    let Some(b) = elem_borrow.bindings.get(name) else { return };
+    let Some(b) = elem_borrow.binding_cell_including_synthetic(name) else { return };
     // `try_borrow` because we might be called for the current binding
     let Some(alias) = b
         .try_borrow()
@@ -2816,5 +3386,38 @@ fn check_callback_alias_validity(
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
             );
         }
+    }
+}
+
+/// Validate a callback handler body against the Slint SC subset: a sequence of
+/// callback invocations, and nothing else.
+///
+/// The expressions a handler body may be made of are each rejected where they
+/// are resolved; what's left to reject here is an expression that's in the
+/// subset on its own but has no effect as a statement, such as a property read.
+#[cfg(feature = "slint-sc")]
+fn check_slint_sc_handler_body(
+    expr: &Expression,
+    node: &syntax_nodes::CallbackConnection,
+    ctx: &mut LookupCtx,
+) {
+    let statements = match expr {
+        Expression::CodeBlock(statements) => statements.as_slice(),
+        single => core::slice::from_ref(single),
+    };
+    if !statements.iter().all(|statement| {
+        matches!(
+            statement,
+            // An error was already reported for this statement.
+            Expression::Invalid | Expression::FunctionCall { function: Callable::Callback(..), .. }
+        )
+    }) {
+        // Report on the name of the callback: the handler itself spans as many
+        // lines as its body.
+        let name = node.child_token(SyntaxKind::Identifier);
+        ctx.diag.slint_sc_error(
+            "A callback handler body that isn't a callback invocation is",
+            name.as_ref().map_or(&**node as &dyn Spanned, |name| name),
+        );
     }
 }

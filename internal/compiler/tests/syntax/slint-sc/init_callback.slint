@@ -5,8 +5,7 @@
 
 export component Test inherits Window {
     init => { debug("hello"); }
-//  >error{Callback handlers are not supported in Slint SC}
-//            >            <^error{Function calls are not supported in Slint SC}
-//                  >     <^^error{String literals are not supported in Slint SC}
+//  >  <error{The callback 'init' is not supported in Slint SC}
+//                  >     <^error{String literals are not supported in Slint SC}
+//            >   <^^error{Unknown unqualified identifier 'debug'}
 }
-//<<<<error{Callback handlers are not supported in Slint SC}

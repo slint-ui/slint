@@ -1,0 +1,51 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Reproduces a bug where an animated property bound to one field of a model
+// row would restart its animation every time an *unrelated* field of that
+// same row changed (e.g. a repeated item's row being touched by
+// `VecModel::set_row_data` on every frame), even though the animation's
+// target value never actually changed.
+
+export component TestCase inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    in-out property <[{counter: int, selected: bool}]> model: [{counter: 0, selected: false}];
+
+    out property <int> width_prop: model[0].selected ? 200 : 40;
+    animate width_prop {
+        duration: 300ms;
+    }
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_width_prop(), 40);
+
+let model = std::rc::Rc::new(slint::VecModel::from(vec![(0i32, false)]));
+instance.set_model(slint::ModelRc::from(model.clone()));
+assert_eq!(instance.get_width_prop(), 40);
+
+// Flip the field the animation depends on: this should kick off a 40 -> 200
+// animation over 300ms.
+model.set_row_data(0, (0, true));
+assert_eq!(instance.get_width_prop(), 40);
+
+// Simulate ~40 frames of 16ms each (more than 300ms of mocked time in total),
+// touching only the unrelated `counter` field on every frame -- like a real
+// renderer repaint while a repeated item's model row is updated -- while the
+// field the animation actually depends on (`selected`) stays `true`.
+for i in 1..=40 {
+    model.set_row_data(0, (i, true));
+    slint_testing::mock_elapsed_time(16);
+    let _ = instance.get_width_prop();
+}
+
+// After more than 300ms of mocked time has elapsed, the animation should
+// have completed regardless of the unrelated per-frame writes to `counter`.
+assert_eq!(instance.get_width_prop(), 200);
+```
+*/

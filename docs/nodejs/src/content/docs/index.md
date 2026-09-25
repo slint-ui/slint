@@ -245,7 +245,7 @@ let component = new ui.MainWindow({
 
 ### Accessing Properties
 
-[Properties](http://slint.dev/docs/slint/guide/language/coding/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
+[Properties](https://slint.dev/docs/slint/reference/language/properties/) declared as `out` or `in-out` in `.slint` files are visible as JavaScript properties on the component instance.
 
 **`main.slint`**
 
@@ -265,7 +265,7 @@ instance.name = "Joe";
 
 ### Setting and Invoking Callbacks
 
-[Callbacks](http://slint.dev/docs/slint/guide/language/coding/functions-and-callbacks/) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
+[Callbacks](https://slint.dev/docs/slint/reference/language/callbacks/) declared in `.slint` files are visible as JavaScript function properties on the component instance. Invoke them
 as function to invoke the callback, and assign JavaScript functions to set the callback handler.
 
 **`ui/my-component.slint`**
@@ -322,7 +322,7 @@ The types used for properties in .slint design markup each translate to specific
 
 ### Arrays and Models
 
-[Array properties](http://slint.dev/docs/slint/guide/language/coding/repetition-and-data-models#arrays-and-models) can be set from JavaScript by passing
+[Array properties](https://slint.dev/docs/slint/reference/property-types/arrays-and-models/) can be set from JavaScript by passing
 either `Array` objects or implementations of the `Model` interface.
 
 When passing a JavaScript `Array` object, the contents of the array are copied. Any changes to the JavaScript afterwards will not be visible on the Slint side.
@@ -409,7 +409,7 @@ component.position = ui.Position.bottom;
 
 ### Globals
 
-You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
+You can declare [globally available singletons](https://slint.dev/docs/slint/reference/language/globals/) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
 component instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.

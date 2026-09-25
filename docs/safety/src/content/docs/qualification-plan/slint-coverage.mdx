@@ -1,0 +1,62 @@
+---
+title: Coverage Tool Verification
+description: What the measurement of slint-sc-coverage rests on, and how the tool is tested.
+---
+
+`slint-sc-coverage` reports which parts of the `.slint` code of an application, and of the runtime test cases, the tests reached.
+[Coverage of Slint Code](/safety-manual/slint-coverage/) in the safety manual says what it measures and how.
+This chapter says what the measurement rests on, and how the tool is tested, so that its output can serve as evidence.
+
+## What the Measurement Rests On
+
+The measurement rests on two things outside Slint.
+The LLVM profiler runtime has to be available for the target the test program runs on, which holds for the host and not for the bare-metal targets, so the measurement is taken on the host, like the Rust coverage it joins.
+And the rule that takes the count of a point from the coverage regions of the generated code rests on how `rustc` lays out those regions, which `rustc` does not document.
+The tests below pin that layout: a change in `rustc` that moves a region shows up as a case whose measured coverage differs from what it states.
+
+## How the Tool Is Tested
+
+`slint-sc-coverage` is tested at two levels, and both run on every run of the suites.
+
+The unit tests of the `slint-sc-coverage` crate cover its parts in isolation: the parsing of the map and the rejection of a map written for other code, the region rule including a range whose code LLVM never instantiated, the lcov and summary output, and the parsing and rewriting of the annotations described next.
+
+The runtime test cases are the tests of the whole.
+The driver in `api/slint-sc/tests/driver.rs` measures the coverage of the `.slint` code of every case, on every run, including a plain `cargo test`.
+A case states the coverage it expects in caret lines: a `//#c` line follows every line holding coverage points, with a caret in the column of each point, `^+` when the point was reached and `^-` when not, and for a decision the status of its true and its false outcome:
+
+```slint
+export component TestCase inherits Window {
+//#c                               ^-
+    in property <bool> a;
+    in property <bool> b;
+    out property <int> nested: a ? (b ? 1 : 2) : 3;
+//#c                           ^+^+-  ^++
+    out property <bool> both: a && b;
+//#c                          ^+^+-
+}
+```
+
+The code of the root element is never reached, since the test reads the properties without rendering.
+The binding of `nested` was evaluated; the outer `?` only ever took its first arm, the inner one took both.
+The `&&` evaluated its right operand every time, and never short-circuited.
+
+A case with a caret line states its whole coverage: every point of the case, reached or not, and a line without a caret line has no point.
+The driver rejects a caret line that is malformed, a caret line that differs from the measurement, and a line with points and no caret line, naming the line and printing what the case states next to what was measured.
+`SLINT_COVERAGE_TEST_UPDATE=1` has the driver rewrite the caret lines from the measurement, and the run still fails on the difference, so a change in what is measured is reviewed in the diff and never passes unseen.
+A point in an imported file, which the case cannot annotate, is stated in a ` ```coverage ` block at the end of the case.
+
+The cases under `coverage/` test the reporting itself, and the driver fails one that states no coverage.
+Together with the cases of other groups that state theirs, each pins one part of the reporting:
+
+| Case | What it pins |
+|---|---|
+| `coverage/decisions` | outcomes of `?:`, `&&` and `||` taken and not taken, a nested decision, and a caret under an operator past a multi-byte character |
+| `coverage/unreached` | an element, bindings, a handler and a call that the test never reaches |
+| `coverage/call_without_handler` | a call to a callback that has no handler, reached while nothing runs for it |
+| `expr/ternary` | chained and nested decisions, and a decision inside another's condition |
+| `expr/logical` | `&&` and `||` under `!` and parentheses, every outcome taken |
+| `callback/clicked` | a handler and the call it makes, both reached |
+| `import/named` | points in an imported file, and a renamed import |
+| `component/user_component` | a component instantiated several times, whose bindings are one point each |
+
+The other cases are measured too, and the driver fails when the measurement cannot be taken.

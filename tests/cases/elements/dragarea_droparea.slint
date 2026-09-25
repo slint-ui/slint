@@ -4,18 +4,22 @@
 export global Api {
     pure callback string-to-transfer(string) -> data-transfer;
     pure callback image-to-transfer(image) -> data-transfer;
+    pure callback paths-to-transfer([string]) -> data-transfer;
     pure callback empty-transfer() -> data-transfer;
     pure callback transfer-to-image(data-transfer) -> image;
     pure callback transfer-to-string(data-transfer) -> string;
+    pure callback transfer-to-paths(data-transfer) -> string;
     pure callback can-drop(data-transfer, bool) -> bool;
 }
 
 export component TestCase inherits Window {
     pure callback string-to-transfer <=> Api.string-to-transfer;
     pure callback image-to-transfer <=> Api.image-to-transfer;
+    pure callback paths-to-transfer <=> Api.paths-to-transfer;
     pure callback empty-transfer <=> Api.empty-transfer;
     pure callback transfer-to-image <=> Api.transfer-to-image;
     pure callback transfer-to-string <=> Api.transfer-to-string;
+    pure callback transfer-to-paths <=> Api.transfer-to-paths;
     pure callback can-drop <=> Api.can-drop;
 
     width: 100px;
@@ -23,6 +27,7 @@ export component TestCase inherits Window {
     in-out property <string> result;
     out property <image> result-image;
     in property <bool> use-image: false;
+    in property <bool> use-files: false;
     in property <bool> empty-data: false;
     out property <bool> has-drag <=> da.has-drag;
     out property <DragAction> current-action <=> da.current-action;
@@ -37,9 +42,11 @@ export component TestCase inherits Window {
                 allow-copy: true;
                 data: empty-data
                 ? Api.empty-transfer()
-                : (use-image
-                    ? Api.image-to-transfer(@image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"))
-                    : Api.string-to-transfer("Hello World"));
+                : (use-files
+                    ? Api.paths-to-transfer(["/path/to/file1.txt", "/path/to/file2.txt"])
+                    : (use-image
+                        ? Api.image-to-transfer(@image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"))
+                        : Api.string-to-transfer("Hello World")));
 
                 inner_touch_area := TouchArea {
                     x: 50px;
@@ -57,7 +64,9 @@ export component TestCase inherits Window {
                     Api.can-drop(event.data, use-image) ? DragAction.copy : DragAction.none
                 }
                 dropped(event) => {
-                    if (use-image) {
+                    if (use-files) {
+                        result += "F[" + Api.transfer-to-paths(event.data) + "];";
+                    } else if (use-image) {
                         result-image = Api.transfer-to-image(event.data)
                     } else {
                         result += "D[" + Api.transfer-to-string(event.data) + "];";
@@ -75,23 +84,34 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton, Model as _};
 use slint::private_unstable_api::re_exports::{BuiltInMouseCursor, DragAction, MouseCursorInner};
 
 let instance = TestCase::new().unwrap();
 
 instance.on_string_to_transfer(Into::into);
 instance.on_image_to_transfer(Into::into);
+instance.on_paths_to_transfer(|paths| {
+    let mut transfer = slint::DataTransfer::default();
+    transfer.set_file_paths(paths.iter().map(|p| p.to_string()));
+    transfer
+});
 instance.on_empty_transfer(slint::DataTransfer::default);
 
 instance.on_transfer_to_string(|data| data.plain_text().unwrap_or_default());
 instance.on_transfer_to_image(|data| data.image().unwrap_or_default());
+instance.on_transfer_to_paths(|data| {
+    data.file_paths()
+        .map(|paths| paths.map(|p| p.to_string_lossy()).collect::<Vec<_>>().join(","))
+        .unwrap_or_default()
+        .into()
+});
 
 instance.on_can_drop(|data, use_image| {
     if use_image {
         data.has_image()
     } else {
-        data.has_plain_text()
+        data.has_plain_text() || data.has_file_paths()
     }
 });
 
@@ -283,6 +303,25 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "");
 assert_drag_state(false, DragAction::None, false);
+
+// File paths round-trip through the DataTransfer.
+instance.on_can_drop(|data, _| data.has_file_paths());
+instance.set_use_image(false);
+instance.set_use_files(true);
+instance.set_result("".into());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_drag_state(true, DragAction::Copy, true);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "F[/path/to/file1.txt,/path/to/file2.txt];");
+assert_drag_state(false, DragAction::None, false);
+instance.set_use_files(false);
 
 // Empty data: the DragArea must not even start tracking the press,
 // crossing the threshold never escalates to a drag.

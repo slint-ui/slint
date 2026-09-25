@@ -24,13 +24,9 @@ The position of the element relative to its parent.
 
 ### z
 <SlintProperty propName="z" typeName="float" >
-Allows to specify a different order to stack the items with its siblings.
-The value must be a compile time constant.
-
-:::note[Note]
-Currently the `z` value is a compile time constant and cannot be changed at runtime.
-:::
-
+The stacking order of the element among its siblings.
+A sibling with a higher `z` is drawn on top, and is the first to receive input.
+The default is 0, and siblings that share the same `z` keep their declaration order.
 </SlintProperty>
 
 
@@ -492,3 +488,6 @@ Invoked when the user requests to decrement the value.
 
 ### accessible-action-expand()
 Invoked when the user requests to expand the widget, such as disclose the list of available choices for a combo box.
+
+### accessible-action-set-selection-offsets(anchor: int, focus: int)
+Invoked when the user wants to change the selected text. The arguments are UTF-8 offsets into the element's text: `anchor` is the end that stays put and `focus` the end being moved, so `focus` may precede `anchor` when the selection was made backwards, and the two are equal when only the cursor moved.

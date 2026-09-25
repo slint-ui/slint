@@ -1,0 +1,122 @@
+---
+title: Functions
+description: Declaring and calling functions.
+---
+
+A *function* names a block of Slint logic that takes parameters and returns a value.
+It is declared with the `function` keyword inside a component or inside an element of a component:
+
+```slint
+export component Example {
+    function my-function(parameter: int) -> string {
+        return "result";
+    }
+}
+```
+
+A function may be declared on the component's root, on any element within it, or in a [global](../globals/).
+It cannot be declared at the top level of a file, inside a struct or enum, or nested inside another function; each is a compile error.
+
+## Signature
+
+The declaration is an optional sequence of modifiers, the `function` keyword, a name, a parenthesized parameter list, and an optional return type:
+
+```slint
+public pure function name(a: int, b: string) -> int { return a; }
+```
+
+- Each parameter is written `name: type`.
+  Parameters are passed by value and are referenced by name within the body.
+  Two parameters of the same function may not share a name.
+- The return type follows `->`.
+  With no `->` the return type is `void`.
+- The `return` [statement](../statements/#return) returns an expression of the return type.
+  A function with no explicit `return` returns the value of its last statement.
+
+A function must have a body.
+A declaration without a `{ }` block is a compile error.
+
+A function's name may not collide with a property of the same element, and may not override a non-shadowable member inherited from a base element; both are compile errors.
+
+## Visibility
+
+A function is *private* by default.
+The `public` and `protected` modifiers widen its visibility:
+
+- A *private* function is reachable only from within its own component.
+  Referencing it from another component is a compile error.
+- A *public* function is reachable from any component that holds the declaring component as an element, and from native code when the component is exported.
+- A *protected* function is reachable only from a component that *directly* inherits the declaring component, and only through that component's own root (`self` or `root`).
+  It is not reachable through an inherited instance held as a child, nor across more than one level of inheritance.
+
+Reaching a function of another component always requires a target: the caller declares that component as one of its elements and calls the function on it.
+
+```slint
+export component HasFunction {
+    public pure function double(x: int) -> int {
+        return x * 2;
+    }
+}
+
+export component CallsFunction {
+    property <int> test: my-friend.double(1);
+    my-friend := HasFunction { }
+}
+```
+
+A `public` function declared on a *child* element of a component is not reachable from another component: only the component itself can serve as a target, so no path to the child element's function exists.
+
+The same visibility rules apply to functions declared in a [global](../globals/), reached through the global's name.
+
+Functions marked `public` in an exported component can be invoked from native code (Rust, C++, JavaScript, Python).
+See the language-specific documentation for the generated code.
+
+## Purity
+
+The `pure` modifier marks a function free of side effects, so that it may be called from pure contexts such as bindings.
+For a `public` or `protected` function purity must be stated explicitly; without `pure` the function is treated as impure.
+For a private function purity is deduced from its body when it is unmarked.
+A `pure` function that assigns a property or calls an impure function or callback is a compile error.
+See [Evaluation and Purity](../evaluation-and-purity/).
+
+## Calling
+
+A function is called with or without an element name.
+The name resolves by the shared [lookup rules](../name-resolution/#lookup-rules):
+without an element name it is looked up on `self` and then on each enclosing element up to the component root; with an element name it must be defined on that element.
+
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component Example {
+    // without an element name
+    property <string> a: my-function();
+    // with an element name
+    property <int> b: my_button.my-other-function();
+
+    pure function my-function() -> string {
+        return "result";
+    }
+
+    VerticalBox {
+        my_button := Button {
+            text: "Click me";
+            pure function my-other-function() -> int {
+                return 42;
+            }
+        }
+    }
+}
+```
+
+Because functions of the same name may be declared on different elements, a call without an element name may resolve to a different function than a call qualified with `self`.
+
+## Functions vs. callbacks
+
+Functions and [callbacks](../callbacks/) are both invoked the same way, take parameters and a return value, and may be `pure`.
+They differ as follows:
+
+- A callback's handler can be set from native code and written in the native language; a function is defined entirely in Slint.
+- A callback may be declared without a body; a function must have one.
+- A callback may declare an [alias](../callbacks/#aliases) with the `<=>` operator; a function cannot.
+- A callback is always reachable like a `public` function; a function defaults to private.

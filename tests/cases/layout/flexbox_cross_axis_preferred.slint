@@ -1,0 +1,239 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The container's intrinsic cross size must reflect what the items prefer and
+// what they can shrink to, as two different numbers. Every preferred size below
+// once reported the minimum, and every minimum reported the preferred size.
+
+export component TestCase inherits Window {
+    // Column: cross axis is the width.
+    col-flex := FlexboxLayout {
+        flex-direction: column;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 30px;
+        }
+    }
+
+    // Row: cross axis is the height.
+    row-flex := FlexboxLayout {
+        flex-direction: row;
+        Rectangle {
+            min-height: 40px;
+            preferred-height: 90px;
+            min-width: 30px;
+        }
+    }
+
+    // One line: the widest item wins.
+    two-flex := FlexboxLayout {
+        flex-direction: column;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 30px;
+        }
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 120px;
+            min-height: 30px;
+        }
+    }
+
+    // The cross padding is added on both sides.
+    padded-flex := FlexboxLayout {
+        flex-direction: column;
+        padding: 10px;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 30px;
+        }
+    }
+
+    // The item's own max-width caps the preferred size.
+    capped-flex := FlexboxLayout {
+        flex-direction: column;
+        Rectangle {
+            min-width: 10px;
+            preferred-width: 90px;
+            max-width: 50px;
+            min-height: 30px;
+        }
+    }
+
+    // An item that opts out of stretching is sized at its preferred width, but
+    // the layout can still shrink to the item's minimum.
+    start-flex := FlexboxLayout {
+        flex-direction: column;
+        Rectangle {
+            cross-axis-self-alignment: start;
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 30px;
+        }
+    }
+
+    // Wrapping: the cross size is the sum of the lines, not the widest item.
+    // The 100px height fits one item per column, so the two items wrap into
+    // two columns.
+    wrapped-flex := FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px;
+        height: 100px;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 100px;
+            preferred-height: 100px;
+        }
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 70px;
+            min-height: 100px;
+            preferred-height: 100px;
+        }
+    }
+
+    // Wrapping with cross-axis spacing: the gap between the lines counts too.
+    spaced-flex := FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 10px;
+        height: 100px;
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 90px;
+            min-height: 100px;
+            preferred-height: 100px;
+        }
+        Rectangle {
+            min-width: 40px;
+            preferred-width: 70px;
+            min-height: 100px;
+            preferred-height: 100px;
+        }
+    }
+
+    out property <bool> test_column: col-flex.preferred-width == 90px;
+    out property <bool> test_column_min: col-flex.min-width == 40px;
+    out property <bool> test_row: row-flex.preferred-height == 90px;
+    out property <bool> test_row_min: row-flex.min-height == 40px;
+    out property <bool> test_two: two-flex.preferred-width == 120px;
+    out property <bool> test_two_min: two-flex.min-width == 40px;
+    out property <bool> test_padded: padded-flex.preferred-width == 110px;
+    out property <bool> test_padded_min: padded-flex.min-width == 60px;
+    out property <bool> test_start: start-flex.preferred-width == 90px;
+    out property <bool> test_start_min: start-flex.min-width == 40px;
+    out property <bool> test_capped: capped-flex.preferred-width == 50px;
+    out property <bool> test_capped_min: capped-flex.min-width == 10px;
+    out property <bool> test_wrapped: wrapped-flex.preferred-width == 160px;
+    out property <bool> test_wrapped_min: wrapped-flex.min-width == 80px;
+    out property <bool> test_spaced: spaced-flex.preferred-width == 170px;
+    out property <bool> test_spaced_min: spaced-flex.min-width == 90px;
+
+    // The symptom: sized by its own preferred width inside a VerticalLayout,
+    // the flexbox must be wide enough to show its item at that width.
+    VerticalLayout {
+        x: 0;
+        y: 0;
+        width: 300px;
+        height: 200px;
+        HorizontalLayout {
+            solved-flex := FlexboxLayout {
+                flex-direction: column;
+                horizontal-stretch: 0;
+                Rectangle {
+                    min-width: 40px;
+                    preferred-width: 90px;
+                    min-height: 30px;
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+    }
+    // Nested: the inner flexbox's own two numbers become one cell of the outer.
+    nested-col := FlexboxLayout {
+        flex-direction: column;
+        FlexboxLayout {
+            flex-direction: column;
+            Rectangle {
+                min-width: 40px;
+                preferred-width: 90px;
+                min-height: 30px;
+            }
+        }
+    }
+    out property <bool> test_nested_col: nested-col.preferred-width == 90px;
+    out property <bool> test_nested_col_min: nested-col.min-width == 40px;
+
+    // Nested perpendicular: the inner row's cross axis is the outer column's
+    // main axis, and the other way around.
+    nested-perp := FlexboxLayout {
+        flex-direction: column;
+        FlexboxLayout {
+            flex-direction: row;
+            Rectangle {
+                min-width: 40px;
+                preferred-width: 90px;
+                min-height: 40px;
+                preferred-height: 70px;
+            }
+        }
+    }
+    out property <bool> test_nested_perp: nested-perp.preferred-width == 90px;
+    out property <bool> test_nested_perp_min: nested-perp.min-width == 40px;
+    out property <bool> test_nested_perp_h: nested-perp.preferred-height == 70px;
+    out property <bool> test_nested_perp_h_min: nested-perp.min-height == 40px;
+
+    // A nested flexbox that opts out of stretching: the outer must still be
+    // able to shrink to what the inner one reports as its minimum.
+    nested-start := FlexboxLayout {
+        flex-direction: column;
+        FlexboxLayout {
+            cross-axis-self-alignment: start;
+            flex-direction: column;
+            Rectangle {
+                min-width: 40px;
+                preferred-width: 90px;
+                min-height: 30px;
+            }
+        }
+    }
+    out property <bool> test_nested_start: nested-start.preferred-width == 90px;
+    out property <bool> test_nested_start_min: nested-start.min-width == 40px;
+
+    out property <bool> test_solved: solved-flex.width == 90px;
+
+    out property <bool> test: test_solved && test_column && test_column_min
+        && test_row && test_row_min
+        && test_start && test_start_min
+        && test_two && test_two_min
+        && test_padded && test_padded_min
+        && test_capped && test_capped_min
+        && test_wrapped && test_wrapped_min
+        && test_spaced && test_spaced_min
+        && test_nested_col && test_nested_col_min
+        && test_nested_perp && test_nested_perp_min
+        && test_nested_perp_h && test_nested_perp_h_min
+        && test_nested_start && test_nested_start_min;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

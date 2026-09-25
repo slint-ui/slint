@@ -95,6 +95,47 @@ fn screenshot_and_remote_conflict() {
     assert!(!out.exists(), "screenshot file should not have been written");
 }
 
+#[cfg(feature = "remote")]
+#[test]
+fn pairing_code_requires_remote() {
+    let file = write_slint("export component Main inherits Window {}");
+    let (code, _stdout, stderr) = run(&["--pairing-code", "4321", file.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--remote"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn no_pairing_requires_remote() {
+    let file = write_slint("export component Main inherits Window {}");
+    let (code, _stdout, stderr) = run(&["--no-pairing", file.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--remote"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn pairing_code_and_no_pairing_conflict() {
+    let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", "4321", "--no-pairing"]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("cannot be used with '--no-pairing'"), "stderr was:\n{stderr}");
+}
+
+#[cfg(feature = "remote")]
+#[test]
+fn malformed_pairing_codes_are_rejected() {
+    // A pinned code has to have the same shape as a generated one, so the
+    // editor can keep a fixed-length numeric field.
+    for bad in ["", "123", "12345", "12a4", "abcd"] {
+        let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", bad]);
+        assert_eq!(code, 2, "{bad:?} should have been rejected");
+        assert!(
+            stderr.contains("--pairing-code must be exactly 4 digits"),
+            "for {bad:?} stderr was:\n{stderr}"
+        );
+    }
+}
+
 #[test]
 fn auto_reload_and_save_data_conflict() {
     let (code, _stdout, stderr) = run(&["--auto-reload", "--save-data", "x.json", "x.slint"]);
@@ -141,6 +182,59 @@ fn file_with_no_component_is_reported() {
     assert_eq!(code, 1);
     assert!(stderr.contains("No component found"), "stderr was:\n{stderr}");
     assert!(!out.exists(), "screenshot file should not have been written");
+}
+
+// --- SystemTrayIcon components ------------------------------------------
+
+// The last export is the tray, so it is what the viewer picks by default.
+const TRAY_AND_WINDOW: &str = r#"
+export component MainWindow inherits Window {
+    Rectangle { background: green; }
+}
+export component Tray inherits SystemTrayIcon {
+    tooltip: "tray";
+}
+"#;
+
+#[test]
+fn tray_component_is_rejected() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let (code, _stdout, stderr) = run(&[f.path().to_str().unwrap()]);
+    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert!(
+        stderr.contains("'Tray' is a SystemTrayIcon, which the viewer cannot display"),
+        "stderr was:\n{stderr}"
+    );
+}
+
+#[test]
+fn tray_component_is_rejected_in_screenshot_mode() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) =
+        run(&["--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
+    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert!(stderr.contains("SystemTrayIcon"), "stderr was:\n{stderr}");
+    assert!(!out.exists(), "screenshot file should not have been written");
+}
+
+#[test]
+fn component_flag_selects_the_window() {
+    let f = write_slint(TRAY_AND_WINDOW);
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) = run(&[
+        "--component",
+        "MainWindow",
+        "--screenshot",
+        out.to_str().unwrap(),
+        "--size",
+        "64x64",
+        f.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    assert!(out.exists(), "screenshot file should have been written");
 }
 
 // --- Check mode --------------------------------------------------------

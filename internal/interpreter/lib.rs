@@ -72,25 +72,33 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-1-2"))]
+#[cfg(not(feature = "compat-1-18"))]
 compile_error!(
-    "The feature `compat-1-2` must be enabled to ensure \
+    "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
 mod api;
-mod dynamic_item_tree;
-mod dynamic_type;
+mod bindings;
+mod component;
+mod debug_hook;
+mod erased;
 mod eval;
 mod eval_layout;
 #[cfg(feature = "ffi")]
 #[doc(hidden)]
 pub mod ffi;
-mod global_component;
+mod globals;
 #[cfg(feature = "internal-highlight")]
 pub mod highlight;
+mod instance;
+mod item_holder;
+mod item_registry;
+mod item_tree_vtable;
 #[cfg(feature = "internal-json")]
 pub mod json;
+mod popup;
+mod public_api;
 mod value_model;
 
 #[doc(inline)]

@@ -131,7 +131,11 @@ impl PrettyPrinter<'_> {
                 }
                 None => {}
             }
-            writeln!(self.writer, ";{}", if init.is_constant { " /*const*/" } else { "" })?
+            writeln!(
+                self.writer,
+                ";{}",
+                if init.kind == super::BindingKind::Constant { " /*const*/" } else { "" }
+            )?
         }
         for (p, a) in &sc.animations {
             self.indent()?;
@@ -178,6 +182,22 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "flexbox-layout-item-info-for-repeated: {};",
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
+        if let Some((cross_o, e)) = &sc.cross_axis_self_alignment_for_repeated {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "cross-axis-self-alignment-for-repeated ({cross_o:?}): {};",
+                DisplayExpression(&e.borrow(), &ctx)
+            )?
+        }
+        if let Some((main_o, e)) = &sc.layout_order_for_repeated {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "layout-order-for-repeated ({main_o:?}): {};",
                 DisplayExpression(&e.borrow(), &ctx)
             )?
         }
@@ -309,7 +329,7 @@ impl PrettyPrinter<'_> {
                         "{}: {}{};",
                         global.properties[*p].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
-                        if init.is_constant { "/*const*/" } else { "" }
+                        if init.kind == super::BindingKind::Constant { "/*const*/" } else { "" }
                     )?;
                 }
                 LocalMemberIndex::Callback(c) => {
@@ -318,20 +338,6 @@ impl PrettyPrinter<'_> {
                         "{} => {};",
                         global.callbacks[*c].name,
                         DisplayExpression(&init.expression.borrow(), &ctx,),
-                    )?;
-                }
-                _ => unreachable!(),
-            }
-        }
-        for (p, animation) in &global.animations {
-            self.indent()?;
-            match p {
-                LocalMemberIndex::Property(p) => {
-                    writeln!(
-                        self.writer,
-                        "animate {} {{ {} }}",
-                        global.properties[*p].name,
-                        DisplayExpression(animation, &ctx),
                     )?;
                 }
                 _ => unreachable!(),
@@ -458,9 +464,12 @@ fn print_local_ref<T>(
             LocalMemberIndex::Function(function_index) => {
                 write!(f, "{}", sc.functions[*function_index].name)
             }
-            LocalMemberIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 let i = &sc.items[*item_index];
                 write!(f, "{}.{}", i.name, prop_name)
+            }
+            LocalMemberIndex::Timer(timer_index) => {
+                write!(f, "timer#{}", usize::from(*timer_index))
             }
         }
     }
@@ -490,7 +499,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))
             }
-            Expression::BuiltinFunctionCall { function, arguments } => {
+            Expression::BuiltinFunctionCall { function, arguments, .. } => {
                 write!(f, "{:?}({})", function, arguments.iter().map(e).join(", "))
             }
             Expression::CallBackCall { callback, arguments } => {
@@ -644,6 +653,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 repeater_steps_var_name,
                 elements,
                 orientation,
+                repeated_cross_size,
                 sub_expression,
             } => {
                 write!(
@@ -654,8 +664,14 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                         .iter()
                         .map(|x| match x {
                             Either::Left(x) => e(x).to_string(),
-                            Either::Right(r) =>
-                                format!("@repeater({})", usize::from(r.repeater_index)),
+                            Either::Right(r) => match &r.cross_width {
+                                Some(w) => format!(
+                                    "@repeater({} at cross-width {})",
+                                    usize::from(r.repeater_index),
+                                    e(w)
+                                ),
+                                None => format!("@repeater({})", usize::from(r.repeater_index)),
+                            },
                         })
                         .join(", "),
                     match orientation {
@@ -669,10 +685,19 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 if let Some(v) = repeater_steps_var_name {
                     write!(f, "{v} = @repeater-steps; ")?;
                 }
+                if let Some(s) = repeated_cross_size {
+                    write!(f, "@repeated-cross-size = {}; ", e(s))?;
+                }
                 write!(f, "{} }}", e(sub_expression))
             }
             Expression::WithFlexboxLayoutItemInfo { .. } => {
                 write!(f, "WithFlexboxLayoutItemInfo(TODO)",)
+            }
+            Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
+                write!(f, "BoxLayoutInfoOrthoWithMeasure(TODO)",)
+            }
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+                write!(f, "FlexboxLayoutInfoCrossAxisWithMeasure(TODO)",)
             }
             Expression::SolveFlexboxLayoutWithMeasure { .. } => {
                 write!(f, "SolveFlexboxLayoutWithMeasure(TODO)",)
@@ -700,6 +725,13 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                         DisplayExpression(format_args, ctx)
                     ),
                 }
+            }
+            Expression::Closure { arg_name, expression } => {
+                let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
+                write!(f, "({}) => {}", display_name, e(expression))
+            }
+            Expression::DebugHook { expression, id } => {
+                write!(f, "debug-hook({id:?}, {})", DisplayExpression(expression, ctx))
             }
         }
     }

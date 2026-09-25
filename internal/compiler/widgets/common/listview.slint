@@ -28,7 +28,7 @@ component StandardListViewBase inherits ListView {
         current-item-changed(current-item);
     }
 
-    private property <length> item-height: self.viewport-height / self.model.length;
+    private property <length> item-height: self.content-height / self.model.length;
     private property <int> into-view-item: 0;
     private property <length> into-view-item-y: root.item-y(root.into-view-item);
     private property <length> current-item-y: root.item-y(root.focus-item);
@@ -39,15 +39,15 @@ component StandardListViewBase inherits ListView {
     accessible-item-count: root.model.length;
 
     pure function first-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round(-root.viewport-y / root.item-height)));
+        return min(root.model.length - 1, max(0, round(-root.content-y / root.item-height)));
     }
 
     pure function last-visible-item() -> int {
-        return min(root.model.length - 1, max(0, round((-root.viewport-y + root.height - root.item-height) / root.item-height)));
+        return min(root.model.length - 1, max(0, round((-root.content-y + root.height - root.item-height) / root.item-height)));
     }
 
     pure function item-y(index: int) -> length {
-        return root.viewport-y + index * root.item-height;
+        return root.content-y + index * root.item-height;
     }
 
     pure function item-at-y(y: length) -> int {
@@ -62,11 +62,11 @@ component StandardListViewBase inherits ListView {
         into-view-item = index;
 
         if (into-view-item-y < 0) {
-            self.viewport-y += 0 - into-view-item-y;
+            self.content-y += 0 - into-view-item-y;
         }
 
         if (into-view-item-y + item-height > self.visible-height) {
-            self.viewport-y -= into-view-item-y + item-height - self.visible-height;
+            self.content-y -= into-view-item-y + item-height - self.visible-height;
         }
     }
 

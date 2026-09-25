@@ -30,7 +30,7 @@ pub fn reuse_lint(sh: &Shell, reuse: &Path) -> Result<()> {
 
     if !output.status.success() {
         let stdout = String::from_utf8(output.stdout)?;
-        println!("{}", &stdout);
+        println!("{stdout}");
         anyhow::bail!("Project is not reuse compliant!");
     }
     Ok(())
@@ -301,8 +301,8 @@ fn validate_license_directory(dir: &Path, licenses: &[String], fix_it: bool) -> 
 
         println!(
             "Creating LICENSE symlink {} -> {}",
-            &source_path.to_string_lossy(),
-            &target_link_path.to_string_lossy()
+            source_path.to_string_lossy(),
+            target_link_path.to_string_lossy()
         );
 
         #[cfg(unix)]
@@ -372,7 +372,7 @@ impl ReuseComplianceCheck {
 
         if self.download_missing_licenses {
             let output = reuse_download(&sh, &reuse)?;
-            println!("{}", &output);
+            println!("{output}");
         }
 
         reuse_lint(&sh, &reuse)?;
