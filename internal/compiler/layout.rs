@@ -247,7 +247,7 @@ impl LayoutConstraints {
     /// `diag` reports a redundant size constraint, as in [`Self::new`]; a caller that
     /// builds the same element's constraints several times passes `None`, so that a
     /// conflict isn't reported that many times.
-    fn build(
+    pub(crate) fn build(
         element: &ElementRc,
         mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
         fixed_size: MergedFixedSize,
@@ -1090,8 +1090,10 @@ pub enum MergedFixedSize {
     /// The layout assigns the cell its size, and a Flickable's scroll extent covers a
     /// body that sizes itself.
     Constrains,
-    /// Leave the fixed size out, so that what a non-layout parent reads off a merged
-    /// repeated child matches what `explicit_layout_info` gives it for a static one.
+    /// Leave the fixed size out, as `explicit_layout_info` does for a static child
+    /// without layout info of its own.
+    /// A non-layout parent then reads the same off a fixed-size child that has
+    /// layout info of its own, and off a merged repeated child.
     /// Such a child keeps its own size, so folding that size into the parent's layout
     /// info would feed the parent back into itself.
     Ignored,
