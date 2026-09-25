@@ -20,7 +20,8 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{
-    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupAnchor, PopupClosePolicy,
+    BuiltInMouseCursor, InputMethodHints, InputType, ItemRef, MenuEntry, PopupAnchor,
+    PopupClosePolicy,
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
