@@ -57,7 +57,10 @@ pub(super) fn invalidate_fill() {
     }
 }
 
-pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+pub(super) fn workspace_edit_finished(
+    edit: lsp_types::WorkspaceEdit,
+    applied: bool,
+) -> Option<lsp_types::WorkspaceEdit> {
     if !applied {
         let editor = PREVIEW_STATE.with_borrow_mut(|state| {
             state.workspace_edit_sent = false;
@@ -83,7 +86,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
         }
         Some((state.api.upgrade(), fill))
     });
-    let Some((api, fill)) = result else { return };
+    let Some((api, fill)) = result else { return Some(edit) };
     if applied {
         if let Some(api) = api {
             api.invoke_add_recent_fill(fill);
@@ -95,6 +98,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
     clear_fill_refresh();
     PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
     undo_redo::apply_pending();
+    None
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -390,7 +394,7 @@ pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::Fill
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
+    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value), None);
     if !accepted {
         cancel();
     }
