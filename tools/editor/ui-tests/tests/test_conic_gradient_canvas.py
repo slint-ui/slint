@@ -352,7 +352,6 @@ def test_conic_seam_handles_and_stop_crossing(
             == "#264052"
         )
         click(window, "Close Stop color")
-        (tmp_path / "conic-editor.png").write_bytes(window.grab_window_as_png())
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -449,9 +448,6 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
-        (tmp_path / "conic-picker-and-canvas.png").write_bytes(
-            window.grab_window_as_png()
-        )
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
         assert not elements_with_label(window.root_element, "Hex color")
         click(window, "Edit stop 2 color")

@@ -47,7 +47,7 @@ def expected_fit_zoom(
 
 @pytest.mark.parametrize("percent", [25, 50, 75, 100, 125, 150, 200, 300, 400])
 def test_zoom_scales_content_and_preserves_controls(
-    editor_binary, editor_environment, fixture_project, percent, tmp_path
+    editor_binary, editor_environment, fixture_project, percent
 ):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
@@ -86,10 +86,8 @@ def test_zoom_scales_content_and_preserves_controls(
             rendered.getpixel((x, row)) == (37, 99, 235) for x in range(left, right)
         )
         assert blue_pixels / scale == pytest.approx(180 * percent / 100, abs=2)
-        rendered.save(tmp_path / f"zoom-{percent}.png")
         press_shortcut(window, keys.Control, "0")
         wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
-        screenshot(window).save(tmp_path / "actual-size.png")
         original.assert_unchanged()
 
 
