@@ -59,7 +59,6 @@ component GradientHandle inherits FocusScope {
         accessible-role: AccessibleRole.button;
         accessible-label: root.label;
         accessible-action-default => {
-            root.selection-requested();
             root.focus();
             if !root.endpoint { root.activated(); }
         }
