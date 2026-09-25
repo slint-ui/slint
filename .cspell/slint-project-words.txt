@@ -682,7 +682,6 @@ typedoc
 typeregister
 Tzimabazafi
 uart
-ubruhin
 udisksctl
 udivdi
 uintptr
