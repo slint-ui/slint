@@ -46,6 +46,7 @@ component SelectedCanvasFrame inherits Rectangle {
     in property <bool> primary;
     in property <bool> shift-pressed;
     in property <bool> interaction-disabled;
+    in property <bool> show-outline-while-moving;
     callback pointer-hovered(Point);
     callback hover-suppressed();
     callback double-clicked();
@@ -118,6 +119,7 @@ component SelectedCanvasFrame inherits Rectangle {
         shift-pressed: root.shift-pressed;
         show-resize-handles: root.primary;
         show-rotation-handles: root.primary;
+        show-outline-while-moving: root.show-outline-while-moving;
         enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
         independent-corner-radii: root.has-independent-corner-radii();
         top-left-radius: root.current-corner-radius("border-top-left-radius");
@@ -210,7 +212,6 @@ component SelectedCanvasFrame inherits Rectangle {
 }
 
 component HoverCanvasFrame inherits MoveResizeFrame {
-    show-outline: false;
     in property <SelectionRectangle> geometry;
     in property <bool> gesture-active;
     callback gesture-started();
@@ -237,6 +238,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     resizable: false;
     show-resize-handles: false;
     show-rotation-handles: false;
+    show-outline: root.show-outline-while-moving && root.move-dragging;
     accessible-prefix: "Hovered " + Hover.element.type-name;
     accessible-role: AccessibleRole.region;
     accessible-label: root.accessible-prefix;
@@ -349,6 +351,10 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     callback real-element-selected();
+
+    pure function keep-selection-outline-while-moving(type-name: string) -> bool {
+        return type-name == "TouchArea" || type-name == "Image";
+    }
 
     pure function horizontal-text-alignment(index: int) -> TextHorizontalAlignment {
         if index == 0 { return TextHorizontalAlignment.start; }
@@ -499,6 +505,9 @@ export component CanvasInteractionLayer inherits TouchArea {
         primary: idx == Api.selection.highlight-index;
         shift-pressed: root.shift-pressed;
         interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active;
+        show-outline-while-moving: root.keep-selection-outline-while-moving(
+            Api.current-element.type-name,
+        );
         pointer-hovered(position) => {
             root.update-hover(position);
         }
@@ -512,6 +521,9 @@ export component CanvasInteractionLayer inherits TouchArea {
     for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
         geometry: geometry;
         gesture-active: root.hover-selection-active;
+        show-outline-while-moving: root.keep-selection-outline-while-moving(
+            Hover.element.type-name,
+        );
         gesture-started => {
             root.hover-enabled = false;
             root.hover-selection-active = true;
