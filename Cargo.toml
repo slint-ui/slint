@@ -178,14 +178,3 @@ objc2 = { version = "0.6.3" }
 
 # Not updated because of https://github.com/gluon-lang/lsp-types/issues/284
 lsp-types = "0.95.0"
-
-# glutin-winit depends on the published winit 0.31, which would otherwise pull in a second,
-# incompatible copy of winit-core/dpi alongside the fork that internal/backends/winit/Cargo.toml
-# depends on directly for the popup anchor support.
-[patch.crates-io]
-winit = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
-winit-core = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
-winit-common = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
-winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
-winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
-dpi = { git = "https://github.com/Murmele/winit.git", rev = "809b3bca8817e74d89af040918b443206526b89f" }
