@@ -113,19 +113,10 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               if: runner.os == 'Linux'
             - uses: ./.github/actions/install-skia-dependencies
-            # Skia is built from source here, and ninja resolves cl.exe's relative
-            # includes with the ANSI GetFullPathNameA, so the paths have to stay
-            # below MAX_PATH. Forward slashes keep the target directory usable
-            # from the bash steps below.
-            - name: Shorten the target directory to fit the Skia build under MAX_PATH
-              if: runner.os == 'Windows'
-              shell: bash
-              run: echo "CARGO_TARGET_DIR=${RUNNER_WORKSPACE//\\//}/t" >> $GITHUB_ENV
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-visual-editor-v1-${{ matrix.suite }}
                   save_if: ${{ github.ref == 'refs/heads/master' }}
-                  cache-workspaces: ${{ runner.os == 'Windows' && '. -> ../t' || '' }}
             - uses: actions/setup-python@v7
               if: matrix.suite == 'ui'
               with:
