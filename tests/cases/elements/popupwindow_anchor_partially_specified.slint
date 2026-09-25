@@ -68,6 +68,15 @@ assert_eq!(instance.global::<MyGlobal<'_>>().get_popup_open(), true);
 assert_eq!(instance.global::<MyGlobal<'_>>().get_anchor_location_correct(), true);
 assert_eq!(instance.global::<MyGlobal<'_>>().get_anchor_gravity_correct(), true);
 
-assert_eq!(instance.global::<MyGlobal<'_>>().get_popup_anchor(), true);
+// `constraint-adjustment-x` is not specified at all, so every field falls back to its default.
+let anchor = instance.global::<MyGlobal<'_>>().get_popup_anchor();
+assert_eq!(anchor.constraint_adjustment_x.slide, false);
+assert_eq!(anchor.constraint_adjustment_x.flip, false);
+assert_eq!(anchor.constraint_adjustment_x.resize, false);
+
+// `constraint-adjustment-y` only specifies `flip`; `slide`/`resize` fall back to their default.
+assert_eq!(anchor.constraint_adjustment_y.slide, false);
+assert_eq!(anchor.constraint_adjustment_y.flip, true);
+assert_eq!(anchor.constraint_adjustment_y.resize, false);
 ```
 */
