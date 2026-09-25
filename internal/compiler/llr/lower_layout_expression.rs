@@ -2005,39 +2005,79 @@ pub fn get_layout_info(
     };
 
     if constraints.has_explicit_restrictions(orientation) {
-        let store = llr_Expression::StoreLocalVariable {
-            name: "layout_info".into(),
-            value: layout_info.into(),
-        };
-        let ty = crate::typeregister::layout_info_type();
-        let mut values = ty
-            .fields
-            .keys()
-            .map(|p| {
-                (
-                    p.clone(),
-                    llr_Expression::StructFieldAccess {
-                        base: llr_Expression::ReadLocalVariable {
-                            name: "layout_info".into(),
-                            ty: ty.clone().into(),
-                        }
-                        .into(),
-                        name: p.clone(),
-                    },
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-
-        for (nr, s) in constraints.for_each_restrictions(orientation) {
-            values.insert(
-                s.into(),
-                llr_Expression::PropertyReference(ctx.map_property_reference(nr)),
-            );
-        }
-        llr_Expression::CodeBlock([store, llr_Expression::Struct { ty, values }].into())
+        override_layout_info(layout_info, ctx, constraints, orientation, None)
     } else {
         layout_info
     }
+}
+
+/// The layout info of a public component's root on an axis where a `width`/`height`
+/// length binding fixes its size, or `None` if that size isn't fixed.
+///
+/// `min`, `max` and `preferred` are that size, and the children are left out:
+/// the window clamps `preferred` into `[min, max]`, so they can't change its size.
+pub fn get_fixed_size_root_layout_info(
+    elem: &ElementRc,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+) -> Option<llr_Expression> {
+    let c = constraints.for_orientation(orientation);
+    let size = c
+        .min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)?;
+    let own_info = super::lower_expression::lower_expression(
+        &crate::layout::implicit_layout_info_call(
+            elem,
+            orientation,
+            crate::layout::BuiltinFilter::All,
+            None,
+        )
+        .unwrap(),
+        ctx,
+    );
+    Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))
+}
+
+/// `layout_info` with each field that `constraints` restricts read from that constraint,
+/// and `preferred` read from `preferred` if given.
+fn override_layout_info(
+    layout_info: llr_Expression,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+    preferred: Option<&NamedReference>,
+) -> llr_Expression {
+    let store = llr_Expression::StoreLocalVariable {
+        name: "layout_info".into(),
+        value: layout_info.into(),
+    };
+    let ty = crate::typeregister::layout_info_type();
+    let mut values = ty
+        .fields
+        .keys()
+        .map(|p| {
+            (
+                p.clone(),
+                llr_Expression::StructFieldAccess {
+                    base: llr_Expression::ReadLocalVariable {
+                        name: "layout_info".into(),
+                        ty: ty.clone().into(),
+                    }
+                    .into(),
+                    name: p.clone(),
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    for (nr, s) in
+        constraints.for_each_restrictions(orientation).chain(preferred.map(|nr| (nr, "preferred")))
+    {
+        values.insert(s.into(), llr_Expression::PropertyReference(ctx.map_property_reference(nr)));
+    }
+    llr_Expression::CodeBlock([store, llr_Expression::Struct { ty, values }].into())
 }
 
 // Called for repeated components in a grid layout, to generate code to provide input for organize_grid_layout().
