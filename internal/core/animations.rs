@@ -235,12 +235,9 @@ impl Instant {
     }
 }
 
-/// A timestamp on the animation clock, in whole milliseconds since the backend has started.
+/// A timestamp on the animation clock, in whole nanoseconds since the backend has started.
 ///
-/// Unlike [`Instant`], this has the same layout on every target, so it's the type to use for a
-/// timestamp that crosses the C++ FFI boundary or goes through the interpreter's dynamic `Value`;
-/// `Instant`'s `Duration` payload has a target-dependent layout (field order, size) that neither
-/// can represent.
+/// FFI compatible layout
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd)]
 pub struct InstantNanosecond(pub u64);
