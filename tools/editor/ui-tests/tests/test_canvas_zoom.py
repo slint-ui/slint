@@ -276,6 +276,29 @@ def test_zoom_during_inline_edit_preserves_text(
         )
 
 
+def test_inline_text_scales_at_200_percent(
+    editor_binary, editor_environment, fixture_project, tmp_path
+):
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "root-text")
+        center_canvas_selection(window, "Text")
+        zoom_canvas(window, 200)
+        window_element_with_label(window, "Text move handle").double_click(
+            slint_testing.PointerEventButton.Left
+        )
+        text = window_element_with_label(window, "Inline text editor")
+        assert text.size.width == pytest.approx(360)
+        assert text.size.height == pytest.approx(96)
+        screenshot(window).save(tmp_path / "inline-text-200.png")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
 @pytest.mark.parametrize("percent", [50, 125, 200])
 @pytest.mark.parametrize("operation", ["radius", "rotation"])
 def test_zoomed_radius_and_rotation(

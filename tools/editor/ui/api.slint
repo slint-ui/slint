@@ -466,6 +466,9 @@ export global Api {
     in-out property <string> update-version;
     in-out property <string> update-error;
     in property <bool> focus-previewed-element;
+    in property <int> inline-text-edit-request-generation;
+    in property <string> inline-text-edit-request-source-uri;
+    in property <int> inline-text-edit-request-offset: -1;
     callback check-for-update();
 
     // ## Component Data for ComponentList:

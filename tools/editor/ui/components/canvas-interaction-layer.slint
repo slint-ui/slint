@@ -323,6 +323,7 @@ export component CanvasInteractionLayer inherits TouchArea {
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
     private property <bool> text-editing;
+    private property <bool> text-edit-had-focus;
     private property <string> text-edit-value;
     private property <string> text-edit-original;
     private property <string> text-edit-url;
@@ -333,6 +334,36 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <Size> text-edit-size;
     private property <float> text-edit-scale-x: 1;
     private property <float> text-edit-scale-y: 1;
+    private property <int> inline-text-edit-request-generation: Api.inline-text-edit-request-generation;
+    private property <int> handled-inline-text-edit-request-generation;
+    private property <bool> inline-text-edit-request-target-matches:
+        Api.current-element.source-uri == Api.inline-text-edit-request-source-uri
+        && Api.current-element.offset == Api.inline-text-edit-request-offset;
+    private property <bool> inline-text-edit-request-ready:
+        root.inline-text-edit-request-generation != root.handled-inline-text-edit-request-generation
+        && root.inline-text-edit-request-target-matches
+        && Api.current-element.type-name == "Text"
+        && Api.selection.highlight-index >= 0
+        && root.selections.length > Api.selection.highlight-index;
+    changed inline-text-edit-request-target-matches => {
+        if root.inline-text-edit-request-generation != root.handled-inline-text-edit-request-generation
+            && !root.inline-text-edit-request-target-matches
+        {
+            inline-text-edit-request.stop();
+            root.handled-inline-text-edit-request-generation = root.inline-text-edit-request-generation;
+        }
+    }
+    changed inline-text-edit-request-ready => {
+        if root.inline-text-edit-request-ready { inline-text-edit-request.start(); }
+    }
+    inline-text-edit-request := Timer {
+        interval: 0ms;
+        triggered => {
+            self.stop();
+            root.handled-inline-text-edit-request-generation = root.inline-text-edit-request-generation;
+            root.begin-text-edit();
+        }
+    }
     private property <[SelectionRectangle]> selections:
         Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
@@ -402,6 +433,11 @@ export component CanvasInteractionLayer inherits TouchArea {
             || (scale-x - scale-y).abs() > 0.001 {
             return;
         }
+        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
+        root.text-edit-size = {
+            width: root.primary-selection.width,
+            height: root.primary-selection.height,
+        };
         root.text-edit-override-id = Api.override-element-text("", "");
         if root.text-edit-override-id == "" {
             return;
@@ -411,13 +447,9 @@ export component CanvasInteractionLayer inherits TouchArea {
         root.text-edit-url = Api.current-element.source-uri;
         root.text-edit-version = Api.current-element.source-version;
         root.text-edit-offset = Api.current-element.offset;
-        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
-        root.text-edit-size = {
-            width: root.primary-selection.width,
-            height: root.primary-selection.height,
-        };
         root.text-edit-scale-x = scale-x;
         root.text-edit-scale-y = scale-y;
+        root.text-edit-had-focus = false;
         root.text-editing = true;
     }
 
@@ -437,6 +469,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             return false;
         }
         Api.override-element-text(root.text-edit-override-id, root.text-edit-value);
+        root.text-edit-had-focus = false;
         root.text-editing = false;
         return true;
     }
@@ -552,9 +585,16 @@ export component CanvasInteractionLayer inherits TouchArea {
         y: root.text-edit-position.y * CanvasView.zoom;
         width: root.text-edit-size.width * CanvasView.zoom;
         height: root.text-edit-size.height * CanvasView.zoom;
-        init => {
-            input.focus();
-            input.select-all();
+        init => { focus-text-input.start(); }
+
+        focus-text-input := Timer {
+            interval: 0ms;
+            triggered => {
+                self.stop();
+                input.focus();
+                input.select-all();
+                root.text-edit-had-focus = input.has-focus;
+            }
         }
 
         capture-key-pressed(event) => {
@@ -590,7 +630,9 @@ export component CanvasInteractionLayer inherits TouchArea {
 
             accepted => { root.commit-text-edit(); }
             changed has-focus => {
-                if !self.has-focus && !root.commit-text-edit() {
+                if self.has-focus {
+                    root.text-edit-had-focus = true;
+                } else if root.text-edit-had-focus && !root.commit-text-edit() {
                     self.focus();
                 }
             }

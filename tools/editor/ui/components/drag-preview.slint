@@ -46,15 +46,6 @@ component PaletteTextDragPreview inherits Text {
     text: "Text";
     width: self.preferred-width;
     height: self.preferred-height;
-    init => {
-        AppState.palette-drag-size = { width: self.width, height: self.height };
-    }
-    changed width => {
-        AppState.palette-drag-size = { width: self.width, height: self.height };
-    }
-    changed height => {
-        AppState.palette-drag-size = { width: self.width, height: self.height };
-    }
 }
 
 export component OutlineDragRow inherits Rectangle {
@@ -178,7 +169,7 @@ export component DragPreview inherits Rectangle {
         border-color: root.style.border;
     }
 
-    if !root.row-preview && AppState.palette-drag-kind == ElementKind.text: PaletteTextDragPreview { }
+    if root.show-palette && !root.row-preview && AppState.palette-drag-kind == ElementKind.text: PaletteTextDragPreview { }
 
     if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area): PalettePlaceholderDragPreview {
             style: root.style;

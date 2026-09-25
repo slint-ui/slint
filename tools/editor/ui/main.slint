@@ -163,6 +163,10 @@ component NewFileErrorPopup inherits PopupWindow {
 
 export component EditorUi inherits Window {
     private property <bool> palette-drag-in-outline: false;
+    private property <Size> palette-text-drag-size: {
+        width: palette-text-metrics.width,
+        height: palette-text-metrics.height,
+    };
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -174,9 +178,13 @@ export component EditorUi inherits Window {
     init => {
         EditorWindow.width = root.width;
         EditorWindow.height = root.height;
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
     }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
+    changed palette-text-drag-size => {
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
+    }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
@@ -204,6 +212,15 @@ export component EditorUi inherits Window {
 
     function apply-history(redo: bool) {
         FillSession.apply-history(redo);
+    }
+
+    palette-text-metrics := Text {
+        x: -10000px;
+        opacity: 0;
+        accessible-role: none;
+        text: "Text";
+        width: self.preferred-width;
+        height: self.preferred-height;
     }
 
     function toggle-maximized() {

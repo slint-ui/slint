@@ -1663,6 +1663,76 @@ mod tests {
     }
 
     #[test]
+    fn inline_text_request_is_consumed_when_selection_changes() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        api.on_current_property_value_data(|name| {
+            if name == "text" {
+                super::PropertyValue {
+                    kind: super::PropertyValueKind::String,
+                    value_kind: super::PropertyValueKind::String,
+                    value_string: "Text".into(),
+                    code: r#""Text""#.into(),
+                    ..Default::default()
+                }
+            } else {
+                Default::default()
+            }
+        });
+        api.on_override_element_text(|_, _| "override".into());
+        api.on_string_is_single_line(|_| true);
+        api.on_highlight_positions(|_, offset| {
+            if offset == 1 {
+                return Default::default();
+            }
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            source_uri: "file:///scene.slint".into(),
+            offset: 1,
+            ..Default::default()
+        });
+        api.set_inline_text_edit_request_source_uri("file:///scene.slint".into());
+        api.set_inline_text_edit_request_offset(1);
+        api.set_inline_text_edit_request_generation(1);
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        assert!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Inline text editor"
+            )
+            .next()
+            .is_none()
+        );
+
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            source_uri: "file:///scene.slint".into(),
+            offset: 2,
+            ..Default::default()
+        });
+        slint::platform::update_timers_and_animations();
+        assert!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Inline text editor"
+            )
+            .next()
+            .is_none()
+        );
+    }
+
+    #[test]
     fn scrub_cursor_uses_fixed_pixel_size() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
