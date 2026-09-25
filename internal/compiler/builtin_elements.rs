@@ -1682,6 +1682,9 @@ fn build(l: &mut Loader) {
         /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
+        /// If released without pointer movement before the 100ms delay expires, an unclaimed press passes through to elements underneath, the same as <Link type="Flickable"/>.
+        /// Presses with intervening movement or held past 100ms are not forwarded on release (see issue #13120).
+        ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
         ///
