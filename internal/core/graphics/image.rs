@@ -799,6 +799,7 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
 impl PartialEq for ImageInner {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::None, Self::None) => true,
             (
                 Self::EmbeddedImage { cache_key: l_cache_key, buffer: l_buffer },
                 Self::EmbeddedImage { cache_key: r_cache_key, buffer: r_buffer },
@@ -1413,6 +1414,14 @@ pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_,
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
     })
+}
+
+#[test]
+fn test_empty_images_are_equal() {
+    // An empty image compared unequal to itself, so a model row holding one never compared equal.
+    assert_eq!(Image::default(), Image::default());
+    let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(1, 1);
+    assert_ne!(Image::default(), Image::from_rgb8(buffer));
 }
 
 #[test]
