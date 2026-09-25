@@ -4,7 +4,7 @@
 import { CanvasView } from "canvas-view.slint";
 import { Style, TooltipStyle } from "../style.slint";
 import { FillSession } from "inspector/index.slint";
-import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Api, Hover, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
@@ -325,6 +325,25 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <Size> text-edit-size;
     private property <float> text-edit-scale-x: 1;
     private property <float> text-edit-scale-y: 1;
+    private property <PropertyValue> text-edit-color: Api.current-property-value-data("color");
+    private property <int> inline-text-edit-request-generation: Api.inline-text-edit-request-generation;
+    private property <int> handled-inline-text-edit-request-generation;
+    private property <bool> inline-text-edit-request-ready:
+        root.inline-text-edit-request-generation != root.handled-inline-text-edit-request-generation
+        && Api.current-element.type-name == "Text"
+        && Api.selection.highlight-index >= 0
+        && root.selections.length > Api.selection.highlight-index;
+    changed inline-text-edit-request-ready => {
+        if root.inline-text-edit-request-ready { inline-text-edit-request.start(); }
+    }
+    inline-text-edit-request := Timer {
+        interval: 0ms;
+        triggered => {
+            self.stop();
+            root.handled-inline-text-edit-request-generation = root.inline-text-edit-request-generation;
+            root.begin-text-edit();
+        }
+    }
     private property <[SelectionRectangle]> selections:
         Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
@@ -394,6 +413,11 @@ export component CanvasInteractionLayer inherits TouchArea {
             || (scale-x - scale-y).abs() > 0.001 {
             return;
         }
+        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
+        root.text-edit-size = {
+            width: root.primary-selection.width,
+            height: root.primary-selection.height,
+        };
         root.text-edit-override-id = Api.override-element-text("", "");
         if root.text-edit-override-id == "" {
             return;
@@ -403,11 +427,6 @@ export component CanvasInteractionLayer inherits TouchArea {
         root.text-edit-url = Api.current-element.source-uri;
         root.text-edit-version = Api.current-element.source-version;
         root.text-edit-offset = Api.current-element.offset;
-        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
-        root.text-edit-size = {
-            width: root.primary-selection.width,
-            height: root.primary-selection.height,
-        };
         root.text-edit-scale-x = scale-x;
         root.text-edit-scale-y = scale-y;
         root.text-editing = true;
@@ -539,6 +558,8 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
     }
 
+    default-text := Text { visible: false; }
+
     if root.text-editing: FocusScope {
         x: root.text-edit-position.x * CanvasView.zoom;
         y: root.text-edit-position.y * CanvasView.zoom;
@@ -561,7 +582,9 @@ export component CanvasInteractionLayer inherits TouchArea {
             width: parent.width;
             height: parent.height;
             text <=> root.text-edit-value;
-            color: Api.current-property-value-data("color").value-brush;
+            color: root.text-edit-color.value-resolved
+                ? root.text-edit-color.value-brush
+                : default-text.color;
             font-family: Api.current-property-value-data("font-family").value-string;
             font-size: Api.current-property-value-data("font-size").value-float
                 * root.text-edit-scale-y * CanvasView.zoom * 1px;
