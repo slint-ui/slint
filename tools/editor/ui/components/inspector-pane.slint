@@ -658,6 +658,8 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -673,6 +675,8 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -688,6 +692,8 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("color");
                             session-key: root.fill-session-key("color");
                             property-name: "color";
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("color", text);
