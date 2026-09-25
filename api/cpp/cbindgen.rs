@@ -365,8 +365,8 @@ fn default_config() -> cbindgen::Config {
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
             ("Channel".into(), "uint8_t".into()),
-            // `InstantMillisecond` is `#[repr(transparent)]` over a `u64`.
-            ("InstantMillisecond".into(), "uint64_t".into()),
+            // `InstantNanosecond` is `#[repr(transparent)]` over a `u64`.
+            ("InstantNanosecond".into(), "uint64_t".into()),
         ]
         .iter()
         .cloned()
@@ -751,9 +751,7 @@ fn gen_corelib(
                 using LogicalPoint = Point2D<float>;
                 using LogicalLength = float;
                 // Rust's TouchHistory owns a Vec, which cbindgen can't lay out in C++, so
-                // MouseEvent::Moved carries it as this instead: an EventTouchHistory, whose
-                // only field is the same size/null-ness as the `Option<Box<TouchHistory>>`
-                // it wraps on the Rust side. C++ never constructs one with an actual history
+                // MouseEvent::Moved carries it as this instead: an EventTouchHistory
                 struct EventTouchHistory {
                     const void *opaque_history = nullptr;
 

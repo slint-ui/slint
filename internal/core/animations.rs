@@ -243,17 +243,17 @@ impl Instant {
 /// can represent.
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd)]
-pub struct InstantMillisecond(pub u64);
+pub struct InstantNanosecond(pub u64);
 
-impl From<Instant> for InstantMillisecond {
+impl From<Instant> for InstantNanosecond {
     fn from(instant: Instant) -> Self {
-        Self(instant.as_millis())
+        Self(instant.0.as_nanos() as u64)
     }
 }
 
-impl From<InstantMillisecond> for Instant {
-    fn from(millis: InstantMillisecond) -> Self {
-        Instant(Duration::from_millis(millis.0))
+impl From<InstantNanosecond> for Instant {
+    fn from(nanos: InstantNanosecond) -> Self {
+        Instant(Duration::from_nanos(nanos.0))
     }
 }
 

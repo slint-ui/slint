@@ -384,16 +384,16 @@ macro_rules! declare_value_enum_conversion {
 
 i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
-impl From<i_slint_core::animations::InstantMillisecond> for Value {
-    fn from(value: i_slint_core::animations::InstantMillisecond) -> Self {
-        Value::Number(value.0 as _)
+impl From<i_slint_core::animations::InstantNanosecond> for Value {
+    fn from(value: i_slint_core::animations::InstantNanosecond) -> Self {
+        Value::Number(value.0 / 1_000_000 as _)
     }
 }
-impl TryFrom<Value> for i_slint_core::animations::InstantMillisecond {
+impl TryFrom<Value> for i_slint_core::animations::InstantNanosecond {
     type Error = ();
-    fn try_from(v: Value) -> Result<i_slint_core::animations::InstantMillisecond, Self::Error> {
+    fn try_from(v: Value) -> Result<i_slint_core::animations::InstantNanosecond, Self::Error> {
         match v {
-            Value::Number(x) => Ok(i_slint_core::animations::InstantMillisecond(x as _)),
+            Value::Number(x) => Ok(i_slint_core::animations::InstantNanosecond(x * 1_000_000 as _)),
             _ => Err(()),
         }
     }
@@ -401,13 +401,13 @@ impl TryFrom<Value> for i_slint_core::animations::InstantMillisecond {
 
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {
-        i_slint_core::animations::InstantMillisecond::from(value).into()
+        i_slint_core::animations::InstantNanosecond::from(value).into()
     }
 }
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
-        i_slint_core::animations::InstantMillisecond::try_from(v).map(Into::into)
+        i_slint_core::animations::InstantNanosecond::try_from(v).map(Into::into)
     }
 }
 

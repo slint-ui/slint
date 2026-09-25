@@ -1188,7 +1188,7 @@ pub struct StateInfo {
     /// The previous state
     pub previous_state: i32,
     /// The instant in which the state changed last
-    pub change_time: crate::animations::InstantMillisecond,
+    pub change_time: crate::animations::InstantNanosecond,
 }
 
 struct StateInfoBinding<F, T> {

@@ -59,7 +59,7 @@ pub fn set_animated_property_binding<
         StrongRef,
     ) -> (
         PropertyAnimation,
-        Option<i_slint_core::animations::InstantMillisecond>,
+        Option<i_slint_core::animations::InstantNanosecond>,
     ),
 ) {
     let weak_1 = component_strong.to_weak();
