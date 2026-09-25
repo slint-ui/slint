@@ -44,13 +44,20 @@ def inspector_field(
         x=pane.absolute_position.x + pane.size.width / 2,
         y=pane.absolute_position.y + pane.size.height / 4,
     )
+    divider = window_element_with_label(
+        window, "Outline pane resize", slint_testing.AccessibleRole.Slider
+    )
     for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
         if delta:
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
             )
         fields = elements_with_label(pane, label, role)
-        if len(fields) == 1:
+        if len(fields) == 1 and (
+            pane.absolute_position.y
+            <= fields[0].absolute_position.y + fields[0].size.height / 2
+            <= divider.absolute_position.y
+        ):
             return fields[0]
     return window_element_with_label(window, label, role)
 

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, FieldStyle, PaintStyle } from "../../style.slint";
+import { Style, Typography, FieldStyle, PaintStyle } from "../../style.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
     in property <FieldStyle> style: Style.inspector-field;
@@ -9,20 +9,30 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> value;
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
+    in property <length> radius: root.style.radius;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
+    in property <bool> normalize-accepted: false;
+    in property <bool> show-focus-border: true;
     private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
         : input.has-focus ? root.style.appearance.focus
         : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
     out property <color> paint-foreground: root.paint.foreground;
+    out property <bool> input-focused: input.has-focus;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
     callback accepted(string) -> bool;
+    callback normalized(string) -> string;
 
     height: root.style.height;
-    border-radius: root.style.radius;
+    border-radius: root.radius;
     background: root.paint.background;
-    border-width: input.has-focus ? root.style.border-width : 0px;
-    border-color: input.has-focus ? root.style.appearance.focus.border : root.paint.border;
+    border-width: root.show-focus-border && input.has-focus ? root.style.border-width : 0px;
+    border-color: root.show-focus-border && input.has-focus
+        ? root.style.appearance.focus.border
+        : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
@@ -56,7 +66,12 @@ export component InspectorTextFieldBase inherits Rectangle {
             root.active-commit-key = root.commit-key;
             return false;
         }
-        return root.accepted(text);
+        let accepted = root.accepted(text);
+        if accepted && root.normalize-accepted {
+            input.text = root.normalized(text);
+            root.edited = false;
+        }
+        return accepted;
     }
 
     touch := TouchArea {
@@ -66,7 +81,9 @@ export component InspectorTextFieldBase inherits Rectangle {
 
         HorizontalLayout {
             padding-left: root.style.padding-inline;
-            padding-right: root.style.padding-inline;
+            padding-right: root.style.padding-inline + (root.suffix-width > 0px
+                ? root.suffix-width + root.style.gap
+                : 0px);
             spacing: root.style.gap;
             cross-axis-alignment: center;
 
@@ -80,6 +97,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                 enabled: root.enabled;
                 single-line: true;
                 wrap: no-wrap;
+                horizontal-alignment: root.horizontal-alignment;
                 color: root.paint.foreground;
                 font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
@@ -110,6 +128,26 @@ export component InspectorTextFieldBase inherits Rectangle {
                     }
                 }
             }
+
+            if root.suffix != "" && root.suffix-width == 0px: Text {
+                text: root.suffix;
+                color: root.style.appearance.muted;
+                font-size: Typography.control.size;
+                vertical-alignment: center;
+            }
+
+        }
+
+        if root.suffix != "" && root.suffix-width > 0px: fixed-suffix := Text {
+            x: parent.width - root.style.padding-inline - root.suffix-width;
+            y: 0px;
+            width: root.suffix-width;
+            height: parent.height;
+            text: root.suffix;
+            color: root.style.appearance.muted;
+            font-size: Typography.control.size;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
     }
 }
