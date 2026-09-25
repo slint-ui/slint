@@ -1,24 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { ButtonInterface } from "../../../internal/compiler/widgets/common/std-widget-interfaces.slint";
-import { Button } from "../../../internal/compiler/widgets/headless/controls.slint";
+import { Button as ButtonBase } from "../../../internal/compiler/widgets/headless/controls.slint";
 
 export enum ButtonVariant { primary, secondary }
 export enum ButtonSize { small, medium, large }
 
-export component GalleryButton inherits Rectangle {
-    implement ButtonInterface <=> control;
-
-    forward-focus: control;
-
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.activate(); }
-
+export component GalleryButton inherits ButtonBase {
     in property <ButtonVariant> variant: primary;
     in property <ButtonSize> size: medium;
     in property <length> corner-radius: 8px;
@@ -26,27 +14,27 @@ export component GalleryButton inherits Rectangle {
 
     min-width: 80px;
     min-height: root.size == small ? 32px : root.size == large ? 48px : 40px;
-    border-radius: root.corner-radius;
-    border-width: root.has-focus ? 2px : 1px;
-    border-color: root.has-focus ? #93c5fd : root.variant == primary ? root.accent : #cbd5e1;
-    background: !root.enabled ? #e2e8f0 : root.variant == primary
-        ? (root.pressed ? root.accent.darker(25%) : root.has-hover ? root.accent.darker(12%) : root.accent)
-        : (root.pressed ? #cbd5e1 : root.has-hover ? #e2e8f0 : #ffffff);
 
-    control := Button {
+    background << Rectangle {
+        border-radius: root.corner-radius;
+        border-width: root.has-focus ? 2px : 1px;
+        border-color: root.has-focus ? #93c5fd : root.variant == primary ? root.accent : #cbd5e1;
+        background: !root.enabled ? #e2e8f0 : root.variant == primary
+            ? (root.pressed ? root.accent.darker(25%) : root.has-hover ? root.accent.darker(12%) : root.accent)
+            : (root.pressed ? #cbd5e1 : root.has-hover ? #e2e8f0 : #ffffff);
+    }
 
-        HorizontalLayout {
-            padding-left: root.size == small ? 12px : 20px;
-            padding-right: root.size == small ? 12px : 20px;
-            Text {
-                accessible-role: none;
-                text: root.text;
-                color: !root.enabled ? #64748b : root.variant == primary ? #ffffff : #0f172a;
-                font-size: root.size == small ? 13px : 15px;
-                font-weight: 600;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
+    content << HorizontalLayout {
+        padding-left: root.size == small ? 12px : 20px;
+        padding-right: root.size == small ? 12px : 20px;
+        Text {
+            accessible-role: none;
+            text: root.text;
+            color: !root.enabled ? #64748b : root.variant == primary ? #ffffff : #0f172a;
+            font-size: root.size == small ? 13px : 15px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
     }
 }

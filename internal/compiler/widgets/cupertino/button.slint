@@ -1,24 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Button as ButtonControl } from "../headless/controls.slint";
 
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component Button {
-    implement ButtonInterface <=> control;
-
-    forward-focus: control;
-
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.activate(); }
-
+export component Button inherits ButtonControl {
     in property <image> icon;
     in property <length> icon-size: 13px;
     in property <bool> primary;
@@ -47,92 +35,94 @@ export component Button {
 
     animate surface-color { duration: 150ms; }
 
-    FocusBorder {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: parent.width + 6px;
-        height: parent.height + 6px;
-        border-radius: 8px;
-        has-focus: root.has-focus;
-    }
-
-    if (root.primary && root.enabled) : Rectangle {
-        drop-shadow-blur: 3px;
-        drop-shadow-color: #00000066;
-        drop-shadow-offset-y: 0.5px;
-        border-radius: 5px;
-        background: root.surface-color;
-
-        Rectangle {
-            drop-shadow-blur: 2px;
-            drop-shadow-color: #00000026;
-            drop-shadow-offset-y: 1px;
-            border-radius: parent.border-radius;
-            background: root.surface-color;
-        }
-
-        Rectangle {
-            drop-shadow-blur: 1px;
-            drop-shadow-color: #00000026;
-            drop-shadow-offset-y: 0.5px;
-            border-radius: parent.border-radius;
-            background: root.surface-color;
-        }
-
-        Rectangle {
-            border-radius: parent.border-radius;
-            background: CupertinoPalette.dimmer;
-            opacity: 0.17;
-        }
-    }
-
-    if (!root.primary || !root.enabled) : Rectangle {
-        drop-shadow-blur: 0.25px;
-        drop-shadow-color: #00000066;
-        drop-shadow-offset-y: 0.25px;
-        border-radius: 5px;
-        background: root.surface-color;
-
-        Rectangle {
-            drop-shadow-blur: 1px;
-            drop-shadow-color: #00000026;
-            drop-shadow-offset-y: 1px;
-            border-radius: parent.border-radius;
-            background: root.surface-color;
-            border-width: 1px;
-            border-color: CupertinoPalette.decent-border;
-            opacity: root.enabled ? 1 : 0.5;
-        }
-    }
-
-    i-layout := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 4px;
-        padding-bottom: 4px;
-        spacing: 4px;
-        alignment: center;
-
-        if (root.icon.width > 0 && root.icon.height > 0) : Image {
+    background << Rectangle {
+        FocusBorder {
+            x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
-            source <=> root.icon;
-            width: root.icon-size;
-            min-height: root.icon-size;
-            opacity: root.enabled ? 1 : 0.5;
-            colorize: root.colorize-icon ? root.text-color : transparent;
-            accessible-role: none;
+            width: parent.width + 6px;
+            height: parent.height + 6px;
+            border-radius: 8px;
+            has-focus: root.has-focus;
         }
 
-        if (root.text != "") : Text {
-            opacity: root.enabled ? 1 : 0.5;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            text: root.text;
-            color: root.text-color;
-            animate color { duration: 150ms; }
-            accessible-role: none;
+        if (root.primary && root.enabled) : Rectangle {
+            drop-shadow-blur: 3px;
+            drop-shadow-color: #00000066;
+            drop-shadow-offset-y: 0.5px;
+            border-radius: 5px;
+            background: root.surface-color;
+
+            Rectangle {
+                drop-shadow-blur: 2px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 1px;
+                border-radius: parent.border-radius;
+                background: root.surface-color;
+            }
+
+            Rectangle {
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 0.5px;
+                border-radius: parent.border-radius;
+                background: root.surface-color;
+            }
+
+            Rectangle {
+                border-radius: parent.border-radius;
+                background: CupertinoPalette.dimmer;
+                opacity: 0.17;
+            }
+        }
+
+        if (!root.primary || !root.enabled) : Rectangle {
+            drop-shadow-blur: 0.25px;
+            drop-shadow-color: #00000066;
+            drop-shadow-offset-y: 0.25px;
+            border-radius: 5px;
+            background: root.surface-color;
+
+            Rectangle {
+                drop-shadow-blur: 1px;
+                drop-shadow-color: #00000026;
+                drop-shadow-offset-y: 1px;
+                border-radius: parent.border-radius;
+                background: root.surface-color;
+                border-width: 1px;
+                border-color: CupertinoPalette.decent-border;
+                opacity: root.enabled ? 1 : 0.5;
+            }
         }
     }
 
-    control := ButtonControl { }
+    content << Rectangle {
+        i-layout := HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            spacing: 4px;
+            alignment: center;
+
+            if (root.icon.width > 0 && root.icon.height > 0) : Image {
+                y: (parent.height - self.height) / 2;
+                source <=> root.icon;
+                width: root.icon-size;
+                min-height: root.icon-size;
+                opacity: root.enabled ? 1 : 0.5;
+                colorize: root.colorize-icon ? root.text-color : transparent;
+                accessible-role: none;
+            }
+
+            if (root.text != "") : Text {
+                opacity: root.enabled ? 1 : 0.5;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: root.text;
+                color: root.text-color;
+                animate color { duration: 150ms; }
+                accessible-role: none;
+            }
+        }
+    }
 }

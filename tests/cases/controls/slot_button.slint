@@ -1,0 +1,87 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button as ButtonBase } from "../../../internal/compiler/widgets/headless/controls.slint";
+import { GalleryButton } from "../../../examples/headless-controls-gallery/components/button.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+
+    in-out property <bool> enabled: true;
+    out property <int> clicks;
+    out property <bool> checked: button.checked;
+    public function focus-button() { button.focus(); }
+
+    button := ButtonBase {
+        x: 0px;
+        y: 0px;
+        width: 200px;
+        height: 50px;
+        text: "Slot button";
+        enabled: root.enabled;
+        checkable: true;
+        clicked => { root.clicks += 1; }
+
+        background << Rectangle {
+            background: button.checked ? green : blue;
+        }
+        content << HorizontalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            Text {
+                text: button.text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        out property <bool> slots-fill-button:
+            background.width == self.width && background.height == self.height
+            && content.width == self.width && content.height == self.height;
+    }
+
+    styled := GalleryButton {
+        x: 0px;
+        y: 50px;
+        width: 200px;
+        height: 50px;
+        text: "Styled button";
+        clicked => { root.clicks += 1; }
+    }
+
+    out property <bool> test: button.slots-fill-button;
+}
+
+/*
+```rust
+use slint::{SharedString, platform::{Key, PointerEventButton}};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let styled = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::styled")
+    .next().unwrap();
+assert_eq!(styled.size(), slint::LogicalSize::new(200., 50.));
+assert_eq!(styled.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+let button = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::button")
+    .next().unwrap();
+assert_eq!(button.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+assert_eq!(button.accessible_label(), Some(SharedString::from("Slot button")));
+button.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_clicks(), 1);
+assert!(instance.get_checked());
+instance.invoke_focus_button();
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Space));
+assert_eq!(instance.get_clicks(), 2);
+assert!(!instance.get_checked());
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Return));
+assert_eq!(instance.get_clicks(), 3);
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_clicks(), 4);
+instance.set_enabled(false);
+button.mock_single_click(PointerEventButton::Left);
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_clicks(), 4);
+slint_testing::send_mouse_click(&instance, 190., 95.);
+assert_eq!(instance.get_clicks(), 5);
+```
+*/

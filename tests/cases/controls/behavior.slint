@@ -30,7 +30,7 @@ export component TestCase inherits Window {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-for id in ["button", "checkbox", "toggle", "radio", "group", "slider"] {
+for id in ["checkbox", "toggle", "radio", "group", "slider"] {
     let element = slint_testing::ElementHandle::find_by_element_id(&instance, &format!("TestCase::{id}"))
         .next().unwrap();
     assert_eq!(element.accessible_role(), Some(slint_testing::AccessibleRole::None), "{id}");
@@ -44,7 +44,13 @@ for id in ["button", "checkbox", "toggle", "radio", "group", "slider"] {
     element.set_accessible_value("50");
 }
 assert_eq!(instance.get_actions(), 0);
+let button = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::button")
+    .next().unwrap();
+assert_eq!(button.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+assert_eq!(button.accessible_label().unwrap(), "Button");
+button.invoke_accessible_default_action();
+assert_eq!(instance.get_actions(), 1);
 instance.invoke_activate();
-assert_eq!(instance.get_actions(), 6);
+assert_eq!(instance.get_actions(), 7);
 ```
 */

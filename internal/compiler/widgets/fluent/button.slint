@@ -1,15 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ButtonInterface } from "../common/std-widget-interfaces.slint";
 import { Button as ButtonControl } from "../headless/controls.slint";
 
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component Button {
-    implement ButtonInterface <=> control;
-
+export component Button inherits ButtonControl {
     in property <image> icon;
     in property <length> icon-size: 20px;
     in property <bool> primary;
@@ -21,14 +18,6 @@ export component Button {
     min-height: max(32px, i-layout.min-height);
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    forward-focus: control;
-
-    accessible-role: button;
-    accessible-label: root.text;
-    accessible-enabled: root.enabled;
-    accessible-checkable: root.checkable;
-    accessible-checked: root.checked;
-    accessible-action-default => { root.activate(); }
 
     states [
         disabled when !root.enabled : {
@@ -51,18 +40,22 @@ export component Button {
         }
     ]
 
-    i-background := Rectangle {
-        border-radius: 4px;
-        background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
+    background << Rectangle {
+        i-background := Rectangle {
+            border-radius: 4px;
+            background: root.primary ? FluentPalette.accent-background : FluentPalette.control-background;
 
-        animate background, border-color { duration: 150ms; }
+            animate background, border-color { duration: 150ms; }
 
-        i-border := Rectangle {
-            border-radius: parent.border-radius;
-            border-width: 1px;
-            border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
+            i-border := Rectangle {
+                border-radius: parent.border-radius;
+                border-width: 1px;
+                border-color: root.primary ? FluentPalette.accent-control-border : FluentPalette.control-border;
+            }
         }
+    }
 
+    content << Rectangle {
         i-layout := HorizontalLayout {
             padding-left: 12px;
             padding-right: 12px;
@@ -90,8 +83,6 @@ export component Button {
             }
         }
     }
-
-    control := ButtonControl { }
 
     // focus border
     if (root.has-focus && root.enabled) : FocusBorder {

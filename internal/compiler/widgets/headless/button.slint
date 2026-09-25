@@ -15,17 +15,25 @@ export component Button {
     out property <bool> has-focus: pressable.has-focus;
     out property <bool> has-hover: pressable.has-hover;
     out property <bool> pressed: pressable.pressed;
-
     out property <length> pressed-x: pressable.pressed-x;
     out property <length> pressed-y: pressable.pressed-y;
 
     callback clicked;
 
-    preferred-width: 100%;
-    preferred-height: 100%;
-    min-width: pressable.min-width;
-    min-height: pressable.min-height;
     forward-focus: pressable;
+
+    slot background;
+    slot content;
+
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.activate(); }
+
+    background { }
+    content { }
 
     public function activate() {
         if (root.enabled) {
@@ -39,7 +47,7 @@ export component Button {
     pressable := Pressable {
         enabled: root.enabled;
         clicked => { root.activate(); }
-
-        @children
     }
+
+    @children
 }
