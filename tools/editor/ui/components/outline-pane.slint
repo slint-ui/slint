@@ -12,7 +12,7 @@ export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
-    private property <Point> palette-pointer: AppState.palette-drag-pointer-position();
+    private property <Point> palette-pointer: AppState.palette-drag-pointer-position;
     out property <bool> palette-drag-in-outline: !root.image-mode && root.outline-data.length > 0
         && AppState.palette-drag-kind != ElementKind.none
         && root.palette-pointer.x >= root.absolute-position.x
