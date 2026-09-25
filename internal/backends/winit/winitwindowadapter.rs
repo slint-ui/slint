@@ -2234,7 +2234,7 @@ impl WindowAdapter for WinitWindowAdapter {
                         &anchor.constraint_adjustment_y,
                     );
                     positioner.offset = offset.into();
-                    // The anchor position is set when chaning the x/y properties of the popup
+                    // The anchor position is set when changing the x/y properties of the popup
                     positioner.anchor_rect = (positioner.anchor_rect.0, anchor_size.into());
 
                     window.set_positioner(positioner);
