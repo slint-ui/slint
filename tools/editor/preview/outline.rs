@@ -395,9 +395,11 @@ fn drop_edit(
                     .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
             })?;
             let mut properties = Vec::new();
-            if !i_slint_compiler::layout::is_layout(
-                &drop_info.target_element_node.as_element().borrow().base_type,
-            ) {
+            if kind != ui::ElementKind::Text
+                && !i_slint_compiler::layout::is_layout(
+                    &drop_info.target_element_node.as_element().borrow().base_type,
+                )
+            {
                 properties.extend([
                     i_slint_editor_preview::editing::PropertyChange::new(
                         "width",

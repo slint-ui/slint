@@ -946,8 +946,13 @@ pub fn drop_at_with_geometry(
     let component_instance = preview::component_instance()?;
 
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
-    let mut extra_properties =
-        geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
+    let mut extra_properties = geometry_properties_for_drop(
+        &component_instance,
+        position,
+        component,
+        &drop_info,
+        geometry,
+    )?;
     extend_with_new_properties(
         &mut extra_properties,
         &component.default_properties,
@@ -969,6 +974,7 @@ pub fn drop_at_with_geometry(
 fn geometry_properties_for_drop(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
+    component: &i_slint_editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
     geometry: LogicalRect,
 ) -> Option<Vec<i_slint_editor_preview::editing::PropertyChange>> {
@@ -987,7 +993,7 @@ fn geometry_properties_for_drop(
     let target_origin =
         drop_info.target_element_node.geometry_at(component_instance, position)?.rect.origin;
 
-    Some(vec![
+    let mut properties = vec![
         i_slint_editor_preview::editing::PropertyChange::new(
             "x",
             format!("{}px", (geometry.origin.x - target_origin.x).round()),
@@ -996,15 +1002,20 @@ fn geometry_properties_for_drop(
             "y",
             format!("{}px", (geometry.origin.y - target_origin.y).round()),
         ),
-        i_slint_editor_preview::editing::PropertyChange::new(
-            "width",
-            format!("{}px", geometry.size.width.round()),
-        ),
-        i_slint_editor_preview::editing::PropertyChange::new(
-            "height",
-            format!("{}px", geometry.size.height.round()),
-        ),
-    ])
+    ];
+    if component.name != "Text" {
+        properties.extend([
+            i_slint_editor_preview::editing::PropertyChange::new(
+                "width",
+                format!("{}px", geometry.size.width.round()),
+            ),
+            i_slint_editor_preview::editing::PropertyChange::new(
+                "height",
+                format!("{}px", geometry.size.height.round()),
+            ),
+        ]);
+    }
+    Some(properties)
 }
 
 pub(super) fn visual_properties_for_drop(
@@ -1026,15 +1037,10 @@ pub(super) fn visual_properties_for_drop(
             ),
             i_slint_editor_preview::editing::PropertyChange::new("border-width", "1px".to_string()),
         ],
-        "Text" => vec![
-            i_slint_editor_preview::editing::PropertyChange::new("text", "\"Text\"".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("color", "#1f2328".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("font-size", "24px".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new(
-                "vertical-alignment",
-                "center".to_string(),
-            ),
-        ],
+        "Text" => vec![i_slint_editor_preview::editing::PropertyChange::new(
+            "text",
+            "\"Text\"".to_string(),
+        )],
         "Image" => vec![i_slint_editor_preview::editing::PropertyChange::new(
             "image-fit",
             "contain".to_string(),
