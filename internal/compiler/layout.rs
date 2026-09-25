@@ -1106,6 +1106,7 @@ pub fn repeated_element_layout_info(elem: &ElementRc, orientation: Orientation) 
         // merge, not the sum) when queried for the axis orthogonal to the box's own
         // orientation.
         orientation: orientation.orthogonal(),
+        reverse: None,
         elems: vec![LayoutItem {
             element: elem.clone(),
             constraints: LayoutConstraints::default(),
