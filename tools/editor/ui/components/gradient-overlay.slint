@@ -27,14 +27,14 @@ component GradientHandle inherits FocusScope {
     callback started(Point);
     callback dragged(Point);
     callback finished();
-    callback focused();
+    callback selection-requested();
     callback activated();
     callback keyboard(KeyEvent) -> EventResult;
     width: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
     height: root.endpoint ? root.style.hit-size : max(root.style.hit-size, root.style.marker.size);
     z: touch.pressed ? 3 : root.selected || root.has-focus ? 2 : 1;
     key-pressed(event) => { return root.keyboard(event); }
-    changed has-focus => { if root.has-focus { root.focused(); } }
+    changed has-focus => { if root.has-focus { root.selection-requested(); } }
     if !root.endpoint: EditorGradientStopMarker {
         style: root.style.marker;
         x: (parent.width - self.width) / 2;
@@ -59,15 +59,15 @@ component GradientHandle inherits FocusScope {
         accessible-role: AccessibleRole.button;
         accessible-label: root.label;
         accessible-action-default => {
+            root.selection-requested();
             root.focus();
-            root.focused();
             if !root.endpoint { root.activated(); }
         }
         changed pressed => {
             if self.pressed {
                 self.dragged = false;
+                root.selection-requested();
                 root.focus();
-                root.focused();
                 root.started(root.window-point({ x: self.mouse-x, y: self.mouse-y }));
             } else {
                 root.finished();
@@ -349,7 +349,7 @@ export component GradientOverlay inherits FocusScope {
                 });
             }
             keyboard(event) => { return root.handle-key(GradientGestureKind.stop, event); }
-            focused => { FillSession.selected-stop = index; }
+            selection-requested => { FillSession.selected-stop = index; }
             activated => { FillSession.edit-stop-color(index); }
             started(p) => { root.begin(GradientGestureKind.stop, p); }
             dragged(p) => { root.drag(p); }
