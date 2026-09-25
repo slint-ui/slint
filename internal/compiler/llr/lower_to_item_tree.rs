@@ -148,6 +148,7 @@ pub fn lower_to_item_tree(
                 TopLevelComponentType::Window
             };
             let mut sc = lower_sub_component(component, &mut state, None, compiler_config);
+            lower_fixed_size_root_layout_info(component, &mut sc, &mut state);
             let public_properties = public_properties(component, &sc.mapping, &state);
             // For C++ codegen, the root component must have the same name as the public component
             sc.sub_component.name = name.clone();
@@ -388,6 +389,31 @@ fn component_id(component: &Rc<Component>) -> SmolStr {
         format_smolstr!("Component_{}", component.root_element.borrow().id)
     } else {
         format_smolstr!("{}_{}", component.id, component.root_element.borrow().id)
+    }
+}
+
+/// Replaces the layout info of a public component's root on each axis whose size is fixed.
+/// See `get_fixed_size_root_layout_info`.
+fn lower_fixed_size_root_layout_info(
+    component: &Rc<Component>,
+    sc: &mut LoweredSubComponent,
+    state: &mut LoweringState,
+) {
+    let inner = ExpressionLoweringCtxInner { mapping: &sc.mapping, parent: None, component };
+    let mut ctx = ExpressionLoweringCtx { inner, state };
+    let constraints = component.root_constraints.borrow();
+    for (orientation, layout_info) in [
+        (crate::layout::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
+        (crate::layout::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
+    ] {
+        if let Some(e) = super::lower_layout_expression::get_fixed_size_root_layout_info(
+            &component.root_element,
+            &mut ctx,
+            &constraints,
+            orientation,
+        ) {
+            *layout_info = e.into();
+        }
     }
 }
 
@@ -1610,4 +1636,37 @@ fn public_properties(
             )
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    /// The names of the properties of the lowered public component's root sub-component.
+    fn root_property_names(source: &str) -> Vec<String> {
+        let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node =
+            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+        let unit = super::lower_to_item_tree(&doc, &config);
+        let root = unit.public_components.iter().next().unwrap().item_tree.root;
+        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+    }
+
+    #[test]
+    fn fixed_size_root_does_not_fold_children() {
+        let children = "Rectangle { for i in 5: Rectangle { min-width: 1px; height: 2px; } }";
+        let names = |size: &str| {
+            let names = root_property_names(&format!(
+                "export component Main inherits Window {{ {size} {children} }}"
+            ));
+            let has = |p: &str| names.iter().any(|n| n == p);
+            (has("root-1_layoutinfo-h"), has("root-1_layoutinfo-v"))
+        };
+        assert_eq!(names(""), (true, true));
+        assert_eq!(names("width: 300px; height: 300px;"), (false, false));
+        assert_eq!(names("width: 300px;"), (false, true));
+        assert_eq!(names("height: 300px;"), (true, false));
+    }
 }
