@@ -5,11 +5,13 @@ import { Palette, ScrollView, ListView, ComboBox, TextEdit } from "std-widgets.s
 import { Button, ButtonVariant, PrimerTextInput, UnderlineNav, PrimerColors, Icons, Label } from "@primer";
 
 import { ActionButton } from "action-button.slint";
+import { InspectorCode } from "inspector-code.slint";
 import { SourceView } from "source-view.slint";
 
 export struct TestRow { id: string, title: string, detail: string, status: string, depth: int, group: bool, expanded: bool }
 export struct HistoryRow { id: string, title: string, detail: string, pinned: bool }
-export struct StepRow { title: string, detail: string, status: string }
+export struct InspectRow { index: int, title: string, detail: string }
+export struct StepRow { title: string, detail: string, status: string, depth: int, group: bool, expanded: bool, row-index: int }
 
 component StatusDot inherits Rectangle {
     in property <string> status;
@@ -95,10 +97,45 @@ export component TestStudio inherits Window {
     callback select-test(string);
     callback search(string);
     callback run-selected;
+    callback debug-selected;
+    callback debug-command(string);
+    callback inspect-element(int);
+    callback pick-element(float, float);
+    callback inspector-search;
+    in property <bool> debugging;
+    in property <bool> paused;
+    in property <bool> has-inspection;
+    in property <image> inspection-image;
+    in property <float> inspection-ratio: 1;
+    in property <[InspectRow]> inspect-elements;
+    in property <int> inspect-selected: -1;
+    in property <float> highlight-x;
+    in property <float> highlight-y;
+    in property <float> highlight-width;
+    in property <float> highlight-height;
+    in property <string> inspection-details;
+    in property <string> inspection-source;
+    in property <string> inspection-filename;
+    in property <int> property-line;
+    in property <int> source-line;
+    pure callback code-lines(string, bool, string) -> [string];
+    pure callback raw-lines(string) -> [string];
+    pure callback code-columns(string) -> int;
+    pure callback styled-code(string) -> styled-text;
+    in property <string> inspection-caption;
+    in-out property <int> inspection-tab;
+    in property <string> debug-status;
+    in property <string> debug-source;
+    in property <string> debug-context;
+    in property <string> debug-details;
+    in property <bool> debug-failure;
+    in-out property <string> inspector-query;
+    in-out property <string> pause-before;
     callback run-visible;
     callback stop;
     callback refresh;
     callback select-step(int);
+    callback toggle-action(int);
     callback open-artifacts;
 
     init => { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
@@ -228,6 +265,7 @@ export component TestStudio inherits Window {
                     HorizontalLayout {
                         spacing: 8px; padding-top: 8px;
                         ActionButton { label: "Run selected"; variant: primary; disabled: root.busy || !root.ready || root.selected-id == ""; activated => { root.run-selected(); } }
+                        ActionButton { label: "Debug selected"; preferred-width: 144px; disabled: root.busy || !root.ready || root.selected-id == ""; activated => { root.debug-selected(); } }
                         ActionButton { label: "Run shown (\{root.shown-count})"; preferred-width: 140px; disabled: root.busy || !root.ready || root.shown-count == 0; activated => { root.run-visible(); } }
                         ActionButton { label: "Rerun failed"; disabled: root.busy || !root.can-rerun; activated => { root.rerun-failed(); } }
                         ActionButton { label: "Stop"; preferred-width: 72px; disabled: !root.busy; activated => { root.stop(); } }
@@ -243,6 +281,7 @@ export component TestStudio inherits Window {
                         { label: "Source", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.file },
                         { label: "Output", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.book },
                         { label: "Environment", enabled: true, counter: "", has-leading-icon: false },
+                        { label: "Inspect & debug", enabled: true, counter: "", has-leading-icon: false },
                     ];
                     selected-index: root.active-tab;
                     item-activated(index) => { root.active-tab = index; }
@@ -254,31 +293,36 @@ export component TestStudio inherits Window {
                         VerticalLayout {
                             padding: 20px; spacing: 12px;
                             Text { text: "Execution steps"; color: PrimerColors.fgColor-default; font-weight: 600; }
-                            Text { text: "Select a step to inspect its capture."; wrap: word-wrap; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                            Text { text: "Select an action for its capture and Output details. Expand groups with the arrow."; wrap: word-wrap; color: PrimerColors.fgColor-muted; font-size: 12px; }
                             step-list := ListView {
                                 vertical-stretch: 1;
                                 for step[index] in root.steps: FocusScope {
                                     height: 72px;
                                     accessible-role: list-item; accessible-label: step.title;
-                                    accessible-item-selected: root.selected-step == index;
-                                    accessible-action-default => { root.select-step(index); }
+                                    accessible-item-selected: root.selected-step == step.row-index;
+                                    accessible-expanded: step.group && step.expanded;
+                                    accessible-action-expand => { if step.group { root.toggle-action(step.row-index); } }
+                                    accessible-action-default => { root.select-step(step.row-index); }
                                     key-pressed(event) => {
-                                        if event.text == Key.Return || event.text == Key.Space { root.select-step(index); return accept; }
+                                        if step.group && ((event.text == Key.LeftArrow && step.expanded) || (event.text == Key.RightArrow && !step.expanded)) { root.toggle-action(step.row-index); return accept; }
+                                        if event.text == Key.Return || event.text == Key.Space { root.select-step(step.row-index); return accept; }
                                         return reject;
                                     }
                                     Rectangle {
                                         border-radius: 6px;
-                                        background: root.selected-step == index ? PrimerColors.bgColor-accent-muted : step-touch.has-hover ? PrimerColors.bgColor-canvas-subtle : transparent;
+                                        background: root.selected-step == step.row-index ? PrimerColors.bgColor-accent-muted : step-touch.has-hover ? PrimerColors.bgColor-canvas-subtle : transparent;
                                         HorizontalLayout {
                                             padding: 12px; spacing: 10px; cross-axis-alignment: center;
+                                            padding-left: 12px + min(step.depth, 6) * 10px;
+                                            Text { text: step.group ? (step.expanded ? "▾" : "▸") : ""; width: 12px; color: PrimerColors.fgColor-muted; }
                                             StatusDot { status: step.status; }
                                             VerticalLayout {
-                                                height: 42px; spacing: 4px; alignment: center;
-                                                Text { text: step.title; color: PrimerColors.fgColor-default; font-size: 12px; font-weight: 550; wrap: word-wrap; }
+                                                height: 46px; spacing: 4px; alignment: center;
+                                                Text { text: step.title; height: 28px; color: PrimerColors.fgColor-default; font-size: 12px; font-weight: 550; wrap: word-wrap; overflow: elide; }
                                                 Text { text: step.detail; color: PrimerColors.fgColor-muted; font-size: 11px; overflow: elide; }
                                             }
                                         }
-                                        step-touch := TouchArea { mouse-cursor: pointer; clicked => { root.select-step(index); } }
+                                        step-touch := TouchArea { mouse-cursor: pointer; clicked => { if step.group && self.mouse-x < 35px + min(step.depth, 6) * 10px { root.toggle-action(step.row-index); } else { root.select-step(step.row-index); } } }
                                     }
                                 }
                             }
@@ -322,6 +366,87 @@ export component TestStudio inherits Window {
                 }
                 if root.active-tab == 2: TextEdit {
                     text: root.run-diagnostics + "\n\n" + root.output; read-only: true; font-family: "Menlo"; font-size: 12px;
+                }
+                if root.active-tab == 4: VerticalLayout {
+                    padding: 16px; spacing: 10px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ActionButton { label: "Pause"; preferred-width: 70px; disabled: !root.debugging || root.paused; activated => { root.debug-command("pause"); } }
+                        ActionButton { label: "Continue"; preferred-width: 88px; disabled: !root.paused; activated => { root.debug-command("continue"); } }
+                        ActionButton { label: "Step over"; preferred-width: 108px; disabled: !root.paused; activated => { root.debug-command("step"); } }
+                        ActionButton { label: "Step into"; preferred-width: 108px; disabled: !root.paused; activated => { root.debug-command("into"); } }
+                        ActionButton { label: "Refresh view"; preferred-width: 112px; disabled: !root.paused; activated => { root.debug-command("inspect"); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Label { text: root.paused ? "Test paused" : "Captured state"; }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        PrimerTextInput { text <=> root.pause-before; label-text: "Pause before action"; label-visually-hidden: true; placeholder: "Pause before action containing…"; }
+                        ActionButton { label: "Set breakpoint"; preferred-width: 128px; disabled: !root.debugging; activated => { root.debug-command("breakpoint"); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px; cross-axis-alignment: center;
+                        Text { text: root.debug-status; color: root.debug-failure ? PrimerColors.fgColor-danger : PrimerColors.fgColor-default; font-weight: 600; font-size: 17px; overflow: elide; horizontal-stretch: 1; }
+                        if root.debug-failure: ActionButton { label: "Show details"; preferred-width: 128px; activated => { root.inspection-tab = 2; } }
+                    }
+                    if root.debug-context != "": Text { text: root.debug-context; color: PrimerColors.fgColor-muted; font-size: 12px; overflow: elide; }
+                    Text { text: root.debug-source; height: 34px; color: PrimerColors.fgColor-muted; font-family: "Menlo"; font-size: 11px; wrap: word-wrap; overflow: elide; }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        VerticalLayout {
+                            width: 190px; spacing: 8px;
+                            PrimerTextInput { text <=> root.inspector-query; label-text: "Find element"; label-visually-hidden: true; placeholder: "Find element…"; edited(value) => { root.inspector-search(); } }
+                            ListView {
+                                for element in root.inspect-elements: Rectangle {
+                                    height: 48px; border-radius: 4px;
+                                    background: root.inspect-selected == element.index ? PrimerColors.bgColor-accent-muted : PrimerColors.bgColor-canvas-subtle;
+                                    accessible-role: list-item; accessible-label: "Inspect " + element.title;
+                                    accessible-action-default => { root.inspect-element(element.index); }
+                                    VerticalLayout {
+                                        padding: 6px; spacing: 3px;
+                                        Text { text: element.title; font-size: 12px; color: PrimerColors.fgColor-default; overflow: elide; }
+                                        Text { text: element.detail; font-size: 10px; color: PrimerColors.fgColor-muted; }
+                                    }
+                                    TouchArea { clicked => { root.inspect-element(element.index); } }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 8px;
+                            inspect-preview := Rectangle {
+                                vertical-stretch: 1; min-height: 150px; background: PrimerColors.bgColor-inset; clip: true;
+                                preview-content := Rectangle {
+                                    accessible-role: image; accessible-label: "Inspection capture";
+                                    width: min(parent.width, parent.height * root.inspection-ratio);
+                                    height: self.width / max(0.01, root.inspection-ratio);
+                                    x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                                    if root.has-inspection: Image { width: 100%; height: 100%; source: root.inspection-image; }
+                                    if root.has-inspection && root.inspect-selected >= 0: Rectangle {
+                                        x: parent.width * root.highlight-x; y: parent.height * root.highlight-y;
+                                        width: parent.width * root.highlight-width; height: parent.height * root.highlight-height;
+                                        background: #0969da25; border-width: 2px; border-color: #0969da;
+                                    }
+                                    TouchArea { enabled: root.has-inspection; clicked => { root.pick-element(self.mouse-x / self.width, self.mouse-y / self.height); } }
+                                }
+                            }
+                            Text { text: "Click to pick by bounds; click again to cycle overlaps. Timers keep running while the test is paused."; font-size: 11px; color: PrimerColors.fgColor-muted; wrap: word-wrap; }
+                            Text { text: root.inspection-caption; font-size: 11px; color: PrimerColors.fgColor-muted; wrap: word-wrap; }
+                        }
+                        VerticalLayout {
+                            width: 350px; spacing: 8px;
+                            ComboBox { model: ["Properties & locator", "Application source", "Failure details"]; current-index <=> root.inspection-tab; }
+                            if root.inspection-tab < 2: InspectorCode {
+                                source: root.inspection-tab == 0 ? root.inspection-details : root.inspection-source;
+                                caption: root.inspection-tab == 0 ? "Captured properties" : root.inspection-filename;
+                                lines: root.code-lines(self.source, root.dark, root.inspection-tab == 1 ? "slint" : "plain");
+                                raw-lines: root.raw-lines(self.source);
+                                columns: root.code-columns(self.source);
+                                marked-line: root.inspection-tab == 0 ? root.property-line : root.source-line;
+                                styled(markup) => { return root.styled-code(markup); }
+                            }
+                            if root.inspection-tab == 2: TextEdit { text: root.debug-details; read-only: true; font-family: "Menlo"; font-size: 11px; }
+                        }
+                    }
                 }
                 if root.active-tab == 3: TextEdit {
                     text: root.environment-info; read-only: true; font-family: "Menlo"; font-size: 12px;

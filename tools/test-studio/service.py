@@ -23,6 +23,7 @@ class Service:
         self.root = root
         self.commands = queue.Queue()
         self.updates = queue.Queue()
+        self.controls = queue.Queue()
         self.cancel = threading.Event()
         self.cache = {}
         self.component_info = {}
@@ -33,6 +34,9 @@ class Service:
         if kind == "run":
             self.cancel.clear()
         self.commands.put((kind, copy.deepcopy(data)))
+
+    def control(self, run_id, kind, **data):
+        self.controls.put((run_id, kind, data))
 
     def stop(self):
         self.cancel.set()
@@ -129,9 +133,13 @@ class Service:
             except Exception as error:  # noqa: BLE001
                 self.updates.put(("error", str(error)))
 
-    def execute(self, store, project, selectors, collect, retention, items=None):
+    def execute(
+        self, store, project, selectors, collect, retention, items=None, debug=False
+    ):
         directory, metadata = store.create(project, selectors, collect)
+        metadata["debug"] = debug
         state = RunState(state=metadata["state"])
+        commands = Writer(directory / "commands.jsonl")
         process = None
         writer = Writer(directory / "events.jsonl")
 
@@ -195,11 +203,19 @@ class Service:
                 Path(project["binary"]),
                 selectors,
                 collect=collect,
+                debug=debug,
                 visible=project["backend"] == "winit-skia",
                 directory=directory,
             )
             last = 0
             while not process.finished:
+                for _ in range(64):
+                    try:
+                        run_id, kind, data = self.controls.get_nowait()
+                    except queue.Empty:
+                        break
+                    if debug and run_id == directory.name:
+                        commands.emit(kind, **data)
                 if self.cancel.is_set():
                     process.stop()
                     state.state = "stopping"

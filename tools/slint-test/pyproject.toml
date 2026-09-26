@@ -1,0 +1,22 @@
+[project]
+name = "slint-test"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["slint-testing==0.3", "pytest>=9,<10"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 88
+
+[tool.setuptools.packages.find]
+include = ["slint_test*"]
+
+[tool.setuptools.package-data]
+slint_test = ["py.typed"]

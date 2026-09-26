@@ -299,3 +299,39 @@ def test_initial_broken_source_recovers_without_relaunch(
         )
         assert source_file.read_bytes() == repaired
         assert editor.process.poll() is None
+
+
+@pytest.mark.parametrize(
+    ("label", "property_name", "original", "updated"),
+    [
+        (FIELDS["x"], "x", "32", "36"),
+        (FIELDS["y"], "y", "32", "40"),
+        (FIELDS["width"], "width", "160", "180"),
+        (FIELDS["height"], "height", "96", "120"),
+    ],
+)
+def test_stale_revision_commit_is_rejected_readable(
+    editor_factory, fixture_project, label, property_name, original, updated
+):
+    from slint_test import expect
+
+    source = fixture_project / "InspectorCases.slint"
+    baseline = source.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with editor_factory(source) as editor:
+        editor.canvas.element("inspect-rectangle").select()
+        field = editor.inspector.field(label)
+        field.fill("99")
+        snapshot.assert_unchanged_now()
+        external = baseline.replace(
+            f"        {property_name}: {original}px;".encode(),
+            f"        {property_name}: {updated}px;".encode(),
+            1,
+        )
+        assert external != baseline
+        source.write_bytes(external)
+        snapshot.wait_for_exact(external, source.name)
+        external_snapshot = SourceSnapshot.capture(fixture_project)
+        expect(field).to_have_value(updated, timeout=15000)
+        editor.window.keyboard.press("Enter")
+        external_snapshot.assert_unchanged()

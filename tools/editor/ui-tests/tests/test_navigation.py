@@ -210,3 +210,18 @@ def test_file_tree_switches_image_and_component_surfaces(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
         snapshot.assert_unchanged()
+
+
+def test_file_tree_renames_file_inline_readable(editor_factory, fixture_project):
+    from slint_test import expect
+
+    source = fixture_project / "Main.slint"
+    target = fixture_project / "Renamed.slint"
+    expected = source.read_text()
+    with editor_factory(source) as editor:
+        editor.files.rename("Main.slint", "Renamed")
+        expect.poll(
+            lambda: target.is_file() and not source.exists(),
+            session=editor.window.session,
+        ).to_equal(True)
+        assert target.read_text() == expected

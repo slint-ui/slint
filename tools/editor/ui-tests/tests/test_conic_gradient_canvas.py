@@ -509,3 +509,62 @@ def test_conic_activation_from_solid(
         control(window, "Gradient rotation handle")
         press_key(window, keys.Escape)
         original.assert_unchanged()
+
+
+@pytest.mark.parametrize("handle", ["endpoint", "ray"])
+def test_conic_rotation_crosses_the_seam_readable(
+    editor_factory, conic_scene, tmp_path, handle
+):
+    from slint_test import Point, step
+    from source_snapshot import wait_for_source_change
+
+    conic_scene.write_text(
+        conic_scene.read_text().replace("from 220deg", "from 350deg")
+    )
+    original = SourceSnapshot.capture(tmp_path)
+    baseline = original.sources[Path(conic_scene.name)]
+    with editor_factory(conic_scene) as editor:
+        with step(
+            "Open conic picker",
+            layer="adapter",
+            trace_coverage="group-only legacy helper",
+        ):
+            open_conic(editor.raw_window)
+        center_handle = editor.window.get_by_accessible_name("Gradient center handle")
+        rotation = editor.window.get_by_accessible_name("Gradient rotation handle")
+        c = center_handle.center(rotation_degrees=260)
+        radius = 126 if handle == "endpoint" else 70
+        start = around(c, radius, 350)
+        with editor.window.pointer.drag_from(Point(start.x, start.y)) as drag:
+            for angle in [355, 359, 1, 7]:
+                position = around(c, radius, angle)
+                drag.move_to(Point(position.x, position.y))
+                actual = rotation.center(rotation_degrees=angle - 90)
+                expected = around(c, 126, angle)
+                assert actual.x == pytest.approx(expected.x, abs=0.01)
+                assert actual.y == pytest.approx(expected.y, abs=0.01)
+            drag.release()
+        original.assert_unchanged_now()
+        editor.window.get_by_role("button", name="Close Custom").activate()
+        saved = wait_for_source_change(conic_scene, baseline)
+        original.wait_for_applied(saved, conic_scene.name)
+        angle = re.search(rb"from ([0-9.]+)deg", saved)
+        assert angle is not None
+        assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
+        assert b" at " not in saved
+        editor.undo()
+        original.wait_for_applied(baseline, conic_scene.name)
+        editor.redo()
+        original.wait_for_applied(saved, conic_scene.name)
+        with step(
+            "Reopen conic picker",
+            layer="adapter",
+            trace_coverage="group-only legacy helper",
+        ):
+            open_conic(editor.raw_window)
+        actual = rotation.center(rotation_degrees=277)
+        expected = around(c, 126, 367)
+        assert actual.x == pytest.approx(expected.x, abs=0.01)
+        assert actual.y == pytest.approx(expected.y, abs=0.01)
+        editor.window.get_by_role("button", name="Close Custom").activate()
+        assert conic_scene.read_bytes() == saved

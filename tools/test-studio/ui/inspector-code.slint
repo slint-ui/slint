@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { PrimerColors } from "@primer";
+import { ActionButton } from "action-button.slint";
+
+export component InspectorCode inherits Rectangle {
+    in property <string> source;
+    in property <string> caption;
+    in property <[string]> lines;
+    in property <[string]> raw-lines;
+    in property <int> marked-line;
+    in property <int> columns;
+    pure callback styled(string) -> styled-text;
+    background: PrimerColors.bgColor-default;
+    function reveal() {
+        scroll.content-y = -max(0px, (root.marked-line - 5) * 24px);
+    }
+    init => { root.reveal(); }
+    changed marked-line => { root.reveal(); }
+    changed source => { root.reveal(); }
+    VerticalLayout {
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 4px;
+            Text { text: root.caption; color: PrimerColors.fgColor-muted; font-size: 11px; overflow: elide; vertical-alignment: center; }
+            ActionButton { label: "Copy"; preferred-width: 60px; activated => { clipboard.select-all(); clipboard.copy(); clipboard.clear-selection(); } }
+        }
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            content-width: max(self.visible-width, root.columns * 7.3px + 52px);
+            content-height: max(self.visible-height, root.lines.length * 24px + 12px);
+            for line[index] in root.lines: Rectangle {
+                x: 4px; y: index * 24px + 4px;
+                width: scroll.content-width - 8px; height: 24px;
+                if index + 1 == root.marked-line: Rectangle {
+                    x: 0px; y: 0px;
+                    width: min(parent.width, input.preferred-width + 52px); height: parent.height;
+                    border-radius: 6px; border-width: 2px;
+                    border-color: PrimerColors.fgColor-danger;
+                    background: PrimerColors.bgColor-danger-muted;
+                }
+                Text { x: 5px; width: 30px; height: 100%; text: index + 1; color: PrimerColors.fgColor-muted; font-family: "Menlo"; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; }
+                StyledText { x: 42px; y: 4px; width: parent.width - 46px; height: 18px; text: root.styled(line); default-font-family: "Menlo"; default-font-size: 12px; default-color: PrimerColors.fgColor-default; accessible-role: none; }
+                input := TextInput { x: 42px; y: 4px; width: parent.width - 46px; height: 18px; text: root.raw-lines[index]; read-only: true; single-line: true; font-family: "Menlo"; font-size: 12px; color: #00000001; selection-foreground-color: PrimerColors.fgColor-default; selection-background-color: PrimerColors.bgColor-accent-muted; accessible-label: (index + 1 == root.marked-line ? "Failure: " : "") + root.raw-lines[index]; }
+            }
+        }
+    }
+    clipboard := TextInput { width: 0px; height: 0px; opacity: 0; text: root.source; read-only: true; single-line: false; accessible-role: none; }
+}

@@ -131,12 +131,16 @@ def test_storage_recovery_and_damaged_run(tmp_path):
     writer = Writer(directory / "events.jsonl")
     writer.emit("collected", id="a", title="A")
     writer.emit("test-start", nodeid="a")
+    writer.emit("action-start", nodeid="a", action_id="drag", title="Drag")
+    writer.emit("debug-state", paused=True, pause_id=1)
     with (directory / "events.jsonl").open("a") as stream:
         stream.write('{"partial":')
     store.recover()
     loaded, state = store.load(metadata["id"])
     assert loaded["state"] == "Interrupted"
     assert state.records["a"]["status"] == "Interrupted"
+    assert state.records["a"]["steps"][0]["status"] == "Interrupted"
+    assert not state.debug["paused"]
     assert state.diagnostics
     (store.runs / ("a" * 32)).mkdir()
     assert len(store.history()) == 1
@@ -187,6 +191,11 @@ def test_capability_rejection_and_cache_invalidation(suite, monkeypatch, tmp_pat
     import preflight as module
 
     repo, path = suite
+    studio_path = repo / "tools/test-studio/preflight.py"
+    monkeypatch.setattr(module, "__file__", str(studio_path))
+    library = repo / "tools/slint-test/slint_test/core.py"
+    library.parent.mkdir(parents=True)
+    library.write_text("# first library")
     binary = tmp_path / "editor"
     binary.write_text("first")
     binary.chmod(0o755)
@@ -222,6 +231,10 @@ def test_capability_rejection_and_cache_invalidation(suite, monkeypatch, tmp_pat
     assert not preflight(project, tmp_path, threading.Event(), cache, dict(info))[
         "probe_cached"
     ]
+    library.write_text("# changed library")
+    changed = preflight(project, tmp_path, threading.Event(), cache, dict(info))
+    assert not changed["probe_cached"]
+    assert changed["testing_library_sha256"] != first["testing_library_sha256"]
     binary.write_text("second")
     assert (
         preflight(project, tmp_path, threading.Event(), cache, dict(info))[

@@ -196,11 +196,15 @@ class Store:
                     )
         if metadata["state"] == "Interrupted":
             for item in state.records.values():
+                for action in item["steps"]:
+                    if action.get("status") == "Running":
+                        action["status"] = "Interrupted"
                 if item["status"] in ("Running", "Queued"):
                     item["status"] = (
                         "Interrupted" if item["status"] == "Running" else "Not run"
                     )
             state.state = "Interrupted"
+            state.debug = {**state.debug, "paused": False}
         return metadata, state
 
     def delete(self, run_id):

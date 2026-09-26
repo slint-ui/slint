@@ -1211,3 +1211,44 @@ def test_invalid_rectangle_color_does_not_change_source(
         window_element_with_label(
             window, "Selected Rectangle", slint_testing.AccessibleRole.Region
         )
+
+
+@pytest.mark.parametrize(
+    ("property_name", "original_value", "value", "old", "new"),
+    [
+        ("x", 32, "44", b"        x: 32px;", b"        x: 44px;"),
+        ("y", 32, "48", b"        y: 32px;", b"        y: 48px;"),
+        ("width", 160, "176", b"        width: 160px;", b"        width: 176px;"),
+        (
+            "height",
+            96,
+            "112",
+            b"        width: 160px;\n        height: 96px;",
+            b"        width: 160px;\n        height: 112px;",
+        ),
+    ],
+    ids=("x", "y", "width", "height"),
+)
+def test_geometry_field_writes_exact_source_readable(
+    editor_factory, fixture_project, property_name, original_value, value, old, new
+):
+    from slint_test import expect
+
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = source.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with editor_factory(source) as editor:
+        rectangle = editor.canvas.element("inspect-rectangle")
+        rectangle.select()
+        expected = float(value)
+        if property_name in ("x", "y"):
+            expected += (
+                getattr(rectangle.locator().bounds(), property_name) - original_value
+            )
+        field = editor.inspector.reveal(property_name)
+        field.set_accessible_value(value)
+        snapshot.wait_for_exact(replace_once(baseline, old, new), INSPECTOR_SOURCE)
+        expect(field).to_have_value(value)
+        expect(rectangle.locator()).to_have_geometry(
+            {property_name: pytest.approx(expected)}
+        )

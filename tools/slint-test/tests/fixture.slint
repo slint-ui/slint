@@ -1,0 +1,45 @@
+import { Button, LineEdit, VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+export component TestWindow inherits Window {
+    width: 480px; height: 720px;
+    in-out property <bool> alternate: false;
+    in-out property <int> presses: 0;
+    VerticalBox {
+        Text { text: "Generic Slint testing"; }
+        name := LineEdit { accessible-label: "Name"; text: "initial"; }
+        Button { text: "Apply"; clicked => { root.presses += 1; } }
+        Text { accessible-label: "Count"; accessible-value: root.presses; text: "Count: \{root.presses}"; }
+        Button { text: "Disabled"; enabled: false; clicked => { root.presses += 100; } }
+        LineEdit { accessible-label: "Read only"; text: "locked"; read-only: true; }
+        Rectangle {
+            height: 40px;
+            Button { width: 150px; height: 40px; text: "Covered"; clicked => { root.presses += 100; } }
+            Rectangle { width: 150px; height: 40px; background: #777; TouchArea {} }
+        }
+        ScrollView {
+            height: 80px; viewport-height: 300px;
+            VerticalLayout {
+                for index in 8: Text { height: 35px; accessible-label: "List row \{index}"; text: "Row \{index}"; }
+            }
+        }
+        Button { text: "Popup"; clicked => { popup.show(); } }
+        popup := PopupWindow {
+            width: 200px; height: 80px;
+            Rectangle { background: white; accessible-role: region; accessible-label: "Popup content";
+                Text { text: "Popup ready"; accessible-label: "Popup message"; }
+            }
+        }
+        Button { text: "Replace"; clicked => { root.alternate = !root.alternate; } }
+        if root.alternate: Rectangle {
+            height: 60px; accessible-role: region; accessible-label: "Dynamic";
+            Text { accessible-label: "Message"; accessible-value: "second"; text: "second"; }
+        }
+        if !root.alternate: Rectangle {
+            height: 60px; accessible-role: region; accessible-label: "Dynamic";
+            Text { accessible-label: "Message"; accessible-value: "first"; text: "first"; }
+        }
+        HorizontalBox {
+            Button { text: "Duplicate"; }
+            Button { text: "Duplicate"; }
+        }
+    }
+}

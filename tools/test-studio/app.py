@@ -17,8 +17,17 @@ from typing import TypedDict
 import slint
 from PIL import Image
 
+from inspection_view import failure_location, property_view, source_view
 from service import PRIMER_REVISION, Service
-from state import matching, rerun_selection, tree_rows
+from slint_syntax import code_lines
+from state import (
+    action_details,
+    action_rows,
+    failure_presentation,
+    matching,
+    rerun_selection,
+    tree_rows,
+)
 from storage import data_root
 from syntax import highlight
 
@@ -67,11 +76,16 @@ class Studio:
         self.selected_step = -1
         self.restore_selection = ""
         self.restore_step = -1
+        self.debug_state = {}
+        self.inspection = {}
+        self.inspect_key = None
+        self.inspect_selected = -1
         self.capture_key = None
         self.loaded_capture_key = None
         self.session_override = any((args.repo, args.test_python, args.editor_binary))
         self.project: Project | None = None
         self.settings = {}
+        self.collapsed_actions = set()
         self.collapsed = set()
         self.rows = []
         self.visible = []
@@ -81,6 +95,12 @@ class Studio:
         ui.highlight_source = lambda source, dark: slint.StyledText.from_markdown(
             highlight(source, dark)
         )
+        ui.code_lines = lambda source, dark, language: slint.ListModel(
+            list(code_lines(source, dark, language))
+        )
+        ui.raw_lines = lambda source: slint.ListModel(source.split("\n"))
+        ui.code_columns = lambda source: max(map(len, source.split("\n")), default=0)
+        ui.styled_code = lambda markup: slint.StyledText.from_markdown(markup)
         ui.select_test = self.select
         ui.toggle_group = self.toggle
         ui.navigate_tree = self.navigate
@@ -88,11 +108,17 @@ class Studio:
         ui.search = lambda _: self.update_list()
         ui.filter_changed = self.update_list
         ui.run_selected = self.run_selected
+        ui.debug_selected = lambda: self.run_selected(debug=True)
+        ui.debug_command = self.debug_command
+        ui.inspect_element = self.inspect_element
+        ui.pick_element = self.pick_element
+        ui.inspector_search = self.inspector_search
         ui.run_visible = lambda: self.run(list(self.visible))
         ui.rerun_failed = self.rerun
         ui.stop = self.stop
         ui.refresh = self.discover
         ui.select_step = self.select_step
+        ui.toggle_action = self.toggle_action
         ui.open_artifacts = self.open_artifacts
         ui.show_settings = self.show_settings
         ui.save_settings = self.save_settings
@@ -165,9 +191,21 @@ class Studio:
         if self.project and not self.ui.busy:
             self.start(self.project["paths"], collect=True)
 
-    def start(self, selectors, collect=False):
+    def start(self, selectors, collect=False, debug=False):
         self.persist()
         self.ui.busy = True
+        self.ui.debugging = debug
+        self.ui.paused = False
+        self.ui.has_inspection = False
+        self.inspect_key = None
+        self.inspection = {}
+        self.ui.inspect_elements = slint.ListModel([])
+        self.ui.inspection_details = ""
+        self.ui.inspection_source = ""
+        self.ui.inspection_filename = ""
+        self.ui.property_line = 0
+        self.ui.source_line = 0
+        self.ui.debug_status = "Waiting for an instrumented action…" if debug else ""
         self.ui.summary = (
             "Discovering tests…" if collect else "Validating test environment…"
         )
@@ -178,13 +216,14 @@ class Studio:
             project=self.project,
             selectors=selectors,
             collect=collect,
+            debug=debug,
             retention=self.settings["retention"],
             items={n: self.current[n] for n in selectors if n in self.current}
             if not collect
             else {},
         )
 
-    def run(self, selectors):
+    def run(self, selectors, debug=False):
         if self.ui.busy or not selectors:
             return
         available = [n for n in selectors if n in self.current]
@@ -200,12 +239,12 @@ class Studio:
         self.run_records = {}
         self.selected = available[0]
         self.ui.active_tab = 0
-        self.start(available)
+        self.start(available, debug=debug)
 
-    def run_selected(self):
+    def run_selected(self, debug=False):
         row = next((r for r in self.rows if r["id"] == self.selected), None)
         if row:
-            self.run(row["members"])
+            self.run(row["members"], debug=debug)
 
     def rerun(self):
         available, missing = rerun_selection(self.run_records, self.current)
@@ -220,7 +259,181 @@ class Studio:
         elif available:
             self.run(available)
 
+    def debug_command(self, kind):
+        if not self.metadata or not self.ui.busy or not self.ui.debugging:
+            return
+        self.service.control(
+            self.metadata["id"],
+            kind,
+            pause_id=self.debug_state.get("pause_id"),
+            title=self.ui.pause_before,
+        )
+
+    def update_debug(self, snapshot, *, live):
+        live = (
+            live and self.operation != "stopping" and snapshot.get("state") == "running"
+        )
+        state = snapshot.get("debug", {})
+        new_pause = state.get("paused") and state != self.debug_state
+        self.debug_state = state
+        self.ui.debugging = bool(live and self.metadata and self.metadata.get("debug"))
+        self.ui.paused = bool(live and state.get("paused"))
+        presentation = failure_presentation(state)
+        self.ui.debug_failure = bool(state.get("error"))
+        self.ui.debug_status = (
+            presentation["summary"]
+            if self.ui.paused or self.ui.debug_failure
+            else "Waiting for the next action…"
+            if self.ui.debugging
+            else "Saved inspection"
+        )
+        self.ui.debug_context = presentation["context"]
+        self.ui.debug_source = presentation["source"]
+        self.ui.debug_details = presentation["details"]
+        if new_pause and live:
+            self.ui.active_tab = 4
+            self.ui.inspection_tab = 0
+        inspection = snapshot.get("inspection", {})
+        if not inspection.get("screenshot") or not self.metadata:
+            return
+        key = (self.metadata["id"], inspection["screenshot"])
+        if key == self.inspect_key:
+            return
+        self.inspect_key = key
+        directory = self.args.data_dir / "runs" / key[0]
+        path = (directory / key[1]).resolve()
+        if not path.is_relative_to(directory.resolve()):
+            self.ui.debug_status = "Invalid inspection capture path"
+            return
+
+        def load():
+            result = {"inspection": inspection, "key": key}
+            try:
+                with Image.open(path) as image:
+                    image = image.convert("RGBA")
+                    result.update(
+                        pixels=image.tobytes(), width=image.width, height=image.height
+                    )
+            except (OSError, ValueError) as error:
+                result["error"] = str(error)
+            self.image_updates.put(result)
+
+        self.images.submit(load)
+
+    def apply_inspection(self, data):
+        if data["key"] != self.inspect_key:
+            return
+        if "error" in data:
+            self.ui.debug_status = "Inspection capture unavailable: " + data["error"]
+            return
+        previous = self.inspection.get("elements", [])
+        locator = (
+            previous[self.inspect_selected].get("locator")
+            if 0 <= self.inspect_selected < len(previous)
+            else None
+        )
+        self.inspection = data["inspection"]
+        location = failure_location(self.debug_state)
+        self.ui.inspection_source, self.ui.inspection_filename, self.ui.source_line = (
+            source_view(self.inspection, location)
+        )
+        self.ui.property_line = 0
+        self.ui.inspection_caption = (
+            f"Capture from pause {self.inspection.get('pause_id', '?')}"
+            + (" · element list truncated" if self.inspection.get("truncated") else "")
+        )
+        array = memoryview(data["pixels"]).cast(
+            "B", shape=(data["height"], data["width"], 4)
+        )
+        self.ui.inspection_image = slint.Image.load_from_array(array)
+        self.ui.inspection_ratio = data["width"] / data["height"]
+        self.ui.has_inspection = True
+        self.ui.inspect_selected = -1
+        self.inspect_selected = -1
+        self.ui.inspection_details = "Select an element or click the capture."
+        self.inspector_search()
+        failed = [
+            e
+            for e in self.inspection.get("elements", [])
+            if location.get("handle") and e.get("handle") == location["handle"]
+        ]
+        if len(failed) == 1:
+            self.inspect_element(failed[0]["index"])
+        elif locator:
+            matches = [
+                e
+                for e in self.inspection.get("elements", [])
+                if e.get("locator") == locator
+            ]
+            if len(matches) == 1:
+                self.inspect_element(matches[0]["index"])
+
+    def inspector_search(self):
+        query = self.ui.inspector_query.casefold()
+        self.ui.inspect_elements = slint.ListModel(
+            [
+                self.types.InspectRow(
+                    index=e["index"],
+                    title=e["name"] or e["id"] or e["type"],
+                    detail=e["role"],
+                )
+                for e in sorted(
+                    self.inspection.get("elements", []),
+                    key=lambda e: (not bool(e["name"]), e["role"] == "Unknown"),
+                )
+                if query in f"{e['name']} {e['id']} {e['role']} {e['type']}".casefold()
+            ]
+        )
+
+    def inspect_element(self, index):
+        elements = self.inspection.get("elements", [])
+        if not 0 <= index < len(elements):
+            return
+        element = elements[index]
+        self.inspect_selected = index
+        self.ui.inspect_selected = index
+        self.ui.inspection_details, self.ui.property_line = property_view(
+            element, failure_location(self.debug_state)
+        )
+        bounds = element["bounds"]
+        width, height = self.inspection["width"], self.inspection["height"]
+        self.ui.highlight_x = bounds["x"] / max(1, width)
+        self.ui.highlight_y = bounds["y"] / max(1, height)
+        self.ui.highlight_width = bounds["width"] / max(1, width)
+        self.ui.highlight_height = bounds["height"] / max(1, height)
+
+    def pick_element(self, x, y):
+        x *= self.inspection.get("width", 0)
+        y *= self.inspection.get("height", 0)
+        candidates = []
+        for element in self.inspection.get("elements", []):
+            b = element["bounds"]
+            if (
+                b["width"] > 0
+                and b["height"] > 0
+                and b["x"] <= x <= b["x"] + b["width"]
+                and b["y"] <= y <= b["y"] + b["height"]
+            ):
+                candidates.append(element)
+        candidates.sort(
+            key=lambda e: (
+                e["role"] == "Unknown",
+                e["bounds"]["width"] * e["bounds"]["height"],
+            )
+        )
+        if candidates:
+            indices = [e["index"] for e in candidates]
+            next_index = (
+                (indices.index(self.inspect_selected) + 1) % len(indices)
+                if self.inspect_selected in indices
+                else 0
+            )
+            self.inspect_element(indices[next_index])
+
     def stop(self):
+        self.operation = "stopping"
+        self.ui.paused = False
+        self.ui.debugging = False
         self.service.stop()
         self.ui.summary = "Stopping and cleaning up application processes…"
 
@@ -341,18 +554,35 @@ class Studio:
             [
                 self.types.StepRow(
                     title=s["title"],
-                    detail=f"{s['duration']:.2f}s · {s['status']}"
-                    if s["duration"]
-                    else s["status"],
+                    depth=s.get("depth", 0),
+                    group=s["group"],
+                    expanded=s["expanded"],
+                    row_index=s["row_index"],
+                    detail=(
+                        "Helper internals not traced"
+                        if s.get("arguments", {}).get("trace_coverage")
+                        else f"{s.get('layer', 'stage').capitalize()} · {s['duration']:.2f}s · {s['status']}"
+                    ),
                     status=s["status"],
                 )
-                for s in item["steps"]
+                for s in action_rows(item["steps"], self.collapsed_actions)
             ]
         )
         index = (
             self.selected_step if self.selected_step >= 0 else len(item["steps"]) - 1
         )
         self.select_step(index, automatic=True)
+
+    def toggle_action(self, index):
+        item = self.records.get(self.selected)
+        if item and 0 <= index < len(item["steps"]):
+            key = item["steps"][index].get("action_id")
+            if key:
+                if key in self.collapsed_actions:
+                    self.collapsed_actions.remove(key)
+                else:
+                    self.collapsed_actions.add(key)
+                self.render_selection()
 
     def clear_capture(self):
         self.capture_key = None
@@ -369,7 +599,17 @@ class Studio:
             self.ui.screenshot_caption = "No capture yet"
             return
         step = item["steps"][index]
+        if step.get("action_id"):
+            self.ui.output = action_details(step) + "\n\nTest output\n" + item["output"]
         caption = step.get("warning") or step["title"]
+        if step.get("action_id") and not step["screenshot"]:
+            previous = next(
+                (s for s in reversed(item["steps"][:index]) if s.get("screenshot")),
+                None,
+            )
+            if previous is not None:
+                caption = f"{step['title']} · last capture: {previous['title']}"
+                step = previous
         if not step["screenshot"] or not self.metadata:
             self.clear_capture()
             self.ui.screenshot_caption = caption
@@ -531,6 +771,9 @@ class Studio:
                 metadata, snapshot = data["metadata"], data["snapshot"]
                 collect = metadata["collect"]
                 self.ui.summary = snapshot["state"].capitalize() + "…"
+                if not collect:
+                    self.metadata = metadata
+                    self.update_debug(snapshot, live=not data["final"])
                 diagnostics = "\n\n".join(e["detail"] for e in snapshot["diagnostics"])
                 self.ui.run_diagnostics = diagnostics
                 self.ui.environment_info = json.dumps(snapshot["environment"], indent=2)
@@ -613,6 +856,7 @@ class Studio:
                         self.open_run(self.history[0]["id"])
             elif kind == "loaded":
                 self.metadata = data["metadata"]
+                self.update_debug(data["snapshot"], live=False)
                 self.run_records = data["snapshot"]["records"]
                 self.ui.environment_info = json.dumps(
                     data["snapshot"]["environment"], indent=2
@@ -645,6 +889,9 @@ class Studio:
                 data = self.image_updates.get_nowait()
             except queue.Empty:
                 break
+            if data.get("inspection"):
+                self.apply_inspection(data)
+                continue
             if data["key"] == self.capture_key:
                 if "error" in data:
                     self.clear_capture()

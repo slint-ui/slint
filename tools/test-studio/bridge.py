@@ -7,6 +7,7 @@ import argparse
 import importlib
 import inspect
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -14,6 +15,7 @@ from types import ModuleType
 
 import pytest
 
+from debugger import Debugger
 from events import Writer
 
 
@@ -23,14 +25,24 @@ class StudioPlugin:
         self.events, self.artifacts = events, artifacts
         self.application = None
         self.nodeid = ""
+        self.inspection_sources = []
+        self.action_count = 0
         self.sequence = 0
         self.outcome = "Passed"
         self.duration = 0.0
         self.observer_token = None
         self.reporting: ModuleType | None = None
+        self.action_reporting = None
+        self.action_control = None
+        self.debugger = (
+            Debugger(self) if os.environ.get("SLINT_STUDIO_DEBUG") == "1" else None
+        )
         self.sections = set()
         self.strict_xpass = False
         self.application_started = False
+        self.capture_policy = os.environ.get("SLINT_STUDIO_CAPTURES", "boundaries")
+        if self.capture_policy not in {"boundaries", "failures", "none"}:
+            self.capture_policy = "boundaries"
 
     def emit(self, kind, **data):
         return self.writer.emit(kind, nodeid=self.nodeid, **data)
@@ -38,7 +50,13 @@ class StudioPlugin:
     def completed_step(self, name, status="Passed", duration=0.0):
         started = time.monotonic()
         path, warning = "", ""
-        if self.application is not None:
+        if self.application is not None and (
+            self.capture_policy == "boundaries"
+            or (
+                self.capture_policy == "failures"
+                and status in {"Failed", "Error", "Crashed"}
+            )
+        ):
             try:
                 self.sequence += 1
                 path = f"capture-{self.sequence:04d}.png"
@@ -82,9 +100,59 @@ class StudioPlugin:
                 data["duration"],
             )
 
+    def observe_action(self, event):
+        kind = event["kind"]
+        if kind == "inspection-context":
+            self.inspection_sources = event["sources"]
+            return
+        if kind == "action-start":
+            self.action_count += 1
+        if kind == "application-ready":
+            self.observe(kind, application=event["application"])
+            return
+        if kind == "application-closing":
+            self.observe(
+                kind,
+                failed=event.get("failed", False),
+                returncode=event.get("returncode"),
+            )
+            return
+        data = {key: value for key, value in event.items() if key != "kind"}
+        if kind == "action-end":
+            data["screenshot"] = ""
+            if (
+                event["status"] == "Failed"
+                and self.application is not None
+                and self.capture_policy != "none"
+            ):
+                try:
+                    self.sequence += 1
+                    path = f"capture-{self.sequence:04d}.png"
+                    (self.artifacts / path).write_bytes(
+                        self.application.first_window.grab_window_as_png()
+                    )
+                    data["screenshot"] = path
+                except Exception as error:  # noqa: BLE001
+                    data["warning"] = f"Capture unavailable: {error}"
+        self.emit(kind, **data)
+
     def pytest_configure(self, config):
         if config.option.collectonly:
             return
+        generic = Path(__file__).resolve().parents[1] / "slint-test"
+        if generic.is_dir():
+            sys.path.insert(0, str(generic))
+            try:
+                action_api = importlib.import_module("slint_test")
+            except ImportError as error:
+                self.emit("warning", detail=f"Action reporting unavailable: {error}")
+            else:
+                self.action_reporting = action_api.reporting(self.observe_action)
+                self.action_reporting.__enter__()
+                if self.debugger is not None:
+                    control = importlib.import_module("slint_test.control")
+                    self.action_control = control.debugging(self.debugger)
+                    self.action_control.__enter__()
         try:
             ui_reporting = importlib.import_module("ui_reporting")
 
@@ -99,6 +167,10 @@ class StudioPlugin:
             )
 
     def pytest_unconfigure(self, config):
+        if self.action_control is not None:
+            self.action_control.__exit__(None, None, None)
+        if self.action_reporting is not None:
+            self.action_reporting.__exit__(None, None, None)
         if self.observer_token is not None and self.reporting is not None:
             self.reporting.reset_observer(self.observer_token)
 
@@ -146,6 +218,9 @@ class StudioPlugin:
         self.sections = set()
         self.strict_xpass = False
         self.application_started = False
+        self.action_count = 0
+        if self.debugger is not None:
+            self.debugger.failure = None
         self.emit("test-start")
 
     @pytest.hookimpl(hookwrapper=True)
@@ -201,6 +276,11 @@ class StudioPlugin:
         )
 
     def pytest_runtest_logfinish(self, nodeid, location):
+        if self.debugger is not None and not self.action_count:
+            self.emit(
+                "warning",
+                detail="No instrumented actions in this test; debugger could not pause it.",
+            )
         self.emit(
             "test-end",
             status=self.outcome,

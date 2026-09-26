@@ -142,6 +142,10 @@ uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked ty check --exclude probe.py
 uv run --locked ty check probe.py --python "${SLINT_STUDIO_TEST_PYTHON:-../editor/ui-tests/.venv}"
+uv run --locked ruff check ../slint-test
+uv run --locked ruff format --check ../slint-test
+(cd ../slint-test && ../test-studio/.venv/bin/ty check --exclude tests/fixture_app.py --python "${SLINT_STUDIO_TEST_PYTHON:-../editor/ui-tests/.venv}")
+(cd ../slint-test && ../test-studio/.venv/bin/ty check tests/fixture_app.py --python ../test-studio/.venv)
 """
 
 ["lint:spell"]

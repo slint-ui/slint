@@ -2126,3 +2126,48 @@ def test_disabled_manipulation_does_not_edit_source(
             slint_testing.LogicalPosition(x=target.x + 20, y=target.y + 16),
         )
         snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize(
+    "press_shift_during_drag",
+    [pytest.param(True, id="press-shift"), pytest.param(False, id="release-shift")],
+)
+def test_resize_modifier_changes_during_drag_readable(
+    editor_factory, fixture_project, press_shift_during_drag
+):
+    from slint_test import expect
+
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with editor_factory(source) as editor:
+        rectangle = editor.canvas.element("root-rectangle")
+        rectangle.select()
+        keyboard = editor.window.keyboard
+        if not press_shift_during_drag:
+            keyboard.down("Shift")
+        with rectangle.handle("resize bottom-right").drag() as drag:
+            drag.move_by(20, 16)
+            before = rectangle.selection.bounds()
+            snapshot.assert_unchanged_now()
+            if press_shift_during_drag:
+                keyboard.down("Shift")
+            else:
+                keyboard.up("Shift")
+            expect.poll(
+                rectangle.selection.bounds, session=editor.window.session
+            ).not_to_equal(before)
+            after = rectangle.selection.bounds()
+            assert (after.width == after.height) == press_shift_during_drag
+            snapshot.assert_unchanged_now()
+            drag.release()
+        if press_shift_during_drag:
+            keyboard.up("Shift")
+        height = 200 if press_shift_during_drag else 136
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b"        width: 180px;\n        height: 120px;",
+                f"        width: 200px;\n        height: {height}px;".encode(),
+            )
+        )

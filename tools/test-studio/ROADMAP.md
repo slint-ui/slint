@@ -18,7 +18,8 @@ Studio supports filtering, group execution, rerun-failed, cancellation, source i
 The native UI uses pinned Primer Slint components from `github-app`.
 
 The preview shows historical captures.
-Recording, interactive debugging, source editing, and parallel execution remain future milestones.
+The first action debugger and paused-state inspector are available.
+Recording, source editing, and parallel execution remain future milestones.
 The macOS launcher still depends on local checkouts and Python environments.
 See [the README](README.md) for setup, storage policies, and validation commands.
 
@@ -58,7 +59,20 @@ Cancellation must leave no application subprocesses running.
 
 ### 2. Readable Actions And Traces
 
+The initial implementation is available; see [implementation and validation notes](PHASE2-IMPLEMENTATION.md).
+The generic library, editor pilot adapter, and nested timeline are implemented.
+Complete native hit testing, automatic scrolling, and migration beyond the five pilot families remain follow-up work.
+The broader API examples below remain design targets where they exceed the implemented surface.
+
 Create the common foundation for handwritten tests, debugging, and recording.
+
+Deliver two explicit layers: a generic Slint Python testing library and an optional Visual Editor adapter built on it.
+Keep ordinary Python and pytest fixtures, parameterization, and test files.
+The generic library must depend on neither the editor adapter nor Studio.
+Validate it against a non-editor Slint application as well as the editor suite.
+Adapter helpers return generic locators and share its input, assertion, and reporting machinery.
+See [the revised Phase 2 design](PHASE2-DESIGN.md) for ownership, API corrections, and the Playwright comparison.
+The canvas example below illustrates the optional editor adapter.
 
 - Add locators that resolve at action time, using stable IDs and supported accessibility roles or names.
 - Define strict matching rules and explain ambiguous or missing targets with visible candidates.
@@ -96,6 +110,9 @@ Locators survive component recreation; ambiguous targets fail clearly.
 Repeated headless runs establish reliability before wider migration.
 
 ### 3. Inspect And Debug
+
+The first increment implements action controls and a snapshot inspector.
+See [its implementation notes](PHASE3-IMPLEMENTATION.md) for validated behavior and remaining scope.
 
 Make a failure understandable without adding temporary prints or screenshots.
 
@@ -174,9 +191,12 @@ Run and inspect tests without modifying Studio's source or relying on a develope
 
 ## Next Implementation Slice
 
-Prototype milestone 2's action API on one move/undo test.
-Keep the current CLI and Studio execution paths working while introducing locators, retrying assertions, and structured actions.
-Validate that API on a small set of real editor interactions before migrating more tests.
+Add a read-only native pointer-target contract before enabling stronger automatic click readiness.
+Input filters can mutate state, so probing them isn't a safe substitute for that contract.
+Expose effective clipping and discoverable scroll targets, then negotiate support through capabilities.
+Validate covered controls, clipped lists, popups, transformed items, and scrolling against a non-editor fixture.
+Continue difficult editor migrations after these generic contracts are established.
+Multi-window inspection, continuous live refresh, and external-editor navigation remain inspector follow-ups.
 
 ## Quality Gates
 

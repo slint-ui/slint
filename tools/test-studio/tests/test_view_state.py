@@ -295,3 +295,132 @@ def test_missing_capture_clears_previous_image_after_failure(studio, captures):
     studio.poll()
     assert not studio.ui.has_screenshot
     assert studio.ui.screenshot_caption.startswith("Cannot load capture:")
+
+
+def test_action_selection_survives_completion_and_collapse(studio):
+    item = example()
+    item["steps"] = [
+        {
+            "action_id": "parent",
+            "title": "Helper",
+            "status": "Running",
+            "duration": 0,
+            "screenshot": "",
+            "depth": 0,
+        },
+        {
+            "action_id": "child",
+            "parent_id": "parent",
+            "title": "Fill",
+            "status": "Running",
+            "duration": 0,
+            "screenshot": "",
+            "depth": 1,
+        },
+    ]
+    studio.records = {"a": item}
+    studio.selected = "a"
+    studio.select_step(1)
+    item["steps"][1].update(status="Passed", duration=0.2)
+    item["steps"].append(
+        {
+            "action_id": "next",
+            "title": "Assert",
+            "status": "Running",
+            "duration": 0,
+            "screenshot": "",
+        }
+    )
+    studio.render_selection()
+    assert studio.selected_step == 1
+    assert studio.ui.selected_step == 1
+    assert studio.ui.output.startswith("Action: Fill")
+    studio.toggle_action(0)
+    assert [row.row_index for row in studio.ui.steps] == [0, 2]
+    assert studio.selected_step == 1
+    studio.toggle_action(0)
+    assert [row.row_index for row in studio.ui.steps] == [0, 1, 2]
+
+
+def test_action_without_capture_reuses_previous_image(studio):
+    item = example()
+    item["steps"] = [
+        {
+            "title": "Launch",
+            "status": "Passed",
+            "duration": 0,
+            "screenshot": "capture.png",
+        },
+        {
+            "action_id": "fill",
+            "title": "Fill",
+            "status": "Passed",
+            "duration": 0.1,
+            "screenshot": "",
+        },
+    ]
+    studio.records = {"a": item}
+    studio.selected = "a"
+    studio.metadata = {"id": "previous"}
+    studio.loaded_capture_key = ("previous", "a", 1, "capture.png")
+    studio.select_step(1)
+    assert studio.ui.has_screenshot
+    assert studio.ui.screenshot_caption == "Fill · last capture: Launch"
+    assert studio.ui.output.startswith("Action: Fill")
+
+
+def test_inspector_picks_overlaps_and_maps_logical_coordinates(studio):
+    studio.inspection = {
+        "width": 200,
+        "height": 100,
+        "elements": [
+            {
+                "index": 0,
+                "role": "Region",
+                "name": "Outer",
+                "locator": "",
+                "bounds": {"x": 0, "y": 0, "width": 200, "height": 100},
+            },
+            {
+                "index": 1,
+                "role": "Button",
+                "name": "Inner",
+                "locator": "",
+                "bounds": {"x": 80, "y": 40, "width": 40, "height": 20},
+            },
+        ],
+    }
+    studio.pick_element(0.5, 0.5)
+    assert studio.inspect_selected == 1
+    assert studio.ui.highlight_x == 0.4
+    assert studio.ui.highlight_width == 0.2
+    studio.pick_element(0.5, 0.5)
+    assert studio.inspect_selected == 0
+
+
+def test_historical_pause_cannot_send_control(studio):
+    studio.metadata = {"id": "old", "debug": True}
+    studio.update_debug({"debug": {"paused": True, "pause_id": 9}}, live=False)
+    assert not studio.ui.paused
+    assert not studio.ui.debugging
+    studio.ui.busy = False
+    studio.debug_command("continue")
+
+
+def test_stale_inspection_image_does_not_change_selection(studio):
+    studio.inspect_key = ("new-run", "new.png")
+    studio.inspect_selected = 7
+    studio.apply_inspection({"key": ("old-run", "old.png"), "inspection": {}})
+    assert studio.inspect_selected == 7
+
+
+def test_stop_disables_control_even_when_old_paused_update_arrives(studio):
+    studio.metadata = {"id": "run", "debug": True}
+    studio.operation = "run"
+    snapshot = {"state": "running", "debug": {"paused": True, "pause_id": 1}}
+    studio.update_debug(snapshot, live=True)
+    assert studio.ui.paused
+    studio.stop()
+    studio.update_debug(snapshot, live=True)
+    assert not studio.ui.paused
+    assert not studio.ui.debugging

@@ -4,7 +4,9 @@ A native desktop workbench for Visual Editor pytest tests.
 Studio discovers the complete suite, validates an existing editor build, and preserves inspectable run results.
 Tests remain ordinary Python files that run independently through pytest.
 
-See the [roadmap](ROADMAP.md) for later authoring, debugging, and recording milestones.
+Phase 2 adds readable Python actions, an optional Visual Editor adapter, and nested action reporting.
+The first inspector and action debugger are also available; see [their contract and validation](PHASE3-IMPLEMENTATION.md).
+See [the generic API](../slint-test/README.md), [the implementation notes](PHASE2-IMPLEMENTATION.md), and [the roadmap](ROADMAP.md).
 
 ## Set Up
 
@@ -75,7 +77,12 @@ One project and one sequential operation are active at a time.
 The default editor backend is headless Skia.
 Visible editor windows require selecting the visible backend in settings.
 
-Run details contain named stages and captured screenshots.
+Run details contain named stages, nested actions and assertions, and captured screenshots.
+Expand a group using its arrow; select an action and open Output for its locator, input arguments, source location, wait diagnostics, and outcome.
+Helpers retained from the old harness are labeled when their internal actions are not traced.
+Capture-free actions show the preceding screenshot with a “last capture” label.
+Set `SLINT_STUDIO_CAPTURES=boundaries` (default), `failures`, or `none` before launching Studio to control capture overhead.
+Raw pointer/key events never capture automatically.
 The preview shows historical captures, not live video.
 Selecting a capture holds that selection while more results arrive.
 The Source tab colors Python syntax for light and dark themes while preserving indentation and native text selection.
@@ -89,6 +96,40 @@ Setup and teardown errors are distinct from assertion failures.
 Expected failures, unexpected passes, skips, cancellations, and confirmed application crashes have separate outcomes.
 A cancelled batch retains completed results and leaves unstarted tests marked **Not run**.
 Failed discovery preserves the previous tree with a stale indicator.
+
+## Inspect And Debug
+
+Select an instrumented test and choose **Debug selected**.
+Studio pauses before its first action after application launch.
+The **Inspect & debug** tab shows the source line, a capture, searchable elements, properties, and locator suggestions.
+Suggestions are unique within the captured visible element set; actions still resolve their locators strictly when executed.
+Click the capture to pick by bounds, or click again to cycle overlapping candidates.
+Picking and highlights don't establish clipping, rotation, or which element receives pointer input.
+
+**Step over** completes the selected action and its children, then pauses before the next action.
+**Step into** pauses before the next child or subsequent action.
+**Continue** runs until a breakpoint, failure, or requested pause.
+**Pause** takes effect at the next instrumented action.
+Enter an action-title substring and choose **Set breakpoint**; an empty value clears it.
+A failed action pauses before teardown so the application remains inspectable.
+Assertion failures lead with a short comparison, such as “Expected 250, observed 200,” followed by the field and timeout.
+Choose **Show details** for the complete locator, error, and source path.
+**Stop** cleans up the test process even while paused with input held.
+
+Generic operation deadlines and action durations exclude debugger pauses.
+Application timers, animations, arbitrary Python, and legacy helper deadlines keep running.
+Tests without action instrumentation run normally and report that debugging was unavailable.
+
+**Refresh view** captures the first application window again while paused.
+The view is a snapshot, not a continuously refreshed stream.
+The optional Visual Editor adapter supplies **Application source** snapshots of its active file.
+Application source uses Slint token colouring, line numbers, and a rounded red outline on a resolved failing binding.
+For geometry assertions, the adapter supplies the selected outline element and property; Studio highlights only a unique direct binding in that captured file.
+Unresolved, ambiguous, and truncated source snapshots remain readable without a guessed highlight.
+**Properties & locator** selects the failing control and outlines the observed property using its transport handle.
+Both views scroll to the highlighted line and offer **Copy** for the complete original text.
+Other applications can supply sources through `inspection_sources(...)` without depending on Studio or the editor.
+Captures and source text remain available after restarting; historical inspections have no live controls.
 
 ## Results And Storage
 

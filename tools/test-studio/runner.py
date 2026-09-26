@@ -96,6 +96,7 @@ class TestProcess:
         selectors,
         *,
         collect=False,
+        debug=False,
         visible=False,
         directory=None,
     ):
@@ -127,11 +128,13 @@ class TestProcess:
         ]
         if collect:
             args.append("--collect")
+        env = environment(binary, "winit-skia" if visible else "headless-skia")
+        env["SLINT_STUDIO_DEBUG"] = "1" if debug else "0"
         try:
             self.command = Command(
                 args,
                 cwd=suite,
-                env=environment(binary, "winit-skia" if visible else "headless-skia"),
+                env=env,
                 output=self.log,
             )
             self.process = self.command.process
