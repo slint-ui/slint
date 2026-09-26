@@ -14,6 +14,14 @@ target_link_libraries(todo_lib PUBLIC Slint::Slint)
 
 if(ANDROID)
     add_library(todo SHARED main.cpp)
+elseif(IOS)
+    add_executable(todo MACOSX_BUNDLE main.cpp)
+    set_target_properties(todo PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in
+        MACOSX_BUNDLE_GUI_IDENTIFIER dev.slint.examples.todo-cpp
+        MACOSX_BUNDLE_BUNDLE_NAME Todo
+        MACOSX_BUNDLE_BUNDLE_VERSION 1
+        MACOSX_BUNDLE_SHORT_VERSION_STRING 1.0)
 else()
     add_executable(todo main.cpp)
 endif()

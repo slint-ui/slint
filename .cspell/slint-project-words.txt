@@ -21,6 +21,7 @@ Appbar
 appicon
 appiconset
 appkit
+APPL
 appmain
 appsink
 appview
@@ -308,6 +309,8 @@ inputchip
 intprop
 intval
 iocp
+iphoneos
+iphonesimulator
 IRAM
 Irqs
 isinstance
@@ -589,6 +592,7 @@ shikijs
 Shmelt
 signalsafe
 SIGUSR
+simctl
 singlefile
 singleshot
 skrifa

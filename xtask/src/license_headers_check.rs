@@ -582,6 +582,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.hbs$", LicenseLocation::Tag(LicenseTagStyle::html_comment_style())),
             ("\\.overlay$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.pdf$", LicenseLocation::NoLicense),
+            ("\\.plist\\.in$", LicenseLocation::NoLicense),
             ("\\.png$", LicenseLocation::NoLicense),
             ("\\.mo$", LicenseLocation::NoLicense),
             ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),

@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB javac libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME Yocto
+# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB javac libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME TOLOWER Yocto
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
@@ -12,6 +12,38 @@ include(CMakeDependentOption)
 # Included before the install rules below, so that they and the exported
 # package agree on where the library goes
 include(GNUInstallDirs)
+
+# When building for iOS (CMAKE_SYSTEM_NAME set to "iOS"), auto-configure the Rust target
+# and pick platform-level defaults. Feature defaults live in SlintFeatures.cmake.
+# This must come before Corrosion runs find_package(Rust), which otherwise falls back to the host target.
+if(IOS)
+    if(CMAKE_OSX_ARCHITECTURES)
+        set(_slint_ios_arch "${CMAKE_OSX_ARCHITECTURES}")
+    else()
+        set(_slint_ios_arch "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+    endif()
+    string(TOLOWER "${CMAKE_OSX_SYSROOT}" _slint_ios_sysroot)
+    if(_slint_ios_sysroot MATCHES "iphonesimulator")
+        if(_slint_ios_arch STREQUAL "arm64")
+            set(Rust_CARGO_TARGET "aarch64-apple-ios-sim" CACHE STRING "" FORCE)
+        elseif(_slint_ios_arch STREQUAL "x86_64")
+            set(Rust_CARGO_TARGET "x86_64-apple-ios" CACHE STRING "" FORCE)
+        else()
+            message(FATAL_ERROR "Unsupported iOS simulator architecture: ${_slint_ios_arch}. Set CMAKE_OSX_ARCHITECTURES to arm64 or x86_64")
+        endif()
+    elseif(_slint_ios_arch STREQUAL "arm64")
+        set(Rust_CARGO_TARGET "aarch64-apple-ios" CACHE STRING "" FORCE)
+    else()
+        message(FATAL_ERROR "Unsupported iOS architecture: ${_slint_ios_arch}. Set CMAKE_OSX_ARCHITECTURES to arm64")
+    endif()
+
+    # Apps on iOS can't ship their own dynamic libraries outside of a framework
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+    if(NOT SLINT_STYLE)
+        set(SLINT_STYLE "cupertino" CACHE STRING "" FORCE)
+    endif()
+endif()
 
 find_package(Corrosion QUIET 0.6)
 if (NOT Corrosion_FOUND)
@@ -26,6 +58,7 @@ if (NOT Corrosion_FOUND)
 endif ()
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
+
 find_package(Rust 1.95 REQUIRED MODULE)
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
@@ -134,6 +167,16 @@ if (SLINT_BUILD_RUNTIME)
         # Set this one to false again explicitly because Corrosion will starting setting this property to true by default.
         set_target_properties(slint_cpp-shared PROPERTIES IMPORTED_NO_SONAME 0)
         set_target_properties(slint_cpp-shared PROPERTIES IMPORTED_SONAME libslint_cpp.dylib)
+    endif()
+
+    # Corrosion only detects the native libraries of an empty crate,
+    # not the frameworks that the Rust dependencies link on iOS.
+    if(IOS)
+        target_link_libraries(slint_cpp INTERFACE
+            "-framework CoreFoundation" "-framework CoreGraphics" "-framework CoreText"
+            "-framework Foundation" "-framework ImageIO" "-framework Metal"
+            "-framework MobileCoreServices" "-framework QuartzCore" "-framework UIKit"
+            objc iconv)
     endif()
 
     add_library(Slint INTERFACE)
