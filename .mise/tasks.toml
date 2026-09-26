@@ -184,6 +184,12 @@ depends = ["fix:pnpm:lock"]
 wait_for = ["lint:legal:reuse"]
 
 
+### Tests
+
+["test:bench"]
+description = "Run the benchmarks and compare their times and memory against xtask/benchmark-baseline.toml"
+run = "cargo xtask check_benchmarks"
+
 ### CI
 
 ["ci:autofix:fix"]
