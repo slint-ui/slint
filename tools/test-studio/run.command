@@ -6,6 +6,7 @@ set -eu
 studio_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$studio_dir"
 if [ ! -x .venv/bin/python ]; then
-    uv sync --locked
+    echo "Studio environment missing. Run: cd \"$studio_dir\" && uv sync --locked" >&2
+    exit 1
 fi
 exec .venv/bin/python app.py "$@"

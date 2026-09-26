@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
 from bridge import StudioPlugin
 from runner import TestProcess as Process
 
@@ -103,7 +104,7 @@ def test_reports_pass_fail_skip_and_setup_failure(sample_repo):
             "Passed",
             "Failed",
             "Skipped",
-            "Failed",
+            "Error",
         ]
         assert any("setup failed" in e.get("detail", "") for e in events)
         assert events[-1]["code"] == 1
@@ -141,17 +142,23 @@ def test_stop_terminates_the_test_and_its_child(sample_repo):
         process.close()
 
 
-def test_event_reader_waits_for_a_complete_line(tmp_path):
+def test_event_reader_waits_for_a_complete_line(tmp_path, monkeypatch):
     process = Process.__new__(Process)
     process.events_path = tmp_path / "events.jsonl"
-    process.events_path.write_text('{"kind": "test-')
+    process.directory = tmp_path
+    process.sequence = 0
+    event = {"version": 1, "run_id": tmp_path.name, "sequence": 1, "kind": "test-start"}
+    line = json.dumps(event) + "\n"
+    process.events_path.write_text(line[:12])
     process.offset = 0
     process.finished = False
-    process.process = SimpleNamespace(poll=lambda: None)
+    monkeypatch.setattr(
+        process, "process", SimpleNamespace(poll=lambda: None), raising=False
+    )
     assert process.poll() == []
     with process.events_path.open("a") as stream:
-        stream.write('start"}\n')
-    assert process.poll() == [{"kind": "test-start"}]
+        stream.write(line[12:])
+    assert process.poll() == [event]
     assert process.poll() == []
 
 

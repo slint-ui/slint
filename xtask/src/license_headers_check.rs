@@ -589,6 +589,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
             ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("\\.command$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.bash$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.scm$", LicenseLocation::Tag(LicenseTagStyle::scheme_comment_style())),
             ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),

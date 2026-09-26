@@ -12,13 +12,15 @@ Complete each milestone's acceptance workflow before expanding its scope.
 
 ## Current Baseline
 
-The prototype discovers 67 parameterized cases across five configured Visual Editor suites.
-It supports search, failure filtering, individual and batch execution, cancellation, source viewing, pytest output, and captured screenshots.
-The native UI uses the Primer Slint components from `github-app`.
+Phase 1 adds complete pytest discovery, project settings, capability checks, sequential execution, and persistent run history.
+The Visual Editor checkout used for validation contains 642 cases across 30 test files.
+Studio supports filtering, group execution, rerun-failed, cancellation, source inspection, and captured screenshots.
+The native UI uses pinned Primer Slint components from `github-app`.
 
 The preview shows historical captures.
-Recording, interactive debugging, source editing, persistent history, and unrestricted suite discovery are not implemented.
-The macOS launcher depends on local checkouts and Python environments.
+Recording, interactive debugging, source editing, and parallel execution remain future milestones.
+The macOS launcher still depends on local checkouts and Python environments.
+See [the README](README.md) for setup, storage policies, and validation commands.
 
 ## Milestones
 
@@ -32,6 +34,8 @@ The macOS launcher depends on local checkouts and Python environments.
 | 6. Distributable Slint Tool | Install Studio and connect another Slint application | Stable adapter contract |
 
 ### 1. Reliable Runner
+
+Implemented in version 0.2; the criteria below define its behavior.
 
 Make the existing app dependable before adding new authoring modes.
 
@@ -168,18 +172,11 @@ The Visual Editor adapter owns document fixtures, canvas semantics, source synch
 **Completion test:** Install Studio on a clean supported machine and configure both the Visual Editor and the second sample application.
 Run and inspect tests without modifying Studio's source or relying on a developer's absolute paths.
 
-## First Implementation Slice
+## Next Implementation Slice
 
-Start with a focused portion of milestone 1:
-
-1. Replace the fixed five-suite list with configurable pytest discovery and a suite tree.
-2. Add project configuration and binary/backend preflight with recorded environment identity.
-3. Formalize runner events and present collection, fixture, test, crash, and cancellation outcomes consistently.
-4. Add rerun-failed and restore the last run, with bounded artifact retention.
-5. Validate the complete workflow through the native Studio UI.
-
-Then prototype the action API on one move/undo test before expanding either the DSL or the UI.
-This resolves the largest architectural dependency early while keeping the runner useful throughout development.
+Prototype milestone 2's action API on one move/undo test.
+Keep the current CLI and Studio execution paths working while introducing locators, retrying assertions, and structured actions.
+Validate that API on a small set of real editor interactions before migrating more tests.
 
 ## Quality Gates
 

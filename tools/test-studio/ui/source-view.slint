@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { PrimerColors, Label } from "@primer";
+
+import { ActionButton } from "action-button.slint";
+
+export component SourceView inherits Rectangle {
+    in property <string> source;
+    in property <styled-text> highlighted;
+    in property <bool> historical;
+    private property <bool> copying;
+    background: PrimerColors.bgColor-default;
+    forward-focus: input;
+
+    VerticalLayout {
+        spacing: 0px;
+        HorizontalLayout {
+            padding: 16px; spacing: 12px;
+            Label { text: "Python"; }
+            Text {
+                text: root.historical ? "Historical source captured for this run" : "Test source";
+                color: PrimerColors.fgColor-muted; font-size: 12px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            ActionButton {
+                label: "Copy source"; disabled: root.source.is-empty;
+                activated => {
+                    root.copying = true;
+                    input.select-all(); input.copy(); input.clear-selection();
+                    root.copying = false;
+                }
+            }
+        }
+        Rectangle { height: 1px; background: PrimerColors.borderColor-muted; }
+        code-scroll := ScrollView {
+            vertical-stretch: 1;
+            content-width: max(self.visible-width, input.preferred-width + 40px);
+            content-height: max(self.visible-height, input.preferred-height + 40px);
+
+            StyledText {
+                x: 20px; y: 20px;
+                width: input.width; height: input.height;
+                text: root.highlighted;
+                default-font-family: "Menlo"; default-font-size: 13px;
+                default-color: PrimerColors.fgColor-default;
+                accessible-role: none;
+            }
+            input := TextInput {
+                x: 20px; y: 20px;
+                width: code-scroll.content-width - 40px;
+                height: code-scroll.content-height - 40px;
+                text: root.source;
+                read-only: true; single-line: false; wrap: no-wrap;
+                font-family: "Menlo"; font-size: 13px;
+                // Slint 1.18 skips selection rendering for a fully transparent text brush.
+                color: #00000001;
+                selection-foreground-color: PrimerColors.fgColor-default;
+                selection-background-color: PrimerColors.bgColor-accent-muted;
+                accessible-label: "Python source";
+                cursor-position-changed(pos) => {
+                    if root.copying { return; }
+                    if pos.x + self.x + code-scroll.content-x < 0px {
+                        code-scroll.content-x = -pos.x - self.x;
+                    } else if pos.x + self.x + code-scroll.content-x > code-scroll.visible-width - 20px {
+                        code-scroll.content-x = code-scroll.visible-width - pos.x - self.x - 20px;
+                    }
+                    if pos.y + self.y + code-scroll.content-y < 0px {
+                        code-scroll.content-y = -pos.y - self.y;
+                    } else if pos.y + self.y + code-scroll.content-y > code-scroll.visible-height - 24px {
+                        code-scroll.content-y = code-scroll.visible-height - pos.y - self.y - 24px;
+                    }
+                }
+            }
+        }
+    }
+}

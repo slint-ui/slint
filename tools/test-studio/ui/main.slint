@@ -1,43 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView, ListView } from "std-widgets.slint";
+import { Palette, ScrollView, ListView, ComboBox, TextEdit } from "std-widgets.slint";
 import { Button, ButtonVariant, PrimerTextInput, UnderlineNav, PrimerColors, Icons, Label } from "@primer";
 
-export struct TestRow { id: string, title: string, detail: string, status: string }
-export struct StepRow { title: string, detail: string, status: string }
+import { ActionButton } from "action-button.slint";
+import { SourceView } from "source-view.slint";
 
-component ActionButton inherits FocusScope {
-    in property <string> label;
-    in property <ButtonVariant> variant: default;
-    in property <bool> disabled;
-    callback activated;
-    height: 32px;
-    preferred-width: 116px;
-    accessible-role: button;
-    accessible-label: root.label;
-    accessible-enabled: !root.disabled;
-    accessible-action-default => { if !root.disabled { root.activated(); } }
-    key-pressed(event) => {
-        if !root.disabled && (event.text == Key.Return || event.text == Key.Space) {
-            root.activated(); return accept;
-        }
-        return reject;
-    }
-    Button {
-        width: 100%; label: root.label; variant: root.variant; disabled: root.disabled;
-        clicked => { root.focus(); root.activated(); }
-    }
-    Rectangle {
-        background: transparent; border-radius: 6px;
-        border-width: root.has-focus ? 2px : 0px; border-color: PrimerColors.fgColor-accent;
-    }
-}
+export struct TestRow { id: string, title: string, detail: string, status: string, depth: int, group: bool, expanded: bool }
+export struct HistoryRow { id: string, title: string, detail: string, pinned: bool }
+export struct StepRow { title: string, detail: string, status: string }
 
 component StatusDot inherits Rectangle {
     in property <string> status;
     width: 8px; height: 8px; border-radius: 4px;
-    background: status == "Passed" ? PrimerColors.fgColor-success : status == "Failed" ? PrimerColors.fgColor-danger : status == "Running" ? PrimerColors.fgColor-accent : status == "Skipped" ? PrimerColors.fgColor-attention : PrimerColors.fgColor-muted;
+    background: status == "Passed" ? PrimerColors.fgColor-success : (status == "Failed" || status == "Error" || status == "Crashed") ? PrimerColors.fgColor-danger : status == "Running" ? PrimerColors.fgColor-accent : status == "Skipped" ? PrimerColors.fgColor-attention : PrimerColors.fgColor-muted;
 }
 
 export component TestStudio inherits Window {
@@ -47,11 +24,58 @@ export component TestStudio inherits Window {
     background: PrimerColors.bgColor-default;
     in property <[TestRow]> tests;
     in property <[StepRow]> steps;
+    in property <[HistoryRow]> run-history;
+    in property <[string]> recent-projects;
+    in property <int> shown-count;
+    in property <string> suite-summary;
+    in property <string> run-diagnostics;
+    in property <string> environment-info;
+    in property <bool> has-artifacts;
+    in property <bool> can-rerun;
+    in property <bool> stale;
+    in property <bool> historical;
+    in property <bool> custom-components;
+    in-out property <string> marker-query;
+    in-out property <int> outcome-index;
+    in-out property <bool> settings-open;
+    in-out property <bool> history-open;
+    in-out property <string> config-repo;
+    in-out property <string> config-python;
+    in-out property <string> config-binary;
+    in-out property <string> config-paths;
+    in-out property <int> config-backend;
+    in-out property <string> config-count;
+    in-out property <string> config-days;
+    in-out property <string> config-gib;
+    in property <string> settings-error;
+    callback toggle-group(string);
+    callback navigate-tree(int);
+    callback expand-selected(bool);
+    in property <length> reveal-y;
+    in property <length> reveal-height;
+    in property <int> reveal-serial;
+    changed reveal-serial => {
+        if root.reveal-y + test-list.content-y < 0px { test-list.content-y = -root.reveal-y; }
+        if root.reveal-y + root.reveal-height + test-list.content-y > test-list.visible-height {
+            test-list.content-y = test-list.visible-height - root.reveal-y - root.reveal-height;
+        }
+    }
+    callback filter-changed;
+    callback rerun-failed;
+    callback show-settings;
+    callback save-settings;
+    callback choose-project(int);
+    callback show-history;
+    callback open-run(string);
+    callback pin-run(string);
+    callback delete-run(string);
+    callback show-current;
     in property <string> selected-id;
     in property <string> selected-title: "Discovering tests…";
     in property <string> selected-path;
     in property <string> selected-status: "Not run";
     in property <string> source-code;
+    pure callback highlight-source(string, bool) -> styled-text;
     in property <string> output;
     in property <string> summary: "Connecting to the Visual Editor test suite";
     in property <string> results-summary: "No tests run";
@@ -70,7 +94,6 @@ export component TestStudio inherits Window {
     in-out property <int> active-tab: 0;
     callback select-test(string);
     callback search(string);
-    callback filter-failures(bool);
     callback run-selected;
     callback run-visible;
     callback stop;
@@ -99,6 +122,8 @@ export component TestStudio inherits Window {
                 }
                 Rectangle { horizontal-stretch: 1; }
                 Text { text: root.results-summary; color: PrimerColors.fgColor-muted; vertical-alignment: center; }
+                ActionButton { label: "Project settings"; preferred-width: 150px; disabled: root.busy; activated => { root.show-settings(); } }
+                ActionButton { label: "Recent runs"; preferred-width: 128px; disabled: root.busy; activated => { root.show-history(); } }
                 Rectangle { width: 12px; }
                 ActionButton { label: root.dark ? "Light theme" : "Dark theme"; activated => { root.dark = !root.dark; } }
             }
@@ -115,7 +140,7 @@ export component TestStudio inherits Window {
                         HorizontalLayout {
                             Text { text: "Tests"; color: PrimerColors.fgColor-default; font-weight: 650; font-size: 16px; vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
-                            Label { text: "\{root.tests.length}"; }
+                            Label { text: "\{root.shown-count}"; }
                         }
                         PrimerTextInput {
                             text <=> root.query;
@@ -125,29 +150,43 @@ export component TestStudio inherits Window {
                             has-trailing-action: true;
                             edited(value) => { root.search(value); }
                         }
-                        HorizontalLayout {
-                            spacing: 8px;
-                            ActionButton { label: "All tests"; variant: root.failures-only ? default : primary; activated => { root.failures-only = false; root.filter-failures(false); } }
-                            ActionButton { label: "Failed"; variant: root.failures-only ? primary : default; activated => { root.failures-only = true; root.filter-failures(true); } }
+                        ComboBox { model: root.recent-projects; enabled: !root.busy; selected(index) => { root.choose-project(self.current-index); } }
+                        PrimerTextInput {
+                            text <=> root.marker-query; label-text: "Filter markers"; label-visually-hidden: true;
+                            placeholder: "Filter by pytest marker…"; edited(value) => { root.filter-changed(); }
                         }
+                        ComboBox {
+                            model: ["All outcomes", "Failures and errors", "Passed", "Skipped", "Expected failure", "Unexpected pass", "Cancelled", "Not run"];
+                            current-index <=> root.outcome-index;
+                            selected(index) => { root.filter-changed(); }
+                        }
+                        if root.stale: Text { text: "Discovery stale — refresh to retry"; color: PrimerColors.fgColor-attention; wrap: word-wrap; font-size: 12px; }
+
                     }
                     Rectangle { height: 1px; background: PrimerColors.borderColor-muted; }
+                    tree-keys := FocusScope {
+                        vertical-stretch: 1;
+                        key-pressed(event) => {
+                            if event.text == Key.DownArrow { root.navigate-tree(1); return accept; }
+                            if event.text == Key.UpArrow { root.navigate-tree(-1); return accept; }
+                            if event.text == Key.LeftArrow { root.expand-selected(false); return accept; }
+                            if event.text == Key.RightArrow { root.expand-selected(true); return accept; }
+                            return reject;
+                        }
                     test-list := ListView {
                         vertical-stretch: 1;
-                        for row in root.tests: FocusScope {
-                            height: 68px;
+                        for row in root.tests: row-focus := FocusScope {
+                            height: row.group ? 48px : 58px;
                             accessible-role: list-item; accessible-label: row.title + " · " + row.detail;
                             accessible-item-selected: root.selected-id == row.id;
-                            accessible-action-default => { root.select-test(row.id); }
-                            key-pressed(event) => {
-                                if event.text == Key.Return || event.text == Key.Space { root.select-test(row.id); return accept; }
-                                return reject;
-                            }
+                            accessible-action-default => { tree-keys.focus(); root.select-test(row.id); }
+
                             Rectangle {
                                 background: root.selected-id == row.id ? PrimerColors.bgColor-accent-muted : row-touch.has-hover ? PrimerColors.bgColor-neutral-muted : transparent;
                                 Rectangle { x: 0px; y: 0px; width: 3px; background: root.selected-id == row.id ? PrimerColors.fgColor-accent : transparent; }
                                 HorizontalLayout {
-                                    padding-left: 20px; padding-right: 16px; spacing: 12px; cross-axis-alignment: center;
+                                    padding-left: 16px + row.depth * 12px; padding-right: 12px; spacing: 8px; cross-axis-alignment: center;
+                                    Text { text: row.group ? (row.expanded ? "▾" : "▸") : ""; width: 12px; color: PrimerColors.fgColor-muted; }
                                     StatusDot { status: row.status; }
                                     VerticalLayout {
                                         height: 38px; alignment: center; spacing: 5px;
@@ -155,15 +194,17 @@ export component TestStudio inherits Window {
                                         Text { text: row.detail; overflow: elide; color: PrimerColors.fgColor-muted; font-size: 11px; }
                                     }
                                 }
-                                row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.select-test(row.id); } }
+                                row-touch := TouchArea { mouse-cursor: pointer; clicked => { tree-keys.focus(); root.select-test(row.id); } }
+                                if row.group: TouchArea { x: 8px + row.depth * 12px; y: 0px; width: 24px; height: parent.height; mouse-cursor: pointer; clicked => { root.toggle-group(row.id); } }
                             }
                         }
+                    }
                     }
                     if root.tests.length == 0: Text { text: root.busy ? "Discovering tests…" : "No matching tests"; color: PrimerColors.fgColor-muted; height: 60px; horizontal-alignment: center; }
                     Rectangle { height: 1px; background: PrimerColors.borderColor-muted; }
                     HorizontalLayout {
                         padding: 16px;
-                        Text { text: "5 suites · pytest"; color: PrimerColors.fgColor-muted; font-size: 12px; vertical-alignment: center; }
+                        Text { text: root.suite-summary; overflow: elide; color: PrimerColors.fgColor-muted; font-size: 12px; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
                         ActionButton { label: "Refresh"; preferred-width: 86px; disabled: root.busy; activated => { root.refresh(); } }
                     }
@@ -176,7 +217,7 @@ export component TestStudio inherits Window {
                     padding: 24px; spacing: 12px;
                     HorizontalLayout {
                         spacing: 8px;
-                        Text { text: "VISUAL EDITOR"; color: PrimerColors.fgColor-muted; font-size: 11px; font-weight: 650; }
+                        Text { text: root.historical ? "HISTORICAL RUN" : "VISUAL EDITOR"; color: PrimerColors.fgColor-muted; font-size: 11px; font-weight: 650; }
                         Rectangle { horizontal-stretch: 1; }
                         StatusDot { status: root.selected-status; }
                         Text { text: root.selected-status; color: PrimerColors.fgColor-muted; font-size: 12px; }
@@ -186,11 +227,13 @@ export component TestStudio inherits Window {
                     Text { text: root.selected-path; color: PrimerColors.fgColor-muted; font-size: 12px; overflow: elide; }
                     HorizontalLayout {
                         spacing: 8px; padding-top: 8px;
-                        ActionButton { label: "Run test"; variant: primary; disabled: root.busy || !root.ready || root.selected-id == ""; activated => { root.run-selected(); } }
-                        ActionButton { label: "Run shown (\{root.tests.length})"; preferred-width: 140px; disabled: root.busy || !root.ready || root.tests.length == 0; activated => { root.run-visible(); } }
+                        ActionButton { label: "Run selected"; variant: primary; disabled: root.busy || !root.ready || root.selected-id == ""; activated => { root.run-selected(); } }
+                        ActionButton { label: "Run shown (\{root.shown-count})"; preferred-width: 140px; disabled: root.busy || !root.ready || root.shown-count == 0; activated => { root.run-visible(); } }
+                        ActionButton { label: "Rerun failed"; disabled: root.busy || !root.can-rerun; activated => { root.rerun-failed(); } }
                         ActionButton { label: "Stop"; preferred-width: 72px; disabled: !root.busy; activated => { root.stop(); } }
                         Rectangle { horizontal-stretch: 1; }
-                        ActionButton { label: root.visible-editor ? "Editor: visible" : "Editor: headless"; preferred-width: 148px; disabled: root.busy; activated => { root.visible-editor = !root.visible-editor; } }
+                        if root.historical: ActionButton { label: "Current tests"; disabled: root.busy; activated => { root.show-current(); } }
+                        Label { text: root.visible-editor ? "Visible editor" : "Headless"; }
                     }
                 }
                 UnderlineNav {
@@ -199,6 +242,7 @@ export component TestStudio inherits Window {
                         { label: "Run details", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.history },
                         { label: "Source", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.file },
                         { label: "Output", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.book },
+                        { label: "Environment", enabled: true, counter: "", has-leading-icon: false },
                     ];
                     selected-index: root.active-tab;
                     item-activated(index) => { root.active-tab = index; }
@@ -266,20 +310,21 @@ export component TestStudio inherits Window {
                             HorizontalLayout {
                                 Text { text: "Captured from the real Slint application"; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; }
                                 Rectangle { horizontal-stretch: 1; }
-                                ActionButton { label: "Artifacts"; preferred-width: 86px; disabled: !root.has-screenshot; activated => { root.open-artifacts(); } }
+                                ActionButton { label: "Artifacts"; preferred-width: 86px; disabled: !root.has-artifacts; activated => { root.open-artifacts(); } }
                             }
                         }
                     }
                 }
-                if root.active-tab == 1: ScrollView {
-                    content-width: max(self.visible-width, source-text.preferred-width + 48px);
-                    content-height: max(self.visible-height, source-text.preferred-height + 48px);
-                    source-text := Text { x: 24px; y: 24px; text: root.source-code; color: PrimerColors.fgColor-default; font-family: "Menlo"; font-size: 12px; }
+                if root.active-tab == 1: SourceView {
+                    source: root.source-code;
+                    highlighted: root.highlight-source(root.source-code, root.dark);
+                    historical: root.historical;
                 }
-                if root.active-tab == 2: ScrollView {
-                    content-width: max(self.visible-width, output-text.preferred-width + 48px);
-                    content-height: max(self.visible-height, output-text.preferred-height + 48px);
-                    output-text := Text { x: 24px; y: 24px; text: root.output == "" ? "Run this test to see pytest output and failure details." : root.output; color: PrimerColors.fgColor-default; font-family: "Menlo"; font-size: 12px; }
+                if root.active-tab == 2: TextEdit {
+                    text: root.run-diagnostics + "\n\n" + root.output; read-only: true; font-family: "Menlo"; font-size: 12px;
+                }
+                if root.active-tab == 3: TextEdit {
+                    text: root.environment-info; read-only: true; font-family: "Menlo"; font-size: 12px;
                 }
             }
         }
@@ -291,8 +336,70 @@ export component TestStudio inherits Window {
                 StatusDot { status: root.busy ? "Running" : "Not run"; }
                 Text { text: root.summary; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; overflow: elide; }
                 Rectangle { horizontal-stretch: 1; }
+                if root.custom-components: Label { text: "Custom Primer components"; }
                 Text { text: root.workspace-name; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; }
             }
         }
     }
+    if root.settings-open || root.history-open: Rectangle {
+        background: #00000066;
+        TouchArea { }
+        Rectangle {
+            width: min(780px, parent.width - 64px); height: min(790px, parent.height - 64px);
+            border-radius: 12px; background: PrimerColors.bgColor-default;
+            border-width: 1px; border-color: PrimerColors.borderColor-default;
+            VerticalLayout {
+                padding: 24px; spacing: 16px;
+                HorizontalLayout {
+                    Text { text: root.settings-open ? "Project settings" : "Recent runs"; font-size: 22px; font-weight: 600; color: PrimerColors.fgColor-default; }
+                    Rectangle { horizontal-stretch: 1; }
+                    ActionButton { label: "Close"; preferred-width: 80px; activated => { root.settings-open = false; root.history-open = false; } }
+                }
+                if root.settings-open: VerticalLayout {
+                    spacing: 12px;
+                    Text { text: "Use an existing test environment and editor build."; color: PrimerColors.fgColor-muted; }
+                    PrimerTextInput { label-text: "Repository checkout"; text <=> root.config-repo; }
+                    PrimerTextInput { label-text: "Test Python interpreter"; text <=> root.config-python; }
+                    PrimerTextInput { label-text: "Editor binary"; text <=> root.config-binary; }
+                    Text { text: "Discovery paths · one per line, relative to tools/editor/ui-tests"; color: PrimerColors.fgColor-default; font-size: 12px; }
+                    TextEdit { text <=> root.config-paths; height: 64px; }
+                    HorizontalLayout {
+                        Text { text: "Editor backend"; color: PrimerColors.fgColor-default; vertical-alignment: center; }
+                        ComboBox { model: ["Headless Skia", "Visible Skia"]; current-index <=> root.config-backend; }
+                    }
+                    Text { text: "History retention · active and pinned runs are protected"; color: PrimerColors.fgColor-default; font-weight: 600; }
+                    HorizontalLayout {
+                        spacing: 16px;
+                        PrimerTextInput { label-text: "Completed runs"; text <=> root.config-count; }
+                        PrimerTextInput { label-text: "Days"; text <=> root.config-days; }
+                        PrimerTextInput { label-text: "Storage target (GiB)"; text <=> root.config-gib; }
+                    }
+                    Text { text: root.settings-error; color: PrimerColors.fgColor-danger; wrap: word-wrap; }
+                    Rectangle { vertical-stretch: 1; }
+                    HorizontalLayout {
+                        Rectangle { horizontal-stretch: 1; }
+                        ActionButton { label: "Save project"; variant: primary; activated => { root.save-settings(); } }
+                    }
+                }
+                if root.history-open: ListView {
+                    for run in root.run-history: Rectangle {
+                        height: 78px;
+                        border-width: 1px; border-color: PrimerColors.borderColor-muted;
+                        HorizontalLayout {
+                            spacing: 12px; padding-top: 12px; padding-bottom: 12px; cross-axis-alignment: center;
+                            VerticalLayout {
+                                spacing: 6px;
+                                Text { text: run.title; color: PrimerColors.fgColor-default; font-weight: 600; }
+                                Text { text: run.detail; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                            }
+                            ActionButton { label: "Open"; preferred-width: 72px; activated => { root.open-run(run.id); } }
+                            ActionButton { label: run.pinned ? "Unpin" : "Pin"; preferred-width: 72px; activated => { root.pin-run(run.id); } }
+                            ActionButton { label: "Delete"; preferred-width: 72px; disabled: run.pinned; activated => { root.delete-run(run.id); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }

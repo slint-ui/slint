@@ -3,165 +3,207 @@
 
 import json
 import os
-import signal
 import subprocess
+import sys
 import tempfile
-import threading
+import time
 from pathlib import Path
 
-SUITES = [
-    f"tests/test_{name}.py"
-    for name in ("undo_redo", "startup", "selection", "navigation", "canvas_zoom")
-]
+from events import Writer
+
+
+def environment(binary, backend):
+    env = os.environ.copy()
+    for key in (
+        "SLINT_MCP_PORT",
+        "SLINT_TEST_SERVER",
+        "PYTEST_ADDOPTS",
+        "PYTEST_CURRENT_TEST",
+        "PYTHONPATH",
+        "SLINT_SCALE_FACTOR",
+    ):
+        env.pop(key, None)
+    env.update(
+        SLINT_EDITOR_BINARY=str(binary),
+        SLINT_EDITOR_UI_TEST_BACKEND=backend,
+        SLINT_BACKEND=backend,
+        PYTHONUNBUFFERED="1",
+        PYTHONDONTWRITEBYTECODE="1",
+        SLINT_EMIT_DEBUG_INFO="1",
+        SLINT_ENABLE_EXPERIMENTAL_FEATURES="1",
+    )
+    return env
+
+
+class Command:
+    def __init__(self, args, *, cwd, env, output):
+        self.process = subprocess.Popen(
+            [
+                sys.executable,
+                str(Path(__file__).with_name("supervisor.py")),
+                *map(str, args),
+            ],
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+        )
+
+    def stop(self):
+        if self.process.stdin and not self.process.stdin.closed:
+            self.process.stdin.close()
+
+    def close(self):
+        self.stop()
+        self.process.wait(timeout=5)
+
+
+def checked_command(args, *, cwd, env, directory, name, cancel, timeout):
+    path = directory / f"{name}.log"
+    with path.open("w") as stream:
+        command = Command(args, cwd=cwd, env=env, output=stream)
+        deadline = time.monotonic() + timeout
+        try:
+            while command.process.poll() is None:
+                if cancel.wait(0.03):
+                    raise InterruptedError("Operation cancelled")
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"{name} exceeded {timeout:g} seconds; see {path.name}"
+                    )
+        finally:
+            command.close()
+    output = path.read_text(errors="replace")
+    if command.process.returncode:
+        raise RuntimeError(f"{name} failed ({command.process.returncode}):\n{output}")
+    return output
+
+
+def log_tail(path, limit=100000):
+    with path.open("rb") as stream:
+        stream.seek(0, 2)
+        stream.seek(max(0, stream.tell() - limit))
+        return stream.read().decode(errors="replace")
 
 
 class TestProcess:
     def __init__(
         self,
-        repo: Path,
-        python: Path,
-        binary: Path,
-        selectors: list[str],
+        repo,
+        python,
+        binary,
+        selectors,
         *,
         collect=False,
         visible=False,
+        directory=None,
     ):
-        self.directory = Path(tempfile.mkdtemp(prefix="slint-test-studio-"))
+        self.directory = Path(
+            directory or tempfile.mkdtemp(prefix="slint-test-studio-")
+        )
         self.events_path = self.directory / "events.jsonl"
         self.log_path = self.directory / "pytest.log"
-        self.events_path.touch()
+        self.events_path.touch(exist_ok=True)
         self.offset = 0
+        self.sequence = 0
         self.finished = False
         self.cancelled = False
         self.collect = collect
-        self.selectors = selectors
-        self.log = self.log_path.open("w", encoding="utf-8")
+        self.selectors = list(selectors)
+        self.log = self.log_path.open("w")
         selector_path = self.directory / "selectors.json"
-        selector_path.write_text(json.dumps(selectors))
-        suite = repo / "tools/editor/ui-tests"
-        env = os.environ.copy()
-        for key in (
-            "SLINT_MCP_PORT",
-            "SLINT_TEST_SERVER",
-            "PYTEST_ADDOPTS",
-            "PYTEST_CURRENT_TEST",
-            "PYTHONPATH",
-        ):
-            env.pop(key, None)
-        env.update(
-            SLINT_EDITOR_BINARY=str(binary),
-            SLINT_EDITOR_UI_TEST_BACKEND="winit-skia" if visible else "headless-skia",
-            SLINT_BACKEND="winit-skia" if visible else "headless-skia",
-            PYTHONUNBUFFERED="1",
-            PYTHONDONTWRITEBYTECODE="1",
-        )
-        command = [
-            str(python),
-            str(Path(__file__).with_name("bridge.py")),
+        selector_path.write_text(json.dumps(self.selectors))
+        suite = Path(repo) / "tools/editor/ui-tests"
+        args = [
+            python,
+            Path(__file__).with_name("bridge.py"),
             "--suite",
-            str(suite),
+            suite,
             "--events",
-            str(self.events_path),
+            self.events_path,
             "--selectors",
-            str(selector_path),
+            selector_path,
         ]
         if collect:
-            command.append("--collect")
+            args.append("--collect")
         try:
-            self.process = subprocess.Popen(
-                command,
+            self.command = Command(
+                args,
                 cwd=suite,
-                env=env,
-                stdout=self.log,
-                stderr=subprocess.STDOUT,
-                start_new_session=os.name != "nt",
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                if os.name == "nt"
-                else 0,
+                env=environment(binary, "winit-skia" if visible else "headless-skia"),
+                output=self.log,
             )
+            self.process = self.command.process
         except BaseException:
             self.log.close()
             raise
 
-    def poll(self):
+    def _read(self, final=False):
         events = []
-        with self.events_path.open(encoding="utf-8") as stream:
+        with self.events_path.open() as stream:
             stream.seek(self.offset)
             while True:
                 start = stream.tell()
                 line = stream.readline()
-                if not line or not line.endswith("\n"):
-                    self.offset = start
+                if not line:
+                    break
+                if not line.endswith("\n") and not final:
+                    stream.seek(start)
                     break
                 try:
-                    events.append(json.loads(line))
-                except json.JSONDecodeError:
+                    event = json.loads(line)
+                    if (
+                        event.get("version") != 1
+                        or event.get("run_id") != self.directory.name
+                        or event.get("sequence") != self.sequence + 1
+                    ):
+                        raise ValueError("Invalid event envelope or sequence")
+                    self.sequence = event["sequence"]
+                    events.append(event)
+                except (ValueError, TypeError, AttributeError):
                     events.append(
-                        {"kind": "error", "detail": "Invalid event from pytest bridge"}
+                        {
+                            "kind": "error",
+                            "category": "protocol",
+                            "detail": "Invalid or incomplete event from pytest bridge",
+                        }
                     )
-                self.offset = stream.tell()
+            self.offset = stream.tell()
+        return events
+
+    def poll(self):
+        if self.finished:
+            return []
+        events = self._read()
         code = self.process.poll()
-        if code is not None and not self.finished:
-            # Drain once more after process exit so the last result cannot be lost.
-            with self.events_path.open(encoding="utf-8") as stream:
-                stream.seek(self.offset)
-                for line in stream:
-                    if line.strip():
-                        try:
-                            events.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            events.append(
-                                {
-                                    "kind": "error",
-                                    "detail": "Incomplete event from pytest bridge",
-                                }
-                            )
-                self.offset = stream.tell()
+        if code is not None:
+            events += self._read(final=True)
             self.finished = True
-            if os.name != "nt":
-                try:
-                    os.killpg(self.process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
+            self.command.close()
             self.log.close()
+            if code not in (0, 1, 5) and not self.cancelled:
+                events.append(
+                    Writer(self.events_path).emit(
+                        "error",
+                        category="runner",
+                        detail=f"Pytest exited with code {code}.\n"
+                        + log_tail(self.log_path),
+                    )
+                )
             events.append(
-                {"kind": "finished", "code": code, "cancelled": self.cancelled}
+                Writer(self.events_path).emit(
+                    "finished", code=code, cancelled=self.cancelled
+                )
             )
         return events
 
     def stop(self):
-        if self.process.poll() is not None:
-            return
-        self.cancelled = True
-        if os.name == "nt":
-            subprocess.run(
-                ["taskkill", "/PID", str(self.process.pid), "/T", "/F"],
-                capture_output=True,
-                check=False,
-            )
-        else:
-            try:
-                os.killpg(self.process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                return
-
-            def reap():
-                try:
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    try:
-                        os.killpg(self.process.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-                    self.process.wait()
-
-            threading.Thread(target=reap, daemon=True).start()
+        if not self.finished:
+            self.cancelled = True
+            self.command.stop()
 
     def close(self):
         self.stop()
-        try:
-            self.process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait()
+        self.command.close()
         self.log.close()

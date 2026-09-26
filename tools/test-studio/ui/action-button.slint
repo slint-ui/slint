@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ButtonVariant, PrimerColors } from "@primer";
+
+export component ActionButton inherits FocusScope {
+    in property <string> label;
+    in property <ButtonVariant> variant: default;
+    in property <bool> disabled;
+    callback activated;
+    height: 32px;
+    preferred-width: 116px;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: !root.disabled;
+    accessible-action-default => { if !root.disabled { root.activated(); } }
+    key-pressed(event) => {
+        if !root.disabled && (event.text == Key.Return || event.text == Key.Space) {
+            root.activated(); return accept;
+        }
+        return reject;
+    }
+    Button {
+        width: 100%; label: root.label; variant: root.variant; disabled: root.disabled;
+        clicked => { root.focus(); root.activated(); }
+    }
+    Rectangle {
+        background: transparent; border-radius: 6px;
+        border-width: root.has-focus ? 2px : 0px; border-color: PrimerColors.fgColor-accent;
+    }
+}

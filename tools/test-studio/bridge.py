@@ -4,50 +4,49 @@
 """Run inside the target suite's Python environment and stream pytest events."""
 
 import argparse
-import contextlib
+import importlib
 import inspect
 import json
-import subprocess
 import sys
 import time
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
+from events import Writer
+
 
 class StudioPlugin:
-    def __init__(self, events: Path, artifacts: Path):
-        self.events = events
-        self.artifacts = artifacts
+    def __init__(self, events, artifacts):
+        self.writer = Writer(events)
+        self.events, self.artifacts = events, artifacts
         self.application = None
         self.nodeid = ""
         self.sequence = 0
         self.outcome = "Passed"
         self.duration = 0.0
-        self.restorations = []
+        self.observer_token = None
+        self.reporting: ModuleType | None = None
+        self.sections = set()
+        self.strict_xpass = False
+        self.application_started = False
 
     def emit(self, kind, **data):
-        with self.events.open("a", encoding="utf-8") as stream:
-            stream.write(
-                json.dumps({"kind": kind, "nodeid": self.nodeid, **data}) + "\n"
-            )
-
-    def capture(self):
-        if self.application is None:
-            return "", ""
-        try:
-            window = self.application.first_window
-            if window is None:
-                return "", "No application window"
-            self.sequence += 1
-            path = self.artifacts / f"capture-{self.sequence:04d}.png"
-            path.write_bytes(window.grab_window_as_png())
-            return str(path), ""
-        except Exception as error:  # noqa: BLE001
-            return "", f"Capture unavailable: {error}"
+        return self.writer.emit(kind, nodeid=self.nodeid, **data)
 
     def completed_step(self, name, status="Passed", duration=0.0):
-        path, warning = self.capture()
+        started = time.monotonic()
+        path, warning = "", ""
+        if self.application is not None:
+            try:
+                self.sequence += 1
+                path = f"capture-{self.sequence:04d}.png"
+                (self.artifacts / path).write_bytes(
+                    self.application.first_window.grab_window_as_png()
+                )
+            except Exception as error:  # noqa: BLE001
+                path, warning = "", f"Capture unavailable: {error}"
         self.emit(
             "step",
             title=name,
@@ -55,116 +54,164 @@ class StudioPlugin:
             duration=duration,
             screenshot=path,
             warning=warning,
+            capture_duration=time.monotonic() - started,
         )
 
-    def patch(self, target, name, replacement):
-        self.restorations.append((target, name, getattr(target, name)))
-        setattr(target, name, replacement)
+    def observe(self, kind, **data):
+        if kind == "application-ready":
+            self.application_started = True
+            self.application = data["application"]
+            self.completed_step("Launch editor")
+        elif kind == "application-closing":
+            if data.get("returncode") not in (None, 0):
+                self.outcome = "Crashed"
+                self.emit("application-crash", returncode=data["returncode"])
+            self.completed_step(
+                "Final state",
+                "Failed"
+                if data.get("failed") and self.outcome == "Passed"
+                else self.outcome,
+            )
+            self.application = None
+        elif kind == "stage-start":
+            self.emit(kind, **data)
+        elif kind == "stage-end":
+            self.completed_step(
+                data["title"],
+                "Failed" if data["failed"] else "Passed",
+                data["duration"],
+            )
 
     def pytest_configure(self, config):
         if config.option.collectonly:
             return
-        import slint_testing
-        import ui_reporting
+        try:
+            ui_reporting = importlib.import_module("ui_reporting")
 
-        original_enter = slint_testing.Application.__enter__
-        original_exit = slint_testing.Application.__exit__
-        original_stage = ui_reporting.replay_stage
-        plugin = self
-
-        def enter(application):
-            try:
-                result = original_enter(application)
-            except BaseException:
-                process = getattr(application, "process", None)
-                if process is not None:
-                    process.terminate()
-                    try:
-                        process.wait(timeout=2)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait()
-                application.test_server_socket.close()
-                raise
-            plugin.application = application
-            plugin.completed_step("Launch editor")
-            return result
-
-        def leave(application, exc_type, exc_value, traceback):
-            try:
-                plugin.completed_step("Final state", "Failed" if exc_type else "Passed")
-            finally:
-                plugin.application = None
-            return original_exit(application, exc_type, exc_value, traceback)
-
-        @contextlib.contextmanager
-        def stage(name):
-            started = time.monotonic()
-            plugin.emit("stage-start", title=name)
-            try:
-                with original_stage(name):
-                    yield
-            except BaseException:
-                plugin.completed_step(name, "Failed", time.monotonic() - started)
-                raise
-            else:
-                plugin.completed_step(name, "Passed", time.monotonic() - started)
-
-        self.patch(slint_testing.Application, "__enter__", enter)
-        self.patch(slint_testing.Application, "__exit__", leave)
-        self.patch(ui_reporting, "replay_stage", stage)
+            if getattr(ui_reporting, "OBSERVER_VERSION", None) != 1:
+                raise ImportError("Reporting observer version 1 is unavailable")
+            self.reporting = ui_reporting
+            self.observer_token = ui_reporting.install_observer(self.observe)
+        except ImportError as error:
+            self.emit(
+                "warning",
+                detail=f"Detailed captures unavailable for this harness: {error}",
+            )
 
     def pytest_unconfigure(self, config):
-        for target, name, original in reversed(self.restorations):
-            setattr(target, name, original)
+        if self.observer_token is not None and self.reporting is not None:
+            self.reporting.reset_observer(self.observer_token)
 
     def pytest_collection_finish(self, session):
         for item in session.items:
             try:
                 source = inspect.getsource(item.obj)
-            except (OSError, TypeError):
+            except (OSError, TypeError, AttributeError):
                 source = "Source unavailable."
             function, _, case = item.name.partition("[")
+            groups = []
+            path = Path(item.location[0])
+            for parent in reversed(path.parents):
+                if str(parent) != ".":
+                    groups.append({"id": f"dir:{parent}", "title": parent.name})
+            groups.append({"id": f"file:{path}", "title": path.name})
+            for parent in item.listchain():
+                if isinstance(parent, pytest.Class):
+                    groups.append(
+                        {"id": f"class:{parent.nodeid}", "title": parent.name}
+                    )
+            if case:
+                groups.append(
+                    {
+                        "id": f"function:{item.nodeid.split('[')[0]}",
+                        "title": function.removeprefix("test_")
+                        .replace("_", " ")
+                        .capitalize(),
+                    }
+                )
             self.emit(
                 "collected",
                 id=item.nodeid,
                 title=function.removeprefix("test_").replace("_", " ").capitalize(),
-                suite=Path(item.path)
-                .stem.removeprefix("test_")
-                .replace("_", " ")
-                .title(),
+                suite=path.stem,
                 case=case.removesuffix("]"),
                 source=source,
-                path=f"{item.location[0]}:{item.location[1] + 1}",
+                path=f"{path}:{item.location[1] + 1}",
+                groups=groups,
+                markers=sorted({marker.name for marker in item.iter_markers()}),
             )
 
     def pytest_runtest_logstart(self, nodeid, location):
-        self.nodeid = nodeid
-        self.outcome = "Passed"
-        self.duration = 0.0
+        self.nodeid, self.outcome, self.duration = nodeid, "Passed", 0.0
+        self.sections = set()
+        self.strict_xpass = False
+        self.application_started = False
         self.emit("test-start")
+
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_runtest_makereport(self, item, call):
+        result = yield
+        report = result.get_result()
+        report.studio_connection_error = bool(
+            call.excinfo and call.excinfo.type.__name__ == "ApplicationConnectionError"
+        )
 
     def pytest_runtest_logreport(self, report):
         self.duration += report.duration
-        if report.failed:
-            self.outcome = "Failed"
-        elif report.skipped and self.outcome != "Failed":
-            self.outcome = "Skipped"
+        detail = report.longreprtext if report.longrepr else ""
+        if self.outcome != "Crashed":
+            if report.failed:
+                self.strict_xpass = report.when == "call" and detail.startswith(
+                    "[XPASS(strict)]"
+                )
+                self.outcome = (
+                    "Error"
+                    if report.when != "call"
+                    or getattr(report, "studio_connection_error", False)
+                    else "Unexpected pass"
+                    if self.strict_xpass
+                    else "Failed"
+                )
+            elif self.outcome not in ("Error", "Failed"):
+                if hasattr(report, "wasxfail"):
+                    self.outcome = (
+                        "Expected failure" if report.skipped else "Unexpected pass"
+                    )
+                elif report.skipped:
+                    self.outcome = "Skipped"
+        if getattr(report, "studio_connection_error", False):
+            self.emit(
+                "error",
+                category="application-disconnect"
+                if self.application_started
+                else "application-launch",
+                detail=detail,
+            )
+        sections = []
+        for section in report.sections:
+            if section not in self.sections:
+                self.sections.add(section)
+                sections.append("\n".join(section))
         self.emit(
             "report",
             phase=report.when,
             status=self.outcome,
-            detail=report.longreprtext if report.longrepr else "",
-            output="\n".join(f"{name}\n{content}" for name, content in report.sections),
+            detail=detail,
+            output="\n".join(sections),
         )
 
     def pytest_runtest_logfinish(self, nodeid, location):
-        self.emit("test-end", status=self.outcome, duration=self.duration)
+        self.emit(
+            "test-end",
+            status=self.outcome,
+            duration=self.duration,
+            strict_xpass=self.strict_xpass,
+        )
         self.nodeid = ""
 
     def pytest_collectreport(self, report):
         if report.failed:
-            self.emit("error", detail=report.longreprtext)
+            self.emit("error", category="collection", detail=report.longreprtext)
 
 
 def main():
@@ -177,7 +224,17 @@ def main():
     sys.path.insert(0, str(args.suite / "tests"))
     plugin = StudioPlugin(args.events, args.events.parent)
     selectors = json.loads(args.selectors.read_text())
-    options = ["-q", "-ra", "--color=no", "-p", "no:cacheprovider", "-o", "addopts="]
+    options = [
+        "-q",
+        "-ra",
+        "--color=no",
+        "-p",
+        "no:cacheprovider",
+        "-p",
+        "no:xdist",
+        "-o",
+        "addopts=",
+    ]
     if args.collect:
         options += ["--collect-only"]
     else:

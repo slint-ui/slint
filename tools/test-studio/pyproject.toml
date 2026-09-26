@@ -3,10 +3,13 @@
 
 [project]
 name = "slint-test-studio"
-version = "0.1.0"
+version = "0.2.0"
 description = "A desktop runner for Slint Visual Editor UI tests"
 requires-python = ">=3.12"
-dependencies = ["slint[dev]==1.18.1b1"]
+dependencies = ["slint[dev]==1.18.1b1", "pillow>=11,<13"]
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "ruff==0.16.4", "ty==0.0.73"]
 
 [tool.uv]
 package = false
@@ -14,3 +17,6 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+src = ["."]
