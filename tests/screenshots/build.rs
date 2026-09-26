@@ -27,6 +27,9 @@ fn main() -> std::io::Result<()> {
     #[cfg(feature = "skia")]
     gen_skia(&mut generated_file)?;
 
+    #[cfg(feature = "femtovg")]
+    gen_femtovg(&mut generated_file)?;
+
     #[cfg(feature = "software-embed-assets")]
     gen_software_embed_assets(&mut generated_file)?;
 
@@ -146,7 +149,9 @@ fn generate_source(
 }
 
 // Test parameters parsed from `KEY=value` / `KEY` markers in a case's source comments.
-#[cfg(feature = "software")]
+// Not every field is read by every feature combination that constructs one.
+#[cfg(any(feature = "software", feature = "femtovg"))]
+#[allow(dead_code)]
 struct ScreenshotMarkers {
     scale_factor: Option<f32>,
     base_threshold: f32,
@@ -156,7 +161,7 @@ struct ScreenshotMarkers {
     skip_line_by_line: bool,
 }
 
-#[cfg(feature = "software")]
+#[cfg(any(feature = "software", feature = "femtovg"))]
 fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> ScreenshotMarkers {
     // The `f32` value following `needle`, up to the next whitespace; `None` if the marker is
     // absent, panicking if it is present but malformed.
@@ -286,6 +291,49 @@ fn skia_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
         absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
         relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
         reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+    }})
+}}"##,
+        )?;
+    }
+
+    Ok(())
+}
+
+// Offscreen shadow regression tests for FemtoVG's shared item renderer, through WGPU. Only shadow
+// cases have a `references/femtovg/` reference and opt in by omitting `//ignore: femtovg`; every
+// other case carries that marker until FemtoVG screenshot coverage grows beyond shadows. Every
+// generated test is `#[ignore]`d (see `femtovg.rs`'s module doc comment for why).
+#[cfg(feature = "femtovg")]
+fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references", "femtovg"].iter().collect();
+
+    for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
+        if testcase.is_ignored("femtovg") {
+            continue;
+        }
+
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let base_threshold = parse_markers(&source, &testcase).base_threshold;
+
+        let reference_path = references_root_dir
+            .join(testcase.relative_path.clone())
+            .with_extension("png")
+            .to_string_lossy()
+            .into_owned();
+        let absolute_path = testcase.absolute_path.to_string_lossy();
+
+        let identifier = testcase.identifier();
+
+        write!(
+            generated_file,
+            r##"
+#[test] #[ignore]
+fn femtovg_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
+    crate::femtovg::run_test(crate::femtovg::TestCase {{
+        absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
+        reference_path: std::path::PathBuf::from(r#"{reference_path}"#),
+        base_threshold: {base_threshold}f32,
     }})
 }}"##,
         )?;
