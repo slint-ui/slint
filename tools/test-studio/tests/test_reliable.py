@@ -147,6 +147,27 @@ def test_storage_recovery_and_damaged_run(tmp_path):
     assert store.warnings
 
 
+def test_history_recovers_after_damaged_middle_event(tmp_path):
+    store = Store(tmp_path)
+    directory, metadata = store.create({"repo": "sample"}, ["a"])
+    writer = Writer(directory / "events.jsonl")
+    writer.emit("collected", id="a", title="A")
+    writer.emit("test-start", nodeid="a")
+    writer.emit("test-end", nodeid="a", status="Passed", duration=1)
+    writer.emit("finished", code=0)
+    lines = (directory / "events.jsonl").read_text().splitlines()
+    lines[1] = "{broken"
+    (directory / "events.jsonl").write_text("\n".join(lines) + "\n")
+    metadata["state"] = "finished"
+    store.save(directory, metadata)
+
+    _, state = store.load(metadata["id"])
+
+    assert state.state == "finished"
+    assert state.records["a"]["status"] == "Passed"
+    assert state.diagnostics
+
+
 def test_retention_protects_active_pinned_and_external(tmp_path):
     store = Store(tmp_path / "data")
     dirs = []
@@ -173,6 +194,30 @@ def test_retention_protects_active_pinned_and_external(tmp_path):
     with pytest.raises(ValueError):
         store.delete(link.name)
     assert external.exists()
+
+
+def test_discovery_does_not_consume_execution_retention(tmp_path):
+    store = Store(tmp_path)
+    now = time.time()
+    execution, execution_metadata = store.create({"repo": "sample"}, ["a"])
+    execution_metadata.update(state="finished", created=now)
+    store.save(execution, execution_metadata)
+    old_discovery, old_metadata = store.create(
+        {"repo": "sample"}, ["tests"], collect=True
+    )
+    old_metadata.update(state="finished", created=now + 1)
+    store.save(old_discovery, old_metadata)
+    discovery, discovery_metadata = store.create(
+        {"repo": "sample"}, ["tests"], collect=True
+    )
+    discovery_metadata.update(state="finished", created=now + 2)
+    store.save(discovery, discovery_metadata)
+
+    store.prune({"count": 1, "days": 30, "gib": 5})
+
+    assert execution.exists()
+    assert discovery.exists()
+    assert not old_discovery.exists()
 
 
 def test_legacy_settings_imported_once(tmp_path):

@@ -9,7 +9,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from events import Writer
+from events import Writer, read
 
 
 def environment(binary, backend):
@@ -143,36 +143,16 @@ class TestProcess:
             raise
 
     def _read(self, final=False):
-        events = []
-        with self.events_path.open() as stream:
-            stream.seek(self.offset)
-            while True:
-                start = stream.tell()
-                line = stream.readline()
-                if not line:
-                    break
-                if not line.endswith("\n") and not final:
-                    stream.seek(start)
-                    break
-                try:
-                    event = json.loads(line)
-                    if (
-                        event.get("version") != 1
-                        or event.get("run_id") != self.directory.name
-                        or event.get("sequence") != self.sequence + 1
-                    ):
-                        raise ValueError("Invalid event envelope or sequence")
-                    self.sequence = event["sequence"]
-                    events.append(event)
-                except (ValueError, TypeError, AttributeError):
-                    events.append(
-                        {
-                            "kind": "error",
-                            "category": "protocol",
-                            "detail": "Invalid or incomplete event from pytest bridge",
-                        }
-                    )
-            self.offset = stream.tell()
+        events, self.offset, self.sequence, warnings = read(
+            self.events_path,
+            offset=self.offset,
+            sequence=self.sequence,
+            final=final,
+        )
+        events.extend(
+            {"kind": "error", "category": "protocol", "detail": warning}
+            for warning in warnings
+        )
         return events
 
     def poll(self):

@@ -171,29 +171,23 @@ class Store:
                 self.save(self.runs / item["id"], item)
 
     def load(self, run_id):
+        from events import read
         from state import RunState
 
         directory = self.owned(self.runs / run_id)
         metadata = json.loads((directory / "run.json").read_text())
         state = RunState()
         path = directory / "events.jsonl"
-        sequence = 0
         if path.exists():
-            for line in path.read_text().splitlines():
+            events, _, _, warnings = read(path, final=True)
+            for event in events:
                 try:
-                    event = json.loads(line)
-                    if (
-                        event.get("version") != 1
-                        or event.get("run_id") != run_id
-                        or event.get("sequence") != sequence + 1
-                    ):
-                        raise ValueError("Unsupported event envelope")
-                    sequence = event["sequence"]
                     state.apply(event)
                 except (ValueError, KeyError, TypeError) as error:
-                    state.diagnostics.append(
-                        {"kind": "warning", "detail": f"Damaged history event: {error}"}
-                    )
+                    warnings.append(f"Damaged history event: {error}")
+            state.diagnostics.extend(
+                {"kind": "warning", "detail": warning} for warning in warnings
+            )
         if metadata["state"] == "Interrupted":
             for item in state.records.values():
                 for action in item["steps"]:
@@ -227,12 +221,13 @@ class Store:
                 if p.is_file() and not p.is_symlink()
             )
         total = sum(sizes.values())
+        executions = [r for r in history if not r["collect"]]
         removable = [
             r
-            for r in reversed(history)
+            for r in reversed(executions)
             if r["state"] in ("finished", "Interrupted") and not r.get("pinned")
         ]
-        completed = sum(r["state"] in ("finished", "Interrupted") for r in history)
+        completed = sum(r["state"] in ("finished", "Interrupted") for r in executions)
         limit = policy["gib"] * 1024**3
         for item in removable:
             if (
@@ -243,4 +238,14 @@ class Store:
                 self.delete(item["id"])
                 total -= sizes[item["id"]]
                 completed -= 1
+        discoveries = [
+            r
+            for r in history
+            if r["collect"]
+            and r["state"] in ("finished", "Interrupted")
+            and not r.get("pinned")
+        ]
+        for item in discoveries[1:]:
+            self.delete(item["id"])
+            total -= sizes[item["id"]]
         return "Protected runs exceed the storage target." if total > limit else ""

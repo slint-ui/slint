@@ -5,6 +5,47 @@ import json
 import time
 
 
+def read(path, *, offset=0, sequence=0, final=False):
+    events = []
+    warnings = []
+    with path.open() as stream:
+        stream.seek(offset)
+        while True:
+            start = stream.tell()
+            line = stream.readline()
+            if not line:
+                break
+            if not line.endswith("\n") and not final:
+                stream.seek(start)
+                break
+            offset = stream.tell()
+            try:
+                event = json.loads(line)
+                current = event.get("sequence")
+                if (
+                    event.get("version") != 1
+                    or event.get("run_id") != path.parent.name
+                    or not isinstance(current, int)
+                    or current <= sequence
+                ):
+                    raise ValueError("Unsupported event envelope")
+                if current != sequence + 1:
+                    warnings.append(
+                        f"Event sequence skipped from {sequence} to {current}"
+                    )
+                sequence = current
+                events.append(event)
+            except (
+                json.JSONDecodeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+            ) as error:
+                warnings.append(f"Damaged history event: {error}")
+        offset = stream.tell()
+    return events, offset, sequence, warnings
+
+
 class Writer:
     def __init__(self, path):
         self.path = path
