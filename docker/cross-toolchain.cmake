@@ -1,0 +1,29 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore Dockerfiles MULTIARCH
+
+# CMake toolchain file for the Linux gnu cross images, installed as
+# /opt/toolchain.cmake. The Dockerfiles set the CROSS_* environment variables.
+
+set(CMAKE_SYSTEM_NAME Linux)
+if(NOT CMAKE_SYSTEM_PROCESSOR)
+    set(CMAKE_SYSTEM_PROCESSOR "$ENV{CROSS_CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
+set(CMAKE_SYSROOT "$ENV{CROSS_SYSROOT}")
+set(CMAKE_FIND_ROOT_PATH ${CMAKE_PREFIX_PATH})
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_C_COMPILER_TARGET "$ENV{CROSS_CLANG_TARGET}")
+set(CMAKE_C_FLAGS_INIT "$ENV{CROSS_CLANG_FLAGS}")
+set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_CXX_COMPILER_TARGET "$ENV{CROSS_CLANG_TARGET}")
+set(CMAKE_CXX_FLAGS_INIT "$ENV{CROSS_CLANG_FLAGS}")
+
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "$ENV{CROSS_SYSROOT}")
+set(ENV{PKG_CONFIG_LIBDIR} "$ENV{CROSS_SYSROOT}/usr/lib/$ENV{CROSS_MULTIARCH}/pkgconfig:$ENV{CROSS_SYSROOT}/usr/share/pkgconfig")
