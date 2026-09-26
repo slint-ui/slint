@@ -198,6 +198,27 @@ impl<T> ItemCache<T> {
     }
 }
 
+// Counts items `render_item_children` dispatches a draw call for, for occlusion-culling
+// integration tests. Also gated on `occlusion-culling`, since the counter is unused otherwise.
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
+crate::thread_local!(
+    static RENDERED_ITEM_COUNT: core::cell::Cell<usize> = const { core::cell::Cell::new(0) }
+);
+
+/// Resets the counter returned by `rendered_item_count` to zero.
+/// Call this before rendering a frame under test.
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
+pub fn reset_rendered_item_count() {
+    RENDERED_ITEM_COUNT.with(|count| count.set(0));
+}
+
+/// Returns the number of items rendered by `render_item_children` since the last call to
+/// `reset_rendered_item_count`.
+#[cfg(all(feature = "testing", feature = "occlusion-culling"))]
+pub fn rendered_item_count() -> usize {
+    RENDERED_ITEM_COUNT.with(|count| count.get())
+}
+
 /// Renders the children of the item with the specified index into the renderer.
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
@@ -228,6 +249,8 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
+                #[cfg(all(feature = "testing", feature = "occlusion-culling"))]
+                RENDERED_ITEM_COUNT.with(|count| count.set(count.get() + 1));
                 let size = item_size.unwrap_or_else(|| {
                     crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size
                 });
