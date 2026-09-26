@@ -1,0 +1,17 @@
+---
+title: Reduced Motion for Microcontrollers
+description: Fix the reduced-motion setting at compile time on microcontrollers with the SLINT_REDUCED_MOTION target property.
+---
+
+On desktop platforms, Slint follows the operating system's reduced-motion setting and re-reads it
+while the application runs. A microcontroller has no such setting. You can fix the value at
+compile time by setting the `SLINT_REDUCED_MOTION` target property on your CMake target, so that
+animations do not consult it at run time.
+
+```cmake
+# Example: when building my_application, animations always run as designed
+set_property(TARGET my_application PROPERTY SLINT_REDUCED_MOTION false)
+```
+
+Set the property to `true` to make every animation go straight to its target instead. Once the
+value is fixed this way, a setting reported at run time is ignored.

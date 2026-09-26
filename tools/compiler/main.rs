@@ -99,6 +99,11 @@ struct Cli {
     #[arg(long, name = "scale factor")]
     scale_factor: Option<f32>,
 
+    /// Fix the operating system's reduced-motion setting at compile time ('true' or 'false'),
+    /// for environments without such a setting. Animations then do not read it at run time.
+    #[arg(long, name = "reduced motion")]
+    reduced_motion: Option<bool>,
+
     /// Generate a dependency file for build systems like CMake or Ninja.
     /// This file is similar to the output of `gcc -M`.
     #[arg(long = "depfile", name = "dependency file", number_of_values = 1)]
@@ -171,6 +176,7 @@ fn main() -> std::io::Result<()> {
         reject(!args.include_paths.is_empty(), "-I");
         reject(!args.library_paths.is_empty(), "-L");
         reject(args.scale_factor.is_some(), "--scale-factor");
+        reject(args.reduced_motion.is_some(), "--reduced-motion");
         reject(args.embed_resources.is_some(), "--embed-resources");
         reject(args.translation_domain.is_some(), "--translation-domain");
         #[cfg(feature = "bundle-translations")]
@@ -278,6 +284,9 @@ fn main() -> std::io::Result<()> {
     }
     if let Some(constant_scale_factor) = args.scale_factor {
         compiler_config.const_scale_factor = Some(constant_scale_factor);
+    }
+    if let Some(reduced_motion) = args.reduced_motion {
+        compiler_config.const_reduced_motion = Some(reduced_motion);
     }
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = args.bundle_translations {

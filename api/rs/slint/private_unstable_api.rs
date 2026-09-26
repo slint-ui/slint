@@ -163,6 +163,7 @@ pub mod re_exports {
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_core::MotionPreference;
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
@@ -214,7 +215,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
-        context_for_root, default_window_title,
+        context_for_root, default_window_title, reduced_motion,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,

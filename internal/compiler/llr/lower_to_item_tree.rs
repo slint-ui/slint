@@ -109,7 +109,10 @@ pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
     compiler_config: &CompilerConfiguration,
 ) -> CompilationUnit {
-    let mut state = LoweringState::default();
+    let mut state = LoweringState {
+        const_reduced_motion: compiler_config.const_reduced_motion,
+        ..LoweringState::default()
+    };
 
     #[cfg(feature = "bundle-translations")]
     {
@@ -317,6 +320,9 @@ pub struct LoweringState {
     native_classes: HashMap<ByAddress<ElementRc>, Arc<NativeClass>>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
+    /// `CompilerConfiguration::const_reduced_motion`: when set, animations do not read the
+    /// context's motion preference at run time.
+    pub const_reduced_motion: Option<bool>,
     /// Counter for the unique `struct_assignment{n}` local variable names. Local
     /// to one lowering (a fresh `LoweringState` is created per backend), so the
     /// numbering is deterministic regardless of how many backends run.

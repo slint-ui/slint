@@ -1354,6 +1354,12 @@ impl WinitWindowAdapter {
                 let have_focus =
                     if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
+                #[cfg(target_os = "windows")]
+                if have_focus {
+                    WindowInner::from_pub(self.window())
+                        .context()
+                        .set_motion_preference(crate::windows_settings::motion_preference());
+                }
             }
 
             WinitWindowEvent::KeyboardInput { event, is_synthetic, .. } => {

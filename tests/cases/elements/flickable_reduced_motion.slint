@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When the user asks the operating system for less motion, a Flickable still pans while
+// the pointer is down, but wheel scrolling lands at once and nothing keeps moving after
+// the pointer is released.
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+
+    f := Flickable {
+        x: 10phx;
+        y: 10phx;
+        width: parent.width - 20phx;
+        height: parent.height - 20phx;
+        content_width: 2100phx;
+        content_height: 2100phx;
+
+        flicked => { root.flicked += 1; }
+    }
+
+    out property <length> offset_x: -f.content_x;
+    out property <length> offset_y: -f.content_y;
+    in-out property <int> flicked;
+}
+
+/*
+```rust
+// A wheel step lands at once instead of easing over 180ms.
+use slint::platform::WindowEvent;
+use slint_testing::{LogicalPoint, BackendMouseEvent, MotionPreference, TouchPhase};
+let instance = TestCase::new().unwrap();
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(175., 175.),
+    delta_x: -30.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+}));
+assert_eq!(instance.get_offset_x(), 30.);
+assert_eq!(instance.get_offset_y(), 50.);
+assert_eq!(instance.get_flicked(), 1);
+
+// A second step adds to the first; there is no running animation to catch up with.
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(175., 175.),
+    delta_x: 0.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+}));
+assert_eq!(instance.get_offset_x(), 30.);
+assert_eq!(instance.get_offset_y(), 100.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_offset_x(), 30.);
+assert_eq!(instance.get_offset_y(), 100.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
+// Dragging pans as usual, and releasing the pointer stops the content where it is.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 100.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::mock_elapsed_time(10);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+instance.set_flicked(0);
+
+// Released right after a fast move: this would normally start a fling.
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_flicked(), 0);
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::mock_elapsed_time(2000);
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+*/

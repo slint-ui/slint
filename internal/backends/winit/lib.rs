@@ -41,6 +41,8 @@ mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
 mod touch_finger_id;
+#[cfg(target_os = "windows")]
+mod windows_settings;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -895,6 +897,8 @@ impl i_slint_core::platform::Platform for Backend {
                     i_slint_core::lengths::LogicalLength::new(height as f32),
                 ));
             }
+
+            ctx.set_motion_preference(windows_settings::motion_preference());
         }
     }
 

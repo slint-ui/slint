@@ -68,6 +68,11 @@ pub extern "C" fn slint_context_accent_color(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_context_reduced_motion(root: &i_slint_core::item_tree::ItemTreeRc) -> bool {
+    i_slint_core::window::reduced_motion(root)
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_context_color_scheme(
     root: &i_slint_core::item_tree::ItemTreeRc,
 ) -> i_slint_core::items::ColorScheme {

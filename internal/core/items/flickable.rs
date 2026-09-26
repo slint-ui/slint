@@ -472,6 +472,7 @@ impl FlickableDataInner {
         mut delta: LogicalVector,
         position: LogicalPoint,
         phase: TouchPhase,
+        window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         if delta != LogicalVector::default()
@@ -542,6 +543,11 @@ impl FlickableDataInner {
                     self.velocity_rb.push(crate::animations::current_tick(), new_pos - current_pos);
                     content_x.set(new_pos.x_length());
                     content_y.set(new_pos.y_length());
+                } else if reduced_motion(window_adapter) {
+                    // Mousewheel case with no phase, and the user asked for less motion:
+                    // land on the new position right away instead of easing towards it.
+                    content_x.set(new_pos.x_length());
+                    content_y.set(new_pos.y_length());
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -582,7 +588,7 @@ impl FlickableDataInner {
             }
             TouchPhase::Ended => {
                 if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
-                    self.animate(flick, flick_rc);
+                    self.animate(flick, window_adapter, flick_rc);
                 }
                 self.capture_events = None;
                 return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
@@ -653,7 +659,18 @@ impl FlickableDataInner {
         [limit_x, limit_y]
     }
 
-    fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+    /// Keeps the content moving after the finger or pointer let go, decelerating from the
+    /// velocity of the last moves. Skipped when the user asked for less motion: the content
+    /// then stays where the drag left it.
+    fn animate(
+        &self,
+        flick: Pin<&Flickable>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        flick_rc: &ItemRc,
+    ) {
+        if reduced_motion(window_adapter) {
+            return;
+        }
         if let Some(last_time) = self.velocity_rb.last_time() {
             let mean_velocity = self.velocity_rb.mean_velocity();
             if self.capture_events.is_some()
@@ -858,7 +875,7 @@ impl FlickableData {
             MouseEvent::Exit | MouseEvent::Released { .. } => {
                 if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen) {
                     let was_capturing = true;
-                    inner.animate(flick, flick_rc);
+                    inner.animate(flick, window_adapter, flick_rc);
                     inner.capture_events = None;
                     inner.pressed_mouse_state = None;
                     if was_capturing {
@@ -961,7 +978,7 @@ impl FlickableData {
             }
             MouseEvent::Wheel { delta_x, delta_y, position, phase } => {
                 let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                inner.process_wheel_event(flick, delta, *position, *phase, flick_rc)
+                inner.process_wheel_event(flick, delta, *position, *phase, window_adapter, flick_rc)
             }
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
@@ -973,6 +990,11 @@ impl FlickableData {
 
 fn abs(l: LogicalLength) -> LogicalLength {
     LogicalLength::new(l.get().abs())
+}
+
+/// Whether the user asked the operating system for less motion, as the window's context reports it
+fn reduced_motion(window_adapter: &Rc<dyn WindowAdapter>) -> bool {
+    window_adapter.window().0.context().motion_preference() == crate::MotionPreference::Reduced
 }
 
 /// Make sure that the point is within the bounds

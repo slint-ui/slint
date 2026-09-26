@@ -603,7 +603,7 @@ generated Rust into the build output directory.
 
 `CompilerConfiguration` wraps the compiler's own configuration and is built by chaining consuming
 `with_*` methods: `with_include_paths()`, `with_library_paths()`, `with_style()`,
-`with_scale_factor()`, `with_bundled_translations()`, `with_default_translation_context()`,
+`with_scale_factor()`, `with_reduced_motion()`, `with_bundled_translations()`, `with_default_translation_context()`,
 `with_debug_info()`, `with_sdf_fonts()`,
 `as_library()`, `rust_module()`, and `embed_resources()`, which takes an `EmbedResourcesKind`
 saying whether resources are loaded from an absolute path at run-time, embedded as-is, or
