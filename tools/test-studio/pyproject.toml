@@ -1,0 +1,16 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[project]
+name = "slint-test-studio"
+version = "0.1.0"
+description = "A desktop runner for Slint Visual Editor UI tests"
+requires-python = ">=3.12"
+dependencies = ["slint[dev]==1.18.1b1"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,298 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, ScrollView, ListView } from "std-widgets.slint";
+import { Button, ButtonVariant, PrimerTextInput, UnderlineNav, PrimerColors, Icons, Label } from "@primer";
+
+export struct TestRow { id: string, title: string, detail: string, status: string }
+export struct StepRow { title: string, detail: string, status: string }
+
+component ActionButton inherits FocusScope {
+    in property <string> label;
+    in property <ButtonVariant> variant: default;
+    in property <bool> disabled;
+    callback activated;
+    height: 32px;
+    preferred-width: 116px;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: !root.disabled;
+    accessible-action-default => { if !root.disabled { root.activated(); } }
+    key-pressed(event) => {
+        if !root.disabled && (event.text == Key.Return || event.text == Key.Space) {
+            root.activated(); return accept;
+        }
+        return reject;
+    }
+    Button {
+        width: 100%; label: root.label; variant: root.variant; disabled: root.disabled;
+        clicked => { root.focus(); root.activated(); }
+    }
+    Rectangle {
+        background: transparent; border-radius: 6px;
+        border-width: root.has-focus ? 2px : 0px; border-color: PrimerColors.fgColor-accent;
+    }
+}
+
+component StatusDot inherits Rectangle {
+    in property <string> status;
+    width: 8px; height: 8px; border-radius: 4px;
+    background: status == "Passed" ? PrimerColors.fgColor-success : status == "Failed" ? PrimerColors.fgColor-danger : status == "Running" ? PrimerColors.fgColor-accent : status == "Skipped" ? PrimerColors.fgColor-attention : PrimerColors.fgColor-muted;
+}
+
+export component TestStudio inherits Window {
+    title: "Slint Test Studio";
+    preferred-width: 1380px; preferred-height: 900px; min-width: 1080px; min-height: 700px;
+    default-font-family: "Mona Sans"; default-font-size: 14px;
+    background: PrimerColors.bgColor-default;
+    in property <[TestRow]> tests;
+    in property <[StepRow]> steps;
+    in property <string> selected-id;
+    in property <string> selected-title: "Discovering tests…";
+    in property <string> selected-path;
+    in property <string> selected-status: "Not run";
+    in property <string> source-code;
+    in property <string> output;
+    in property <string> summary: "Connecting to the Visual Editor test suite";
+    in property <string> results-summary: "No tests run";
+    in property <string> workspace-name;
+    in property <bool> busy;
+    in property <bool> ready;
+    in property <bool> has-screenshot;
+    in property <image> screenshot;
+    in property <string> screenshot-caption: "No capture yet";
+    in property <int> selected-step: -1;
+    in property <string> elapsed;
+    in-out property <string> query;
+    in-out property <bool> failures-only;
+    in-out property <bool> visible-editor;
+    in-out property <bool> dark: false;
+    in-out property <int> active-tab: 0;
+    callback select-test(string);
+    callback search(string);
+    callback filter-failures(bool);
+    callback run-selected;
+    callback run-visible;
+    callback stop;
+    callback refresh;
+    callback select-step(int);
+    callback open-artifacts;
+
+    init => { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+    changed dark => { Palette.color-scheme = root.dark ? ColorScheme.dark : ColorScheme.light; }
+
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 68px; background: PrimerColors.bgColor-canvas-subtle;
+            HorizontalLayout {
+                padding-left: 24px; padding-right: 24px; spacing: 12px; cross-axis-alignment: center;
+                Rectangle {
+                    width: 32px; height: 32px; border-radius: 8px;
+                    background: PrimerColors.bgColor-accent-emphasis;
+                    Image { width: 20px; height: 20px; source: Icons.checkbox; colorize: white; }
+                }
+                VerticalLayout {
+                    height: 40px; width: 240px; alignment: center; spacing: 3px;
+                    Text { text: "Test Studio"; font-size: 17px; font-weight: 650; color: PrimerColors.fgColor-default; }
+                    Text { text: "SLINT  /  VISUAL EDITOR"; font-size: 10px; font-weight: 600; color: PrimerColors.fgColor-muted; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: root.results-summary; color: PrimerColors.fgColor-muted; vertical-alignment: center; }
+                Rectangle { width: 12px; }
+                ActionButton { label: root.dark ? "Light theme" : "Dark theme"; activated => { root.dark = !root.dark; } }
+            }
+        }
+        Rectangle { height: 1px; background: PrimerColors.borderColor-default; }
+        HorizontalLayout {
+            spacing: 0px;
+            Rectangle {
+                width: 320px; background: PrimerColors.bgColor-canvas-subtle;
+                VerticalLayout {
+                    spacing: 0px;
+                    VerticalLayout {
+                        padding: 20px; spacing: 16px;
+                        HorizontalLayout {
+                            Text { text: "Tests"; color: PrimerColors.fgColor-default; font-weight: 650; font-size: 16px; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Label { text: "\{root.tests.length}"; }
+                        }
+                        PrimerTextInput {
+                            text <=> root.query;
+                            label-text: "Search tests"; label-visually-hidden: true;
+                            placeholder: "Search tests or suites…";
+                            has-leading-visual: true; leading-visual: Icons.search;
+                            has-trailing-action: true;
+                            edited(value) => { root.search(value); }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            ActionButton { label: "All tests"; variant: root.failures-only ? default : primary; activated => { root.failures-only = false; root.filter-failures(false); } }
+                            ActionButton { label: "Failed"; variant: root.failures-only ? primary : default; activated => { root.failures-only = true; root.filter-failures(true); } }
+                        }
+                    }
+                    Rectangle { height: 1px; background: PrimerColors.borderColor-muted; }
+                    test-list := ListView {
+                        vertical-stretch: 1;
+                        for row in root.tests: FocusScope {
+                            height: 68px;
+                            accessible-role: list-item; accessible-label: row.title + " · " + row.detail;
+                            accessible-item-selected: root.selected-id == row.id;
+                            accessible-action-default => { root.select-test(row.id); }
+                            key-pressed(event) => {
+                                if event.text == Key.Return || event.text == Key.Space { root.select-test(row.id); return accept; }
+                                return reject;
+                            }
+                            Rectangle {
+                                background: root.selected-id == row.id ? PrimerColors.bgColor-accent-muted : row-touch.has-hover ? PrimerColors.bgColor-neutral-muted : transparent;
+                                Rectangle { x: 0px; y: 0px; width: 3px; background: root.selected-id == row.id ? PrimerColors.fgColor-accent : transparent; }
+                                HorizontalLayout {
+                                    padding-left: 20px; padding-right: 16px; spacing: 12px; cross-axis-alignment: center;
+                                    StatusDot { status: row.status; }
+                                    VerticalLayout {
+                                        height: 38px; alignment: center; spacing: 5px;
+                                        Text { text: row.title; overflow: elide; color: PrimerColors.fgColor-default; font-size: 13px; font-weight: root.selected-id == row.id ? 600 : 400; }
+                                        Text { text: row.detail; overflow: elide; color: PrimerColors.fgColor-muted; font-size: 11px; }
+                                    }
+                                }
+                                row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.select-test(row.id); } }
+                            }
+                        }
+                    }
+                    if root.tests.length == 0: Text { text: root.busy ? "Discovering tests…" : "No matching tests"; color: PrimerColors.fgColor-muted; height: 60px; horizontal-alignment: center; }
+                    Rectangle { height: 1px; background: PrimerColors.borderColor-muted; }
+                    HorizontalLayout {
+                        padding: 16px;
+                        Text { text: "5 suites · pytest"; color: PrimerColors.fgColor-muted; font-size: 12px; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        ActionButton { label: "Refresh"; preferred-width: 86px; disabled: root.busy; activated => { root.refresh(); } }
+                    }
+                }
+            }
+            Rectangle { width: 1px; background: PrimerColors.borderColor-default; }
+            VerticalLayout {
+                spacing: 0px;
+                VerticalLayout {
+                    padding: 24px; spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: "VISUAL EDITOR"; color: PrimerColors.fgColor-muted; font-size: 11px; font-weight: 650; }
+                        Rectangle { horizontal-stretch: 1; }
+                        StatusDot { status: root.selected-status; }
+                        Text { text: root.selected-status; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                        Text { text: root.elapsed; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                    }
+                    Text { text: root.selected-title; font-size: 24px; font-weight: 600; color: PrimerColors.fgColor-default; wrap: word-wrap; }
+                    Text { text: root.selected-path; color: PrimerColors.fgColor-muted; font-size: 12px; overflow: elide; }
+                    HorizontalLayout {
+                        spacing: 8px; padding-top: 8px;
+                        ActionButton { label: "Run test"; variant: primary; disabled: root.busy || !root.ready || root.selected-id == ""; activated => { root.run-selected(); } }
+                        ActionButton { label: "Run shown (\{root.tests.length})"; preferred-width: 140px; disabled: root.busy || !root.ready || root.tests.length == 0; activated => { root.run-visible(); } }
+                        ActionButton { label: "Stop"; preferred-width: 72px; disabled: !root.busy; activated => { root.stop(); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        ActionButton { label: root.visible-editor ? "Editor: visible" : "Editor: headless"; preferred-width: 148px; disabled: root.busy; activated => { root.visible-editor = !root.visible-editor; } }
+                    }
+                }
+                UnderlineNav {
+                    height: 44px; accessible-name: "Test details";
+                    items: [
+                        { label: "Run details", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.history },
+                        { label: "Source", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.file },
+                        { label: "Output", enabled: true, counter: "", has-leading-icon: true, leading-icon: Icons.book },
+                    ];
+                    selected-index: root.active-tab;
+                    item-activated(index) => { root.active-tab = index; }
+                }
+                if root.active-tab == 0: HorizontalLayout {
+                    spacing: 0px;
+                    Rectangle {
+                        width: 254px;
+                        VerticalLayout {
+                            padding: 20px; spacing: 12px;
+                            Text { text: "Execution steps"; color: PrimerColors.fgColor-default; font-weight: 600; }
+                            Text { text: "Select a step to inspect its capture."; wrap: word-wrap; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                            step-list := ListView {
+                                vertical-stretch: 1;
+                                for step[index] in root.steps: FocusScope {
+                                    height: 72px;
+                                    accessible-role: list-item; accessible-label: step.title;
+                                    accessible-item-selected: root.selected-step == index;
+                                    accessible-action-default => { root.select-step(index); }
+                                    key-pressed(event) => {
+                                        if event.text == Key.Return || event.text == Key.Space { root.select-step(index); return accept; }
+                                        return reject;
+                                    }
+                                    Rectangle {
+                                        border-radius: 6px;
+                                        background: root.selected-step == index ? PrimerColors.bgColor-accent-muted : step-touch.has-hover ? PrimerColors.bgColor-canvas-subtle : transparent;
+                                        HorizontalLayout {
+                                            padding: 12px; spacing: 10px; cross-axis-alignment: center;
+                                            StatusDot { status: step.status; }
+                                            VerticalLayout {
+                                                height: 42px; spacing: 4px; alignment: center;
+                                                Text { text: step.title; color: PrimerColors.fgColor-default; font-size: 12px; font-weight: 550; wrap: word-wrap; }
+                                                Text { text: step.detail; color: PrimerColors.fgColor-muted; font-size: 11px; overflow: elide; }
+                                            }
+                                        }
+                                        step-touch := TouchArea { mouse-cursor: pointer; clicked => { root.select-step(index); } }
+                                    }
+                                }
+                            }
+                            if root.steps.length == 0: Text { text: "Steps appear when you run this test."; wrap: word-wrap; color: PrimerColors.fgColor-muted; font-size: 12px; }
+                        }
+                    }
+                    Rectangle { width: 1px; background: PrimerColors.borderColor-muted; }
+                    Rectangle {
+                        horizontal-stretch: 1; background: PrimerColors.bgColor-inset;
+                        VerticalLayout {
+                            padding: 20px; spacing: 16px;
+                            HorizontalLayout {
+                                Text { text: "Application preview"; font-weight: 600; color: PrimerColors.fgColor-default; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Label { text: "Snapshot"; }
+                            }
+                            Rectangle {
+                                vertical-stretch: 1; border-radius: 8px; border-width: 1px; border-color: PrimerColors.borderColor-default;
+                                background: PrimerColors.bgColor-default; clip: true;
+                                if root.has-screenshot: Image { width: 100%; height: 100%; source: root.screenshot; image-fit: contain; }
+                                if !root.has-screenshot: VerticalLayout {
+                                    alignment: center; padding: 32px; spacing: 16px;
+                                    HorizontalLayout { alignment: center; Image { source: Icons.layout_grid; colorize: PrimerColors.fgColor-muted; width: 36px; height: 36px; } }
+                                    Text { text: "See the test in action"; font-size: 18px; font-weight: 600; horizontal-alignment: center; color: PrimerColors.fgColor-default; }
+                                    Text { text: "Run a test to capture the editor at each stage.\nSelect a capture to review what happened."; wrap: word-wrap; horizontal-alignment: center; color: PrimerColors.fgColor-muted; font-size: 13px; }
+                                }
+                            }
+                            Text { text: root.screenshot-caption; color: PrimerColors.fgColor-muted; font-size: 12px; overflow: elide; }
+                            HorizontalLayout {
+                                Text { text: "Captured from the real Slint application"; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                                ActionButton { label: "Artifacts"; preferred-width: 86px; disabled: !root.has-screenshot; activated => { root.open-artifacts(); } }
+                            }
+                        }
+                    }
+                }
+                if root.active-tab == 1: ScrollView {
+                    content-width: max(self.visible-width, source-text.preferred-width + 48px);
+                    content-height: max(self.visible-height, source-text.preferred-height + 48px);
+                    source-text := Text { x: 24px; y: 24px; text: root.source-code; color: PrimerColors.fgColor-default; font-family: "Menlo"; font-size: 12px; }
+                }
+                if root.active-tab == 2: ScrollView {
+                    content-width: max(self.visible-width, output-text.preferred-width + 48px);
+                    content-height: max(self.visible-height, output-text.preferred-height + 48px);
+                    output-text := Text { x: 24px; y: 24px; text: root.output == "" ? "Run this test to see pytest output and failure details." : root.output; color: PrimerColors.fgColor-default; font-family: "Menlo"; font-size: 12px; }
+                }
+            }
+        }
+        Rectangle { height: 1px; background: PrimerColors.borderColor-default; }
+        Rectangle {
+            height: 34px; background: PrimerColors.bgColor-canvas-subtle;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; spacing: 12px; cross-axis-alignment: center;
+                StatusDot { status: root.busy ? "Running" : "Not run"; }
+                Text { text: root.summary; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; overflow: elide; }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: root.workspace-name; color: PrimerColors.fgColor-muted; font-size: 11px; vertical-alignment: center; }
+            }
+        }
+    }
+}
