@@ -28,7 +28,7 @@ default = ["skia", "software", "software-embed-assets"]
 # The default software driver renders without pre-rendering resources at compile time: vector fonts
 # (parley) and runtime-decoded images. `configure_test_fonts()` makes that deterministic.
 software = ["slint/renderer-software", "dep:i-slint-compiler", "dep:i-slint-backend-testing"]
-skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter", "dep:spin_on"]
+skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
 # Offscreen GPU tests for the shared FemtoVG shadow rendering path.
 femtovg = ["dep:i-slint-renderer-femtovg", "dep:wgpu-30", "dep:slint-interpreter", "dep:spin_on"]
 # Snapshot-tests the command stream recorded by i-slint-renderer-anyrender
