@@ -3,8 +3,9 @@
 
 import sys
 import typing
+import weakref
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from ._native import native
@@ -17,7 +18,7 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     Models are iterable and can be used in for loops."""
 
-    def __new__(cls, *args: Any) -> typing.Self:
+    def __new__(cls, *args: Any, **kwargs: Any) -> typing.Self:
         return super().__new__(cls)
 
     def __init__(self) -> None:
@@ -52,7 +53,9 @@ class Model[T](native.PyModelBase, Iterable[T]):
 
     @abstractmethod
     def row_data(self, row: int) -> T | None:
-        """Returns the data for the given row.
+        """Returns the data for the given row, or None if the row has no data.
+        None is not a row value of its own: models that wrap this model, such
+        as `FilterModel`, treat such a row as having no data.
         Re-implement this method in a sub-class to provide the data."""
         ...
 
@@ -175,6 +178,268 @@ class ListModel[T](Model[T]):
         clamped = max(0, min(index, len(self.list)))
         self.list.insert(clamped, value)
         super().notify_row_added(clamped, 1)
+
+
+class _AdapterModel[T](Model[T]):
+    """The base class of the models that wrap a model adapter of the Rust core library."""
+
+    _adapter: native.PyModelAdapter
+
+    def _row_index(self, row: int) -> int:
+        return row + self.row_count() if row < 0 else row
+
+    def row_count(self) -> int:
+        return self._adapter.row_count()
+
+    def row_data(self, row: int) -> T | None:
+        row = self._row_index(row)
+        if row < 0:
+            return None
+        return typing.cast(T | None, self._adapter.row_data(row))
+
+
+class MapModel[T, U](_AdapterModel[U]):
+    """MapModel is a read-only `Model` that provides the rows of a source model,
+    each passed through a map function.
+
+    The MapModel follows the changes of the source model.
+
+    ```python
+    names = slint.ListModel([("Hans", "Emil"), ("Max", "Mustermann")])
+    full_names = slint.MapModel(names, lambda name: f"{name[1]}, {name[0]}")
+    assert full_names[0] == "Emil, Hans"
+    ```
+
+    Alternatively, subclass MapModel and implement `map_row`:
+
+    ```python
+    class FullNames(slint.MapModel[tuple[str, str], str]):
+        def map_row(self, row_data: tuple[str, str]) -> str:
+            return f"{row_data[1]}, {row_data[0]}"
+
+    full_names = FullNames(names)
+    ```
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        map_function: Callable[[T], U] | None = None,
+    ):
+        """Constructs a new MapModel that maps the rows of `source_model` when
+        they are read.
+        Pass `map_function` to map the rows, or omit it in a subclass that
+        implements `map_row`."""
+        super().__init__()
+        self.source_model = source_model
+        if map_function is None:
+            if type(self).map_row is MapModel.map_row:
+                raise TypeError(
+                    "MapModel requires a map function or a subclass that implements map_row()"
+                )
+            this = weakref.ref(self)
+
+            def map_function(row_data: T) -> U:
+                model = this()
+                assert model is not None
+                return model.map_row(row_data)
+
+        self._adapter = native.PyModelAdapter.map(source_model, map_function, self)
+
+    def map_row(self, row_data: T) -> U:
+        """Returns the row of this model for `row_data`, a row of the source model.
+        Re-implement this method in a sub-class that doesn't pass a map function
+        to the constructor."""
+        raise NotImplementedError(f"{type(self).__name__} does not implement map_row()")
+
+
+class _WritableAdapterModel[T](_AdapterModel[T]):
+    """The base class of the adapter models whose rows can be set."""
+
+    def set_row_data(self, row: int, value: T) -> None:
+        """Sets the row of the source model that corresponds to `row`.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        self._adapter.set_row_data(index, value)
+
+
+class ReverseModel[T](_WritableAdapterModel[T]):
+    """ReverseModel is a `Model` that provides the rows of a source model in
+    reverse order.
+
+    The ReverseModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    numbers = slint.ListModel([1, 2, 3])
+    reversed_numbers = slint.ReverseModel(numbers)
+    assert list(reversed_numbers) == [3, 2, 1]
+    ```
+    """
+
+    def __init__(self, source_model: Model[T]):
+        """Constructs a new ReverseModel that provides the rows of `source_model`
+        in reverse order."""
+        super().__init__()
+        self.source_model = source_model
+        self._adapter = native.PyModelAdapter.reverse(source_model, self)
+
+
+class FilterModel[T](_WritableAdapterModel[T]):
+    """FilterModel is a `Model` that provides the rows of a source model for
+    which a filter function returns true.
+
+    The FilterModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    numbers = slint.ListModel([1, 2, 3, 4])
+    even_numbers = slint.FilterModel(numbers, lambda n: n % 2 == 0)
+    assert list(even_numbers) == [2, 4]
+    ```
+
+    Alternatively, subclass FilterModel and implement `filter_row`.
+    Call `reset` when the result of the filter changes for reasons other than
+    a change of the source model:
+
+    ```python
+    class Search(slint.FilterModel[str]):
+        def __init__(self, source: slint.Model[str]) -> None:
+            self.text = ""
+            super().__init__(source)
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    search = Search(slint.ListModel(["Hans", "Max", "Roman"]))
+    search.text = "Max"
+    search.reset()
+    ```
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        filter_function: Callable[[T], bool] | None = None,
+    ):
+        """Constructs a new FilterModel that provides the rows of `source_model`
+        for which the filter returns true.
+        Pass `filter_function` to filter the rows, or omit it in a subclass that
+        implements `filter_row`.
+        The constructor applies the filter to all rows of the source model, so
+        a subclass sets the state that `filter_row` uses before calling it."""
+        super().__init__()
+        self.source_model = source_model
+        if filter_function is None:
+            if type(self).filter_row is FilterModel.filter_row:
+                raise TypeError(
+                    "FilterModel requires a filter function or a subclass that implements filter_row()"
+                )
+            this = weakref.ref(self)
+
+            def filter_function(row_data: T) -> bool:
+                model = this()
+                assert model is not None
+                return model.filter_row(row_data)
+
+        self._adapter = native.PyModelAdapter.filter(
+            source_model, filter_function, self
+        )
+
+    def filter_row(self, row_data: T) -> bool:
+        """Returns true if `row_data`, a row of the source model, is a row of this model.
+        Re-implement this method in a sub-class that doesn't pass a filter function
+        to the constructor."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement filter_row()"
+        )
+
+    def reset(self) -> None:
+        """Applies the filter to all rows of the source model again.
+        Call this when the result of the filter changes for reasons other than
+        a change of the source model."""
+        self._adapter.reset()
+
+    def unfiltered_row(self, row: int) -> int:
+        """Returns the index of the row of the source model that is `row` in this model.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        return self._adapter.source_row(index)
+
+
+class SortModel[T](_WritableAdapterModel[T]):
+    """SortModel is a `Model` that provides the rows of a source model in
+    sorted order.
+
+    Like `sorted()`, it orders the rows by the result of the `key` function,
+    or by the rows themselves without a key, and in descending order with
+    `reverse=True`.
+    To sort by a comparison function, pass `key=functools.cmp_to_key(compare)`.
+    Rows with a float NaN key sort last, followed by rows whose key raises an
+    exception, regardless of `reverse`.
+    Keys that can't be ordered, such as tuples that contain NaN, raise ValueError.
+
+    The SortModel follows the changes of the source model.
+    Setting a row sets the corresponding row of the source model.
+
+    ```python
+    names = slint.ListModel(["Max", "Hans", "Roman"])
+    sorted_names = slint.SortModel(names)
+    assert list(sorted_names) == ["Hans", "Max", "Roman"]
+    by_length = slint.SortModel(names, key=len, reverse=True)
+    ```
+
+    Alternatively, subclass SortModel and implement `sort_key`.
+    Call `reset` when the order changes for reasons other than a change of
+    the source model.
+    """
+
+    def __init__(
+        self,
+        source_model: Model[T],
+        key: Callable[[T], Any] | None = None,
+        reverse: bool = False,
+    ):
+        """Constructs a new SortModel that provides the rows of `source_model`
+        ordered by `key`.
+        Omit `key` to order the rows by themselves, or by `sort_key` in a
+        subclass that implements it."""
+        super().__init__()
+        self.source_model = source_model
+        if key is None and type(self).sort_key is not SortModel.sort_key:
+            this = weakref.ref(self)
+
+            def key(row_data: T) -> Any:
+                model = this()
+                assert model is not None
+                return model.sort_key(row_data)
+
+        self._adapter = native.PyModelAdapter.sort(source_model, key, reverse, self)
+
+    def sort_key(self, row_data: T) -> Any:
+        """Returns the value to order `row_data`, a row of the source model, by.
+        The default implementation returns `row_data` itself.
+        Re-implement this method in a sub-class that doesn't pass a key to the
+        constructor."""
+        return row_data
+
+    def reset(self) -> None:
+        """Sorts all rows of the source model again.
+        Call this when the order changes for reasons other than a change of
+        the source model."""
+        self._adapter.reset()
+
+    def unsorted_row(self, row: int) -> int:
+        """Returns the index of the row of the source model that is `row` in this model.
+        Raises IndexError if `row` is out of range."""
+        index = self._row_index(row)
+        if index < 0:
+            raise IndexError("row index out of range")
+        return self._adapter.source_row(index)
 
 
 class ModelIterator[T](Iterator[T]):

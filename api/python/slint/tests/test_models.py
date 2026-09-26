@@ -1,8 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore capfd
+# cSpell: ignore capfd Maxime unorderable unraisable unraisablehook
 
+import functools
+import math
+import random
+import sys
 import typing
 from pathlib import Path
 
@@ -421,3 +425,701 @@ def test_list_model_append_alias() -> None:
     model = models.ListModel([1, 2])
     model.append(3)
     assert list(model) == [1, 2, 3]
+
+
+def test_map_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    mapped = models.MapModel(source, lambda value: value * 10)
+
+    assert mapped.source_model is source
+    assert list(mapped) == [10, 20, 30]
+    assert mapped[1] == 20
+    assert mapped.row_data(3) is None
+
+    source[1] = 5
+    source.append(4)
+    del source[0]
+    assert list(mapped) == [50, 30, 40]
+
+
+def test_map_model_of_map_model() -> None:
+    source = models.ListModel([1, 2])
+    mapped = models.MapModel(
+        models.MapModel(source, lambda value: value + 1), lambda value: str(value)
+    )
+    assert list(mapped) == ["2", "3"]
+
+
+def test_map_model_notifies() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in property<[string]> texts;
+            out property<string> joined: texts[0] + texts[1] + texts[2];
+            out property<int> count: texts.length;
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    source = models.ListModel([1, 2, 3])
+    instance.set_property("texts", models.MapModel(source, lambda value: str(value)))
+    assert instance.get_property("joined") == "123"
+
+    source[1] = 5
+    assert instance.get_property("joined") == "153"
+    source.insert(0, 0)
+    assert instance.get_property("joined") == "015"
+    assert instance.get_property("count") == 4
+    del source[0]
+    assert instance.get_property("count") == 3
+
+
+def test_map_model_subclass_notifies() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in property<[int]> values;
+            out property<int> first: values[0];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class ScaledModel(models.MapModel[int, int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            super().__init__(source)
+            self.factor = 2
+
+        def map_row(self, row_data: int) -> int:
+            return row_data * self.factor
+
+    mapped = ScaledModel(models.ListModel([1, 2]))
+    instance.set_property("values", mapped)
+    assert instance.get_property("first") == 2
+
+    mapped.factor = 3
+    mapped.notify_row_changed(0)
+    assert instance.get_property("first") == 3
+
+
+def test_map_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    mapped = models.MapModel(instance.get_property("data"), lambda value: -value)
+    assert list(mapped) == [-1, -2, -3]
+
+
+def test_map_model_function_exception() -> None:
+    def fail(value: int) -> int:
+        raise ValueError(f"cannot map {value}")
+
+    mapped = models.MapModel(models.ListModel([1]), fail)
+    with pytest.raises(ValueError, match="cannot map 1"):
+        mapped.row_data(0)
+    assert mapped.row_count() == 1
+
+
+def test_map_model_source_exception() -> None:
+    class Failing(models.Model[int]):
+        def row_count(self) -> int:
+            raise RuntimeError("no count")
+
+        def row_data(self, row: int) -> int | None:
+            return None
+
+    mapped = models.MapModel(Failing(), lambda value: value)
+    with pytest.raises(RuntimeError, match="no count"):
+        mapped.row_count()
+
+
+def test_map_model_rejects_non_model_source() -> None:
+    with pytest.raises(TypeError):
+        models.MapModel(typing.cast(models.Model[int], [1, 2]), lambda value: value)
+
+
+def test_map_model_function_takes_precedence_over_map_row() -> None:
+    class Negated(models.MapModel[int, int]):
+        def map_row(self, row_data: int) -> int:
+            return -row_data
+
+    assert list(Negated(models.ListModel([1, 2]))) == [-1, -2]
+    assert list(Negated(models.ListModel([1, 2]), lambda value: value * 2)) == [2, 4]
+
+
+def test_map_model_requires_map_function_or_map_row() -> None:
+    with pytest.raises(TypeError, match="map_row"):
+        models.MapModel(models.ListModel([1]))
+
+
+def test_map_model_skips_missing_source_rows() -> None:
+    class Sparse(models.Model[int]):
+        def row_count(self) -> int:
+            return 2
+
+        def row_data(self, row: int) -> int | None:
+            return 1 if row == 0 else None
+
+    mapped = models.MapModel(Sparse(), lambda value: value * 10)
+    assert mapped.row_data(0) == 10
+    assert mapped.row_data(1) is None
+    assert mapped.row_data(5) is None
+
+
+def test_map_model_negative_index() -> None:
+    mapped = models.MapModel(models.ListModel([1, 2, 3]), lambda value: value * 10)
+    assert mapped[-1] == 30
+    assert mapped.row_data(-3) == 10
+    assert mapped.row_data(-4) is None
+
+
+def test_reverse_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    reversed_model = models.ReverseModel(source)
+
+    assert reversed_model.source_model is source
+    assert list(reversed_model) == [3, 2, 1]
+    assert reversed_model[-1] == 1
+    assert reversed_model.row_data(3) is None
+    assert reversed_model.row_data(-4) is None
+
+    source.append(4)
+    del source[0]
+    source[0] = 20
+    assert list(reversed_model) == [4, 3, 20]
+
+
+def test_reverse_model_set_row_data() -> None:
+    source = models.ListModel([1, 2, 3])
+    reversed_model = models.ReverseModel(source)
+
+    reversed_model[0] = 30
+    reversed_model[-1] = 10
+    assert list(source) == [10, 2, 30]
+
+    with pytest.raises(IndexError):
+        reversed_model[3] = 0
+    with pytest.raises(IndexError):
+        reversed_model[-4] = 0
+
+
+def test_reverse_model_chained_with_map_model() -> None:
+    source = models.ListModel([1, 2, 3])
+    assert list(models.ReverseModel(models.MapModel(source, str))) == ["3", "2", "1"]
+    assert list(models.MapModel(models.ReverseModel(source), str)) == ["3", "2", "1"]
+
+
+def test_reverse_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    reversed_model = models.ReverseModel(instance.get_property("data"))
+    assert list(reversed_model) == [3, 2, 1]
+    reversed_model[0] = 30
+    assert list(instance.get_property("data")) == [1, 2, 30]
+
+
+def test_reverse_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    source = models.ListModel([1, 2, 3])
+    instance.set_property("values", models.ReverseModel(source))
+    assert instance.get_property("first") == 3
+
+    source[2] = 30
+    assert instance.get_property("first") == 30
+    source.append(4)
+    assert instance.get_property("first") == 4
+    assert instance.get_property("count") == 4
+
+    instance.invoke("set_first", 40)
+    assert list(source) == [1, 2, 30, 40]
+
+
+def test_reverse_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    class FailingCount(models.ListModel[int]):
+        fail = False
+
+        def row_count(self) -> int:
+            if self.fail:
+                raise RuntimeError("no count")
+            return super().row_count()
+
+    source = FailingCount([1, 2])
+    reversed_model = models.ReverseModel(source)
+    source.fail = True
+    del source[0]
+
+    assert len(unraisable) == 1
+    assert isinstance(unraisable[0].exc_value, RuntimeError)
+    assert "change notification" in unraisable[0].exc_value.__notes__[0]
+
+    source.fail = False
+    assert list(reversed_model) == [2]
+
+
+def test_filter_model() -> None:
+    source = models.ListModel([1, 2, 3, 4])
+    even = models.FilterModel(source, lambda value: value % 2 == 0)
+
+    assert even.source_model is source
+    assert list(even) == [2, 4]
+    assert even[-1] == 4
+    assert even.row_data(2) is None
+    assert even.row_data(-3) is None
+
+    source.append(6)
+    source.append(7)
+    source[0] = 0
+    source[1] = 5
+    assert list(even) == [0, 4, 6]
+    del source[0]
+    assert list(even) == [4, 6]
+
+
+def test_filter_model_unfiltered_row() -> None:
+    even = models.FilterModel(
+        models.ListModel([1, 2, 3, 4]), lambda value: value % 2 == 0
+    )
+    assert even.unfiltered_row(0) == 1
+    assert even.unfiltered_row(-1) == 3
+    with pytest.raises(IndexError):
+        even.unfiltered_row(2)
+    with pytest.raises(IndexError):
+        even.unfiltered_row(-3)
+
+
+def test_filter_model_set_row_data() -> None:
+    source = models.ListModel([1, 2, 3, 4])
+    even = models.FilterModel(source, lambda value: value % 2 == 0)
+
+    even[1] = 40
+    assert list(source) == [1, 2, 3, 40]
+    even[0] = 5
+    assert list(source) == [1, 5, 3, 40]
+    assert list(even) == [40]
+
+    with pytest.raises(IndexError):
+        even[1] = 0
+
+
+def test_filter_model_subclass_reset() -> None:
+    class Search(models.FilterModel[str]):
+        def __init__(self, source: models.Model[str]) -> None:
+            self.text = ""
+            super().__init__(source)
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    search = Search(models.ListModel(["Hans", "Max", "Maxime"]))
+    assert list(search) == ["Hans", "Max", "Maxime"]
+
+    search.text = "Max"
+    assert list(search) == ["Hans", "Max", "Maxime"]
+    search.reset()
+    assert list(search) == ["Max", "Maxime"]
+
+
+def test_filter_model_constructor_raises_filter_exception() -> None:
+    class Search(models.FilterModel[str]):
+        def __init__(self, source: models.Model[str]) -> None:
+            super().__init__(source)
+            self.text = ""
+
+        def filter_row(self, row_data: str) -> bool:
+            return self.text in row_data
+
+    with pytest.raises(AttributeError, match="text"):
+        Search(models.ListModel(["Hans"]))
+
+
+def test_filter_model_reset_raises_filter_exception() -> None:
+    fail = False
+
+    def keep(value: int) -> bool:
+        if fail:
+            raise ValueError(f"cannot filter {value}")
+        return True
+
+    filtered = models.FilterModel(models.ListModel([1]), keep)
+    fail = True
+    with pytest.raises(ValueError, match="cannot filter 1"):
+        filtered.reset()
+
+
+def test_filter_model_requires_filter_function_or_filter_row() -> None:
+    with pytest.raises(TypeError, match="filter_row"):
+        models.FilterModel(models.ListModel([1]))
+
+
+def test_filter_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    def keep(value: int) -> bool:
+        if value < 0:
+            raise ValueError("negative")
+        return True
+
+    source = models.ListModel([1])
+    filtered = models.FilterModel(source, keep)
+    source.append(-1)
+
+    assert len(unraisable) == 1
+    assert isinstance(unraisable[0].exc_value, ValueError)
+    assert list(filtered) == [1]
+
+
+def test_filter_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [1, 2, 3, 4];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    even = models.FilterModel(
+        instance.get_property("data"), lambda value: value % 2 == 0
+    )
+    assert list(even) == [2, 4]
+    even[0] = 20
+    assert list(instance.get_property("data")) == [1, 20, 3, 4]
+
+
+def test_filter_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class Above(models.FilterModel[int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            self.limit = 1
+            super().__init__(source)
+
+        def filter_row(self, row_data: int) -> bool:
+            return row_data > self.limit
+
+    source = models.ListModel([1, 2, 3])
+    above = Above(source)
+    instance.set_property("values", above)
+    assert instance.get_property("first") == 2
+    assert instance.get_property("count") == 2
+
+    source.insert(0, 5)
+    assert instance.get_property("first") == 5
+    assert instance.get_property("count") == 3
+
+    above.limit = 2
+    above.reset()
+    assert instance.get_property("count") == 2
+
+    instance.invoke("set_first", 50)
+    assert list(source) == [50, 1, 2, 3]
+
+
+def test_sort_model() -> None:
+    source = models.ListModel([3, 1, 2])
+    sorted_model = models.SortModel(source)
+
+    assert sorted_model.source_model is source
+    assert list(sorted_model) == [1, 2, 3]
+    assert sorted_model[-1] == 3
+    assert sorted_model.row_data(3) is None
+    assert sorted_model.row_data(-4) is None
+
+    source.append(0)
+    source[0] = 10
+    assert list(sorted_model) == [0, 1, 2, 10]
+    del source[1]
+    assert list(sorted_model) == [0, 2, 10]
+
+
+def test_sort_model_key_and_reverse() -> None:
+    source = models.ListModel(["ccc", "a", "bb"])
+    assert list(models.SortModel(source, key=len)) == ["a", "bb", "ccc"]
+    assert list(models.SortModel(source, key=len, reverse=True)) == ["ccc", "bb", "a"]
+    assert list(models.SortModel(source, reverse=True)) == ["ccc", "bb", "a"]
+
+
+def test_sort_model_is_stable() -> None:
+    source = models.ListModel([("b", 1), ("a", 2), ("b", 3), ("a", 4)])
+    assert list(models.SortModel(source, key=lambda row: row[0])) == [
+        ("a", 2),
+        ("a", 4),
+        ("b", 1),
+        ("b", 3),
+    ]
+
+
+def test_sort_model_cmp_to_key() -> None:
+    def by_last_digit(lhs: int, rhs: int) -> int:
+        return lhs % 10 - rhs % 10
+
+    source = models.ListModel([13, 21, 32])
+    sorted_model = models.SortModel(source, key=functools.cmp_to_key(by_last_digit))
+    assert list(sorted_model) == [21, 32, 13]
+
+
+def test_sort_model_unsorted_row() -> None:
+    sorted_model = models.SortModel(models.ListModel([3, 1, 2]))
+    assert sorted_model.unsorted_row(0) == 1
+    assert sorted_model.unsorted_row(-1) == 0
+    with pytest.raises(IndexError):
+        sorted_model.unsorted_row(3)
+    with pytest.raises(IndexError):
+        sorted_model.unsorted_row(-4)
+
+
+def test_sort_model_set_row_data() -> None:
+    source = models.ListModel([3, 1, 2])
+    sorted_model = models.SortModel(source)
+
+    sorted_model[0] = 10
+    assert list(source) == [3, 10, 2]
+    assert list(sorted_model) == [2, 3, 10]
+
+    with pytest.raises(IndexError):
+        sorted_model[3] = 0
+
+
+def test_sort_model_subclass_reset() -> None:
+    class ByField(models.SortModel[dict[str, int]]):
+        def __init__(self, source: models.Model[dict[str, int]]) -> None:
+            super().__init__(source)
+            self.field = "a"
+
+        def sort_key(self, row_data: dict[str, int]) -> int:
+            return row_data[self.field]
+
+    rows = [{"a": 1, "b": 2}, {"a": 2, "b": 1}]
+    by_field = ByField(models.ListModel(rows))
+    assert list(by_field) == rows
+
+    by_field.field = "b"
+    by_field.reset()
+    assert list(by_field) == [rows[1], rows[0]]
+
+
+def test_sort_model_key_exception() -> None:
+    def fail(value: int) -> int:
+        raise ValueError(f"cannot sort {value}")
+
+    sorted_model = models.SortModel(models.ListModel([1, 2]), key=fail)
+    with pytest.raises(ValueError, match="cannot sort"):
+        sorted_model.row_data(0)
+    assert list(sorted_model) == [1, 2]
+
+
+def test_sort_model_rows_with_raising_key_sort_last() -> None:
+    def key(value: int) -> int:
+        if value == 2:
+            raise ValueError("cannot sort 2")
+        return value
+
+    values = [random.Random(1).randrange(100) + 3 for _ in range(40)]
+    values[7] = 2
+    sorted_model = models.SortModel(models.ListModel(values), key=key)
+    with pytest.raises(ValueError, match="cannot sort 2"):
+        sorted_model.row_data(0)
+    assert list(sorted_model) == [*sorted(v for v in values if v != 2), 2]
+
+
+def test_sort_model_nan_keys_sort_last() -> None:
+    generator = random.Random(1)
+    values = [generator.random() for _ in range(40)]
+    for row in range(0, 40, 5):
+        values[row] = math.nan
+    ordered = sorted(v for v in values if not math.isnan(v))
+
+    ascending = list(models.SortModel(models.ListModel(values)))
+    assert ascending[:32] == ordered
+    assert all(math.isnan(v) for v in ascending[32:])
+
+    descending = list(models.SortModel(models.ListModel(values), reverse=True))
+    assert descending[:32] == ordered[::-1]
+    assert all(math.isnan(v) for v in descending[32:])
+
+
+def test_sort_model_unorderable_keys() -> None:
+    generator = random.Random(1)
+    values = [(generator.random(), row) for row in range(40)]
+    for row in range(0, 40, 5):
+        values[row] = (math.nan, row)
+    sorted_model = models.SortModel(models.ListModel(values))
+    with pytest.raises(ValueError, match="can't order the keys"):
+        sorted_model.row_data(0)
+
+
+def test_sort_model_incomparable_rows() -> None:
+    sorted_model = models.SortModel(models.ListModel([1, "a"]))
+    with pytest.raises(TypeError):
+        list(sorted_model)
+
+
+def test_sort_model_reports_notification_exception_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unraisable: list[typing.Any] = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+
+    def key(value: int) -> int:
+        if value < 0:
+            raise ValueError("negative")
+        return value
+
+    source = models.ListModel([2, 1])
+    sorted_model = models.SortModel(source, key=key)
+    assert list(sorted_model) == [1, 2]
+    source.append(-1)
+
+    # One report per failed comparison while placing the new row.
+    assert unraisable
+    assert all(isinstance(u.exc_value, ValueError) for u in unraisable)
+    assert sorted_model.row_count() == 3
+
+
+def test_sort_model_of_slint_model() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> data: [3, 1, 2];
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    sorted_model = models.SortModel(instance.get_property("data"))
+    assert list(sorted_model) == [1, 2, 3]
+    sorted_model[0] = 10
+    assert list(instance.get_property("data")) == [3, 10, 2]
+
+
+def test_sort_model_notifies_and_writes_back() -> None:
+    compiler = native.Compiler()
+    compdef = compiler.build_from_source(
+        """
+        export component App {
+            in-out property<[int]> values;
+            out property<int> first: values[0];
+            out property<int> count: values.length;
+            public function set-first(value: int) { values[0] = value; }
+        }
+        """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+    instance = compdef.create()
+    assert instance is not None
+
+    class Ordered(models.SortModel[int]):
+        def __init__(self, source: models.Model[int]) -> None:
+            super().__init__(source)
+            self.descending = False
+
+        def sort_key(self, row_data: int) -> int:
+            return -row_data if self.descending else row_data
+
+    source = models.ListModel([3, 1, 2])
+    ordered = Ordered(source)
+    instance.set_property("values", ordered)
+    assert instance.get_property("first") == 1
+
+    source.append(0)
+    assert instance.get_property("first") == 0
+    assert instance.get_property("count") == 4
+
+    ordered.descending = True
+    ordered.reset()
+    assert instance.get_property("first") == 3
+
+    instance.invoke("set_first", 30)
+    assert list(source) == [30, 1, 2, 0]
+
+
+def test_model_subclass_with_keyword_arguments() -> None:
+    class Repeated(models.Model[int]):
+        def __init__(self, value: int, *, count: int) -> None:
+            super().__init__()
+            self.value = value
+            self.count = count
+
+        def row_count(self) -> int:
+            return self.count
+
+        def row_data(self, row: int) -> int | None:
+            return self.value
+
+    assert list(Repeated(7, count=2)) == [7, 7]

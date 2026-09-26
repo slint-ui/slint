@@ -132,6 +132,30 @@ component.model.append(4)
 del component.model[0]
 ```
 
+Use <XRef to="MapModel" /> to show the rows of another model through a map function.
+It follows the changes of the source model:
+
+```python
+numbers = slint.ListModel([1, 2, 3])
+component.labels = slint.MapModel(numbers, lambda n: f"Item {n}")
+numbers.append(4)
+```
+
+Alternatively, subclass <XRef to="MapModel" /> and implement `map_row()` instead of passing a function.
+
+Use <XRef to="ReverseModel" /> to show the rows of another model in reverse order.
+Setting one of its rows sets the corresponding row of the source model.
+
+Use <XRef to="FilterModel" /> to show only the rows of another model for which a filter function returns true.
+Alternatively, subclass it and implement `filter_row()`, and call `reset()` when the filter's result changes.
+
+Use <XRef to="SortModel" /> to show the rows of another model in sorted order.
+Like `sorted()`, it takes an optional `key` function and a `reverse` flag:
+
+```python
+component.names = slint.SortModel(people, key=lambda person: person.name)
+```
+
 ## Threading
 
 The event loop runs on the main thread, and components must be created and
