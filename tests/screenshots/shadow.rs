@@ -5,7 +5,7 @@ use slint_interpreter::ComponentHandle;
 
 pub fn assert_shadow_tracks_source_paint() {
     let compiler = slint_interpreter::Compiler::default();
-    let compiled = spin_on::spin_on(
+    let compiled = crate::testing::poll_once(
         compiler.build_from_source(
             r#"
         export component TestCase inherits Window {
@@ -31,7 +31,8 @@ pub fn assert_shadow_tracks_source_paint() {
             .into(),
             "shadow_tracks_source_paint.slint".into(),
         ),
-    );
+    )
+    .unwrap();
     assert!(!compiled.has_errors());
     let component = compiled.components().last().unwrap().create().unwrap();
     component.show().unwrap();
@@ -69,7 +70,7 @@ pub fn assert_shadow_tracks_source_paint() {
 
 pub fn assert_shadow_spread_preserves_adjusted_corner_radii() {
     let compiler = slint_interpreter::Compiler::default();
-    let compiled = spin_on::spin_on(
+    let compiled = crate::testing::poll_once(
         compiler.build_from_source(
             r#"
         export component TestCase inherits Window {
@@ -98,7 +99,8 @@ pub fn assert_shadow_spread_preserves_adjusted_corner_radii() {
             .into(),
             "shadow_spread_preserves_adjusted_corner_radii.slint".into(),
         ),
-    );
+    )
+    .unwrap();
     assert!(!compiled.has_errors());
     let component = compiled.components().last().unwrap().create().unwrap();
     component.show().unwrap();

@@ -18,6 +18,19 @@ pub enum RenderingRotation {
     Rotate270,
 }
 
+/// Polls a future once, returning its output if it was already ready.
+///
+/// The compiler and interpreter calls in these tests never actually await anything, so one poll
+/// always suffices.
+pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
+    let mut ctx = std::task::Context::from_waker(std::task::Waker::noop());
+    let future = std::pin::pin!(future);
+    match future.poll(&mut ctx) {
+        std::task::Poll::Ready(result) => Some(result),
+        std::task::Poll::Pending => None,
+    }
+}
+
 /// Force a cross-platform OS so OS-dependent rendering (e.g. the text cursor color) matches the
 /// references regardless of the host OS.
 pub fn force_reference_os() {
