@@ -4,16 +4,15 @@ description: Running Slint on the Web with Wasm
 ---
 
 import Link from '@slint/common-files/src/components/Link.astro';
-
-:::caution[Caution]
-Only Rust supports using Slint with WebAssembly.
-:::
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Slint applications run on desktop, embedded, and mobile platforms.
-Slint applications written with Rust can also be cross-compiled to WebAssembly (Wasm) and run in the web browser.
+Slint applications written with Rust or C++ can also be cross-compiled to WebAssembly (Wasm) and run in the web browser.
 
 :::note[Note]
-Slint cross-compiled for Wasm uses the  <Link type="WinitBackend" label="Winit backend" /> with the FemtoVG renderer.
+Rust applications use the <Link type="WinitBackend" label="Winit backend" /> with the FemtoVG renderer.
+C++ applications are built with [Emscripten](https://emscripten.org) and use Slint's Emscripten backend,
+with the FemtoVG renderer or the software renderer.
 :::
 
 Slint renders your UI into a HTML `<canvas>` element using [WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API), without using the DOM or CSS.
@@ -32,6 +31,9 @@ Instead, it is best suited for:
 
 
 ## Building for Wasm
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
 
 For a step-by-step walkthrough, check out the last chapter of the <Link type="quickstart" />.
 
@@ -89,3 +91,79 @@ Replace `YOUR_APPLICATION` with the name of your crate.
 :::note[Note]
 Many web browser load `.wasm` files only in trusted contexts. If during development you observe the browser producing permission errors, then you may need to serve files through a web server, instead of the file system directly.
 :::
+
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+
+A Slint C++ application for the web is a standard CMake project (see the <Link type="getting_started" label="getting started tutorial" />),
+built with the [Emscripten](https://emscripten.org) toolchain.
+
+Install the prerequisites:
+
+ * The [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html).
+ * The Rust Emscripten toolchain: run `rustup target add wasm32-unknown-emscripten`.
+ * [CMake](https://cmake.org/download/) 3.21 or newer, and optionally [Ninja](https://ninja-build.org).
+
+When you configure Slint with Emscripten's toolchain, its `CMakeLists.txt` automatically:
+- Builds Slint for the `wasm32-unknown-emscripten` Rust target as a static library.
+- Enables the FemtoVG renderer on WebGL 2 and the software renderer.
+- Embeds images and fonts in the binary, since the page can't read files from the build machine.
+- Adds the link options that Slint needs to `Slint::Slint`.
+
+Your `main()` function works as it is.
+`run()` hands control to the browser and doesn't return,
+so code after it doesn't run.
+
+:::caution[Caution]
+Compile your C++ code without exception support, which is Emscripten's default:
+don't pass `-fexceptions` or `-fwasm-exceptions` to the compiler.
+When `run()` hands control to the browser, it leaves `main()` with a JavaScript exception.
+Code compiled with exceptions runs the destructors in `main()` on the way out,
+which destroys your window.
+:::
+
+1. Let Emscripten write an HTML page next to the `.js` and `.wasm` files:
+
+```cmake
+add_executable(my_app main.cpp)
+if(EMSCRIPTEN)
+    set_target_properties(my_app PROPERTIES SUFFIX ".html")
+endif()
+```
+
+2. Configure and build with `emcmake`:
+
+```bash
+emcmake cmake -S . -B build-web -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-web
+```
+
+3. Serve the output directory through a web server and open `my_app.html`, for example:
+
+```bash
+python3 -m http.server -d build-web
+```
+
+To use your own page instead, add a `<canvas id="canvas">` and load `my_app.js`.
+Slint sizes the canvas to fit the window.
+To lay out the canvas with the page instead, give it a width and height in its `style` attribute,
+for example `<canvas id="canvas" style="width: 100%; height: 100vh">`.
+
+Slint renders with FemtoVG on WebGL 2.
+To use the software renderer, set `SLINT_BACKEND` before the application starts:
+
+```js
+var Module = {
+    preRun: [() => { ENV.SLINT_BACKEND = "emscripten-software"; }],
+};
+```
+
+To leave FemtoVG out of the build, configure with `-DSLINT_FEATURE_RENDERER_FEMTOVG=OFF`.
+
+The Emscripten backend has these limits for now:
+ * It supports one window, which renders into the canvas.
+ * The Slint interpreter isn't available.
+ * Copy and paste and input method editors (IME) aren't supported yet.
+
+</TabItem>
+</Tabs>

@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 #[cfg(feature = "image-pixel-format-rgb565")]
 use i_slint_core::graphics::Rgb8Pixel;
@@ -20,7 +20,7 @@ pub trait TextureImporter
 where
     Self: femtovg::Renderer + Sized,
 {
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
 
     #[cfg(feature = "unstable-wgpu-30")]
@@ -28,7 +28,7 @@ where
 }
 
 impl TextureImporter for femtovg::renderer::OpenGl {
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         glow::NativeTexture(opengl_texture)
     }
@@ -41,7 +41,7 @@ impl TextureImporter for femtovg::renderer::OpenGl {
 
 #[cfg(feature = "wgpu-30")]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         todo!()
     }
@@ -140,7 +140,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         let image_flags = base_image_flags(scaling, tiling);
 
         let image_id = match image {
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(html_image) => {
                 if html_image.is_loaded() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
@@ -161,7 +161,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     return None;
                 }
             }
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
                 texture_id,
                 size,

@@ -185,6 +185,7 @@ ELCDIF
 elems
 elevatedbutton
 elit
+emcmake
 emscripten
 endforeach
 endfunction
@@ -217,6 +218,7 @@ fdroiddata
 FEFF
 FELGO
 fetchpriority
+fexceptions
 figsize
 fileaccess
 filledbutton
@@ -250,6 +252,7 @@ Fsvg
 fullsize
 Fullwidth
 fvar
+fwasm
 Fwww
 genhtml
 getattr

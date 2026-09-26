@@ -10,7 +10,7 @@
     ".": {
       "ignoreBinaries": ["build", "biome"],
       "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
-      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
+      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js", "api/cpp/slint_emscripten.js"]
     },
     "api/node": {
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]

@@ -14,6 +14,10 @@ target_link_libraries(todo_lib PUBLIC Slint::Slint)
 
 if(ANDROID)
     add_library(todo SHARED main.cpp)
+elseif(EMSCRIPTEN)
+    # Emscripten writes todo.html next to todo.js and todo.wasm
+    add_executable(todo main.cpp)
+    set_target_properties(todo PROPERTIES SUFFIX ".html")
 else()
     add_executable(todo main.cpp)
 endif()

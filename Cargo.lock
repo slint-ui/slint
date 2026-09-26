@@ -7669,6 +7669,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-live-preview",
+ "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "proc-macro2",
