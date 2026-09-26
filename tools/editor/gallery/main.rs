@@ -7,9 +7,9 @@ mod ui {
     slint::slint! {
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export {
-            Api, BrushKind, ColorData, ElementKind, ElementLibraryEntry,
-            ElementLibraryGroup, FillData, GradientStop, GradientStopOrder,
-            LinearGradientAxis
+            Api, BrushKind, ColorData, ColorFieldData, ColorFieldEdit, ColorFieldMode,
+            ElementKind, ElementLibraryEntry, ElementLibraryGroup, FillData, GradientStop,
+            GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
         } from "../ui/api.slint";
     }
 }

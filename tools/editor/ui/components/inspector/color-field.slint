@@ -7,7 +7,7 @@ import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indi
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { InspectorValueField } from "value-field.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, BrushKind, ColorData, FillData, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode, FillData } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -26,94 +26,27 @@ export component InspectorColorField inherits Rectangle {
     in property <string> session-key: "";
     in property <string> property-name: "";
     callback accepted(string) -> bool;
-    private property <PropertyValue> property-data: Api.current-property-value-data(root.property-name);
-    private property <color> current-color: root.property-data.fill.color;
-    private property <ColorData> current-color-data: Api.color-to-data(root.current-color);
-    private property <bool> is-literal-color: root.property-data.code != ""
-        && root.property-data.value-resolved
-        && root.property-data.kind != PropertyValueKind.code
-        && root.property-data.value-string == ""
-        && root.property-data.fill.kind == BrushKind.solid;
-    private property <bool> is-gradient: root.property-data.code != ""
-        && root.property-data.value-resolved
-        && root.property-data.kind != PropertyValueKind.code
-        && root.property-data.value-string == ""
-        && (root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush)
-        && root.property-data.fill.kind != BrushKind.solid;
-    private property <FillData> opacity-draft;
+    private property <ColorFieldData> data: Api.current-color-field-data(root.property-name);
+    private property <ColorFieldEdit> color-edit;
+    private property <ColorFieldEdit> opacity-edit;
+    private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
+    private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
 
     width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     height: root.style.field.height;
 
-    function prefixed-color(text: string) -> string {
-        return text.starts-with("#") ? text : "#" + text;
-    }
-
-    function color-expression(text: string) -> string {
-        return Api.string-is-color(text) ? text : root.prefixed-color(text);
-    }
-
-    function input-has-alpha(text: string) -> bool {
-        let expression = root.color-expression(text).to-lowercase();
-        let digit-count = expression.character-count - (expression.starts-with("#") ? 1 : 0);
-        return (expression.starts-with("#") && (digit-count == 4 || digit-count == 8))
-            || expression.starts-with("rgba(")
-            || expression.starts-with("hsla(");
-    }
-
-    function normalized-color(text: string) -> string {
-        return Api.color-to-data(Api.string-to-color(root.color-expression(text))).short-text.to-uppercase();
-    }
-
     function accept-color(text: string) -> bool {
-        let expression = root.color-expression(text);
-        if !Api.string-is-color(expression) {
-            return false;
-        }
-        let parsed = Api.color-to-data(Api.string-to-color(expression));
-        let alpha = root.input-has-alpha(text) ? parsed.a : root.current-color-data.a;
-        let color = Api.rgba-to-color(parsed.r, parsed.g, parsed.b, alpha);
-        return root.accepted(Api.color-to-data(color).text);
-    }
-
-    function normalized-opacity(text: string) -> string {
-        return text.to-float().clamp(0, 100).to-fixed(0);
+        root.color-edit = Api.color-field-color-edit(root.data.fill, text);
+        return root.color-edit.valid && root.accepted(root.color-edit.expression);
     }
 
     function accept-opacity(text: string) -> bool {
-        if !text.is-float() {
-            return false;
-        }
-        let alpha = (text.to-float().clamp(0, 100) * 255 / 100).round();
-        let color = Api.rgba-to-color(
-            root.current-color-data.r,
-            root.current-color-data.g,
-            root.current-color-data.b,
-            alpha,
-        );
-        return root.accepted(Api.color-to-data(color).text);
-    }
-
-    function opacity-value() -> float {
-        return (root.current-color.to-hsv().alpha * 100).round();
+        root.opacity-edit = Api.color-field-opacity-edit(root.data.fill, text);
+        return root.opacity-edit.valid && root.accepted(root.opacity-edit.expression);
     }
 
     function fill-with-opacity(value: float) -> FillData {
-        root.opacity-draft = root.property-data.fill;
-        let alpha = (value.clamp(0, 100) * 255 / 100).round();
-        root.opacity-draft.color = Api.rgba-to-color(
-            root.current-color-data.r,
-            root.current-color-data.g,
-            root.current-color-data.b,
-            alpha,
-        );
-        return root.opacity-draft;
-    }
-
-    function gradient-label() -> string {
-        return root.property-data.fill.kind == BrushKind.linear ? "Linear Gradient"
-            : root.property-data.fill.kind == BrushKind.radial ? "Radial Gradient"
-            : "Conic Gradient";
+        return Api.color-field-fill-with-opacity(root.data.fill, value);
     }
 
     if root.is-literal-color: segmented-field := Rectangle {
@@ -130,11 +63,11 @@ export component InspectorColorField inherits Rectangle {
                 show-focus-border: false;
                 accessible-name: root.accessible-name;
                 width: parent.width - root.style.opacity-width;
-                value: root.current-color-data.short-text.to-uppercase();
+                value: root.data.color-text;
                 commit-key: root.commit-key;
                 normalize-accepted: true;
                 accepted(text) => { return root.accept-color(text); }
-                normalized(text) => { return root.normalized-color(text); }
+                normalized(text) => { return root.color-edit.display; }
 
                 Rectangle { width: root.style.field.height; }
             }
@@ -148,18 +81,18 @@ export component InspectorColorField inherits Rectangle {
                 horizontal-alignment: right;
                 suffix: "%";
                 suffix-width: Metrics.icon-small;
-                value: root.opacity-value().to-fixed(0);
+                value: "\{root.data.opacity}";
                 commit-key: root.commit-key;
                 normalize-accepted: true;
                 scrubbable: true;
                 scrub-on-suffix: true;
-                scrub-value: root.opacity-value();
+                scrub-value: root.data.opacity;
                 scrub-has-minimum: true;
                 scrub-minimum: 0;
                 scrub-has-maximum: true;
                 scrub-maximum: 100;
                 accepted(text) => { return root.accept-opacity(text); }
-                normalized(text) => { return root.normalized-opacity(text); }
+                normalized(text) => { return root.opacity-edit.display; }
                 scrub-preview(value) => {
                     return Api.inspector-fill-preview(root.preview-key, root.property-name, root.fill-with-opacity(value));
                 }
@@ -219,7 +152,7 @@ export component InspectorColorField inherits Rectangle {
             Rectangle { width: root.style.field.height; }
             Text {
                 horizontal-stretch: 1;
-                text: root.gradient-label();
+                text: root.data.label;
                 color: root.style.field.appearance.normal.foreground;
                 font-size: root.style.field.text.size;
                 font-weight: root.style.field.text.weight;
@@ -268,18 +201,18 @@ export component InspectorColorField inherits Rectangle {
             border-radius: self.width / 2;
             clip: true;
 
-            if root.property-data.fill.kind == BrushKind.solid: ColorIndicator {
+            if root.data.fill.kind == BrushKind.solid: ColorIndicator {
                 width: parent.width;
                 height: parent.height;
                 border-radius: parent.border-radius;
                 border-width: Metrics.border-width;
                 outline-color: root.style.swatch-border;
-                color: root.current-color;
+                color: root.data.fill.color;
                 checker-light: root.style.checker.light;
                 checker-dark: root.style.checker.dark;
             }
 
-            if root.property-data.fill.kind != BrushKind.solid: Rectangle {
+            if root.data.fill.kind != BrushKind.solid: Rectangle {
                 background: root.swatch;
                 border-radius: parent.border-radius;
                 border-width: Metrics.border-width;
@@ -304,7 +237,7 @@ export component InspectorColorField inherits Rectangle {
 
     function show-picker() {
         FillSession.begin({
-            fill: root.property-data.fill,
+            fill: root.data.fill,
             target: {
                 key: root.preview-key,
                 session-key: root.session-key,
@@ -313,8 +246,8 @@ export component InspectorColorField inherits Rectangle {
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
             },
             expression: root.value,
-            unsupported: !root.property-data.value-resolved,
-            allow-gradient: root.property-data.kind == PropertyValueKind.brush || root.property-data.value-kind == PropertyValueKind.brush,
+            unsupported: root.data.unsupported,
+            allow-gradient: root.data.allow-gradient,
             anchor-position: {
                 x: root.absolute-position.x + root.picker-anchor-x,
                 y: root.absolute-position.y + root.picker-anchor-y,

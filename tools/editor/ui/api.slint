@@ -276,6 +276,28 @@ export struct FillData {
     radius: float,
 }
 
+export enum ColorFieldMode {
+    source,
+    solid,
+    gradient,
+}
+
+export struct ColorFieldData {
+    mode: ColorFieldMode,
+    fill: FillData,
+    color-text: string,
+    opacity: int,
+    label: string,
+    unsupported: bool,
+    allow-gradient: bool,
+}
+
+export struct ColorFieldEdit {
+    valid: bool,
+    expression: string,
+    display: string,
+}
+
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
     display-string: string, // ALWAYS, its a string description of what is there
@@ -662,6 +684,7 @@ export global Api {
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;
     pure callback current-property-value(property-name: string, fallback: string) -> string;
+    pure callback current-color-field-data(property-name: string) -> ColorFieldData;
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
@@ -699,6 +722,9 @@ export global Api {
     pure callback string-to-color(string) -> color;
     pure callback color-to-data(color) -> ColorData;
     pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
+    pure callback color-field-color-edit(fill: FillData, text: string) -> ColorFieldEdit;
+    pure callback color-field-opacity-edit(fill: FillData, text: string) -> ColorFieldEdit;
+    pure callback color-field-fill-with-opacity(fill: FillData, opacity: float) -> FillData;
 
     // ## Style:
     callback style-changed();
