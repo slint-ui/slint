@@ -59,11 +59,10 @@ Cancellation must leave no application subprocesses running.
 
 ### 2. Readable Actions And Traces
 
-The initial implementation is available; see [implementation and validation notes](PHASE2-IMPLEMENTATION.md).
-The generic library, editor pilot adapter, and nested timeline are implemented.
+The generic library, editor adapter, and nested timeline are implemented.
 Native left-click targeting and automatic scrolling are available for supported built-in input policies.
-Migration beyond the five pilot families and broader input-policy coverage remain follow-up work.
-The broader API examples below remain design targets where they exceed the implemented surface.
+Five pilot families and three complex gesture families use the readable API in place.
+Broader migration and input-policy coverage remain follow-up work.
 
 Create the common foundation for handwritten tests, debugging, and recording.
 
@@ -72,7 +71,6 @@ Keep ordinary Python and pytest fixtures, parameterization, and test files.
 The generic library must depend on neither the editor adapter nor Studio.
 Validate it against a non-editor Slint application as well as the editor suite.
 Adapter helpers return generic locators and share its input, assertion, and reporting machinery.
-See [the revised Phase 2 design](PHASE2-DESIGN.md) for ownership, API corrections, and the Playwright comparison.
 The canvas example below illustrates the optional editor adapter.
 
 - Add locators that resolve at action time, using stable IDs and supported accessibility roles or names.
@@ -113,7 +111,6 @@ Repeated headless runs establish reliability before wider migration.
 ### 3. Inspect And Debug
 
 The first increment implements action controls and a snapshot inspector.
-See [its implementation notes](PHASE3-IMPLEMENTATION.md) for validated behavior and remaining scope.
 
 Make a failure understandable without adding temporary prints or screenshots.
 
@@ -197,8 +194,12 @@ checked clicks after hover callbacks, clipped-element discovery, and nested Flic
 Unknown policies remain explicit failures; older binaries retain unverified basic readiness.
 See [the generic library contract](../slint-test/README.md#locators-and-input).
 
-Continue difficult editor migrations using these contracts.
-Then add continuous live refresh, multi-window inspection, and external-editor navigation.
+Continue editor migrations using these contracts.
+Move deadline-safe requests and the native protocol extension into the supported Python transport.
+Then remove Studio's private transport adapter and bundled descriptor.
+Share read-only input policy with normal routing before expanding native pointer prediction.
+
+Add continuous live refresh, multi-window inspection, and external-editor navigation after that consolidation.
 Recording follows those inspector improvements.
 
 ## Quality Gates

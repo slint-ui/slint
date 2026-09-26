@@ -4,9 +4,9 @@ A native desktop workbench for Visual Editor pytest tests.
 Studio discovers the complete suite, validates an existing editor build, and preserves inspectable run results.
 Tests remain ordinary Python files that run independently through pytest.
 
-Phase 2 adds readable Python actions, an optional Visual Editor adapter, and nested action reporting.
-The first inspector and action debugger are also available; see [their contract and validation](PHASE3-IMPLEMENTATION.md).
-See [the generic API](../slint-test/README.md), [the implementation notes](PHASE2-IMPLEMENTATION.md), and [the roadmap](ROADMAP.md).
+Studio includes readable Python actions, an optional Visual Editor adapter, and nested action reporting.
+It also includes a snapshot inspector and action debugger.
+See [the generic API](../slint-test/README.md) and [the roadmap](ROADMAP.md).
 
 ## Set Up
 
@@ -164,6 +164,7 @@ Saving Project Settings explicitly makes those settings persistent.
 The editor harness exposes optional reporting observers through `ui_reporting`.
 Observers receive application ready/closing/exit and stage start/end events.
 The bridge installs one observer for its pytest session and resets it afterward.
+Legacy harness stages are translated into the same action timeline as readable tests.
 Observer failures cannot change test outcomes.
 Older harnesses run with a visible warning and no detailed captures.
 
@@ -177,7 +178,7 @@ The same state reducer drives live results and restored history.
 
 Screenshot capture adds execution time.
 Use ordinary pytest for performance measurements and record capture overhead separately.
-Recording, action debugging, parallel workers, source editing, and portable CI bundles remain future milestones.
+Recording, parallel workers, source editing, and portable CI bundles remain future milestones.
 
 ## Validate
 
