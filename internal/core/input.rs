@@ -1973,6 +1973,21 @@ fn send_mouse_event_to_item(
     };
 
     let r = if ignore {
+        if replaying == Some(true)
+            && matches!(filter_result, InputEventFilterResult::DelayForwarding(_))
+        {
+            // The replay's own traversal is what first reached this item (its parent's delay
+            // aborted the original dispatch before recursing this far), so it never entered
+            // `old_input_state.item_stack` for `send_exit_events` to find. Its filter already
+            // set internal press state for this same replayed press; without this, that state
+            // never clears, since replaying always treats a delaying item as pass-through.
+            item.as_ref().input_event(
+                &MouseEvent::Exit,
+                window_adapter,
+                &item_rc,
+                &mut result.cursor,
+            );
+        }
         InputEventResult::EventIgnored
     } else {
         let mut event = mouse_event.clone();
