@@ -1429,7 +1429,11 @@ pub struct MouseInputState {
     /// target that didn't previously accept never receives a drop.
     pub(crate) drop_target: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
+    /// Items that still need an Exit after a delayed or discarded dispatch.
     delayed_exit_items: Vec<ItemWeak>,
+    /// The previous target displaced by a delayed press, used for click counting.
+    /// Retained after replay until a committed dispatch replaces the input state.
+    delayed_previous_target: Option<ItemWeak>,
     pub(crate) cursor: MouseCursorInner,
 }
 
@@ -1454,9 +1458,21 @@ impl MouseInputState {
         drag_area.dragging.set(true);
     }
 
-    /// Returns the item in the top of the stack, if there is a delayed event, this would be the top of the delayed stack
+    /// Return the target displaced by a delayed press, or the current top item.
     pub fn top_item_including_delayed(&self) -> Option<ItemRc> {
-        self.delayed_exit_items.last().and_then(|x| x.upgrade()).or_else(|| self.top_item())
+        self.delayed_previous_target.as_ref().and_then(|x| x.upgrade()).or_else(|| self.top_item())
+    }
+
+    /// Send queued exits to items absent from the resolved dispatch.
+    fn send_delayed_exit_events(&mut self, window_adapter: &Rc<dyn WindowAdapter>) {
+        let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
+        for weak in core::mem::take(&mut self.delayed_exit_items) {
+            if self.item_stack.iter().any(|(w, _)| *w == weak) || self.observers.contains(&weak) {
+                continue;
+            }
+            let Some(item) = weak.upgrade() else { continue };
+            item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
+        }
     }
 
     /// Returns true if there is a pending delayed event (e.g. from a Flickable)
@@ -1635,10 +1651,8 @@ pub(crate) fn send_exit_events(
     // Note that exit events can't actually change the cursor from default so we'll ignore the result
     let cursor = &mut MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default);
 
-    for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
-        let Some(item) = it.upgrade() else { continue };
-        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
-    }
+    new_input_state.delayed_exit_items.extend(old_input_state.delayed_exit_items.iter().cloned());
+    new_input_state.send_delayed_exit_events(window_adapter);
 
     let mut clipped = false;
     for (idx, it) in old_input_state.item_stack.iter().enumerate() {
@@ -1662,6 +1676,7 @@ pub(crate) fn send_exit_events(
             // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
             if new_input_state.delayed.is_some() {
                 new_input_state.delayed_exit_items.push(it.0.clone());
+                new_input_state.delayed_previous_target = Some(it.0.clone());
             } else {
                 item.borrow().as_ref().input_event(
                     &MouseEvent::Exit,
@@ -1734,6 +1749,19 @@ pub fn process_mouse_input(
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
                 .is_none_or(|(a, b)| a.0 != b.0))
     {
+        // The speculative dispatch above may still have run `input_event_filter_before_children`
+        // on items in its path or observer list before we knew it would be thrown away.
+        // Queue an Exit for items absent from the retained state so their hover and tooltip
+        // timers are cleared when the delayed dispatch resolves.
+        for weak in result.item_stack.iter().map(|(weak, _)| weak).chain(&result.observers) {
+            if mouse_input_state.item_stack.iter().any(|(w, _)| w == weak)
+                || mouse_input_state.observers.contains(weak)
+                || mouse_input_state.delayed_exit_items.contains(weak)
+            {
+                continue;
+            }
+            mouse_input_state.delayed_exit_items.push(weak.clone());
+        }
         // Keep the delayed event but transfer the just-attempted dispatch's cursor.
         mouse_input_state.cursor = result.cursor;
         return MouseInputResult { state: mouse_input_state, accepted };
@@ -1770,11 +1798,14 @@ pub(crate) fn process_delayed_event(
 
     let top_item = match mouse_input_state.top_item() {
         Some(i) => i,
-        None => return MouseInputState::default(),
+        None => {
+            mouse_input_state.send_delayed_exit_events(window_adapter);
+            return MouseInputState::default();
+        }
     };
 
     // Recover the real previous click target so click_count is preserved across delayed events
-    let prev_target = mouse_input_state.delayed_exit_items.last().and_then(|x| x.upgrade());
+    let prev_target = mouse_input_state.delayed_previous_target.as_ref().and_then(|x| x.upgrade());
     let last_top_item = prev_target.as_ref().unwrap_or(&top_item);
 
     let mut actual_visitor =
@@ -1794,6 +1825,7 @@ pub(crate) fn process_delayed_event(
         crate::item_tree::TraversalOrder::FrontToBack,
         actual_visitor,
     );
+    mouse_input_state.send_delayed_exit_events(window_adapter);
     mouse_input_state
 }
 
