@@ -547,23 +547,6 @@ fn cast_to_path_data(ctx: &mut EvalContext, from: &Expression) -> Value {
     }
 }
 
-/// Build the `Value` for a `Expression::Cast { to: Type::DashArray, .. }`
-fn cast_to_dash_array(ctx: &mut EvalContext, from: &Expression) -> Value {
-    match from {
-        Expression::Array { values, .. } => {
-            let dash_array: SharedVector<f32> = values
-                .iter()
-                .map(|e| match eval_expression(ctx, e) {
-                    Value::Number(v) => v as _,
-                    _ => 0.0,
-                })
-                .collect();
-            Value::ArrayOfF32(dash_array)
-        }
-        _ => Value::ArrayOfF32(SharedVector::default()),
-    }
-}
-
 /// Resolve an `Expression::Struct` in a `Cast`-to-`PathData` array into the
 /// matching [`PathElement`] variant, dispatching on the struct's
 /// `StructName::Builtin` tag.
@@ -671,9 +654,8 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Easing
         | Type::ElementReference
         | Type::ArrayOfU16
-        | Type::LayoutCache
-        | Type::Closure
-        | Type::DashArray => Value::Void,
+        | Type::ArrayOfCoord
+        | Type::Closure => Value::Void,
     }
 }
 
@@ -818,9 +800,6 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             // `from` evaluates to.
             if matches!(to, Type::PathData) {
                 return cast_to_path_data(ctx, from);
-            }
-            if matches!(to, Type::DashArray) {
-                return cast_to_dash_array(ctx, from);
             }
             let v = eval_expression(ctx, from);
             match (v, to) {
@@ -1131,6 +1110,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
+        Expression::DashArray(dash_array) => {
+            Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
+        }
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
@@ -1849,7 +1831,7 @@ fn layout_cache_access(
     entries_per_item: usize,
 ) -> Value {
     match cache {
-        Value::ArrayOfF32(cache) => {
+        Value::ArrayOfCoord(cache) => {
             if let Some(ri) = repeater_index {
                 let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
                 Value::Number(
@@ -1897,7 +1879,7 @@ fn grid_repeater_cache_access(
         if data_idx < slice_len { Value::Number(read(data_idx)) } else { Value::Number(0.) }
     };
     match cache {
-        Value::ArrayOfF32(cache) => {
+        Value::ArrayOfCoord(cache) => {
             let base = cache.get(index).copied().unwrap_or(0.) as usize;
             let data_idx = base + repeater_index * stride + child_offset + inner_offset;
             get(data_idx, cache.len(), &|i| cache[i] as f64)

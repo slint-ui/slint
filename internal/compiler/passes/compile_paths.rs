@@ -30,6 +30,8 @@ pub fn compile_paths(
             return;
         }
 
+        compile_dash_array(elem_, diag);
+
         let commands_binding = elem_.borrow_mut().take_binding("commands");
 
         let path_data_binding = if let Some(commands_expr) = commands_binding {
@@ -255,4 +257,40 @@ fn compile_path_from_string_literal(
         .collect();
 
     Ok(Expression::PathData(Path::Events(events, points)).into())
+}
+
+/// Rewrite `Path`'s `stroke-dash-array` into a `Expression::DashArray`, resolved at compile time.
+fn compile_dash_array(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+    let Some(binding) = elem.borrow_mut().take_binding("stroke-dash-array") else { return };
+
+    let Expression::Array { values, .. } = binding.expression.ignore_debug_hooks() else {
+        diag.push_error(
+            "`stroke-dash-array` must be an array literal: it is resolved at compile time".into(),
+            &binding,
+        );
+        return;
+    };
+
+    let mut dash_array = Vec::with_capacity(values.len());
+    for value in values {
+        match value {
+            Expression::NumberLiteral(v, Unit::Px | Unit::None) if *v >= 0. => {
+                dash_array.push(*v as f32)
+            }
+            _ => {
+                diag.push_error(
+                    "`stroke-dash-array` entries must be non-negative length literals".into(),
+                    &binding,
+                );
+                return;
+            }
+        }
+    }
+    if dash_array.len() % 2 == 1 {
+        dash_array = dash_array.repeat(2);
+    }
+    elem.borrow_mut().set_binding(
+        SmolStr::new_static("stroke-dash-array"),
+        Expression::DashArray(dash_array).into(),
+    );
 }

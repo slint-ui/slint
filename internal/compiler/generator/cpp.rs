@@ -573,12 +573,11 @@ impl CppType for Type {
                 }
             }
             Type::Brush => Some("slint::Brush".into()),
-            Type::LayoutCache => Some("slint::SharedVector<float>".into()),
+            Type::ArrayOfCoord => Some("slint::SharedVector<float>".into()),
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
             Type::StyledText => Some("slint::StyledText".into()),
             Type::MouseCursor => Some("slint::cbindgen_private::MouseCursorInner".into()),
-            Type::DashArray => Some("slint::SharedVector<float>".into()),
             _ => None,
         }
     }
@@ -4426,20 +4425,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         "slint::private_api::PathData()".into()
                     }
                 }
-                (Type::Array(..), Type::DashArray) => {
-                    let values = match from.as_ref() {
-                        llr::Expression::Array { values, .. } => values
-                            .iter()
-                            .map(|e| format!("float({})", compile_expression(e, ctx)))
-                            .collect::<Vec<_>>(),
-                        _ => unreachable!(),
-                    };
-                    if values.is_empty() {
-                        "slint::SharedVector<float>()".into()
-                    } else {
-                        format!("slint::SharedVector<float>({{ {} }})", values.join(", "))
-                    }
-                }
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(from.as_ref(), Expression::Struct { .. }) =>
                 {
@@ -4965,6 +4950,16 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let expr = compile_expression(expression, ctx);
 
             format!("[&](auto const &{arg}) -> bool {{ return {expr}; }}")
+        }
+        Expression::DashArray(dash_array) => {
+            if dash_array.is_empty() {
+                "slint::SharedVector<float>()".into()
+            } else {
+                format!(
+                    "slint::SharedVector<float>({{ {} }})",
+                    dash_array.iter().map(|v| format!("float({v})")).collect::<Vec<_>>().join(", ")
+                )
+            }
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),

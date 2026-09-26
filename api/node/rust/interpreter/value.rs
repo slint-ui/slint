@@ -384,12 +384,11 @@ pub fn to_value(
         | Type::ComponentFactory
         | Type::Easing
         | Type::PathData
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::ArrayOfU16
         | Type::ElementReference
         | Type::MouseCursor
-        | Type::Closure
-        | Type::DashArray => Err(napi::Error::from_reason("reason")),
+        | Type::Closure => Err(napi::Error::from_reason("reason")),
         Type::StyledText => {
             let obj = unknown.coerce_to_object()?;
             let styled_instance: ClassInstance<SlintStyledText> =

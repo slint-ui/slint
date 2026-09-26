@@ -649,7 +649,7 @@ fn report_binding_loop(
     // The properties a layout solve runs on. A cell's constraints reach it as a `LayoutInfo`,
     // plain or behind a call; the sizes it decided leave as a layout cache.
     let solves_layout =
-        |it: &&PropertyPath| it.prop.ty() == Type::LayoutCache || is_layout_info(&it.prop.ty());
+        |it: &&PropertyPath| it.prop.ty() == Type::ArrayOfCoord || is_layout_info(&it.prop.ty());
     let through_layout = cycle.iter().any(solves_layout);
     // A child's measurement enters the cycle where a hop reaches its parent's layout info.
     // Setting an 'x' or a 'y' on that child cuts the hop, and naming any other element of the

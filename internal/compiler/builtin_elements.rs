@@ -3131,13 +3131,12 @@ fn build(l: &mut Loader) {
         in property <float> stroke-miter-limit: 4; // SVG default is 4
         /// The pattern of dashes and gaps used to form the shape of a path's stroke.
         ///
-        /// The value is a whitespace-separated list of non-negative numbers, interpreted as
-        /// lengths in logical pixels: the first number is a dash length, the second a gap
-        /// length, and so on.
-        /// An odd number of values is repeated to make the list even.
-        /// An empty value, or one with a negative or non-numeric entry, draws the outline solid.
-        /// \default ""
-        @constexpr in property <string> stroke-dash-array;
+        /// The value is a list of non-negative lengths: the first entry is a dash
+        /// length, the second a gap length, and so on.
+        /// An odd number of entries is repeated to make the list even.
+        /// An empty list draws the outline solid.
+        /// \default []
+        @constexpr in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
         in property <length> stroke-dash-offset;
         //! ### width

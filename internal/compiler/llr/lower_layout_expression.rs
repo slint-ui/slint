@@ -378,7 +378,7 @@ pub(super) fn solve_grid_layout(
                         ty: Type::Array(Type::Int32.into()),
                     },
                 ],
-                return_ty: Type::LayoutCache,
+                return_ty: Type::ArrayOfCoord,
             }),
         },
         None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -390,7 +390,7 @@ pub(super) fn solve_grid_layout(
                 empty_int32_slice(),
                 empty_int32_slice(),
             ],
-            return_ty: Type::LayoutCache,
+            return_ty: Type::ArrayOfCoord,
         },
     }
 }
@@ -478,13 +478,13 @@ pub(super) fn solve_box_layout(
                         ty: Type::Array(Type::Int32.into()),
                     },
                 ],
-                return_ty: Type::LayoutCache,
+                return_ty: Type::ArrayOfCoord,
             }),
         },
         None => llr_Expression::ExtraBuiltinFunctionCall {
             function: function.into(),
             arguments: vec![data, empty_int32_slice()],
-            return_ty: Type::LayoutCache,
+            return_ty: Type::ArrayOfCoord,
         },
     }
 }
@@ -584,7 +584,7 @@ pub(super) fn solve_flexbox_layout(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_flexbox_layout".into(),
                     arguments: vec![data, repeated_indices()],
-                    return_ty: Type::LayoutCache,
+                    return_ty: Type::ArrayOfCoord,
                 }
             };
             llr_Expression::WithFlexboxLayoutItemInfo {
@@ -602,7 +602,7 @@ pub(super) fn solve_flexbox_layout(
                 return llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_flexbox_layout".into(),
                     arguments: vec![data, empty_int32_slice()],
-                    return_ty: Type::LayoutCache,
+                    return_ty: Type::ArrayOfCoord,
                 };
             }
             llr_Expression::SolveFlexboxLayoutWithMeasure {

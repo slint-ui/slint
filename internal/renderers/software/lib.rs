@@ -3364,8 +3364,11 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 let stroke_line_cap = path.stroke_line_cap();
                 let stroke_line_join = path.stroke_line_join();
                 let stroke_miter_limit = path.stroke_miter_limit();
-                let stroke_dash_array: Vec<f32> =
-                    path.stroke_dash_array().iter().map(|x| x * self.scale_factor.get()).collect();
+                let stroke_dash_array: Vec<f32> = path
+                    .stroke_dash_array()
+                    .iter()
+                    .map(|&x| (LogicalLength::new(x).cast() * self.scale_factor).get())
+                    .collect();
                 let stroke_dash_offset =
                     (path.stroke_dash_offset().cast() * self.scale_factor).get();
                 let stroke_style = path::StrokeStyle {
