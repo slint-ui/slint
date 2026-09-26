@@ -362,43 +362,42 @@ pub fn shared_string_from_number_unlocalized(n: f64) -> SharedString {
     crate::format!("{}", i_slint_common::FormattedNumber(n))
 }
 
-/// Convert a f64 to a SharedString
-pub fn shared_string_from_number(n: f64) -> SharedString {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let mut result = shared_string_from_number_unlocalized(n);
-
-        if let Some(ctx) = ctx.get() {
-            let pinned = ctx.0.as_ref().project_ref();
-            let decimal_separator = pinned.locale_decimal_separator.get();
-            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
-                result.replace_characters('.', decimal_separator, 1);
-            }
-        }
-        result
-    })
+/// The decimal separator of the thread's context, or `.` if there is no context.
+///
+/// For callers that have no component to get a context from, such as the C++ API.
+pub fn current_decimal_separator() -> char {
+    crate::SlintContext::current()
+        .map_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR, |ctx| ctx.locale_decimal_separator())
 }
 
-/// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
-pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
-
-        if let Some(ctx) = ctx.get() {
-            let pinned = ctx.0.as_ref().project_ref();
-            let decimal_separator = pinned.locale_decimal_separator.get();
-            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
-                result.replace_characters('.', decimal_separator, 1);
-            }
-        }
-        result
-    })
+/// Convert a f64 to a SharedString, using `sep` as decimal separator.
+pub fn format_number(sep: char, n: f64) -> SharedString {
+    let mut result = shared_string_from_number_unlocalized(n);
+    localize_separator(&mut result, sep);
+    result
 }
 
-/// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
-pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedString {
+/// Convert a f64 to a SharedString with a fixed number of digits after the decimal point,
+/// using `sep` as decimal separator.
+pub fn format_number_fixed(sep: char, n: f64, digits: usize) -> SharedString {
+    let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
+    localize_separator(&mut result, sep);
+    result
+}
+
+/// Replaces the first '.' with `separator`.
+fn localize_separator(result: &mut SharedString, separator: char) {
+    if separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+        result.replace_characters('.', separator, 1);
+    }
+}
+
+/// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision(),
+/// using `sep` as decimal separator.
+pub fn format_number_precision(sep: char, n: f64, precision: usize) -> SharedString {
     let exponent = f64::log10(n.abs()).floor() as isize;
     if precision == 0 {
-        shared_string_from_number(n)
+        format_number(sep, n)
     } else if exponent < -6 || (exponent >= 0 && exponent as usize >= precision) {
         crate::format!(
             "{number:.digits$e}",
@@ -406,7 +405,7 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
             digits = precision.saturating_add_signed(-1)
         )
     } else {
-        shared_string_from_number_fixed(n, precision.saturating_add_signed(-(exponent + 1)))
+        format_number_fixed(sep, n, precision.saturating_add_signed(-(exponent + 1)))
     }
 }
 
@@ -430,21 +429,55 @@ pub fn shared_string_replace_all(s: &SharedString, from: &str, to: &str) -> Shar
     result
 }
 
-/// Convert a string to a float
-pub fn string_to_float(string: &str) -> Option<f32> {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let sep = ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
-
-        if sep == '.' {
-            string.parse::<f32>().ok()
-        } else {
-            if string.contains('.') {
-                return None;
-            }
-            // Normalize locale separator to '.' because f64::parse only accepts '.'
-            string.replace(sep, ".").parse::<f32>().ok()
+/// Convert a string to a float, using `sep` as decimal separator.
+pub fn parse_number(sep: char, string: &str) -> Option<f32> {
+    if sep == '.' {
+        string.parse::<f32>().ok()
+    } else {
+        if string.contains('.') {
+            return None;
         }
-    })
+        // Normalize locale separator to '.' because f64::parse only accepts '.'
+        string.replace(sep, ".").parse::<f32>().ok()
+    }
+}
+
+#[test]
+#[cfg(feature = "std")]
+fn test_number_formatting_per_context() {
+    struct TestPlatform;
+    impl crate::platform::Platform for TestPlatform {
+        fn create_window_adapter(
+            &self,
+        ) -> Result<alloc::rc::Rc<dyn crate::window::WindowAdapter>, crate::platform::PlatformError>
+        {
+            Err(crate::platform::PlatformError::Other("this test needs no window".into()))
+        }
+    }
+
+    // The first context created becomes the thread's.
+    let thread_ctx = crate::SlintContext::new(alloc::boxed::Box::new(TestPlatform));
+    thread_ctx.set_locale("de_DE.UTF-8");
+    assert_eq!(thread_ctx.locale_decimal_separator(), ',');
+
+    let other = crate::SlintContext::new(alloc::boxed::Box::new(TestPlatform));
+    other.set_locale("C");
+    assert_eq!(other.locale_decimal_separator(), '.');
+
+    assert_eq!(other.format_number(1.5), "1.5");
+    assert_eq!(other.format_number_fixed(1.5, 2), "1.50");
+    assert_eq!(other.format_number_precision(1.5, 3), "1.50");
+    assert_eq!(other.parse_number("1.5"), Some(1.5));
+    assert_eq!(other.parse_number("1,5"), None);
+
+    assert_eq!(thread_ctx.format_number(1.5), "1,5");
+    assert_eq!(thread_ctx.format_number_fixed(1.5, 2), "1,50");
+    assert_eq!(thread_ctx.format_number_precision(1.5, 3), "1,50");
+    assert_eq!(thread_ctx.parse_number("1,5"), Some(1.5));
+    assert_eq!(thread_ctx.parse_number("1.5"), None);
+
+    assert_eq!(current_decimal_separator(), ',');
+    assert_eq!(shared_string_from_number_unlocalized(1.5), "1.5");
 }
 
 #[test]
@@ -463,7 +496,7 @@ fn test_string_to_float() {
     ];
 
     for (test_string, result) in TEST {
-        assert_eq!(string_to_float(test_string), *result);
+        assert_eq!(parse_number('.', test_string), *result);
     }
 }
 
@@ -598,7 +631,7 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to slint_shared_string_drop
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
-        let str = shared_string_from_number(n);
+        let str = format_number(current_decimal_separator(), n);
         unsafe { core::ptr::write(out, str) };
     }
 
@@ -636,7 +669,7 @@ pub(crate) mod ffi {
         n: f64,
         digits: usize,
     ) {
-        *out = shared_string_from_number_fixed(n, digits);
+        *out = format_number_fixed(current_decimal_separator(), n, digits);
     }
 
     #[test]
@@ -687,7 +720,7 @@ pub(crate) mod ffi {
         n: f64,
         precision: usize,
     ) {
-        *out = shared_string_from_number_precision(n, precision);
+        *out = format_number_precision(current_decimal_separator(), n, precision);
     }
 
     #[test]

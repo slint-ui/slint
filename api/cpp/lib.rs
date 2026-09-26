@@ -189,7 +189,8 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    if let Some(v) = i_slint_core::string::string_to_float(string.as_str()) {
+    use i_slint_core::string::{current_decimal_separator, parse_number};
+    if let Some(v) = parse_number(current_decimal_separator(), string.as_str()) {
         *value = v;
         true
     } else {
