@@ -371,6 +371,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                     items::LineJoin::Miter | _ => femtovg::LineJoin::Miter,
                 });
                 paint.set_miter_limit(path.stroke_miter_limit());
+                paint.set_line_dash(
+                    &path
+                        .stroke_dash_array()
+                        .iter()
+                        .map(|x| x * self.scale_factor.get() + 0.02)
+                        .collect::<Vec<_>>(),
+                );
+                paint.set_line_dash_offset(
+                    path.stroke_dash_offset().get() * self.scale_factor.get(),
+                );
                 paint.set_anti_alias(anti_alias);
                 paint
             });

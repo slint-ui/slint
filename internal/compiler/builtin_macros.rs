@@ -644,7 +644,8 @@ fn to_debug_string(
         | Type::ArrayOfU16
         | Type::Model
         | Type::PathData
-        | Type::Closure => {
+        | Type::Closure
+        | Type::DashArray => {
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }

@@ -157,6 +157,15 @@ pub fn render_filled_path<T: TargetPixel>(
     );
 }
 
+pub struct StrokeStyle<'a> {
+    pub width: f32,
+    pub line_cap: i_slint_core::items::LineCap,
+    pub line_join: i_slint_core::items::LineJoin,
+    pub miter_limit: f32,
+    pub dash_array: &'a [f32],
+    pub dash_offset: f32,
+}
+
 /// Render a stroked path
 ///
 /// * `commands` - The path commands to render
@@ -170,25 +179,24 @@ pub fn render_stroked_path<T: TargetPixel>(
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
     color: PremultipliedRgbaColor,
-    stroke_width: f32,
-    stroke_line_cap: i_slint_core::items::LineCap,
-    stroke_line_join: i_slint_core::items::LineJoin,
-    stroke_miter_limit: f32,
+    stroke_style: StrokeStyle<'_>,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
-    let mut stroke = Stroke::new(stroke_width);
+    let mut stroke = Stroke::new(stroke_style.width);
     stroke
-        .cap(match stroke_line_cap {
+        .cap(match stroke_style.line_cap {
             i_slint_core::items::LineCap::Round => Cap::Round,
             i_slint_core::items::LineCap::Square => Cap::Square,
             i_slint_core::items::LineCap::Butt | _ => Cap::Butt,
         })
-        .join(match stroke_line_join {
+        .join(match stroke_style.line_join {
             i_slint_core::items::LineJoin::Round => Join::Round,
             i_slint_core::items::LineJoin::Bevel => Join::Bevel,
             i_slint_core::items::LineJoin::Miter | _ => Join::Miter,
         })
-        .miter_limit(stroke_miter_limit);
+        .miter_limit(stroke_style.miter_limit)
+        .dash(stroke_style.dash_array, stroke_style.dash_offset);
+
     let style = Style::Stroke(stroke);
     render_path_with_style(commands, path_geometry, clip_geometry, color, style, buffer);
 }

@@ -948,6 +948,11 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         let stroke_miter_limit = path.stroke_miter_limit();
 
+        let stroke_dash_array = path.stroke_dash_array();
+        let stroke_dash_array_ptr = stroke_dash_array.as_ptr();
+        let stroke_dash_array_len = stroke_dash_array.len();
+        let stroke_dash_offset = path.stroke_dash_offset().get();
+
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 
@@ -996,13 +1001,25 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 stroke_pen_cap_style as "int",
                 stroke_pen_join_style as "int",
                 stroke_miter_limit as "float",
-                anti_alias as "bool"] {
+                anti_alias as "bool",
+                stroke_dash_array_ptr as "const float *",
+                stroke_dash_array_len as "size_t",
+                stroke_dash_offset as "float"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
             if (stroke_width > 0) {
                 QPen pen(stroke_brush, stroke_width, Qt::SolidLine, Qt::PenCapStyle(stroke_pen_cap_style), Qt::PenJoinStyle(stroke_pen_join_style));
                 pen.setMiterLimit(static_cast<qreal>(stroke_miter_limit));
+                if (stroke_dash_array_len > 0) {
+                    QVector<qreal> dash_array;
+                    dash_array.reserve(stroke_dash_array_len);
+                    for (size_t i = 0; i < stroke_dash_array_len; i++) {
+                        dash_array.push_back(stroke_dash_array_ptr[i] / stroke_width + 0.0001);
+                    }
+                    pen.setDashPattern(dash_array);
+                    pen.setDashOffset(stroke_dash_offset / stroke_width);
+                }
                 (*painter)->setPen(pen);
             } else {
                 (*painter)->setPen(Qt::NoPen);

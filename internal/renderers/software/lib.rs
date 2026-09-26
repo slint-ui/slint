@@ -1871,10 +1871,7 @@ trait ProcessScene {
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
-        stroke_width: f32,
-        stroke_line_cap: i_slint_core::items::LineCap,
-        stroke_line_join: i_slint_core::items::LineJoin,
-        stroke_miter_limit: f32,
+        stroke_style: path::StrokeStyle<'_>,
     );
 }
 
@@ -2273,20 +2270,14 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         color: PremultipliedRgbaColor,
-        stroke_width: f32,
-        stroke_line_cap: i_slint_core::items::LineCap,
-        stroke_line_join: i_slint_core::items::LineJoin,
-        stroke_miter_limit: f32,
+        stroke_style: path::StrokeStyle<'_>,
     ) {
         path::render_stroked_path(
             &commands,
             &path_geometry,
             &clip_geometry,
             color,
-            stroke_width,
-            stroke_line_cap,
-            stroke_line_join,
-            stroke_miter_limit,
+            stroke_style,
             self.buffer,
         );
     }
@@ -2445,10 +2436,7 @@ impl ProcessScene for PrepareScene {
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
         _color: PremultipliedRgbaColor,
-        _stroke_width: f32,
-        _stroke_line_cap: i_slint_core::items::LineCap,
-        _stroke_line_join: i_slint_core::items::LineJoin,
-        _stroke_miter_limit: f32,
+        _stroke_style: path::StrokeStyle<'_>,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -3307,15 +3295,24 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 let stroke_line_cap = path.stroke_line_cap();
                 let stroke_line_join = path.stroke_line_join();
                 let stroke_miter_limit = path.stroke_miter_limit();
+                let stroke_dash_array: Vec<f32> =
+                    path.stroke_dash_array().iter().map(|x| x * self.scale_factor.get()).collect();
+                let stroke_dash_offset =
+                    (path.stroke_dash_offset().cast() * self.scale_factor).get();
+                let stroke_style = path::StrokeStyle {
+                    width: physical_stroke_width,
+                    line_cap: stroke_line_cap,
+                    line_join: stroke_line_join,
+                    miter_limit: stroke_miter_limit,
+                    dash_array: &stroke_dash_array,
+                    dash_offset: stroke_dash_offset,
+                };
                 self.processor.process_stroked_path(
                     physical_geom,
                     clipped_geom,
                     zeno_commands,
                     stroke_color.into(),
-                    physical_stroke_width,
-                    stroke_line_cap,
-                    stroke_line_join,
-                    stroke_miter_limit,
+                    stroke_style,
                 );
             }
         }

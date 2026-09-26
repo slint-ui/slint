@@ -495,7 +495,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
                 items::LineJoin::Bevel => kurbo::Join::Bevel,
                 _ => kurbo::Join::Miter,
             };
-            let stroke = kurbo::Stroke::new(stroke_width).with_caps(cap).with_join(join);
+            let dash_array: Vec<f64> = path
+                .stroke_dash_array()
+                .iter()
+                .map(|x| (x * self.scale_factor.get() + 0.01) as _)
+                .collect();
+            let dash_offset = (path.stroke_dash_offset().get() * self.scale_factor.get()) as f64;
+            let stroke = kurbo::Stroke::new(stroke_width)
+                .with_caps(cap)
+                .with_join(join)
+                .with_dashes(dash_offset, &dash_array);
             self.stroke_with_brush(stroke_brush, brush_size, transform, &stroke, &bezpath);
         }
     }

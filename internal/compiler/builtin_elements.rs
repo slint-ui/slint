@@ -3057,6 +3057,17 @@ fn build(l: &mut Loader) {
         /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
         /// When the limit is exceeded, the join is rendered as a bevel instead.
         in property <float> stroke-miter-limit: 4; // SVG default is 4
+        /// The pattern of dashes and gaps used to form the shape of a path's stroke.
+        ///
+        /// The value is a whitespace-separated list of non-negative numbers, interpreted as
+        /// lengths in logical pixels: the first number is a dash length, the second a gap
+        /// length, and so on.
+        /// An odd number of values is repeated to make the list even.
+        /// An empty value, or one with a negative or non-numeric entry, draws the outline solid.
+        /// \default ""
+        @constexpr in property <string> stroke-dash-array;
+        /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
+        in property <length> stroke-dash-offset;
         //! ### width
         //! <SlintProperty propName="width" typeName="length">
         //! If non-zero, the path will be scaled to fit into the specified width.
