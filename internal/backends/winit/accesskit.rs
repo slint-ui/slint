@@ -732,6 +732,7 @@ impl NodeCollection {
                     i_slint_core::items::AccessibleRole::Navigation => Role::Navigation,
                     i_slint_core::items::AccessibleRole::Region => Role::Region,
                     i_slint_core::items::AccessibleRole::Search => Role::Search,
+                    i_slint_core::items::AccessibleRole::ScrollBar => Role::ScrollBar,
                     _ => Role::Unknown,
                 },
                 item.accessible_string_property(
