@@ -141,17 +141,17 @@ jobs:
               run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
               if: inputs.test_workspace
-              # The excluded crates are the root-workspace members that need a
-              # dedicated toolchain (node/python/cpp) and are covered by their own
-              # ci.yaml jobs. Crates moved into the examples/demos/tests workspaces
+              # The excluded root-workspace crates have dedicated CI test jobs.
+              # Node, Python, and C++ also need their own toolchains.
+              # Crates moved into the examples/demos/tests workspaces
               # are no longer root members, so they need no exclude here.
-              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc -- --skip=qt::"
+              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-editor -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_workspace
-              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc qt:: -- --test-threads=1"
+              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-editor qt:: -- --test-threads=1"
               shell: bash
             # The integration tests now live in their own workspace (tests/Cargo.toml).
             # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.

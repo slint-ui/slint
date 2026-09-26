@@ -62,7 +62,7 @@ integration: &integration
 # Everything the root-workspace `cargo test` covers: all of internal/ (also
 # what the groups above exclude), the tools, and the screenshots that the
 # testing backend and the viewer tests embed.
-slint:
+slint: &slint
  - *integration
  - 'internal/**'
  - 'tests/screenshots/**'
@@ -74,7 +74,7 @@ slint:
  - 'xtask/**'
 
 visual_editor:
- - *ci_config
+ - *slint
  - 'tools/editor/**'
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test

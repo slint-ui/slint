@@ -82,12 +82,24 @@ jobs:
 
     visual_editor:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor (${{ matrix.suite }})
+        name: Visual Editor (${{ matrix.suite }}${{ matrix.name_suffix }})
         strategy:
             fail-fast: false
             matrix:
-                suite: [rust, ui]
-        runs-on: macos-14
+                include:
+                    - suite: rust
+                      os: macos-14
+                      name_suffix: ""
+                    - suite: rust
+                      os: ubuntu-22.04
+                      name_suffix: " on Linux"
+                    - suite: rust
+                      os: windows-2022
+                      name_suffix: " on Windows"
+                    - suite: ui
+                      os: macos-14
+                      name_suffix: ""
+        runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
@@ -98,6 +110,8 @@ jobs:
             UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -135,8 +149,8 @@ jobs:
               if: always()
               uses: actions/upload-artifact@v4
               with:
-                  name: visual-editor-${{ matrix.suite }}-timings
-                  path: target/cargo-timings/
+                  name: visual-editor-${{ matrix.suite }}-${{ matrix.os }}-timings
+                  path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: warn
                   retention-days: 7
 
