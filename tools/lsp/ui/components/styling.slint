@@ -3,6 +3,21 @@
 
 // cSpell: ignore eightbit
 import { Palette } from "std-widgets.slint";
+import { Api } from "../api.slint";
+
+// Brand palette matching the slint.dev visual language, used to give the
+// SlintPad chrome a consistent dark look regardless of the widget style.
+export global Brand {
+    out property <color> ink: #151d21;
+    out property <color> surface: #1a242a;
+    out property <color> panel: #1e2a31;
+    out property <color> code-bg: #0f1418;
+    out property <color> text: #eef3f5;
+    out property <color> muted: #9fb0b8;
+    out property <color> line: #ffffff1f;
+    out property <color> accent: #2379f4;
+    out property <color> accent-2: #6b0dff;
+}
 
 export global Icons {
     out property <image> add: @image-url("../assets/add.svg");
@@ -79,11 +94,17 @@ export global PickerStyles {
 
 export global ConsoleStyles {
     property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
-    out property <color> header-background: dark-scheme ? #2c2c2c : #eaeaea;
-    out property <color> divider-line: dark-scheme ? #454a54 : #e0e0e0;
-    out property <color> log-background: dark-scheme ? #262626 : #ffffff;
+    // In SlintPad, tint the console/panel surfaces with the brand palette.
+    property <bool> branded: Api.runs-in-slintpad;
+    out property <color> header-background: dark-scheme ? (branded ? Brand.surface : #2c2c2c) : #eaeaea;
+    out property <color> divider-line: dark-scheme ? (branded ? Brand.line : #454a54) : #e0e0e0;
+    out property <color> log-background: dark-scheme ? (branded ? Brand.ink : #262626) : #ffffff;
     out property <color> text-color: dark-scheme ? #cccccc : #525252;
-    out property <color> toolbar-background: dark-scheme ? #2c2c2c : #f3f3f3;
+    out property <color> toolbar-background: dark-scheme ? (branded ? Brand.surface : #2c2c2c) : #f3f3f3;
+    // Panel body surface and border: match the brand chrome in SlintPad,
+    // otherwise fall back to the active widget style.
+    out property <color> panel-background: (branded && dark-scheme) ? Brand.ink : Palette.background;
+    out property <color> panel-border: (branded && dark-scheme) ? Brand.line : Palette.border;
     out property <length> header-height: 28px;
     out property <length> log-height: 120px;
     out property <color> slint-blue: #0088ff;
