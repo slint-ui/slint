@@ -640,12 +640,11 @@ fn to_debug_string(
         | Type::ComponentFactory
         | Type::Function { .. }
         | Type::ElementReference
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::ArrayOfU16
         | Type::Model
         | Type::PathData
-        | Type::Closure
-        | Type::DashArray => {
+        | Type::Closure => {
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }

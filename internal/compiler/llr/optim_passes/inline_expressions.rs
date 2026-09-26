@@ -84,6 +84,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         // The body cost is added by the visit() walk below; returning the body
         // cost here would double-count it.
         Expression::Closure { .. } => 0,
+        Expression::DashArray(_) => ALLOC_COST,
         // Don't inline: that could duplicate or relocate the hook.
         Expression::DebugHook { .. } => return isize::MAX,
     };

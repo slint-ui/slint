@@ -37,7 +37,7 @@ export component PathDashArray inherits Window {
                 stroke: Colors.steelblue;
                 stroke-width: 5px;
                 stroke-line-cap: round;
-                stroke-dash-array: "14 9";
+                stroke-dash-array: [14px, 9px];
 
                 MoveTo {
                     x: 2;
@@ -70,7 +70,7 @@ export component PathDashArray inherits Window {
                 stroke: Colors.crimson;
                 stroke-width: 10px;
                 stroke-line-cap: round;
-                stroke-dash-array: "0 16";
+                stroke-dash-array: [0px, 16px];
 
                 MoveTo {
                     x: 5;
@@ -105,7 +105,7 @@ export component PathDashArray inherits Window {
                 stroke-line-cap: round;
                 stroke-line-join: round;
                 // An odd list repeats to make it even: 14 7 0 14 7 0.
-                stroke-dash-array: "14 7 0";
+                stroke-dash-array: [14px, 7px, 0px];
 
                 MoveTo {
                     x: 2;
@@ -162,7 +162,7 @@ export component PathDashArray inherits Window {
                     stroke: Colors.darkorange;
                     stroke-width: 5px;
                     stroke-line-cap: round;
-                    stroke-dash-array: "18 10";
+                    stroke-dash-array: [18px, 10px];
 
                     MoveTo {
                         x: 2;
@@ -184,7 +184,7 @@ export component PathDashArray inherits Window {
                     stroke: Colors.darkorange;
                     stroke-width: 5px;
                     stroke-line-cap: round;
-                    stroke-dash-array: "18 10";
+                    stroke-dash-array: [18px, 10px];
                     stroke-dash-offset: 12px;
 
                     MoveTo {
@@ -220,7 +220,7 @@ export component PathDashArray inherits Window {
                 stroke-width: 4px;
                 stroke-line-cap: round;
                 stroke-line-join: round;
-                stroke-dash-array: "16 12";
+                stroke-dash-array: [16px, 12px];
                 stroke-dash-offset: (animation-tick() / 1s * 44) * 1px;
 
                 MoveTo {
