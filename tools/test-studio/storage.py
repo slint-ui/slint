@@ -245,7 +245,7 @@ class Store:
             and r["state"] in ("finished", "Interrupted")
             and not r.get("pinned")
         ]
-        for item in discoveries[1:]:
+        for item in discoveries:
             self.delete(item["id"])
             total -= sizes[item["id"]]
         return "Protected runs exceed the storage target." if total > limit else ""

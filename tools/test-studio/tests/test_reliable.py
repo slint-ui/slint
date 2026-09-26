@@ -216,8 +216,8 @@ def test_discovery_does_not_consume_execution_retention(tmp_path):
     store.prune({"count": 1, "days": 30, "gib": 5})
 
     assert execution.exists()
-    assert discovery.exists()
     assert not old_discovery.exists()
+    assert not discovery.exists()
 
 
 def test_legacy_settings_imported_once(tmp_path):

@@ -148,6 +148,8 @@ Each run includes metadata, a versioned event journal, source snapshots, logs, c
 Recent Runs opens historical results, pins important runs, and deletes unpinned completed runs.
 Historical source is labeled and kept separate from current discovery.
 The Artifacts button works even when a run has no screenshots.
+Collection uses transient managed storage.
+Studio discards completed collection artifacts after updating the current test tree, so discovery doesn't consume run retention.
 
 Default retention is 20 completed runs, 30 days, and a 5 GiB storage target.
 Studio prunes oldest unpinned completed runs after operations and settings changes.
