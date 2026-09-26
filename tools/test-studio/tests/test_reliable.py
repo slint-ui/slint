@@ -458,3 +458,66 @@ def test_preflight_failure_preserves_selected_source(tmp_path, monkeypatch):
             pytest.fail("Preflight did not finish")
     finally:
         service.close()
+
+
+@pytest.mark.parametrize("relative", [False, True])
+@pytest.mark.parametrize("mixed", [False, True])
+def test_external_collection_ids_execute_and_rerun(suite, tmp_path, relative, mixed):
+    repo, path = suite
+    external = tmp_path / "external tests"
+    external.mkdir()
+    (external / "pytest.ini").write_text("[pytest]\n")
+    source = external / "test_external.py"
+    source.write_text("""import pytest
+class TestExternal:
+ @pytest.mark.parametrize("value", [True, False], ids=["pass::case", "fail[case]"])
+ def test_value(self, value): assert value
+""")
+    internal = path / "test_internal.py"
+    internal.write_text("def test_internal(): pass\n")
+    external_selector = (
+        os.path.relpath(source, path.parent) if relative else str(source)
+    )
+    selectors = [external_selector]
+    if mixed:
+        selectors.append("tests/test_internal.py")
+    collected = finish(
+        Process(repo, Path(sys.executable), Path("unused"), selectors, collect=True)
+    )
+    rows = [e for e in collected if e["kind"] == "collected"]
+    ids = [row["id"] for row in rows]
+    assert ids[:2] == [
+        f"{source}::TestExternal::test_value[pass::case]",
+        f"{source}::TestExternal::test_value[fail[case]]",
+    ]
+    assert rows[0]["path"] == f"{source}:3"
+    assert all(g["title"] for g in rows[0]["groups"])
+    assert {g["id"] for g in rows[0]["groups"]} >= {
+        f"file:{source}",
+        f"class:{source}::TestExternal",
+    }
+    if mixed:
+        assert ids[2] == "tests/test_internal.py::test_internal"
+    assert collected[-1]["code"] == 0
+    events = finish(Process(repo, Path(sys.executable), Path("unused"), ids))
+    results = [e for e in events if e["kind"] == "test-end"]
+    assert [e["nodeid"] for e in results] == ids
+    assert [e["status"] for e in results] == ["Passed", "Failed"] + (
+        ["Passed"] if mixed else []
+    )
+    assert events[-1]["code"] == 1
+    state = RunState()
+    for event in events:
+        state.apply(event)
+    rerun, unavailable = rerun_selection(state.records, state.records)
+    assert rerun == [ids[1]] and not unavailable
+    repeated = finish(Process(repo, Path(sys.executable), Path("unused"), rerun))
+    assert [
+        (e["nodeid"], e["status"]) for e in repeated if e["kind"] == "test-end"
+    ] == [(ids[1], "Failed")]
+    source.unlink()
+    refreshed = finish(
+        Process(repo, Path(sys.executable), Path("unused"), ["tests"], collect=True)
+    )
+    available = {e["id"]: e for e in refreshed if e["kind"] == "collected"}
+    assert rerun_selection(state.records, available) == ([], [ids[1]])

@@ -486,7 +486,7 @@ export component TestStudio inherits Window {
                     PrimerTextInput { label-text: "Repository checkout"; text <=> root.config-repo; }
                     PrimerTextInput { label-text: "Test Python interpreter"; text <=> root.config-python; }
                     PrimerTextInput { label-text: "Editor binary"; text <=> root.config-binary; }
-                    Text { text: "Discovery paths · one per line, relative to tools/editor/ui-tests"; color: PrimerColors.fgColor-default; font-size: 12px; }
+                    Text { text: "Discovery paths · absolute or relative to tools/editor/ui-tests, one per line"; color: PrimerColors.fgColor-default; font-size: 12px; }
                     TextEdit { text <=> root.config-paths; height: 64px; }
                     HorizontalLayout {
                         Text { text: "Editor backend"; color: PrimerColors.fgColor-default; vertical-alignment: center; }

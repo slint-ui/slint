@@ -174,6 +174,16 @@ class StudioPlugin:
         if self.observer_token is not None and self.reporting is not None:
             self.reporting.reset_observer(self.observer_token)
 
+    def pytest_itemcollected(self, item):
+        if not item.path.is_relative_to(item.config.rootpath):
+            # Pytest can omit the filename for items outside rootdir.
+            # Absolute IDs remain executable from the suite working directory.
+            for node in item.listchain():
+                if isinstance(node, (pytest.Class, pytest.Item)):
+                    _, separator, suffix = node.nodeid.partition("::")
+                    if separator:
+                        node._nodeid = f"{item.path.as_posix()}::{suffix}"
+
     def pytest_collection_finish(self, session):
         for item in session.items:
             try:
@@ -182,9 +192,11 @@ class StudioPlugin:
                 source = "Source unavailable."
             function, _, case = item.name.partition("[")
             groups = []
-            path = Path(item.location[0])
+            path = item.path
+            if path.is_relative_to(session.config.rootpath):
+                path = path.relative_to(session.config.rootpath)
             for parent in reversed(path.parents):
-                if str(parent) != ".":
+                if parent.name:
                     groups.append({"id": f"dir:{parent}", "title": parent.name})
             groups.append({"id": f"file:{path}", "title": path.name})
             for parent in item.listchain():
@@ -308,6 +320,7 @@ def main():
         "-q",
         "-ra",
         "--color=no",
+        f"--rootdir={args.suite}",
         "-p",
         "no:cacheprovider",
         "-p",

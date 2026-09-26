@@ -424,3 +424,50 @@ def test_stop_disables_control_even_when_old_paused_update_arrives(studio):
     studio.update_debug(snapshot, live=True)
     assert not studio.ui.paused
     assert not studio.ui.debugging
+
+
+def test_saving_discovery_settings_does_not_open_old_history(studio):
+    studio.show_settings()
+    studio.ui.config_paths = "/external/test_sample.py"
+    studio.save_settings()
+    assert studio.project["paths"] == ["/external/test_sample.py"]
+    studio.ui.busy = False
+    studio.service.updates.put(
+        (
+            "history",
+            [
+                {
+                    "id": "old",
+                    "collect": False,
+                    "created": 0,
+                    "state": "finished",
+                    "selectors": ["old_test"],
+                }
+            ],
+        )
+    )
+    studio.poll()
+    assert not studio.pending_restore
+    assert not studio.historical
+    assert not any(kind == "load" for kind, _ in studio.service.commands)
+
+
+def test_startup_restores_recent_history(studio):
+    studio.activate(studio.project)
+    studio.ui.busy = False
+    studio.service.updates.put(
+        (
+            "history",
+            [
+                {
+                    "id": "old",
+                    "collect": False,
+                    "created": 0,
+                    "state": "finished",
+                    "selectors": ["old_test"],
+                }
+            ],
+        )
+    )
+    studio.poll()
+    assert ("load", {"id": "old"}) in studio.service.commands

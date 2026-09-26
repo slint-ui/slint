@@ -157,7 +157,7 @@ class Studio:
             [p["repo"] for p in self.settings["projects"]]
         )
 
-    def activate(self, project):
+    def activate(self, project, *, restore_history=True):
         self.project = copy.deepcopy(project)
         self.current, self.records, self.run_records = {}, {}, {}
         self.metadata = None
@@ -176,7 +176,7 @@ class Studio:
         self.ui.visible_editor = project["backend"] == "winit-skia"
         self.ui.historical = False
         self.historical = False
-        self.pending_restore = True
+        self.pending_restore = restore_history
         self.update_list()
         self.discover()
 
@@ -699,7 +699,7 @@ class Studio:
             self.persist()
             self.ui.settings_open = False
             self.session_override = False
-            self.activate(project)
+            self.activate(project, restore_history=False)
         except ValueError as error:
             self.ui.settings_error = str(error)
 

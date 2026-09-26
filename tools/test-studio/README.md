@@ -59,7 +59,8 @@ It isn't a distributable application bundle.
 ## Use
 
 **Project settings** configures the checkout, interpreter, binary, discovery paths, backend, and history retention.
-Discovery paths are relative to `tools/editor/ui-tests`, one per line.
+Discovery paths accept absolute paths or paths relative to `tools/editor/ui-tests`, one per line.
+External tests keep absolute node IDs so collection, execution, and reruns resolve the same files.
 The default `tests` path discovers the complete suite.
 Use the recent-project selector to switch projects while idle.
 
