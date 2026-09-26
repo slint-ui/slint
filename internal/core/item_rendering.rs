@@ -126,8 +126,13 @@ impl<T> ItemCache<T> {
     ///
     /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_item_tree`]
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
-        let component_ptr: *const _ =
-            crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
+        self.component_destroyed_at(crate::item_tree::ItemTreeRef::as_ptr(component));
+    }
+
+    /// Like [`Self::component_destroyed`], for a component that is already gone,
+    /// given the address that [`crate::item_tree::ItemTreeRef::as_ptr`] returned for it.
+    pub fn component_destroyed_at(&self, component_ptr: core::ptr::NonNull<u8>) {
+        let component_ptr: *const _ = component_ptr.cast().as_ptr();
         self.map.borrow_mut().remove(&component_ptr);
     }
 
