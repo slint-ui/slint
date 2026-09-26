@@ -640,12 +640,10 @@ fn build(l: &mut Loader) {
         in property <length> border-bottom-right-radius;
         //! ## Drop Shadows
         //!
-        //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
-        //! an element, it's possible to set the following `drop-shadow` properties:
-        //!
-        //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
-        //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
-        //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+        //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
+        //! The fill and border alpha determine the shadow's shape and strength.
+        //! A rectangle with a transparent fill and an opaque border casts a border-shaped shadow.
+        //! The offset shadow can remain visible through transparent parts of the rectangle.
         //!
         //! ### drop-shadow-blur
         //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
@@ -2228,6 +2226,9 @@ fn build(l: &mut Loader) {
     }
 
     item! { BoxShadow: Empty {
+        in property <brush> background;
+        in property <brush> border-color;
+        in property <length> border-width;
         in property <length> border-top-left-radius;
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;

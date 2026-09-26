@@ -17,6 +17,10 @@
 //!
 //! Concrete backends (vello over wgpu, vello_cpu over softbuffer, ...) live
 //! in their own crates and only need to implement `SlintWindowRenderer`.
+//!
+//! Drop shadows require Gaussian blur filters on compositing layers.
+//! For `anyrender_vello_cpu` 0.16, enable its `filters` feature and leave
+//! `multithreading` disabled, because that configuration ignores filters.
 
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 // anyrender doesn't compile on 32-bit targets, so this crate is empty there. The upstream

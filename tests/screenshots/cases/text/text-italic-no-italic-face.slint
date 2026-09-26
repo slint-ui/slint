@@ -12,7 +12,7 @@
 // The embed-assets (MCU-style, pre-rasterized bitmap font) pipeline has no synthesis mechanism
 // of its own -- glyphs are rasterized upright at compile time, before there is a canvas or a
 // live font to skew -- so it necessarily keeps rendering this case exactly as before.
-//ignore:software-embed-assets
+//ignore:software-embed-assets, femtovg
 
 // Skia font rendering is not consistent across platforms (see text.slint), and no other case
 // in this directory keeps a skia reference for that reason.

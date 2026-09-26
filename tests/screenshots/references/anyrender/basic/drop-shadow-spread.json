@@ -1,32 +1,118 @@
 [
   {
-    "BoxShadow": {
-      "brush": {
-        "components": [
-          0.0,
-          0.0,
-          0.0,
-          0.7529
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "filter": {
+        "expansion_rect": {
+          "x0": -9.0,
+          "x1": 9.0,
+          "y0": -9.0,
+          "y1": 9.0
+        },
+        "output": 0,
+        "primitives": [
+          {
+            "effect": {
+              "GaussianBlur": {
+                "edge_mode": "None",
+                "std_deviation": 3.0
+              }
+            },
+            "inputs": {
+              "primary": null,
+              "secondary": null
+            }
+          }
         ]
       },
-      "radius": 0.0,
-      "rect": {
-        "x0": 0.0,
-        "x1": 64.0,
-        "y0": 2.0,
-        "y1": 66.0
-      },
-      "std_dev": 3.0,
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
         12.0,
-        12.0
+        14.0
       ]
     }
   },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,64 L0,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        14.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        14.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            0.0,
+            0.7529
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        14.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
   {
     "Fill": {
       "brush": {
@@ -53,33 +139,119 @@
     }
   },
   {
-    "BoxShadow": {
-      "brush": {
-        "components": [
-          0.0,
-          0.0,
-          0.0,
-          0.7529
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-19,-19 L83,-19 L83,83 L-19,83 Z",
+      "filter": {
+        "expansion_rect": {
+          "x0": -9.0,
+          "x1": 9.0,
+          "y0": -9.0,
+          "y1": 9.0
+        },
+        "output": 0,
+        "primitives": [
+          {
+            "effect": {
+              "GaussianBlur": {
+                "edge_mode": "None",
+                "std_deviation": 3.0
+              }
+            },
+            "inputs": {
+              "primary": null,
+              "secondary": null
+            }
+          }
         ]
       },
-      "radius": 6.0,
-      "rect": {
-        "x0": -6.0,
-        "x1": 70.0,
-        "y0": -4.0,
-        "y1": 72.0
-      },
-      "std_dev": 3.0,
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
         84.0,
-        12.0
+        14.0
       ]
     }
   },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-6,0 C-6,-3.3137 -3.3137,-6 0,-6 L64,-6 C67.3137,-6 70,-3.3137 70,0 L70,64 C70,67.3137 67.3137,70 64,70 L0,70 C-3.3137,70 -6,67.3137 -6,64 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        14.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-19,-19 L83,-19 L83,83 L-19,83 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        14.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            0.0,
+            0.7529
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-19,-19 L83,-19 L83,83 L-19,83 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        14.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
   {
     "Fill": {
       "brush": {
@@ -106,23 +278,37 @@
     }
   },
   {
-    "BoxShadow": {
-      "brush": {
-        "components": [
-          0.0,
-          0.0,
-          0.0,
-          0.7529
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "filter": {
+        "expansion_rect": {
+          "x0": -12.0,
+          "x1": 12.0,
+          "y0": -12.0,
+          "y1": 12.0
+        },
+        "output": 0,
+        "primitives": [
+          {
+            "effect": {
+              "GaussianBlur": {
+                "edge_mode": "None",
+                "std_deviation": 4.0
+              }
+            },
+            "inputs": {
+              "primary": null,
+              "secondary": null
+            }
+          }
         ]
       },
-      "radius": -4.0,
-      "rect": {
-        "x0": 4.0,
-        "x1": 60.0,
-        "y0": 4.0,
-        "y1": 60.0
-      },
-      "std_dev": 4.0,
       "transform": [
         1.0,
         0.0,
@@ -133,6 +319,78 @@
       ]
     }
   },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M4,4 L60,4 L60,60 L4,60 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        84.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        84.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            0.0,
+            0.7529
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-13,-13 L77,-13 L77,77 L-13,77 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        12.0,
+        84.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
   {
     "Fill": {
       "brush": {
@@ -159,33 +417,119 @@
     }
   },
   {
-    "BoxShadow": {
-      "brush": {
-        "components": [
-          0.0,
-          0.0,
-          0.0,
-          0.7529
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcOver",
+        "mix": "Normal"
+      },
+      "clip": "M-17,-17 L81,-17 L81,81 L-17,81 Z",
+      "filter": {
+        "expansion_rect": {
+          "x0": -9.0,
+          "x1": 9.0,
+          "y0": -9.0,
+          "y1": 9.0
+        },
+        "output": 0,
+        "primitives": [
+          {
+            "effect": {
+              "GaussianBlur": {
+                "edge_mode": "None",
+                "std_deviation": 3.0
+              }
+            },
+            "inputs": {
+              "primary": null,
+              "secondary": null
+            }
+          }
         ]
       },
-      "radius": 14.0,
-      "rect": {
-        "x0": -4.0,
-        "x1": 68.0,
-        "y0": -1.0,
-        "y1": 71.0
-      },
-      "std_dev": 3.0,
       "transform": [
         1.0,
         0.0,
         0.0,
         1.0,
         84.0,
-        84.0
+        87.0
       ]
     }
   },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.5294,
+            0.8078,
+            0.9216,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-4,10 C-4,2.268 2.268,-4 10,-4 L54,-4 C61.732,-4 68,2.268 68,10 L68,54 C68,61.732 61.732,68 54,68 L10,68 C2.268,68 -4,61.732 -4,54 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        87.0
+      ]
+    }
+  },
+  {
+    "PushLayer": {
+      "alpha": 1.0,
+      "backdrop_filter": null,
+      "blend": {
+        "compose": "SrcIn",
+        "mix": "Normal"
+      },
+      "clip": "M-17,-17 L81,-17 L81,81 L-17,81 Z",
+      "filter": null,
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        87.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            0.0,
+            0.7529
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M-17,-17 L81,-17 L81,81 L-17,81 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        84.0,
+        87.0
+      ]
+    }
+  },
+  "PopLayer",
+  "PopLayer",
   {
     "Fill": {
       "brush": {

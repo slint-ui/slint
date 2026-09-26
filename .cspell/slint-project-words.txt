@@ -535,6 +535,7 @@ rasterizer
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable
@@ -636,6 +637,7 @@ subcomponents
 subelement
 subfolders
 submod
+subpaths
 subprinters
 surfman
 svgz
