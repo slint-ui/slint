@@ -1162,11 +1162,23 @@ impl WinitWindowAdapter {
         WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
     }
 
+    /// X11 and Windows discard what a window has on screen while it is unmapped or minimized,
+    /// which the buffer age a software surface reports doesn't account for.
+    fn mark_whole_window_dirty(&self) {
+        let scale_factor = self.window().scale_factor();
+        self.renderer().as_core_renderer().mark_dirty_region(
+            LogicalRect::from_size(logical_size_from_api(self.size.get().to_logical(scale_factor)))
+                .into(),
+        );
+    }
+
     pub fn window_state_event(&self) {
         let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
 
         if let Some(minimized) = winit_window.is_minimized() {
-            self.minimized.set(minimized);
+            if self.minimized.replace(minimized) && !minimized {
+                self.mark_whole_window_dirty();
+            }
             if minimized != self.window().is_minimized() {
                 self.window().set_minimized(minimized);
             }
@@ -1719,14 +1731,7 @@ impl WinitWindowAdapter {
 
             winit_window.set_visible(true);
 
-            // X11 and Windows discard what is drawn into a window that isn't mapped,
-            // which the buffer age a software surface reports doesn't account for.
-            self.renderer().as_core_renderer().mark_dirty_region(
-                LogicalRect::from_size(logical_size_from_api(
-                    self.size.get().to_logical(scale_factor as f32),
-                ))
-                .into(),
-            );
+            self.mark_whole_window_dirty();
 
             // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
             // `winit_window.theme()` only reports a real value once the window is shown.
