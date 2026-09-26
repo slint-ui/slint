@@ -13,6 +13,7 @@ body {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    background: var(--brand-ink);
 }
 
 #menuBar {
@@ -23,18 +24,62 @@ body {
     flex: 1 1 auto;
 }
 
+/* Lumino chrome, dark brand palette (overrides @lumino/default-theme,
+   which is imported above, so these later rules win on equal specificity) */
+#main.lm-SplitPanel,
+.lm-DockPanel,
+.lm-TabPanel {
+    background: var(--brand-ink);
+}
+
+.lm-SplitPanel-handle {
+    background: var(--brand-line);
+}
+
+.lm-TabBar {
+    background: var(--brand-ink-2);
+}
+
+.lm-TabBar-tab {
+    color: var(--brand-muted);
+    background: transparent;
+    border-color: var(--brand-line);
+    font-family: var(--brand-sans);
+}
+
+.lm-TabBar-tab:hover:not(.lm-mod-current) {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--brand-text);
+}
+
+.lm-TabBar-tab.lm-mod-current {
+    background: var(--brand-code-bg);
+    color: var(--brand-text);
+    border-bottom-color: transparent;
+}
+
+.lm-TabBar-tabIcon,
+.lm-TabBar-tabCloseIcon {
+    color: var(--brand-muted);
+}
+
 #dock {
     padding: 4px;
 }
 
 .browser-error {
     display: flex;
+    flex-direction: column;
+    gap: 12px;
     width: 100%;
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--color_blue);
-    color: var(--color_white);
+    background: var(--brand-ink);
+    color: var(--brand-text);
+    font-family: var(--brand-sans);
+    text-align: center;
+    padding: 0 24px;
 }
 
 .loader {
@@ -43,33 +88,284 @@ body {
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--color_blue);
-    color: var(--color_white);
-    font-family: system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    background: var(--brand-ink);
+    color: var(--brand-text);
+    font-family: var(--brand-sans);
+    overflow: hidden;
+}
+/* Soft radial glows, composited cheaply (no blur filter) */
+.loader-glow {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    opacity: 0.5;
+}
+
+.loader-glow-a {
+    background: radial-gradient(circle, #2379f4 0%, transparent 70%);
+    top: -180px;
+    left: -160px;
+}
+
+.loader-glow-b {
+    background: radial-gradient(circle, #6b0dff 0%, transparent 70%);
+    bottom: -180px;
+    right: -160px;
 }
 
 .loader-content {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    width: min(360px, 60vw);
+    gap: 14px;
+    width: min(340px, 72vw);
 }
 
 .loader-logo {
-    width: 96px;
-    height: 96px;
-    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+    background: var(--brand-gradient);
+    box-shadow: 0 16px 40px rgba(53, 27, 180, 0.45);
+    margin-bottom: 4px;
+}
+
+.loader-logo svg {
+    width: 38px;
+    height: 38px;
+}
+
+/* Brand tagline: the muted line under the loading strip, shared by the plain
+   loader and the welcome so the order (loading, then tagline) is uniform. */
+.loader-tagline {
+    margin: 0;
+    font-family: var(--brand-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--brand-muted);
+    text-align: center;
+}
+
+.loader-tagline .loader-grad {
+    background: var(--brand-gradient-bright);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Welcome hero, shown only in first-run mode above the cards. */
+.loader-title {
+    margin: 14px 0 0;
+    font-family: var(--brand-display);
+    font-weight: 800;
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--brand-text);
+    text-align: center;
+}
+
+/* Loading strip: progress bar and status side by side, above the tagline. */
+.loader-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 460px;
+    transition: opacity 0.4s ease;
+}
+
+.loader-strip .loader-progress {
+    flex: 1;
 }
 
 .loader-message {
+    font-family: var(--brand-mono);
     font-size: 13px;
-    opacity: 0.85;
+    color: var(--brand-muted);
     text-align: center;
     font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .loader-progress {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     width: 100%;
     height: 6px;
+    border: none;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--brand-line);
+    color: #2379f4; /* Firefox indeterminate/value colour */
+}
+
+.loader-progress::-webkit-progress-bar {
+    background: var(--brand-line);
+    border-radius: 999px;
+}
+
+.loader-progress::-webkit-progress-value {
+    background: var(--brand-gradient-bright);
+    border-radius: 999px;
+    transition: width 0.2s ease;
+}
+
+.loader-progress::-moz-progress-bar {
+    background: var(--brand-gradient-bright);
+    border-radius: 999px;
+}
+
+/* Indeterminate phases (compiling / initializing): a moving sheen */
+.loader-progress:indeterminate {
+    background: var(--brand-line)
+        linear-gradient(
+            100deg,
+            transparent 20%,
+            rgba(79, 155, 255, 0.9) 50%,
+            transparent 80%
+        )
+        no-repeat;
+    background-size: 40% 100%;
+    animation: loader-indeterminate 1.2s ease-in-out infinite;
+}
+
+.loader-progress:indeterminate::-webkit-progress-bar {
+    background: transparent;
+}
+
+@keyframes loader-indeterminate {
+    from {
+        background-position: -40% 0;
+    }
+    to {
+        background-position: 140% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loader-progress:indeterminate {
+        animation: none;
+    }
+}
+
+/* First-run starter grid, embedded in the loader (see index.ts). */
+.welcome-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin-top: 32px;
+    text-align: left;
+}
+
+.welcome-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px;
+    border-radius: var(--brand-radius);
+    border: 1px solid var(--brand-line);
+    background: var(--brand-ink-2);
+    color: inherit;
+    font-family: var(--brand-sans);
+    cursor: pointer;
+    text-align: left;
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.2s ease;
+}
+
+.welcome-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--brand-line-strong);
+    box-shadow: 0 14px 34px rgba(5, 10, 14, 0.5);
+}
+
+.welcome-card:focus-visible {
+    outline: 2px solid var(--color_focus_blue);
+    outline-offset: 2px;
+}
+
+.welcome-card-name {
+    font-family: var(--brand-display);
+    font-weight: 700;
+    font-size: 17px;
+}
+
+.welcome-card-desc {
+    color: var(--brand-muted);
+    font-size: 13.5px;
+    line-height: 1.4;
+}
+
+/* Unified startup screen: the loader reframed as the first-run welcome, with
+   the starter grid and a progress strip on one screen. */
+/* Taller welcome content must scroll rather than clip against the centered,
+   overflow-hidden loader. `safe center` keeps it centered when it fits and
+   pins it to the top (scrollable) when it does not. */
+.loader--welcome {
+    flex-direction: column;
+    justify-content: safe center;
+    overflow-y: auto;
+    padding: 32px 16px;
+}
+.loader--welcome .loader-content {
+    width: min(860px, 92vw);
+    gap: 10px;
+}
+.loader-subtitle {
+    margin: 0;
+    max-width: 460px;
+    color: var(--brand-muted);
+    font-size: 14px;
+    text-align: center;
+}
+.loader--welcome .welcome-grid {
+    width: 100%;
+    margin-top: 18px;
+}
+/* When ready with no pick, keep the completed strip in place (so the layout
+   does not jump) but let it recede so it stops drawing attention. */
+.loader--welcome.loader--ready .loader-strip {
+    opacity: 0.4;
+}
+/* A starter chosen before the runtime is ready: highlight it, dim the rest,
+   and spin a small indicator until it loads. */
+.loader--committed .welcome-card:not(.welcome-card--queued) {
+    opacity: 0.45;
+}
+.welcome-card--queued {
+    position: relative;
+    border-color: var(--brand-line-strong);
+    outline: 2px solid var(--color_focus_blue);
+    outline-offset: 2px;
+}
+.welcome-card--queued::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--brand-line-strong);
+    border-top-color: #4f9bff;
+    animation: welcome-card-spin 0.7s linear infinite;
+}
+@keyframes welcome-card-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }

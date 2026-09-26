@@ -17,9 +17,16 @@ test("smoke test", async ({ page, browserName }) => {
     });
 
     await page.goto("http://localhost:3000/");
-    await expect(page.locator("#tab-key-1-0")).toContainText("main.slint");
 
-    // Wait for the preview to compile and render the default snippet.
+    // A fresh visit shows the first-run startup screen. Pick the Blank starter
+    // to open the editor with an empty main.slint. (Choosing before the runtime
+    // is ready queues the pick; it is applied once the runtime loads.)
+    await page.locator('.welcome-card[data-template="blank"]').click();
+    await expect(page.locator("#tab-key-1-0")).toContainText("main.slint", {
+        timeout: 30_000,
+    });
+
+    // Wait for the preview to compile and render the chosen starter.
     const canvas = page.locator(".preview-container canvas");
     await expect(canvas).toBeVisible({ timeout: 30_000 });
 
