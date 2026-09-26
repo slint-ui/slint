@@ -276,6 +276,16 @@ pub fn initialize_editor(
 
         current_property_value_data(&api, property_name).unwrap_or_default()
     });
+    let color_field_api_weak = api_weak.clone();
+    api.on_current_color_field_data(move |property_name| {
+        let Some(api) = color_field_api_weak.upgrade() else {
+            return ColorFieldData::default();
+        };
+
+        current_property_value_data(&api, property_name)
+            .map(brushes::color_field_data)
+            .unwrap_or_default()
+    });
     let property_value_api_weak = api_weak.clone();
     api.on_current_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {

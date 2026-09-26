@@ -125,22 +125,20 @@ component ElementPaletteGroup inherits VerticalLayout {
         }
     }
 
-    if root.matches.length > 0 && root.expanded: VerticalLayout {
-        spacing: 0px;
-        for row in ceil(root.matches.length / 2): HorizontalLayout {
-            spacing: Metrics.space-small;
-            for column in 2: Rectangle {
-                width: (root.width - Metrics.space-small) / 2;
-                height: Metrics.control-large;
-                if row * 2 + column < root.matches.length: ComponentPaletteRow {
-                    width: parent.width;
-                    enabled: root.enabled;
-                    drag-enabled: root.drag-enabled;
-                    kind: root.matches[row * 2 + column].kind;
-                    label: root.matches[row * 2 + column].label;
-                    drag-started => { root.drag-started(); }
-                }
-            }
+    if root.matches.length > 0 && root.expanded: FlexboxLayout {
+        flex-wrap: wrap;
+        spacing-horizontal: Metrics.space-small;
+        spacing-vertical: 0px;
+
+        for entry in root.matches: ComponentPaletteRow {
+            width: (root.width - Metrics.space-small) / 2;
+            height: Metrics.control-large;
+            horizontal-stretch: 0;
+            enabled: root.enabled;
+            drag-enabled: root.drag-enabled;
+            kind: entry.kind;
+            label: entry.label;
+            drag-started => { root.drag-started(); }
         }
     }
 }
