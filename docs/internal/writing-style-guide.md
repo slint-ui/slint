@@ -5,9 +5,19 @@ This guide applies to everything we write:
 - code comments and documentation comments (internal and public API)
 - repository documentation and the documentation website
 - blog posts and posts on social media
+- compiler diagnostics
+- commit messages
 
-Some guidance is universal; the rest depends on the audience.
-The sections below are organized that way: apply the universal principles everywhere, then the section that matches what you're writing.
+Every piece of text follows the Universal Principles, plus the section that matches what it is:
+
+- Code comments and doc comments: [Code Comments](#code-comments).
+- Compiler diagnostics: [Diagnostics](#diagnostics).
+- Markdown in the repository, documentation pages, blog posts, and social media:
+  [Documentation, Blog, and Social](#documentation-blog-and-social).
+- Commit messages: the Universal Principles only.
+
+Apply the guide to text you add or change.
+Don't reformat existing text just to match it.
 
 ## Universal Principles
 
@@ -75,6 +85,16 @@ For comments in source code — both internal implementation notes and public AP
    - Test: if a reader could learn it by reading the code, delete the comment.
    - Rationale: Anything the code already says will drift out of sync with it,
      and costs a read either way.
+7. Apply rule 6 to the whole comment, before judging its wording.
+   - Avoid: trimming a redundant sentence and keeping the rest.
+   - Look past the lines under the comment.
+     The code that consumes a type usually answers a comment on the type.
+     A check, and the tests that pin it, usually answer a comment on the check.
+   - "It explains the why", "it states the design intent", and "it records an invariant" aren't exemptions.
+     Rule 2 is the only one.
+   - Use: a code-level fix over a reworded comment,
+     such as a shared constant, a clearer name, or a cross-reference.
+   - Rationale: A comment can be true and sound useful, yet still repeat what the code says.
 
 ## Diagnostics
 
