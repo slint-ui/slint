@@ -424,7 +424,7 @@ mod translator {
         ntranslate: NTranslateCallback,
     ) -> bool {
         #[cfg(feature = "i-slint-backend-selector")]
-        with_global_context(|ctx| {
+        crate::with_global_context(|ctx| {
             if !obj.is_null() {
                 ctx.set_external_translator(Some(Box::new(CppTranslator {
                     obj,
