@@ -20,6 +20,21 @@ pub use i_slint_core::SlintContext;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 
+/// Reports compiled transports and renderers without creating a platform.
+///
+/// This describes availability, not whether initialization will succeed on the host.
+pub fn testing_capabilities() -> (bool, alloc::vec::Vec<&'static str>) {
+    let backends = alloc::vec![
+        #[cfg(all(feature = "mcp", supports_headless, feature = "renderer-skia"))]
+        "headless-skia",
+        #[cfg(all(feature = "mcp", supports_headless, feature = "renderer-software"))]
+        "headless-software",
+        #[cfg(all(feature = "i-slint-backend-winit", feature = "renderer-skia"))]
+        "winit-skia",
+    ];
+    (cfg!(feature = "system-testing"), backends)
+}
+
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(default_backend::Backend::new()))

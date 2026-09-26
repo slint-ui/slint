@@ -4,6 +4,8 @@
 # cspell:ignore tobytes
 
 import contextlib
+import subprocess
+import sys
 import time
 from collections.abc import Callable, Iterator
 from io import BytesIO
@@ -14,7 +16,7 @@ from typing import TypeVar
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
-from ui_reporting import capture_failure, current_report, replay_stage
+from ui_reporting import capture_failure, current_report, notify_observer, replay_stage
 
 
 def screenshot(window: slint_testing.Window) -> Image.Image:
@@ -164,11 +166,26 @@ def launch_editor(
         sync = EditorSync(Path(directory))
         token = current_editor_sync.set(sync)
         try:
-            with slint_testing.Application(
+            application = slint_testing.Application(
                 arguments,
                 env=environment | {"SLINT_EDITOR_TEST_SYNC": directory},
                 launch_timeout=20,
-            ) as application:
+            )
+            try:
+                application.__enter__()
+            except BaseException:
+                process = getattr(application, "process", None)
+                if process is not None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                application.test_server_socket.close()
+                raise
+            notify_observer("application-ready", application=application)
+            try:
                 try:
                     yield application
                     report = current_report.get()
@@ -178,6 +195,19 @@ def launch_editor(
                 except Exception as error:
                     capture_failure(application, error)
                     raise
+            finally:
+                notify_observer(
+                    "application-closing",
+                    application=application,
+                    returncode=application.process.poll(),
+                    failed=sys.exc_info()[0] is not None,
+                )
+                try:
+                    application.__exit__(*sys.exc_info())
+                finally:
+                    notify_observer(
+                        "application-exit", returncode=application.process.poll()
+                    )
 
         finally:
             current_editor_sync.reset(token)

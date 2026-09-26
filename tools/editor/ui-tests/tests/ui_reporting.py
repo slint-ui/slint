@@ -4,7 +4,7 @@
 import contextlib
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,15 +26,46 @@ current_report: ContextVar[TestReport | None] = ContextVar(
 )
 
 
+OBSERVER_VERSION = 1
+_observer: ContextVar[Callable[..., None] | None] = ContextVar(
+    "ui_test_observer", default=None
+)
+
+
+def install_observer(observer: Callable[..., None]):
+    return _observer.set(observer)
+
+
+def reset_observer(token) -> None:
+    _observer.reset(token)
+
+
+def notify_observer(kind: str, **data) -> None:
+    observer = _observer.get()
+    if observer is not None:
+        try:
+            observer(kind, **data)
+        except Exception:
+            logging.getLogger(__name__).exception("UI test observer unavailable")
+
+
 @contextlib.contextmanager
 def replay_stage(name: str) -> Iterator[None]:
     report = current_report.get()
+    started = time.monotonic()
+    notify_observer("stage-start", title=name)
     try:
         yield
-    except Exception as error:
+    except BaseException as error:
+        notify_observer(
+            "stage-end", title=name, failed=True, duration=time.monotonic() - started
+        )
         error.add_note(f"Stage: {name}")
         raise
     else:
+        notify_observer(
+            "stage-end", title=name, failed=False, duration=time.monotonic() - started
+        )
         if report is not None:
             report.completed_stages += 1
             if report.pause_seconds:

@@ -58,6 +58,20 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    if cli.test_capabilities {
+        let (system_testing, backends) = i_slint_backend_selector::testing_capabilities();
+        println!(
+            "{}",
+            serde_json::json!({
+                "schema_version": 1,
+                "editor_version": env!("CARGO_PKG_VERSION"),
+                "system_testing": system_testing,
+                "backends": backends,
+            })
+        );
+        return Ok(());
+    }
+
     if cli.run_preview_child {
         return editor_preview::child_process::run();
     }
@@ -146,6 +160,9 @@ impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
 struct Cli {
     #[arg(long, hide = true)]
     run_preview_child: bool,
+    /// Print compiled UI-testing capabilities without opening a window.
+    #[arg(long)]
+    test_capabilities: bool,
     file: Option<String>,
     component: Option<String>,
 }
