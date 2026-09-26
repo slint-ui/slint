@@ -575,6 +575,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.kts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.jsonc$", LicenseLocation::NoLicense),
             ("\\.license$", LicenseLocation::NoLicense),
+            ("^tools/slint-test/slint_test/native\\.descriptor$", LicenseLocation::NoLicense),
             ("\\.md$", LicenseLocation::NoLicense),
             ("\\.mdx$", LicenseLocation::NoLicense),
             ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),

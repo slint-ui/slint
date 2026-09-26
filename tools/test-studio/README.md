@@ -124,7 +124,7 @@ Tests without action instrumentation run normally and report that debugging was 
 **Refresh view** captures the first application window again while paused.
 The view is a snapshot, not a continuously refreshed stream.
 The optional Visual Editor adapter supplies **Application source** snapshots of its active file.
-Application source uses Slint token colouring, line numbers, and a rounded red outline on a resolved failing binding.
+Application source uses Slint token coloring, line numbers, and a rounded red outline on a resolved failing binding.
 For geometry assertions, the adapter supplies the selected outline element and property; Studio highlights only a unique direct binding in that captured file.
 Unresolved, ambiguous, and truncated source snapshots remain readable without a guessed highlight.
 **Properties & locator** selects the failing control and outlines the observed property using its transport handle.

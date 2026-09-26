@@ -19,3 +19,6 @@ slint-testing = { index = "slint-private" }
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["../../slint-test"]
+
+[tool.ty.environment]
+extra-paths = ["../../slint-test"]
