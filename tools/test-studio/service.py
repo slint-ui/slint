@@ -142,8 +142,13 @@ class Service:
         commands = Writer(directory / "commands.jsonl")
         process = None
         writer = Writer(directory / "events.jsonl")
+        revision = 0
+        published_revision = -1
 
         def publish(final=False):
+            nonlocal published_revision
+            if not final and revision == published_revision:
+                return
             if not final and self.updates.qsize() >= 2:
                 return
             changed = metadata["state"] != state.state
@@ -164,10 +169,13 @@ class Service:
                     },
                 )
             )
+            published_revision = revision
 
         def emit(kind, **data):
+            nonlocal revision
             event = writer.emit(kind, **data)
             state.apply(event)
+            revision += 1
 
         try:
             emit("state", state=state.state)
@@ -218,9 +226,12 @@ class Service:
                         commands.emit(kind, **data)
                 if self.cancel.is_set():
                     process.stop()
-                    state.state = "stopping"
+                    if state.state != "stopping":
+                        state.state = "stopping"
+                        revision += 1
                 for event in process.poll():
                     state.apply(event)
+                    revision += 1
                 if time.monotonic() - last > 0.12 or process.finished:
                     publish()
                     last = time.monotonic()

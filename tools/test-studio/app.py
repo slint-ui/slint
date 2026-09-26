@@ -66,6 +66,7 @@ class Studio:
         self.ui, self.types, self.args = ui, types, args
         self.service = Service(args.data_dir)
         self.images = ThreadPoolExecutor(max_workers=1)
+        self.image_jobs = {}
         self.image_updates = queue.Queue()
         self.current = {}
         self.records = {}
@@ -318,7 +319,13 @@ class Studio:
                 result["error"] = str(error)
             self.image_updates.put(result)
 
-        self.images.submit(load)
+        self.submit_image("inspection", load)
+
+    def submit_image(self, kind, load):
+        previous = self.image_jobs.get(kind)
+        if previous is not None:
+            previous.cancel()
+        self.image_jobs[kind] = self.images.submit(load)
 
     def apply_inspection(self, data):
         if data["key"] != self.inspect_key:
@@ -529,10 +536,10 @@ class Studio:
         ui.selected_id = self.selected
         item = self.records.get(self.selected)
         row = next((r for r in self.rows if r["id"] == self.selected), None)
-        ui.steps = slint.ListModel([])
         ui.elapsed = ""
         ui.has_artifacts = bool(self.metadata)
         if item is None:
+            ui.steps = slint.ListModel([])
             self.clear_capture()
             ui.selected_title = row["title"] if row else "No tests selected"
             ui.selected_path = (
@@ -585,6 +592,9 @@ class Studio:
                 self.render_selection()
 
     def clear_capture(self):
+        pending = self.image_jobs.pop("capture", None)
+        if pending is not None:
+            pending.cancel()
         self.capture_key = None
         self.loaded_capture_key = None
         self.ui.has_screenshot = False
@@ -649,7 +659,7 @@ class Studio:
                 result = {"key": key, "error": str(error)}
             self.image_updates.put(result)
 
-        self.images.submit(load)
+        self.submit_image("capture", load)
 
     def show_current(self):
         self.historical = False
@@ -779,10 +789,11 @@ class Studio:
                 self.ui.environment_info = json.dumps(snapshot["environment"], indent=2)
                 if not collect:
                     self.metadata = metadata
-                    self.run_records = snapshot["records"]
-                    self.current.update(self.run_records)
-                    self.records = self.current
-                    self.update_list()
+                    if snapshot["records"] != self.run_records:
+                        self.run_records = snapshot["records"]
+                        self.current.update(self.run_records)
+                        self.records = self.current
+                        self.update_list()
                 if data["final"]:
                     self.ui.busy = False
                     self.operation = None
@@ -909,6 +920,8 @@ class Studio:
         self.timer.stop()
         self.persist()
         self.service.close()
+        for job in self.image_jobs.values():
+            job.cancel()
         self.images.shutdown(wait=False, cancel_futures=True)
 
 

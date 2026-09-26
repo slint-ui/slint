@@ -264,6 +264,30 @@ def test_rapid_capture_changes_ignore_obsolete_loads(studio, captures):
     assert studio.ui.screenshot_caption == "2.png"
 
 
+def test_new_image_request_cancels_obsolete_queued_work(studio, monkeypatch):
+    jobs = []
+
+    class Job:
+        cancelled = False
+
+        def cancel(self):
+            self.cancelled = True
+            return True
+
+    def submit(_):
+        job = Job()
+        jobs.append(job)
+        return job
+
+    monkeypatch.setattr(studio.images, "submit", submit)
+
+    studio.submit_image("capture", lambda: None)
+    studio.submit_image("capture", lambda: None)
+
+    assert jobs[0].cancelled
+    assert not jobs[1].cancelled
+
+
 def test_return_to_displayed_capture_reuses_image(studio, captures):
     previous = studio.ui.screenshot
     studio.select_step(1)
