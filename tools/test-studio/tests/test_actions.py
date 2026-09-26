@@ -93,7 +93,7 @@ def test_capture_policy(tmp_path, monkeypatch, policy):
     monkeypatch.setenv("SLINT_STUDIO_CAPTURES", policy)
     plugin = StudioPlugin(tmp_path / "events.jsonl", tmp_path)
     plugin.application = Application()
-    plugin.completed_step("Launch")
+    plugin.completed_action("Launch")
     plugin.observe_action(
         {
             "kind": "action-end",
@@ -106,8 +106,27 @@ def test_capture_policy(tmp_path, monkeypatch, policy):
         json.loads(line)
         for line in (tmp_path / "events.jsonl").read_text().splitlines()
     ]
-    assert bool(events[0]["screenshot"]) == (policy == "boundaries")
-    assert bool(events[1]["screenshot"]) == (policy != "none")
+    assert [event["kind"] for event in events[:2]] == [
+        "action-start",
+        "action-end",
+    ]
+    assert bool(events[1]["screenshot"]) == (policy == "boundaries")
+    assert bool(events[2]["screenshot"]) == (policy != "none")
+
+
+def test_legacy_stages_use_the_action_timeline(tmp_path):
+    plugin = StudioPlugin(tmp_path / "events.jsonl", tmp_path)
+
+    plugin.observe("stage-start", title="Edit")
+    plugin.observe("stage-end", title="Edit", failed=False, duration=0.2)
+
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "events.jsonl").read_text().splitlines()
+    ]
+    assert [event["kind"] for event in events] == ["action-start", "action-end"]
+    assert events[0]["action_id"] == events[1]["action_id"]
+    assert events[0]["layer"] == "stage"
 
 
 def test_concise_failure_keeps_technical_details_and_replays():

@@ -124,7 +124,6 @@ class Debugger:
         try:
             inspector = importlib.import_module("slint_test.inspection")
             snapshot, png = inspector.capture(self.plugin.application)
-            sources = []
             documents = []
             for filename in self.plugin.inspection_sources[:8]:
                 path = Path(filename)
@@ -139,15 +138,15 @@ class Debugger:
                             "truncated": len(content) > 65536,
                         }
                     )
-                    sources.append(
-                        f"{path.name}\n\n"
-                        + content[:65536].decode(errors="replace")
-                        + ("\n[Source truncated]" if len(content) > 65536 else "")
-                    )
                 except OSError as error:
-                    sources.append(f"{path.name}: {error}")
-            if sources:
-                snapshot["source_text"] = "\n\n".join(sources)
+                    documents.append(
+                        {
+                            "path": str(path.resolve()),
+                            "name": path.name,
+                            "text": f"Source unavailable: {error}",
+                            "truncated": False,
+                        }
+                    )
             snapshot["sources"] = documents
             path = f"inspect-{self.serial:04d}-{time.time_ns()}.png"
             (self.plugin.artifacts / path).write_bytes(png)

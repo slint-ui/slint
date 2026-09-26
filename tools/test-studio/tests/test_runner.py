@@ -171,8 +171,8 @@ def test_capture_error_does_not_change_the_test_outcome(tmp_path):
     plugin.application = SimpleNamespace(
         first_window=SimpleNamespace(grab_window_as_png=unavailable)
     )
-    plugin.completed_step("Final state")
-    event = json.loads(plugin.events.read_text())
+    plugin.completed_action("Final state")
+    event = json.loads(plugin.events.read_text().splitlines()[-1])
     assert event["status"] == "Passed"
     assert event["screenshot"] == ""
     assert "window closed" in event["warning"]

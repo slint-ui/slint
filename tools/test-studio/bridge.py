@@ -40,6 +40,8 @@ class StudioPlugin:
         self.sections = set()
         self.strict_xpass = False
         self.application_started = False
+        self.legacy_actions = []
+        self.legacy_count = 0
         self.capture_policy = os.environ.get("SLINT_STUDIO_CAPTURES", "boundaries")
         if self.capture_policy not in {"boundaries", "failures", "none"}:
             self.capture_policy = "boundaries"
@@ -47,13 +49,13 @@ class StudioPlugin:
     def emit(self, kind, **data):
         return self.writer.emit(kind, nodeid=self.nodeid, **data)
 
-    def completed_step(self, name, status="Passed", duration=0.0):
+    def capture(self, status, *, boundary=False):
         started = time.monotonic()
         path, warning = "", ""
         if self.application is not None and (
-            self.capture_policy == "boundaries"
+            (boundary and self.capture_policy == "boundaries")
             or (
-                self.capture_policy == "failures"
+                self.capture_policy != "none"
                 and status in {"Failed", "Error", "Crashed"}
             )
         ):
@@ -65,26 +67,47 @@ class StudioPlugin:
                 )
             except Exception as error:  # noqa: BLE001
                 path, warning = "", f"Capture unavailable: {error}"
+        return path, warning, time.monotonic() - started
+
+    def start_legacy_action(self, name):
+        self.legacy_count += 1
+        action_id = f"legacy-{self.legacy_count}"
         self.emit(
-            "step",
+            "action-start",
+            action_id=action_id,
+            parent_id=None,
             title=name,
+            layer="stage",
+            arguments={"trace_coverage": "group-only legacy helper"},
+            source={},
+        )
+        return action_id
+
+    def end_legacy_action(self, action_id, status="Passed", duration=0.0):
+        path, warning, capture_duration = self.capture(status, boundary=True)
+        self.emit(
+            "action-end",
+            action_id=action_id,
             status=status,
             duration=duration,
             screenshot=path,
             warning=warning,
-            capture_duration=time.monotonic() - started,
+            capture_duration=capture_duration,
         )
+
+    def completed_action(self, name, status="Passed", duration=0.0):
+        self.end_legacy_action(self.start_legacy_action(name), status, duration)
 
     def observe(self, kind, **data):
         if kind == "application-ready":
             self.application_started = True
             self.application = data["application"]
-            self.completed_step("Launch editor")
+            self.completed_action("Launch application")
         elif kind == "application-closing":
             if data.get("returncode") not in (None, 0):
                 self.outcome = "Crashed"
                 self.emit("application-crash", returncode=data["returncode"])
-            self.completed_step(
+            self.completed_action(
                 "Final state",
                 "Failed"
                 if data.get("failed") and self.outcome == "Passed"
@@ -92,13 +115,16 @@ class StudioPlugin:
             )
             self.application = None
         elif kind == "stage-start":
-            self.emit(kind, **data)
-        elif kind == "stage-end":
-            self.completed_step(
-                data["title"],
-                "Failed" if data["failed"] else "Passed",
-                data["duration"],
+            self.legacy_actions.append(
+                (data["title"], self.start_legacy_action(data["title"]))
             )
+        elif kind == "stage-end":
+            status = "Failed" if data["failed"] else "Passed"
+            if self.legacy_actions and self.legacy_actions[-1][0] == data["title"]:
+                _, action_id = self.legacy_actions.pop()
+                self.end_legacy_action(action_id, status, data["duration"])
+            else:
+                self.completed_action(data["title"], status, data["duration"])
 
     def observe_action(self, event):
         kind = event["kind"]
@@ -118,22 +144,15 @@ class StudioPlugin:
             )
             return
         data = {key: value for key, value in event.items() if key != "kind"}
+        if kind == "application-exit":
+            return
         if kind == "action-end":
-            data["screenshot"] = ""
-            if (
-                event["status"] == "Failed"
-                and self.application is not None
-                and self.capture_policy != "none"
-            ):
-                try:
-                    self.sequence += 1
-                    path = f"capture-{self.sequence:04d}.png"
-                    (self.artifacts / path).write_bytes(
-                        self.application.first_window.grab_window_as_png()
-                    )
-                    data["screenshot"] = path
-                except Exception as error:  # noqa: BLE001
-                    data["warning"] = f"Capture unavailable: {error}"
+            path, warning, capture_duration = self.capture(event["status"])
+            data.update(
+                screenshot=path,
+                warning=warning,
+                capture_duration=capture_duration,
+            )
         self.emit(kind, **data)
 
     def pytest_configure(self, config):
@@ -231,6 +250,8 @@ class StudioPlugin:
         self.strict_xpass = False
         self.application_started = False
         self.action_count = 0
+        self.legacy_actions.clear()
+        self.legacy_count = 0
         if self.debugger is not None:
             self.debugger.failure = None
         self.emit("test-start")
