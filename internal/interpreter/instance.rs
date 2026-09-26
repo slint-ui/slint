@@ -109,6 +109,7 @@ impl RepeaterOrConditional {
         props: &dyn i_slint_core::model::ListViewProperties,
         listview_width: i_slint_core::lengths::LogicalLength,
         listview_height: i_slint_core::lengths::LogicalLength,
+        reverse: bool,
     ) -> bool {
         match self {
             Self::Repeater(r) => Pin::as_ref(r).ensure_updated_listview_callback(
@@ -116,6 +117,7 @@ impl RepeaterOrConditional {
                 props,
                 listview_width,
                 listview_height,
+                reverse,
             ),
             Self::Conditional(_) => unreachable!("listview on a conditional element"),
         }
@@ -513,6 +515,11 @@ impl Instance {
         if let Some(lv) = listview_info.as_ref() {
             let listview_width = read_logical_length(&sub, &lv.listview_width);
             let listview_height = read_logical_length(&sub, &lv.listview_height);
+            let reverse = {
+                let ctx = crate::eval::EvalContext::new(sub.clone());
+
+                crate::eval::load_property(&ctx, &lv.reverse).try_into().unwrap_or(false)
+            };
             // If layout hasn't propagated a real visible height yet (eager
             // hit-test before show()), bail out instead of running the
             // virtualization with `0`, which would create no rows or — with
@@ -531,6 +538,7 @@ impl Instance {
                 &props,
                 listview_width,
                 listview_height,
+                reverse,
             )
         } else {
             repeater.ensure_updated(factory)

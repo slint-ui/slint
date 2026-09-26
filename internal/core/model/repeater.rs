@@ -145,6 +145,14 @@ pub struct RepeaterLayoutState {
     pub previous_content_y: Coord,
     /// The y position of the item at `offset`.
     pub anchor_y: Coord,
+    /// Whether physical ListView row order is reversed.
+    pub reverse: bool,
+    /// Whether the initial reverse bottom anchor has been established.
+    pub reverse_initialized: bool,
+    /// Last bottom anchor used while a reversed ListView was still pinned
+    /// to its logical start. This lets the initial layout follow changes in
+    /// viewport/content size without snapping after the user scrolls.
+    pub reverse_bottom_y: Coord,
 }
 
 /// Abstraction over a repeater's instance collection so the same algorithm
@@ -272,10 +280,16 @@ fn update_visible_instances(
     props: &dyn ListViewProperties,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
+    reverse: bool,
 ) -> bool {
     let zero = LogicalLength::default();
     let mut content_width_value = listview_width.get();
     let listview_height = listview_height.get();
+
+    if state.reverse != reverse {
+        ops.splice(0, ops.len(), 0);
+        *state = RepeaterLayoutState { reverse, ..Default::default() };
+    }
 
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
@@ -291,6 +305,9 @@ fn update_visible_instances(
     }
 
     let mut changed = false;
+    let model_row = |physical_row: usize| {
+        if reverse { row_count - 1 - physical_row } else { physical_row }
+    };
 
     // Estimate element height from cached value or by measuring existing instances.
     let element_height = if state.cached_item_height > 0 as Coord {
@@ -311,13 +328,35 @@ fn update_visible_instances(
             // No items exist yet. Create one to measure.
             state.offset = state.offset.min(row_count - 1);
             ops.splice(0, ops.len(), 1);
-            changed |= ops.ensure_updated(0, state.offset);
+            changed |= ops.ensure_updated(0, model_row(state.offset));
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
 
     if state.offset >= row_count {
         state.offset = row_count - 1;
+    }
+
+    if reverse {
+        let estimated_content_height = element_height * row_count as Coord;
+        let bottom_y = (listview_height - estimated_content_height).min(0 as Coord);
+
+        // The first few layout passes can change visible-height (for example
+        // when the scrollbar appears) and can refine cached_item_height.
+        //
+        // Keep following the bottom anchor only while content-y is still at
+        // the previous anchor. As soon as the user scrolls, content-y differs
+        // from reverse_bottom_y and normal scrolling takes over.
+        let still_bottom_pinned = !state.reverse_initialized
+            || (content_y_value - state.reverse_bottom_y).abs() < 0.01 as Coord;
+
+        if still_bottom_pinned {
+            content_y_value = bottom_y;
+            props.content_y_set(LogicalLength::new(content_y_value));
+            state.previous_content_y = content_y_value;
+            state.reverse_bottom_y = bottom_y;
+            state.reverse_initialized = true;
+        }
     }
 
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
@@ -330,14 +369,32 @@ fn update_visible_instances(
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
-        state.offset = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
+
+        if reverse && state.reverse_initialized {
+            // Start from exactly enough physical rows to fill the viewport.
+            // The final physical row is row_count - 1, which maps to model 0.
+            let visible_rows =
+                ((listview_height / element_height).ceil() as usize).max(1).min(row_count);
+
+            state.offset = row_count - visible_rows;
+
+            // If the viewport is not an exact multiple of the estimated row
+            // height, shift the first visible row upward by the remainder.
+            // This keeps the final row's bottom exactly on the viewport's
+            // bottom edge instead of pushing model row 0 outside the view.
+            let visible_height = element_height * visible_rows as Coord;
+            (state.offset, listview_height - visible_height)
+        } else {
+            state.offset =
+                ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
+            (state.offset, 0 as Coord)
+        }
     } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + content_y_value;
         let mut new_off = state.offset;
         for i in 0..ops.len() {
-            changed |= ops.ensure_updated(i, new_off);
+            changed |= ops.ensure_updated(i, model_row(new_off));
             let h = ops.height(i).unwrap_or(0 as Coord);
             if it_y + h > 0 as Coord || new_off + 1 >= row_count {
                 break;
@@ -363,7 +420,7 @@ fn update_visible_instances(
         while new_offset > 0 && new_offset_y > 0 as Coord {
             new_offset -= 1;
             ops.splice(0, 0, 1);
-            changed |= ops.ensure_updated(0, new_offset);
+            changed |= ops.ensure_updated(0, model_row(new_offset));
             new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
             prepend_count += 1;
         }
@@ -380,7 +437,7 @@ fn update_visible_instances(
             if idx >= row_count {
                 break;
             }
-            changed |= ops.ensure_updated(i, idx);
+            changed |= ops.ensure_updated(i, model_row(idx));
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
             if y >= listview_height {
@@ -392,7 +449,7 @@ fn update_visible_instances(
         while y < listview_height && idx < row_count {
             let i = ops.len();
             ops.splice(i, 0, 1);
-            changed |= ops.ensure_updated(i, idx);
+            changed |= ops.ensure_updated(i, model_row(idx));
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
         }
@@ -533,6 +590,11 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
+        let row = if inner.layout_state.reverse {
+            self.model.get_internal().row_count().saturating_sub(1).saturating_sub(row)
+        } else {
+            row
+        };
         if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
@@ -548,6 +610,14 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were added
     fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
+        // reverse ListView: reset on model insertion
+        if inner.layout_state.reverse {
+            let reverse = inner.layout_state.reverse;
+            inner.instances.clear();
+            inner.layout_state = RepeaterLayoutState { reverse, ..Default::default() };
+            self.is_dirty.set(true);
+            return;
+        }
         if index < inner.layout_state.offset {
             if index + count <= inner.layout_state.offset {
                 // Entirely before the visible range: shift the offset.
@@ -579,6 +649,14 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
+        // reverse ListView: reset on model removal
+        if inner.layout_state.reverse {
+            let reverse = inner.layout_state.reverse;
+            inner.instances.clear();
+            inner.layout_state = RepeaterLayoutState { reverse, ..Default::default() };
+            self.is_dirty.set(true);
+            return;
+        }
         if index < inner.layout_state.offset {
             if index + count <= inner.layout_state.offset {
                 // Entirely before the visible range: shift the offset.
@@ -718,10 +796,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
+        reverse: bool,
     ) {
         let props = TypedListViewProps { content_width, content_height, content_y };
         self.track_changes_listview_callback(&props, listview_width);
         listview_height.register_as_dependency();
+        let _ = reverse;
     }
 
     /// Trait-based variant of [`Self::track_changes_listview`] for runtime
@@ -750,9 +830,16 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
+        reverse: bool,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        self.ensure_updated_listview_callback(init, &props, listview_width, listview_height.get())
+        self.ensure_updated_listview_callback(
+            init,
+            &props,
+            listview_width,
+            listview_height.get(),
+            reverse,
+        )
     }
 
     /// Trait-based variant of [`Self::ensure_updated_listview`] for runtime
@@ -766,6 +853,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         props: &dyn ListViewProperties,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
+        reverse: bool,
     ) -> bool {
         self.data().project_ref().is_dirty.set(false);
 
@@ -782,6 +870,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             props,
             listview_width,
             listview_height,
+            reverse,
         );
         data.inner.borrow_mut().layout_state = layout_state;
 
@@ -871,7 +960,16 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
+        let physical_index = if inner.layout_state.reverse {
+            let row_count = self.0.model.get_internal().row_count();
+            row_count.checked_sub(index + 1)?
+        } else {
+            index
+        };
+        inner
+            .instances
+            .get(physical_index.checked_sub(inner.layout_state.offset)?)
+            .and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -1096,8 +1194,17 @@ mod ffi {
         content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
+        reverse: bool,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        update_visible_instances(ops, state, row_count, &props, listview_width, listview_height)
+        update_visible_instances(
+            ops,
+            state,
+            row_count,
+            &props,
+            listview_width,
+            listview_height,
+            reverse,
+        )
     }
 }

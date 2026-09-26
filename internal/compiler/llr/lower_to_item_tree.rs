@@ -1177,6 +1177,7 @@ fn lower_repeated_component(
                 .map(|content_width| ctx.map_property_reference(content_width)),
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
+            reverse: ctx.map_property_reference(&lv.reverse),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
             prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
         }
