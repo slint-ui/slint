@@ -384,18 +384,32 @@ macro_rules! declare_value_enum_conversion {
 
 i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
+impl From<i_slint_core::animations::InstantNanosecond> for Value {
+    fn from(value: i_slint_core::animations::InstantNanosecond) -> Self {
+        Value::Number((value.0 / 1_000_000) as f64)
+    }
+}
+impl TryFrom<Value> for i_slint_core::animations::InstantNanosecond {
+    type Error = ();
+    fn try_from(v: Value) -> Result<i_slint_core::animations::InstantNanosecond, Self::Error> {
+        match v {
+            Value::Number(x) => {
+                Ok(i_slint_core::animations::InstantNanosecond((x as u64) * 1_000_000))
+            }
+            _ => Err(()),
+        }
+    }
+}
+
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {
-        Value::Number(value.0 as _)
+        i_slint_core::animations::InstantNanosecond::from(value).into()
     }
 }
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
-        match v {
-            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
-            _ => Err(()),
-        }
+        i_slint_core::animations::InstantNanosecond::try_from(v).map(Into::into)
     }
 }
 

@@ -230,7 +230,7 @@ impl SlintContext {
     pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
         let timeout = self.next_timer_timeout()?;
         let now = crate::animations::Instant::now(self);
-        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+        Some(timeout.0.saturating_sub(now.0))
     }
 
     /// Fires the callbacks of this context's timers that have expired by `now`, and returns

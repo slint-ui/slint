@@ -5,7 +5,7 @@
 //! The animation system
 
 use alloc::boxed::Box;
-use core::cell::Cell;
+use core::{cell::Cell, time::Duration};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
@@ -176,38 +176,38 @@ pub enum EasingCurve {
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
-pub struct Instant(pub u64);
+pub struct Instant(pub Duration);
 
 impl core::ops::Sub<Instant> for Instant {
     type Output = core::time::Duration;
     fn sub(self, other: Self) -> core::time::Duration {
-        core::time::Duration::from_millis(self.0 - other.0)
+        self.0.saturating_sub(other.0)
     }
 }
 
 impl core::ops::Sub<core::time::Duration> for Instant {
     type Output = Instant;
     fn sub(self, other: core::time::Duration) -> Instant {
-        Self(self.0 - other.as_millis() as u64)
+        Self(self.0.saturating_sub(other))
     }
 }
 
 impl core::ops::Add<core::time::Duration> for Instant {
     type Output = Instant;
     fn add(self, other: core::time::Duration) -> Instant {
-        Self(self.0 + other.as_millis() as u64)
+        Self(self.0 + other)
     }
 }
 
 impl core::ops::AddAssign<core::time::Duration> for Instant {
     fn add_assign(&mut self, other: core::time::Duration) {
-        self.0 += other.as_millis() as u64;
+        self.0 += other;
     }
 }
 
 impl core::ops::SubAssign<core::time::Duration> for Instant {
     fn sub_assign(&mut self, other: core::time::Duration) {
-        self.0 -= other.as_millis() as u64;
+        self.0 = self.0.saturating_sub(other);
     }
 }
 
@@ -226,12 +226,31 @@ impl Instant {
     /// platform's start time: instants from different contexts are not comparable, so the
     /// caller has to say which clock it means.
     pub fn now(ctx: &crate::SlintContext) -> Self {
-        Self(ctx.platform().duration_since_start().as_millis() as u64)
+        Self(ctx.platform().duration_since_start())
     }
 
     /// Return the number of milliseconds this `Instant` is after the backend has started
     pub fn as_millis(&self) -> u64 {
-        self.0
+        self.0.as_millis() as u64
+    }
+}
+
+/// A timestamp on the animation clock, in whole nanoseconds since the backend has started.
+///
+/// FFI compatible layout
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Ord, PartialOrd)]
+pub struct InstantNanosecond(pub u64);
+
+impl From<Instant> for InstantNanosecond {
+    fn from(instant: Instant) -> Self {
+        Self(instant.0.as_nanos() as u64)
+    }
+}
+
+impl From<InstantNanosecond> for Instant {
+    fn from(nanos: InstantNanosecond) -> Self {
+        Instant(Duration::from_nanos(nanos.0))
     }
 }
 
@@ -298,10 +317,12 @@ pub fn current_tick() -> Instant {
 /// Same as [`current_tick`], but also register that one should be running animation
 /// on next frame
 pub fn animation_tick() -> u64 {
-    CURRENT_ANIMATION_DRIVER.with(|driver| {
-        driver.set_has_active_animations();
-        driver.current_tick().0
-    })
+    CURRENT_ANIMATION_DRIVER
+        .with(|driver| {
+            driver.set_has_active_animations();
+            driver.current_tick()
+        })
+        .as_millis()
 }
 
 fn ease_out_bounce_curve(value: f32) -> f32 {

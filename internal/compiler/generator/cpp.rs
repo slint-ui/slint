@@ -792,7 +792,9 @@ fn handle_property_init(
                             [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
                                 auto [animation, change_time] = {animation};
-                                **start_time = change_time;
+                                // change_time is InstantNanosecond, but this FFI boundary (see
+                                // properties/ffi.rs) is documented and implemented in milliseconds.
+                                **start_time = change_time / 1000000;
                                 return animation;
                             }});",
                         )

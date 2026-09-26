@@ -1514,6 +1514,7 @@ fn build(l: &mut Loader) {
         @shadowable in-out property <length> content-x;
         /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
         @shadowable in-out property <length> content-y;
+
         @deprecated in property <length> viewport-width <=> content-width;
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;

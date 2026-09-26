@@ -1543,6 +1543,7 @@ impl WinitWindowAdapter {
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
+                            event_time: Default::default(),
                         }
                     }
                     winit::event::ElementState::Released => {
@@ -1573,6 +1574,8 @@ impl WinitWindowAdapter {
                         id: finger_id,
                         position,
                         phase: winit_touch_phase(touch.phase),
+                        event_time: None,
+                        history: Default::default(),
                     });
                 }
             }

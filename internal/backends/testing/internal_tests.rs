@@ -9,6 +9,7 @@ use i_slint_core::api::ComponentHandle;
 pub use i_slint_core::input::BackendMouseEvent;
 pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
+pub use i_slint_core::items::AutoBool;
 pub use i_slint_core::lengths::LogicalPoint;
 pub use i_slint_core::platform::InternalEvent;
 use i_slint_core::platform::WindowEvent;

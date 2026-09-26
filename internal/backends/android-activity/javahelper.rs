@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jfloat jint
+// cSpell: ignore dalvik jboolean jfloat jint jlong
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
+use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
@@ -293,7 +294,11 @@ pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
 }
 
 #[allow(dead_code)]
-pub struct JavaHelper(jni::refs::Global<SlintAndroidJavaHelper<'static>>, AndroidApp);
+pub struct JavaHelper(
+    jni::refs::Global<SlintAndroidJavaHelper<'static>>,
+    AndroidApp,
+    std::cell::OnceCell<i64>,
+);
 
 fn get_helper_class_loader(
     env: &mut Env,
@@ -371,9 +376,26 @@ fn load_java_helper(
     })
 }
 
+bind_java_type! {
+    JavaSystem => "java.lang.System",
+    methods {
+        static fn nano_time { name = "nanoTime", sig = () -> jlong, },
+    }
+}
+
 impl JavaHelper {
+    pub fn input_timestamp(&self, event_nanos: i64, window: &i_slint_core::api::Window) -> Instant {
+        let offset = self.2.get_or_init(|| {
+            let now_nanos = self
+                .with_jni_env(|env, _| JavaSystem::nano_time(env))
+                .unwrap_or_else(|e| print_jni_error(&self.1, e));
+            let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
+            i_slint_core::animations::Instant::now(&ctx).0.as_nanos() as i64 - now_nanos
+        });
+        Instant(Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64))
+    }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
     }
 
     fn with_jni_env<R>(

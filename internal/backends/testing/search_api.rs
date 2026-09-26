@@ -326,6 +326,21 @@ pub struct ElementHandle {
     element_index: usize, // When multiple elements get optimized into a single ItemRc, this index separates.
 }
 
+/// Overrides scrolling behavior for Slint's internal tests.
+/// Panics if the handle has expired or does not refer to a Flickable.
+#[cfg(feature = "internal")]
+pub fn set_flickable_physics(
+    element: &ElementHandle,
+    bounce: i_slint_core::items::AutoBool,
+    carry_momentum: i_slint_core::items::AutoBool,
+) {
+    use i_slint_core::items::Flickable;
+
+    let item = element.item.upgrade().expect("Flickable element has expired");
+    let flickable = item.downcast::<Flickable>().expect("Element is not a Flickable");
+    flickable.as_pin_ref().set_physics(bounce, carry_momentum);
+}
+
 impl ElementHandle {
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
         (0..item.element_count().unwrap_or_else(|| {

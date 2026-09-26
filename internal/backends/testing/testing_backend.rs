@@ -226,7 +226,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn duration_since_start(&self) -> core::time::Duration {
         if self.mock_time {
             // The slint::testing::mock_elapsed_time updates the animation tick directly
-            core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+            i_slint_core::animations::current_tick().0
         } else {
             static INITIAL_INSTANT: std::sync::OnceLock<std::time::Instant> =
                 std::sync::OnceLock::new();

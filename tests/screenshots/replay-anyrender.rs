@@ -55,7 +55,7 @@ impl Platform for ReplayBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().0
     }
 }
 

@@ -1,15 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains various physics simulations which can be used as animation (internally only yet).
-//! Currently it is used in the flickable to animate the content position of the Flickable
+//! Physics simulations that animate a Flickable's content position.
 //!
-//! Currently it contains two simulations:
-//! - `ConstantDeceleration`
-//! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
+//! `android` and `ios` implement the platform-specific flick simulations that run after a
+//! release or a fling. `scroll_spring` settles content that already lies past its scroll
+//! limit back to the boundary. `spring` holds the spring math the other two build on.
 
-pub mod constant_deceleration;
-pub mod constant_deceleration_spring_damper;
+pub mod android;
+pub mod ios;
+pub mod scroll_spring;
 pub mod spring;
 
 use crate::animations::Instant;
@@ -21,6 +21,13 @@ enum Direction {
     Increasing,
     /// The start value is larger than the limit value
     Decreasing,
+}
+
+pub trait PositionSimulation {
+    /// The signed distance the position still has to move until the simulation comes to rest,
+    /// `time_elapsed` after it started. Not the distance it already moved.
+    fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32;
+    fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32;
 }
 
 /// Common simulation trait

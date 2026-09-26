@@ -44,6 +44,8 @@ fn set_property_binding_impl<T: Clone + Default + 'static, VT: VTableMetaDropInP
 
 /// Like [`set_property_binding_erased`], for an animated binding.
 /// The component must outlive the binding.
+///
+/// `compute_animation_details` returns the time the animation started, if it isn't now.
 #[inline]
 pub fn set_animated_property_binding_erased<
     T: Clone + super::InterpolatedPropertyValue + 'static,
@@ -58,7 +60,7 @@ pub fn set_animated_property_binding_erased<
         &(),
     ) -> (
         crate::items::PropertyAnimation,
-        Option<crate::animations::Instant>,
+        Option<crate::animations::InstantNanosecond>,
     ),
 ) {
     set_animated_property_binding_impl(
@@ -76,15 +78,16 @@ fn set_animated_property_binding_impl<
     binding: ErasedWeakFn<VT, T>,
     compute_animation_details: ErasedWeakFn<
         VT,
-        (crate::items::PropertyAnimation, Option<crate::animations::Instant>),
+        (crate::items::PropertyAnimation, Option<crate::animations::InstantNanosecond>),
     >,
 ) {
     property.set_animated_binding(
         move || binding.upgrade_and_call(&()).expect("binding evaluated on dropped component"),
         move || {
-            compute_animation_details
+            let (animation, start_time) = compute_animation_details
                 .upgrade_and_call(&())
-                .expect("binding evaluated on dropped component")
+                .expect("binding evaluated on dropped component");
+            (animation, start_time.map(crate::animations::Instant::from))
         },
     )
 }
