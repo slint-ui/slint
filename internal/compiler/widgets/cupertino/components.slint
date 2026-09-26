@@ -53,6 +53,8 @@ export component ListItem {
     in property <int> index;
     in property <length> pressed-x;
     in property <length> pressed-y;
+    in property <string> font-family;
+    in property <bool> font-italic;
 
     min-width: i-layout.min-width;
     min-height: max(CupertinoSizeSettings.item-height, i-layout.min-height);
@@ -100,6 +102,8 @@ export component ListItem {
                 i-text := Text {
                     text: root.item.text;
                     color: CupertinoPalette.foreground;
+                    font-family: root.font-family;
+                    font-italic: root.font-italic;
                     vertical-alignment: center;
                     horizontal-alignment: left;
                     overflow: elide;
