@@ -2228,6 +2228,9 @@ fn build(l: &mut Loader) {
     }
 
     item! { BoxShadow: Empty {
+        in property <brush> background;
+        in property <brush> border-color;
+        in property <length> border-width;
         in property <length> border-top-left-radius;
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;

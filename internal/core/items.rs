@@ -1791,6 +1791,9 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
+    pub background: Property<Brush>,
+    pub border_color: Property<Brush>,
+    pub border_width: Property<LogicalLength>,
     pub border_top_left_radius: Property<LogicalLength>,
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
@@ -1813,6 +1816,21 @@ impl BoxShadow {
             self.border_bottom_right_radius(),
             self.border_bottom_left_radius(),
         )
+    }
+}
+
+impl RenderBorderRectangle for BoxShadow {
+    fn background(self: Pin<&Self>) -> Brush {
+        self.background()
+    }
+    fn border_width(self: Pin<&Self>) -> LogicalLength {
+        self.border_width()
+    }
+    fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        self.logical_border_radius()
+    }
+    fn border_color(self: Pin<&Self>) -> Brush {
+        self.border_color()
     }
 }
 

@@ -501,7 +501,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     fn draw_box_shadow(
         &mut self,
         box_shadow: Pin<&items::BoxShadow>,
-        _item_rc: &ItemRc,
+        item_rc: &ItemRc,
         size: LogicalSize,
     ) {
         let color = box_shadow.color();
@@ -535,39 +535,98 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
             return;
         }
 
-        let radius = base_radius + spread;
-
-        let rect = kurbo::Rect::new(
-            offset.x as f64 - spread,
-            offset.y as f64 - spread,
-            offset.x as f64 + phys_size.width as f64 + spread,
-            offset.y as f64 + phys_size.height as f64 + spread,
-        );
-        if rect.is_zero_area() {
+        let Some(options) =
+            i_slint_core::graphics::boxshadowcache::BoxShadowOptions::new(item_rc, box_shadow, sf)
+        else {
+            return;
+        };
+        if options.shape_size().is_empty() {
             return;
         }
-
-        if blur == 0. {
-            // No blur: a plain rounded rectangle fill matches exactly.
-            let shape = RectShape::uniform(rect, radius);
-            self.scene.fill(
-                peniko::Fill::default(),
-                self.current_state.transform,
-                peniko::BrushRef::Solid(to_peniko_color(color)),
-                None,
-                &shape,
+        if let Some(radius) = options.opaque_source_radius() {
+            let radius =
+                (radius.top_left + radius.top_right + radius.bottom_right + radius.bottom_left)
+                    as f64
+                    / 4.
+                    + spread;
+            let rect = kurbo::Rect::new(
+                offset.x as f64 - spread,
+                offset.y as f64 - spread,
+                offset.x as f64 + phys_size.width as f64 + spread,
+                offset.y as f64 + phys_size.height as f64 + spread,
             );
-        } else {
-            // The CSS drop-shadow convention Slint follows: the Gaussian's
-            // standard deviation is half the blur radius.
-            self.scene.draw_box_shadow(
-                self.current_state.transform,
-                rect,
-                to_peniko_color(color),
-                radius,
-                blur / 2.,
+            if blur == 0. {
+                self.scene.fill(
+                    peniko::Fill::default(),
+                    self.current_state.transform,
+                    peniko::BrushRef::Solid(to_peniko_color(color)),
+                    None,
+                    &RectShape::uniform(rect, radius),
+                );
+            } else {
+                self.scene.draw_box_shadow(
+                    self.current_state.transform,
+                    rect,
+                    to_peniko_color(color),
+                    radius,
+                    blur / 2.,
+                );
+            }
+            return;
+        }
+        let Some((background, layout)) = options.source else { return };
+        let transform = self.current_state.transform
+            * kurbo::Affine::translate((offset.x as f64, offset.y as f64));
+        let extent = kurbo::Rect::new(
+            -spread,
+            -spread,
+            phys_size.width as f64 + spread,
+            phys_size.height as f64 + spread,
+        )
+        .inflate(2. * blur + 1., 2. * blur + 1.);
+        let filter = (blur > 0.).then(|| {
+            Arc::new(anyrender::Filter::single(anyrender::filters::FilterEffect::blur(
+                (blur / 2.) as f32,
+            )))
+        });
+        self.scene.push_layer(peniko::BlendMode::default(), 1., transform, &extent, filter, None);
+        if !layout.background_rect.is_empty() {
+            self.fill_with_brush(
+                background,
+                layout.brush_size,
+                transform,
+                peniko::Fill::default(),
+                &phys_rect_shape(layout.background_rect, layout.background_radius),
             );
         }
+        if layout.border_width.get() > 0. {
+            self.stroke_with_brush(
+                layout.border_color,
+                layout.brush_size,
+                transform,
+                &kurbo::Stroke::new(layout.border_width.get() as f64).with_join(kurbo::Join::Miter),
+                &phys_rect_shape(layout.border_rect, layout.border_radius),
+            );
+        }
+        // Color the combined source alpha before blurring it, preserving overlap between
+        // partially transparent fill and border paint.
+        self.scene.push_layer(
+            peniko::BlendMode::new(peniko::Mix::Normal, peniko::Compose::SrcIn),
+            1.,
+            transform,
+            &extent,
+            None,
+            None,
+        );
+        self.scene.fill(
+            peniko::Fill::default(),
+            transform,
+            peniko::BrushRef::Solid(to_peniko_color(color)),
+            None,
+            &extent,
+        );
+        self.scene.pop_layer();
+        self.scene.pop_layer();
     }
 
     fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
