@@ -5727,6 +5727,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-driver-typescript"
+version = "1.19.0"
+dependencies = [
+ "i-slint-compiler",
+ "spin_on",
+ "tempfile",
+ "test_driver_lib",
+]
+
+[[package]]
 name = "test_driver_lib"
 version = "1.19.0"
 dependencies = [

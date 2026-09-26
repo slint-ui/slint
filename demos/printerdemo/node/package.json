@@ -7,7 +7,7 @@
         "slint-ui": "workspace:*"
     },
     "scripts": {
-        "start": "node .",
+        "start": "node --import slint-ui/register .",
         "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile"
     }
 }

@@ -209,6 +209,73 @@ assert!(t.get_test());
 
 ```
 
+```d.ts
+export interface Test {
+    b1: slint.Brush | slint.RgbaColor | string;
+    b1bri: number;
+    b1hue: number;
+    b1sat: number;
+    b2: slint.Brush | slint.RgbaColor | string;
+    b3: slint.Brush | slint.RgbaColor | string;
+    b4: slint.Brush | slint.RgbaColor | string;
+    b5: slint.Brush | slint.RgbaColor | string;
+    bwood: slint.Brush | slint.RgbaColor | string;
+    bwood_bri: number;
+    bwood_hue: number;
+    bwood_sat: number;
+    c1: slint.Brush | slint.RgbaColor | string;
+    c2: slint.Brush | slint.RgbaColor | string;
+    c3: slint.Brush | slint.RgbaColor | string;
+    g1: slint.Brush | slint.RgbaColor | string;
+    gr1: slint.Brush | slint.RgbaColor | string;
+    gr1bri: number;
+    gr1hue: number;
+    gr1sat: number;
+    hsv_angle1: slint.Brush | slint.RgbaColor | string;
+    hsv_angle2: slint.Brush | slint.RgbaColor | string;
+    i1: slint.Brush | slint.RgbaColor | string;
+    invisible: slint.Brush | string;
+    new_green: slint.Brush | slint.RgbaColor | string;
+    oklch_angle1: slint.Brush | slint.RgbaColor | string;
+    oklch_angle2: slint.Brush | slint.RgbaColor | string;
+    oklch_angle3: slint.Brush | slint.RgbaColor | string;
+    oklch_pct1: slint.Brush | slint.RgbaColor | string;
+    oklch_pct2: slint.Brush | slint.RgbaColor | string;
+    oklch1: slint.Brush | slint.RgbaColor | string;
+    oklch2: slint.Brush | slint.RgbaColor | string;
+    p1: slint.Brush | slint.RgbaColor | string;
+    r1: slint.Brush | slint.RgbaColor | string;
+    r1bri: number;
+    r1hue: number;
+    r1sat: number;
+    r2: slint.Brush | slint.RgbaColor | string;
+    r3: slint.Brush | slint.RgbaColor | string;
+    r4: slint.Brush | slint.RgbaColor | string;
+    r5: slint.Brush | slint.RgbaColor | string;
+    test: boolean;
+    readonly test_hsv: boolean;
+    readonly test_hsv_angle: boolean;
+    readonly test_hsv_bri: boolean;
+    readonly test_hsv_hue: boolean;
+    readonly test_hsv_sat: boolean;
+    readonly test_hsv_wrap: boolean;
+    readonly test_oklch_angle: boolean;
+    readonly test_oklch_blue: boolean;
+    readonly test_oklch_create: boolean;
+    readonly test_oklch_percent: boolean;
+    readonly test_oklch_red: boolean;
+    readonly test_oklch_white: boolean;
+    readonly test_rgb: boolean;
+    y1: slint.Brush | slint.RgbaColor | string;
+    y1bri: number;
+    y1hue: number;
+    y1sat: number;
+    y2: slint.Brush | slint.RgbaColor | string;
+}
+
+export declare const Test: { new(properties?: Partial<Test>): Test & slint.ComponentHandle };
+```
+
 ```js
 var t = new slint.Test({});
 assert(t.r1.toString() == t.r2.toString());

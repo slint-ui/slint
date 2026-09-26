@@ -15,6 +15,32 @@ export { TestCase as NamedTestCase }
 
 /*
 
+```d.ts
+export type NamedEnum = "Hello" | "Bonjour";
+export declare const NamedEnum: {
+    readonly Hello: "Hello";
+    readonly Bonjour: "Bonjour";
+};
+
+export interface NotExportedStruct0 {
+    a: number;
+}
+
+export interface NamedStruct {
+    d: number;
+    e: NotExportedStruct0;
+}
+
+export interface NamedTestCase {
+    en: NamedEnum;
+    st: NamedStruct;
+}
+
+export declare const NamedTestCase: { new(properties?: Partial<NamedTestCase>): NamedTestCase & slint.ComponentHandle };
+export declare function NotExportedStruct0(properties?: Partial<NotExportedStruct0>): NotExportedStruct0;
+export declare function NamedStruct(properties?: Partial<NamedStruct>): NamedStruct;
+```
+
 ```cpp
 auto handle = NamedTestCase::create();
 const NamedTestCase &instance = *handle;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 import * as slint from "slint-ui";
+import { MainWindow } from "../ui/main.slint";
 import { read, Image, ImageColorModel } from "image-js";
 
 function fromImageData(bitmap: slint.ImageData): Image {
@@ -65,10 +66,7 @@ class Filters extends slint.Model<string> {
     }
 }
 
-const demo = slint.loadFile(
-    new URL("../ui/main.slint", import.meta.url),
-) as any;
-const mainWindow = new demo.MainWindow();
+const mainWindow = new MainWindow();
 
 const imagePath = new URL("../assets/cat.jpg", import.meta.url).pathname;
 const image = await read(imagePath);

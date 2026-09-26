@@ -178,6 +178,7 @@ impl Document {
                 values,
                 default_value: 0,
                 node: Some(n.to_source_location()),
+                public: false,
                 rust_attributes: n
                     .AtRustAttr()
                     .map(|a| SmolStr::from(a.text().to_string()))
