@@ -25,6 +25,7 @@ from canvas_interactions import (
     selection_frame,
 )
 from editor_sync import wait_for_source
+from slint_test import step
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
@@ -980,29 +981,35 @@ def test_move_rotated_element_writes_exact_source_on_release(
 
 
 def test_nested_rotated_element_move_writes_exact_local_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "RotatedCanvasCases.slint"
     baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        snapshot = SourceSnapshot.capture(fixture_project)
-        select_outline_row(window, "nested-rotated-text")
-        manual_drag(
-            window,
-            window_element_with_label(window, "Text move handle"),
-            20,
-            16,
-            snapshot,
-        )
-        expected = replace_once(
-            baseline,
-            b"                x: 44px;\n                y: 52px;",
-            b"                x: 60px;\n                y: 32px;",
-        )
-        snapshot.wait_for_exact(expected, "RotatedCanvasCases.slint")
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with editor_factory(source_file) as editor:
+        element = editor.canvas.element("nested-rotated-text", kind="Text")
+        element.select()
+        before = element.selection.bounds()
+        with element.drag() as drag:
+            previews = []
+            for fraction in (1 / 3, 2 / 3, 1):
+                drag.move_by(20 * fraction, 16 * fraction, origin="start")
+                previews.append(element.selection.bounds())
+            with step("Move preview changes before source commit", layer="assertion"):
+                assert previews[-1] != before
+                assert len(set(previews)) >= 2
+                snapshot.assert_unchanged_now()
+            drag.release()
+        with step("Window movement saves exact local coordinates", layer="assertion"):
+            snapshot.wait_for_exact(
+                replace_once(
+                    baseline,
+                    b"                x: 44px;\n                y: 52px;",
+                    b"                x: 60px;\n                y: 32px;",
+                ),
+                "RotatedCanvasCases.slint",
+            )
 
 
 @pytest.mark.parametrize("corner", CORNERS)
@@ -1292,52 +1299,54 @@ def test_resize_modifier_changes_during_drag(
 @pytest.mark.parametrize("kind", ROTATED_KINDS)
 @pytest.mark.parametrize("corner", CORNERS)
 def test_rotated_element_resize_writes_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
     corner: str,
 ) -> None:
     source_file = fixture_project / "RotatedCanvasCases.slint"
     baseline = source_file.read_bytes()
-    element_id = f"rotated-free-{kind.lower()}"
-
+    snapshot = SourceSnapshot.capture(fixture_project)
     geometry = ROTATED_GEOMETRIES[kind]
-    original = geometry_source(geometry)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        snapshot = SourceSnapshot.capture(fixture_project)
-        select_outline_row(window, element_id)
-        opposite_label = f"{kind} resize {OPPOSITE_CORNERS[corner]}"
-        fixed_handle_center = manual_drag(
-            window,
-            window_element_with_label(window, f"{kind} resize {corner}"),
-            *CORNER_DELTAS[corner],
-            snapshot,
-            fixed_handle_label=opposite_label,
-        )
-        assert fixed_handle_center is not None
-        expected_geometry = rotated_resize_values(
-            *geometry,
-            corner,
-            *CORNER_DELTAS[corner],
-        )
-        changed = geometry_source(expected_geometry)
-        # The handles are read back, so the preview has to hold the edited source.
-        snapshot.wait_for_applied(
-            replace_once(baseline, original, changed),
-            "RotatedCanvasCases.slint",
-        )
-        assert (
-            position_distance(
-                center(
-                    window_element_with_label(window, opposite_label),
-                    math.radians(ROTATED_FIXTURE_ANGLE),
+    dx, dy = CORNER_DELTAS[corner]
+    opposite = f"resize {OPPOSITE_CORNERS[corner]}"
+    with editor_factory(source_file) as editor:
+        element = editor.canvas.element(f"rotated-free-{kind.lower()}", kind=kind)
+        element.select()
+        before = element.selection.bounds()
+        fixed = element.handle_center(opposite)
+        with element.drag(f"resize {corner}") as drag:
+            previews = []
+            for fraction in (1 / 3, 2 / 3, 1):
+                drag.move_by(dx * fraction, dy * fraction, origin="start")
+                previews.append(element.selection.bounds())
+            with step(
+                "Resize preview follows pointer without moving opposite corner",
+                layer="assertion",
+            ):
+                assert previews[-1] != before
+                assert len(set(previews)) >= 2
+                assert (
+                    position_distance(
+                        element.handle_center(f"resize {corner}"),
+                        editor.window.pointer.position,
+                    )
+                    < 1.5
+                )
+                assert position_distance(element.handle_center(opposite), fixed) < 1.5
+                snapshot.assert_unchanged_now()
+            drag.release()
+        with step(
+            "Release saves exact geometry and applies preview", layer="assertion"
+        ):
+            expected = rotated_resize_values(*geometry, corner, dx, dy)
+            snapshot.wait_for_applied(
+                replace_once(
+                    baseline, geometry_source(geometry), geometry_source(expected)
                 ),
-                fixed_handle_center,
+                "RotatedCanvasCases.slint",
             )
-            < 1.5
-        )
+            assert position_distance(element.handle_center(opposite), fixed) < 1.5
 
 
 @pytest.mark.parametrize("kind", ROTATED_KINDS)

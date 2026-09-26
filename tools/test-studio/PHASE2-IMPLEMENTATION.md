@@ -1,7 +1,8 @@
 # Phase 2 Implementation
 
 Phase 2 now has a generic Python API, an optional Visual Editor adapter, and a nested action timeline in Studio.
-The original editor tests remain intact alongside five readable pilot families.
+Five readable pilot families remain alongside their original tests.
+Three additional gesture families now use the readable API in place.
 This is an experimental authoring API. Action debugging has since been added; recording remains a later milestone.
 
 ## Ownership
@@ -112,3 +113,35 @@ Validated on macOS with headless Skia and the rebuilt editor:
 - Ruff, ty, repository autofixes, and strict backend and root-workspace Clippy passed.
 - The full repository Clippy invocation encountered an unrelated FFmpeg/header incompatibility
   in the examples workspace. Windows and Linux runtime behavior wasn't validated.
+
+## Complex Gesture Migration
+
+Three existing test families now use the readable API in place, retaining all 16 node IDs and parameter cases.
+The five earlier pilot families remain alongside their original tests.
+
+- Rotated resizing checks multiple transient preview states, pointer tracking, a fixed opposite corner, unchanged source before release, exact saved bytes, and applied preview.
+- Nested rotated movement checks transient preview states and the exact local coordinates produced by window-space input.
+- Conic cancellation checks picker controls, restored handle coordinates, and sustained unchanged source after closing the picker.
+
+`CanvasElement.drag()` and `handle_center()` apply the existing selection-frame rotation calculation to generic locators and gestures.
+They add no assertions or source mutation and return generic `Drag` and `Point` values.
+Conic gestures retain an explicit window-space pointer start, as in the original tests and existing readable conic pilot.
+Locator-based drag readiness timed out on these handles; this migration does not claim stronger drag actionability.
+Picker setup retains the existing shared helper and is labeled as a legacy group without internal tracing.
+Named assertion groups expose the preserved invariants in Studio's timeline.
+
+Validation on macOS with headless Skia:
+
+- All 16 original cases passed before migration; all 16 migrated cases passed through Studio.
+- The complete editor UI suite passed: 655 tests.
+  All 22 conic cases passed again after the final shared-helper cleanup.
+- The editor Rust suite passed: 213 tests.
+- Incorrect local coordinates, resize dimensions, and restored handle positions each failed in both implementations: six expected failures.
+- Ruff formatting/lint and ty passed for the changed Python files.
+- Strict Clippy passed for the root, demos, and tests workspaces.
+  The examples workspace failed on the existing FFmpeg/header incompatibility.
+- Repository autofixes passed after a separate foundation commit corrected spelling/type configuration and recognition of the licensed binary descriptor.
+  The complete Clippy script still fails on the examples dependency noted above.
+- Native computer control verified the passing batch and an intentional failure paused before teardown, with actual and expected coordinates visible.
+- A breakpoint stopped the resize after pointer movement but before release.
+  Studio Stop marked it cancelled and left no owned editor or test processes running.

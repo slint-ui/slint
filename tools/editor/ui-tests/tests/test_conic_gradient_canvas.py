@@ -10,6 +10,7 @@ import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
+from slint_test import step
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -48,47 +49,48 @@ def open_conic(window):
     control(window, "Add gradient stop")
 
 
+def stop_rotation(position, start=220, rotation=0):
+    return rotation + start - 90 + position + (90 if position >= 360 else -90)
+
+
 def stop_center(window, index, position, start=220, rotation=0):
     return center(
         control(window, f"Gradient stop {index}"),
-        rotation + start - 90 + position + (90 if position >= 360 else -90),
+        stop_rotation(position, start, rotation),
     )
 
 
 @pytest.mark.parametrize("kind", ["center", "rotation", "stop"])
-def test_conic_escape_restores_gesture(
-    editor_binary, editor_environment, conic_scene, tmp_path, kind
-):
+def test_conic_escape_restores_gesture(editor_factory, conic_scene, tmp_path, kind):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
-        wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
-        open_conic(window)
+    with editor_factory(conic_scene) as editor:
+        with step(
+            "Open conic gradient controls",
+            layer="adapter",
+            trace_coverage="group-only legacy setup",
+        ):
+            open_conic(editor.raw_window)
         label = {
             "center": "Gradient center handle",
             "rotation": "Gradient rotation handle",
             "stop": "Gradient stop 2",
         }[kind]
-        start = (
-            stop_center(window, 2, 198)
-            if kind == "stop"
-            else center(control(window, label), 130)
-        )
-        end = shifted(start, x=25, y=-15)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        press_key(window, keys.Escape)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        restored = (
-            stop_center(window, 2, 198)
-            if kind == "stop"
-            else center(control(window, label), 130)
-        )
-        assert restored.x == pytest.approx(start.x, abs=0.001)
-        assert restored.y == pytest.approx(start.y, abs=0.001)
-        click(window, "Close Custom")
-        original.assert_unchanged()
+        handle = editor.window.get_by_role("button", name=label)
+        rotation = stop_rotation(198) if kind == "stop" else 130
+        start = handle.center(rotation_degrees=rotation)
+        with editor.window.pointer.drag_from(start) as drag:
+            drag.move_by(25, -15)
+            editor.window.keyboard.press("Escape")
+            drag.release()
+        with step("Escape restores the gradient handle", layer="assertion"):
+            restored = handle.center(rotation_degrees=rotation)
+            assert restored.x == pytest.approx(start.x, abs=0.001)
+            assert restored.y == pytest.approx(start.y, abs=0.001)
+        editor.window.get_by_role("button", name="Close Custom").activate()
+        with step(
+            "Closing the cancelled picker leaves source unchanged", layer="assertion"
+        ):
+            original.assert_unchanged()
 
 
 @pytest.mark.parametrize("percent", [50, 100, 200])

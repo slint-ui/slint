@@ -13,7 +13,7 @@ import slint_testing
 from canvas_interactions import center_canvas_selection, frame_rotation, zoom_canvas
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, inspector_field
-from slint_test import Locator, Window, expect, inspection_sources, step
+from slint_test import Drag, Locator, Point, Window, expect, inspection_sources, step
 from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import launch_editor
 
@@ -95,6 +95,20 @@ class CanvasElement:
 
     def handle(self, name: str) -> Locator:
         return self.editor.window.get_by_accessible_name(f"{self.kind} {name}")
+
+    def handle_center(self, name: str) -> Point:
+        return self.handle(name).center(
+            rotation_degrees=math.degrees(
+                frame_rotation(self.editor.raw_window, self.kind)
+            )
+        )
+
+    def drag(self, handle: str = "move handle") -> Drag:
+        return self.handle(handle).drag(
+            rotation_degrees=math.degrees(
+                frame_rotation(self.editor.raw_window, self.kind)
+            )
+        )
 
     def locator(self) -> Locator:
         return self.editor.window.get_by_id(
