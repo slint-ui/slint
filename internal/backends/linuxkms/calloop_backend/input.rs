@@ -185,6 +185,43 @@ fn take_touch_pos(
         .unwrap_or_default()
 }
 
+// Match the wheel step used by the winit backend.
+const WHEEL_SCROLL_PIXELS: f64 = 60.0;
+// libinput reports wheel movement in multiples of 120 per detent, the granularity that Windows'
+// WHEEL_DELTA introduced and that high-resolution wheels subdivide.
+const WHEEL_UNITS_PER_DETENT: f64 = 120.0;
+
+// A scroll event carries only the axes that moved; a wheel usually has one. Reading the other
+// makes libinput log a client bug for every event.
+fn scroll_pixels(
+    event: &impl input::event::pointer::PointerScrollEvent,
+    pixels: impl Fn(input::event::pointer::Axis) -> f64,
+) -> (f64, f64) {
+    use input::event::pointer::Axis;
+    let axis = |axis| if event.has_axis(axis) { pixels(axis) } else { 0.0 };
+    (axis(Axis::Horizontal), axis(Axis::Vertical))
+}
+
+fn scroll_event(
+    position: Option<LogicalPosition>,
+    screen_size: i_slint_core::api::LogicalSize,
+    (delta_x, delta_y): (f64, f64),
+) -> Option<WindowEvent> {
+    if delta_x == 0.0 && delta_y == 0.0 {
+        return None;
+    }
+    // Use the same initial position as relative pointer motion.
+    let position = position
+        .unwrap_or(LogicalPosition { x: screen_size.width / 2., y: screen_size.height / 2. });
+    // libinput reports positive values for down/right scrolling; Slint expects
+    // content displacement, as in the winit backend's Wayland axis conversion.
+    Some(WindowEvent::PointerScrolled {
+        position,
+        delta_x: -delta_x as f32,
+        delta_y: -delta_y as f32,
+    })
+}
+
 impl<'a> calloop::EventSource for LibInputHandler<'a> {
     type Event = i_slint_core::platform::WindowEvent;
     type Metadata = ();
@@ -200,6 +237,8 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
     where
         F: FnMut(Self::Event, &mut Self::Metadata) -> Self::Ret,
     {
+        use input::event::pointer::PointerScrollEvent;
+
         if Some(token) != self.token {
             return Ok(calloop::PostAction::Continue);
         }
@@ -265,6 +304,43 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 }
                             };
                             window.dispatch_event_with_result(event).map_err(Self::Error::other)?;
+                        }
+                        input::event::PointerEvent::ScrollWheel(scroll_event_source) => {
+                            let delta = scroll_pixels(&scroll_event_source, |axis| {
+                                scroll_event_source.scroll_value_v120(axis) / WHEEL_UNITS_PER_DETENT
+                                    * WHEEL_SCROLL_PIXELS
+                            });
+                            if let Some(event) =
+                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
+                            {
+                                window
+                                    .dispatch_event_with_result(event)
+                                    .map_err(Self::Error::other)?;
+                            }
+                        }
+                        input::event::PointerEvent::ScrollFinger(scroll_event_source) => {
+                            let delta = scroll_pixels(&scroll_event_source, |axis| {
+                                scroll_event_source.scroll_value(axis)
+                            });
+                            if let Some(event) =
+                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
+                            {
+                                window
+                                    .dispatch_event_with_result(event)
+                                    .map_err(Self::Error::other)?;
+                            }
+                        }
+                        input::event::PointerEvent::ScrollContinuous(scroll_event_source) => {
+                            let delta = scroll_pixels(&scroll_event_source, |axis| {
+                                scroll_event_source.scroll_value(axis)
+                            });
+                            if let Some(event) =
+                                scroll_event(self.mouse_pos.as_ref().get(), screen_size, delta)
+                            {
+                                window
+                                    .dispatch_event_with_result(event)
+                                    .map_err(Self::Error::other)?;
+                            }
                         }
                         _ => {}
                     }
@@ -427,4 +503,38 @@ fn map_key_sym(sym: xkb::Keysym) -> Option<SharedString> {
     }
     let char = i_slint_common::for_each_keys!(keysym_to_string);
     Some(char.into())
+}
+
+#[cfg(test)]
+mod scroll_tests {
+    use super::*;
+
+    #[test]
+    fn scroll_direction_and_high_resolution_steps_match_content_displacement() {
+        let screen = i_slint_core::api::LogicalSize::new(1920., 1080.);
+        // A wheel detent is 120 units; the values below are what the event arms compute from it.
+        let wheel = |units: f64| units / WHEEL_UNITS_PER_DETENT * WHEEL_SCROLL_PIXELS;
+        for (delta, expected_x, expected_y) in [
+            ((0., wheel(120.)), 0., -60.),
+            ((wheel(-120.), 0.), 60., 0.),
+            ((wheel(30.), wheel(-15.)), -15., 7.5),
+            ((2.5, -3.25), -2.5, 3.25),
+        ] {
+            let Some(WindowEvent::PointerScrolled { position, delta_x, delta_y }) =
+                scroll_event(None, screen, delta)
+            else {
+                panic!("missing scroll");
+            };
+            assert_eq!(position, LogicalPosition::new(960., 540.));
+            assert_eq!((delta_x, delta_y), (expected_x, expected_y));
+        }
+        assert!(scroll_event(None, screen, (0., 0.)).is_none());
+        let position = LogicalPosition::new(12., 34.);
+        let Some(WindowEvent::PointerScrolled { position: actual, .. }) =
+            scroll_event(Some(position), screen, (1., 1.))
+        else {
+            panic!("missing scroll");
+        };
+        assert_eq!(actual, position);
+    }
 }
