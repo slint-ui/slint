@@ -8,7 +8,7 @@ This program is a viewer for `.slint` files from the [Slint project](https://sli
 Install the binary from crates.io:
 
 ```bash
-cargo install slint-viewer
+cargo install --locked slint-viewer
 ```
 
 Pre-built binaries for Linux and Windows are attached to each [release](https://github.com/slint-ui/slint/releases).

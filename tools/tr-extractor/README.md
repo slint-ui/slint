@@ -20,7 +20,7 @@ See also the [Slint Translations Guide](https://docs.slint.dev/latest/docs/slint
 Install the tool using Cargo:
 
 ```bash
-cargo install slint-tr-extractor
+cargo install --locked slint-tr-extractor
 ```
 
 ## Usage
