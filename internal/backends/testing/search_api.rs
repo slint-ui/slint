@@ -608,6 +608,45 @@ impl ElementHandle {
         self.item.upgrade().map(|item| item.accessible_role())
     }
 
+    /// Returns the element's `@testable` properties, including inherited ones,
+    /// as `(name, type)` pairs.
+    /// Only properties declared `@testable` are listed, whatever their visibility;
+    /// they are kept alive for this purpose even when nothing else reads them.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// or when the application was built without debug info (see [`Self::id`]);
+    /// an element that declares no `@testable` property reports `Some` with an empty vector.
+    pub fn testable_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| {
+            let result = item.element_testable_properties();
+            if result.is_none() {
+                warn_missing_debug_info();
+            }
+            result
+        })
+    }
+
+    /// Returns the current value of the testable property `name` on this element,
+    /// encoded as a string:
+    /// booleans as `true`/`false`,
+    /// numbers in decimal (`length` in logical pixels, `duration` in milliseconds, `angle` in degrees),
+    /// colors and solid brushes as `#rrggbbaa`,
+    /// and enums as the `.slint` spelling of the value.
+    ///
+    /// Returns `None` when the element is not valid anymore,
+    /// the property does not exist (see [`Self::testable_properties`]),
+    /// its value has no string encoding,
+    /// or the application was built without debug info (see [`Self::id`]).
+    pub fn testable_property_value(&self, name: &str) -> Option<SharedString> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item.upgrade().and_then(|item| item.element_testable_property_value(name))
+    }
+
     /// Invokes the default accessible action on the element. For example a `MyButton` element might declare
     /// an accessible default action that simulates a click, as in the following example:
     ///

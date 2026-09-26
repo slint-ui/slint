@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    // `@testable` only prefixes a property, callback or function declaration
+    @testable
+    Rectangle {}
+//  >       <error{@testable can only be applied to a member declaration}
+
+    @testable @testable in-out property <int> twice;
+//                     ^error{Duplicated @testable attribute}
+
+    // combining `@testable` and `@shadowable` in either order is fine at the parser level
+    @testable @shadowable in-out property <int> a;
+    @shadowable @testable in-out property <int> b;
+}

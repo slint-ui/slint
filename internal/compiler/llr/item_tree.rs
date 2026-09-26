@@ -358,6 +358,16 @@ pub struct Property {
     pub use_count: Cell<usize>,
 }
 
+/// One entry of [`SubComponent::testable_properties`]:
+/// a property declared on an element, under its source name,
+/// with the reference to read its value in the sub-component's scope.
+#[derive(Debug, Clone)]
+pub struct TestableProperty {
+    pub name: SmolStr,
+    pub ty: Type,
+    pub prop: MemberReference,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Callback {
     pub name: SmolStr,
@@ -617,6 +627,14 @@ pub struct SubComponent {
 
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
     pub element_infos: BTreeMap<u32, String>,
+
+    /// Maps item index to the `@testable` properties declared on the element and its base
+    /// components, for debug-info introspection.
+    /// [`count_property_use`](super::optim_passes::count_property_use) reads every entry,
+    /// so a listed property and its binding survive even when nothing else reads them.
+    /// Populated only when `CompilerConfiguration::debug_info` is set;
+    /// see `ItemTreeVTable::element_testable_property_value`.
+    pub testable_properties: BTreeMap<u32, Vec<TestableProperty>>,
 
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
 
