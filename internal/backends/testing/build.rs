@@ -19,6 +19,7 @@ fn main() {
         let fds = protox::compile([&proto_file], [&manifest_dir])
             .expect("failed to compile slint_systest.proto");
         let descriptor_bytes = fds.encode_to_vec();
+        std::fs::write(out_dir.join("slint_systest.descriptor"), &descriptor_bytes).unwrap();
 
         #[cfg(feature = "mcp")]
         generate_mcp_schemas(&fds, &out_dir);

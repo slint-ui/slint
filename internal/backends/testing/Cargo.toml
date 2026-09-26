@@ -94,3 +94,7 @@ i-slint-common = { path = "../../common" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[[example]]
+name = "pointer_fixture"
+required-features = ["system-testing", "renderer-skia"]

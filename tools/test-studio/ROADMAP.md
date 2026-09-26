@@ -61,7 +61,8 @@ Cancellation must leave no application subprocesses running.
 
 The initial implementation is available; see [implementation and validation notes](PHASE2-IMPLEMENTATION.md).
 The generic library, editor pilot adapter, and nested timeline are implemented.
-Complete native hit testing, automatic scrolling, and migration beyond the five pilot families remain follow-up work.
+Native left-click targeting and automatic scrolling are available for supported built-in input policies.
+Migration beyond the five pilot families and broader input-policy coverage remain follow-up work.
 The broader API examples below remain design targets where they exceed the implemented surface.
 
 Create the common foundation for handwritten tests, debugging, and recording.
@@ -191,12 +192,14 @@ Run and inspect tests without modifying Studio's source or relying on a develope
 
 ## Next Implementation Slice
 
-Add a read-only native pointer-target contract before enabling stronger automatic click readiness.
-Input filters can mutate state, so probing them isn't a safe substitute for that contract.
-Expose effective clipping and discoverable scroll targets, then negotiate support through capabilities.
-Validate covered controls, clipped lists, popups, transformed items, and scrolling against a non-editor fixture.
-Continue difficult editor migrations after these generic contracts are established.
-Multi-window inspection, continuous live refresh, and external-editor navigation remain inspector follow-ups.
+The generic pointer-target slice is implemented: capability negotiation, read-only routing,
+checked clicks after hover callbacks, clipped-element discovery, and nested Flickable scrolling.
+Unknown policies remain explicit failures; older binaries retain unverified basic readiness.
+See [the generic library contract](../slint-test/README.md#locators-and-input).
+
+Continue difficult editor migrations using these contracts.
+Then add continuous live refresh, multi-window inspection, and external-editor navigation.
+Recording follows those inspector improvements.
 
 ## Quality Gates
 

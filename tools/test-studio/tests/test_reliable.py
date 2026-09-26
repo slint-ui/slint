@@ -235,6 +235,10 @@ def test_capability_rejection_and_cache_invalidation(suite, monkeypatch, tmp_pat
     changed = preflight(project, tmp_path, threading.Event(), cache, dict(info))
     assert not changed["probe_cached"]
     assert changed["testing_library_sha256"] != first["testing_library_sha256"]
+    library.with_name("native.descriptor").write_bytes(b"changed wire schema")
+    schema_changed = preflight(project, tmp_path, threading.Event(), cache, dict(info))
+    assert not schema_changed["probe_cached"]
+    assert schema_changed["testing_library_sha256"] != changed["testing_library_sha256"]
     binary.write_text("second")
     assert (
         preflight(project, tmp_path, threading.Event(), cache, dict(info))[

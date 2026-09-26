@@ -71,7 +71,9 @@ Queries and assertions never focus, scroll, select, or modify controls.
 
 | Operation | Input And Readiness |
 | --- | --- |
-| `click`, `dblclick`, `hover` | Fresh unique target, enabled state, nonzero geometry/opacity, and stable bounds across observations. |
+| `click`, `dblclick` | Fresh unique target, stable geometry, native left-click routing, and automatic scrolling when supported. |
+| `hover`, `drag` | Basic enabled, geometry, opacity, and stability checks; no native routing guarantee. |
+| `scroll_into_view` | Reveal the target center through interactive Flickable ancestors without clicking. |
 | `fill`, `clear` | Editable text input plus pointer readiness; click, Control+A, Backspace, then key events. No Enter or blur commit. |
 | `press`, `press_sequentially` | Click to focus the target, then dispatch keys. |
 | `activate` | Explicit accessibility default action on a fresh unique target. |
@@ -82,11 +84,24 @@ The transport reports unspecified accessible-enabled state as false.
 Accessibility operations therefore check unique resolution, not enabled state.
 They never substitute for pointer or keyboard methods.
 
-**Native limitation:** the transport lacks a complete hit-test, effective clipping, and scroll-into-view contract.
-Basic pointer readiness doesn't prove that an obscured or offscreen target receives input.
-`click(require_hit_target=True)` rejects the operation with `UnsupportedCapability` before dispatch.
-Inspect `window.capabilities` and reveal editor fields explicitly through its adapter.
-Automatic scrolling and Playwright-equivalent actionability remain native follow-up work.
+New applications negotiate version 1 of the native pointer-target contract.
+`click`, `dblclick`, `fill`, `clear`, and locator key methods wait until the transformed target center receives left input.
+They wait for overlays and active gestures, check ancestor clipping, and scroll instantiated targets through nested interactive Flickables.
+The native click checks again after hover callbacks and sends a press only if the target remains ready at the same position.
+The timeline includes scrolling and the observed pointer-target details.
+
+`locator.pointer_target()` returns a read-only status and reason without moving the pointer or invoking input filters.
+Statuses distinguish ready, covered, clipped, disabled, busy, no target, and unsupported policies.
+This predicts built-in left-click routing, including child popups; it isn't a general hit-test API for every input type.
+Unknown custom item policies fail closed. Native top-level popup routing and complex menu chains remain unsupported.
+A fixed clipping rectangle can't be scrolled, and virtualized rows that haven't been instantiated can't be found.
+Modern queries include instantiated clipped elements, so use scopes to distinguish duplicate labels.
+
+Older binaries retain basic readiness and visible-only discovery.
+Their capabilities report no hit testing or scrolling, and action events label the target unverified.
+`click(require_hit_target=True)` rejects these binaries before input is dispatched.
+Inspect `window.capabilities` to distinguish these modes.
+Accessibility methods remain explicit and never substitute for pointer methods.
 
 Public timeouts are milliseconds, defaulting to 5,000.
 A locator operation shares its deadline across lookup, readiness, and input; nested operations cannot extend it.
@@ -181,10 +196,22 @@ The fixture application uses Studio's Slint-enabled Python runtime, while its dr
 No editor binary or adapter is required:
 
 ```sh
+SLINT_EMIT_DEBUG_INFO=1 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+  cargo build -p i-slint-backend-testing --features system-testing,renderer-skia \
+  --example pointer_fixture
 cd tools/slint-test
 SLINT_FIXTURE_PYTHON=/path/to/test-studio/.venv/bin/python \
+SLINT_POINTER_FIXTURE=../../target/debug/examples/pointer_fixture \
   /path/to/ui-tests/.venv/bin/python -m pytest -q
 ```
 
 The suite covers input, replaced components, duplicates, relative scopes, disabled/read-only controls, a covered control, clipped list rows, popups, cancellation, deadlines, observer isolation, and orphaned descendant cleanup.
 Use the existing `lint:python:test-studio` task for Ruff and ty checks across both runtimes.
+
+The native fixture exercises current routing; the Python fixture also checks compatibility with the older transport.
+The wire extension uses a private protobuf descriptor pool and preserves unknown response fields through `slint-testing==0.3`.
+It doesn't modify the installed SDK.
+After changing `internal/backends/testing/slint_systest.proto`, copy the generated
+`OUT_DIR/slint_systest.descriptor` from that backend build to `slint_test/native.descriptor`.
+The Rust `python_protocol_matches_native_schema` test rejects a stale descriptor.
+Studio includes the descriptor in its preflight cache identity.

@@ -6,6 +6,10 @@ from __future__ import annotations
 from typing import Any, NotRequired, TypedDict
 
 
+class StaleElement(Exception):
+    pass
+
+
 class WaitTimeout(AssertionError):
     def __init__(self, detail: str, *, actual: Any, observed: bool, timeout: float):
         super().__init__(detail)

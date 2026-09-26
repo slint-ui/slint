@@ -1,8 +1,11 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 [project]
 name = "slint-test"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["slint-testing==0.3", "pytest>=9,<10"]
+dependencies = ["slint-testing==0.3", "pytest>=9,<10", "protobuf>=4.25"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -19,4 +22,4 @@ line-length = 88
 include = ["slint_test*"]
 
 [tool.setuptools.package-data]
-slint_test = ["py.typed"]
+slint_test = ["py.typed", "native.descriptor"]

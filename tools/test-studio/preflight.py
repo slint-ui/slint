@@ -105,7 +105,7 @@ def preflight(project, directory, cancel, cache, info):
     info["binary_path"] = str(binary)
     harness = sorted((suite / "tests").rglob("*.py")) + [suite / "pyproject.toml"]
     generic = Path(__file__).resolve().parents[1] / "slint-test" / "slint_test"
-    library_files = sorted(generic.glob("*.py"))
+    library_files = sorted(generic.glob("*.py")) + sorted(generic.glob("*.descriptor"))
     info["testing_library_sha256"] = digest(library_files, cancel)
     info["harness_sha256"] = digest(harness, cancel)
     key = (

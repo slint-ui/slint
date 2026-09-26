@@ -43,6 +43,18 @@ struct ToolDef {
 
 const TOOLS: &[ToolDef] = &[
     ToolDef {
+        name: "get_pointer_target",
+        description: "Read-only prediction of a left press at an element's transformed center. Returns ready, covered, clipped, disabled, busy, no-target, or unsupported. Does not send events. Unknown item policies fail closed.",
+        request_type: "RequestPointerTarget",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "scroll_into_view",
+        description: "Reveal an element's center through interactive Flickable ancestors, then return its pointer target status. Changes scrolling without clicking or activating the control.",
+        request_type: "RequestScrollIntoView",
+        optional_fields: &[],
+    },
+    ToolDef {
         name: "list_windows",
         description: "List all open windows. Returns an array of window handles. Call this first to discover available windows.",
         request_type: "RequestWindowListMessage",
@@ -76,7 +88,7 @@ const TOOLS: &[ToolDef] = &[
         name: "query_element_descendants",
         description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, or {\"matchElementAccessibleRole\": \"Button\"}. More efficient than get_element_tree for targeted lookups.",
         request_type: "RequestQueryElementDescendants",
-        optional_fields: &["findAll"],
+        optional_fields: &["findAll", "includeClipped"],
     },
     ToolDef {
         name: "take_screenshot",
@@ -319,6 +331,7 @@ async fn handle_tool_call(
                 element_index,
                 p.query_stack,
                 p.find_all,
+                p.include_clipped,
             )?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -426,6 +439,18 @@ async fn handle_tool_call(
                 },
             )?;
             Ok(ToolResult::Json(serde_json::json!({})))
+        }
+        "get_pointer_target" | "scroll_into_view" => {
+            let p: proto::RequestPointerTarget = deserialize_params(args)?;
+            let index = handle_to_index(p.element_handle.ok_or("missing elementHandle")?)?;
+            Ok(ToolResult::Json(
+                serde_json::to_value(dispatch::pointer_target(
+                    state,
+                    index,
+                    name == "scroll_into_view",
+                )?)
+                .unwrap(),
+            ))
         }
         "scroll_element" => {
             let p: proto::RequestScrollElement = deserialize_params(args)?;

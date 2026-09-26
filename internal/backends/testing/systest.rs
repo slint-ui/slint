@@ -61,6 +61,23 @@ impl TestingClient {
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
         Ok(match request {
+            Req::RequestCheckedClick(proto::RequestCheckedClick { element_handle }) => {
+                let index = handle_to_index(element_handle.ok_or("Missing element handle")?)?;
+                Resp::PointerTargetResponse(dispatch::checked_click(&self.state, index).await?)
+            }
+            Req::RequestTestingCapabilities(_) => {
+                Resp::TestingCapabilitiesResponse(proto::TestingCapabilitiesResponse {
+                    pointer_target_version: 1,
+                })
+            }
+            Req::RequestPointerTarget(proto::RequestPointerTarget { element_handle }) => {
+                let index = handle_to_index(element_handle.ok_or("Missing element handle")?)?;
+                Resp::PointerTargetResponse(dispatch::pointer_target(&self.state, index, false)?)
+            }
+            Req::RequestScrollIntoView(proto::RequestScrollIntoView { element_handle }) => {
+                let index = handle_to_index(element_handle.ok_or("Missing element handle")?)?;
+                Resp::PointerTargetResponse(dispatch::pointer_target(&self.state, index, true)?)
+            }
             Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
                 let window_index = handle_to_index(window_handle.ok_or_else(|| {
@@ -179,6 +196,7 @@ impl TestingClient {
                 element_handle,
                 query_stack,
                 find_all,
+                include_clipped,
             }) => {
                 let element_index = handle_to_index(element_handle.ok_or_else(|| {
                     "run element query request missing element handle".to_string()
@@ -188,6 +206,7 @@ impl TestingClient {
                     element_index,
                     query_stack,
                     find_all,
+                    include_clipped,
                 )?)
             }
             Req::RequestEventLog(proto::RequestEventLog {

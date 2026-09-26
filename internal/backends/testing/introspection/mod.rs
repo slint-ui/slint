@@ -736,6 +736,7 @@ pub(crate) fn query_element_descendants(
     element: ElementHandle,
     query_stack: Vec<proto::ElementQueryInstruction>,
     find_all: bool,
+    include_clipped: bool,
 ) -> Result<Vec<ElementHandle>, String> {
     use proto::element_query_instruction::Instruction;
     let mut query = element.query_descendants();
@@ -763,6 +764,9 @@ pub(crate) fn query_element_descendants(
                 )
             }
         }
+    }
+    if include_clipped {
+        query = query.include_clipped();
     }
     Ok(if find_all { query.find_all() } else { query.find_first().into_iter().collect() })
 }
@@ -965,9 +969,11 @@ pub(crate) mod dispatch {
         element: ArenaIndex,
         query_stack: Vec<proto::ElementQueryInstruction>,
         find_all: bool,
+        include_clipped: bool,
     ) -> Result<proto::ElementQueryResponse, String> {
         let element = state.element("query_element_descendants", element)?;
-        let results = super::query_element_descendants(element, query_stack, find_all)?;
+        let results =
+            super::query_element_descendants(element, query_stack, find_all, include_clipped)?;
         Ok(proto::ElementQueryResponse {
             element_handles: results
                 .into_iter()
@@ -1032,6 +1038,37 @@ pub(crate) mod dispatch {
         let element = state.element("set_accessible_value", element)?;
         element.set_accessible_value(value);
         Ok(())
+    }
+
+    pub(crate) fn pointer_target(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        scroll: bool,
+    ) -> Result<proto::PointerTargetResponse, String> {
+        let element = state.element("pointer_target", element)?;
+        let target = if scroll { element.scroll_into_view()? } else { element.pointer_target()? };
+        Ok(proto::PointerTargetResponse {
+            status: target.status.into(),
+            position: Some(proto::LogicalPosition { x: target.position.x, y: target.position.y }),
+            detail: target.detail,
+            scrollable: target.scrollable,
+            performed: false,
+        })
+    }
+
+    pub(crate) async fn checked_click(
+        state: &IntrospectionState,
+        index: ArenaIndex,
+    ) -> Result<proto::PointerTargetResponse, String> {
+        let element = state.element("checked_click", index)?;
+        let (target, performed) = element.checked_click().await?;
+        Ok(proto::PointerTargetResponse {
+            status: target.status.into(),
+            position: Some(proto::LogicalPosition { x: target.position.x, y: target.position.y }),
+            detail: target.detail,
+            scrollable: target.scrollable,
+            performed,
+        })
     }
 
     pub(crate) async fn click(
@@ -1465,8 +1502,7 @@ mod dispatch_result_tests {
     ) -> Vec<(WindowEvent, WindowEventDispatchResult)> {
         let (_guard, captured) = capture_hook();
         window.dispatch_event(event);
-        let recorded = captured.borrow().clone();
-        recorded
+        captured.borrow().clone()
     }
 
     #[test]

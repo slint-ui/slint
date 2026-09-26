@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit } from "std-widgets.slint";
+export component PointerFixture inherits Window {
+    width: 700px; height: 520px;
+    in-out property <bool> covered: true;
+    in-out property <bool> cover-on-hover: false;
+    in-out property <bool> uncover-soon: false;
+    in-out property <int> clicks: 0;
+    Timer { interval: 200ms; running: root.uncover-soon; triggered => { root.covered = false; root.uncover-soon = false; } }
+    Text { x: 10px; y: 0px; accessible-label: "Count"; accessible-value: root.clicks; text: "Clicks: \{root.clicks}"; }
+    Text { x: 10px; y: 25px; accessible-label: "Hover"; accessible-value: target.has-hover ? "yes" : "no"; text: target.has-hover ? "Hovered" : "Not hovered"; }
+    target := TouchArea {
+        x: 10px; y: 60px; width: 100px; height: 40px;
+        accessible-role: button; accessible-label: "Target"; accessible-enabled: true;
+        clicked => { root.clicks += 1; }
+        Rectangle { background: #d0e7ff; Text { text: "Target"; } }
+    }
+    if root.covered || (root.cover-on-hover && target.has-hover): Rectangle {
+        x: 10px; y: 60px; width: 100px; height: 40px; background: #999;
+        TouchArea { accessible-role: button; accessible-label: "Cover"; clicked => { root.clicks += 100; } }
+    }
+    Button { x: 130px; y: 60px; text: "Uncover soon"; clicked => { root.uncover-soon = true; } }
+    flick := Flickable {
+        x: 10px; y: 130px; width: 180px; height: 80px; content-height: 450px; content-width: 180px;
+        far := TouchArea {
+            x: 15px; y: 350px; width: 100px; height: 32px;
+            accessible-role: button; accessible-label: "Far"; accessible-enabled: true;
+            clicked => { root.clicks += 10; }
+            Rectangle { background: #4b8; Text { text: "Scrolled target"; } }
+        }
+    }
+    Rectangle {
+        x: 230px; y: 130px; width: 80px; height: 60px; clip: true;
+        TouchArea { y: 100px; width: 60px; height: 30px; accessible-role: button; accessible-label: "Clipped"; accessible-enabled: true; clicked => { root.clicks += 1000; } }
+    }
+    Flickable {
+        x: 10px; y: 280px; width: 180px; height: 90px; content-height: 650px; content-width: 180px;
+        Flickable {
+            x: 0px; y: 400px; width: 150px; height: 80px; content-height: 400px; content-width: 150px;
+            TouchArea { x: 5px; y: 300px; width: 100px; height: 30px; accessible-role: button; accessible-label: "Nested"; accessible-enabled: true; clicked => { root.clicks += 20; } }
+        }
+    }
+    Rectangle {
+        x: 400px; y: 200px; width: 100px; height: 60px; transform-rotation: 30deg; transform-scale: 1.2;
+        TouchArea { accessible-role: button; accessible-label: "Rotated"; accessible-enabled: true; clicked => { root.clicks += 30; } }
+    }
+    Button { x: 400px; y: 80px; text: "Popup"; clicked => { popup.show(); } }
+    popup := PopupWindow {
+        width: 150px; height: 80px;
+        Button { text: "Popup action"; clicked => { root.clicks += 40; popup.close(); } }
+    }
+    Button { x: 250px; y: 60px; text: "Cover on hover"; clicked => { root.cover-on-hover = true; } }
+    WindowMoveArea { x: 400px; y: 420px; width: 100px; height: 40px;
+        TouchArea { accessible-role: button; accessible-label: "Custom policy"; accessible-enabled: true; }
+    }
+    DropArea { x: 400px; y: 350px; width: 160px; height: 40px;
+        LineEdit { accessible-label: "Name"; text: "initial"; }
+    }
+}

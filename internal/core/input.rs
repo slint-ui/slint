@@ -1434,6 +1434,10 @@ pub struct MouseInputState {
 }
 
 impl MouseInputState {
+    pub(crate) fn has_pointer_operation(&self) -> bool {
+        self.grabbed || self.delayed.is_some() || self.drag_data.is_some()
+    }
+
     /// Return the item in the top of the stack
     fn top_item(&self) -> Option<ItemRc> {
         self.item_stack.last().and_then(|x| x.0.upgrade())

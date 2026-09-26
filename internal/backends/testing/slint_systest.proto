@@ -286,6 +286,7 @@ message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
     bool find_all = 3;
+    bool include_clipped = 4;
 }
 
 message RequestEventLog {
@@ -303,6 +304,19 @@ message RequestStartEventRecording {
 
 message RequestStopEventRecording {
 }
+
+message RequestPointerTarget { Handle element_handle = 1; }
+message RequestScrollIntoView { Handle element_handle = 1; }
+message RequestTestingCapabilities {}
+message RequestCheckedClick { Handle element_handle = 1; }
+message PointerTargetResponse {
+    string status = 1;
+    LogicalPosition position = 2;
+    string detail = 3;
+    bool scrollable = 4;
+    bool performed = 5;
+}
+message TestingCapabilitiesResponse { uint32 pointer_target_version = 1; }
 
 message RequestToAUT {
     oneof msg {
@@ -323,6 +337,10 @@ message RequestToAUT {
         RequestClearEventLog request_clear_event_log = 15;
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
+        RequestPointerTarget request_pointer_target = 18;
+        RequestScrollIntoView request_scroll_into_view = 19;
+        RequestTestingCapabilities request_testing_capabilities = 20;
+        RequestCheckedClick request_checked_click = 21;
     }
 }
 
@@ -485,5 +503,7 @@ message AUTResponse {
         ClearEventLogResponse clear_event_log_response = 16;
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
+        PointerTargetResponse pointer_target_response = 19;
+        TestingCapabilitiesResponse testing_capabilities_response = 20;
     }
 }

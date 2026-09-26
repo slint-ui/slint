@@ -244,6 +244,18 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    /// Whether an active scroll or pointer gesture intercepts mouse presses.
+    pub fn captures_mouse_press(self: Pin<&Self>) -> bool {
+        self.interactive()
+            && self.mouse_drag_pan_enabled()
+            && self.data.inner.borrow().capture_events.is_some()
+    }
+
+    /// Whether an otherwise unclaimed mouse press can start panning.
+    pub fn accepts_mouse_press(self: Pin<&Self>, self_rc: &ItemRc) -> bool {
+        self.interactive() && self.mouse_drag_pan_enabled() && FlickableData::can_pan(self, self_rc)
+    }
+
     /// Whether the event may pan this Flickable, given that `interactive` and
     /// `mouse-drag-pan-enabled` can disable it.
     fn accepts_pan_event(self: Pin<&Self>, event: &MouseEvent) -> bool {

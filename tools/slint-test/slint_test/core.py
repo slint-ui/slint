@@ -13,13 +13,14 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, ClassVar, Self, TypeVar
+from typing import Any, Self, TypeVar
 
 import slint_testing as low
 from slint_testing import keys
 
+from . import native
 from .control import active_time
-from .diagnostics import WaitTimeout
+from .diagnostics import StaleElement, WaitTimeout
 from .reporting import step
 
 T = TypeVar("T")
@@ -27,10 +28,6 @@ Name = str | re.Pattern[str]
 
 
 class OperationTimeout(AssertionError):
-    pass
-
-
-class StaleElement(Exception):
     pass
 
 
@@ -135,8 +132,8 @@ class Session:
                     observed = True
                     if matches(actual):
                         return actual
-                except StaleElement:
-                    actual = "element replaced or missing"
+                except StaleElement as error:
+                    actual = str(error) or "element replaced or missing"
                     observed = False
                 remaining = deadline - active_time()
                 if remaining <= 0:
@@ -275,19 +272,26 @@ class BoundApplication(low.Application):
 
 
 class Window(Scope):
-    capabilities: ClassVar[dict[str, bool]] = {
-        "basic_readiness": True,
-        "hit_testing": False,
-        "effective_clipping": False,
-        "scroll_into_view": False,
-    }
+    @property
+    def capabilities(self) -> dict[str, bool]:
+        if self._capabilities is None:
+            supported = native.supported(self.raw.app)
+            self._capabilities = {
+                "basic_readiness": True,
+                "hit_testing": supported,
+                "effective_clipping": supported,
+                "scroll_into_view": supported,
+            }
+        return self._capabilities
 
     def __init__(self, raw: low.Window, *, session: Session | None = None):
         self.window = self
+        self._capabilities: dict[str, bool] | None = None
         self.session = session or Session(process=getattr(raw.app, "process", None))
         self.raw = low.Window(BoundApplication(raw.app, self.session), raw.handle)
         self.keyboard = Keyboard(self)
         self.pointer = Pointer(self)
+        _ = self.capabilities
 
     def _roots(self) -> list[low.Element]:
         return [self.raw.root_element]
@@ -340,7 +344,12 @@ class Locator(Scope):
                 query = query.match_accessible_role(self.role)
             if self.identifier is not None:
                 query = query.match_id(self.identifier)
-            for element in query.find_all():
+            elements = (
+                native.find_all(query)
+                if self.window.capabilities["hit_testing"]
+                else query.find_all()
+            )
+            for element in elements:
                 if _matches(element.accessible_label, self.name, self.exact) and (
                     self.predicate is None or self.predicate(element)
                 ):
@@ -423,22 +432,41 @@ class Locator(Scope):
         editable: bool = False,
         require_hit_target: bool = False,
         check_enabled: bool = True,
+        verify_pointer: bool = False,
     ) -> low.Element:
-        if require_hit_target:
+        verified = (
+            pointer
+            and (verify_pointer or require_hit_target)
+            and self.window.capabilities["hit_testing"]
+        )
+        if require_hit_target and not verified:
             raise UnsupportedCapability(
                 "This transport cannot verify hit targets or effective clipping"
             )
         previous: Bounds | None = None
+        last_target = {}
 
         def read() -> low.Element | None:
-            nonlocal previous
+            nonlocal previous, last_target
             element = self._unique()
-            enabled = not check_enabled or element.accessible_enabled
+            enabled = verified or not check_enabled or element.accessible_enabled
             if editable and (
                 element.accessible_role != low.AccessibleRole.TextInput
                 or element.accessible_read_only
             ):
                 return None
+            if verified:
+                last_target = native.target(element)
+                if last_target["status"] == "clipped" and last_target["scrollable"]:
+                    with step("Scroll into view", layer="generic", locator=repr(self)):
+                        last_target = native.target(element, scroll=True)
+                    previous = None
+                    return None
+                if last_target["status"] == "unsupported":
+                    raise UnsupportedCapability(last_target["detail"])
+                if last_target["status"] != "ready":
+                    previous = None
+                    raise StaleElement(last_target["detail"])
             if pointer:
                 bounds = self.bounds()
                 stable = bounds == previous
@@ -471,7 +499,9 @@ class Locator(Scope):
             assert ready is not None
             if previous is not None:
                 details["target_bounds"] = vars(previous)
-            details["hit_target_verified"] = False
+            details["hit_target_verified"] = verified
+            if last_target:
+                details["pointer_target"] = last_target
             return ready
 
     def activate(self, *, timeout: float | None = None) -> None:
@@ -494,6 +524,57 @@ class Locator(Scope):
         ):
             self._ready(timeout=timeout, check_enabled=False).accessible_value = value
 
+    def pointer_target(self) -> dict[str, Any]:
+        if not self.window.capabilities["hit_testing"]:
+            raise UnsupportedCapability("This transport cannot verify hit targets")
+        return native.target(self._unique())
+
+    def scroll_into_view(self, *, timeout: float | None = None) -> None:
+        if not self.window.capabilities["scroll_into_view"]:
+            raise UnsupportedCapability("This transport cannot scroll into view")
+        with (
+            self.window.session.operation(timeout),
+            step("Scroll into view", layer="generic", locator=repr(self)),
+        ):
+
+            def reveal():
+                result = native.target(self._unique(), scroll=True)
+                if result["status"] == "unsupported":
+                    raise UnsupportedCapability(result["detail"])
+                if result["status"] in ("clipped", "busy"):
+                    raise StaleElement(result["detail"])
+                return result
+
+            self.window.session.wait(
+                reveal,
+                lambda result: True,
+                timeout=timeout,
+                description=f"Scroll {self!r}",
+            )
+
+    def _click(self, timeout=None, *, editable=False, require_hit_target=False):
+        while True:
+            element = self._ready(
+                timeout=timeout,
+                pointer=True,
+                editable=editable,
+                require_hit_target=require_hit_target,
+                verify_pointer=True,
+            )
+            if not self.window.capabilities["hit_testing"]:
+                element.single_click(low.PointerEventButton.Left)
+                return
+            try:
+                result = native.target(element, click=True)
+            except StaleElement:
+                continue
+            if result["performed"]:
+                return
+            if result["status"] == "unsupported":
+                raise UnsupportedCapability(result["detail"])
+            self.window.session.check()
+            self.window.session.cancel.wait(0.02)
+
     def click(
         self, *, timeout: float | None = None, require_hit_target: bool = False
     ) -> None:
@@ -503,21 +584,25 @@ class Locator(Scope):
                 "Click",
                 layer="generic",
                 locator=repr(self),
-                readiness="basic; hit target unverified",
+                readiness="native target"
+                if self.window.capabilities["hit_testing"]
+                else "basic; hit target unverified",
             ),
         ):
-            self._ready(
-                timeout=timeout, pointer=True, require_hit_target=require_hit_target
-            ).single_click(low.PointerEventButton.Left)
+            self._click(timeout, require_hit_target=require_hit_target)
 
     def dblclick(self, *, timeout: float | None = None) -> None:
         with (
             self.window.session.operation(timeout),
             step("Double click", layer="generic", locator=repr(self)),
         ):
-            self._ready(timeout=timeout, pointer=True).double_click(
-                low.PointerEventButton.Left
-            )
+            if self.window.capabilities["hit_testing"]:
+                self._click(timeout)
+                self._click(timeout)
+            else:
+                self._ready(timeout=timeout, pointer=True).double_click(
+                    low.PointerEventButton.Left
+                )
 
     def hover(self, *, timeout: float | None = None) -> None:
         with (
@@ -532,8 +617,7 @@ class Locator(Scope):
             self.window.session.operation(timeout),
             step("Fill", layer="generic", locator=repr(self), text=text),
         ):
-            element = self._ready(timeout=timeout, pointer=True, editable=True)
-            element.single_click(low.PointerEventButton.Left)
+            self._click(timeout, editable=True)
             self.window.keyboard.shortcut("Control", "a")
             self.window.keyboard.press("Backspace")
             self.window.keyboard.press_sequentially(text)
@@ -547,9 +631,7 @@ class Locator(Scope):
             self.window.session.operation(timeout),
             step("Press on control", layer="generic", locator=repr(self), key=key),
         ):
-            self._ready(timeout=timeout, pointer=True).single_click(
-                low.PointerEventButton.Left
-            )
+            self._click(timeout)
             self.window.keyboard.press(key)
 
     def press_sequentially(self, text: str, *, timeout: float | None = None) -> None:
@@ -557,9 +639,7 @@ class Locator(Scope):
             self.window.session.operation(timeout),
             step("Type on control", layer="generic", locator=repr(self), text=text),
         ):
-            self._ready(timeout=timeout, pointer=True).single_click(
-                low.PointerEventButton.Left
-            )
+            self._click(timeout)
             self.window.keyboard.press_sequentially(text)
 
     def drag(

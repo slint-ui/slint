@@ -65,6 +65,10 @@ fn warn_missing_debug_info() {
     i_slint_core::debug_log!("{}", MISSING_DEBUG_INFO_MESSAGE)
 }
 
+#[path = "pointer_target.rs"]
+mod pointer_target;
+pub use pointer_target::PointerTarget;
+
 mod internal {
     /// Used as base of another trait so it cannot be re-implemented
     pub trait Sealed {}
@@ -161,8 +165,9 @@ impl SingleElementMatch {
 }
 
 enum ElementQueryInstruction {
-    MatchDescendants,
-    MatchSingleElement(SingleElementMatch),
+    Descendants,
+    DescendantsIncludingClipped,
+    SingleElement(SingleElementMatch),
 }
 
 impl ElementQueryInstruction {
@@ -177,7 +182,8 @@ impl ElementQueryInstruction {
         };
 
         match query {
-            ElementQueryInstruction::MatchDescendants => {
+            ElementQueryInstruction::Descendants
+            | ElementQueryInstruction::DescendantsIncludingClipped => {
                 let mut results = Vec::new();
                 match element.visit_descendants_impl(
                     &mut |child| {
@@ -191,12 +197,13 @@ impl ElementQueryInstruction {
                         next_control_flow
                     },
                     active_popups,
+                    matches!(query, ElementQueryInstruction::DescendantsIncludingClipped),
                 ) {
                     Some(_) => (ControlFlow::Break(()), results),
                     None => (ControlFlow::Continue(()), results),
                 }
             }
-            ElementQueryInstruction::MatchSingleElement(criteria) => {
+            ElementQueryInstruction::SingleElement(criteria) => {
                 let mut results = Vec::new();
                 let control_flow = if criteria.matches(&element) {
                     let (next_control_flow, sub_results) = Self::match_recursively(
@@ -236,9 +243,27 @@ impl ElementQuery {
         component.root_element().query_descendants()
     }
 
+    /// Include instantiated elements outside clipping regions in descendant matches.
+    /// This doesn't instantiate virtualized rows that aren't in the item tree.
+    pub fn include_clipped(mut self) -> Self {
+        for instruction in &mut self.query_stack {
+            if matches!(instruction, ElementQueryInstruction::Descendants) {
+                *instruction = ElementQueryInstruction::DescendantsIncludingClipped;
+            }
+        }
+        self
+    }
+
     /// Applies any subsequent matches to all descendants of the results of the query up to this point.
     pub fn match_descendants(mut self) -> Self {
-        self.query_stack.push(ElementQueryInstruction::MatchDescendants);
+        let instruction = if self.query_stack.iter().any(|instruction| {
+            matches!(instruction, ElementQueryInstruction::DescendantsIncludingClipped)
+        }) {
+            ElementQueryInstruction::DescendantsIncludingClipped
+        } else {
+            ElementQueryInstruction::Descendants
+        };
+        self.query_stack.push(instruction);
         self
     }
 
@@ -250,7 +275,7 @@ impl ElementQuery {
         let local_id = id_split.next();
         let root_base = if local_id == Some("root") { type_name } else { None };
 
-        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+        self.query_stack.push(ElementQueryInstruction::SingleElement(
             SingleElementMatch::MatchById { id, root_base },
         ));
         self
@@ -258,7 +283,7 @@ impl ElementQuery {
 
     /// Include only elements in the results where [`ElementHandle::type_name()`] is equal to the provided `type_name`.
     pub fn match_type_name(mut self, type_name: impl Into<String>) -> Self {
-        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+        self.query_stack.push(ElementQueryInstruction::SingleElement(
             SingleElementMatch::MatchByTypeName(type_name.into()),
         ));
         self
@@ -266,7 +291,7 @@ impl ElementQuery {
 
     /// Include only elements in the results where [`ElementHandle::type_name()`] or [`ElementHandle::bases()`] is contains to the provided `type_name`.
     pub fn match_inherits(mut self, type_name: impl Into<String>) -> Self {
-        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+        self.query_stack.push(ElementQueryInstruction::SingleElement(
             SingleElementMatch::MatchByTypeNameOrBase(type_name.into()),
         ));
         self
@@ -274,14 +299,14 @@ impl ElementQuery {
 
     /// Include only elements in the results where [`ElementHandle::accessible_role()`] is equal to the provided `role`.
     pub fn match_accessible_role(mut self, role: crate::AccessibleRole) -> Self {
-        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+        self.query_stack.push(ElementQueryInstruction::SingleElement(
             SingleElementMatch::MatchByAccessibleRole(role),
         ));
         self
     }
 
     pub fn match_predicate(mut self, predicate: impl Fn(&ElementHandle) -> bool + 'static) -> Self {
-        self.query_stack.push(ElementQueryInstruction::MatchSingleElement(
+        self.query_stack.push(ElementQueryInstruction::SingleElement(
             SingleElementMatch::MatchByPredicate(Box::new(predicate)),
         ));
         self
@@ -341,7 +366,7 @@ impl ElementHandle {
         &self,
         mut visitor: impl FnMut(ElementHandle) -> ControlFlow<R>,
     ) -> Option<R> {
-        self.visit_descendants_impl(&mut |e| visitor(e), &self.active_popups())
+        self.visit_descendants_impl(&mut |e| visitor(e), &self.active_popups(), false)
     }
 
     /// Visit all descendants of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
@@ -350,6 +375,7 @@ impl ElementHandle {
         &self,
         visitor: &mut dyn FnMut(ElementHandle) -> ControlFlow<R>,
         active_popups: &[(ItemRc, ItemTreeRc)],
+        include_clipped: bool,
     ) -> Option<R> {
         let self_item = self.item.upgrade()?;
 
@@ -361,7 +387,11 @@ impl ElementHandle {
                             item: ItemRc::new_root(popup_item_tree.clone()).downgrade(),
                             element_index: 0,
                         })
-                        .visit_descendants_impl(visitor, active_popups)
+                        .visit_descendants_impl(
+                            visitor,
+                            active_popups,
+                            include_clipped,
+                        )
                     {
                         return Some(result);
                     }
@@ -372,7 +402,7 @@ impl ElementHandle {
         visit_attached_popups(&self_item, visitor);
 
         self_item.visit_descendants(move |item_rc| {
-            if !item_rc.is_visible() {
+            if !include_clipped && !item_rc.is_visible() {
                 return ControlFlow::Continue(());
             }
 
@@ -414,10 +444,7 @@ impl ElementHandle {
 
     /// Creates a new [`ElementQuery`] to match any descendants of this element.
     pub fn query_descendants(&self) -> ElementQuery {
-        ElementQuery {
-            root: self.clone(),
-            query_stack: vec![ElementQueryInstruction::MatchDescendants],
-        }
+        ElementQuery { root: self.clone(), query_stack: vec![ElementQueryInstruction::Descendants] }
     }
 
     /// This function searches through the entire tree of elements of `component`, looks for

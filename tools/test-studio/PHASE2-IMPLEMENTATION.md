@@ -2,7 +2,7 @@
 
 Phase 2 now has a generic Python API, an optional Visual Editor adapter, and a nested action timeline in Studio.
 The original editor tests remain intact alongside five readable pilot families.
-This is an experimental authoring API; recording and interactive debugging remain later milestones.
+This is an experimental authoring API. Action debugging has since been added; recording remains a later milestone.
 
 ## Ownership
 
@@ -54,7 +54,7 @@ A timed-out native response is drained before failure capture uses the same conn
 This cleanup has a separate five-second ceiling and never resends the action.
 If cleanup cannot recover framing, the connection closes and reporting explains the unavailable capture.
 
-## Validation
+## Initial Phase 2 Validation
 
 Validated on macOS with the existing feature-enabled editor binary and `headless-skia`:
 
@@ -75,16 +75,40 @@ The full suite ran before the final transport framing fix; the affected 13 reada
 The 642 original cases don't use that transport adapter.
 No Rust or editor-shell production code changed in Phase 2; Rust builds, Clippy, and the monorepo-wide autofix task were not run for these Python/Studio changes.
 
-## Remaining Native Work
+## Native Pointer Follow-Up
 
-Slint's current testing transport doesn't expose complete hit testing, effective clipping, or scrolling into view.
-Basic click readiness checks unique resolution, enabled state, opacity, nonzero size, and stable bounds.
-It cannot prove that a covered target receives input.
-`click(require_hit_target=True)` rejects unsupported strict hit testing before dispatch.
+The generic library now negotiates version 1 of a native left-click targeting contract.
+Click-derived actions check transformed centers, ancestor clipping, foreground input items,
+child popups, and active pointer or scroll capture before input.
+They reveal instantiated targets through nested interactive Flickables.
+The native click checks again after hover callbacks; a redirected or replaced target receives no press.
+A confirmed replacement before input can be retried within the original deadline.
+
+Read-only queries never invoke input filters or move the pointer.
+Unknown item policies fail closed, and native top-level popup routing remains unsupported.
+Virtualized rows that aren't instantiated remain unavailable.
+Hover and held drags retain basic readiness; this contract is specifically for left clicks.
+Older binaries keep basic readiness and report unverified targeting.
 No pointer method silently invokes an accessibility action.
 
-Accessibility operations deliberately check resolution only because the transport represents unspecified accessible-enabled state as false.
-Assertions remain read-only; editor field reveal is explicit.
-Process ownership is implemented for POSIX and validated on macOS, not Windows.
-Screenshots and action properties don't provide historical DOM-style inspection or live rewind.
-Full native actionability, broader adapter migration, recording, and interactive debugging remain follow-up work.
+The generic fixture covers overlays, hover-triggered obstructions, fixed clips, nested scrolling,
+transformed targets, popup routing, text input inside drop regions, cancellation, and unsupported policies.
+A second fixture verifies compatibility with the older installed Python runtime.
+Wire-schema parity and Studio preflight invalidation have automated coverage.
+See [the generic API guide](../slint-test/README.md) for commands and limitations.
+
+Process ownership is implemented for POSIX and validated on macOS.
+Broader adapter migration, multi-window inspection, live refresh, and recording remain follow-up work.
+
+### Follow-Up Validation
+
+Validated on macOS with headless Skia and the rebuilt editor:
+
+- Editor UI: 655 passed; editor Rust: 213 passed.
+- Generic library: 59 passed; Studio: 68 passed.
+- Native testing backend: 77 passed, including doctests and schema parity.
+- Native Studio ran and reran four filtered inspector cases, recorded verified target details,
+  and displayed their saved captures. The centered-scroll fixture was inspected as a render.
+- Ruff, ty, repository autofixes, and strict backend and root-workspace Clippy passed.
+- The full repository Clippy invocation encountered an unrelated FFmpeg/header incompatibility
+  in the examples workspace. Windows and Linux runtime behavior wasn't validated.

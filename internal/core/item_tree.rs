@@ -1056,6 +1056,30 @@ impl ItemRc {
             .and_then(|child_transform| child_transform.inverse())
     }
 
+    /// Reveal the item's center through its interactive Flickable ancestors.
+    pub fn scroll_center_into_view(&self) {
+        let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
+        while let Some(item) = parent.as_ref() {
+            if let Some(flickable) = item.downcast::<crate::items::Flickable>() {
+                let flickable = flickable.as_pin_ref();
+                if flickable.interactive() {
+                    let center = self.map_to_ancestor(self.geometry().center(), item)
+                        - crate::lengths::LogicalVector::new(
+                            flickable.content_x().0,
+                            flickable.content_y().0,
+                        );
+                    let viewport = item.geometry().size;
+                    let margin = crate::lengths::LogicalVector::new(
+                        (viewport.width / 2. - 1.).max(1.),
+                        (viewport.height / 2. - 1.).max(1.),
+                    );
+                    flickable.reveal_points(item, &[center - margin, center + margin]);
+                }
+            }
+            parent = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+        }
+    }
+
     pub(crate) fn try_scroll_into_visible(&self) {
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(item_rc) = parent.as_ref() {

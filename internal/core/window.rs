@@ -810,6 +810,14 @@ impl WindowInner {
         crate::debug_log!("Slint: long callback/instantiation chain detected");
     }
 
+    /// Return whether a pointer grab, delayed press, or drag is in progress.
+    pub fn has_pointer_operation(&self) -> bool {
+        let state = self.mouse_input_state.take();
+        let busy = state.has_pointer_operation();
+        self.mouse_input_state.set(state);
+        busy
+    }
+
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
