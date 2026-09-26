@@ -22,31 +22,6 @@ from ui_driver import (
 )
 
 
-def test_file_tree_renames_file_inline(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source = fixture_project / "Main.slint"
-    target = fixture_project / "Renamed.slint"
-    expected = source.read_text()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        file_row(window, source).invoke_accessible_default_action()
-        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
-        window_element_with_label(
-            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
-        )
-
-        press_key(window, keys.Backspace)
-        press_keys(window, "Renamed")
-        press_key(window, keys.Return)
-
-        wait_until(lambda: True if target.is_file() and not source.exists() else None)
-        assert target.read_text() == expected
-
-
 def test_file_tree_saves_rename_when_focus_moves(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -212,7 +187,7 @@ def test_file_tree_switches_image_and_component_surfaces(
         snapshot.assert_unchanged()
 
 
-def test_file_tree_renames_file_inline_readable(editor_factory, fixture_project):
+def test_file_tree_renames_file_inline(editor_factory, fixture_project):
     from slint_test import expect
 
     source = fixture_project / "Main.slint"

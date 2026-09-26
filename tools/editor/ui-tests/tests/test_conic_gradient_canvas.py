@@ -225,69 +225,6 @@ def test_conic_center_translation(
         original.assert_unchanged()
 
 
-@pytest.mark.parametrize("handle", ["endpoint", "ray"])
-def test_conic_rotation_crosses_the_seam(
-    editor_binary, editor_environment, conic_scene, tmp_path, handle
-):
-    conic_scene.write_text(
-        conic_scene.read_text().replace("from 220deg", "from 350deg")
-    )
-    original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
-        wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
-        open_conic(window)
-        c = center(control(window, "Gradient center handle"), 260)
-        radius = 126 if handle == "endpoint" else 70
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(around(c, radius, 350), button)
-        )
-        for angle in [355, 359, 1, 7]:
-            window.dispatch_event(
-                slint_testing.PointerMoveEvent(around(c, radius, angle))
-            )
-            actual = center(control(window, "Gradient rotation handle"), angle - 90)
-            expected = around(c, 126, angle)
-            assert actual.x == pytest.approx(expected.x, abs=0.01)
-            assert actual.y == pytest.approx(expected.y, abs=0.01)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(around(c, radius, 7), button)
-        )
-        original.assert_unchanged_now()
-        click(window, "Close Custom")
-        baseline = original.sources[Path(conic_scene.name)]
-
-        def applied_source() -> bytes | None:
-            saved = conic_scene.read_bytes()
-            if not saved or saved == baseline:
-                return None
-            try:
-                original.wait_for_applied(saved, conic_scene.name, timeout=0.1)
-            except AssertionError:
-                return None
-            return saved
-
-        saved = wait_until(applied_source)
-        angle = re.search(rb"from ([0-9.]+)deg", saved)
-        assert angle is not None
-        assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
-        assert b" at " not in saved
-        press_shortcut(window, keys.Control, "z")
-        original.wait_for_applied(
-            original.sources[Path(conic_scene.name)], conic_scene.name
-        )
-        press_shortcut(window, keys.Control, keys.Shift, "z")
-        original.wait_for_applied(saved, conic_scene.name)
-        open_conic(window)
-        reopened = center(control(window, "Gradient rotation handle"), 277)
-        expected = around(c, 126, 367)
-        assert reopened.x == pytest.approx(expected.x, abs=0.01)
-        assert reopened.y == pytest.approx(expected.y, abs=0.01)
-        click(window, "Close Custom")
-        assert conic_scene.read_bytes() == saved
-
-
 def test_conic_noop_and_collapsed_rotation_do_not_write_source(
     editor_binary, editor_environment, conic_scene, tmp_path
 ):
@@ -514,9 +451,7 @@ def test_conic_activation_from_solid(
 
 
 @pytest.mark.parametrize("handle", ["endpoint", "ray"])
-def test_conic_rotation_crosses_the_seam_readable(
-    editor_factory, conic_scene, tmp_path, handle
-):
+def test_conic_rotation_crosses_the_seam(editor_factory, conic_scene, tmp_path, handle):
     from slint_test import Point, step
     from source_snapshot import wait_for_source_change
 

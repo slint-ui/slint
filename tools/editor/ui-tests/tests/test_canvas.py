@@ -12,7 +12,6 @@ from canvas_interactions import (
     fixture_element,
     frame_rotation,
     hover_fixture_element,
-    live_modifier_resize,
     manual_drag,
     manual_radius_drag,
     manual_rotation_drag,
@@ -1261,41 +1260,6 @@ def test_shift_resize_is_proportional(
         )
 
 
-@pytest.mark.parametrize(
-    "press_shift_during_drag",
-    [pytest.param(True, id="press-shift"), pytest.param(False, id="release-shift")],
-)
-def test_resize_modifier_changes_during_drag(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    press_shift_during_drag: bool,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
-        snapshot = SourceSnapshot.capture(fixture_project)
-        live_modifier_resize(
-            window,
-            snapshot,
-            press_shift_during_drag=press_shift_during_drag,
-        )
-        geometry = (
-            b"        width: 200px;\n        height: 200px;"
-            if press_shift_during_drag
-            else b"        width: 200px;\n        height: 136px;"
-        )
-        snapshot.wait_for_exact(
-            replace_once(
-                baseline,
-                b"        width: 180px;\n        height: 120px;",
-                geometry,
-            ),
-        )
-
-
 @pytest.mark.parametrize("kind", ROTATED_KINDS)
 @pytest.mark.parametrize("corner", CORNERS)
 def test_rotated_element_resize_writes_exact_source(
@@ -2141,7 +2105,7 @@ def test_disabled_manipulation_does_not_edit_source(
     "press_shift_during_drag",
     [pytest.param(True, id="press-shift"), pytest.param(False, id="release-shift")],
 )
-def test_resize_modifier_changes_during_drag_readable(
+def test_resize_modifier_changes_during_drag(
     editor_factory, fixture_project, press_shift_during_drag
 ):
     from slint_test import expect

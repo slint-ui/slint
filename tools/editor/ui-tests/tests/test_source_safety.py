@@ -165,59 +165,6 @@ def test_stale_selection_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize(
-    ("label", "property_name", "original", "updated"),
-    [
-        (FIELDS["x"], "x", "32", "36"),
-        (FIELDS["y"], "y", "32", "40"),
-        (FIELDS["width"], "width", "160", "180"),
-        (FIELDS["height"], "height", "96", "120"),
-    ],
-)
-def test_stale_revision_commit_is_rejected(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    label: str,
-    property_name: str,
-    original: str,
-    updated: str,
-) -> None:
-    source_file = fixture_project / "InspectorCases.slint"
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "inspect-rectangle")
-        stage_field_text(window, label, "99")
-        snapshot.assert_unchanged_now()
-        external = baseline.replace(
-            f"        {property_name}: {original}px;".encode(),
-            f"        {property_name}: {updated}px;".encode(),
-            1,
-        )
-        assert external != baseline
-        source_file.write_bytes(external)
-        snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
-        snapshot = SourceSnapshot.capture(fixture_project)
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := window_element_with_label(
-                        window, label, slint_testing.AccessibleRole.TextInput
-                    )
-                ).accessible_value
-                == updated
-                else None
-            ),
-            timeout=15,
-        )
-        press_key(window, keys.Return)
-        snapshot.assert_unchanged()
-
-
 def test_deleted_root_file_recovers_without_relaunch(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -310,7 +257,7 @@ def test_initial_broken_source_recovers_without_relaunch(
         (FIELDS["height"], "height", "96", "120"),
     ],
 )
-def test_stale_revision_commit_is_rejected_readable(
+def test_stale_revision_commit_is_rejected(
     editor_factory, fixture_project, label, property_name, original, updated
 ):
     from slint_test import expect
@@ -320,7 +267,7 @@ def test_stale_revision_commit_is_rejected_readable(
     snapshot = SourceSnapshot.capture(fixture_project)
     with editor_factory(source) as editor:
         editor.canvas.element("inspect-rectangle").select()
-        field = editor.inspector.field(label)
+        field = editor.inspector.field(property_name)
         field.fill("99")
         snapshot.assert_unchanged_now()
         external = baseline.replace(

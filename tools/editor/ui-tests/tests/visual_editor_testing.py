@@ -31,19 +31,11 @@ class Inspector:
         def source_context():
             if name not in ("x", "y", "width", "height"):
                 return {}
-            rows = (
-                self.editor.window.get_by_role("list", name="Current file outline")
-                .get_by_role("list-item")
-                ._find()
-            )
-            selected = [
-                row.accessible_label for row in rows if row.accessible_item_selected
-            ]
-            if len(selected) != 1:
+            if not self.editor.selected_identifier:
                 return {}
             return {
                 "path": str(self.editor.source.resolve()),
-                "element": selected[0],
+                "element": self.editor.selected_identifier,
                 "property": name,
             }
 
@@ -88,6 +80,7 @@ class CanvasElement:
             row.activate()
             expect(row).to_be_selected()
             expect(self.selection).to_have_count(1)
+            self.editor.selected_identifier = self.identifier
 
     @property
     def selection(self) -> Locator:
@@ -97,18 +90,13 @@ class CanvasElement:
         return self.editor.window.get_by_accessible_name(f"{self.kind} {name}")
 
     def handle_center(self, name: str) -> Point:
-        return self.handle(name).center(
-            rotation_degrees=math.degrees(
-                frame_rotation(self.editor.raw_window, self.kind)
-            )
-        )
+        return self.handle(name).center(rotation_degrees=self.rotation_degrees())
+
+    def rotation_degrees(self) -> float:
+        return math.degrees(frame_rotation(self.editor.raw_window, self.kind))
 
     def drag(self, handle: str = "move handle") -> Drag:
-        return self.handle(handle).drag(
-            rotation_degrees=math.degrees(
-                frame_rotation(self.editor.raw_window, self.kind)
-            )
-        )
+        return self.handle(handle).drag(rotation_degrees=self.rotation_degrees())
 
     def locator(self) -> Locator:
         return self.editor.window.get_by_id(
@@ -119,10 +107,7 @@ class CanvasElement:
         with step("Move canvas element", layer="adapter", x=x, y=y, space="window"):
             self.select()
             baseline = self.editor.source.read_bytes()
-            angle = frame_rotation(self.editor.raw_window, self.kind)
-            with self.handle("move handle").drag(
-                rotation_degrees=math.degrees(angle)
-            ) as drag:
+            with self.drag() as drag:
                 for i in range(1, 4):
                     drag.move_by(x * i / 3, y * i / 3, origin="start")
                 drag.release()
@@ -184,6 +169,7 @@ class Editor:
             raise RuntimeError("Editor has no window")
         self.raw_window: slint_testing.Window = window
         self.window = Window(window)
+        self.selected_identifier = ""
         self.inspector, self.canvas, self.files = (
             Inspector(self),
             Canvas(self),
