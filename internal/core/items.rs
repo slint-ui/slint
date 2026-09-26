@@ -945,29 +945,30 @@ impl Item for Opacity {
 }
 
 impl Opacity {
-    // This function determines the optimization opportunities for not having to render the
-    // children of the Opacity element into a layer:
-    //  *  The opacity item typically only one child (this is not guaranteed). If that item has
-    //     no children, then we can skip the layer and apply the opacity directly. This is not perfect though,
-    //     for example if the compiler inserts another synthetic element between the `Opacity` and the actual child,
-    //     then this check will apply a layer even though it might not actually be necessary.
-    //  * If the vale of the opacity is 1.0 then we don't need to do anything.
+    /// A layer and per-item opacity only differ where drawn primitives overlap,
+    /// so a single childless item is drawn without one.
+    /// `Clip` and `Transform` draw nothing themselves and are looked through.
+    /// The compiler injects them for `visible` and the transform properties,
+    /// see `passes/visible.rs` and `lower_transform_properties`.
     pub fn need_layer(self_rc: &ItemRc, opacity: f32) -> bool {
         if opacity == 1.0 {
             return false;
         }
 
-        let opacity_child = match self_rc.first_child() {
-            Some(first_child) => first_child,
-            None => return false, // No children? Don't need a layer then.
-        };
-
-        if opacity_child.next_sibling().is_some() {
-            return true; // If the opacity item has more than one child, then we need a layer
+        let mut child = self_rc.first_child();
+        while let Some(item) = child {
+            if item.next_sibling().is_some() {
+                return true;
+            }
+            let item_ref = item.borrow();
+            if ItemRef::downcast_pin::<Clip>(item_ref).is_none()
+                && ItemRef::downcast_pin::<Transform>(item_ref).is_none()
+            {
+                return item.first_child().is_some();
+            }
+            child = item.first_child();
         }
-
-        // If the target of the opacity has any children then we need a layer
-        opacity_child.first_child().is_some()
+        false
     }
 }
 
