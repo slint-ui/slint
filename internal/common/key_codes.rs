@@ -37,19 +37,19 @@ macro_rules! for_each_keys {
 '\u{007f}'  # Delete      # => Delete      # Qt_Key_Key_Delete       # Delete       # Delete     ;
 
 // The modifier key codes comes from https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode.
-'\u{0010}'  # Shift       # =>             # Qt_Key_Key_Shift        # Shift(Left)  # Shift_L    ;
-'\u{0011}'  # Control     # =>             # Qt_Key_Key_Control      # Control(Left)# Control_L  ;
-'\u{0012}'  # Alt         # =>             # Qt_Key_Key_Alt          # Alt          # Alt_L      ;
-'\u{0013}'  # AltGr       # =>             # Qt_Key_Key_AltGr        # AltGraph     # Mode_switch;
-'\u{0014}'  # CapsLock    # =>             # Qt_Key_Key_CapsLock     #              # Caps_Lock  ;
+'\u{0010}'  # Shift       # =>             # Qt_Key_Key_Shift        # Shift(Left)|Shift(Standard)      # Shift_L    ;
+'\u{0011}'  # Control     # =>             # Qt_Key_Key_Control      # Control(Left)|Control(Standard)  # Control_L  ;
+'\u{0012}'  # Alt         # =>             # Qt_Key_Key_Alt          # Alt                              # Alt_L      ;
+'\u{0013}'  # AltGr       # =>             # Qt_Key_Key_AltGr        # AltGraph                         # Mode_switch;
+'\u{0014}'  # CapsLock    # =>             # Qt_Key_Key_CapsLock     #                                  # Caps_Lock  ;
 
-'\u{0015}'  # ShiftR      # =>             #                         # Shift(Right) # Shift_R    ;
-'\u{0016}'  # ControlR    # =>             #                         # Control(Right)# Control_R  ;
+'\u{0015}'  # ShiftR      # =>             #                         # Shift(Right)                     # Shift_R    ;
+'\u{0016}'  # ControlR    # =>             #                         # Control(Right)                   # Control_R  ;
 
 // Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
 // which makes those keys appear as text.
-'\u{0017}'  # Meta        # =>             # Qt_Key_Key_Meta         # Super(Left)  # Meta_L     ;
-'\u{0018}'  # MetaR       # =>             #                         # Super(Right) # Meta_R     ;
+'\u{0017}'  # Meta        # =>             # Qt_Key_Key_Meta         # Super(Left)|Super(Standard)      # Meta_L     ;
+'\u{0018}'  # MetaR       # =>             #                         # Super(Right)                     # Meta_R     ;
 
 '\u{0020}'  # Space       # =>             # Qt_Key_Key_Space        # Space # space     ;
 
