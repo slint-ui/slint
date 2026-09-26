@@ -33,8 +33,8 @@ use crate::item_tree::ItemTreeRc;
 pub use crate::item_tree::{ItemRc, ItemTreeVTable};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-    RectLengths,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths,
 };
 pub use crate::menus::MenuItem;
 #[cfg(feature = "rtti")]
@@ -1608,12 +1608,20 @@ impl Item for ContextMenu {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: &MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        event: &MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
         _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardEvent
+        match event {
+            MouseEvent::Pressed { position, button: PointerEventButton::Right, .. }
+                if self.enabled()
+                    && !enabled_context_menu_at(self_rc, *position, window_adapter) =>
+            {
+                InputEventFilterResult::Intercept
+            }
+            _ => InputEventFilterResult::ForwardEvent,
+        }
     }
 
     fn input_event(
@@ -1745,6 +1753,35 @@ impl ContextMenu {
                 .any(|p| p.popup_id == id)
         })
     }
+}
+
+fn enabled_context_menu_at(
+    parent: &ItemRc,
+    position_in_children: LogicalPoint,
+    window_adapter: &Rc<dyn WindowAdapter>,
+) -> bool {
+    let mut child = parent.first_child();
+    while let Some(item) = child {
+        let geometry = item.geometry();
+        let inside = geometry.contains(position_in_children);
+        if inside && item.downcast::<ContextMenu>().is_some_and(|menu| menu.as_pin_ref().enabled())
+        {
+            return true;
+        }
+        if inside || !item.borrow().as_ref().clips_children() {
+            let mut position = position_in_children - geometry.origin.to_vector();
+            if window_adapter.renderer().supports_transformations()
+                && let Some(inverse_transform) = item.inverse_children_transform()
+            {
+                position = inverse_transform.transform_point(position.cast()).cast();
+            }
+            if enabled_context_menu_at(&item, position, window_adapter) {
+                return true;
+            }
+        }
+        child = item.next_sibling();
+    }
+    false
 }
 
 impl ItemConsts for ContextMenu {

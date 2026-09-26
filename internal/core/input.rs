@@ -1707,40 +1707,21 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputResult {
-    let fresh_state = |s: &MouseInputState| MouseInputState {
-        drag_data: s.drag_data.clone(),
-        drag_source: s.drag_source.clone(),
-        drop_target: s.drop_target.clone(),
-        cursor: s.cursor.clone(),
+    let mut result = MouseInputState {
+        drag_data: mouse_input_state.drag_data.clone(),
+        drag_source: mouse_input_state.drag_source.clone(),
+        drop_target: mouse_input_state.drop_target.clone(),
+        cursor: mouse_input_state.cursor.clone(),
         ..Default::default()
     };
-    let mut result = fresh_state(&mouse_input_state);
-    let mut r = VisitChildrenResult::CONTINUE;
-    let context_menu_pass =
-        matches!(mouse_event, MouseEvent::Pressed { button: PointerEventButton::Right, .. });
-    if context_menu_pass {
-        r = send_mouse_event_to_item(
-            mouse_event,
-            root.clone(),
-            window_adapter,
-            &mut result,
-            mouse_input_state.top_item().as_ref(),
-            DispatchPass::ContextMenuOnly,
-        );
-    }
-    if !r.has_aborted() {
-        if context_menu_pass {
-            result = fresh_state(&mouse_input_state);
-        }
-        r = send_mouse_event_to_item(
-            mouse_event,
-            root.clone(),
-            window_adapter,
-            &mut result,
-            mouse_input_state.top_item().as_ref(),
-            DispatchPass::Normal,
-        );
-    }
+    let r = send_mouse_event_to_item(
+        mouse_event,
+        root.clone(),
+        window_adapter,
+        &mut result,
+        mouse_input_state.top_item().as_ref(),
+        false,
+    );
     let accepted = r.has_aborted();
     if matches!(mouse_event, MouseEvent::DragMove { .. }) {
         // Remember the accepting DropArea (or forget if none did) so the subsequent
@@ -1804,7 +1785,7 @@ pub(crate) fn process_delayed_event(
                 window_adapter,
                 &mut mouse_input_state,
                 Some(last_top_item),
-                DispatchPass::IgnoreDelays,
+                true,
             )
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
@@ -1816,20 +1797,13 @@ pub(crate) fn process_delayed_event(
     mouse_input_state
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum DispatchPass {
-    Normal,
-    IgnoreDelays,
-    ContextMenuOnly,
-}
-
 fn send_mouse_event_to_item(
     mouse_event: &MouseEvent,
     item_rc: ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
     last_top_item: Option<&ItemRc>,
-    pass: DispatchPass,
+    ignore_delays: bool,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
     let geom = item_rc.geometry();
@@ -1844,19 +1818,9 @@ fn send_mouse_event_to_item(
         }
     }
 
-    let contains = mouse_event.position().is_some_and(|p| geom.contains(p));
-    // In the ContextMenuOnly pass, other items only clip: their filters must not run
-    // (they mutate hover/cursor state for an event this pass may not deliver), and
-    // their input_event is skipped, so the innermost ContextMenu wins by bubbling order.
-    let bystander = pass == DispatchPass::ContextMenuOnly
-        && item_rc.downcast::<crate::items::ContextMenu>().is_none();
-    let filter_result = if bystander {
-        if !contains && item.as_ref().clips_children() {
-            InputEventFilterResult::Intercept
-        } else {
-            InputEventFilterResult::ForwardAndIgnore
-        }
-    } else if contains || item.as_ref().clips_children() {
+    let filter_result = if mouse_event.position().is_some_and(|p| geom.contains(p))
+        || item.as_ref().clips_children()
+    {
         item.as_ref().input_event_filter_before_children(
             &event_for_children,
             window_adapter,
@@ -1867,12 +1831,12 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::ForwardAndIgnore
     };
 
-    let (forward_to_children, mut ignore) = match filter_result {
+    let (forward_to_children, ignore) = match filter_result {
         InputEventFilterResult::ForwardEvent => (true, false),
         InputEventFilterResult::ForwardAndIgnore => (true, true),
         InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
         InputEventFilterResult::Intercept => (false, false),
-        InputEventFilterResult::DelayForwarding(_) if pass != DispatchPass::Normal => (true, false),
+        InputEventFilterResult::DelayForwarding(_) if ignore_delays => (true, false),
         InputEventFilterResult::DelayForwarding(duration) => {
             let timer = WindowInner::from_pub(window_adapter.window()).context().new_timer();
             let w = Rc::downgrade(window_adapter);
@@ -1896,9 +1860,6 @@ fn send_mouse_event_to_item(
         // side list instead of dropping it.
         InputEventFilterResult::ForwardAndObserve => (true, true),
     };
-    if bystander {
-        ignore = true;
-    }
 
     result.item_stack.push((item_rc.downgrade(), filter_result));
     if forward_to_children {
@@ -1910,7 +1871,7 @@ fn send_mouse_event_to_item(
                     window_adapter,
                     result,
                     last_top_item,
-                    pass,
+                    ignore_delays,
                 )
             };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
