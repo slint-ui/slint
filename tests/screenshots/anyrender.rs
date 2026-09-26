@@ -439,3 +439,68 @@ fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
         std::task::Poll::Pending => None,
     }
 }
+
+#[test]
+fn opaque_shadow_keeps_blur_without_layer_filters() {
+    let renderer = init_anyrender();
+    let compiler = slint_interpreter::Compiler::default();
+    let compiled = poll_once(
+        compiler.build_from_source(
+            r#"
+        export component TestCase inherits Window {
+            width: 64px;
+            height: 64px;
+            in-out property <brush> fill: white;
+            in-out property <length> blur: 8px;
+            Rectangle {
+                x: 8px; y: 8px;
+                width: 40px; height: 40px;
+                background: root.fill;
+                border-width: 4px;
+                border-color: blue;
+                drop-shadow-color: black;
+                drop-shadow-blur: root.blur;
+            }
+        }
+        "#
+            .into(),
+            "opaque_shadow_keeps_blur_without_layer_filters.slint".into(),
+        ),
+    )
+    .unwrap();
+    assert!(!compiled.has_errors());
+    let component = compiled.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+    for alpha in [255, 128, 0, 255] {
+        component
+            .set_property(
+                "fill",
+                slint_interpreter::Brush::from(slint_interpreter::Color::from_argb_u8(
+                    alpha, 255, 255, 255,
+                ))
+                .into(),
+            )
+            .unwrap();
+        for blur in [4., 8.] {
+            component.set_property("blur", blur.into()).unwrap();
+            let scene = renderer.record().unwrap();
+            let archive = SceneArchive::from_scene(&scene, &SerializeConfig::new()).unwrap();
+            let commands = serde_json::to_value(&archive.commands).unwrap();
+            let commands = commands.as_array().unwrap();
+            let analytic = commands.iter().find_map(|command| command.get("BoxShadow"));
+            let filtered = commands.iter().any(|command| {
+                command
+                    .get("PushLayer")
+                    .and_then(|layer| layer.get("filter"))
+                    .is_some_and(|filter| !filter.is_null())
+            });
+            if alpha == 255 {
+                assert_eq!(analytic.unwrap()["std_dev"].as_f64(), Some(blur / 2.));
+                assert!(!filtered, "Vello GPU ignores layer filters");
+            } else {
+                assert!(analytic.is_none(), "translucent paint must retain its alpha");
+                assert!(filtered);
+            }
+        }
+    }
+}
