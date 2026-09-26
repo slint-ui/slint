@@ -1982,9 +1982,17 @@ fn process_rectangle_impl(
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        // Center and radii are in the element's un-rotated frame, `geom` is in screen space.
+        let (w, h) = if args.rotation.is_transpose() { (geom_h, geom_w) } else { (geom_w, geom_h) };
+        let (cx, cy) = g.center_or_default_scaled(w, h, scale_factor.get());
+        let (rx, ry) = g.radii_or_default_scaled(w, h, scale_factor.get());
+        let (cx, cy, radius_x, radius_y) = match args.rotation {
+            RenderingRotation::NoRotation => (cx, cy, rx, ry),
+            RenderingRotation::Rotate90 => (h - cy, cx, ry, rx),
+            RenderingRotation::Rotate180 => (w - cx, h - cy, rx, ry),
+            RenderingRotation::Rotate270 => (cy, w - cx, ry, rx),
+        };
         let (center_x, center_y) = to_clipped_center(cx, cy);
-        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -1997,7 +2005,8 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
-            radius,
+            radius_x,
+            radius_y,
         };
 
         processor.process_radial_gradient(clipped.cast(), radial_grad);
