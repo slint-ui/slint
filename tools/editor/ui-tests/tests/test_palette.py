@@ -64,9 +64,27 @@ def test_insert_palette_element_writes_exact_source(
         target = canvas_drop_position(window, percent / 100)
         snapshot.assert_unchanged_now()
         begin_palette_drag(window, kind, target)
+        if kind == "Text":
+            preview = window_element_with_label(
+                window, "Text drag preview", slint_testing.AccessibleRole.Region
+            )
+            assert preview.size.width < 100
+            assert preview.size.height < 40
+            scale = percent / 100
+            assert preview.absolute_position.x + preview.size.width * scale / 2 == (
+                pytest.approx(target.x, abs=1)
+            )
+            assert preview.absolute_position.y + preview.size.height * scale / 2 == (
+                pytest.approx(target.y, abs=1)
+            )
         release_palette_drag(window, target)
         expected = (GOLDENS / f"Palette.insert-{kind.lower()}.slint").read_bytes()
         snapshot.wait_for_exact(expected, "Palette.slint")
+        if kind == "Text":
+            inline_editor = window_element_with_label(
+                window, "Inline text editor", slint_testing.AccessibleRole.TextInput
+            )
+            assert inline_editor.accessible_value == "Text"
         window_element_with_label(
             window, f"Selected {kind}", slint_testing.AccessibleRole.Region
         )

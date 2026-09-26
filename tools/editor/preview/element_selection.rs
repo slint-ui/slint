@@ -16,7 +16,7 @@ use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::Highlight
 
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ElementSelection {
     pub path: PathBuf,
     pub offset: TextSize,
@@ -94,6 +94,18 @@ fn element_covers_point(
 }
 
 pub fn unselect_element() {
+    super::PREVIEW_STATE.with_borrow_mut(|state| {
+        state.pending_inline_text_edit = None;
+    });
+    super::set_selected_element(None, SelectionNotification::Never);
+}
+
+pub fn unselect_element_from_editor() {
+    super::PREVIEW_STATE.with_borrow_mut(|state| {
+        if state.pending_inline_text_edit.is_some() && state.selected.is_none() {
+            state.pending_inline_text_edit = None;
+        }
+    });
     super::set_selected_element(None, SelectionNotification::Never);
 }
 

@@ -356,7 +356,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
 export global AppState {
     in-out property <ElementKind> palette-drag-kind: ElementKind.none;
-    in-out property <Point> palette-drag-preview-position: { x: 0px, y: 0px };
+    in-out property <Point> palette-drag-pointer-position: { x: 0px, y: 0px };
     in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
     in-out property <bool> palette-drag-cancelled: false;
     in-out property <bool> outline-drag-active: false;
@@ -380,12 +380,11 @@ export global AppState {
 
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
+            if self.palette-drag-kind != kind {
+                self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
+            }
             self.palette-drag-kind = kind;
-            self.palette-drag-size = ElementVisuals.for-kind(kind).preview-size;
-            self.palette-drag-preview-position = {
-                x: window-position.x - self.palette-drag-size.width / 2,
-                y: window-position.y - self.palette-drag-size.height / 2,
-            };
+            self.palette-drag-pointer-position = window-position;
         }
     }
 
@@ -411,13 +410,6 @@ export global AppState {
     public function cancel-active-drags() {
         self.cancel-palette-drag();
         self.cancel-outline-drag();
-    }
-
-    public pure function palette-drag-pointer-position() -> Point {
-        return {
-            x: self.palette-drag-preview-position.x + self.palette-drag-size.width / 2,
-            y: self.palette-drag-preview-position.y + self.palette-drag-size.height / 2,
-        };
     }
 
     public pure function drag-cancelled() -> bool {

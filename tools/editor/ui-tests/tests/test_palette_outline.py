@@ -36,9 +36,6 @@ ELEMENTS = {
     text: "Text";
     width: 220px;
     height: 40px;
-    color: #1f2328;
-    font-size: 24px;
-    vertical-alignment: center;
 }
 """,
     "Image": """Image {
@@ -104,6 +101,8 @@ def test_palette_outline_insertion(
         snapshot.assert_unchanged_now()
         release_palette_drag(window, position)
         snapshot.wait_for_applied(expected.encode(), source.name)
+        if kind == "Text":
+            assert not elements_with_label(window.root_element, "Inline text editor")
         inserted = wait_until(
             lambda: next(
                 (

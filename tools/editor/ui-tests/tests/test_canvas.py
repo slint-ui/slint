@@ -83,11 +83,6 @@ THRESHOLD_LABELS = (
     "Rectangle radius top-left",
 )
 DISABLED_IDS = ("layout-rectangle", "rotated-rectangle")
-PALETTE_DROP_SIZES = {
-    "Rectangle": (160, 64),
-    "Text": (220, 40),
-    "Image": (160, 96),
-}
 SELECTION_ACCENT = (11, 153, 254)
 
 
@@ -133,7 +128,7 @@ def test_component_palette_preserves_compact_row_layout(
             window_element_with_label(
                 window, kind, slint_testing.AccessibleRole.ListItem
             )
-            for kind in sorted(PALETTE_DROP_SIZES)
+            for kind in sorted(BOUNDARY_KINDS)
         ]
         assert (
             section.absolute_position.y + section.size.height
@@ -155,7 +150,7 @@ def test_component_palette_preserves_compact_row_layout(
         ].absolute_position.y == pytest.approx(36)
 
 
-@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
 def test_component_palette_drop_can_extend_outside_artboard(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -174,15 +169,6 @@ def test_component_palette_drop_can_extend_outside_artboard(
             y=artboard.absolute_position.y + 8,
         )
         begin_palette_drag(window, kind, target)
-        expected_width, expected_height = PALETTE_DROP_SIZES[kind]
-
-        expected_x = round(target.x - artboard.absolute_position.x - expected_width / 2)
-        expected_y = round(
-            target.y - artboard.absolute_position.y - expected_height / 2
-        )
-        assert expected_x < 0
-        assert expected_y < 0
-
         finish_palette_drag(window, target)
         expected = (
             GOLDENS / f"PaletteDropCases.outside-{kind.lower()}.slint"
@@ -217,7 +203,7 @@ def test_palette_preview_follows_rejected_pointer(
             "Rectangle drag preview",
             slint_testing.AccessibleRole.Region,
         )
-        expected_width, expected_height = PALETTE_DROP_SIZES["Rectangle"]
+        expected_width, expected_height = 160, 64
         assert preview.size.width == pytest.approx(expected_width)
         assert preview.size.height == pytest.approx(expected_height)
         assert preview.absolute_position.x == pytest.approx(
@@ -557,7 +543,7 @@ def test_invisible_element_keeps_selection_outline_during_drag(
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
-@pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
+@pytest.mark.parametrize("kind", BOUNDARY_KINDS)
 def test_repeated_palette_drop_preserves_component_kind(
     editor_binary: Path,
     editor_environment: dict[str, str],
