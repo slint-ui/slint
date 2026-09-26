@@ -40,7 +40,8 @@ class Command:
         self.process = subprocess.Popen(
             [
                 sys.executable,
-                str(Path(__file__).with_name("supervisor.py")),
+                str(Path(__file__).parents[1] / "slint-test/slint_test/_launch.py"),
+                "--pipe",
                 *map(str, args),
             ],
             cwd=cwd,

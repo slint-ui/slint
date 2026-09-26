@@ -46,7 +46,7 @@ if sys.argv[2] == 'child':
 else:
     time.sleep(60)
 """)
-    parent_code = "import os,subprocess,sys,time; p=subprocess.Popen([sys.executable,sys.argv[1],str(os.getpid()),sys.executable,*sys.argv[2:]]); p.wait()"
+    parent_code = "import os,subprocess,sys,time; p=subprocess.Popen([sys.executable,sys.argv[1],'--parent',str(os.getpid()),sys.executable,*sys.argv[2:]]); p.wait()"
     parent = subprocess.Popen(
         [
             sys.executable,
@@ -79,6 +79,7 @@ def test_parent_already_dead_does_not_launch(tmp_path):
         [
             sys.executable,
             str(HELPER),
+            "--parent",
             "-1",
             sys.executable,
             "-c",

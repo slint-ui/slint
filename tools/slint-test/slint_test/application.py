@@ -68,6 +68,7 @@ def launch(
         command = [
             sys.executable,
             str(Path(__file__).with_name("_launch.py")),
+            "--parent",
             str(os.getpid()),
             *args,
         ]
