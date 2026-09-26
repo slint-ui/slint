@@ -473,6 +473,7 @@ ospi
 othercomp
 ovmf
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL

@@ -65,8 +65,12 @@ remembering the timestamp, count, position and button of the last press.
 - The drag-and-drop state: the dragged data, the `DragArea` that started the drag (`None` for a
   native cross-window drag), and the `DropArea` that accepted the last `DragMove` — on release
   only that one gets the `Drop`, matching how OS drag-and-drop pipelines behave
-- The delayed event and its timer (for `Flickable` touch handling), the items still owed an exit
-  event, and the current mouse cursor
+- A press held back by `DelayForwarding` (`Flickable`/`SwipeGestureHandler`): the timer, the event
+  already translated into the delaying item's own local frame (for the timer-triggered replay,
+  which only visits that item's own children), the event in the frame dispatch started in (for the
+  release-triggered replay, which restarts dispatch from the captured root instead), and that root
+  item
+- The items still owed an exit event, and the current mouse cursor
 
 ## Event Processing Flow
 
@@ -348,10 +352,31 @@ InputEventFilterResult::DelayForwarding(duration_ms)
 ```
 
 **Flow:**
-1. Flickable returns `DelayForwarding(150)` on touch press
-2. Timer starts, event is stored
-3. If release comes before timeout → forward original press, then release
-4. If movement detected → Flickable handles as scroll, original target never sees press
+1. Flickable returns `DelayForwarding(150)` on touch press. The timer starts, and both the event already
+   translated into the delaying item's own local frame, and the event in the dispatch root's frame (plus
+   that root itself) are stored
+2. If the timer fires before release, the stored local-frame press replays against the delaying item's own
+   children only (e.g. a nested `TouchArea`/`Button` shows press feedback) -- never escalates past the
+   delaying item itself, since the interaction might still become a drag. Every `DelayForwarding` item hit
+   this way (not just the outermost one) falls back to its own `input_event` if unclaimed, exactly like a
+   fresh `ForwardEvent` dispatch, so a nested `SwipeGestureHandler`/`Flickable` can grab the mouse to keep
+   watching for a swipe/drag of its own
+3. Any dispatch pass before release other than the eventual release itself can clear the stored delay as a
+   side effect of building a fresh `MouseInputState` for that pass: the timer firing with nothing claiming
+   the press, or a `Moved` event that something *outside* the delaying item's own subtree accepts (e.g. an
+   enclosing `TouchArea`'s hover tracking, after the delaying item itself ignored the move). A `Moved` that
+   nothing accepts anywhere, or that a nested child *inside* the delaying item accepts (e.g. press feedback),
+   does not clear it. A press released after the delay was cleared this way is not forwarded (tracked in
+   issue #13120); only a release while the delay is still intact takes the path below
+4. If release comes while the delay is still intact, the stored root-frame press replays through the *full*
+   dispatch from the captured root, with *every* `DelayForwarding` item the replay reaches -- not just the
+   originally delaying one -- forced to forward-and-ignore instead of falling back: the interaction is now
+   known to be over, so a nested delaying item must also let an unclaimed press bubble past it rather than
+   belatedly grab it. An unclaimed press bubbles onward from there like any other ignored event, reaching
+   whatever is behind or around the delaying item(s)
+5. This release-triggered replay only fires for the release of the same pointer and button that's being
+   delayed: a synthetic `Released` used elsewhere to cancel a single-touch grab when a second finger starts
+   a gesture carries a different `touch_finger_id` and is ignored here, leaving the original delay untouched
 
 ## Common Patterns
 
