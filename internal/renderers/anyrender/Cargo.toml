@@ -23,7 +23,7 @@ image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-fontique", "shared-parley", "image-decoders", "svg"] }
 
 vtable = { workspace = true }
 lyon_path = { workspace = true }
