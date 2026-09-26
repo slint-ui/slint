@@ -48,6 +48,7 @@ use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
 use crate::key_generated::{self, Qt_WindowType_Popup, Qt_WindowType_ToolTip};
+use i_slint_core::api::WindowModality;
 use i_slint_core::renderer::Renderer;
 
 cpp! {{
@@ -135,6 +136,16 @@ cpp! {{
             setAttribute(Qt::WA_NoSystemBackground, false);
             setAcceptDrops(true);
             grabGesture(Qt::PinchGesture);
+        }
+
+        ~SlintWidget() {
+            // De-parent the children SlintWidget because they are owned by Slint and shouldn't be destroyed by Qt.
+            for (auto child : children()) {
+                if (auto widget = dynamic_cast<SlintWidget *>(child)) {
+                    widget->hide();
+                    child->setParent(nullptr);
+                }
+            }
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -2818,6 +2829,30 @@ impl WindowAdapterInternal for QtWindow {
             widget_ptr->activateWindow();
         }};
         Ok(())
+    }
+
+    fn show_modal(&self, modality: WindowModality) -> Result<(), PlatformError> {
+        let widget_ptr = self.widget_ptr();
+        match modality {
+            WindowModality::Application => {
+                cpp!(unsafe [widget_ptr as "QWidget*"] {
+                    widget_ptr->setWindowModality(Qt::ApplicationModal);
+                    widget_ptr->setParent(nullptr);
+                    widget_ptr->setWindowFlag(Qt::Dialog);
+                });
+            }
+            WindowModality::Window(parent) => {
+                let parent_widget_ptr = crate::QtWidgetAccessor::qt_widget_ptr(parent)
+                    .ok_or(PlatformError::Unsupported)?;
+                cpp!(unsafe [widget_ptr as "QWidget*", parent_widget_ptr as "QWidget*"] {
+                    widget_ptr->setWindowModality(Qt::WindowModal);
+                    widget_ptr->setParent(parent_widget_ptr);
+                    widget_ptr->setWindowFlag(Qt::Dialog);
+                });
+            }
+            _ => return Err(PlatformError::Unsupported),
+        }
+        self.set_visible(true)
     }
 }
 

@@ -331,6 +331,13 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// This is called while the user holds a mouse button pressed.
     /// The default implementation does nothing; backends without support ignore the request.
     fn start_window_move(&self) {}
+
+    /// Re-implement this to provide an implementation of [`Window::show_modal`].
+    ///
+    /// Note that [`WindowAdapter::set_visible()`] is not called but this function should also make the window visible.
+    fn show_modal(&self, _: crate::api::WindowModality<'_>) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported)
+    }
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
@@ -2546,7 +2553,9 @@ pub mod ffi {
     use super::*;
     #[cfg(feature = "std")]
     use crate::SharedVector;
-    use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::api::{
+        RenderingNotifier, RenderingState, SetRenderingNotifierError, WindowModality,
+    };
     use crate::graphics::IntSize;
     #[cfg(feature = "std")]
     use crate::graphics::Rgba8Pixel;
@@ -2649,7 +2658,7 @@ pub mod ffi {
         }
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::show()`].
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         unsafe {
@@ -2659,7 +2668,7 @@ pub mod ffi {
         }
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Calls [`Window::hide()`].
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         unsafe {
@@ -3187,6 +3196,19 @@ pub mod ffi {
                 false
             }
         }
+    }
+
+    /// Calls [`Window::show_modal()`].
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_show_modal(
+        handle: *const WindowAdapterRcOpaque,
+        other: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
+        let parent = unsafe { (other as *const Rc<dyn WindowAdapter>).as_ref() };
+        let modality =
+            parent.map_or(WindowModality::Application, |x| WindowModality::Window(x.window()));
+        window_adapter.window().show_modal(modality).is_ok()
     }
 }
 
