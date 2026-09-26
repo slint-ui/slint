@@ -590,8 +590,12 @@ async fn handle_preview_message(
             tracing::debug!("Ignoring message from preview: {message:?}");
         }
         SendWorkspaceEdit { label, edit } => {
-            let applied = handle_workspace_edit(&session.document_cache, label.as_deref(), edit);
-            preview::workspace_edit_finished(edit.clone(), applied);
+            let result = handle_workspace_edit(session, label.as_deref(), edit).await;
+            preview::workspace_edit_finished(
+                edit.clone(),
+                result.applied,
+                result.changed && !result.applied,
+            );
         }
     }
 }
@@ -689,42 +693,68 @@ fn canonical_preview_component(
     Some((PreviewComponent { url, component: component.component.clone() }, path))
 }
 
-fn handle_workspace_edit(
-    document_cache: &editor_preview::DocumentCache,
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct WorkspaceEditApplication {
+    applied: bool,
+    changed: bool,
+}
+
+async fn handle_workspace_edit(
+    session: &mut editor_preview::EditorSession,
     label: Option<&str>,
     edit: &lsp_types::WorkspaceEdit,
-) -> bool {
-    match editor_preview::editing::text_edit::apply_workspace_edit(document_cache, edit) {
-        Ok(edited_texts) => {
-            let mut applied = true;
-            for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
-                match editor_preview::uri_to_file(&url) {
-                    Some(path) => {
-                        if let Err(err) = std::fs::write(&path, &contents) {
-                            applied = false;
-                            tracing::error!(
-                                "Failed to apply workspace edit '{}' to {}: {err}",
-                                label.unwrap_or("(unnamed)"),
-                                path.display()
-                            );
-                        }
-                    }
-                    None => {
-                        applied = false;
-                        tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
-                    }
-                }
-            }
-            applied
-        }
+) -> WorkspaceEditApplication {
+    let edited_texts = match editor_preview::editing::text_edit::apply_workspace_edit(
+        &session.document_cache,
+        edit,
+    ) {
+        Ok(edited_texts) => edited_texts,
         Err(err) => {
             tracing::error!(
                 "Failed to compute workspace edit '{}': {err}",
                 label.unwrap_or("(unnamed)")
             );
-            false
+            return Default::default();
+        }
+    };
+    let Some(paths) = edited_texts
+        .iter()
+        .map(|edited| {
+            let path = editor_preview::uri_to_file(&edited.url);
+            if path.is_none() {
+                tracing::warn!("Cannot apply workspace edit to non-file URL: {}", edited.url);
+            }
+            path
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        return Default::default();
+    };
+
+    let edit_count = edited_texts.len();
+    let mut written = Vec::with_capacity(edit_count);
+    for (edited, path) in edited_texts.into_iter().zip(paths) {
+        if let Err(err) = std::fs::write(&path, &edited.contents) {
+            tracing::error!(
+                "Failed to apply workspace edit '{}' to {}: {err}",
+                label.unwrap_or("(unnamed)"),
+                path.display()
+            );
+            break;
+        }
+        written.push(edited);
+    }
+
+    let all_written = written.len() == edit_count;
+    let mut synchronized = true;
+    for editor_preview::editing::text_edit::EditedText { url, contents } in &written {
+        if let Err(err) = session.load_document(contents.clone(), url.clone(), None).await {
+            synchronized = false;
+            tracing::error!("Failed to synchronize applied workspace edit for {url}: {err}");
         }
     }
+
+    WorkspaceEditApplication { applied: all_written && synchronized, changed: !written.is_empty() }
 }
 
 #[cfg(test)]
@@ -823,6 +853,46 @@ mod tests {
             pending_recompile: Default::default(),
         };
         (session, messages)
+    }
+
+    #[test]
+    fn workspace_edit_synchronizes_session_and_previews_before_returning() {
+        const SOURCE: &str = "export component Main inherits Rectangle { width: 30px; }";
+        const CHANGED: &str = "export component Main inherits Rectangle { width: 40px; }";
+
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        std::fs::write(&path, SOURCE).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let (mut session, messages) = session_with_recording_previews();
+        spin_on::spin_on(session.load_document(SOURCE.into(), url.clone(), None)).unwrap();
+        clear_messages(&messages);
+
+        let edit = editor_preview::editing::create_workspace_edit(
+            url.clone(),
+            None,
+            vec![lsp_types::TextEdit {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 50),
+                    lsp_types::Position::new(0, 52),
+                ),
+                new_text: "40".into(),
+            }],
+        );
+        let result =
+            spin_on::spin_on(handle_workspace_edit(&mut session, Some("Change width"), &edit));
+
+        assert_eq!(result, WorkspaceEditApplication { applied: true, changed: true });
+        assert_eq!(std::fs::read_to_string(path).unwrap(), CHANGED);
+        let document = session.document_cache.get_document(&url).unwrap();
+        assert_eq!(document.node.as_ref().unwrap().text().to_string(), CHANGED);
+        for preview_messages in messages {
+            assert!(preview_messages.borrow().iter().any(|message| matches!(
+                message,
+                LspToPreviewMessage::SetContents { url: changed_url, contents }
+                    if changed_url.url() == &url && contents.as_slice() == CHANGED.as_bytes()
+            )));
+        }
     }
 
     fn clear_messages(messages: &[editor_preview::test::CapturedPreviewMessages]) {
