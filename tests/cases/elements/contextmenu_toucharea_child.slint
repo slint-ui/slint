@@ -1,0 +1,140 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component RightDownRecorder inherits TouchArea {
+    in property <string> name;
+    callback recorded(string);
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.down && event.button == PointerEventButton.right {
+            recorded(name);
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+    out property <bool> child-has-hover: child.has-hover;
+
+    width: 800px;
+    height: 800px;
+
+    ContextMenuArea {
+        x: 0px;
+        y: 0px;
+        width: 200px;
+        height: 200px;
+        Menu {
+            MenuItem {
+                title: "Child";
+                activated => { result += "child-menu"; }
+            }
+        }
+        child := RightDownRecorder {
+            name: "child-down";
+            recorded(name) => { result += name; }
+        }
+    }
+
+    ContextMenuArea {
+        x: 200px;
+        y: 0px;
+        width: 200px;
+        height: 200px;
+        Menu {
+            MenuItem {
+                title: "Behind";
+                activated => { result += "behind-menu"; }
+            }
+        }
+    }
+
+    RightDownRecorder {
+        x: 200px;
+        y: 0px;
+        width: 200px;
+        height: 200px;
+        name: "sibling-down";
+        recorded(name) => { result += name; }
+    }
+
+    ContextMenuArea {
+        x: 0px;
+        y: 200px;
+        width: 200px;
+        height: 200px;
+        enabled: false;
+        Menu {
+            MenuItem {
+                title: "Disabled";
+                activated => { result += "disabled-menu"; }
+            }
+        }
+        RightDownRecorder {
+            name: "disabled-down";
+            recorded(name) => { result += name; }
+        }
+    }
+
+    ContextMenuArea {
+        x: 200px;
+        y: 200px;
+        width: 200px;
+        height: 200px;
+        Menu {
+            MenuItem {
+                title: "Outer";
+                activated => { result += "outer-menu"; }
+            }
+        }
+        ContextMenuArea {
+            Menu {
+                MenuItem {
+                    title: "Inner";
+                    activated => { result += "inner-menu"; }
+                }
+            }
+            RightDownRecorder {
+                name: "nested-down";
+                recorded(name) => { result += name; }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let click = |x: f32, y: f32, button: PointerEventButton| {
+    let position = LogicalPosition::new(x, y);
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+};
+// Right-clicks at (x, y), then left-clicks where the first menu entry would be.
+let open_menu_and_pick_first = |x: f32, y: f32| {
+    click(x, y, PointerEventButton::Right);
+    click(x + 10., y + 10., PointerEventButton::Left);
+    let result = instance.get_result();
+    instance.set_result("".into());
+    result
+};
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+assert!(instance.get_child_has_hover());
+click(100., 100., PointerEventButton::Right);
+assert_eq!(instance.get_result(), "");
+assert!(!instance.get_child_has_hover());
+click(110., 110., PointerEventButton::Left);
+assert_eq!(instance.get_result(), "child-menu");
+instance.set_result("".into());
+
+assert_eq!(open_menu_and_pick_first(300., 100.), "sibling-down");
+assert_eq!(open_menu_and_pick_first(100., 300.), "disabled-down");
+assert_eq!(open_menu_and_pick_first(300., 300.), "inner-menu");
+```
+*/
