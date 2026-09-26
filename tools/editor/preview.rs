@@ -42,6 +42,7 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use i_slint_editor_preview::wasm_prelude::*;
 
+mod canvas_wrapper;
 mod drop_location;
 mod element_catalog;
 mod element_selection;
@@ -51,6 +52,7 @@ mod inspector;
 #[cfg(target_os = "macos")]
 pub mod macos_titlebar;
 mod preview_data;
+mod project_settings;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
@@ -79,6 +81,7 @@ pub fn initialize(
 
     #[cfg(feature = "system-testing")]
     test_sync::initialize();
+    project_settings::setup(editor_ui);
     let settings = PREVIEW_STATE.with_borrow(|preview_state| preview_state.settings.clone());
     editor_ui.set_elements_pane_height(
         settings.elements_pane_height.map_or(0.0, |height| height as f32),
@@ -277,6 +280,8 @@ pub struct PreviewState {
     current_previewed_component: Option<PreviewComponent>,
     current_project_root: Option<Url>,
     project_generation: u64,
+    project_settings: Option<project_settings::ProjectSettings>,
+    project_settings_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -333,7 +338,7 @@ fn invalidate_file_history() {
     PREVIEW_STATE.with_borrow_mut(|state| {
         state.undo_redo_stack.clear();
         state.pending_history.clear();
-        undo_redo::set_undo_redo_enabled(state);
+        undo_redo::publish_edit_state(state);
     });
 }
 thread_local! {pub static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
@@ -400,6 +405,7 @@ fn reset_project_state(root: Url) {
         state.resources.clear();
         state.dependencies.clear();
         state.current_previewed_component = None;
+        project_settings::open(state, &root);
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -592,7 +598,7 @@ fn set_contents(url: &VersionedUrl, content: String) {
         if !own_fill_edit
             && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
-            undo_redo::set_undo_redo_enabled(preview_state);
+            undo_redo::publish_edit_state(preview_state);
         }
         let old = preview_state.source_code.insert(
             url.url().clone(),
@@ -1865,7 +1871,7 @@ fn submit_workspace_edit(
             preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         }
         preview_state.workspace_edit_sent = true;
-        undo_redo::set_undo_redo_enabled(preview_state);
+        undo_redo::publish_edit_state(preview_state);
         preview_state
             .to_lsp
             .borrow()
@@ -2250,6 +2256,14 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
     });
 }
 
+struct PreviewCompilation {
+    diagnostics: Vec<diagnostics::Diagnostic>,
+    component: Option<ComponentDefinition>,
+    component_name: Option<String>,
+    source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
+    document_cache: Rc<i_slint_editor_preview::DocumentCache>,
+}
+
 async fn parse_source(
     config: PreviewConfig,
     path: PathBuf,
@@ -2264,16 +2278,11 @@ async fn parse_source(
             dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
         >,
     > + 'static,
-) -> (
-    Vec<diagnostics::Diagnostic>,
-    Option<ComponentDefinition>,
-    Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
-    Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
-) {
+) -> PreviewCompilation {
     let mut builder = slint_interpreter::Compiler::default();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
+    cc.components_to_generate = if let Some(name) = component.clone() {
         i_slint_compiler::ComponentSelection::Named(name)
     } else {
         i_slint_compiler::ComponentSelection::LastExported
@@ -2303,11 +2312,54 @@ async fn parse_source(
             )]),
         );
 
+    let mut diagnostics = diagnostics::BuildDiagnostics::default();
+    diagnostics.enable_experimental = cc.enable_experimental;
+    let mut original = i_slint_compiler::typeloader::TypeLoader::new(cc.clone(), &mut diagnostics);
+    original.load_file(&path, &path, source_code.clone(), false, &mut diagnostics).await;
+    let wrapper = original
+        .get_document(&path)
+        .and_then(|doc| canvas_wrapper::wrap(doc, &source_code, component.as_deref()));
+    let component_name = wrapper.as_ref().map(|w| w.component_name.clone());
+    let wrapper_name = wrapper.as_ref().map(|w| w.name.clone());
+    let original_lines = source_code.lines().count();
+    let source = if let Some(wrapper) = wrapper {
+        cc.components_to_generate =
+            i_slint_compiler::ComponentSelection::Named(wrapper.name.clone());
+        wrapper.source
+    } else {
+        source_code
+    };
     let result =
-        builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
-
-    let compiled = result.components().next();
-    (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
+        builder.build_static_from_source(source, path.clone(), i_slint_core::InternalToken).await;
+    let diagnostics = result
+        .diagnostics()
+        .filter(|d| {
+            wrapper_name.is_none()
+                || d.level() != diagnostics::DiagnosticLevel::Warning
+                || d.source_file() != Some(path.as_path())
+                || d.line_column().0 <= original_lines
+        })
+        .collect();
+    let format = if config.format_utf8 {
+        i_slint_editor_preview::ByteFormat::Utf8
+    } else {
+        i_slint_editor_preview::ByteFormat::Utf16
+    };
+    PreviewCompilation {
+        diagnostics,
+        component: match wrapper_name {
+            Some(name) => result.component(&name),
+            None => result.components().next(),
+        },
+        component_name,
+        source_file_versions: source_file_versions.clone(),
+        document_cache: Rc::new(i_slint_editor_preview::DocumentCache::new_from_raw_parts(
+            original,
+            open_file_fallback,
+            source_file_versions,
+            format,
+        )),
+    }
 }
 
 // Must be inside the thread running the slint event loop
@@ -2335,13 +2387,13 @@ async fn reload_preview_impl(
         Default::default()
     });
 
-    let format = if config.format_utf8 {
-        i_slint_editor_preview::ByteFormat::Utf8
-    } else {
-        i_slint_editor_preview::ByteFormat::Utf16
-    };
-
-    let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
+    let PreviewCompilation {
+        diagnostics,
+        component: compiled,
+        component_name,
+        source_file_versions,
+        document_cache,
+    } = parse_source(
         config,
         path,
         version,
@@ -2367,7 +2419,8 @@ async fn reload_preview_impl(
     }
 
     let success = compiled.is_some();
-    let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+    let loaded_component_name =
+        component_name.or_else(|| compiled.as_ref().map(|c| c.name().to_string()));
 
     // Reflect the style the compiler actually used (after resolving the default,
     // SLINT_STYLE, and "native") in the ComboBox.
@@ -2395,7 +2448,7 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
+    update_preview_area(compiled, behavior, document_cache)?;
 
     if let Some(loaded_component_name) = loaded_component_name {
         let current_preview_loaded = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2647,6 +2700,18 @@ fn set_selected_element(
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
+    let is_root = element_node.as_ref().is_some_and(|node| {
+        component_instance().is_some_and(|instance| {
+            let root = element_selection::root_element(&instance);
+            root.borrow().debug.iter().any(|debug| {
+                node.with_element_node(|selected| {
+                    selected.source_file.path() == debug.node.source_file.path()
+                        && selected.text_range() == debug.node.text_range()
+                })
+            })
+        })
+    });
+
     let (lsp, format) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
@@ -2667,8 +2732,9 @@ fn set_selected_element(
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
                 is_interactive,
-                is_moveable: true,
-                is_resizable: !is_in_layout && !is_layout,
+                is_root,
+                is_moveable: !is_root,
+                is_resizable: !is_root && !is_in_layout && !is_layout,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
@@ -2816,9 +2882,7 @@ fn set_status_text(text: &str) {
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
     behavior: LoadBehavior,
-    open_import_callback: Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
-    source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
-    format: i_slint_editor_preview::ByteFormat,
+    document_cache: Rc<i_slint_editor_preview::DocumentCache>,
 ) -> Result<(), PlatformError> {
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
@@ -2838,16 +2902,7 @@ fn update_preview_area(
                 &api,
                 compiled,
                 Box::new(move |instance| {
-                    if let Some(rtl) = instance.definition().raw_type_loader() {
-                        shared_document_cache.replace(Some(Rc::new(
-                            i_slint_editor_preview::DocumentCache::new_from_raw_parts(
-                                rtl,
-                                open_import_callback.clone(),
-                                source_file_versions.clone(),
-                                format,
-                            ),
-                        )));
-                    }
+                    shared_document_cache.replace(Some(document_cache.clone()));
 
                     // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
                     (*shared_overrides).borrow_mut().clear();
@@ -2876,6 +2931,7 @@ fn update_preview_area(
         Ok(())
     })?;
 
+    PREVIEW_STATE.with_borrow(undo_redo::publish_edit_state);
     inspector::invalidate();
     element_selection::reselect_element();
     undo_redo::apply_pending();
@@ -2908,30 +2964,31 @@ pub mod test {
 
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
-        let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
-            path,
-            Some(24),
-            source_code.to_string(),
-            style.to_string(),
-            None,
-            move |path| {
-                let code = code.clone();
-                let path = PathBuf::from(&path);
+        let super::PreviewCompilation { diagnostics, component: component_definition, .. } =
+            spin_on::spin_on(super::parse_source(
+                Default::default(),
+                path,
+                Some(24),
+                source_code.to_string(),
+                style.to_string(),
+                None,
+                move |path| {
+                    let code = code.clone();
+                    let path = PathBuf::from(&path);
 
-                Box::pin(async move {
-                    let Some(source) = code.get(&path) else {
-                        return Some(Result::Err(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "path not found",
-                        )));
-                    };
-                    Some(Ok((Some(24), source.clone())))
-                })
-            },
-        ));
+                    Box::pin(async move {
+                        let Some(source) = code.get(&path) else {
+                            return Some(Result::Err(std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "path not found",
+                            )));
+                        };
+                        Some(Ok((Some(24), source.clone())))
+                    })
+                },
+            ));
 
-        assert!(diagnostics.is_empty());
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
 
         component_definition.unwrap().create().unwrap()
     }

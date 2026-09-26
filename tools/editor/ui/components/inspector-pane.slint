@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
+import { Project } from "../project.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
@@ -107,7 +108,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function is-root-selection() -> bool {
-        return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
+        return Api.selection.highlight-index >= 0 && Api.selection.is-root;
     }
 
     function selected-x() -> length {
@@ -558,7 +559,41 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if Api.selection.highlight-index < 0 && Project.settings-available: InspectorSection {
+                    title: "Project";
+                    for name in ["width", "height"]: InspectorPropertyRow {
+                        label: name;
+                        InspectorValueField {
+                            accessible-name: "Project " + name;
+                            value: "\{(name == "width" ? Project.canvas-width : Project.canvas-height) / 1px}";
+                            commit-key: Project.settings-key;
+                            enabled: Project.settings-editable;
+                            accepted(text) => { return Project.commit-canvas-dimension(self.commit-key, name, text); }
+                        }
+                    }
+                    if Project.settings-error != "": Text {
+                        text: Project.settings-error;
+                        wrap: word-wrap;
+                        color: Colors.muted;
+                        font-size: Typography.control.size;
+                        accessible-label: "Project settings error";
+                    }
+                }
+
+                if root.is-root-selection(): InspectorSection {
+                    title: "Size";
+                    for name in ["width", "height"]: InspectorPropertyRow {
+                        label: name;
+                        InspectorCodeField {
+                            accessible-name: "Root " + name;
+                            value: Api.current-property-value-data(name).code;
+                            commit-key: root.field-key(name);
+                            accepted(text) => { return root.commit-code(name, text); }
+                        }
+                    }
+                }
+
+                if !root.is-root-selection() && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";
