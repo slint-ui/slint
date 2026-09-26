@@ -646,7 +646,7 @@ fn build(l: &mut Loader) {
         //! The offset shadow can remain visible through transparent parts of the rectangle.
         //! Children don't contribute to the shadow; a rectangle without a background or border casts no shadow.
         //! The Vello GPU renderer blurs shadows of opaque backgrounds only.
-        //! Shadows of translucent or border-only rectangles remain unblurred on that renderer.
+        //! Shadows of translucent or border-only rectangles render without blur on that renderer.
         //!
         //! ### drop-shadow-blur
         //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
