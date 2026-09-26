@@ -205,6 +205,8 @@ export component TimePickerInput {
     }
 
     text-input := TextInput {
+        // Disable TextInput's built-in accessibility support as the widget takes care of that.
+        accessible-role: none;
         vertical-alignment: center;
         horizontal-alignment: center;
         width: 100%;

@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Wrapper inherits Rectangle {
+    accessible-role: text-input;
+    accessible-label: "wrapper";
+    @children
+}
+
+export component Test inherits Window {
+    // The input describes the text the Rectangle already describes
+    Rectangle {
+//  >        <note{The enclosing element is declared here}
+        accessible-role: text-input;
+        TextInput { }
+//      >        <warning{This element and the 'text-input' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+    }
+
+    // Hiding the input, the way a widget does
+    Rectangle {
+        accessible-role: text-input;
+        TextInput { accessible-role: none; }
+    }
+
+    // A spin box describes the text of the input it contains
+    Rectangle {
+//  >        <note{The enclosing element is declared here}
+        accessible-role: spinbox;
+        TextInput { }
+//      >        <warning{This element and the 'spinbox' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+    }
+
+    // The role reaches the input across a component boundary
+    Wrapper {
+//  >      <note{The enclosing element is declared here}
+        TextInput { }
+//      >        <warning{This element and the 'text-input' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+    }
+
+    // The role of a component's root, hidden where the component is used
+    Rectangle {
+        accessible-role: text-input;
+        Wrapper { accessible-role: none; }
+    }
+
+    // An input that only exists while the condition holds
+    Rectangle {
+//  >        <note{The enclosing element is declared here}
+        accessible-role: text-input;
+        if true: TextInput { }
+//               >        <warning{This element and the 'text-input' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+    }
+
+    // A popup is a tree of its own
+    Rectangle {
+        accessible-role: text-input;
+        popup := PopupWindow {
+            TextInput { }
+        }
+
+        TouchArea {
+            clicked => {
+                popup.show();
+            }
+        }
+    }
+}
