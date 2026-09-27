@@ -208,3 +208,52 @@ fn text_alignment_anchor_stays_fixed() {
         }
     }
 }
+
+// An SVG magnified after it was drawn is rasterized again, like one magnified from the start (#10903).
+#[test]
+fn svg_rasterized_again_when_magnified() {
+    init_skia();
+    let mut compiler = slint_interpreter::Compiler::default();
+    compiler.set_style("fluent".into());
+    let source = r#"
+        export component TestCase inherits Window {
+            width: 64px;
+            height: 64px;
+            background: white;
+            in property <image> svg;
+            in property <float> scale: 1;
+            Image {
+                x: 0px;
+                y: 0px;
+                width: 16px;
+                height: 16px;
+                source: root.svg;
+                transform-scale: root.scale;
+                transform-origin: { x: 0px, y: 0px };
+            }
+        }
+    "#;
+    let result = poll_once(compiler.build_from_source(source.into(), Default::default())).unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.components().last().unwrap();
+    let svg = slint_interpreter::Image::load_from_path(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../logo/slint-logo-small-light.svg"),
+    )
+    .unwrap();
+
+    let magnified_from_start = definition.create().unwrap();
+    magnified_from_start.set_property("svg", slint_interpreter::Value::Image(svg.clone())).unwrap();
+    magnified_from_start.set_property("scale", 4.0.into()).unwrap();
+    magnified_from_start.show().unwrap();
+    let expected = magnified_from_start.window().take_snapshot().unwrap();
+
+    let magnified_later = definition.create().unwrap();
+    magnified_later.set_property("svg", slint_interpreter::Value::Image(svg)).unwrap();
+    magnified_later.show().unwrap();
+    magnified_later.window().take_snapshot().unwrap();
+    magnified_later.set_property("scale", 4.0.into()).unwrap();
+    let actual = magnified_later.window().take_snapshot().unwrap();
+
+    assert!(actual.as_bytes() == expected.as_bytes(), "the magnified SVG wasn't rasterized again");
+}
