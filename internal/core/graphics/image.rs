@@ -13,6 +13,8 @@ use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 #[cfg(any(
     feature = "image-decoders",
