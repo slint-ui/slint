@@ -14,9 +14,12 @@ use crate::{SharedString, SharedVector};
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub mod cache;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 mod htmlimage;
 #[cfg(feature = "svg")]
 mod svg;
@@ -40,7 +43,7 @@ OpaqueImageVTable_static! {
     pub static PARSED_SVG_VT for svg::ParsedSVG
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 OpaqueImageVTable_static! {
     /// VTable for RC wrapped HtmlImage helper struct.
     pub static HTML_IMAGE_VT for htmlimage::HTMLImage
@@ -414,7 +417,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -440,7 +443,7 @@ pub enum ImageCacheKey {
     /// The image is identified by its path on the file system and the last modification time stamp.
     Path(CachedPath) = 1,
     /// The image is identified by a URL.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     URL(SharedString) = 2,
     /// The image is identified by the static address of its encoded data.
     EmbeddedData(usize) = 3,
@@ -458,10 +461,10 @@ impl ImageCacheKey {
             }
             #[cfg(feature = "svg")]
             ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -546,10 +549,10 @@ pub enum ImageInner {
     #[cfg(feature = "svg")]
     Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
     StaticTextures(&'static StaticTextures) = 3,
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
     BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -667,7 +670,7 @@ impl ImageInner {
         match self {
             #[cfg(feature = "svg")]
             Self::Svg(_) => true,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             Self::HTMLImage(html_image) => html_image.is_svg(),
             _ => false,
         }
@@ -681,10 +684,10 @@ impl ImageInner {
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -698,14 +701,17 @@ impl ImageInner {
     /// which could lead to bad behavior. This constructor should be called from within
     /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
     /// supplied.
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     pub(crate) fn load_from_data_with_cache_key(
         cache_key: ImageCacheKey,
         data: Slice<'_, u8>,
         format: Slice<'_, u8>,
     ) -> Option<Self> {
         // On the web, let the browser decode the image instead of shipping decoders in the binary.
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
@@ -727,7 +733,7 @@ impl ImageInner {
                 .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg"
@@ -769,7 +775,7 @@ impl ImageInner {
 }
 
 /// Convert `image::DynamicImage` to `SharedImageBuffer`
-#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
 fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> SharedImageBuffer {
     use rgb::AsPixels;
 
@@ -807,10 +813,10 @@ impl PartialEq for ImageInner {
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
             _ => false,
@@ -938,7 +944,10 @@ impl std::error::Error for LoadImageError {}
 pub struct Image(pub(crate) ImageInner);
 
 impl Image {
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     /// Load an Image from a path to a file containing an image.
     ///
     /// Supported formats are SVG, PNG and JPEG.
@@ -1155,7 +1164,7 @@ impl Image {
     /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     #[allow(unsafe_code)]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     #[deprecated(since = "1.2.0", note = "Use BorrowedOpenGLTextureBuilder")]
     pub unsafe fn from_borrowed_gl_2d_rgba_texture(
         texture_id: core::num::NonZeroU32,
@@ -1167,16 +1176,16 @@ impl Image {
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     ///
     /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
-    #[cfg(any(feature = "svg", target_arch = "wasm32"))]
+    #[cfg(any(feature = "svg", all(target_arch = "wasm32", not(target_os = "emscripten"))))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
         // On the web, the browser decodes the SVG.
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             htmlimage::HTMLImage::new_from_data(buffer, "image/svg+xml")
                 .map(|html_image| Image(ImageInner::HTMLImage(vtable::VRc::new(html_image))))
                 .ok_or(LoadImageError(()))
         }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         {
             let cache_key = ImageCacheKey::Invalid;
             Ok(Image(ImageInner::Svg(vtable::VRc::new(
@@ -1193,7 +1202,10 @@ impl Image {
     /// guess when the data begins with an `<?xml` or `<svg` tag, otherwise pass `Some("svg")`.
     ///
     /// The supported formats are the same as for [`Self::load_from_path`].
-    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+    #[cfg(any(
+        feature = "image-decoders",
+        all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+    ))]
     pub fn load_from_data(data: &[u8], format: Option<&str>) -> Result<Self, LoadImageError> {
         ImageInner::load_from_data_with_cache_key(
             ImageCacheKey::Invalid,
@@ -1270,7 +1282,10 @@ pub fn image_to_rgba8_with_target_size(
     image.render_to_rgba8(Some(target_size.cast_unit()))
 }
 
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 /// Load an image from the decoded payload of a data URI.
 /// This is called by the interpreter.
 pub fn load_image_from_data_uri(
@@ -1280,7 +1295,7 @@ pub fn load_image_from_data_uri(
 ) -> Result<Image, LoadImageError> {
     // The browser loads images asynchronously, so every evaluation of the same data URI
     // must share one image and its loading state: cache under the URI.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             global_cache
@@ -1290,7 +1305,7 @@ pub fn load_image_from_data_uri(
         })
     }
     // Native decoding is synchronous; don't fill the cache with one-shot images.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     {
         let _ = uri;
         ImageInner::load_from_data_with_cache_key(
@@ -1356,10 +1371,10 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 /// let image: slint::Image = builder.build();
 /// ```
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 impl BorrowedOpenGLTextureBuilder {
     /// Generates the base configuration for a borrowed OpenGL texture.
     ///
@@ -1400,7 +1415,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// references that are URLs rather than file-system paths; it is not general
 /// network image loading.
 /// This is called by the interpreter and the generated code.
-#[cfg(all(target_arch = "wasm32", feature = "std"))]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std"))]
 pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
@@ -1409,7 +1424,10 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
 
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
-#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
+#[cfg(any(
+    feature = "image-decoders",
+    all(target_arch = "wasm32", not(target_os = "emscripten"), feature = "std")
+))]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
@@ -1977,7 +1995,7 @@ pub(crate) mod ffi {
 /// Note that only 2D RGBA textures are supported.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 #[repr(C)]
 pub struct BorrowedOpenGLTexture {
     /// The id or name of the texture, as created by [`glGenTextures`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenTextures.xhtml).

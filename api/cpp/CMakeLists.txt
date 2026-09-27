@@ -13,20 +13,8 @@ include(CMakeDependentOption)
 # package agree on where the library goes
 include(GNUInstallDirs)
 
-find_package(Corrosion QUIET 0.6)
-if (NOT Corrosion_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-        Corrosion
-        GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-        GIT_TAG v0.6.1
-    )
-
-    FetchContent_MakeAvailable(Corrosion)
-endif ()
-
-list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.95 REQUIRED MODULE)
+# The platform blocks below pick the Rust target. They must come before Corrosion runs
+# find_package(Rust), which otherwise falls back to the host target on Emscripten.
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
 # auto-configure the Rust target and pick platform-level defaults.
@@ -53,6 +41,28 @@ if(ANDROID)
         set(SLINT_STYLE "material" CACHE STRING "" FORCE)
     endif()
 endif()
+
+# When building with the Emscripten toolchain, build for its Rust target and pick platform-level defaults.
+# Feature defaults live in SlintFeatures.cmake.
+if(EMSCRIPTEN)
+    set(Rust_CARGO_TARGET "wasm32-unknown-emscripten" CACHE STRING "" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+endif()
+
+find_package(Corrosion QUIET 0.6)
+if (NOT Corrosion_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        Corrosion
+        GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+        GIT_TAG v0.6.1
+    )
+
+    FetchContent_MakeAvailable(Corrosion)
+endif ()
+
+list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
+find_package(Rust 1.95 REQUIRED MODULE)
 
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
@@ -138,6 +148,20 @@ if (SLINT_BUILD_RUNTIME)
 
     add_library(Slint INTERFACE)
     add_library(Slint::Slint ALIAS Slint)
+    if(EMSCRIPTEN)
+        # Rust unwinds with WebAssembly exceptions, so the link needs them.
+        # Only the link: C++ compiled with exceptions would run the destructors in main()
+        # when emscripten_set_main_loop() leaves it, destroying the window.
+        target_link_options(Slint INTERFACE
+            -fwasm-exceptions
+            -sALLOW_MEMORY_GROWTH=1
+            "--js-library=$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/slint_emscripten.js>$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/slint/slint_emscripten.js>")
+        if(SLINT_FEATURE_RENDERER_FEMTOVG)
+            target_link_options(Slint INTERFACE -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sGL_ENABLE_GET_PROC_ADDRESS=1)
+        endif()
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/slint_emscripten.js
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/slint)
+    endif()
     target_link_libraries(Slint INTERFACE slint_cpp)
     target_compile_features(Slint INTERFACE cxx_std_20)
     if (WIN32)

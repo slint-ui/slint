@@ -1370,7 +1370,7 @@ pub enum PlatformError {
     OtherError(Box<dyn core::error::Error + Send + Sync>),
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 impl From<PlatformError> for wasm_bindgen::JsValue {
     fn from(err: PlatformError) -> wasm_bindgen::JsValue {
         wasm_bindgen::JsError::from(err).into()
