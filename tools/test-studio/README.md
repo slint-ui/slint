@@ -1,10 +1,13 @@
 # Slint Test Studio
 
+<!-- cSpell:ignore worktree -->
+
 A native desktop workbench for Visual Editor pytest tests.
 Studio discovers the complete suite, validates an existing editor build, and preserves inspectable run results.
 Tests remain ordinary Python files that run independently through pytest.
 
 Studio includes readable Python actions, an optional Visual Editor adapter, and nested action reporting.
+The full 642-case Visual Editor suite uses that readable surface; exact gesture tests remain explicit named pointer and keyboard sequences.
 It also includes a snapshot inspector and action debugger.
 See [the generic API](../slint-test/README.md) and [the roadmap](ROADMAP.md).
 

@@ -60,9 +60,12 @@ Cancellation must leave no application subprocesses running.
 ### 2. Readable Actions And Traces
 
 The generic library, editor adapter, and nested timeline are implemented.
-Native left-click targeting and automatic scrolling are available for supported built-in input policies.
-Five pilot families and three complex gesture families use the readable API in place.
-Broader migration and input-policy coverage remain follow-up work.
+All 642 Visual Editor cases across 30 files now use the readable window, locator, keyboard, pointer, assertion, and reporting surface.
+The migration removed direct event construction and raw element actions from test modules.
+Against the pre-migration tree, the suite removes 368 direct event-construction sites, 604 legacy lookup/input-helper sites, and 59 direct raw-element action sites; the corresponding static scan is now empty in tests and shared interaction helpers.
+Tests whose behavior is an exact gesture retain explicit named pointer and keyboard steps; geometry tests retain raw geometry reads because those values are the contract under test.
+Native left-click targeting and automatic scrolling are available for supported built-in input policies, with an explicit forced click for controls whose accessible element delegates input to a covering touch area.
+The reporting bridge alone retains raw screenshot access because it receives the harness's underlying window before the readable wrapper is created.
 
 Create the common foundation for handwritten tests, debugging, and recording.
 
@@ -82,9 +85,8 @@ The canvas example below illustrates the optional editor adapter.
 - Keep Visual Editor concepts in its adapter: canvas selection, handles, source changes, and preview synchronization.
 - Make screenshot policies configurable so normal runs avoid unnecessary capture overhead.
 
-Pilot the API on a few existing tests before committing to its public shape.
-Choose move/resize, undo/redo, Escape cancellation, an inspector edit, and navigation.
-Preserve low-level input access for tests that need exact event sequences.
+The completed migration covers move and resize gestures, gradients, palette and outline drag-and-drop, undo and redo, Escape cancellation, inspector editing, inline text, navigation, reload, startup, panes, clipping, and source-safety behavior.
+Preserve named low-level input access for tests that verify exact event sequences.
 
 Illustrative API direction, subject to the pilot:
 
@@ -104,9 +106,9 @@ The adapter must wait for the relevant source and preview acknowledgments.
 Keep committed edits and transient preview/cancel behavior as separate contracts.
 Shared helpers should reduce duplication without implying automatic coverage of every editor feature.
 
-**Completion test:** Pilot tests run unchanged through pytest CLI and Studio, expose named actions, and identify the failing action and source line.
+**Completion test:** The complete editor suite runs through pytest CLI and Studio, exposes named actions, and identifies the failing action and source line.
 Locators survive component recreation; ambiguous targets fail clearly.
-Repeated headless runs establish reliability before wider migration.
+The generic API also passes against its independent non-editor fixture.
 
 ### 3. Inspect And Debug
 
