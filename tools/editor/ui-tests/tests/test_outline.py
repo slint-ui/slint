@@ -10,27 +10,24 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image, ImageChops
+from slint_test import Window
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
     outline_row,
     outline_rows,
-    press_key,
-    press_shortcut,
     screenshot,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 
 
 def known_outline_state(
-    window: slint_testing.Window,
+    window: Window,
 ) -> list[tuple[str, str, bool]]:
     labels = {"container", "child-a", "child-b", "sibling-a", "sibling-b"}
     return [
@@ -45,7 +42,7 @@ def known_outline_state(
 
 
 def wait_for_outline_state(
-    window: slint_testing.Window,
+    window: Window,
     expected: list[tuple[str, str, bool]],
 ) -> None:
     wait_until(
@@ -57,15 +54,13 @@ def wait_for_outline_state(
 
 
 def drop_position(
-    window: slint_testing.Window, target: str, location: str
+    window: Window, target: str, location: str
 ) -> slint_testing.LogicalPosition:
     if target == "<outline-root>":
         return center(
-            window_element_with_label(
-                window,
-                "Outline root drop target",
-                slint_testing.AccessibleRole.ListItem,
-            )
+            window.get_by_role(
+                slint_testing.AccessibleRole.ListItem, name="Outline root drop target"
+            ).resolve()
         )
     row = (
         outline_rows(window)[0]
@@ -80,7 +75,7 @@ def drop_position(
 
 
 def drag_row(
-    window: slint_testing.Window,
+    window: Window,
     source: str,
     target: str,
     location: str,
@@ -198,11 +193,7 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
         window = first_window(editor)
         outline_row(window, "container").invoke_accessible_expand_action()
         wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "child-a")
-                else None
-            )
+            lambda: True if not window.get_by_accessible_name("child-a").all() else None
         )
         outline_row(window, "container").invoke_accessible_expand_action()
         outline_row(window, "child-a")
@@ -234,22 +225,20 @@ def test_outline_keyboard_selection_synchronizes_editor(
         select_outline_row(window, initial)
         row = outline_row(window, target)
         assert not row.accessible_item_selected
-        press_key(window, keys.Tab)
-        press_key(window, key)
+        window.keyboard.press(keys.Tab)
+        window.keyboard.press(key)
         wait_until(lambda: row if row.accessible_item_selected else None)
-        window_element_with_label(
-            window,
-            selection,
-            slint_testing.AccessibleRole.Region,
-        )
-        press_shortcut(window, keys.Shift, keys.Tab)
-        press_key(window, key)
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name=selection
+        ).resolve()
+        window.keyboard.shortcut(keys.Shift, keys.Tab)
+        window.keyboard.press(key)
         wait_until(
             lambda: outline_row(window, initial).accessible_item_selected or None
         )
-        window_element_with_label(
-            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
+        ).resolve()
         snapshot.assert_unchanged()
 
 
@@ -292,23 +281,22 @@ def test_escape_cancels_outline_drag_without_source_edit(
         wait_for_source(source, source.read_bytes())
         start = center(outline_row(window, "sibling-a"))
         end = drop_position(window, "container", "onto")
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window_element_with_label(
-            window, "Outline drag preview", slint_testing.AccessibleRole.Region
-        )
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name="Outline drag preview"
+        ).resolve()
+        window.keyboard.down(keys.Escape)
+        window.keyboard.up(keys.Escape)
+        window.pointer.release_at(end)
         wait_until(
             lambda: (
                 True
-                if not elements_with_label(window.root_element, "Outline drag preview")
+                if not window.get_by_accessible_name("Outline drag preview").all()
                 else None
             )
         )
-        assert not elements_with_label(window.root_element, "Outline insertion preview")
+        assert not window.get_by_accessible_name("Outline insertion preview").all()
         snapshot.assert_unchanged()
 
 
@@ -349,20 +337,19 @@ def test_outline_ghost_follows_pointer_in_tree(
             x=row.absolute_position.x + grab.x, y=row.absolute_position.y + grab.y
         )
         end = drop_position(window, "container", "onto")
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        ghost = window_element_with_label(window, "Outline drag preview")
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
+        ghost = window.get_by_accessible_name("Outline drag preview").resolve()
         moved = slint_testing.LogicalPosition(x=end.x + 20, y=end.y)
-        window.dispatch_event(slint_testing.PointerMoveEvent(moved))
-        ghost = window_element_with_label(window, "Outline drag preview")
+        window.pointer.move_to(moved)
+        ghost = window.get_by_accessible_name("Outline drag preview").resolve()
         assert ghost.absolute_position.x == pytest.approx(moved.x - grab.x)
         assert ghost.absolute_position.y == pytest.approx(moved.y - grab.y)
         assert ghost.size.width == pytest.approx(row_width)
         assert ghost.size.height == pytest.approx(row_height)
-        (tmp_path / "outline-ghost.png").write_bytes(window.grab_window_as_png())
-        press_key(window, keys.Escape)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(moved, button))
+        (tmp_path / "outline-ghost.png").write_bytes(window.screenshot())
+        window.keyboard.press(keys.Escape)
+        window.pointer.release_at(moved)
         assert outline_row(window, "sibling-a").size.height == pytest.approx(row_height)
         snapshot.assert_unchanged()
 
@@ -381,15 +368,13 @@ def test_outline_gap_matches_drop_destination(
         window = first_window(editor)
         wait_for_source(source, source.read_bytes())
         source_row = outline_row(window, "sibling-b")
-        window.dispatch_event(slint_testing.PointerMoveEvent(center(source_row)))
+        window.pointer.move_to(center(source_row))
         original = outline_image(window, source_row)
         start = slint_testing.LogicalPosition(
             x=source_row.absolute_position.x + source_row.size.width - 8,
             y=center(source_row).y,
         )
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(center(outline_row(window, "sibling-a")))
-        )
+        window.pointer.move_to(center(outline_row(window, "sibling-a")))
         hover = outline_image(window, outline_row(window, "sibling-a"))
         sample = (original.width - 40, original.height // 2)
         hover_background = hover.getpixel(sample)
@@ -402,16 +387,11 @@ def test_outline_gap_matches_drop_destination(
         last_child_y = outline_row(window, "child-b").absolute_position.y
         end = drop_position(window, "container", location)
         end = slint_testing.LogicalPosition(x=target.absolute_position.x + 24, y=end.y)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(
-                slint_testing.LogicalPosition(x=start.x + 10, y=start.y)
-            )
-        )
-        assert not elements_with_label(window.root_element, "Outline insertion preview")
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        gap = window_element_with_label(window, "Outline insertion preview")
+        window.pointer.press_at(start)
+        window.pointer.move_to(slint_testing.LogicalPosition(x=start.x + 10, y=start.y))
+        assert not window.get_by_accessible_name("Outline insertion preview").all()
+        window.pointer.move_to(end)
+        gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         if location == "before":
             assert target_y <= gap.absolute_position.y < target_y + gap.size.height
             assert outline_row(window, "container").size.height > gap.size.height
@@ -425,11 +405,11 @@ def test_outline_gap_matches_drop_destination(
         position = slint_testing.LogicalPosition(
             x=gap.absolute_position.x + 24, y=center(gap).y
         )
-        window.dispatch_event(slint_testing.PointerMoveEvent(position))
-        gap = window_element_with_label(window, "Outline insertion preview")
+        window.pointer.move_to(position)
+        gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         stable = gap.absolute_position
-        window.dispatch_event(slint_testing.PointerMoveEvent(position))
-        gap = window_element_with_label(window, "Outline insertion preview")
+        window.pointer.move_to(position)
+        gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         assert gap.absolute_position.y == pytest.approx(stable.y)
         hidden = outline_image(window, outline_row(window, "sibling-b"))
         assert hidden.crop(
@@ -451,11 +431,9 @@ def test_outline_gap_matches_drop_destination(
         )
         difference = ImageChops.difference(actual_content, expected_content)
         assert difference.point(lambda value: 255 if value > 3 else 0).getbbox() is None
-        (tmp_path / f"outline-gap-{location}.png").write_bytes(
-            window.grab_window_as_png()
-        )
+        (tmp_path / f"outline-gap-{location}.png").write_bytes(window.screenshot())
         snapshot.assert_unchanged()
-        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+        window.pointer.release_at(position)
         expected = {
             "before": ["sibling-b", "container", "child-a", "child-b", "sibling-a"],
             "onto": ["container", "child-a", "child-b", "sibling-b", "sibling-a"],
@@ -472,7 +450,7 @@ def test_outline_gap_matches_drop_destination(
         assert moved.accessible_description == (
             "Hierarchy level 3" if location == "onto" else "Hierarchy level 2"
         )
-        assert not elements_with_label(window.root_element, "Outline insertion preview")
+        assert not window.get_by_accessible_name("Outline insertion preview").all()
         assert moved.is_valid
         assert outline_image(window, moved).getpixel(sample) == hover_background
         assert (
@@ -480,12 +458,10 @@ def test_outline_gap_matches_drop_destination(
             <= position.y
             < moved.absolute_position.y + moved.size.height
         )
-        frame = window_element_with_label(window, "Hovered Image")
+        frame = window.get_by_accessible_name("Hovered Image").resolve()
         assert frame.is_valid
         image = wait_until(
-            lambda: next(
-                iter(window.find_elements_by_id("OutlineCases::sibling-b")), None
-            )
+            lambda: next(iter(window.get_by_id("OutlineCases::sibling-b").all()), None)
         )
         assert image.is_valid
         assert frame.absolute_position.x == pytest.approx(image.absolute_position.x)
@@ -493,20 +469,16 @@ def test_outline_gap_matches_drop_destination(
         assert frame.size.width == pytest.approx(image.size.width)
         assert frame.size.height == pytest.approx(image.size.height)
         (tmp_path / f"outline-hover-after-drop-{location}.png").write_bytes(
-            window.grab_window_as_png()
+            window.screenshot()
         )
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
-        )
+        window.pointer.move_to(slint_testing.LogicalPosition(x=1, y=1))
         wait_until(
-            lambda: (
-                not elements_with_label(window.root_element, "Hovered Image") or None
-            )
+            lambda: not window.get_by_accessible_name("Hovered Image").all() or None
         )
 
 
 def outline_image(
-    window: slint_testing.Window,
+    window: Window,
     row: slint_testing.Element,
     image: Image.Image | None = None,
 ) -> Image.Image:
@@ -539,7 +511,7 @@ def test_outline_ghost_preserves_row_highlight_and_fades(
         if selected:
             select_outline_row(window, "sibling-b")
         start = center(row)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.pointer.move_to(start)
         original = outline_image(window, row)
         sample = (original.width - 40, original.height // 2)
         highlight = original.getpixel(sample)
@@ -549,12 +521,11 @@ def test_outline_ghost_preserves_row_highlight_and_fades(
         assert highlight != blank
         end = slint_testing.LogicalPosition(x=start.x, y=start.y - row.size.height * 8)
         before = screenshot(window)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window_element_with_label(window, "Outline drag preview")
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        ghost = window_element_with_label(window, "Outline drag preview")
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
+        window.get_by_accessible_name("Outline drag preview").resolve()
+        window.pointer.move_to(end)
+        ghost = window.get_by_accessible_name("Outline drag preview").resolve()
         assert ghost.absolute_position.y == pytest.approx(end.y - row.size.height / 2)
         faded = outline_image(window, ghost)
         underneath = outline_image(window, ghost, before)
@@ -569,9 +540,9 @@ def test_outline_ghost_preserves_row_highlight_and_fades(
         expected_content = Image.blend(original, underneath, 0.5).crop(content)
         difference = ImageChops.difference(faded.crop(content), expected_content)
         assert difference.point(lambda value: 255 if value > 3 else 0).getbbox() is None
-        press_key(window, keys.Escape)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.keyboard.press(keys.Escape)
+        window.pointer.release_at(end)
+        window.pointer.move_to(start)
         assert (
             outline_image(window, outline_row(window, "sibling-b")).tobytes()
             == original.tobytes()
@@ -589,9 +560,8 @@ def test_outline_click_does_not_draw_focus_ring(
         wait_for_source(source, source.read_bytes())
         row = outline_row(window, "sibling-b")
         position = center(row)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(position, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+        window.pointer.press_at(position)
+        window.pointer.release_at(position)
         wait_until(lambda: row.accessible_item_selected or None)
         rendered = outline_image(window, row)
         background = rendered.getpixel((rendered.width - 40, rendered.height // 2))

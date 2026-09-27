@@ -9,15 +9,12 @@ import pytest
 import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
-from gradient_interactions import center, click, control, gesture, open_radial, shifted
+from gradient_interactions import center, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
-    press_key,
-    press_shortcut,
     select_outline_row,
 )
 
@@ -33,27 +30,31 @@ def test_radial_activation_preserves_the_actual_picker(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        click(window, "Rectangle background color picker")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        click(window, "Gradient")
-        control(
-            window, "Gradient type", slint_testing.AccessibleRole.Combobox
-        ).accessible_value = "Radial"
-        control(window, "Gradient center handle")
-        control(window, "Gradient radius handle")
-        control(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
-        control(window, "Edit stop 1 color")
-        assert not elements_with_label(window.root_element, "Hex color")
-        (tmp_path / "radial-picker-and-canvas.png").write_bytes(
-            window.grab_window_as_png()
-        )
-        click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        click(window, "Gradient")
-        control(window, "Gradient center handle")
-        press_key(window, keys.Escape)
+        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_role(
+            "button", name="Rectangle background color picker"
+        ).activate()
+        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_role("button", name="Gradient").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Combobox, name="Gradient type"
+        ).resolve().accessible_value = "Radial"
+        window.get_by_role("button", name="Gradient center handle").resolve()
+        window.get_by_role("button", name="Gradient radius handle").resolve()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name="Gradient stop 1"
+        ).resolve()
+        window.get_by_role("button", name="Edit stop 1 color").resolve()
+        assert not window.get_by_accessible_name("Hex color").all()
+        (tmp_path / "radial-picker-and-canvas.png").write_bytes(window.screenshot())
+        window.get_by_role("button", name="Solid").activate()
+        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Hex color"
+        ).resolve()
+        window.get_by_role("button", name="Gradient").activate()
+        window.get_by_role("button", name="Gradient center handle").resolve()
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -73,22 +74,34 @@ def test_radial_translation(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), rotation + 35)
-        r = center(control(window, "Gradient radius handle"), rotation + 35)
+        c = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(),
+            rotation + 35,
+        )
+        r = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(),
+            rotation + 35,
+        )
         p = (
             c
             if handle == "Gradient center handle"
             else shifted(c, x=(r.x - c.x) * 0.7, y=(r.y - c.y) * 0.7)
         )
         gesture(window, p, shifted(p, x=17, y=23))
-        after = center(control(window, "Gradient center handle"), rotation + 35)
-        end = center(control(window, "Gradient radius handle"), rotation + 35)
+        after = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(),
+            rotation + 35,
+        )
+        end = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(),
+            rotation + 35,
+        )
         assert after.x == pytest.approx(c.x + 17, abs=0.01)
         assert after.y == pytest.approx(c.y + 23, abs=0.01)
         assert end.x == pytest.approx(r.x + 17, abs=0.01)
         assert end.y == pytest.approx(r.y + 23, abs=0.01)
         original.assert_unchanged_now()
-        press_key(window, keys.Escape)
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -104,10 +117,14 @@ def test_radial_radius_save_reopen_and_history(
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius handle"), 35)
+        c = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(), 35
+        )
+        r = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(), 35
+        )
         gesture(window, r, shifted(c, x=percent))
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         saved = wait_for_source_change(
             radial_scene, original.sources[Path(radial_scene.name)]
         )
@@ -116,15 +133,19 @@ def test_radial_radius_save_reopen_and_history(
         assert float(radius.group(1)) == pytest.approx(100, abs=0.001)
         original.wait_for_applied(saved, radial_scene.name)
         assert b" at " not in saved
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         original.wait_for_applied(
             original.sources[Path(radial_scene.name)], radial_scene.name
         )
-        press_shortcut(window, keys.Control, keys.Shift, "z")
+        window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         original.wait_for_applied(saved, radial_scene.name)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius handle"), 35)
+        c = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(), 35
+        )
+        r = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(), 35
+        )
         assert math.hypot(r.x - c.x, r.y - c.y) == pytest.approx(percent, abs=0.001)
 
 
@@ -136,13 +157,17 @@ def test_radial_guide_rotation_and_noop_do_not_write_source(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius handle"), 35)
+        c = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(), 35
+        )
+        r = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(), 35
+        )
         gesture(window, r, shifted(c, x=-math.hypot(r.x - c.x, r.y - c.y)))
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
         open_radial(window)
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
@@ -154,40 +179,47 @@ def test_radial_stops_cross_insert_delete_and_color(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
-        start = center(control(window, "Gradient stop 2"), 35)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        start = center(
+            window.get_by_role("button", name="Gradient stop 2").resolve(), 35
+        )
+        window.pointer.press_at(start)
         for distance in [40, 100, -80, 30]:
             p = shifted(
                 start,
                 x=distance * math.cos(math.radians(35)),
                 y=distance * math.sin(math.radians(35)),
             )
-            window.dispatch_event(slint_testing.PointerMoveEvent(p))
-            actual = center(control(window, "Gradient stop 2"), 35)
+            window.pointer.move_to(p)
+            actual = center(
+                window.get_by_role("button", name="Gradient stop 2").resolve(), 35
+            )
             assert actual.x == pytest.approx(p.x, abs=0.001)
             assert actual.y == pytest.approx(p.y, abs=0.001)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
-        click(window, "Edit stop 2 color")
-        field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        window.pointer.release_at(p)
+        window.get_by_role("button", name="Edit stop 2 color").activate()
+        field = window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Hex color"
+        ).resolve()
         assert field.accessible_value == "#264052"
         field.accessible_value = "#abcdef80"
-        click(window, "Close Stop color")
-        c = center(control(window, "Gradient center handle"), 35)
-        r = center(control(window, "Gradient radius handle"), 35)
+        window.get_by_role("button", name="Close Stop color").activate()
+        c = center(
+            window.get_by_role("button", name="Gradient center handle").resolve(), 35
+        )
+        r = center(
+            window.get_by_role("button", name="Gradient radius handle").resolve(), 35
+        )
         p = shifted(c, x=(r.x - c.x) * 0.3, y=(r.y - c.y) * 0.3)
         gesture(window, p, p)
         gesture(window, p, p)
-        control(window, "Gradient stop 4")
-        press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
-        click(window, "Gradient stop 2")
-        press_key(window, keys.Delete)
-        press_key(window, keys.Delete)
-        control(window, "Gradient center handle")
-        control(window, "Gradient stop 2")
-        (tmp_path / "radial-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
-        press_key(window, keys.Escape)
+        window.get_by_role("button", name="Gradient stop 4").resolve()
+        window.keyboard.press(keys.Delete)
+        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        window.get_by_role("button", name="Gradient stop 2").activate()
+        window.keyboard.press(keys.Delete)
+        window.keyboard.press(keys.Delete)
+        window.get_by_role("button", name="Gradient center handle").resolve()
+        window.get_by_role("button", name="Gradient stop 2").resolve()
+        (tmp_path / "radial-gradient-editor.png").write_bytes(window.screenshot())
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()

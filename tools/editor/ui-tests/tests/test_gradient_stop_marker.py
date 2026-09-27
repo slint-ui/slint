@@ -9,21 +9,17 @@ import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
-    control,
     gesture,
     gradient_document,
     open_gradient,
     picker_field,
     shifted,
 )
-from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
-    press_key,
     screenshot,
     select_outline_row,
 )
@@ -56,22 +52,22 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        marker = control(window, "Gradient stop 2", role)
+        marker = window.get_by_role(role, name="Gradient stop 2").resolve()
         assert marker.size.width == pytest.approx(40)
         assert marker.size.height == pytest.approx(40)
         start = center(marker)
         gesture(window, start, start)
         assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
-        click_picker_button(window, "Close Stop color")
+        window.get_by_role("button", name="Close Stop color").activate()
 
         before = float(picker_field(window, "Stop 2 position").accessible_value)
-        start = center(control(window, "Gradient stop 2", role))
+        start = center(window.get_by_role(role, name="Gradient stop 2").resolve())
         gesture(window, start, shifted(start, x=12))
         after = float(picker_field(window, "Stop 2 position").accessible_value)
         assert after != pytest.approx(before)
-        assert not elements_with_label(window.root_element, "Hex color")
+        assert not window.get_by_accessible_name("Hex color").all()
 
-        press_key(window, keys.Escape)
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -91,12 +87,12 @@ def test_ramp_marker_accessible_action_opens_existing_color_picker(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        control(
-            window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
-        ).invoke_accessible_default_action()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
+        ).activate()
         assert picker_field(window, "Hex color").accessible_value == "#abcdef80"
-        click_picker_button(window, "Close Stop color")
-        click_picker_button(window, "Close Custom")
+        window.get_by_role("button", name="Close Stop color").activate()
+        window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
@@ -115,7 +111,9 @@ def test_ramp_marker_shows_opaque_and_alpha_halves(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        marker = control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
+        marker = window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
+        ).resolve()
         image = screenshot(window)
         x = round(marker.absolute_position.x)
         y = round(marker.absolute_position.y)

@@ -16,17 +16,15 @@ from inspector_interactions import (
     slider_position,
     wait_for_field,
 )
+from slint_test import Locator, Window, expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
     first_window,
     launch_editor,
-    press_keys,
-    press_shortcut,
     screenshot,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 INSPECTOR_SOURCE = "InspectorCases.slint"
@@ -37,15 +35,15 @@ ELEMENT_ROWS = {
 }
 
 
-def select_element(window: slint_testing.Window, kind: str) -> None:
+def select_element(window: Window, kind: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[kind])
-    window_element_with_label(
-        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
+    window.get_by_role(
+        slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
+    ).resolve()
 
 
 def open_combo_and_accept(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     expected_options: tuple[str, ...],
     value: str,
@@ -73,27 +71,25 @@ def open_combo_and_accept(
     combo.accessible_value = value
 
 
-def assert_rendered_element(window: slint_testing.Window, element_id: str) -> None:
+def assert_rendered_element(window: Window, element_id: str) -> None:
     wait_until(
         lambda: (
             element
-            if (element := next(iter(window.find_elements_by_id(element_id)), None))
+            if (element := next(iter(window.get_by_id(element_id).all()), None))
             else None
         )
     )
 
 
-def image_alignment_button(
-    window: slint_testing.Window, vertical: str, horizontal: str
-) -> slint_testing.Element:
+def image_alignment_button(window: Window, vertical: str, horizontal: str) -> Locator:
     position = (
         "center"
         if vertical == horizontal == "center"
         else f"{'middle' if vertical == 'center' else vertical} {horizontal}"
     )
-    return inspector_field(
-        window, f"Align image {position}", slint_testing.AccessibleRole.Button
-    )
+    return window.get_by_role(
+        "complementary", name="Inspector and outline"
+    ).get_by_role(slint_testing.AccessibleRole.Button, name=f"Align image {position}")
 
 
 @pytest.mark.parametrize(
@@ -175,11 +171,10 @@ def test_geometry_prefix_scrubs_with_transient_preview(
         )
         start = element_center(scrubber)
         end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
-        button = slint_testing.PointerEventButton.Left
 
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.move_to(start)
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
         wait_for_field(
             window,
             label,
@@ -188,9 +183,9 @@ def test_geometry_prefix_scrubs_with_transient_preview(
         )
         snapshot.assert_unchanged()
 
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        window.pointer.release_at(end)
         snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
 
 
@@ -216,11 +211,10 @@ def test_geometry_scrub_reverts_when_commit_is_rejected(
         )
         start = element_center(scrubber)
         end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
-        button = slint_testing.PointerEventButton.Left
 
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.move_to(start)
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
         wait_for_field(window, "Position X", "44")
         snapshot.assert_unchanged_now()
 
@@ -230,11 +224,11 @@ def test_geometry_scrub_reverts_when_commit_is_rejected(
             "#123456",
             slint_testing.AccessibleRole.TextInput,
         )
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        window.pointer.release_at(end)
 
         wait_for_field(window, "Position X", "32")
         snapshot.wait_for_applied(background_edit, relative_path=INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
 
 
@@ -293,13 +287,9 @@ def test_root_background_field_writes_exact_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        outline = window_element_with_label(window, "Current file outline")
-        root_row = (
-            outline.query_descendants()
-            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-            .find_all()[0]
-        )
-        root_row.invoke_accessible_default_action()
+        window.get_by_role("list", name="Current file outline").get_by_role(
+            "list-item"
+        ).nth(0).activate()
         wait_for_field(
             window, "Root background", "#f8fafc", slint_testing.AccessibleRole.TextInput
         )
@@ -370,29 +360,22 @@ def test_image_alignment_grid_writes_both_properties(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        window_element_with_label(
-            window, "Alignment", slint_testing.AccessibleRole.Text
-        )
-        assert image_alignment_button(window, "center", "center").accessible_checked
-        image_alignment_button(
-            window, "center", "center"
-        ).invoke_accessible_default_action()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Alignment"
+        ).resolve()
+        expect(image_alignment_button(window, "center", "center")).to_be_checked()
+        image_alignment_button(window, "center", "center").activate()
         snapshot.assert_unchanged()
 
         for vertical in ("top", "center", "bottom"):
             for horizontal in ("left", "center", "right"):
                 button = image_alignment_button(window, vertical, horizontal)
                 if vertical == "top" and horizontal == "left":
-                    position = element_center(button)
-                    mouse_button = slint_testing.PointerEventButton.Left
-                    window.dispatch_event(
-                        slint_testing.PointerPressEvent(position, mouse_button)
-                    )
-                    window.dispatch_event(
-                        slint_testing.PointerReleaseEvent(position, mouse_button)
-                    )
+                    position = button.center()
+                    window.pointer.press_at(position)
+                    window.pointer.release_at(position)
                 else:
-                    button.invoke_accessible_default_action()
+                    button.activate()
                 expected = replace_once(
                     baseline,
                     b"        horizontal-alignment: center;",
@@ -404,17 +387,17 @@ def test_image_alignment_grid_writes_both_properties(
                     f"        vertical-alignment: {vertical};".encode(),
                 )
                 snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-                assert image_alignment_button(
-                    window, vertical, horizontal
-                ).accessible_checked
+                expect(
+                    image_alignment_button(window, vertical, horizontal)
+                ).to_be_checked()
                 display = (
                     "Center"
                     if vertical == horizontal == "center"
                     else f"{vertical.title() if vertical != 'center' else 'Middle'} {horizontal}"
                 )
-                window_element_with_label(
-                    window, display, slint_testing.AccessibleRole.Text
-                )
+                window.get_by_role(
+                    slint_testing.AccessibleRole.Text, name=display
+                ).resolve()
                 assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
@@ -440,16 +423,14 @@ def test_image_alignment_grid_one_undo_restores_both_properties(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        image_alignment_button(
-            window, "bottom", "right"
-        ).invoke_accessible_default_action()
+        image_alignment_button(window, "bottom", "right").activate()
         snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
-        assert image_alignment_button(window, "center", "center").accessible_checked
-        press_shortcut(window, keys.Control, keys.Shift, "z")
+        expect(image_alignment_button(window, "center", "center")).to_be_checked()
+        window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        assert image_alignment_button(window, "bottom", "right").accessible_checked
+        expect(image_alignment_button(window, "bottom", "right")).to_be_checked()
 
 
 def test_image_alignment_grid_replaces_custom_expression(
@@ -470,13 +451,15 @@ def test_image_alignment_grid_replaces_custom_expression(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        window_element_with_label(window, "Custom", slint_testing.AccessibleRole.Text)
+        window.get_by_role(slint_testing.AccessibleRole.Text, name="Custom").resolve()
         assert not any(
-            image_alignment_button(window, vertical, horizontal).accessible_checked
+            image_alignment_button(window, vertical, horizontal).read(
+                lambda button: button.accessible_checked
+            )
             for vertical in ("top", "center", "bottom")
             for horizontal in ("left", "center", "right")
         )
-        image_alignment_button(window, "top", "left").invoke_accessible_default_action()
+        image_alignment_button(window, "top", "left").activate()
         expected = replace_once(
             starting_source,
             b"        horizontal-alignment: (left);",
@@ -488,7 +471,7 @@ def test_image_alignment_grid_replaces_custom_expression(
             b"        vertical-alignment: top;",
         )
         snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        assert image_alignment_button(window, "top", "left").accessible_checked
+        expect(image_alignment_button(window, "top", "left")).to_be_checked()
 
 
 def test_image_source_writes_exact_source(
@@ -541,9 +524,9 @@ def test_font_family_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window_element_with_label(
-            window, "Inspector text", slint_testing.AccessibleRole.Text
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Inspector text"
+        ).resolve()
 
 
 @pytest.mark.parametrize("weight", tuple(str(value) for value in range(100, 1000, 100)))
@@ -576,9 +559,9 @@ def test_each_font_weight_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window_element_with_label(
-            window, "Inspector text", slint_testing.AccessibleRole.Text
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Inspector text"
+        ).resolve()
 
 
 @pytest.mark.parametrize(
@@ -671,9 +654,9 @@ def test_numeric_and_expression_font_sizes_write_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window_element_with_label(
-            window, "Inspector text", slint_testing.AccessibleRole.Text
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Inspector text"
+        ).resolve()
 
 
 @pytest.mark.parametrize(
@@ -717,7 +700,7 @@ def test_text_content_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window_element_with_label(window, rendered, slint_testing.AccessibleRole.Text)
+        window.get_by_role(slint_testing.AccessibleRole.Text, name=rendered).resolve()
 
 
 def test_invalid_text_content_does_not_change_source(
@@ -744,9 +727,9 @@ def test_invalid_text_content_does_not_change_source(
             '"Inspector text"',
             slint_testing.AccessibleRole.TextInput,
         )
-        window_element_with_label(
-            window, "Inspector text", slint_testing.AccessibleRole.Text
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Inspector text"
+        ).resolve()
 
 
 def test_inspector_length_fields_show_numbers_without_pixel_labels(
@@ -772,7 +755,7 @@ def test_inspector_length_fields_show_numbers_without_pixel_labels(
                 .find_all()
             )
             assert not any(text.accessible_label == "px" for text in texts)
-        pane = window_element_with_label(window, "Inspector and outline")
+        pane = window.get_by_accessible_name("Inspector and outline").resolve()
         texts = (
             pane.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.Text)
@@ -833,8 +816,8 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
     )
 
 
-def artboard_pixels(window: slint_testing.Window) -> bytes:
-    artboard = window_element_with_label(window, "Artboard")
+def artboard_pixels(window: Window) -> bytes:
+    artboard = window.get_by_accessible_name("Artboard").resolve()
     image = screenshot(window)
     scale = image.width / window.root_element.size.width
     x, y = artboard.absolute_position.x, artboard.absolute_position.y
@@ -911,19 +894,15 @@ def test_shadow_slider_previews_without_source_writes(
         select_element(window, "Rectangle")
         start = slider_position(window, label, initial)
         end = slider_position(window, label, progress)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.pointer.move_to(start)
         before = artboard_pixels(window)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
-            )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
         wait_for_field(window, label + " value", value)
         assert artboard_pixels(window) != before
         snapshot.assert_unchanged()
         if outcome == "cancel":
-            press_keys(window, keys.Escape)
+            window.keyboard.press_sequentially(keys.Escape)
         elif outcome == "selection":
             select_element(window, "Text")
         elif outcome == "source":
@@ -931,11 +910,7 @@ def test_shadow_slider_previews_without_source_writes(
             snapshot.wait_for_applied(
                 baseline + b"\n// External edit\n", INSPECTOR_SOURCE
             )
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
+        window.pointer.release_at(end)
         if outcome != "commit":
             if outcome == "source":
                 snapshot.wait_for_applied(
@@ -949,9 +924,9 @@ def test_shadow_slider_previews_without_source_writes(
         else:
             expected = shadow_expected(baseline, family, control, value)
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-            press_shortcut(window, keys.Control, "z")
+            window.keyboard.shortcut(keys.Control, "z")
             snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
-            press_shortcut(window, keys.Control, keys.Shift, "z")
+            window.keyboard.shortcut(keys.Control, keys.Shift, "z")
             snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
 
 
@@ -976,24 +951,16 @@ def test_shadow_angle_previews_without_source_writes(
         center_y = position.y + size.height / 2
         start = slint_testing.LogicalPosition(center_x, center_y + size.height / 3)
         end = slint_testing.LogicalPosition(center_x + size.width / 3, center_y)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.pointer.move_to(start)
         before = artboard_pixels(window)
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
-            )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
         wait_for_field(window, "Shadow angle", "0", slint_testing.AccessibleRole.Slider)
         assert artboard_pixels(window) != before
         snapshot.assert_unchanged()
         if outcome == "cancel":
-            press_keys(window, keys.Escape)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
+            window.keyboard.press_sequentially(keys.Escape)
+        window.pointer.release_at(end)
         if outcome == "cancel":
             snapshot.assert_unchanged()
             assert artboard_pixels(window) == before
@@ -1028,28 +995,20 @@ def test_shadow_distance_keeps_direction_through_zero(
         start = slider_position(window, "Shadow distance", 8 / 96)
         zero = slider_position(window, "Shadow distance", 0)
         end = slider_position(window, "Shadow distance", 0.5)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(
-            slint_testing.PointerPressEvent(
-                start, slint_testing.PointerEventButton.Left
-            )
-        )
-        window.dispatch_event(slint_testing.PointerMoveEvent(zero))
+        window.pointer.move_to(start)
+        window.pointer.press_at(start)
+        window.pointer.move_to(zero)
         wait_for_field(window, "Shadow distance value", "0")
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.move_to(end)
         wait_for_field(window, "Shadow distance value", "48")
         snapshot.assert_unchanged()
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(
-                end, slint_testing.PointerEventButton.Left
-            )
-        )
+        window.pointer.release_at(end)
         expected = baseline.replace(
             f"{family}-shadow-offset-x: -8px;".encode(),
             f"{family}-shadow-offset-x: -48px;".encode(),
         )
         snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
 
 
@@ -1100,9 +1059,9 @@ def test_rectangle_effect_value_writes_exact_source(
             slint_testing.AccessibleRole.Combobox,
         )
         select_element(window, "Rectangle")
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         snapshot.wait_for_applied(starting_source, INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, keys.Shift, "z")
+        window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
 
 
@@ -1146,9 +1105,9 @@ def test_invalid_or_empty_inspector_edit_does_not_change_source(
         edit_field(window, label, value, role)
         snapshot.assert_unchanged()
         wait_for_field(window, label, value_before, role)
-        window_element_with_label(
-            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
+        ).resolve()
 
 
 def test_invalid_rectangle_color_does_not_change_source(
@@ -1175,6 +1134,6 @@ def test_invalid_rectangle_color_does_not_change_source(
             "#2563eb",
             slint_testing.AccessibleRole.TextInput,
         )
-        window_element_with_label(
-            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
+        ).resolve()

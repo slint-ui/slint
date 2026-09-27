@@ -15,10 +15,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     palette_row,
-    press_key,
-    press_keys,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -33,23 +30,21 @@ def test_file_tree_saves_rename_when_focus_moves(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        file_row(window, source).invoke_accessible_default_action()
-        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
-        window_element_with_label(
-            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
-        )
+        file_row(window, source).activate()
+        window.keyboard.press(keys.Return if sys.platform == "darwin" else keys.F2)
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Rename Main.slint"
+        ).resolve()
 
-        press_key(window, keys.Backspace)
-        press_keys(window, "Renamed")
-        file_row(
-            window, fixture_project / "Sibling.slint"
-        ).invoke_accessible_default_action()
+        window.keyboard.press(keys.Backspace)
+        window.keyboard.press_sequentially("Renamed")
+        file_row(window, fixture_project / "Sibling.slint").activate()
 
         wait_until(lambda: True if target.is_file() and not source.exists() else None)
         wait_until(
             lambda: (
                 True
-                if not elements_with_label(window.root_element, "Rename Main.slint")
+                if not window.get_by_accessible_name("Rename Main.slint").all()
                 else None
             )
         )
@@ -65,24 +60,23 @@ def test_file_tree_limits_rename_error_to_edited_row(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        file_row(window, source).invoke_accessible_default_action()
-        press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
-        window_element_with_label(
-            window, "Rename Main.slint", slint_testing.AccessibleRole.TextInput
-        )
+        file_row(window, source).activate()
+        window.keyboard.press(keys.Return if sys.platform == "darwin" else keys.F2)
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Rename Main.slint"
+        ).resolve()
 
-        press_key(window, keys.Backspace)
-        press_keys(window, "Sibling")
-        press_key(window, keys.Return)
+        window.keyboard.press(keys.Backspace)
+        window.keyboard.press_sequentially("Sibling")
+        window.keyboard.press(keys.Return)
 
         wait_until(
             lambda: (
                 True
                 if len(
-                    elements_with_label(
-                        window.root_element,
-                        "A file with that name already exists",
-                    )
+                    window.get_by_accessible_name(
+                        "A file with that name already exists"
+                    ).all()
                 )
                 == 1
                 else None
@@ -100,13 +94,11 @@ def test_file_tree_opens_sibling_component(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        file_row(
-            window, fixture_project / "Sibling.slint"
-        ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
-        )
-        assert not elements_with_label(window.root_element, "root-text")
+        file_row(window, fixture_project / "Sibling.slint").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.ListItem, name="sibling-rectangle"
+        ).resolve()
+        assert not window.get_by_accessible_name("root-text").all()
         snapshot.assert_unchanged()
 
 
@@ -123,15 +115,13 @@ def test_file_tree_folder_expand_and_collapse(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         folder = file_row(window, assets)
-        assert not elements_with_label(window.root_element, str(image))
-        folder.invoke_accessible_default_action()
+        assert not window.get_by_accessible_name(str(image)).all()
+        folder.activate()
         file_row(window, image)
-        file_row(window, assets).invoke_accessible_default_action()
+        file_row(window, assets).activate()
         wait_until(
             lambda: (
-                True
-                if not elements_with_label(window.root_element, str(image))
-                else None
+                True if not window.get_by_accessible_name(str(image)).all() else None
             )
         )
         snapshot.assert_unchanged()
@@ -149,18 +139,18 @@ def test_file_tree_switches_image_and_component_surfaces(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
-        file_row(window, assets).invoke_accessible_default_action()
-        file_row(window, image).invoke_accessible_default_action()
-        image_editor = window_element_with_label(
-            window, "Image asset editor", slint_testing.AccessibleRole.Main
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Main, name="Editor canvas"
+        ).resolve()
+        file_row(window, assets).activate()
+        file_row(window, image).activate()
+        image_editor = window.get_by_role(
+            slint_testing.AccessibleRole.Main, name="Image asset editor"
+        ).resolve()
         assert image_editor.accessible_description == "assets/checker.svg"
-        window_element_with_label(
-            window, "Preview", slint_testing.AccessibleRole.Button
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Button, name="Preview"
+        ).resolve()
         file_fields = elements_with_label(
             image_editor, "File", slint_testing.AccessibleRole.Text
         )
@@ -171,19 +161,21 @@ def test_file_tree_switches_image_and_component_surfaces(
         wait_until(
             lambda: (
                 True
-                if not elements_with_label(window.root_element, "Editor canvas")
+                if not window.get_by_accessible_name("Editor canvas").all()
                 else None
             )
         )
         for kind in PALETTE_KINDS:
-            assert not palette_row(window, kind).accessible_enabled
-        file_row(window, source_file).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
+            assert not palette_row(window, kind).read(
+                lambda element: element.accessible_enabled
+            )
+        file_row(window, source_file).activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Main, name="Editor canvas"
+        ).resolve()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Fixture text"
+        ).resolve()
         snapshot.assert_unchanged()
 
 

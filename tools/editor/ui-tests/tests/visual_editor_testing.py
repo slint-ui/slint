@@ -50,7 +50,7 @@ class Inspector:
             trace_coverage="group-only legacy scrolling",
         ):
             inspector_field(
-                self.editor.raw_window,
+                self.editor.window,
                 FIELDS.get(name, name),
                 slint_testing.AccessibleRole.TextInput,
             )
@@ -93,7 +93,7 @@ class CanvasElement:
         return self.handle(name).center(rotation_degrees=self.rotation_degrees())
 
     def rotation_degrees(self) -> float:
-        return math.degrees(frame_rotation(self.editor.raw_window, self.kind))
+        return math.degrees(frame_rotation(self.editor.window, self.kind))
 
     def drag(self, handle: str = "move handle") -> Drag:
         return self.handle(handle).drag(rotation_degrees=self.rotation_degrees())
@@ -128,7 +128,7 @@ class Canvas:
             percent=percent,
             trace_coverage="group-only legacy helper",
         ):
-            zoom_canvas(self.editor.raw_window, percent)
+            zoom_canvas(self.editor.window, percent)
 
     def center_selection(self) -> None:
         with step(
@@ -136,7 +136,7 @@ class Canvas:
             layer="adapter",
             trace_coverage="group-only legacy helper",
         ):
-            center_canvas_selection(self.editor.raw_window)
+            center_canvas_selection(self.editor.window)
 
 
 class Files:

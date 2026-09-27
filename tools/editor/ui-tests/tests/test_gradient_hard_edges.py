@@ -9,7 +9,6 @@ from pathlib import Path
 from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
-    control,
     gesture,
     gradient_document,
     open_gradient,
@@ -31,12 +30,12 @@ def test_coincident_canvas_insertion_preserves_rendering(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        start = center(control(window, "Gradient start"))
-        end = center(control(window, "Gradient end"))
+        start = center(window.get_by_role("button", name="Gradient start").resolve())
+        end = center(window.get_by_role("button", name="Gradient end").resolve())
         point = type(start)(x=(start.x + end.x) / 2, y=(start.y + end.y) / 2)
 
         def pixels():
-            image = Image.open(BytesIO(window.grab_window_as_png()))
+            image = Image.open(BytesIO(window.screenshot()))
             return image.crop(
                 (int(start.x + 2), int(start.y - 70), int(end.x - 2), int(start.y - 60))
             ).tobytes()
@@ -44,9 +43,9 @@ def test_coincident_canvas_insertion_preserves_rendering(
         before = pixels()
         for _ in range(2):
             gesture(window, point, point)
-        control(window, "Gradient stop 5")
+        window.get_by_role("button", name="Gradient stop 5").resolve()
         assert pixels() == before
-        control(window, "Close Custom").invoke_accessible_default_action()
+        window.get_by_role("button", name="Close Custom").activate()
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert (

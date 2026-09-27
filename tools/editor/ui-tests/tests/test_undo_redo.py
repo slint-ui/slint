@@ -19,15 +19,14 @@ from canvas_interactions import (
 )
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field, wait_for_field
+from slint_test import Window
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
     launch_editor,
-    press_shortcut,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
 from ui_reporting import replay_stage
 
@@ -48,7 +47,7 @@ CASES = [
 
 
 def assert_visual(
-    window: slint_testing.Window,
+    window: Window,
     values: dict[str, int],
     origin: tuple[float, float],
     check_radius: bool,
@@ -91,11 +90,11 @@ def assert_visual(
 
     def radius_matches() -> bool | None:
         a = rotated_handle_center(
-            window_element_with_label(window, "Rectangle resize top-left"),
+            window.get_by_accessible_name("Rectangle resize top-left").resolve(),
             values["rotation"],
         )
         r = rotated_handle_center(
-            window_element_with_label(window, "Rectangle radius top-left"),
+            window.get_by_accessible_name("Rectangle radius top-left").resolve(),
             values["rotation"],
         )
         angle = math.radians(values["rotation"])
@@ -112,16 +111,16 @@ def assert_visual(
     wait_until(radius_matches)
 
 
-def shortcut(window: slint_testing.Window, redo: bool) -> None:
+def shortcut(window: Window, redo: bool) -> None:
     modifiers = [keys.Control] + (
         [keys.Shift] if redo and sys.platform != "win32" else []
     )
     key = "y" if redo and sys.platform == "win32" else "z"
-    press_shortcut(window, *modifiers, key)
+    window.keyboard.shortcut(*modifiers, key)
 
 
 def edit(
-    window: slint_testing.Window,
+    window: Window,
     case: str,
     changes: dict[str, int],
     snapshot: SourceSnapshot,
@@ -144,9 +143,11 @@ def edit(
             if case == "handle-move"
             else "Rectangle resize bottom-right"
         )
-        manual_drag(window, window_element_with_label(window, label), 24, 16, snapshot)
+        manual_drag(
+            window, window.get_by_accessible_name(label).resolve(), 24, 16, snapshot
+        )
         return
-    handle = window_element_with_label(window, "Rectangle rotate top-left")
+    handle = window.get_by_accessible_name("Rectangle rotate top-left").resolve()
     target_angle = changes["rotation"]
     dx, dy = rotation_delta(window, handle, target_angle, kind="Rectangle")
     manual_rotation_drag(

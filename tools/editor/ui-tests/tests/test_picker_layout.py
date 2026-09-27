@@ -6,21 +6,17 @@ import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
-    control,
     gesture,
     gradient_document,
     open_gradient,
     picker_field,
     shifted,
 )
-from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
-    press_key,
     select_outline_row,
 )
 
@@ -40,15 +36,28 @@ def test_fixed_picker_controls_keep_their_width(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        assert control(window, "Add gradient stop").size.width == 24
+        assert (
+            window.get_by_role("button", name="Add gradient stop").resolve().size.width
+            == 24
+        )
         for index in range(1, 4):
-            assert control(window, f"Remove stop {index}").size.width == 24
-        assert control(window, "Close Custom").size.width == 48
-        click_picker_button(window, "Edit stop 2 color")
-        assert control(window, "Close Stop color").size.width == 48
-        (tmp_path / f"picker-{kind}.png").write_bytes(window.grab_window_as_png())
-        click_picker_button(window, "Close Stop color")
-        click_picker_button(window, "Close Custom")
+            assert (
+                window.get_by_role("button", name=f"Remove stop {index}")
+                .resolve()
+                .size.width
+                == 24
+            )
+        assert (
+            window.get_by_role("button", name="Close Custom").resolve().size.width == 48
+        )
+        window.get_by_role("button", name="Edit stop 2 color").activate()
+        assert (
+            window.get_by_role("button", name="Close Stop color").resolve().size.width
+            == 48
+        )
+        (tmp_path / f"picker-{kind}.png").write_bytes(window.screenshot())
+        window.get_by_role("button", name="Close Stop color").activate()
+        window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
@@ -73,34 +82,28 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         first = picker_field(window, "Stop 1 position")
         top = first.absolute_position.y
         scroll_point = center(first)
-        window.dispatch_event(
-            slint_testing.PointerScrolledEvent(scroll_point, delta_x=0, delta_y=-10000)
-        )
+        window.pointer.scroll(0, -10000, at=scroll_point)
         last = picker_field(window, f"Stop {count} position")
         assert last.absolute_position.y >= top
-        bottom = control(window, "No recent fills", slint_testing.AccessibleRole.Text)
+        bottom = window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="No recent fills"
+        ).resolve()
         assert last.absolute_position.y + last.size.height < bottom.absolute_position.y
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
             assert first.absolute_position.y == top
-        (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(
-            window.grab_window_as_png()
-        )
-        click_picker_button(window, "Add gradient stop")
-        control(
-            window, f"Gradient stop {count + 1}", slint_testing.AccessibleRole.Slider
-        )
-        window.dispatch_event(
-            slint_testing.PointerScrolledEvent(scroll_point, delta_x=0, delta_y=-10000)
-        )
-        remove = control(window, f"Remove stop {count + 1}")
+        (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(window.screenshot())
+        window.get_by_role("button", name="Add gradient stop").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name=f"Gradient stop {count + 1}"
+        ).resolve()
+        window.pointer.scroll(0, -10000, at=scroll_point)
+        remove = window.get_by_role("button", name=f"Remove stop {count + 1}").resolve()
         point = shifted(center(remove), x=-8)
         assert top <= point.y < bottom.absolute_position.y
         gesture(window, point, point)
-        assert not elements_with_label(
-            window.root_element,
-            f"Gradient stop {count + 1}",
-            slint_testing.AccessibleRole.Slider,
-        )
-        press_key(window, keys.Escape)
+        assert not window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name=f"Gradient stop {count + 1}"
+        ).all()
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()

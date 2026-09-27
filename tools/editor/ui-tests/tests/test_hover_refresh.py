@@ -9,36 +9,31 @@ import slint_testing
 from canvas_interactions import center, fixture_element
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field
+from slint_test import Window
 from slint_testing import keys
 from source_snapshot import wait_for_source_change
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
-    press_key,
-    press_shortcut,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
 
 
-def hover_rectangle(window: slint_testing.Window) -> None:
+def hover_rectangle(window: Window) -> None:
     rectangle = fixture_element(window, "Rectangle")
     position = rectangle.absolute_position
-    window.dispatch_event(
-        slint_testing.PointerMoveEvent(
-            slint_testing.LogicalPosition(x=position.x + 40, y=position.y + 60)
-        )
+    window.pointer.move_to(
+        slint_testing.LogicalPosition(x=position.x + 40, y=position.y + 60)
     )
-    window_element_with_label(window, "Hovered Rectangle")
+    window.get_by_accessible_name("Hovered Rectangle").resolve()
 
 
-def wait_for_no_rectangle_hover(window: slint_testing.Window) -> None:
+def wait_for_no_rectangle_hover(window: Window) -> None:
     wait_until(
         lambda: (
             True
-            if not elements_with_label(window.root_element, "Hovered Rectangle")
+            if not window.get_by_accessible_name("Hovered Rectangle").all()
             else None
         )
     )
@@ -65,12 +60,14 @@ def test_removing_hovered_element_without_pointer_motion(
             expected = baseline[:start] + baseline[end:]
             source.write_bytes(expected)
         else:
-            press_key(window, keys.Delete if operation == "delete" else keys.Backspace)
+            window.keyboard.press(
+                keys.Delete if operation == "delete" else keys.Backspace
+            )
             expected = wait_for_source_change(source, baseline)
             assert b"root-rectangle :=" not in expected
 
         wait_for_source(source, expected)
-        assert not window.find_elements_by_id("Main::root-rectangle")
+        assert not window.get_by_id("Main::root-rectangle").all()
         wait_for_no_rectangle_hover(window)
 
 
@@ -103,16 +100,16 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
         wait_for_source(source, moved)
         hover_rectangle(window)
 
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         wait_for_source(source, baseline)
         wait_for_no_rectangle_hover(window)
 
         if sys.platform == "win32":
-            press_shortcut(window, keys.Control, "y")
+            window.keyboard.shortcut(keys.Control, "y")
         else:
-            press_shortcut(window, keys.Control, keys.Shift, "z")
+            window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         wait_for_source(source, moved)
-        window_element_with_label(window, "Hovered Rectangle")
+        window.get_by_accessible_name("Hovered Rectangle").resolve()
 
 
 def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
@@ -133,7 +130,9 @@ def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
         wait_until(
             lambda: (
                 True
-                if window_element_with_label(window, "Hovered Rectangle").size.width
+                if window.get_by_accessible_name("Hovered Rectangle")
+                .resolve()
+                .size.width
                 == pytest.approx(100)
                 else None
             )
@@ -152,14 +151,12 @@ def test_pointer_motion_clears_hover_after_removal(
         wait_for_source(source, baseline)
         select_fixture_element(window, "Rectangle")
         hover_rectangle(window)
-        press_key(window, keys.Delete)
+        window.keyboard.press(keys.Delete)
         expected = wait_for_source_change(source, baseline)
         assert b"root-rectangle :=" not in expected
         wait_for_source(source, expected)
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(center(fixture_element(window, "Image")))
-        )
-        window_element_with_label(window, "Hovered Image")
+        window.pointer.move_to(center(fixture_element(window, "Image")))
+        window.get_by_accessible_name("Hovered Image").resolve()
         wait_for_no_rectangle_hover(window)
 
 
@@ -182,8 +179,8 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
         wait_until(
             lambda: (
                 True
-                if elements_with_label(window.root_element, "Hovered Text")
-                and not elements_with_label(window.root_element, "Hovered Rectangle")
+                if window.get_by_accessible_name("Hovered Text").all()
+                and not window.get_by_accessible_name("Hovered Rectangle").all()
                 else None
             )
         )
@@ -206,9 +203,8 @@ def test_preview_reload_preserves_hover_suppression(
         wait_for_source(source, baseline)
         select_fixture_element(window, "Rectangle")
         hover_rectangle(window)
-        button = slint_testing.PointerEventButton.Left
         if state == "outside":
-            artboard = window_element_with_label(window, "Artboard")
+            artboard = window.get_by_accessible_name("Artboard").resolve()
             position = slint_testing.LogicalPosition(
                 x=artboard.absolute_position.x - 12,
                 y=artboard.absolute_position.y - 12,
@@ -220,10 +216,12 @@ def test_preview_reload_preserves_hover_suppression(
                 y=rectangle.absolute_position.y + 60,
             )
         else:
-            position = center(window_element_with_label(window, "Rectangle " + state))
-        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+            position = center(
+                window.get_by_accessible_name("Rectangle " + state).resolve()
+            )
+        window.pointer.move_to(position)
         if state == "pressed":
-            window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+            window.pointer.press_at(position)
         wait_for_no_rectangle_hover(window)
 
         expected = baseline.replace(b"#2563eb", b"#ef4444")
@@ -231,6 +229,6 @@ def test_preview_reload_preserves_hover_suppression(
         wait_for_source(source, expected)
         wait_for_no_rectangle_hover(window)
         if state == "pressed":
-            window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+            window.pointer.release_at(position)
         hover_rectangle(window)
         assert source.read_bytes() == expected

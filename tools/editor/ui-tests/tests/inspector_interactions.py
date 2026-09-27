@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from slint_test import Window
+from ui_driver import wait_until
 
 FIELDS = {
     "x": "Position X",
@@ -15,7 +16,7 @@ FIELDS = {
 
 
 def slider_position(
-    window: slint_testing.Window, label: str, progress: float
+    window: Window, label: str, progress: float
 ) -> slint_testing.LogicalPosition:
     slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
     return slider_track_position(slider, progress)
@@ -33,30 +34,30 @@ def slider_track_position(
 
 
 def inspector_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
 ) -> slint_testing.Element:
-    pane = window_element_with_label(
-        window, "Inspector and outline", slint_testing.AccessibleRole.Complementary
+    pane = window.get_by_role("complementary", name="Inspector and outline")
+    field = (
+        pane.get_by_accessible_name(label)
+        if role is None
+        else pane.get_by_role(role, name=label)
     )
-    position = slint_testing.LogicalPosition(
-        x=pane.absolute_position.x + pane.size.width / 2,
-        y=pane.absolute_position.y + pane.size.height / 4,
-    )
-    for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
-        if delta:
-            window.dispatch_event(
-                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
-            )
-        fields = elements_with_label(pane, label, role)
-        if len(fields) == 1:
-            return fields[0]
-    return window_element_with_label(window, label, role)
+    matches = field.all()
+    if len(matches) == 1:
+        pane_element = pane.resolve()
+        element = matches[0]
+        center_y = element.absolute_position.y + element.size.height / 2
+        top = pane_element.absolute_position.y
+        if top <= center_y <= top + pane_element.size.height:
+            return element
+    field.scroll_into_view()
+    return field.resolve()
 
 
 def edit_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,
@@ -65,7 +66,7 @@ def edit_field(
 
 
 def wait_for_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,

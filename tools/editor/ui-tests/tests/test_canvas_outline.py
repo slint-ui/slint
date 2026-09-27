@@ -9,12 +9,10 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -32,39 +30,31 @@ def test_selected_hover_hides_for_manipulation(
     ) as editor:
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         inside = slint_testing.LogicalPosition(
             x=frame.absolute_position.x + 40,
             y=frame.absolute_position.y + 60,
         )
-        window.dispatch_event(slint_testing.PointerMoveEvent(inside))
-        window_element_with_label(window, "Hovered Rectangle")
+        window.pointer.move_to(inside)
+        window.get_by_accessible_name("Hovered Rectangle").resolve()
 
-        handle = window_element_with_label(window, "Rectangle " + tool)
+        handle = window.get_by_accessible_name("Rectangle " + tool).resolve()
         target = inside if tool == "move handle" else center(handle)
-        window.dispatch_event(slint_testing.PointerMoveEvent(target))
+        window.pointer.move_to(target)
         if tool == "move handle":
-            window.dispatch_event(
-                slint_testing.PointerPressEvent(
-                    target, slint_testing.PointerEventButton.Left
-                )
-            )
+            window.pointer.press_at(target)
 
         def hover_outline_hidden() -> bool | None:
-            if elements_with_label(window.root_element, "Hovered Rectangle"):
+            if window.get_by_accessible_name("Hovered Rectangle").all():
                 return None
             return True
 
         # Controls suppress hover before a drag starts.
         wait_until(hover_outline_hidden)
         if tool == "move handle":
-            window.dispatch_event(
-                slint_testing.PointerReleaseEvent(
-                    target, slint_testing.PointerEventButton.Left
-                )
-            )
-        window.dispatch_event(slint_testing.PointerMoveEvent(inside))
-        window_element_with_label(window, "Hovered Rectangle")
+            window.pointer.release_at(target)
+        window.pointer.move_to(inside)
+        window.get_by_accessible_name("Hovered Rectangle").resolve()
 
 
 def test_click_selection_keeps_visible_hover_outline(
@@ -76,18 +66,17 @@ def test_click_selection_keeps_visible_hover_outline(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        artboard = window_element_with_label(window, "Artboard")
+        artboard = window.get_by_accessible_name("Artboard").resolve()
         target = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 80,
             y=artboard.absolute_position.y + 100,
         )
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerMoveEvent(target))
-        window_element_with_label(window, "Hovered Rectangle")
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-        window_element_with_label(window, "Selected Rectangle")
-        window_element_with_label(window, "Hovered Rectangle")
+        window.pointer.move_to(target)
+        window.get_by_accessible_name("Hovered Rectangle").resolve()
+        window.pointer.press_at(target)
+        window.pointer.release_at(target)
+        window.get_by_accessible_name("Selected Rectangle").resolve()
+        window.get_by_accessible_name("Hovered Rectangle").resolve()
 
 
 def test_click_outside_artboard_clears_selection(
@@ -100,20 +89,19 @@ def test_click_outside_artboard_clears_selection(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        window_element_with_label(window, "Selected Rectangle")
-        window_element_with_label(window, "Rectangle background")
-        canvas = window_element_with_label(window, "Editor canvas")
+        window.get_by_accessible_name("Selected Rectangle").resolve()
+        window.get_by_accessible_name("Rectangle background").resolve()
+        canvas = window.get_by_accessible_name("Editor canvas").resolve()
         target = slint_testing.LogicalPosition(
             x=canvas.absolute_position.x + 10,
             y=canvas.absolute_position.y + 10,
         )
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerMoveEvent(target))
-        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        window.pointer.move_to(target)
+        window.pointer.press_at(target)
+        window.pointer.release_at(target)
 
         def selection_cleared() -> bool | None:
-            tree = window_element_with_label(window, "Current file outline")
+            tree = window.get_by_accessible_name("Current file outline").resolve()
             rows = (
                 tree.query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.ListItem)
@@ -123,23 +111,19 @@ def test_click_outside_artboard_clears_selection(
                 True
                 if rows
                 and not any(row.accessible_item_selected for row in rows)
-                and not elements_with_label(window.root_element, "Selected Rectangle")
-                and not elements_with_label(window.root_element, "Rectangle background")
-                and not elements_with_label(window.root_element, "Root background")
+                and not window.get_by_accessible_name("Selected Rectangle").all()
+                and not window.get_by_accessible_name("Rectangle background").all()
+                and not window.get_by_accessible_name("Root background").all()
                 else None
             )
 
         wait_until(selection_cleared)
         select_outline_row(window, "root-rectangle")
-        window_element_with_label(window, "Selected Rectangle")
-        tree = window_element_with_label(window, "Current file outline")
-        root_row = (
-            tree.query_descendants()
-            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-            .find_all()[0]
-        )
-        root_row.invoke_accessible_default_action()
-        window_element_with_label(window, "Root background")
+        window.get_by_accessible_name("Selected Rectangle").resolve()
+        window.get_by_role("list", name="Current file outline").get_by_role(
+            "list-item"
+        ).nth(0).activate()
+        window.get_by_accessible_name("Root background").resolve()
 
 
 def test_resize_handle_touch_area_is_centered(
@@ -152,8 +136,8 @@ def test_resize_handle_touch_area_is_centered(
     ) as editor:
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
-        handle = window_element_with_label(window, "Rectangle resize top-left")
+        frame = window.get_by_accessible_name("Selected Rectangle").resolve()
+        handle = window.get_by_accessible_name("Rectangle resize top-left").resolve()
         assert handle.size.width == pytest.approx(12)
         assert handle.size.height == pytest.approx(12)
         assert handle.absolute_position.x + 6 == pytest.approx(
@@ -174,18 +158,19 @@ def test_resize_starts_outside_visible_handle(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         initial_width, initial_height = frame.size.width, frame.size.height
-        handle = window_element_with_label(window, "Rectangle resize bottom-right")
+        handle = window.get_by_accessible_name(
+            "Rectangle resize bottom-right"
+        ).resolve()
         position = center(handle)
         # Five pixels from the corner is outside the visible four-pixel half-width.
         start = slint_testing.LogicalPosition(x=position.x + 5, y=position.y + 5)
         end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.pointer.move_to(start)
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
         assert frame.size.width == pytest.approx(initial_width + 20)
         assert frame.size.height == pytest.approx(initial_height + 16)
         snapshot.assert_unchanged_now()
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        window.pointer.release_at(end)

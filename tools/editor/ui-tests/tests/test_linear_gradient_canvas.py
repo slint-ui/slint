@@ -9,15 +9,12 @@ import pytest
 import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
-from gradient_interactions import center, click, control, gesture, shifted
+from gradient_interactions import center, gesture, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
-    press_key,
-    press_shortcut,
     select_outline_row,
     wait_until,
 )
@@ -41,8 +38,8 @@ def scene(tmp_path):
 
 def open_linear(window):
     select_outline_row(window, "fill")
-    click(window, "Rectangle background color picker")
-    control(window, "Gradient start")
+    window.get_by_role("button", name="Rectangle background color picker").activate()
+    window.get_by_role("button", name="Gradient start").resolve()
 
 
 @pytest.mark.parametrize("percent", [50, 100, 200])
@@ -64,7 +61,9 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_linear(window)
-        start = center(control(window, "Gradient stop 2"), rotation)
+        start = center(
+            window.get_by_role("button", name="Gradient stop 2").resolve(), rotation
+        )
 
         def destination(distance):
             return shifted(
@@ -73,25 +72,26 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
                 y=distance * percent / 100 * math.sin(math.radians(rotation)),
             )
 
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.pointer.press_at(start)
         for dx in (30, 70, 100, 130, 70, -50, -120, 20):
-            window.dispatch_event(slint_testing.PointerMoveEvent(destination(dx)))
+            window.pointer.move_to(destination(dx))
             assert float(
-                control(
-                    window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
-                ).accessible_value
+                window.get_by_role(
+                    slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
+                )
+                .resolve()
+                .accessible_value
             ) == pytest.approx(55 + dx / 2)
-            actual = center(control(window, "Gradient stop 2"), rotation)
+            actual = center(
+                window.get_by_role("button", name="Gradient stop 2").resolve(), rotation
+            )
             assert actual.x == pytest.approx(destination(dx).x, abs=0.001)
             assert actual.y == pytest.approx(destination(dx).y, abs=0.001)
-        window.dispatch_event(
-            slint_testing.PointerReleaseEvent(destination(20), button)
-        )
-        (tmp_path / "gradient-stop-marker.png").write_bytes(window.grab_window_as_png())
-        press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
-        press_key(window, keys.Escape)
+        window.pointer.release_at(destination(20))
+        (tmp_path / "gradient-stop-marker.png").write_bytes(window.screenshot())
+        window.keyboard.press(keys.Delete)
+        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -103,56 +103,62 @@ def test_linear_canvas_activation_and_colour(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not elements_with_label(window.root_element, "Gradient start")
-        click(window, "Rectangle background color picker")
-        start = center(control(window, "Gradient start"))
-        end = center(control(window, "Gradient end"))
+        assert not window.get_by_accessible_name("Gradient start").all()
+        window.get_by_role(
+            "button", name="Rectangle background color picker"
+        ).activate()
+        start = center(window.get_by_role("button", name="Gradient start").resolve())
+        end = center(window.get_by_role("button", name="Gradient end").resolve())
         assert end.x - start.x == pytest.approx(200)
         assert end.y == pytest.approx(start.y)
-        assert not elements_with_label(window.root_element, "Gradient angle degrees")
-        control(window, "Add gradient stop")
-        control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
-        assert not elements_with_label(window.root_element, "Hex color")
-        assert not elements_with_label(window.root_element, "Close Stop color")
-        click(window, "Edit stop 2 color")
-        control(window, "Close Stop color")
-        hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
+        assert not window.get_by_accessible_name("Gradient angle degrees").all()
+        window.get_by_role("button", name="Add gradient stop").resolve()
+        window.get_by_role(
+            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
+        ).resolve()
+        assert not window.get_by_accessible_name("Hex color").all()
+        assert not window.get_by_accessible_name("Close Stop color").all()
+        window.get_by_role("button", name="Edit stop 2 color").activate()
+        window.get_by_role("button", name="Close Stop color").resolve()
+        hex_field = window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Hex color"
+        ).resolve()
         assert hex_field.accessible_value == "#264052"
-        click(window, "Gradient stop 1")
+        window.get_by_role("button", name="Gradient stop 1").activate()
         wait_until(
             lambda: hex_field if hex_field.accessible_value == "#568fb8" else None
         )
         assert hex_field.accessible_value == "#568fb8"
-        click(window, "Gradient stop 2")
+        window.get_by_role("button", name="Gradient stop 2").activate()
         wait_until(
             lambda: hex_field if hex_field.accessible_value == "#264052" else None
         )
         assert hex_field.accessible_value == "#264052"
         hex_field.accessible_value = "#12ab3480"
-        click(window, "Close Stop color")
-        control(
-            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
-        ).accessible_value = "70"
-        assert center(control(window, "Gradient stop 2")).x == pytest.approx(
-            start.x + 140
-        )
-        click(window, "Gradient stop 2")
-        press_key(window, keys.RightArrow)
+        window.get_by_role("button", name="Close Stop color").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
+        ).resolve().accessible_value = "70"
+        assert center(
+            window.get_by_role("button", name="Gradient stop 2").resolve()
+        ).x == pytest.approx(start.x + 140)
+        window.get_by_role("button", name="Gradient stop 2").activate()
+        window.keyboard.press(keys.RightArrow)
         assert float(
-            control(
-                window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
+            window.get_by_role(
+                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
+            )
+            .resolve()
+            .accessible_value
         ) == pytest.approx(71)
         original.assert_unchanged_now()
-        click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient start")
-        click(window, "Gradient")
-        control(window, "Gradient start")
+        window.get_by_role("button", name="Solid").activate()
+        assert not window.get_by_accessible_name("Gradient start").all()
+        window.get_by_role("button", name="Gradient").activate()
+        window.get_by_role("button", name="Gradient start").resolve()
         original.assert_unchanged_now()
-        (tmp_path / "linear-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
-        press_key(window, keys.Escape)
+        (tmp_path / "linear-gradient-editor.png").write_bytes(window.screenshot())
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -164,28 +170,28 @@ def test_linear_endpoint_drag_and_session_history(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, "Gradient start"))
+        start = center(window.get_by_role("button", name="Gradient start").resolve())
         gesture(window, start, shifted(start, x=40))
-        assert center(control(window, "Gradient start")).x == pytest.approx(
-            start.x + 40
-        )
-        control(window, "Add gradient stop")
+        assert center(
+            window.get_by_role("button", name="Gradient start").resolve()
+        ).x == pytest.approx(start.x + 40)
+        window.get_by_role("button", name="Add gradient stop").resolve()
         original.assert_unchanged_now()
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         saved = replace_once(
             original.sources[Path(scene.name)],
             b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
             b"@linear-gradient(90deg, #568fb8 20%, #264052 64%, #7e3b66 100%)",
         )
         original.wait_for_applied(saved, scene.name)
-        press_shortcut(window, keys.Control, "z")
+        window.keyboard.shortcut(keys.Control, "z")
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
-        press_shortcut(window, keys.Control, keys.Shift, "z")
+        window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         original.wait_for_applied(saved, scene.name)
         open_linear(window)
-        assert center(control(window, "Gradient start")).x == pytest.approx(
-            start.x + 40
-        )
+        assert center(
+            window.get_by_role("button", name="Gradient start").resolve()
+        ).x == pytest.approx(start.x + 40)
 
 
 def test_linear_double_click_and_delete(
@@ -196,19 +202,18 @@ def test_linear_double_click_and_delete(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        axis = control(window, "Gradient axis")
-        axis.double_click(slint_testing.PointerEventButton.Left)
-        control(window, "Gradient stop 4")
-        press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
-        click(window, "Gradient stop 2")
-        press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
-        press_key(window, keys.Delete)
-        control(window, "Gradient stop 2")
-        control(window, "Gradient end")
+        window.get_by_role("button", name="Gradient axis").dblclick()
+        window.get_by_role("button", name="Gradient stop 4").resolve()
+        window.keyboard.press(keys.Delete)
+        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        window.get_by_role("button", name="Gradient stop 2").activate()
+        window.keyboard.press(keys.Delete)
+        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        window.keyboard.press(keys.Delete)
+        window.get_by_role("button", name="Gradient stop 2").resolve()
+        window.get_by_role("button", name="Gradient end").resolve()
         original.assert_unchanged_now()
-        press_key(window, keys.Escape)
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -221,17 +226,16 @@ def test_linear_drag_escape_restores_gesture(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, handle))
+        start = center(window.get_by_role("button", name=handle).resolve())
         end = shifted(start, x=-130, y=-50)
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        press_key(window, keys.Escape)
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        restored = center(control(window, handle))
+        window.pointer.press_at(start)
+        window.pointer.move_to(end)
+        window.keyboard.press(keys.Escape)
+        window.pointer.release_at(end)
+        restored = center(window.get_by_role("button", name=handle).resolve())
         assert restored.x == pytest.approx(start.x)
         assert restored.y == pytest.approx(start.y)
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
@@ -250,20 +254,28 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, "Gradient start"), rotation)
-        end = center(control(window, "Gradient end"), rotation)
+        start = center(
+            window.get_by_role("button", name="Gradient start").resolve(), rotation
+        )
+        end = center(
+            window.get_by_role("button", name="Gradient end").resolve(), rotation
+        )
         midpoint = slint_testing.LogicalPosition(
             x=(start.x + end.x) / 2, y=(start.y + end.y) / 2
         )
         gesture(window, midpoint, shifted(midpoint, x=17, y=23))
-        moved_start = center(control(window, "Gradient start"), rotation)
-        moved_end = center(control(window, "Gradient end"), rotation)
+        moved_start = center(
+            window.get_by_role("button", name="Gradient start").resolve(), rotation
+        )
+        moved_end = center(
+            window.get_by_role("button", name="Gradient end").resolve(), rotation
+        )
         assert moved_start.x == pytest.approx(start.x + 17, abs=0.02)
         assert moved_start.y == pytest.approx(start.y + 23, abs=0.02)
         assert moved_end.x == pytest.approx(end.x + 17, abs=0.02)
         assert moved_end.y == pytest.approx(end.y + 23, abs=0.02)
         original.assert_unchanged_now()
-        press_key(window, keys.Escape)
+        window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
@@ -284,20 +296,21 @@ def test_linear_layout_size_and_keyboard(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, "Gradient start"))
-        end = center(control(window, "Gradient end"))
+        start = center(window.get_by_role("button", name="Gradient start").resolve())
+        end = center(window.get_by_role("button", name="Gradient end").resolve())
         assert end.x - start.x == pytest.approx(200)
-        click(window, "Gradient end")
-        press_key(window, keys.LeftArrow)
-        press_shortcut(window, keys.Shift, keys.UpArrow)
+        window.get_by_role("button", name="Gradient end").activate()
+        window.keyboard.press(keys.LeftArrow)
+        window.keyboard.shortcut(keys.Shift, keys.UpArrow)
         end = center(
-            control(window, "Gradient end"), math.degrees(math.atan2(-10, 199))
+            window.get_by_role("button", name="Gradient end").resolve(),
+            math.degrees(math.atan2(-10, 199)),
         )
         assert end.x - start.x == pytest.approx(199)
         assert end.y - start.y == pytest.approx(-10, abs=0.001)
-        click(window, "Gradient stop 1")
-        press_key(window, keys.RightArrow)
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Gradient stop 1").activate()
+        window.keyboard.press(keys.RightArrow)
+        window.get_by_role("button", name="Close Custom").activate()
         pattern = re.escape(baseline).replace(
             re.escape(b"@linear-gradient(90deg, red, blue)"),
             rb"@linear-gradient\([^()\n]+\)",
@@ -328,13 +341,13 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        click(window, "Edit stop 1 color")
-        control(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
-        ).accessible_value = "#123456"
+        window.get_by_role("button", name="Edit stop 1 color").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Hex color"
+        ).resolve().accessible_value = "#123456"
         other = wait_until(
             lambda: next(
-                iter(window.find_elements_by_id("LinearGradientScene::other")), None
+                iter(window.get_by_id("LinearGradientScene::other").all()), None
             )
         )
         gesture(window, center(other), center(other))
@@ -342,8 +355,8 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         original.wait_for_applied(saved, scene.name)
         assert b"#123456" in saved
         assert b"background: yellow" in saved
-        assert not elements_with_label(window.root_element, "Gradient start")
-        assert not elements_with_label(window.root_element, "Close Custom")
+        assert not window.get_by_accessible_name("Gradient start").all()
+        assert not window.get_by_accessible_name("Close Custom").all()
 
 
 def test_linear_external_edit_cancels_stale_draft(
@@ -355,22 +368,22 @@ def test_linear_external_edit_cancels_stale_draft(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        click(window, "Edit stop 1 color")
-        control(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
-        ).accessible_value = "#123456"
+        window.get_by_role("button", name="Edit stop 1 color").activate()
+        window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name="Hex color"
+        ).resolve().accessible_value = "#123456"
         external = original.replace("#568fb8", "#abcdef")
         scene.write_text(external)
         wait_for_source(scene, external.encode())
-        assert not elements_with_label(window.root_element, "Gradient start")
-        assert not elements_with_label(window.root_element, "Close Custom")
+        assert not window.get_by_accessible_name("Gradient start").all()
+        assert not window.get_by_accessible_name("Close Custom").all()
         assert scene.read_text() == external
         open_linear(window)
-        click(window, "Edit stop 1 color")
+        window.get_by_role("button", name="Edit stop 1 color").activate()
         assert (
-            control(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
+            window.get_by_role(slint_testing.AccessibleRole.TextInput, name="Hex color")
+            .resolve()
+            .accessible_value
             == "#abcdef"
         )
 
@@ -383,17 +396,19 @@ def test_linear_extended_axis_round_trip(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        start = center(control(window, "Gradient start"))
+        start = center(window.get_by_role("button", name="Gradient start").resolve())
         gesture(window, start, shifted(start, x=-50))
-        end = center(control(window, "Gradient end"))
+        end = center(window.get_by_role("button", name="Gradient end").resolve())
         gesture(window, end, shifted(end, x=50))
-        click(window, "Close Custom")
+        window.get_by_role("button", name="Close Custom").activate()
         saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved
         assert b"125%" in saved
         open_linear(window)
-        assert center(control(window, "Gradient start")).x == pytest.approx(
-            start.x - 50
-        )
-        assert center(control(window, "Gradient end")).x == pytest.approx(end.x + 50)
+        assert center(
+            window.get_by_role("button", name="Gradient start").resolve()
+        ).x == pytest.approx(start.x - 50)
+        assert center(
+            window.get_by_role("button", name="Gradient end").resolve()
+        ).x == pytest.approx(end.x + 50)
