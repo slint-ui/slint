@@ -63,22 +63,25 @@ name = pane.get_by_role("text-input", name="Name")
 row = window.get_by_role("list-item").filter(
     has=window.get_by_accessible_name("Example")
 )
+first_row = window.get_by_role("list-item").nth(0)
 ```
 
 `get_by_id` uses an existing Slint element ID, not a separate test-ID facility.
 Queries and assertions never focus, scroll, select, or modify controls.
+`all()` returns the currently visible matches for direct inspection, while `count()` includes instantiated clipped matches so tests can verify off-screen content before scrolling it into view.
 `filter(has=...)` accepts a window-rooted locator and evaluates it relative to each candidate.
+`nth(index)` makes an intentional positional choice explicit and rejects negative indexes.
 
 | Operation | Input And Readiness |
 | --- | --- |
-| `click`, `dblclick` | Fresh unique target, stable geometry, native left-click routing, and automatic scrolling when supported. |
+| `click`, `dblclick` | Fresh unique target, stable geometry, native left-click routing, and automatic scrolling when supported. `click(force=True)` explicitly bypasses hit-target checks. |
 | `hover`, `drag` | Basic enabled, geometry, opacity, and stability checks; no native routing guarantee. |
 | `scroll_into_view` | Reveal the target center through interactive Flickable ancestors without clicking. |
 | `fill`, `clear` | Editable text input plus pointer readiness; click, Control+A, Backspace, then key events. No Enter or blur commit. |
 | `press`, `press_sequentially` | Click to focus the target, then dispatch keys. |
 | `activate` | Explicit accessibility default action on a fresh unique target. |
 | `set_accessible_value` | Explicit accessibility value assignment on a fresh unique target. |
-| `window.keyboard` / `window.pointer` | Raw input at current focus or logical window coordinates; no target lookup or actionability claim. |
+| `window.keyboard` / `window.pointer` | Named low-level input at current focus or logical window coordinates, including down/up, `press_at`, `release_at`, `click_at`, scroll, and pointer exit. These operations make no target or actionability claim. |
 
 The transport reports unspecified accessible-enabled state as false.
 Accessibility operations therefore check unique resolution, not enabled state.
@@ -116,6 +119,7 @@ Custom `expect.poll` callbacks must themselves be bounded and read-only.
 
 ```python
 expect(name).to_have_value("Alice", timeout=2000)
+expect(name).not_to_have_value("Bob")
 expect(row).to_have_count(1)
 expect(window.get_by_role("button", name="Apply")).to_be_enabled()
 expect(row).to_have_geometry(width=200)

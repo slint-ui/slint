@@ -144,6 +144,14 @@ class LocatorAssertion:
     def to_have_value(self, value: str, *, timeout: float | None = None) -> None:
         self._property("accessible_value", value, timeout)
 
+    def not_to_have_value(self, value: str, *, timeout: float | None = None) -> None:
+        Assertion(
+            lambda: self.locator.read(lambda element: element.accessible_value),
+            self.locator.window.session,
+            f"{self.message} {self.locator!r}.accessible_value",
+            target=self._target("value"),
+        ).not_to_equal(value, timeout=timeout)
+
     def to_have_accessible_name(
         self, name: str, *, timeout: float | None = None
     ) -> None:

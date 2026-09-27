@@ -296,10 +296,36 @@ class Window(Scope):
     def _roots(self) -> list[low.Element]:
         return [self.raw.root_element]
 
+    @property
+    def root_element(self) -> low.Element:
+        return self.raw.root_element
+
+    @property
+    def size(self) -> low.PhysicalSize:
+        return self.raw.size
+
+    @property
+    def handle(self) -> low.Handle:
+        return self.raw.handle
+
     def screenshot(self) -> bytes:
         with step("Screenshot", layer="generic"):
             self.session.check()
             return self.raw.grab_window_as_png()
+
+    def drag_and_drop(
+        self, start: Point | low.LogicalPosition, end: Point | low.LogicalPosition
+    ) -> None:
+        with step(
+            "Drag and drop",
+            layer="generic",
+            start={"x": start.x, "y": start.y},
+            end={"x": end.x, "y": end.y},
+        ):
+            self.raw.drag_and_drop(
+                low.LogicalPosition(start.x, start.y),
+                low.LogicalPosition(end.x, end.y),
+            )
 
     def cleanup_input(self) -> None:
         with self.session.cleanup():
@@ -321,6 +347,7 @@ class Locator(Scope):
         exact: bool = True,
         identifier: str | None = None,
         predicate: Callable[[low.Element], bool] | None = None,
+        index: int | None = None,
     ):
         self.window, self.scope, self.description = window, scope, description
         self.role, self.name, self.exact, self.identifier = (
@@ -330,13 +357,20 @@ class Locator(Scope):
             identifier,
         )
         self.predicate = predicate
+        self.index = index
         self.source_context: Callable[[], dict[str, str]] | None = None
 
     def __repr__(self) -> str:
         prefix = f"{self.scope!r} >> " if isinstance(self.scope, Locator) else ""
-        return prefix + self.description
+        suffix = f".nth({self.index})" if self.index is not None else ""
+        return prefix + self.description + suffix
 
-    def _find(self, roots: list[low.Element] | None = None) -> list[low.Element]:
+    def _find(
+        self,
+        roots: list[low.Element] | None = None,
+        *,
+        include_clipped: bool = True,
+    ) -> list[low.Element]:
         matches = []
         for root in self.scope._roots() if roots is None else roots:
             query = root.query_descendants()
@@ -346,7 +380,7 @@ class Locator(Scope):
                 query = query.match_id(self.identifier)
             elements = (
                 native.find_all(query)
-                if self.window.capabilities["hit_testing"]
+                if include_clipped and self.window.capabilities["hit_testing"]
                 else query.find_all()
             )
             for element in elements:
@@ -354,17 +388,19 @@ class Locator(Scope):
                     self.predicate is None or self.predicate(element)
                 ):
                     if not element.is_valid:
-                        raise StaleElement
+                        continue
                     matches.append(element)
             if not root.is_valid:
                 raise StaleElement
-        return matches
+        if self.index is None:
+            return matches
+        return matches[self.index : self.index + 1]
 
     def _roots(self) -> list[low.Element]:
         return [self._unique()]
 
-    def _unique(self) -> low.Element:
-        matches = self._find()
+    def _unique(self, *, include_clipped: bool = True) -> low.Element:
+        matches = self._find(include_clipped=include_clipped)
         if len(matches) > 1:
             candidates = [e.accessible_label for e in matches]
             raise StrictMatchError(
@@ -373,6 +409,17 @@ class Locator(Scope):
         if not matches:
             raise StaleElement
         return matches[0]
+
+    def _action_candidate(self) -> low.Element:
+        visible = self._find(include_clipped=False)
+        if visible:
+            if len(visible) > 1:
+                candidates = [element.accessible_label for element in visible]
+                raise StrictMatchError(
+                    f"{self!r} matched {len(visible)} elements: {candidates!r}"
+                )
+            return visible[0]
+        return self._unique(include_clipped=True)
 
     def filter(self, *, has: Locator) -> Locator:
         if has.window is not self.window or has.scope is not self.window:
@@ -389,10 +436,26 @@ class Locator(Scope):
             predicate=lambda e: (
                 (previous is None or previous(e)) and bool(has._find([e]))
             ),
+            index=self.index,
+        )
+
+    def nth(self, index: int) -> Locator:
+        if index < 0:
+            raise ValueError("index must be nonnegative")
+        return Locator(
+            self.window,
+            self.scope,
+            self.description,
+            role=self.role,
+            name=self.name,
+            exact=self.exact,
+            identifier=self.identifier,
+            predicate=self.predicate,
+            index=index,
         )
 
     def read(self, getter: Callable[[low.Element], T]) -> T:
-        element = self._unique()
+        element = self._unique(include_clipped=False)
         value = getter(element)
         if not element.is_valid:
             raise StaleElement
@@ -400,14 +463,17 @@ class Locator(Scope):
 
     def resolve(self, *, timeout: float | None = None) -> low.Element:
         return self.window.session.wait(
-            self._unique,
+            lambda: self._unique(include_clipped=False),
             lambda _: True,
             timeout=timeout,
             description=f"Resolve {self!r}",
         )
 
     def count(self) -> int:
-        return len(self._find())
+        return len(self._find(include_clipped=True))
+
+    def all(self) -> list[low.Element]:
+        return self._find(include_clipped=False)
 
     def bounds(self) -> Bounds:
         def read(element: low.Element) -> Bounds:
@@ -448,7 +514,7 @@ class Locator(Scope):
 
         def read() -> low.Element | None:
             nonlocal previous, last_target
-            element = self._unique()
+            element = self._action_candidate()
             enabled = verified or not check_enabled or element.accessible_enabled
             if editable and (
                 element.accessible_role != low.AccessibleRole.TextInput
@@ -468,7 +534,8 @@ class Locator(Scope):
                     previous = None
                     raise StaleElement(last_target["detail"])
             if pointer:
-                bounds = self.bounds()
+                position, size = element.absolute_position, element.size
+                bounds = Bounds(position.x, position.y, size.width, size.height)
                 stable = bounds == previous
                 previous = bounds
                 if (
@@ -527,7 +594,7 @@ class Locator(Scope):
     def pointer_target(self) -> dict[str, Any]:
         if not self.window.capabilities["hit_testing"]:
             raise UnsupportedCapability("This transport cannot verify hit targets")
-        return native.target(self._unique())
+        return native.target(self._unique(include_clipped=True))
 
     def scroll_into_view(self, *, timeout: float | None = None) -> None:
         if not self.window.capabilities["scroll_into_view"]:
@@ -538,7 +605,7 @@ class Locator(Scope):
         ):
 
             def reveal():
-                result = native.target(self._unique(), scroll=True)
+                result = native.target(self._unique(include_clipped=True), scroll=True)
                 if result["status"] == "unsupported":
                     raise UnsupportedCapability(result["detail"])
                 if result["status"] in ("clipped", "busy"):
@@ -552,7 +619,17 @@ class Locator(Scope):
                 description=f"Scroll {self!r}",
             )
 
-    def _click(self, timeout=None, *, editable=False, require_hit_target=False):
+    def _click(
+        self,
+        timeout=None,
+        *,
+        editable=False,
+        force=False,
+        require_hit_target=False,
+    ):
+        if force:
+            self.resolve(timeout=timeout).single_click(low.PointerEventButton.Left)
+            return
         while True:
             element = self._ready(
                 timeout=timeout,
@@ -576,7 +653,11 @@ class Locator(Scope):
             self.window.session.cancel.wait(0.02)
 
     def click(
-        self, *, timeout: float | None = None, require_hit_target: bool = False
+        self,
+        *,
+        timeout: float | None = None,
+        force: bool = False,
+        require_hit_target: bool = False,
     ) -> None:
         with (
             self.window.session.operation(timeout),
@@ -585,11 +666,16 @@ class Locator(Scope):
                 layer="generic",
                 locator=repr(self),
                 readiness="native target"
-                if self.window.capabilities["hit_testing"]
+                if self.window.capabilities["hit_testing"] and not force
                 else "basic; hit target unverified",
+                force=force,
             ),
         ):
-            self._click(timeout, require_hit_target=require_hit_target)
+            self._click(
+                timeout,
+                force=force,
+                require_hit_target=require_hit_target,
+            )
 
     def dblclick(self, *, timeout: float | None = None) -> None:
         with (
@@ -725,12 +811,26 @@ class Pointer:
         self.position = Point(0, 0)
         self.held = False
 
-    def move_to(self, point: Point) -> None:
+    def move_to(self, point: Point | low.LogicalPosition) -> None:
         self.window.session.check()
         with step("Pointer move", layer="generic", x=point.x, y=point.y):
             self.position = point
             self.window.raw.dispatch_event(
                 low.PointerMoveEvent(low.LogicalPosition(point.x, point.y))
+            )
+
+    def press_at(self, point: Point | low.LogicalPosition) -> None:
+        self.window.session.check()
+        if self.held:
+            raise RuntimeError("Pointer is already held")
+        with step("Pointer down", layer="generic", x=point.x, y=point.y):
+            self.position = Point(point.x, point.y)
+            self.held = True
+            self.window.raw.dispatch_event(
+                low.PointerPressEvent(
+                    low.LogicalPosition(point.x, point.y),
+                    low.PointerEventButton.Left,
+                )
             )
 
     def press(self) -> None:
@@ -759,6 +859,60 @@ class Pointer:
                 )
             )
             self.held = False
+
+    def release_at(
+        self, point: Point | low.LogicalPosition, *, cleanup: bool = False
+    ) -> None:
+        if not self.held:
+            return
+        if not cleanup:
+            self.window.session.check()
+        with step("Pointer up", layer="generic", x=point.x, y=point.y):
+            self.position = Point(point.x, point.y)
+            self.window.raw.dispatch_event(
+                low.PointerReleaseEvent(
+                    low.LogicalPosition(point.x, point.y),
+                    low.PointerEventButton.Left,
+                )
+            )
+            self.held = False
+
+    def click_at(self, point: Point | low.LogicalPosition) -> None:
+        with step("Pointer click", layer="generic", x=point.x, y=point.y):
+            self.move_to(point)
+            self.press_at(point)
+            self.release_at(point)
+
+    def scroll(
+        self,
+        delta_x: float,
+        delta_y: float,
+        *,
+        at: Point | low.LogicalPosition | None = None,
+    ) -> None:
+        self.window.session.check()
+        point = at or self.position
+        with step(
+            "Pointer scroll",
+            layer="generic",
+            x=point.x,
+            y=point.y,
+            delta_x=delta_x,
+            delta_y=delta_y,
+        ):
+            self.position = Point(point.x, point.y)
+            self.window.raw.dispatch_event(
+                low.PointerScrolledEvent(
+                    low.LogicalPosition(point.x, point.y),
+                    delta_x=delta_x,
+                    delta_y=delta_y,
+                )
+            )
+
+    def exit(self) -> None:
+        self.window.session.check()
+        with step("Pointer exit", layer="generic"):
+            self.window.raw.dispatch_event(low.PointerExitedEvent())
 
     def drag_from(self, start: Point) -> Drag:
         return Drag(self, start)

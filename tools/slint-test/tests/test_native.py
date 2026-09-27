@@ -24,8 +24,19 @@ def test_keyboard_pointer_and_capture(window):
     field.clear()
     field.press_sequentially("Bob")
     expect(field).to_have_value("Bob")
-    window.get_by_role("button", name="Apply").click()
+    apply = window.get_by_role("button", name="Apply")
+    apply.click()
     expect(window.get_by_accessible_name("Count")).to_have_value("1")
+    expect(field).not_to_have_value("Alice")
+    point = apply.center()
+    window.pointer.move_to(point)
+    window.pointer.press_at(point)
+    window.pointer.release_at(point)
+    expect(window.get_by_accessible_name("Count")).to_have_value("2")
+    window.pointer.scroll(0, 1, at=point)
+    window.pointer.exit()
+    apply.click(force=True)
+    expect(window.get_by_accessible_name("Count")).to_have_value("3")
     assert window.screenshot().startswith(b"\x89PNG")
 
 
@@ -45,6 +56,9 @@ def test_ambiguity_and_absence(window):
     expect(duplicate).to_have_count(2)
     with pytest.raises(StrictMatchError, match="matched 2"):
         duplicate.click()
+    expect(duplicate.nth(0)).to_have_count(1)
+    with pytest.raises(ValueError, match="nonnegative"):
+        duplicate.nth(-1)
     expect(window.get_by_accessible_name("Missing")).to_have_count(0)
     with pytest.raises(AssertionError, match="last observed"):
         expect(window.get_by_accessible_name("Missing")).to_have_value(
