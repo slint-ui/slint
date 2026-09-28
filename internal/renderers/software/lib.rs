@@ -3687,3 +3687,81 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         }
     }
 }
+
+/// Renders `draw` into a buffer of `screen_size`, limited to the dirty `region`.
+#[cfg(test)]
+fn render_region(
+    screen_size: PhysicalSize,
+    region: &[PhysicalRect],
+    draw: impl FnOnce(&mut dyn ProcessScene),
+) -> Vec<PremultipliedRgbaColor> {
+    let pixel_count = screen_size.width as usize * screen_size.height as usize;
+    let mut data = alloc::vec![PremultipliedRgbaColor::default(); pixel_count];
+    let mut buffer = TargetPixelSlice { data: &mut data, pixel_stride: screen_size.width as usize };
+    let mut rectangles = [euclid::Box2D::default(); PHYSICAL_REGION_MAX_SIZE];
+    for (r, dst) in region.iter().zip(rectangles.iter_mut()) {
+        *dst = r.to_box2d();
+    }
+    let mut processor = RenderToBuffer {
+        buffer: &mut buffer,
+        dirty_range_cache: Vec::new(),
+        dirty_region: PhysicalRegion { rectangles, count: region.len() },
+        scale_factor: ScaleFactor::new(1.),
+    };
+    draw(&mut processor);
+    data
+}
+
+/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region` as it does
+/// unclipped on the whole screen.
+#[cfg(test)]
+fn assert_partial_render_is_identical(
+    screen_size: PhysicalSize,
+    clip: PhysicalRect,
+    region: &[PhysicalRect],
+    draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
+) {
+    let screen = PhysicalRect::from_size(screen_size);
+    let full = render_region(screen_size, &[screen], |processor| draw(processor, &screen));
+    let partial = render_region(screen_size, region, |processor| draw(processor, &clip));
+    let mut drawn = false;
+    for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
+        let p = PhysicalPoint::new(
+            (i % screen_size.width as usize) as i16,
+            (i / screen_size.width as usize) as i16,
+        );
+        if clip.contains(p) && region.iter().any(|r| r.contains(p)) {
+            assert_eq!(bytemuck::bytes_of(a), bytemuck::bytes_of(b), "{p:?}");
+            drawn |= a.alpha > 0;
+        }
+    }
+    assert!(drawn);
+}
+
+#[test]
+fn rounded_rectangle_partial_render_is_identical() {
+    let screen_size = PhysicalSize::new(100, 80);
+    // The clip and the regions cut through the anti-aliasing of the corner curves.
+    let clip = euclid::rect(17, 5, 60, 70);
+    let region = [euclid::rect(12, 8, 21, 19), euclid::rect(48, 33, 31, 30)];
+    for border_width in [0., 4.3] {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            x: 10.,
+            y: 11.,
+            width: 62.,
+            height: 45.,
+            top_left_radius: 17.,
+            top_right_radius: 9.5,
+            bottom_right_radius: 21.2,
+            bottom_left_radius: 6.,
+            border_width,
+            background: Brush::SolidColor(Color::from_argb_u8(200, 10, 20, 30)),
+            border: Brush::SolidColor(Color::from_argb_u8(230, 200, 100, 0)),
+            alpha: 255,
+            rotation: RenderingRotation::NoRotation,
+        };
+        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+            processor.process_rectangle(&args, *clip)
+        });
+    }
+}

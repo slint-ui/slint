@@ -404,20 +404,24 @@ pub(super) fn draw_rounded_rectangle_line(
     let border = Shifted::new(rr.width.get());
     const ONE: Shifted = Shifted::ONE;
     const ZERO: Shifted = Shifted(0);
+    let left_clip = (rr.left_clip.get() + extra_left_clip) as u32;
+    let to_buffer = |x: u32| x.saturating_sub(left_clip).min(width as u32) as usize;
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
         // line and the curve.
         // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
         // This algorithm just go linearly which is not perfect, but good enough.
-        for x in x1.floor()..x2.ceil() {
+        for x in x1.floor().max(left_clip)..x2.ceil().min(left_clip + width as u32) {
             // the coverage is basically how much of the pixel should be used
             let cov = ((ONE + Shifted::new(x) - x1).0 << 8) / (ONE + x2 - x1).0;
-            process_pixel(x as usize, cov);
+            process_pixel((x - left_clip) as usize, cov);
         }
     };
     let rev = |x: Shifted| {
-        (Shifted::new(width) + Shifted::new(rr.right_clip.get() + extra_right_clip))
-            .saturating_sub(x)
+        (Shifted::new(left_clip)
+            + Shifted::new(width)
+            + Shifted::new(rr.right_clip.get() + extra_right_clip))
+        .saturating_sub(x)
     };
     let calculate_xxxx = |r: i16, y: i16| {
         let r = Shifted::new(r);
@@ -456,30 +460,20 @@ pub(super) fn draw_rounded_rectangle_line(
         };
         (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
     };
-    anti_alias(
-        x1.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-        x2.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-        &mut |x, cov| {
-            if x >= width {
-                return;
-            }
-            let c = if border == ZERO { rr.inner_color } else { rr.border_color };
-            let col = PremultipliedRgbaColor {
-                alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
-                red: (((c.red as u32) * cov as u32) / 255) as u8,
-                green: (((c.green as u32) * cov as u32) / 255) as u8,
-                blue: (((c.blue as u32) * cov as u32) / 255) as u8,
-            };
-            line_buffer[x].blend(col);
-        },
-    );
+    anti_alias(x1, x2, &mut |x, cov| {
+        let c = if border == ZERO { rr.inner_color } else { rr.border_color };
+        let col = PremultipliedRgbaColor {
+            alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
+            red: (((c.red as u32) * cov as u32) / 255) as u8,
+            green: (((c.green as u32) * cov as u32) / 255) as u8,
+            blue: (((c.blue as u32) * cov as u32) / 255) as u8,
+        };
+        line_buffer[x].blend(col);
+    });
     if y < rr.width {
         // up or down border (x2 .. x7)
-        let l = x2
-            .ceil()
-            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
-            .min(width as u32) as usize;
-        let r = x7.floor().min(width as u32) as usize;
+        let l = to_buffer(x2.ceil());
+        let r = to_buffer(x7.floor());
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[l..r], rr.border_color)
         }
@@ -488,66 +482,40 @@ pub(super) fn draw_rounded_rectangle_line(
             // 3. draw the border (between x2 and x3)
             if ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
-                    &mut line_buffer[x2
-                        .ceil()
-                        .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
-                        .min(width as u32) as usize
-                        ..x3.floor()
-                            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
-                            .min(width as u32) as usize],
+                    &mut line_buffer[to_buffer(x2.ceil())..to_buffer(x3.floor())],
                     rr.border_color,
                 )
             }
             // 4. anti-aliasing for the contents (x3 .. x4)
-            anti_alias(
-                x3.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-                x4.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-                &mut |x, cov| {
-                    if x >= width {
-                        return;
-                    }
-                    let col = interpolate_color(cov, rr.border_color, rr.inner_color);
-                    line_buffer[x].blend(col);
-                },
-            );
+            anti_alias(x3, x4, &mut |x, cov| {
+                let col = interpolate_color(cov, rr.border_color, rr.inner_color);
+                line_buffer[x].blend(col);
+            });
         }
         if rr.inner_color.alpha > 0 {
             // 5. inside (x4 .. x5)
-            let begin = x4
-                .ceil()
-                .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
-                .min(width as u32);
-            let end = x5.floor().min(width as u32);
+            let begin = to_buffer(x4.ceil());
+            let end = to_buffer(x5.floor());
             if begin < end {
-                TargetPixel::blend_slice(
-                    &mut line_buffer[begin as usize..end as usize],
-                    rr.inner_color,
-                )
+                TargetPixel::blend_slice(&mut line_buffer[begin..end], rr.inner_color)
             }
         }
         if border > ZERO {
             // 6. border anti-aliasing: x5..x6
             anti_alias(x5, x6, &mut |x, cov| {
-                if x >= width {
-                    return;
-                }
                 let col = interpolate_color(cov, rr.inner_color, rr.border_color);
                 line_buffer[x].blend(col)
             });
             // 7. border x6 .. x7
             if ONE + x6 <= x7 {
                 TargetPixel::blend_slice(
-                    &mut line_buffer[x6.ceil().min(width as u32) as usize
-                        ..x7.floor().min(width as u32) as usize],
+                    &mut line_buffer[to_buffer(x6.ceil())..to_buffer(x7.floor())],
                     rr.border_color,
                 )
             }
         }
     }
     anti_alias(x7, x8, &mut |x, cov| {
-        if x >= width {
-            return;
-        }
         let c = if border == ZERO { rr.inner_color } else { rr.border_color };
         let col = PremultipliedRgbaColor {
             alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
