@@ -637,9 +637,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "207aedd8d29a0eb804986bc99eed0d43719fec84a9b7f9c8b70cf83b97cffcc1"
+checksum = "f360145194ee8e21db5ee7f3fcd4fe52210864c75c985dae33218202c8bbe040"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1111,11 +1111,6 @@ name = "dpi"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
-
-[[package]]
-name = "dpi"
-version = "0.1.2"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
 
 [[package]]
 name = "drm"
@@ -1741,7 +1736,7 @@ dependencies = [
  "cfg_aliases",
  "glutin",
  "raw-window-handle",
- "winit 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "winit",
 ]
 
 [[package]]
@@ -2097,9 +2092,9 @@ dependencies = [
  "web-sys",
  "webbrowser",
  "windows",
- "winit 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-wayland 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-x11 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit",
+ "winit-wayland",
+ "winit-x11",
  "zbus",
 ]
 
@@ -3108,7 +3103,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd04e60bc0b07438a6771710ee1698f98f6ebbc7f89b61264af1563b8aeb878"
 dependencies = [
  "crossbeam-channel",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "keyboard-types 0.7.0",
  "objc2",
  "objc2-app-kit",
@@ -6307,48 +6302,22 @@ dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "libc",
  "raw-window-handle",
  "rustix 1.1.5",
  "smol_str",
  "tracing",
- "winit-android 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-appkit 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-orbital 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-uikit 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-wayland 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-web 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-win32 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-x11 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "cfg_aliases",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "libc",
- "raw-window-handle",
- "rustix 1.1.5",
- "smol_str",
- "tracing",
- "winit-android 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-appkit 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-orbital 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-uikit 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-wayland 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-web 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-win32 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-x11 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-android",
+ "winit-appkit",
+ "winit-common",
+ "winit-core",
+ "winit-orbital",
+ "winit-uikit",
+ "winit-wayland",
+ "winit-web",
+ "winit-win32",
+ "winit-x11",
 ]
 
 [[package]]
@@ -6359,27 +6328,12 @@ checksum = "d5d60d944a564986b9311e325334cc22e7e4cf726dd0ff7475fd925404215af4"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.13.2",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-android"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "android-activity 0.6.1",
- "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "ndk 0.9.0",
- "raw-window-handle",
- "smol_str",
- "tracing",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-core",
 ]
 
 [[package]]
@@ -6391,7 +6345,7 @@ dependencies = [
  "bitflags 2.13.2",
  "block2",
  "dispatch2",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
@@ -6401,30 +6355,8 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-appkit"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "block2",
- "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "objc2",
- "objc2-app-kit",
- "objc2-core-foundation",
- "objc2-core-graphics",
- "objc2-core-video",
- "objc2-foundation",
- "raw-window-handle",
- "smol_str",
- "tracing",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-common",
+ "winit-core",
 ]
 
 [[package]]
@@ -6434,32 +6366,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e90422ff1c04502aaaac1dad1d099791c2bbb3fbb3f823019e0ce5cdeee04025"
 dependencies = [
  "block2",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "memmap2",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "x11-dl",
- "xkbcommon-dl",
-]
-
-[[package]]
-name = "winit-common"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "block2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "memmap2",
- "objc2",
- "objc2-core-foundation",
- "objc2-foundation",
- "smol_str",
- "tracing",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-core",
  "x11-dl",
  "xkbcommon-dl",
 ]
@@ -6472,25 +6386,11 @@ checksum = "b8af6307236c51847199950c15cf80e0481a250bb96ce9132f5026df4ad3d0f9"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str",
  "url",
- "web-time",
-]
-
-[[package]]
-name = "winit-core"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "keyboard-types 0.8.3",
- "raw-window-handle",
- "smol_str",
  "web-time",
 ]
 
@@ -6501,30 +6401,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "278a8ae837902a3bc95dd2fd696d680da33f32130eecc29905358c9089cf6c50"
 dependencies = [
  "bitflags 2.13.2",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "libredox",
  "orbclient",
  "raw-window-handle",
  "redox_event",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-orbital"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "libredox",
- "orbclient",
- "raw-window-handle",
- "redox_event",
- "smol_str",
- "tracing",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-core",
 ]
 
 [[package]]
@@ -6536,7 +6420,7 @@ dependencies = [
  "bitflags 2.13.2",
  "block2",
  "dispatch2",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
@@ -6544,28 +6428,8 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-uikit"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "block2",
- "dispatch2",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "objc2",
- "objc2-core-foundation",
- "objc2-foundation",
- "objc2-ui-kit",
- "raw-window-handle",
- "smol_str",
- "tracing",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-common",
+ "winit-core",
 ]
 
 [[package]]
@@ -6577,33 +6441,7 @@ dependencies = [
  "bitflags 2.13.2",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "foldhash 0.2.0",
- "libc",
- "memmap2",
- "percent-encoding",
- "raw-window-handle",
- "rustix 1.1.5",
- "smithay-client-toolkit",
- "smol_str",
- "tracing",
- "wayland-backend",
- "wayland-client",
- "wayland-protocols",
- "wayland-protocols-plasma",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-wayland"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "calloop",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "dpi",
  "foldhash 0.2.0",
  "libc",
  "memmap2",
@@ -6618,8 +6456,8 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-plasma",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-common",
+ "winit-core",
 ]
 
 [[package]]
@@ -6632,7 +6470,7 @@ dependencies = [
  "bitflags 2.13.2",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -6642,29 +6480,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-web"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "atomic-waker",
- "bitflags 2.13.2",
- "concurrent-queue",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "js-sys",
- "pin-project",
- "raw-window-handle",
- "smol_str",
- "tracing",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "web-time",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-core",
 ]
 
 [[package]]
@@ -6675,33 +6491,15 @@ checksum = "25fb480c41df01d351f656cbf3ad74013f8a9d22bb5b2dcab59f9167e7a0b6ec"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "raw-window-handle",
  "smol_str",
  "tracing",
  "unicode-segmentation",
  "url",
  "windows-sys 0.61.2",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "winit-win32"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "percent-encoding",
- "raw-window-handle",
- "smol_str",
- "tracing",
- "unicode-segmentation",
- "windows-sys 0.61.2",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-common",
+ "winit-core",
 ]
 
 [[package]]
@@ -6714,38 +6512,15 @@ dependencies = [
  "bytemuck",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dpi",
  "libc",
  "percent-encoding",
  "raw-window-handle",
  "rustix 1.1.5",
  "smol_str",
  "tracing",
- "winit-common 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "winit-core 0.31.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "x11-dl",
- "x11rb",
- "xkbcommon-dl",
-]
-
-[[package]]
-name = "winit-x11"
-version = "0.31.0-beta.3"
-source = "git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f#809b3bca8817e74d89af040918b443206526b89f"
-dependencies = [
- "bitflags 2.13.2",
- "bytemuck",
- "calloop",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "libc",
- "percent-encoding",
- "raw-window-handle",
- "rustix 1.1.5",
- "smol_str",
- "tracing",
- "winit-common 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
- "winit-core 0.31.0-beta.3 (git+https://github.com/Murmele/winit.git?rev=809b3bca8817e74d89af040918b443206526b89f)",
+ "winit-common",
+ "winit-core",
  "x11-dl",
  "x11rb",
  "xkbcommon-dl",
