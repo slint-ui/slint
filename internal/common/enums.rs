@@ -481,6 +481,7 @@ macro_rules! for_each_enums {
                 /// The element is a `Slider` or behaves like one.
                 Slider,
                 /// The element is a `SpinBox` or behaves like one.
+                /// Set `accessible-role: none` on the `TextInput` inside it, whose text this role describes.
                 Spinbox,
                 /// The element is a `Tab` or behaves like one.
                 Tab,
@@ -498,6 +499,8 @@ macro_rules! for_each_enums {
                 ProgressIndicator,
                 /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
                 /// This is automatically applied to `TextInput` elements.
+                /// Set `accessible-role: none` on the `TextInput` inside an element that takes this role,
+                /// whose text the role describes.
                 TextInput,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
