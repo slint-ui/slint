@@ -82,23 +82,23 @@ jobs:
 
     visual_editor:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor (${{ matrix.suite }}${{ matrix.name_suffix }})
+        name: Visual Editor (${{ matrix.name }})
         strategy:
             fail-fast: false
             matrix:
                 include:
-                    - suite: rust
+                    - name: Rust on macOS
+                      suite: rust
                       os: macos-14
-                      name_suffix: ""
-                    - suite: rust
+                    - name: Rust on Linux
+                      suite: rust
                       os: ubuntu-22.04
-                      name_suffix: " on Linux"
-                    - suite: rust
+                    - name: Rust on Windows
+                      suite: rust
                       os: windows-2022
-                      name_suffix: " on Windows"
-                    - suite: ui
+                    - name: UI on macOS
+                      suite: ui
                       os: macos-14
-                      name_suffix: ""
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         env:
@@ -111,7 +111,6 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-              if: runner.os == 'Linux'
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
