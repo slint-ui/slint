@@ -141,6 +141,21 @@ impl Collection {
         self.inner.query(&mut self.source_cache)
     }
 
+    /// The first font any of `families` provides, in order, or `None` when none of them do.
+    pub fn first_match<'a>(
+        &mut self,
+        families: impl IntoIterator<Item = fontique::QueryFamily<'a>>,
+    ) -> Option<fontique::QueryFont> {
+        let mut query = self.query();
+        query.set_families(families);
+        let mut font = None;
+        query.matches_with(|queried_font| {
+            font = Some(queried_font.clone());
+            fontique::QueryStatus::Stop
+        });
+        font
+    }
+
     pub fn get_font_for_info(
         &mut self,
         family_id: fontique::FamilyId,
