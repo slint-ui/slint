@@ -1,0 +1,81 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface ValueControl {
+    in-out property <int> value;
+}
+
+component ValueImpl inherits Rectangle {
+    implement ValueControl <=> self;
+    in-out property <int> value;
+    out property <int> changes;
+    changed value => { root.changes += 1; }
+    height: 20px;
+}
+
+component Host {
+    in-out property <int> value: 3;
+    out property <int> changes;
+    out property <int> observed;
+    slot <ValueControl> control;
+
+    VerticalLayout {
+        spacing: 0px;
+        alignment: start;
+        control {
+            value <=> root.value;
+            changed value => {
+                root.observed = control.value;
+                root.changes += 1;
+            }
+        }
+        @children
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 80px;
+    in-out property <int> value <=> host.value;
+    out property <int> supplied-value: supplied.value;
+    out property <int> host-changes: host.changes;
+    out property <int> supplied-changes: supplied.changes;
+    out property <int> observed: host.observed;
+    public function set-supplied-value(value: int) { supplied.value = value; }
+
+    host := Host {
+        width: 100px;
+        height: 80px;
+        control << supplied := ValueImpl { }
+        extra := Rectangle { height: 17px; }
+    }
+
+    out property <bool> test: supplied.height == 20px && extra.height == 17px
+        && extra.absolute-position.y - supplied.absolute-position.y == 20px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_value(), 3);
+assert_eq!(instance.get_supplied_value(), 3);
+slint_testing::mock_elapsed_time(1);
+let host_changes = instance.get_host_changes();
+let supplied_changes = instance.get_supplied_changes();
+
+instance.set_value(7);
+assert_eq!(instance.get_supplied_value(), 7);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_observed(), 7);
+assert_eq!(instance.get_host_changes(), host_changes + 1);
+assert_eq!(instance.get_supplied_changes(), supplied_changes + 1);
+
+instance.invoke_set_supplied_value(11);
+assert_eq!(instance.get_value(), 11);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_observed(), 11);
+assert_eq!(instance.get_host_changes(), host_changes + 2);
+assert_eq!(instance.get_supplied_changes(), supplied_changes + 2);
+```
+*/

@@ -76,6 +76,8 @@ pub fn ensure_window(
         inline_depth: 0,
         is_legacy_syntax: false,
         slot_target: None,
+        typed_slot_interface: None,
+        implemented_interfaces: Vec::new(),
         forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();

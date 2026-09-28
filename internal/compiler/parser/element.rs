@@ -70,7 +70,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
-                SyntaxKind::Identifier | SyntaxKind::Semicolon if p.peek().as_str() == "slot" => {
+                SyntaxKind::Identifier | SyntaxKind::Semicolon | SyntaxKind::LAngle
+                    if p.peek().as_str() == "slot" =>
+                {
                     parse_slot_declaration(&mut *p)
                 }
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
@@ -245,11 +247,16 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,SlotDeclaration
 /// slot header;
+/// slot <ContentInterface> content;
 /// ```
 fn parse_slot_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "slot");
     let mut p = p.start_node(SyntaxKind::SlotDeclaration);
     p.expect(SyntaxKind::Identifier); // "slot"
+    if p.test(SyntaxKind::LAngle) {
+        parse_qualified_name(&mut *p);
+        p.expect(SyntaxKind::RAngle);
+    }
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);

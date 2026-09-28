@@ -1,0 +1,66 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction {
+    in property <bool> enabled;
+    out property <bool> pressed;
+    callback activated();
+}
+
+component Host {
+    slot <Interaction> control;
+    control { }
+}
+
+component LooksSimilar {
+    in property <bool> enabled;
+    out property <bool> pressed;
+    callback activated();
+}
+
+export component WrongImplementation {
+    Host {
+        control << LooksSimilar { }
+//                 >           <error{Slot 'control' requires a component implementing 'Interaction'}
+    }
+}
+
+export component WrongSlotType {
+    slot <Rectangle> control;
+//        >       <error{Slot type 'Rectangle' must be an interface}
+    control { }
+}
+
+export component NoChildrenInPlaceholder {
+    slot <Interaction> control;
+    control {
+        Rectangle { }
+//      >           <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+interface Other { in property <int> value; }
+
+export component WrongForwarding {
+    slot <Other> input;
+    Host {
+        control << input;
+//                 >   <error{Forwarded slot 'input' has an incompatible interface}
+    }
+    input { }
+}
+
+export component CannotReadExtraMembers {
+    slot <Interaction> control;
+    control { }
+    out property <int> secret: control.secret;
+//                                     >    <error{Element 'Interaction' does not have a property 'secret'}
+}
+
+export component CannotWriteOutput {
+    slot <Interaction> control;
+    control {
+        pressed: true;
+//      >     <error{Cannot assign to 'out' property 'pressed'}
+    }
+}
