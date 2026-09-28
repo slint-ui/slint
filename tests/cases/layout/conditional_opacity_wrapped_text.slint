@@ -1,0 +1,45 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A positioned conditional element with `opacity` gets an injected `Opacity` wrapper
+// as the root of its component. The wrapper has no `width`, the element below it has.
+
+component WrappedText inherits VerticalLayout {
+    in property <string> text;
+    Text {
+        text: root.text;
+        wrap: word-wrap;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <float> faded-opacity: 0.5;
+
+    Rectangle {
+        if true: WrappedText {
+            x: 0;
+            y: 0;
+            width: 100px;
+            opacity: root.faded-opacity;
+            text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+*/
