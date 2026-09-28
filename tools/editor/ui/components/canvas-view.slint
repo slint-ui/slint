@@ -108,8 +108,8 @@ export global CanvasView {
         if !self.navigation-enabled || self.panning { return; }
         if !has-selection || self.selection.width <= 0px || self.selection.height <= 0px {
             self.center-point({
-                x: Project.canvas-width / 2,
-                y: Project.canvas-height / 2,
+                x: self.canvas-size.width / 2,
+                y: self.canvas-size.height / 2,
             });
             return;
         }
