@@ -648,14 +648,7 @@ jobs:
 
     emscripten_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        strategy:
-            matrix:
-                include:
-                    - name: default renderers
-                      cmake_args: ""
-                    - name: software renderer
-                      cmake_args: "-DSLINT_FEATURE_RENDERER_FEMTOVG=OFF"
-        name: Emscripten C++ (${{ matrix.name }})
+        name: Emscripten C++
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -673,9 +666,15 @@ jobs:
                   [patch.crates-io]
                   femtovg = { git = "https://github.com/femtovg/femtovg", rev = "d9f4dde04b89ca37783e10857cb90ce805dbe361" }
                   EOF
-            - name: Configure
-              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON ${{ matrix.cmake_args }}
-            - name: Build todo example
+            - name: Configure (default renderers)
+              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
+            - name: Build todo example (default renderers)
+              run: cmake --build build --target todo
+            - name: Configure (software renderer)
+              if: ${{ inputs.full }}
+              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=OFF
+            - name: Build todo example (software renderer)
+              if: ${{ inputs.full }}
               run: cmake --build build --target todo
 
     test-figma-inspector:
