@@ -374,6 +374,36 @@ def test_overlapping_hover_does_not_intercept_selected_element_drag(
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
 
+def test_overlapping_hover_selects_topmost_item_on_click(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        artboard = window_element_with_label(
+            window, "Artboard", slint_testing.AccessibleRole.Region
+        )
+        select_fixture_element(window, "Rectangle")
+        overlapping = slint_testing.LogicalPosition(
+            x=artboard.absolute_position.x + 200,
+            y=artboard.absolute_position.y + 80,
+        )
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
+        window_element_with_label(window, "Hovered Text")
+        window.dispatch_event(slint_testing.PointerPressEvent(overlapping, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(overlapping, button))
+        window_element_with_label(
+            window, "Selected Text", slint_testing.AccessibleRole.Region
+        )
+        window_element_with_label(window, "Hovered Text")
+        assert not elements_with_label(window.root_element, "Selected Rectangle")
+        snapshot.assert_unchanged()
+
+
 def test_hover_outside_selected_element_can_select_and_drag_child(
     editor_binary: Path,
     editor_environment: dict[str, str],
