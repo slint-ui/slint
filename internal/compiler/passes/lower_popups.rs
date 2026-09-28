@@ -220,13 +220,8 @@ fn lower_popup_window(
         NamedReference::new(&popup_comp.root_element, SmolStr::new_static(ANCHOR_PROPERTY_NAME));
     // Ensure anchor is in property_declarations so lower_sub_component maps it as a Property
     // (not as a native Window property, since Window has no anchor). Must happen before the
-    // base type is changed to Window below. Only needed for a direct `PopupWindow { ... }`
-    // instantiation: components that inherit PopupWindow already materialized it on their own
-    // root element in the `None` branch above, and redoing it here on the instance element would
-    // shadow that declaration with a second, differently-indexed one.
-    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-        materialize_anchor_property(&popup_comp.root_element);
-    }
+    // base type is changed to Window below.
+    materialize_anchor_property(&popup_comp.root_element);
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
@@ -263,12 +258,16 @@ fn lower_popup_window(
     });
 }
 
-/// Copies the `anchor` property's type from the builtin `PopupWindow` into `elem`'s own
-/// `property_declarations`, if not already declared there. Without this, once `elem`'s base type
-/// is swapped to the native `Window` type (which has no `anchor`), the property would no longer be
-/// resolvable. `lookup_property` walks the base-type chain, so this also covers components that
-/// `inherit PopupWindow` rather than instantiate it directly.
+/// Declares `anchor` on `elem` if it derives directly from the builtin `PopupWindow`.
+/// The native `Window` type that replaces that base type has no `anchor`,
+/// so without the declaration the property would no longer resolve.
+/// An element deriving from a component takes the declaration from that component's root,
+/// which is lowered first.
+/// Declaring it again collides when the inlining pass merges the two.
 fn materialize_anchor_property(elem: &ElementRc) {
+    if !matches!(elem.borrow().base_type, ElementType::Builtin(_)) {
+        return;
+    }
     let anchor_type = elem
         .borrow()
         .lookup_property(ANCHOR_PROPERTY_NAME, PropertyLookupMode::ComponentLocal)
