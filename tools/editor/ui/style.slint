@@ -636,8 +636,11 @@ export struct CornerEditorStyle {
 }
 
 export struct ColorFieldStyle {
-    decorative: color,
+    checker: TransparencyGridStyle,
+    divider: color,
     field: FieldStyle,
+    opacity-width: length = 52px,
+    swatch-size: length = 16px,
     swatch-border: color,
 }
 
@@ -1062,7 +1065,7 @@ export global LightTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: LightTheme.colors.muted.with-alpha(0.35),
+        divider: LightTheme.colors.subtle-border,
         swatch-border: LightTheme.colors.muted,
     };
 }
@@ -1347,7 +1350,7 @@ export global DarkTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: DarkTheme.colors.muted.with-alpha(0.35),
+        divider: DarkTheme.colors.subtle-border,
         swatch-border: DarkTheme.colors.muted,
     };
 }
@@ -1983,7 +1986,10 @@ export global Style {
 
     out property <ColorFieldStyle> color-field: {
         field: root.inspector-field,
-        decorative: Theme.fields.color-field.decorative,
+        checker: root.transparency-grid,
+        divider: Theme.fields.color-field.divider,
+        opacity-width: Theme.fields.color-field.opacity-width,
+        swatch-size: Theme.fields.color-field.swatch-size,
         swatch-border: Theme.fields.color-field.swatch-border,
     };
 }

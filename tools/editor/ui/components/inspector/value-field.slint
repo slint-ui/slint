@@ -10,14 +10,25 @@ export component InspectorValueField inherits FocusScope {
     in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
     in property <int> corner-index: -1;
     in property <string> value;
     in property <string> commit-key: "";
+    in property <length> radius: root.style.radius;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <bool> normalize-accepted: false;
+    in property <bool> show-focus-border: true;
     in property <bool> scrubbable: false;
+    in property <bool> scrub-on-suffix: false;
     in property <float> scrub-value;
     in property <bool> scrub-has-minimum: false;
     in property <float> scrub-minimum;
+    in property <bool> scrub-has-maximum: false;
+    in property <float> scrub-maximum;
+    out property <bool> input-focused: field.input-focused;
     callback accepted(string) -> bool;
+    callback normalized(string) -> string;
     callback scrub-preview(float) -> bool;
     callback scrub-accepted(float) -> bool;
     callback scrub-canceled(float);
@@ -41,10 +52,31 @@ export component InspectorValueField inherits FocusScope {
     function update-scrub(mouse-x: length) {
         let delta = (mouse-x - root.scrub-start-x) / 1px;
         let stepped-value = (root.scrub-initial-value + delta).round();
-        let value = root.scrub-has-minimum ? max(root.scrub-minimum, stepped-value) : stepped-value;
+        let minimum-clamped = root.scrub-has-minimum ? max(root.scrub-minimum, stepped-value) : stepped-value;
+        let value = root.scrub-has-maximum ? min(root.scrub-maximum, minimum-clamped) : minimum-clamped;
         root.scrub-drag-value = value;
         if !root.scrub-preview(value) {
             root.cancel-scrub();
+        }
+    }
+
+    function begin-scrub(mouse-x: length) {
+        root.focus();
+        root.scrubbing = true;
+        root.scrub-start-x = mouse-x;
+        root.scrub-initial-value = root.scrub-value;
+        root.scrub-drag-value = root.scrub-value;
+    }
+
+    function finish-scrub() {
+        let value = root.scrub-drag-value;
+        root.scrubbing = false;
+        if value != root.scrub-initial-value {
+            if !root.scrub-accepted(value) {
+                root.scrub-canceled(root.scrub-initial-value);
+            }
+        } else {
+            root.scrub-canceled(root.scrub-initial-value);
         }
     }
 
@@ -58,6 +90,12 @@ export component InspectorValueField inherits FocusScope {
 
     field := InspectorTextFieldBase {
         style: root.style;
+        radius: root.radius;
+        horizontal-alignment: root.horizontal-alignment;
+        suffix: root.suffix;
+        suffix-width: root.suffix-width;
+        normalize-accepted: root.normalize-accepted;
+        show-focus-border: root.show-focus-border;
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
@@ -66,6 +104,7 @@ export component InspectorValueField inherits FocusScope {
         accepted(text) => {
             return root.accepted(text);
         }
+        normalized(text) => { return root.normalized(text); }
 
         if root.corner-index >= 0: Path {
             width: Metrics.icon-small;
@@ -89,35 +128,44 @@ export component InspectorValueField inherits FocusScope {
                 font-size: Typography.caption.size - 1px;
                 vertical-alignment: center;
             }
-            if root.scrubbable: prefix-touch := TouchArea {
+            if root.scrubbable && !root.scrub-on-suffix: TouchArea {
                 enabled: root.enabled;
                 mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
                 accessible-role: AccessibleRole.slider;
                 accessible-label: root.accessible-name + " scrubber";
-                accessible-value: "\{root.scrub-value}";
+                accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
                 pointer-event(event) => {
                     if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                        root.focus();
-                        root.scrubbing = true;
-                        root.scrub-start-x = self.mouse-x;
-                        root.scrub-initial-value = root.scrub-value;
-                        root.scrub-drag-value = root.scrub-value;
+                        root.begin-scrub(self.mouse-x);
                     } else if event.kind == PointerEventKind.move && root.scrubbing {
                         root.update-scrub(self.mouse-x);
                     } else if event.kind == PointerEventKind.up && root.scrubbing {
-                        let value = root.scrub-drag-value;
-                        root.scrubbing = false;
-                        if value != root.scrub-initial-value {
-                            if !root.scrub-accepted(value) {
-                                root.scrub-canceled(root.scrub-initial-value);
-                            }
-                        } else {
-                            root.scrub-canceled(root.scrub-initial-value);
-                        }
+                        root.finish-scrub();
                     } else if event.kind == PointerEventKind.cancel {
                         root.cancel-scrub();
                     }
                 }
+            }
+        }
+    }
+
+    if root.scrubbable && root.scrub-on-suffix && root.suffix != "": TouchArea {
+        x: root.width - root.style.padding-inline - root.suffix-width;
+        width: root.suffix-width;
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
+        accessible-role: AccessibleRole.slider;
+        accessible-label: root.accessible-name + " scrubber";
+        accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.begin-scrub(self.mouse-x);
+            } else if event.kind == PointerEventKind.move && root.scrubbing {
+                root.update-scrub(self.mouse-x);
+            } else if event.kind == PointerEventKind.up && root.scrubbing {
+                root.finish-scrub();
+            } else if event.kind == PointerEventKind.cancel {
+                root.cancel-scrub();
             }
         }
     }

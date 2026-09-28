@@ -646,6 +646,38 @@ jobs:
                   ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
               run: gradle assembleDebug
 
+    emscripten_cpp:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        strategy:
+            matrix:
+                include:
+                    - name: default renderers
+                      cmake_args: ""
+                    - name: software renderer
+                      cmake_args: "-DSLINT_FEATURE_RENDERER_FEMTOVG=OFF"
+        name: Emscripten C++ (${{ matrix.name }})
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-emscripten
+            - uses: mymindstorm/setup-emsdk@v16
+              with:
+                  version: 6.0.10
+            - run: sudo apt-get install -y ninja-build
+            # Until a femtovg release includes femtovg/femtovg#354
+            - name: Use femtovg with Emscripten support
+              run: |
+                  cat >> .cargo/config.toml <<'EOF'
+                  [patch.crates-io]
+                  femtovg = { git = "https://github.com/femtovg/femtovg", rev = "d9f4dde04b89ca37783e10857cb90ce805dbe361" }
+                  EOF
+            - name: Configure
+              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON ${{ matrix.cmake_args }}
+            - name: Build todo example
+              run: cmake --build build --target todo
+
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest

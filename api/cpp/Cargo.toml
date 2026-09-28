@@ -39,7 +39,7 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
 backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
 backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
@@ -98,6 +98,10 @@ unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
+
+[target.'cfg(target_os = "emscripten")'.dependencies]
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-renderer-femtovg = { workspace = true, features = ["default", "opengl"], optional = true }
 
 [build-dependencies]
 anyhow = "1.0"

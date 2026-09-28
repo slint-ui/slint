@@ -636,8 +636,18 @@ export component InspectorPane inherits Rectangle {
                     title: "APPEARANCE";
                     use-shared-title: true;
 
-                    InspectorPropertyRow {
-                        label: root.is-text-selection() ? "Color" : "Fill";
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-small;
+
+                        Text {
+                            height: Metrics.icon-small;
+                            text: root.is-text-selection() ? "Color" : "Fill";
+                            color: Colors.muted;
+                            font-size: Typography.control.size;
+                            vertical-alignment: center;
+                        }
 
                         if root.is-root-selection(): InspectorColorField {
                             property <PropertyValue> background-value: Api.current-property-value-data("background");
@@ -648,7 +658,9 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            width: parent.width - 2 * root.style.padding - root.style.label-width - root.style.row-gap;
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -663,7 +675,9 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            width: parent.width - 2 * root.style.padding - root.style.label-width - root.style.row-gap;
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -678,7 +692,9 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("color");
                             session-key: root.fill-session-key("color");
                             property-name: "color";
-                            width: parent.width - 2 * root.style.padding - root.style.label-width - root.style.row-gap;
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("color", text);
                             }
@@ -740,6 +756,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             VerticalLayout {
+                                horizontal-stretch: 1;
                                 spacing: Metrics.space-small;
 
                                 Text {

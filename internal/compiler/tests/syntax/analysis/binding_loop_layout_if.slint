@@ -6,16 +6,18 @@ component Wrapper {
     height: 100%;
 
     Rectangle {
-//  >        <error{The binding for the property 'layoutinfo-h' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)}
+//  >        <error{The binding for the property 'layoutinfo-h' is part of a binding loop (HorizontalLayout.layout-cache -> Wrapper.width -> VerticalLayout.layoutinfo-h -> Rectangle.layoutinfo-h -> Wrapper.layoutinfo-h -> HorizontalLayout.layout-cache)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
         VerticalLayout {
+//      >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 8}
             if root.width > 200px: Rectangle { }
         }
     }
 }
 
 component WrapperInherited inherits Rectangle {
-//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h)↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                                  >        <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (root.layoutinfo-h -> VerticalLayout.width -> HorizontalLayout.width -> HorizontalLayout.layout-cache -> WrapperInherited.width -> VerticalLayout.layoutinfo-h -> WrapperInherited.layoutinfo-h -> HorizontalLayout.layoutinfo-h -> VerticalLayout.layoutinfo-h -> root.layoutinfo-h)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
     VerticalLayout {
+//  >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 17}
         if root.width > 200px: Rectangle { }
     }
 }

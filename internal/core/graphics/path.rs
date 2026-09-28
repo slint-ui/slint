@@ -621,7 +621,7 @@ mod tests {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

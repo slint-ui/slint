@@ -19,8 +19,28 @@ use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
 pub mod platform;
 
-#[cfg(feature = "i-slint-backend-selector")]
-use i_slint_backend_selector::with_platform;
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+mod emscripten;
+
+#[cfg(all(feature = "i-slint-backend-selector", not(target_os = "emscripten")))]
+use i_slint_backend_selector::{with_global_context, with_platform};
+
+/// The selector has no Emscripten backend, so create the platform here.
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+fn with_global_context<R>(
+    f: impl FnOnce(&i_slint_core::SlintContext) -> R,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    i_slint_core::with_global_context(emscripten::create_platform, f)
+}
+
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+pub fn with_platform<R>(
+    f: impl FnOnce(
+        &dyn i_slint_core::platform::Platform,
+    ) -> Result<R, i_slint_core::platform::PlatformError>,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    with_global_context(|ctx| f(ctx.platform()))?
+}
 
 #[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
@@ -96,9 +116,11 @@ pub extern "C" fn slint_ensure_backend() {
     .unwrap()
 }
 
-#[unsafe(no_mangle)]
 /// Enters the main event loop.
-pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
+/// On Emscripten, it leaves `main()` by unwinding with a JavaScript exception; see
+/// `emscripten_set_main_loop`.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
     with_platform(|b| {
         if !quit_on_last_window_closed {
             #[allow(deprecated)]
@@ -274,8 +296,7 @@ use esp_backtrace as _;
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
     #[cfg(feature = "i-slint-backend-selector")]
-    i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone()))
-        .unwrap();
+    with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone())).unwrap();
 }
 
 #[unsafe(no_mangle)]
@@ -403,7 +424,7 @@ mod translator {
         ntranslate: NTranslateCallback,
     ) -> bool {
         #[cfg(feature = "i-slint-backend-selector")]
-        i_slint_backend_selector::with_global_context(|ctx| {
+        crate::with_global_context(|ctx| {
             if !obj.is_null() {
                 ctx.set_external_translator(Some(Box::new(CppTranslator {
                     obj,

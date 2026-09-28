@@ -16,7 +16,10 @@ use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
 use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode, Type};
-use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layout_info_call};
+use crate::layout::{
+    BuiltinFilter, LayoutConstraints, MergedFixedSize, Orientation, implicit_layout_info_call,
+    repeated_element_layout_info,
+};
 use crate::object_tree::{Component, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
@@ -207,15 +210,56 @@ fn gen_layout_info_prop(
                 .cloned()
                 .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
                 .map(|(h, v)| {
-                    (Some(Expression::PropertyReference(h)), Some(Expression::PropertyReference(v)))
+                    let mut h = Expression::PropertyReference(h);
+                    let mut v = Expression::PropertyReference(v);
+                    // On a fixed axis, the child's own layout info leaves out its explicit
+                    // constraints, so that one may read `self.min-width` without a loop.
+                    let constraints = LayoutConstraints::build(c, None, MergedFixedSize::Ignored);
+                    if constraints.fixed_width {
+                        merge_explicit_constraints(
+                            &mut h,
+                            &constraints,
+                            Orientation::Horizontal,
+                            symbol_counters,
+                        );
+                    }
+                    if constraints.fixed_height {
+                        merge_explicit_constraints(
+                            &mut v,
+                            &constraints,
+                            Orientation::Vertical,
+                            symbol_counters,
+                        );
+                    }
+                    (Some(h), Some(v))
                 })
                 .or_else(|| {
                     if c.borrow().is_legacy_syntax {
                         return None;
                     }
-                    if c.borrow().repeated.is_some() {
-                        // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (same as #407)
-                        return None;
+                    if let Some(r) = cb.repeated.as_ref() {
+                        // Merge every instance's LayoutInfo (issue #407).
+                        //
+                        // A ListView is left out for the reason `flickable.rs` leaves it
+                        // out; a hand-rolled one isn't Flickable content, so the early
+                        // return above doesn't catch it. A ComponentContainer's
+                        // placeholder is a fake `if false:` repeater, and the container
+                        // reports the embedded tree's constraints itself.
+                        if r.is_listview.is_some() || cb.is_component_placeholder {
+                            return None;
+                        }
+                        return Some((
+                            Some(repeated_element_layout_info(
+                                c,
+                                Orientation::Horizontal,
+                                MergedFixedSize::Ignored,
+                            )),
+                            Some(repeated_element_layout_info(
+                                c,
+                                Orientation::Vertical,
+                                MergedFixedSize::Ignored,
+                            )),
+                        ));
                     }
                     let explicit_constraints =
                         LayoutConstraints::new(c, Some((&mut *diag, DiagnosticLevel::Error)));

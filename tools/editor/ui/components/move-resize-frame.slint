@@ -15,6 +15,7 @@ export component MoveResizeFrame inherits Rectangle {
     in property <float> geometry-scale: 1;
     out property <bool> pointer-active: move-touch.pressed || root.resize-pressed || root.rotating;
     in property <bool> show-outline: true;
+    in property <bool> show-outline-while-moving;
     callback control-hovered();
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
@@ -372,8 +373,8 @@ export component MoveResizeFrame inherits Rectangle {
 
         @children
 
-        if root.active && !root.move-dragging: Rectangle {
-            if root.show-outline: Rectangle {
+        if root.active: Rectangle {
+            if root.show-outline && (!root.move-dragging || root.show-outline-while-moving): Rectangle {
                 x: -root.style.outline-width;
                 y: -root.style.outline-width;
                 width: root.width + 2 * root.style.outline-width;
@@ -382,7 +383,7 @@ export component MoveResizeFrame inherits Rectangle {
                 border-color: root.style.accent;
             }
 
-            if root.proportional-resizing(): Path {
+            if !root.move-dragging && root.proportional-resizing(): Path {
                 stroke: Colors.focus;
                 stroke-width: 1phx;
                 viewbox-width: root.width / 1px;
@@ -405,7 +406,7 @@ export component MoveResizeFrame inherits Rectangle {
                 CanvasCorner.bottom-right,
                 CanvasCorner.bottom-left,
             ]: Rectangle {
-                visible: root.show-rotation-handles;
+                visible: !root.move-dragging && root.show-rotation-handles;
                 x: root.rotation-zone-x(corner);
                 y: root.rotation-zone-y(corner);
                 width: root.style.rotation-hit-size;
@@ -470,7 +471,7 @@ export component MoveResizeFrame inherits Rectangle {
                 }
             }
 
-            if !root.rotating: Rectangle {
+            if !root.move-dragging && !root.rotating: Rectangle {
                 for edge in [CanvasEdge.top, CanvasEdge.right, CanvasEdge.bottom, CanvasEdge.left]: TouchArea {
                     visible: root.show-resize-handles && root.resizable
                         && (root.edge-horizontal(edge) ? root.height > root.style.hit-size : root.width > root.style.hit-size);

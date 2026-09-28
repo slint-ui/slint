@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore tobytes
+# cspell:ignore FAFC tobytes
 
 from pathlib import Path
 
@@ -19,6 +19,7 @@ from inspector_interactions import (
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
+    elements_with_label,
     first_window,
     launch_editor,
     press_keys,
@@ -334,7 +335,7 @@ def test_root_background_field_writes_exact_source(
         )
         root_row.invoke_accessible_default_action()
         wait_for_field(
-            window, "Root background", "#f8fafc", slint_testing.AccessibleRole.TextInput
+            window, "Root background", "F8FAFC", slint_testing.AccessibleRole.TextInput
         )
         edit_field(
             window,
@@ -353,7 +354,429 @@ def test_root_background_field_writes_exact_source(
         wait_for_field(
             window,
             "Root background",
-            "#abcdef",
+            "ABCDEF",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+
+def test_literal_color_field_separates_rgb_and_opacity(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    source_file.write_bytes(
+        replace_once(
+            source_file.read_bytes(),
+            b"        background: #2563eb;",
+            b"        background: #1a2dac4d;",
+        )
+    )
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        wait_for_field(
+            window,
+            "Rectangle background",
+            "1A2DAC",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "30",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        rgb = inspector_field(
+            window,
+            "Rectangle background",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        opacity = inspector_field(
+            window,
+            "Rectangle background opacity",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        fill_labels = elements_with_label(
+            window.root_element, "Fill", slint_testing.AccessibleRole.Text
+        )
+        assert any(
+            label.absolute_position.y < rgb.absolute_position.y for label in fill_labels
+        )
+        assert (
+            opacity.absolute_position.x + opacity.size.width - rgb.absolute_position.x
+            > 190
+        )
+        picker = inspector_field(
+            window,
+            "Rectangle background color picker",
+            slint_testing.AccessibleRole.Button,
+        )
+        rendered = screenshot(window)
+        center_x = picker.absolute_position.x + picker.size.width / 2
+        center_y = picker.absolute_position.y + picker.size.height / 2
+        opaque = rendered.getpixel((round(center_x - 4), round(center_y)))
+        transparent = {
+            rendered.getpixel((round(center_x + x), round(center_y + y)))
+            for x in (2, 5)
+            for y in (-5, -2, 2, 5)
+        }
+        assert opaque not in transparent
+        assert len(transparent) >= 2
+
+        middle_y = round(rgb.absolute_position.y + rgb.size.height / 2)
+        left_edge = (round(rgb.absolute_position.x), middle_y)
+        divider = (round(opacity.absolute_position.x), middle_y)
+        right_edge = (
+            round(opacity.absolute_position.x + opacity.size.width - 1),
+            middle_y,
+        )
+
+        rgb.invoke_accessible_default_action()
+        rgb_focused = screenshot(window)
+        assert rgb_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
+        assert rgb_focused.getpixel(divider) != rendered.getpixel(divider)
+
+        opacity.invoke_accessible_default_action()
+        opacity_focused = screenshot(window)
+        assert opacity_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert opacity_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
+
+
+def test_color_field_accepts_prefixed_rgb_and_alpha(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source_file.read_bytes(),
+        b"        background: #2563eb;",
+        b"        background: #1a2dac4d;",
+    )
+    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        edit_field(
+            window,
+            "Rectangle background",
+            "#ABCDEF",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        rgb_edit = replace_once(
+            baseline,
+            b"        background: #1a2dac4d;",
+            b"        background: #abcdef4d;",
+        )
+        snapshot.wait_for_applied(rgb_edit, relative_path=INSPECTOR_SOURCE)
+        wait_for_field(
+            window,
+            "Rectangle background",
+            "ABCDEF",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "30",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+        edit_field(
+            window,
+            "Rectangle background",
+            "#12345680",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        alpha_edit = replace_once(
+            baseline,
+            b"        background: #1a2dac4d;",
+            b"        background: #12345680;",
+        )
+        snapshot.wait_for_applied(alpha_edit, relative_path=INSPECTOR_SOURCE)
+        wait_for_field(
+            window,
+            "Rectangle background",
+            "123456",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "50",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(rgb_edit, relative_path=INSPECTOR_SOURCE)
+
+
+def test_color_field_opacity_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source_file.read_bytes(),
+        b"        background: #2563eb;",
+        b"        background: #1a2dac4d;",
+    )
+    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "30",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        opacity_field = inspector_field(
+            window,
+            "Rectangle background opacity",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        suffixes = (
+            opacity_field.query_descendants()
+            .match_id("InspectorTextFieldBase::fixed-suffix")
+            .find_all()
+        )
+        assert len(suffixes) == 1
+        suffix_position = suffixes[0].absolute_position.x
+
+        for opacity, color in (
+            ("0", b"#1a2dac00"),
+            ("50", b"#1a2dac80"),
+            ("100", b"#1a2dac"),
+            ("120", b"#1a2dac"),
+        ):
+            edit_field(
+                window,
+                "Rectangle background opacity",
+                opacity,
+                slint_testing.AccessibleRole.TextInput,
+            )
+            changed = replace_once(
+                baseline,
+                b"        background: #1a2dac4d;",
+                b"        background: " + color + b";",
+            )
+            snapshot.wait_for_applied(changed, relative_path=INSPECTOR_SOURCE)
+            wait_for_field(
+                window,
+                "Rectangle background opacity",
+                str(min(100, int(opacity))),
+                slint_testing.AccessibleRole.TextInput,
+            )
+            assert suffixes[0].absolute_position.x == suffix_position
+            press_shortcut(window, keys.Control, "z")
+            snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+            wait_for_field(
+                window,
+                "Rectangle background opacity",
+                "30",
+                slint_testing.AccessibleRole.TextInput,
+            )
+
+
+def test_opacity_suffix_scrubs_with_transient_preview(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source_file.read_bytes(),
+        b"        background: #2563eb;",
+        b"        background: #1a2dac4d;",
+    )
+    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        rectangle = window.find_elements_by_id("InspectorCases::inspect-rectangle")[0]
+        sample = (
+            round(rectangle.absolute_position.x + rectangle.size.width / 2),
+            round(rectangle.absolute_position.y + rectangle.size.height / 2),
+        )
+        before = screenshot(window).getpixel(sample)
+        scrubber = inspector_field(
+            window,
+            "Rectangle background opacity scrubber",
+            slint_testing.AccessibleRole.Slider,
+        )
+        start = element_center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "42",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.assert_unchanged_now()
+        assert screenshot(window).getpixel(sample) != before
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        expected = replace_once(
+            baseline,
+            b"        background: #1a2dac4d;",
+            b"        background: #1a2dac6b;",
+        )
+        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+
+        scrubber = inspector_field(
+            window,
+            "Rectangle background opacity scrubber",
+            slint_testing.AccessibleRole.Slider,
+        )
+        start = element_center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "42",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        press_shortcut(window, keys.Escape)
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "30",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.assert_unchanged()
+
+
+def test_color_field_uses_resolved_and_symbolic_display_modes(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    source_file = tmp_path / "ColorFieldModes.slint"
+    source_file.write_text("""export component ColorFieldModes inherits Window {
+    in property <color> accent: #1a2dac4d;
+    linear := Rectangle {
+        width: 200px;
+        height: 200px;
+        background: @linear-gradient(90deg, red 0%, blue 100%);
+    }
+    radial := Rectangle {
+        width: 200px;
+        height: 200px;
+        background: @radial-gradient(circle, red 0%, blue 100%);
+    }
+    conic := Rectangle {
+        width: 200px;
+        height: 200px;
+        background: @conic-gradient(red 0deg, blue 360deg);
+    }
+    symbolic := Rectangle {
+        width: 200px;
+        height: 200px;
+        background: root.accent;
+    }
+}
+""")
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        for element, label in (
+            ("linear", "Linear Gradient"),
+            ("radial", "Radial Gradient"),
+            ("conic", "Conic Gradient"),
+        ):
+            select_outline_row(window, element)
+            wait_until(
+                lambda label=label: next(
+                    iter(elements_with_label(window.root_element, label)), None
+                )
+            )
+            assert not elements_with_label(
+                window.root_element,
+                "Rectangle background opacity",
+                slint_testing.AccessibleRole.TextInput,
+            )
+            inspector_field(
+                window,
+                "Rectangle background color picker",
+                slint_testing.AccessibleRole.Button,
+            )
+
+        select_outline_row(window, "symbolic")
+        wait_for_field(
+            window,
+            "Rectangle background",
+            "root.accent",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        assert not elements_with_label(
+            window.root_element,
+            "Rectangle background opacity",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+
+def test_shared_color_fields_expose_opacity_editor(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        outline = window_element_with_label(window, "Current file outline")
+        root_row = (
+            outline.query_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
+            .find_all()[0]
+        )
+        root_row.invoke_accessible_default_action()
+        wait_for_field(
+            window,
+            "Root background opacity",
+            "100",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+        select_element(window, "Rectangle")
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "100",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        wait_for_field(
+            window,
+            "Shadow color opacity",
+            "25",
+            slint_testing.AccessibleRole.TextInput,
+        )
+
+        select_element(window, "Text")
+        wait_for_field(
+            window,
+            "Text color opacity",
+            "100",
             slint_testing.AccessibleRole.TextInput,
         )
 
@@ -1201,11 +1624,23 @@ def test_invalid_rectangle_color_does_not_change_source(
             "not-a-color",
             slint_testing.AccessibleRole.TextInput,
         )
+        edit_field(
+            window,
+            "Rectangle background opacity",
+            "not-a-number",
+            slint_testing.AccessibleRole.TextInput,
+        )
         snapshot.assert_unchanged()
         wait_for_field(
             window,
             "Rectangle background",
-            "#2563eb",
+            "2563EB",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        wait_for_field(
+            window,
+            "Rectangle background opacity",
+            "100",
             slint_testing.AccessibleRole.TextInput,
         )
         window_element_with_label(

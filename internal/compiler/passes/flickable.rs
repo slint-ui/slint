@@ -12,7 +12,7 @@
 
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
-use crate::layout::{Orientation, is_layout, repeated_element_layout_info};
+use crate::layout::{MergedFixedSize, Orientation, is_layout, repeated_element_layout_info};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, format_smolstr};
@@ -150,7 +150,7 @@ fn layout_child_scalar(
         ));
     }
     let merged = Expression::StructFieldAccess {
-        base: Box::new(repeated_element_layout_info(x, orientation)),
+        base: Box::new(repeated_element_layout_info(x, orientation, MergedFixedSize::Constrains)),
         name: SmolStr::new_static(struct_field),
     };
     if struct_field != "preferred" {

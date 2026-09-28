@@ -467,8 +467,10 @@ pub trait FemtoVGRendererExt {
 pub trait FemtoVGOpenGLRendererExt {
     fn set_opengl_context(
         &self,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl opengl::OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl opengl::OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
@@ -547,14 +549,16 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     fn set_opengl_context(
         &self,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl opengl::OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl opengl::OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.graphics_backend.set_opengl_context(
             self,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             opengl_context,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas,
         )
     }
