@@ -9,28 +9,27 @@ from canvas_interactions import center, fixture_element
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
     press_key,
     press_keys,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
+from ui_locators import Window
 
 
-def begin_inline_edit(window: slint_testing.Window) -> slint_testing.Element:
+def begin_inline_edit(window: Window) -> slint_testing.Element:
     select_fixture_element(window, "Text")
-    window_element_with_label(window, "Text move handle").double_click(
+    window.get_by_accessible_name("Text move handle").double_click(
         slint_testing.PointerEventButton.Left
     )
-    editor = window_element_with_label(
-        window, "Inline text editor", slint_testing.AccessibleRole.TextInput
-    )
-    assert not elements_with_label(
-        window.root_element, "Fixture text", slint_testing.AccessibleRole.Text
-    )
+    editor = window.get_by_role(
+        slint_testing.AccessibleRole.TextInput, name="Inline text editor"
+    ).resolve()
+    assert not window.get_by_role(
+        slint_testing.AccessibleRole.Text, name="Fixture text"
+    ).all()
     return editor
 
 
@@ -60,8 +59,8 @@ def test_inline_text_key_commit(
         press_keys(window, "Edited")
         press_key(window, commit_key)
         snapshot.wait_for_applied(expected)
-        assert not elements_with_label(window.root_element, "Inline text editor")
-        window_element_with_label(window, "Edited", slint_testing.AccessibleRole.Text)
+        assert not window.get_by_accessible_name("Inline text editor").all()
+        window.get_by_role(slint_testing.AccessibleRole.Text, name="Edited").resolve()
 
 
 def test_inline_text_focus_commit_selects_clicked_item(
@@ -82,10 +81,10 @@ def test_inline_text_focus_commit_selects_clicked_item(
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         snapshot.wait_for_applied(expected)
-        window_element_with_label(window, "Changed", slint_testing.AccessibleRole.Text)
+        window.get_by_role(slint_testing.AccessibleRole.Text, name="Changed").resolve()
         wait_until(
             lambda: next(
-                iter(elements_with_label(window.root_element, "Selected Rectangle")),
+                iter(window.get_by_accessible_name("Selected Rectangle").all()),
                 None,
             )
         )
@@ -105,9 +104,9 @@ def test_inline_text_focus_loss_without_change_restores_text(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Text, name="Fixture text"
+        ).resolve()
 
 
 @pytest.mark.parametrize(
@@ -133,7 +132,7 @@ def test_inline_text_rejects_unsupported_layouts(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Text")
-        window_element_with_label(window, "Text move handle").double_click(
+        window.get_by_accessible_name("Text move handle").double_click(
             slint_testing.PointerEventButton.Left
         )
-        assert not elements_with_label(window.root_element, "Inline text editor")
+        assert not window.get_by_accessible_name("Inline text editor").all()

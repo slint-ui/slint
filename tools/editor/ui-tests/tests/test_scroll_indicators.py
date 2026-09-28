@@ -7,7 +7,7 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
-from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
+from ui_driver import first_window, launch_editor, wait_until
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])
@@ -33,13 +33,12 @@ def test_tree_indicators_scroll_without_losing_virtualization(
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
-        tree = window_element_with_label(
-            window,
-            "Files" if panel == "files" else "Current file outline",
+        tree = window.get_by_role(
             slint_testing.AccessibleRole.Tree
             if panel == "files"
             else slint_testing.AccessibleRole.List,
-        )
+            name="Files" if panel == "files" else "Current file outline",
+        ).resolve()
         vertical = (
             tree.query_descendants()
             .match_id("EditorScrollIndicators::vertical")

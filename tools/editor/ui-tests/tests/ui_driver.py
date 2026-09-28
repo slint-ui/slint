@@ -14,10 +14,11 @@ from typing import TypeVar
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
+from ui_locators import Window
 from ui_reporting import capture_failure, current_report, replay_stage
 
 
-def screenshot(window: slint_testing.Window) -> Image.Image:
+def screenshot(window: Window) -> Image.Image:
     previous = b""
 
     def settled() -> Image.Image | None:
@@ -36,12 +37,12 @@ def screenshot(window: slint_testing.Window) -> Image.Image:
 PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
 
 
-def press_key(window: slint_testing.Window, key: str) -> None:
+def press_key(window: Window, key: str) -> None:
     window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
     window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))
 
 
-def press_keys(window: slint_testing.Window, text: str) -> None:
+def press_keys(window: Window, text: str) -> None:
     for key in text:
         press_key(window, key)
 
@@ -68,51 +69,10 @@ def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
 
 def first_window(
     application: slint_testing.Application,
-) -> slint_testing.Window:
+) -> Window:
     window = application.first_window
     assert window is not None
-    return window
-
-
-def elements_with_label(
-    root: slint_testing.Element,
-    label: str,
-    role: slint_testing.AccessibleRole | None = None,
-) -> list[slint_testing.Element]:
-    query = root.query_descendants()
-    if role is not None:
-        query = query.match_accessible_role(role)
-    return query.match_accessible_label(label).find_all()
-
-
-def element_with_label(
-    root: slint_testing.Element,
-    label: str,
-    role: slint_testing.AccessibleRole | None = None,
-    timeout: float = 5,
-) -> slint_testing.Element:
-    matches: list[slint_testing.Element] = []
-
-    def unique_match() -> slint_testing.Element | None:
-        nonlocal matches
-        matches = elements_with_label(root, label, role)
-        return matches[0] if len(matches) == 1 else None
-
-    try:
-        return wait_until(unique_match, timeout=timeout)
-    except AssertionError as error:
-        raise AssertionError(
-            f"expected exactly one element labeled {label!r}, found {len(matches)}"
-        ) from error
-
-
-def window_element_with_label(
-    window: slint_testing.Window,
-    label: str,
-    role: slint_testing.AccessibleRole | None = None,
-    timeout: float = 5,
-) -> slint_testing.Element:
-    return element_with_label(window.root_element, label, role, timeout)
+    return Window(window)
 
 
 ELEMENT_ROWS = {
@@ -122,38 +82,33 @@ ELEMENT_ROWS = {
 }
 
 
-def outline_row(window: slint_testing.Window, label: str) -> slint_testing.Element:
-    return window_element_with_label(
-        window, label, slint_testing.AccessibleRole.ListItem
-    )
+def outline_row(window: Window, label: str) -> slint_testing.Element:
+    return window.get_by_role(
+        slint_testing.AccessibleRole.ListItem, name=label
+    ).resolve()
 
 
-def outline_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
-    tree = window_element_with_label(
-        window, "Current file outline", slint_testing.AccessibleRole.List
-    )
+def outline_rows(window: Window) -> list[slint_testing.Element]:
     return (
-        tree.query_descendants()
-        .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-        .find_all()
+        window.get_by_role(
+            slint_testing.AccessibleRole.List, name="Current file outline"
+        )
+        .get_by_role(slint_testing.AccessibleRole.ListItem)
+        .all()
     )
 
 
-def select_outline_row(
-    window: slint_testing.Window, row_label: str
-) -> slint_testing.Element:
+def select_outline_row(window: Window, row_label: str) -> slint_testing.Element:
     row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
     return wait_until(lambda: row if row.accessible_item_selected else None)
 
 
-def select_fixture_element(window: slint_testing.Window, element_type: str) -> None:
+def select_fixture_element(window: Window, element_type: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[element_type])
-    window_element_with_label(
-        window,
-        f"Selected {element_type}",
-        slint_testing.AccessibleRole.Region,
-    )
+    window.get_by_role(
+        slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
+    ).resolve()
 
 
 @contextlib.contextmanager
@@ -188,10 +143,14 @@ def launch_editor(
             current_editor_sync.reset(token)
 
 
-def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
+def file_row(window: Window, path: Path) -> slint_testing.Element:
     from canvas_interactions import center
 
-    tree = window_element_with_label(window, "Files", slint_testing.AccessibleRole.Tree)
+    tree_locator = window.get_by_role(slint_testing.AccessibleRole.Tree, name="Files")
+    tree = tree_locator.resolve()
+    row = tree_locator.get_by_role(
+        slint_testing.AccessibleRole.ListItem, name=str(path)
+    )
     scroll_step = max(1, min(250, tree.size.height / 2))
     for delta in [0, 10000] + [-scroll_step] * 32:
         if delta:
@@ -200,20 +159,18 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
                     center(tree), delta_x=0, delta_y=delta
                 )
             )
-        rows = elements_with_label(
-            tree, str(path), slint_testing.AccessibleRole.ListItem
-        )
+        rows = row.all()
         if rows:
             return rows[0]
-    return window_element_with_label(
-        window, str(path), slint_testing.AccessibleRole.ListItem
-    )
+    return row.resolve()
 
 
-def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Element:
+def palette_row(window: Window, kind: str) -> slint_testing.Element:
     from canvas_interactions import center
 
-    pane = window_element_with_label(window, "Element library")
+    pane_locator = window.get_by_accessible_name("Element library")
+    pane = pane_locator.resolve()
+    row = pane_locator.get_by_role(slint_testing.AccessibleRole.ListItem, name=kind)
     top = pane.absolute_position.y
     bottom = top + pane.size.height
     position = slint_testing.LogicalPosition(x=center(pane).x, y=(top + bottom) / 2)
@@ -223,13 +180,13 @@ def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Elemen
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
             )
-        rows = elements_with_label(pane, kind, slint_testing.AccessibleRole.ListItem)
+        rows = row.all()
         if len(rows) == 1 and top < center(rows[0]).y < bottom:
             return rows[0]
     raise AssertionError(f"No visible palette row for {kind!r}")
 
 
-def press_shortcut(window: slint_testing.Window, *keys: str) -> None:
+def press_shortcut(window: Window, *keys: str) -> None:
     pressed = []
     try:
         for key in keys:

@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from ui_driver import wait_until
+from ui_locators import Window
 
 FIELDS = {
     "x": "Position X",
@@ -15,7 +16,7 @@ FIELDS = {
 
 
 def slider_position(
-    window: slint_testing.Window, label: str, progress: float
+    window: Window, label: str, progress: float
 ) -> slint_testing.LogicalPosition:
     slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
     return slider_track_position(slider, progress)
@@ -33,37 +34,47 @@ def slider_track_position(
 
 
 def inspector_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
 ) -> slint_testing.Element:
-    pane = window_element_with_label(
-        window, "Inspector and outline", slint_testing.AccessibleRole.Complementary
+    pane_locator = window.get_by_role(
+        slint_testing.AccessibleRole.Complementary, name="Inspector and outline"
     )
+    pane = pane_locator.resolve()
     position = slint_testing.LogicalPosition(
         x=pane.absolute_position.x + pane.size.width / 2,
         y=pane.absolute_position.y + pane.size.height / 4,
     )
-    divider = window_element_with_label(
-        window, "Outline pane resize", slint_testing.AccessibleRole.Slider
-    )
+    divider = window.get_by_role(
+        slint_testing.AccessibleRole.Slider, name="Outline pane resize"
+    ).resolve()
     for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
         if delta:
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
             )
-        fields = elements_with_label(pane, label, role)
+        field_locator = (
+            pane_locator.get_by_accessible_name(label)
+            if role is None
+            else pane_locator.get_by_role(role, name=label)
+        )
+        fields = field_locator.all()
         if len(fields) == 1 and (
             pane.absolute_position.y
             <= fields[0].absolute_position.y + fields[0].size.height / 2
             <= divider.absolute_position.y
         ):
             return fields[0]
-    return window_element_with_label(window, label, role)
+    return (
+        window.get_by_accessible_name(label)
+        if role is None
+        else window.get_by_role(role, name=label)
+    ).resolve()
 
 
 def edit_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,
@@ -72,7 +83,7 @@ def edit_field(
 
 
 def wait_for_field(
-    window: slint_testing.Window,
+    window: Window,
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,

@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
-from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
+from ui_driver import first_window, launch_editor, wait_until
+from ui_locators import Window
 
 
 def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
@@ -37,7 +38,7 @@ def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> 
 
 
 def drag_vertically(
-    window: slint_testing.Window, element: slint_testing.Element, delta: float
+    window: Window, element: slint_testing.Element, delta: float
 ) -> None:
     start = center(element)
     end = slint_testing.LogicalPosition(x=start.x, y=start.y + delta)
@@ -47,7 +48,7 @@ def drag_vertically(
     window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
-def double_click(window: slint_testing.Window, element: slint_testing.Element) -> None:
+def double_click(window: Window, element: slint_testing.Element) -> None:
     position = center(element)
     button = slint_testing.PointerEventButton.Left
     for _ in range(2):
@@ -67,20 +68,26 @@ def test_pane_sizes_persist_across_relaunch(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        elements_divider = window_element_with_label(window, "Elements pane resize")
-        outline_divider = window_element_with_label(window, "Outline pane resize")
+        elements_divider = window.get_by_accessible_name(
+            "Elements pane resize"
+        ).resolve()
+        outline_divider = window.get_by_accessible_name("Outline pane resize").resolve()
         initial_elements_y = elements_divider.absolute_position.y
         initial_outline_y = outline_divider.absolute_position.y
 
         drag_vertically(window, elements_divider, 72)
         drag_vertically(window, outline_divider, -64)
 
-        assert window_element_with_label(window, "FILES").accessible_label == "FILES"
         assert (
-            window_element_with_label(window, "ELEMENTS").accessible_label == "ELEMENTS"
+            window.get_by_accessible_name("FILES").resolve().accessible_label == "FILES"
         )
         assert (
-            window_element_with_label(window, "OUTLINE").accessible_label == "OUTLINE"
+            window.get_by_accessible_name("ELEMENTS").resolve().accessible_label
+            == "ELEMENTS"
+        )
+        assert (
+            window.get_by_accessible_name("OUTLINE").resolve().accessible_label
+            == "OUTLINE"
         )
         assert elements_divider.absolute_position.y > initial_elements_y
         assert outline_divider.absolute_position.y < initial_outline_y
@@ -90,14 +97,16 @@ def test_pane_sizes_persist_across_relaunch(
         saved_elements_height = int(elements_divider.accessible_value.split()[0])
         saved_outline_height = int(outline_divider.accessible_value.split()[0])
 
-        window_element_with_label(
-            window, "Collapse sidebars"
+        window.get_by_accessible_name(
+            "Collapse sidebars"
         ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "Expand sidebars"
+        window.get_by_accessible_name(
+            "Expand sidebars"
         ).invoke_accessible_default_action()
-        elements_divider = window_element_with_label(window, "Elements pane resize")
-        outline_divider = window_element_with_label(window, "Outline pane resize")
+        elements_divider = window.get_by_accessible_name(
+            "Elements pane resize"
+        ).resolve()
+        outline_divider = window.get_by_accessible_name("Outline pane resize").resolve()
         assert elements_divider.absolute_position.y == pytest.approx(
             saved_elements_y, abs=1
         )
@@ -114,8 +123,10 @@ def test_pane_sizes_persist_across_relaunch(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        elements_divider = window_element_with_label(window, "Elements pane resize")
-        outline_divider = window_element_with_label(window, "Outline pane resize")
+        elements_divider = window.get_by_accessible_name(
+            "Elements pane resize"
+        ).resolve()
+        outline_divider = window.get_by_accessible_name("Outline pane resize").resolve()
         assert elements_divider.absolute_position.y == pytest.approx(
             saved_elements_y, abs=1
         )
@@ -136,8 +147,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        elements = window_element_with_label(window, "Elements pane resize")
-        outline = window_element_with_label(window, "Outline pane resize")
+        elements = window.get_by_accessible_name("Elements pane resize").resolve()
+        outline = window.get_by_accessible_name("Outline pane resize").resolve()
 
         assert elements.accessible_value_minimum == 120
         assert elements.accessible_value_step == 8
@@ -166,8 +177,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
             == outline.accessible_value_minimum
         )
 
-        elements = window_element_with_label(window, "Elements pane resize")
-        outline = window_element_with_label(window, "Outline pane resize")
+        elements = window.get_by_accessible_name("Elements pane resize").resolve()
+        outline = window.get_by_accessible_name("Outline pane resize").resolve()
         drag_vertically(window, elements, -1000)
         drag_vertically(window, outline, -1000)
         assert (
@@ -185,12 +196,12 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         double_click(window, outline)
         assert float(outline.accessible_value.split()[0]) == default_outline
 
-        search = window_element_with_label(window, "Search elements")
+        search = window.get_by_accessible_name("Search elements").resolve()
         elements.accessible_value = "120"
         assert float(elements.accessible_value.split()[0]) == 120
         wait_for_pane_settings(tmp_path, {"elements_pane_height": 120})
         search.accessible_value = "missing"
-        no_results = window_element_with_label(window, "No Results")
+        no_results = window.get_by_accessible_name("No Results").resolve()
         assert no_results.size.height >= 24
         assert (
             no_results.absolute_position.y
@@ -200,7 +211,7 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
             no_results.absolute_position.y + no_results.size.height
             <= window.size.height
         )
-        pane = window_element_with_label(window, "Project and elements")
+        pane = window.get_by_accessible_name("Project and elements").resolve()
         assert no_results.absolute_position.x >= pane.absolute_position.x + 12
         assert no_results.absolute_position.x + no_results.size.width <= (
             pane.absolute_position.x + pane.size.width - 12
@@ -216,17 +227,17 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         window = first_window(editor)
         assert (
             float(
-                window_element_with_label(
-                    window, "Elements pane resize"
-                ).accessible_value.split()[0]
+                window.get_by_accessible_name("Elements pane resize")
+                .resolve()
+                .accessible_value.split()[0]
             )
             == default_elements
         )
         assert (
             float(
-                window_element_with_label(
-                    window, "Outline pane resize"
-                ).accessible_value.split()[0]
+                window.get_by_accessible_name("Outline pane resize")
+                .resolve()
+                .accessible_value.split()[0]
             )
             == default_outline
         )

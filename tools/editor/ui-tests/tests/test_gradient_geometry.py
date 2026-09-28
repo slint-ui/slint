@@ -25,7 +25,6 @@ from ui_driver import (
     launch_editor,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -58,13 +57,13 @@ def test_custom_gradient_geometry_uses_layout_size(
         window = first_window(editor)
         select_outline_row(window, "fill")
         rectangle = wait_until(
-            lambda: next(iter(window.find_elements_by_id("LayoutGradient::fill")), None)
+            lambda: next(iter(window.get_by_id("LayoutGradient::fill").all()), None)
         )
         assert rectangle.size.width == pytest.approx(400)
         assert rectangle.size.height == pytest.approx(400)
 
         def field(label, role):
-            return window_element_with_label(window, label, role)
+            return window.get_by_role(role, name=label).resolve()
 
         field(
             "Rectangle background color picker", slint_testing.AccessibleRole.Button
@@ -86,7 +85,7 @@ def test_custom_gradient_geometry_uses_layout_size(
 def test_non_canvas_gradient_keeps_numeric_geometry(
     editor_binary, editor_environment, tmp_path, kind, target
 ):
-    from ui_driver import elements_with_label, press_key
+    from ui_driver import press_key
 
     prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
     stops = "red 0deg, blue 360deg" if kind == "conic" else "red 0%, blue 100%"
@@ -110,7 +109,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if target == "text":
             select_outline_row(window, "label")
         else:
-            outline = window_element_with_label(window, "Current file outline")
+            outline = window.get_by_accessible_name("Current file outline").resolve()
             root_row = (
                 outline.query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.ListItem)
@@ -123,8 +122,8 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             else "Root background color picker"
         )
         click_picker_button(window, picker)
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        assert not elements_with_label(window.root_element, "Gradient start")
+        assert not window.get_by_accessible_name("Gradient center handle").all()
+        assert not window.get_by_accessible_name("Gradient start").all()
         if kind != "radial":
             picker_field(window, "Gradient angle degrees").accessible_value = "36"
         if kind != "linear":
@@ -485,9 +484,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 def radial_geometry(window, element_id="Gradient::fill"):
 
-    rectangle = wait_until(
-        lambda: next(iter(window.find_elements_by_id(element_id)), None)
-    )
+    rectangle = wait_until(lambda: next(iter(window.get_by_id(element_id).all()), None))
     c = center(control(window, "Gradient center handle"), 35)
     r = center(control(window, "Gradient radius handle"), 35)
     return (
@@ -499,9 +496,7 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
 
-    rectangle = wait_until(
-        lambda: next(iter(window.find_elements_by_id(element_id)), None)
-    )
+    rectangle = wait_until(lambda: next(iter(window.get_by_id(element_id).all()), None))
     c = center(control(window, "Gradient center handle"), angle - 90)
     r = center(control(window, "Gradient rotation handle"), angle - 90)
     return (
