@@ -80,3 +80,13 @@ jobs:
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check
+            # Last, so that every step above runs on the Node.js version they were set up with.
+            - name: Setup Node.js 26 for slint-ui pack
+              uses: actions/setup-node@v7
+              with:
+                node-version: 26
+                package-manager-cache: false
+            - name: Test slint-ui pack
+              # `node --build-sea` needs Node.js 25.5.
+              working-directory: api/node
+              run: pnpm exec vitest run __test__/pack.spec.mts
