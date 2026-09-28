@@ -122,13 +122,33 @@ impl Check<'_> {
     }
 
     fn report(&mut self, elem: &ElementRc, enclosing: &ElementRc, enclosing_role: &SmolStr) {
+        let enclosing_name = element_name(enclosing);
         self.diag.push_warning(
             format!(
-                "This element and the '{enclosing_role}' around it expose the same text to a screen reader; set 'accessible-role: none' here"
+                "This element exposes the same text to a screen reader as the enclosing '{enclosing_name}' with 'accessible-role: {enclosing_role}'; set 'accessible-role: none' here"
             ),
             &*elem.borrow(),
         );
         self.diag.push_note("The enclosing element is declared here".into(), &*enclosing.borrow());
+    }
+}
+
+/// Names an element the way its source declares it, such as `foo := Rectangle`.
+/// The type comes from the source rather than from `base_type`, which inlining replaces with the
+/// base of the component the source names.
+fn element_name(elem: &ElementRc) -> String {
+    let elem = elem.borrow();
+    let type_name = elem
+        .debug
+        .first()
+        .and_then(|info| info.node.QualifiedName())
+        .map(|name| name.text().to_string())
+        .map_or_else(|| elem.base_type.to_string(), |name| name.trim().to_string());
+    // `root` is the id the compiler gives a component's root element, not one the source wrote.
+    if elem.id.is_empty() || elem.id == "root" {
+        type_name
+    } else {
+        format!("{} := {type_name}", elem.id)
     }
 }
 
