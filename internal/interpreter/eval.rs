@@ -719,9 +719,11 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 }
 
 /// Convert a value to the given type, as [`Expression::Cast`] does.
-///
-/// Casts to string never get here: `ConstantExpression::from_expression` rejects them.
 fn cast_constant_value(value: Value, to: &Type) -> Value {
+    debug_assert!(
+        *to != Type::String,
+        "ConstantExpression::from_expression rejects casts to string"
+    );
     match (value, to) {
         (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
