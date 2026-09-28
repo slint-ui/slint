@@ -52,7 +52,7 @@ class Inspector:
             inspector_field(
                 self.editor.window,
                 FIELDS.get(name, name),
-                slint_testing.AccessibleRole.TextInput,
+                "text-input",
             )
         return self.field(name)
 

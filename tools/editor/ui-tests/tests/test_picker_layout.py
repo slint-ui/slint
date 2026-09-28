@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import pytest
-import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
@@ -86,25 +85,21 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         last = picker_field(window, f"Stop {count} position")
         last_bounds = last.bounds()
         assert last_bounds.y >= top
-        bottom = window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="No recent fills"
-        ).resolve()
+        bottom = window.get_by_role("text", name="No recent fills").resolve()
         assert last_bounds.y + last_bounds.height < bottom.absolute_position.y
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
             assert first.bounds().y == top
         (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(window.screenshot())
         window.get_by_role("button", name="Add gradient stop").activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name=f"Gradient stop {count + 1}"
-        ).resolve()
+        window.get_by_role("slider", name=f"Gradient stop {count + 1}").wait_for()
         window.pointer.scroll(0, -10000, at=scroll_point)
         remove = window.get_by_role("button", name=f"Remove stop {count + 1}").resolve()
         point = shifted(center(remove), x=-8)
         assert top <= point.y < bottom.absolute_position.y
         gesture(window, point, point)
-        assert not window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name=f"Gradient stop {count + 1}"
-        ).all()
+        window.get_by_role("slider", name=f"Gradient stop {count + 1}").wait_for(
+            state="hidden"
+        )
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()

@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 
 import pytest
-import slint_testing
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS
 from slint_test import Window, expect
@@ -20,7 +19,7 @@ from ui_driver import (
 
 
 def stage_field_text(window: Window, label: str, value: str) -> None:
-    field = window.get_by_role(slint_testing.AccessibleRole.TextInput, name=label)
+    field = window.get_by_role("text-input", name=label)
     field.fill(value)
     expect(field).to_have_value(value)
 
@@ -34,20 +33,14 @@ def test_broken_source_preserves_last_valid_preview(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
         handle, size = window.handle, window.size
         broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
         source_file.write_bytes(broken)
         snapshot.wait_for_exact(broken)
         time.sleep(0.25)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
+        window.get_by_role("list-item", name="root-text").wait_for()
         assert editor.process.poll() is None
         assert window.handle == handle
         assert window.size == size
@@ -64,17 +57,13 @@ def test_repaired_source_recovers_preview(
     baseline = source_file.read_bytes()
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
         source_file.write_bytes(baseline + b"\ninvalid source\n")
         time.sleep(0.25)
         repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)
         source_file.write_bytes(repaired)
         snapshot.wait_for_exact(repaired)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Recovered source"
-        ).resolve()
+        window.get_by_role("text", name="Recovered source").wait_for()
         assert editor.process.poll() is None
 
 
@@ -95,15 +84,9 @@ def test_imported_file_edit_targets_only_nested_source(
         components = fixture_project / "components"
         file_row(window, components).activate()
         file_row(window, nested_file).activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="nested-text"
-        ).activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Text"
-        ).resolve(timeout=(15) * 1000)
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Text content"
-        )
+        window.get_by_role("list-item", name="nested-text").activate()
+        window.get_by_role("region", name="Selected Text").wait_for(timeout=(15) * 1000)
+        field = window.get_by_role("text-input", name="Text content")
         field.set_accessible_value('"Edited import"')
         expected = nested_baseline.replace(
             b'        text: "Imported component";',
@@ -111,9 +94,7 @@ def test_imported_file_edit_targets_only_nested_source(
             1,
         )
         snapshot.wait_for_exact(expected, relative_path="components/Nested.slint")
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Edited import"
-        ).resolve(timeout=(15) * 1000)
+        window.get_by_role("text", name="Edited import").wait_for(timeout=(15) * 1000)
 
 
 def test_stale_selection_commit_is_rejected(
@@ -130,9 +111,7 @@ def test_stale_selection_commit_is_rejected(
         stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
-        )
+        field = window.get_by_role("text-input", name=FIELDS["x"])
         expect(field).to_have_value("224", timeout=15_000)
         window.keyboard.press(keys.Return)
         snapshot.assert_unchanged()
@@ -149,21 +128,15 @@ def test_deleted_root_file_recovers_without_relaunch(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         wait_for_source(source_file, baseline)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
         source_file.unlink()
         SourceSnapshot.capture(fixture_project).assert_unchanged()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
         assert not source_file.exists()
         restored = baseline.replace(b"Fixture text", b"Restored root", 1)
         source_file.write_bytes(restored)
         snapshot.wait_for_applied(restored)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Restored root"
-        ).resolve()
+        window.get_by_role("text", name="Restored root").wait_for()
         assert editor.process.poll() is None
 
 
@@ -177,19 +150,13 @@ def test_deleted_import_recovers_without_relaunch(
     baseline = imported_file.read_bytes()
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Imported component"
-        ).resolve()
+        window.get_by_role("text", name="Imported component").wait_for()
         imported_file.unlink()
         time.sleep(0.25)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Imported component"
-        ).resolve()
+        window.get_by_role("text", name="Imported component").wait_for()
         restored = baseline.replace(b"Imported component", b"Restored import", 1)
         imported_file.write_bytes(restored)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Restored import"
-        ).resolve(timeout=(15) * 1000)
+        window.get_by_role("text", name="Restored import").wait_for(timeout=(15) * 1000)
         assert imported_file.read_bytes() == restored
         assert editor.process.poll() is None
 
@@ -214,9 +181,7 @@ def test_initial_broken_source_recovers_without_relaunch(
         window = first_window(editor)
         assert editor.process.poll() is None
         source_file.write_bytes(repaired)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Initial source recovered"
-        ).resolve()
+        window.get_by_role("text", name="Initial source recovered").wait_for()
         assert source_file.read_bytes() == repaired
         assert editor.process.poll() is None
 

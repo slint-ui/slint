@@ -10,7 +10,7 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image, ImageChops
-from slint_test import Window
+from slint_test import Window, expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -58,9 +58,7 @@ def drop_position(
 ) -> slint_testing.LogicalPosition:
     if target == "<outline-root>":
         return center(
-            window.get_by_role(
-                slint_testing.AccessibleRole.ListItem, name="Outline root drop target"
-            ).resolve()
+            window.get_by_role("list-item", name="Outline root drop target").resolve()
         )
     row = (
         outline_rows(window)[0]
@@ -192,9 +190,7 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
     ) as editor:
         window = first_window(editor)
         outline_row(window, "container").invoke_accessible_expand_action()
-        wait_until(
-            lambda: True if not window.get_by_accessible_name("child-a").all() else None
-        )
+        expect(window.get_by_accessible_name("child-a")).to_be_hidden()
         outline_row(window, "container").invoke_accessible_expand_action()
         outline_row(window, "child-a")
         snapshot.assert_unchanged()
@@ -225,20 +221,15 @@ def test_outline_keyboard_selection_synchronizes_editor(
         select_outline_row(window, initial)
         row = outline_row(window, target)
         assert not row.accessible_item_selected
+        target_locator = window.get_by_role("list-item", name=target)
         window.keyboard.press(keys.Tab)
         window.keyboard.press(key)
-        wait_until(lambda: row if row.accessible_item_selected else None)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=selection
-        ).resolve()
+        expect(target_locator).to_be_selected()
+        window.get_by_role("region", name=selection).wait_for()
         window.keyboard.shortcut(keys.Shift, keys.Tab)
         window.keyboard.press(key)
-        wait_until(
-            lambda: outline_row(window, initial).accessible_item_selected or None
-        )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-        ).resolve()
+        expect(window.get_by_role("list-item", name=initial)).to_be_selected()
+        window.get_by_role("region", name="Selected Rectangle").wait_for()
         snapshot.assert_unchanged()
 
 
@@ -283,20 +274,14 @@ def test_escape_cancels_outline_drag_without_source_edit(
         end = drop_position(window, "container", "onto")
         window.pointer.press_at(start)
         window.pointer.move_to(end)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Outline drag preview"
-        ).resolve()
+        window.get_by_role("region", name="Outline drag preview").wait_for()
         window.keyboard.down(keys.Escape)
         window.keyboard.up(keys.Escape)
         window.pointer.release_at(end)
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Outline drag preview").all()
-                else None
-            )
+        expect(window.get_by_accessible_name("Outline drag preview")).to_be_hidden()
+        window.get_by_accessible_name("Outline insertion preview").wait_for(
+            state="hidden"
         )
-        assert not window.get_by_accessible_name("Outline insertion preview").all()
         snapshot.assert_unchanged()
 
 
@@ -389,7 +374,9 @@ def test_outline_gap_matches_drop_destination(
         end = slint_testing.LogicalPosition(x=target.absolute_position.x + 24, y=end.y)
         window.pointer.press_at(start)
         window.pointer.move_to(slint_testing.LogicalPosition(x=start.x + 10, y=start.y))
-        assert not window.get_by_accessible_name("Outline insertion preview").all()
+        window.get_by_accessible_name("Outline insertion preview").wait_for(
+            state="hidden"
+        )
         window.pointer.move_to(end)
         gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         if location == "before":
@@ -450,7 +437,9 @@ def test_outline_gap_matches_drop_destination(
         assert moved.accessible_description == (
             "Hierarchy level 3" if location == "onto" else "Hierarchy level 2"
         )
-        assert not window.get_by_accessible_name("Outline insertion preview").all()
+        window.get_by_accessible_name("Outline insertion preview").wait_for(
+            state="hidden"
+        )
         assert moved.is_valid
         assert outline_image(window, moved).getpixel(sample) == hover_background
         assert (
@@ -460,9 +449,7 @@ def test_outline_gap_matches_drop_destination(
         )
         frame = window.get_by_accessible_name("Hovered Image").resolve()
         assert frame.is_valid
-        image = wait_until(
-            lambda: next(iter(window.get_by_id("OutlineCases::sibling-b").all()), None)
-        )
+        image = window.get_by_id("OutlineCases::sibling-b").resolve()
         assert image.is_valid
         assert frame.absolute_position.x == pytest.approx(image.absolute_position.x)
         assert frame.absolute_position.y == pytest.approx(image.absolute_position.y)
@@ -472,9 +459,7 @@ def test_outline_gap_matches_drop_destination(
             window.screenshot()
         )
         window.pointer.move_to(slint_testing.LogicalPosition(x=1, y=1))
-        wait_until(
-            lambda: not window.get_by_accessible_name("Hovered Image").all() or None
-        )
+        expect(window.get_by_accessible_name("Hovered Image")).to_be_hidden()
 
 
 def outline_image(
@@ -523,7 +508,7 @@ def test_outline_ghost_preserves_row_highlight_and_fades(
         before = screenshot(window)
         window.pointer.press_at(start)
         window.pointer.move_to(end)
-        window.get_by_accessible_name("Outline drag preview").resolve()
+        window.get_by_accessible_name("Outline drag preview").wait_for()
         window.pointer.move_to(end)
         ghost = window.get_by_accessible_name("Outline drag preview").resolve()
         assert ghost.absolute_position.y == pytest.approx(end.y - row.size.height / 2)
@@ -562,7 +547,7 @@ def test_outline_click_does_not_draw_focus_ring(
         position = center(row)
         window.pointer.press_at(position)
         window.pointer.release_at(position)
-        wait_until(lambda: row.accessible_item_selected or None)
+        expect(window.get_by_role("list-item", name="sibling-b")).to_be_selected()
         rendered = outline_image(window, row)
         background = rendered.getpixel((rendered.width - 40, rendered.height // 2))
         for y in range(6, rendered.height - 10):

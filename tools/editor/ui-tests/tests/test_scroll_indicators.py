@@ -34,9 +34,7 @@ def test_tree_indicators_scroll_without_losing_virtualization(
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         tree = window.get_by_role(
-            slint_testing.AccessibleRole.Tree
-            if panel == "files"
-            else slint_testing.AccessibleRole.List,
+            "tree" if panel == "files" else "list",
             name="Files" if panel == "files" else "Current file outline",
         ).resolve()
         vertical = (

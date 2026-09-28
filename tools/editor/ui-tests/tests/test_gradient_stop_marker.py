@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
@@ -29,7 +28,7 @@ from ui_driver import (
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 @pytest.mark.parametrize(
     "role",
-    [slint_testing.AccessibleRole.Slider, slint_testing.AccessibleRole.Button],
+    ["slider", "button"],
     ids=["ramp", "canvas"],
 )
 def test_stop_marker_click_opens_color_picker_but_drag_does_not(
@@ -37,7 +36,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
     editor_environment: dict[str, str],
     tmp_path: Path,
     kind: str,
-    role: slint_testing.AccessibleRole,
+    role: str,
 ) -> None:
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     positions = (
@@ -66,7 +65,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         gesture(window, start, shifted(start, x=12))
         after = float(picker_field(window, "Stop 2 position").value())
         assert after != pytest.approx(before)
-        assert not window.get_by_accessible_name("Hex color").all()
+        window.get_by_accessible_name("Hex color").wait_for(state="hidden")
 
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
@@ -88,9 +87,7 @@ def test_ramp_marker_accessible_action_opens_existing_color_picker(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
-        ).activate()
+        window.get_by_role("slider", name="Gradient stop 2").activate()
         expect(picker_field(window, "Hex color")).to_have_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Close Custom").activate()
@@ -112,9 +109,7 @@ def test_ramp_marker_shows_opaque_and_alpha_halves(
         select_outline_row(window, "fill")
         open_gradient(window)
 
-        marker = window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
-        ).resolve()
+        marker = window.get_by_role("slider", name="Gradient stop 2").resolve()
         image = screenshot(window)
         x = round(marker.absolute_position.x)
         y = round(marker.absolute_position.y)

@@ -70,9 +70,7 @@ def element_frame(element: slint_testing.Element) -> Frame:
 
 def selection_frame(window: Window, kind: str) -> Frame:
     return element_frame(
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-        ).resolve()
+        window.get_by_role("region", name=f"Selected {kind}").resolve()
     )
 
 
@@ -93,16 +91,12 @@ def frame_rotation(window: Window, kind: str) -> float:
 
 
 def fixture_element(window: Window, kind: str) -> slint_testing.Element:
-    return wait_until(
-        lambda: next(iter(window.get_by_id(f"Main::root-{kind.lower()}").all()), None)
-    )
+    return window.get_by_id(f"Main::root-{kind.lower()}").resolve()
 
 
 def hover_fixture_element(window: Window, kind: str) -> slint_testing.Element:
     window.pointer.move_to(center(fixture_element(window, kind)))
-    return window.get_by_role(
-        slint_testing.AccessibleRole.Region, name=f"Hovered {kind}"
-    ).resolve()
+    return window.get_by_role("region", name=f"Hovered {kind}").resolve()
 
 
 def same_state(left: Frame, right: Frame) -> bool:
@@ -123,9 +117,7 @@ def manual_drag(
     rotation = frame_rotation(window, kind)
     start = center(handle, rotation)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
-    selected = window.get_by_role(
-        slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-    ).resolve()
+    selected = window.get_by_role("region", name=f"Selected {kind}").resolve()
     initial_frame = element_frame(selected)
     fixed_handle_center = (
         center(window.get_by_accessible_name(fixed_handle_label).resolve(), rotation)
@@ -183,9 +175,7 @@ def manual_drag(
 
 
 def _rotation_tooltip_value(window: Window) -> int:
-    tooltip = window.get_by_role(
-        slint_testing.AccessibleRole.Text, name="Rotation angle"
-    ).resolve()
+    tooltip = window.get_by_role("text", name="Rotation angle").resolve()
     return int(tooltip.accessible_value)
 
 
@@ -313,9 +303,7 @@ def manual_radius_drag(
     if shift:
         window.keyboard.down(keys.Shift)
     window.pointer.press_at(start)
-    tooltip = window.get_by_role(
-        slint_testing.AccessibleRole.Text, name="Radius value"
-    ).resolve()
+    tooltip = window.get_by_role("text", name="Radius value").resolve()
     initial_value = float(tooltip.accessible_value)
     window.pointer.move_to(target)
     assert tooltip.is_valid
@@ -333,9 +321,7 @@ def manual_radius_drag(
 
 
 def radius_handle(window: Window, corner: str) -> slint_testing.Element:
-    selection = window.get_by_role(
-        slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-    ).resolve()
+    selection = window.get_by_role("region", name="Selected Rectangle").resolve()
     # A live reload can replace the frame while the pointer remains at the same logical
     # position. Move away first so the real frame receives a fresh hover transition.
     window.pointer.move_to(slint_testing.LogicalPosition(x=1, y=1))

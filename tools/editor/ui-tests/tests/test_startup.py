@@ -3,7 +3,6 @@
 
 from pathlib import Path
 
-import slint_testing
 from ui_driver import (
     first_window,
     launch_editor,
@@ -22,22 +21,12 @@ def test_editor_starts_with_valid_fixture(
         window = first_window(editor)
         assert window.size.width > 0
         assert window.size.height > 0
-        window.get_by_role(
-            slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Navigation, name="Project and elements"
-        ).resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Complementary, name="Inspector and outline"
-        ).resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).resolve()
-        assert not window.get_by_accessible_name("Startup wizard").all()
+        window.get_by_role("main", name="Editor canvas").wait_for()
+        window.get_by_role("navigation", name="Project and elements").wait_for()
+        window.get_by_role("complementary", name="Inspector and outline").wait_for()
+        window.get_by_role("text", name="Fixture text").wait_for()
+        window.get_by_role("list-item", name="root-text").wait_for()
+        window.get_by_accessible_name("Startup wizard").wait_for(state="hidden")
 
 
 def test_startup_page_shows_project_actions_without_editor_panes(
@@ -46,19 +35,15 @@ def test_startup_page_shows_project_actions_without_editor_panes(
 ) -> None:
     with launch_editor(editor_binary, editor_environment) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Startup wizard"
-        ).resolve()
-        assert not window.get_by_accessible_name("Editor canvas").all()
-        assert not window.get_by_accessible_name("Project and elements").all()
-        assert not window.get_by_accessible_name("Inspector and outline").all()
+        window.get_by_role("region", name="Startup wizard").wait_for()
+        window.get_by_accessible_name("Editor canvas").wait_for(state="hidden")
+        window.get_by_accessible_name("Project and elements").wait_for(state="hidden")
+        window.get_by_accessible_name("Inspector and outline").wait_for(state="hidden")
 
-        create = window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Create New Project..."
-        ).resolve()
+        create = window.get_by_role("button", name="Create New Project...").resolve()
         assert create.accessible_enabled
         open_existing = window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Open Existing Project..."
+            "button", name="Open Existing Project..."
         ).resolve()
         assert open_existing.accessible_enabled
 
@@ -77,9 +62,7 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
 
         def recent_project_was_saved() -> Path | None:
             settings_files = list(tmp_path.rglob("visual-editor-user-settings.json"))
@@ -93,16 +76,12 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     with launch_editor(editor_binary, editor_environment) as editor:
         window = first_window(editor)
         recent_row = window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name=fixture_project.name
+            "list-item", name=fixture_project.name
         ).resolve()
         assert recent_row.accessible_description == str(fixture_project)
 
         window.get_by_accessible_name("File").click(force=True)
         window.get_by_accessible_name("Open Recent").click(force=True)
 
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name=fixture_project.name
-        ).nth(0).click(force=True)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name=fixture_project.name).nth(0).click(force=True)
+        window.get_by_role("text", name="Fixture text").wait_for()

@@ -54,23 +54,19 @@ def prepare(project: Path, values=(12, 12, 12, 12), rotation="32deg") -> bytes:
 
 def select_element(window, kind):
     select_outline_row(window, "inspect-" + kind.lower())
-    window.get_by_role(
-        slint_testing.AccessibleRole.TextInput, name="Rotation"
-    ).resolve()
+    window.get_by_role("text-input", name="Rotation").wait_for()
 
 
 def edit_field(window, label, value):
-    edit_inspector_field(window, label, value, slint_testing.AccessibleRole.TextInput)
+    edit_inspector_field(window, label, value, "text-input")
 
 
 def wait_for_field(window, label, value):
-    wait_for_inspector_field(
-        window, label, value, slint_testing.AccessibleRole.TextInput
-    )
+    wait_for_inspector_field(window, label, value, "text-input")
 
 
 def action(window, label):
-    window.get_by_role(slint_testing.AccessibleRole.Button, name=label).activate()
+    window.get_by_role("button", name=label).activate()
 
 
 @pytest.mark.parametrize(
@@ -121,9 +117,7 @@ def test_rotation_prefix_scrubs_with_transient_preview(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        scrubber = window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Rotation scrubber"
-        ).resolve()
+        scrubber = window.get_by_role("slider", name="Rotation scrubber").resolve()
         start = center(scrubber)
         end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
 
@@ -561,7 +555,7 @@ def test_text_input_undo_does_not_revert_document(
         edit_field(window, "Rotation", "40")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "40")
-        field = window.get_by_role(slint_testing.AccessibleRole.TextInput, name=label)
+        field = window.get_by_role("text-input", name=label)
         field.click()
         window.keyboard.press_sequentially(text)
         expect(field).to_have_value(text)
@@ -625,27 +619,15 @@ def test_separate_corners_survive_rotation_edit(
 def test_deleted_selected_element_clears_inspector(
     editor_binary, editor_environment, fixture_project
 ):
-    from ui_driver import wait_until
-
     source = fixture_project / SOURCE
     with launch_editor(editor_binary, editor_environment, source) as app:
         window = first_window(app)
         select_element(window, "Image")
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Image"
-        ).resolve()
+        window.get_by_role("region", name="Selected Image").wait_for()
         original = source.read_text()
         source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_role(
-                    slint_testing.AccessibleRole.Region, name="Selected Image"
-                ).all()
-                else None
-            )
-        )
-        assert not window.get_by_accessible_name("Image fit").all()
+        expect(window.get_by_role("region", name="Selected Image")).to_be_hidden()
+        window.get_by_accessible_name("Image fit").wait_for(state="hidden")
 
 
 def test_rotation_release_keeps_preview_until_reload(
@@ -668,9 +650,7 @@ def test_rotation_release_keeps_preview_until_reload(
         deadline = time.monotonic() + 0.5
         while time.monotonic() < deadline:
             assert (
-                window.get_by_role(
-                    slint_testing.AccessibleRole.TextInput, name="Rotation"
-                )
+                window.get_by_role("text-input", name="Rotation")
                 .resolve()
                 .accessible_value
                 == "50"

@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 
 import pytest
-import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, gesture, open_radial, shifted
@@ -31,30 +30,26 @@ def test_radial_activation_preserves_the_actual_picker(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
         window.get_by_role(
             "button", name="Rectangle background color picker"
         ).activate()
-        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
         window.get_by_role("button", name="Gradient").activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Combobox, name="Gradient type"
-        ).set_accessible_value("Radial")
-        window.get_by_role("button", name="Gradient center handle").resolve()
-        window.get_by_role("button", name="Gradient radius handle").resolve()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Gradient stop 1"
-        ).resolve()
-        window.get_by_role("button", name="Edit stop 1 color").resolve()
-        assert not window.get_by_accessible_name("Hex color").all()
+        window.get_by_role("combobox", name="Gradient type").set_accessible_value(
+            "Radial"
+        )
+        window.get_by_role("button", name="Gradient center handle").wait_for()
+        window.get_by_role("button", name="Gradient radius handle").wait_for()
+        window.get_by_role("slider", name="Gradient stop 1").wait_for()
+        window.get_by_role("button", name="Edit stop 1 color").wait_for()
+        window.get_by_accessible_name("Hex color").wait_for(state="hidden")
         (tmp_path / "radial-picker-and-canvas.png").write_bytes(window.screenshot())
         window.get_by_role("button", name="Solid").activate()
-        assert not window.get_by_accessible_name("Gradient center handle").all()
-        window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
+        window.get_by_role("text-input", name="Hex color").wait_for()
         window.get_by_role("button", name="Gradient").activate()
-        window.get_by_role("button", name="Gradient center handle").resolve()
+        window.get_by_role("button", name="Gradient center handle").wait_for()
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -198,9 +193,7 @@ def test_radial_stops_cross_insert_delete_and_color(
             assert actual.y == pytest.approx(p.y, abs=0.001)
         window.pointer.release_at(p)
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Hex color"
-        )
+        field = window.get_by_role("text-input", name="Hex color")
         expect(field).to_have_value("#264052")
         field.set_accessible_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
@@ -213,14 +206,14 @@ def test_radial_stops_cross_insert_delete_and_color(
         p = shifted(c, x=(r.x - c.x) * 0.3, y=(r.y - c.y) * 0.3)
         gesture(window, p, p)
         gesture(window, p, p)
-        window.get_by_role("button", name="Gradient stop 4").resolve()
+        window.get_by_role("button", name="Gradient stop 4").wait_for()
         window.keyboard.press(keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        window.get_by_accessible_name("Gradient stop 4").wait_for(state="hidden")
         window.get_by_role("button", name="Gradient stop 2").activate()
         window.keyboard.press(keys.Delete)
         window.keyboard.press(keys.Delete)
-        window.get_by_role("button", name="Gradient center handle").resolve()
-        window.get_by_role("button", name="Gradient stop 2").resolve()
+        window.get_by_role("button", name="Gradient center handle").wait_for()
+        window.get_by_role("button", name="Gradient stop 2").wait_for()
         (tmp_path / "radial-gradient-editor.png").write_bytes(window.screenshot())
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()

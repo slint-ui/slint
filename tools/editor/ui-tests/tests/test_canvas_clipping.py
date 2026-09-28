@@ -126,9 +126,9 @@ def test_gradient_overlays_are_clipped_to_canvas(
         wait_for_source(source, expected.encode())
         before = screenshot(window)
         select_outline_row(window, "bounds-rectangle")
-        window.get_by_accessible_name("Selected Rectangle").resolve()
+        window.get_by_accessible_name("Selected Rectangle").wait_for()
         window.get_by_accessible_name("Rectangle background color picker").activate()
-        window.get_by_accessible_name("Gradient end").resolve()
+        window.get_by_accessible_name("Gradient end").wait_for()
         after = screenshot(window)
         for name, region in protected_regions(window, after).items():
             if name != "inspector panel":
@@ -151,7 +151,7 @@ def test_drag_previews_are_clipped_to_canvas(
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         target = center(canvas)
         begin_palette_drag(window, "Rectangle", target)
-        window.get_by_accessible_name("Rectangle drag preview").resolve()
+        window.get_by_accessible_name("Rectangle drag preview").wait_for()
         before = screenshot(window)
         if edge == "left":
             target = slint_testing.LogicalPosition(

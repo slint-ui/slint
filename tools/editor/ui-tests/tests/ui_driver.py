@@ -108,9 +108,7 @@ def select_outline_row(window: Window, row_label: str) -> Locator:
 def select_fixture_element(window: Window, element_type: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[element_type])
     expect(
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
-        )
+        window.get_by_role("region", name=f"Selected {element_type}")
     ).to_be_visible()
 
 

@@ -19,6 +19,7 @@ from canvas_interactions import (
     zoom_canvas,
 )
 from editor_sync import wait_for_source
+from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
@@ -117,7 +118,9 @@ def test_zoom_to_selection_uses_largest_fitting_level(
         bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
         expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
         window.keyboard.shortcut(keys.Shift, "2")
-        wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
+        expect(window.get_by_accessible_name("Editor canvas")).to_have_value(
+            f"{expected}%"
+        )
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         assert center(frame).x == pytest.approx(center(canvas).x)
         assert center(frame).y == pytest.approx(center(canvas).y)
@@ -133,7 +136,7 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        window.get_by_accessible_name("Selected Rectangle").resolve()
+        window.get_by_accessible_name("Selected Rectangle").wait_for()
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         clear_point = slint_testing.LogicalPosition(
             x=canvas.absolute_position.x + 10,
@@ -141,18 +144,10 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         )
         window.pointer.press_at(clear_point)
         window.pointer.release_at(clear_point)
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Selected Rectangle").all()
-                else None
-            )
-        )
+        expect(window.get_by_accessible_name("Selected Rectangle")).to_be_hidden()
         target = center(canvas)
         window.pointer.scroll(80, -120, at=target)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        ).resolve()
+        artboard = window.get_by_role("region", name="Artboard").resolve()
         assert center(artboard).x != pytest.approx(target.x)
         assert center(artboard).y != pytest.approx(target.y)
         window.keyboard.shortcut(keys.Shift, "2")
@@ -375,9 +370,7 @@ def test_view_survives_reload_and_document_switch(
         assert frame.absolute_position.y == pytest.approx(before.y)
         assert frame.size.width == pytest.approx(360)
         file_row(window, fixture_project / "Sibling.slint").activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="sibling-rectangle"
-        ).resolve()
+        window.get_by_role("list-item", name="sibling-rectangle").wait_for()
         assert (
             window.get_by_accessible_name("Editor canvas").resolve().accessible_value
             == "200%"
@@ -406,16 +399,7 @@ def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent
         )
         zoom_canvas(window, 400 if percent == 25 else 25)
         window.keyboard.shortcut(keys.Control, "0")
-        wait_until(
-            lambda: (
-                True
-                if window.get_by_accessible_name("Editor canvas")
-                .resolve()
-                .accessible_value
-                == "100%"
-                else None
-            )
-        )
+        expect(window.get_by_accessible_name("Editor canvas")).to_have_value("100%")
         original.assert_unchanged()
 
 

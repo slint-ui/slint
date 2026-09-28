@@ -17,7 +17,7 @@ FIELDS = {
 def slider_position(
     window: Window, label: str, progress: float
 ) -> slint_testing.LogicalPosition:
-    slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
+    slider = inspector_field(window, label, "slider")
     return slider_track_position(slider, progress)
 
 
@@ -35,7 +35,7 @@ def slider_track_position(
 def inspector_field(
     window: Window,
     label: str,
-    role: slint_testing.AccessibleRole | None = None,
+    role: str | slint_testing.AccessibleRole | None = None,
 ) -> slint_testing.Element:
     pane = window.get_by_role("complementary", name="Inspector and outline")
     field = (
@@ -58,7 +58,7 @@ def inspector_field(
 def inspector_field_locator(
     window: Window,
     label: str,
-    role: slint_testing.AccessibleRole | None = None,
+    role: str | slint_testing.AccessibleRole | None = None,
 ) -> Locator:
     pane = window.get_by_role("complementary", name="Inspector and outline")
     return (
@@ -72,10 +72,11 @@ def edit_field(
     window: Window,
     label: str,
     value: str,
-    role: slint_testing.AccessibleRole | None = None,
+    role: str | slint_testing.AccessibleRole | None = None,
 ) -> None:
     field = inspector_field_locator(window, label, role)
-    field.scroll_into_view()
+    if field.visible_count() == 0:
+        field.scroll_into_view()
     field.set_accessible_value(value)
 
 
@@ -83,9 +84,8 @@ def wait_for_field(
     window: Window,
     label: str,
     value: str,
-    role: slint_testing.AccessibleRole | None = None,
+    role: str | slint_testing.AccessibleRole | None = None,
     timeout: float = 5,
 ) -> None:
     field = inspector_field_locator(window, label, role)
-    field.scroll_into_view()
     expect(field).to_have_value(value, timeout=timeout * 1000)

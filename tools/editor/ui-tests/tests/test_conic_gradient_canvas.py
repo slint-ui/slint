@@ -6,7 +6,6 @@ import re
 from pathlib import Path
 
 import pytest
-import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, gesture, shifted
@@ -39,10 +38,10 @@ def conic_scene(tmp_path):
 def open_conic(window):
     select_outline_row(window, "fill")
     window.get_by_role("button", name="Rectangle background color picker").activate()
-    window.get_by_role("button", name="Gradient rotation handle").resolve()
-    assert not window.get_by_accessible_name("Gradient angle degrees").all()
-    assert not window.get_by_accessible_name("Gradient center").all()
-    window.get_by_role("button", name="Add gradient stop").resolve()
+    window.get_by_role("button", name="Gradient rotation handle").wait_for()
+    window.get_by_accessible_name("Gradient angle degrees").wait_for(state="hidden")
+    window.get_by_accessible_name("Gradient center").wait_for(state="hidden")
+    window.get_by_role("button", name="Add gradient stop").wait_for()
 
 
 def stop_rotation(position, start=220, rotation=0):
@@ -129,9 +128,7 @@ def test_conic_keyboard_and_seam_neighbor(
         window.keyboard.press(keys.RightArrow)
         window.keyboard.shortcut(keys.Shift, keys.LeftArrow)
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-            )
+            window.get_by_role("text-input", name="Stop 2 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(189)
@@ -139,19 +136,17 @@ def test_conic_keyboard_and_seam_neighbor(
         gesture(window, p, p)
         window.keyboard.press(keys.Delete)
         expect(window.get_by_accessible_name("Gradient stop 3")).to_be_hidden()
-        window.get_by_role("button", name="Gradient stop 2").resolve()
+        window.get_by_role("button", name="Gradient stop 2").wait_for()
         window.keyboard.press(keys.LeftArrow)
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-            )
+            window.get_by_role("text-input", name="Stop 2 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(359)
         window.keyboard.press(keys.Backspace)
         window.keyboard.press(keys.Delete)
-        window.get_by_role("button", name="Gradient stop 2").resolve()
-        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        window.get_by_role("button", name="Gradient stop 2").wait_for()
+        window.get_by_accessible_name("Gradient stop 3").wait_for(state="hidden")
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -166,17 +161,13 @@ def test_conic_swatch_delete_keeps_canvas_element(
         open_conic(window)
         window.get_by_role("button", name="Remove stop 3").activate()
         expect(window.get_by_accessible_name("Gradient stop 3")).to_be_hidden()
-        position = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-        ).resolve()
+        position = window.get_by_role("text-input", name="Stop 2 position").resolve()
         gesture(window, center(position), center(position))
         window.keyboard.press(keys.Tab)
         window.keyboard.press(keys.Delete)
         original.assert_unchanged_now()
         window.keyboard.press(keys.Space)
-        window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
+        window.get_by_role("text-input", name="Hex color").wait_for()
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -197,7 +188,7 @@ def test_external_edit_invalidates_conic_session(
         external = original.replace("#7e3b66", "#abcdef")
         conic_scene.write_text(external)
         wait_for_source(conic_scene, external.encode())
-        assert not window.get_by_accessible_name("Gradient center handle").all()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
@@ -285,17 +276,13 @@ def test_conic_seam_handles_and_stop_crossing(
         assert math.hypot(last.x - c.x, last.y - c.y) == pytest.approx(100, abs=0.001)
         gesture(window, first, around(c, 152, 240))
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 1 position"
-            )
+            window.get_by_role("text-input", name="Stop 1 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(20, abs=0.01)
         gesture(window, last, around(c, 100, 200))
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 3 position"
-            )
+            window.get_by_role("text-input", name="Stop 3 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(340, abs=0.01)
@@ -305,16 +292,14 @@ def test_conic_seam_handles_and_stop_crossing(
             p = around(c, 152, 220 + degrees)
             window.pointer.move_to(p)
             assert float(
-                window.get_by_role(
-                    slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-                )
+                window.get_by_role("text-input", name="Stop 2 position")
                 .resolve()
                 .accessible_value
             ) == pytest.approx(degrees, abs=0.01)
         window.pointer.release_at(p)
         window.get_by_role("button", name="Edit stop 2 color").activate()
         assert (
-            window.get_by_role(slint_testing.AccessibleRole.TextInput, name="Hex color")
+            window.get_by_role("text-input", name="Hex color")
             .resolve()
             .accessible_value
             == "#264052"
@@ -337,16 +322,14 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
         p = around(c, 126, 220 + 90)
         gesture(window, p, p)
         gesture(window, p, p)
-        window.get_by_role("button", name="Gradient stop 4").resolve()
+        window.get_by_role("button", name="Gradient stop 4").wait_for()
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-            )
+            window.get_by_role("text-input", name="Stop 2 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(90, abs=0.01)
         window.keyboard.press(keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        window.get_by_accessible_name("Gradient stop 4").wait_for(state="hidden")
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -373,7 +356,7 @@ def test_conic_insertion_samples_straight_alpha(
         gesture(window, p, p)
         window.get_by_role("button", name="Edit stop 2 color").activate()
         value = (
-            window.get_by_role(slint_testing.AccessibleRole.TextInput, name="Hex color")
+            window.get_by_role("text-input", name="Hex color")
             .resolve()
             .accessible_value
         )
@@ -397,28 +380,22 @@ def test_conic_coincident_stops_keep_keyboard_focus(
         window.keyboard.press(keys.Tab)
         window.keyboard.press(keys.RightArrow)
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-            )
+            window.get_by_role("text-input", name="Stop 2 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(1)
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 1 position"
-            )
+            window.get_by_role("text-input", name="Stop 1 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(0)
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
+        field = window.get_by_role("text-input", name="Hex color").resolve()
         p = center(field)
         gesture(window, p, p)
         window.keyboard.shortcut(keys.Control, "a")
         window.keyboard.press(keys.Backspace)
-        window.get_by_role("button", name="Gradient stop 3").resolve()
+        window.get_by_role("button", name="Gradient stop 3").wait_for()
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -432,14 +409,10 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         window = first_window(editor)
         open_conic(window)
         (tmp_path / "conic-picker-and-canvas.png").write_bytes(window.screenshot())
-        window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
-        ).resolve()
-        assert not window.get_by_accessible_name("Hex color").all()
+        window.get_by_role("slider", name="Gradient stop 2").wait_for()
+        window.get_by_accessible_name("Hex color").wait_for(state="hidden")
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Hex color"
-        )
+        field = window.get_by_role("text-input", name="Hex color")
         expect(field).to_have_value("#264052")
         window.get_by_role("button", name="Gradient stop 1").activate()
         expect(field).to_have_value("#7e3b66")
@@ -448,9 +421,9 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         field.set_accessible_value("#abcdef80")
         expect(field).to_have_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-        ).set_accessible_value("162")
+        window.get_by_role("text-input", name="Stop 2 position").set_accessible_value(
+            "162"
+        )
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
         )
@@ -460,7 +433,7 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         assert actual.y == pytest.approx(expected.y, abs=0.001)
         window.get_by_role("button", name="Edit stop 2 color").activate()
         assert (
-            window.get_by_role(slint_testing.AccessibleRole.TextInput, name="Hex color")
+            window.get_by_role("text-input", name="Hex color")
             .resolve()
             .accessible_value
             == "#abcdef80"
@@ -483,18 +456,22 @@ def test_conic_activation_from_solid(
         window.get_by_role(
             "button", name="Rectangle background color picker"
         ).activate()
-        assert not window.get_by_accessible_name("Gradient rotation handle").all()
+        window.get_by_accessible_name("Gradient rotation handle").wait_for(
+            state="hidden"
+        )
         window.get_by_role("button", name="Gradient").activate()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Combobox, name="Gradient type"
-        ).set_accessible_value("Conic")
-        window.get_by_role("button", name="Gradient rotation handle").resolve()
-        assert not window.get_by_accessible_name("Gradient angle degrees").all()
-        window.get_by_role("button", name="Edit stop 1 color").resolve()
+        window.get_by_role("combobox", name="Gradient type").set_accessible_value(
+            "Conic"
+        )
+        window.get_by_role("button", name="Gradient rotation handle").wait_for()
+        window.get_by_accessible_name("Gradient angle degrees").wait_for(state="hidden")
+        window.get_by_role("button", name="Edit stop 1 color").wait_for()
         window.get_by_role("button", name="Solid").activate()
-        assert not window.get_by_accessible_name("Gradient rotation handle").all()
+        window.get_by_accessible_name("Gradient rotation handle").wait_for(
+            state="hidden"
+        )
         window.get_by_role("button", name="Gradient").activate()
-        window.get_by_role("button", name="Gradient rotation handle").resolve()
+        window.get_by_role("button", name="Gradient rotation handle").wait_for()
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 

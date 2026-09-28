@@ -63,6 +63,8 @@ The generic library, editor adapter, and nested timeline are implemented.
 All 642 Visual Editor cases across 30 files now use the readable window, locator, keyboard, pointer, assertion, and reporting surface.
 The migration removed direct event construction and raw element actions from test modules.
 Against the pre-migration tree, the suite removes 368 direct event-construction sites, 604 legacy lookup/input-helper sites, and 59 direct raw-element action sites; the corresponding static scan is now empty in tests and shared interaction helpers.
+A readability follow-up replaces 205 enum-valued locator roles with plain role names, 145 discarded `resolve()` calls with `wait_for()`, and 69 raw empty-list assertions with hidden-state waits.
+The remaining `resolve()`, `all()`, and custom polling calls read geometry or combine state from multiple elements where the raw values are part of the test contract.
 Tests whose behavior is an exact gesture retain explicit named pointer and keyboard steps; geometry tests retain raw geometry reads because those values are the contract under test.
 Native left-click targeting and automatic scrolling are available for supported built-in input policies, with an explicit forced click for controls whose accessible element delegates input to a covering touch area.
 The reporting bridge alone retains raw screenshot access because it receives the harness's underlying window before the readable wrapper is created.

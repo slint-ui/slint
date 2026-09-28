@@ -43,7 +43,7 @@ def test_coincident_canvas_insertion_preserves_rendering(
         before = pixels()
         for _ in range(2):
             gesture(window, point, point)
-        window.get_by_role("button", name="Gradient stop 5").resolve()
+        window.get_by_role("button", name="Gradient stop 5").wait_for()
         assert pixels() == before
         window.get_by_role("button", name="Close Custom").activate()
         saved = wait_for_source_change(file, original.sources[Path(file.name)])

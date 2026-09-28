@@ -25,7 +25,7 @@ def hover_rectangle(window: Window) -> None:
     window.pointer.move_to(
         slint_testing.LogicalPosition(x=position.x + 40, y=position.y + 60)
     )
-    window.get_by_accessible_name("Hovered Rectangle").resolve()
+    window.get_by_accessible_name("Hovered Rectangle").wait_for()
 
 
 def wait_for_no_rectangle_hover(window: Window) -> None:
@@ -60,7 +60,7 @@ def test_removing_hovered_element_without_pointer_motion(
             assert b"root-rectangle :=" not in expected
 
         wait_for_source(source, expected)
-        assert not window.get_by_id("Main::root-rectangle").all()
+        window.get_by_id("Main::root-rectangle").wait_for(state="hidden")
         wait_for_no_rectangle_hover(window)
 
 
@@ -87,7 +87,7 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
         window = first_window(editor)
         wait_for_source(source, baseline)
         select_fixture_element(window, "Rectangle")
-        edit_field(window, FIELDS["x"], "220", slint_testing.AccessibleRole.TextInput)
+        edit_field(window, FIELDS["x"], "220", "text-input")
         moved = wait_for_source_change(source, baseline)
         assert b"x: 220px;" in moved
         wait_for_source(source, moved)
@@ -102,7 +102,7 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
         else:
             window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         wait_for_source(source, moved)
-        window.get_by_accessible_name("Hovered Rectangle").resolve()
+        window.get_by_accessible_name("Hovered Rectangle").wait_for()
 
 
 def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
@@ -142,7 +142,7 @@ def test_pointer_motion_clears_hover_after_removal(
         assert b"root-rectangle :=" not in expected
         wait_for_source(source, expected)
         window.pointer.move_to(center(fixture_element(window, "Image")))
-        window.get_by_accessible_name("Hovered Image").resolve()
+        window.get_by_accessible_name("Hovered Image").wait_for()
         wait_for_no_rectangle_hover(window)
 
 

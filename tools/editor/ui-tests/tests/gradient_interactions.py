@@ -30,9 +30,7 @@ def gesture(window, start, end):
     window.pointer.release_at(end)
 
 
-def picker_field(
-    window, label, role=slint_testing.AccessibleRole.TextInput
-) -> Locator:
+def picker_field(window, label, role="text-input") -> Locator:
     return window.get_by_role(role, name=label)
 
 
@@ -43,10 +41,10 @@ def open_gradient(window):
 def open_radial(window):
     select_outline_row(window, "fill")
     open_gradient(window)
-    window.get_by_role("button", name="Gradient center handle").resolve()
-    assert not window.get_by_accessible_name("Gradient center").all()
-    assert not window.get_by_accessible_name("Gradient radius mode").all()
-    window.get_by_role("button", name="Add gradient stop").resolve()
+    window.get_by_role("button", name="Gradient center handle").wait_for()
+    window.get_by_accessible_name("Gradient center").wait_for(state="hidden")
+    window.get_by_accessible_name("Gradient radius mode").wait_for(state="hidden")
+    window.get_by_role("button", name="Add gradient stop").wait_for()
 
 
 def gradient_document(directory: Path, expression: str) -> Path:

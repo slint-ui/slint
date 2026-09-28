@@ -13,19 +13,14 @@ from ui_driver import (
     first_window,
     launch_editor,
     select_fixture_element,
-    wait_until,
 )
 
 
 def begin_inline_edit(window: Window) -> slint_testing.Element:
     select_fixture_element(window, "Text")
     window.get_by_accessible_name("Text move handle").dblclick()
-    editor = window.get_by_role(
-        slint_testing.AccessibleRole.TextInput, name="Inline text editor"
-    ).resolve()
-    assert not window.get_by_role(
-        slint_testing.AccessibleRole.Text, name="Fixture text"
-    ).all()
+    editor = window.get_by_role("text-input", name="Inline text editor").resolve()
+    window.get_by_role("text", name="Fixture text").wait_for(state="hidden")
     return editor
 
 
@@ -55,8 +50,8 @@ def test_inline_text_key_commit(
         window.keyboard.press_sequentially("Edited")
         window.keyboard.press(commit_key)
         snapshot.wait_for_applied(expected)
-        assert not window.get_by_accessible_name("Inline text editor").all()
-        window.get_by_role(slint_testing.AccessibleRole.Text, name="Edited").resolve()
+        window.get_by_accessible_name("Inline text editor").wait_for(state="hidden")
+        window.get_by_role("text", name="Edited").wait_for()
 
 
 def test_inline_text_focus_commit_selects_clicked_item(
@@ -76,13 +71,8 @@ def test_inline_text_focus_commit_selects_clicked_item(
         window.pointer.press_at(position)
         window.pointer.release_at(position)
         snapshot.wait_for_applied(expected)
-        window.get_by_role(slint_testing.AccessibleRole.Text, name="Changed").resolve()
-        wait_until(
-            lambda: next(
-                iter(window.get_by_accessible_name("Selected Rectangle").all()),
-                None,
-            )
-        )
+        window.get_by_role("text", name="Changed").wait_for()
+        window.get_by_accessible_name("Selected Rectangle").wait_for()
 
 
 def test_inline_text_focus_loss_without_change_restores_text(
@@ -98,9 +88,7 @@ def test_inline_text_focus_loss_without_change_restores_text(
         position = center(fixture_element(window, "Rectangle"))
         window.pointer.press_at(position)
         window.pointer.release_at(position)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        window.get_by_role("text", name="Fixture text").wait_for()
 
 
 @pytest.mark.parametrize(
@@ -127,4 +115,4 @@ def test_inline_text_rejects_unsupported_layouts(
         window = first_window(editor)
         select_fixture_element(window, "Text")
         window.get_by_accessible_name("Text move handle").dblclick()
-        assert not window.get_by_accessible_name("Inline text editor").all()
+        window.get_by_accessible_name("Inline text editor").wait_for(state="hidden")

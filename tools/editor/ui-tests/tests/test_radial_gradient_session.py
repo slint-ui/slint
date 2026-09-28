@@ -4,7 +4,6 @@
 import math
 
 import pytest
-import slint_testing
 from editor_sync import wait_for_source
 from gradient_interactions import center, gesture, open_radial, shifted
 from slint_testing import keys
@@ -35,7 +34,7 @@ def test_escape_restores_radial_gesture(
         restored = center(window.get_by_role("button", name=label).resolve(), 35)
         assert restored.x == pytest.approx(start.x, abs=0.001)
         assert restored.y == pytest.approx(start.y, abs=0.001)
-        window.get_by_role("button", name="Close Custom").resolve()
+        window.get_by_role("button", name="Close Custom").wait_for()
         window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
@@ -78,16 +77,14 @@ def test_radial_keyboard_and_collapsed_radius(
         window.keyboard.press(keys.RightArrow)
         window.keyboard.shortcut(keys.Shift, keys.LeftArrow)
         assert float(
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-            )
+            window.get_by_role("text-input", name="Stop 2 position")
             .resolve()
             .accessible_value
         ) == pytest.approx(36)
         window.keyboard.press(keys.Backspace)
         window.keyboard.press(keys.Backspace)
-        window.get_by_role("button", name="Gradient stop 2").resolve()
-        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        window.get_by_role("button", name="Gradient stop 2").wait_for()
+        window.get_by_accessible_name("Gradient stop 3").wait_for(state="hidden")
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
@@ -108,13 +105,13 @@ def test_external_edit_invalidates_radial_session(
         external = original.replace("#7e3b66", "#abcdef")
         radial_scene.write_text(external)
         wait_for_source(radial_scene, external.encode())
-        assert not window.get_by_accessible_name("Gradient center handle").all()
-        assert not window.get_by_accessible_name("Close Custom").all()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
+        window.get_by_accessible_name("Close Custom").wait_for(state="hidden")
         assert radial_scene.read_text() == external
         open_radial(window)
         window.get_by_role("button", name="Edit stop 1 color").activate()
         assert (
-            window.get_by_role(slint_testing.AccessibleRole.TextInput, name="Hex color")
+            window.get_by_role("text-input", name="Hex color")
             .resolve()
             .accessible_value
             == "#abcdef"

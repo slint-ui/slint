@@ -24,7 +24,6 @@ from ui_driver import (
     first_window,
     launch_editor,
     select_outline_row,
-    wait_until,
 )
 
 
@@ -56,14 +55,12 @@ def test_custom_gradient_geometry_uses_layout_size(
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        rectangle = wait_until(
-            lambda: next(iter(window.get_by_id("LayoutGradient::fill").all()), None)
-        )
+        rectangle = window.get_by_id("LayoutGradient::fill").resolve()
         assert rectangle.size.width == pytest.approx(400)
         assert rectangle.size.height == pytest.approx(400)
 
         window.get_by_role(
-            slint_testing.AccessibleRole.Button,
+            "button",
             name="Rectangle background color picker",
         ).activate()
         geometry = (
@@ -115,8 +112,8 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             else "Root background color picker"
         )
         window.get_by_role("button", name=picker).activate()
-        assert not window.get_by_accessible_name("Gradient center handle").all()
-        assert not window.get_by_accessible_name("Gradient start").all()
+        window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
+        window.get_by_accessible_name("Gradient start").wait_for(state="hidden")
         if kind != "radial":
             picker_field(window, "Gradient angle degrees").set_accessible_value("36")
         if kind != "linear":
@@ -159,9 +156,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
 
 
 def set_picker_mode(window, label, value):
-    picker_field(
-        window, label, slint_testing.AccessibleRole.Combobox
-    ).set_accessible_value(value)
+    picker_field(window, label, "combobox").set_accessible_value(value)
 
 
 @pytest.mark.parametrize("kind", ["radial", "conic"])
@@ -179,9 +174,7 @@ def test_picker_uses_live_preview_stop_markers(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        stop = picker_field(
-            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
-        )
+        stop = picker_field(window, "Gradient stop 1", "slider")
         expect(stop).to_have_geometry(width=40, height=40)
         (tmp_path / "picker-stop-markers.png").write_bytes(window.screenshot())
 
@@ -288,7 +281,7 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        role = slint_testing.AccessibleRole.Slider
+        role = "slider"
         left = center(window.get_by_role(role, name="Gradient stop 1").resolve())
         right = center(window.get_by_role(role, name="Gradient stop 4").resolve())
         start = center(window.get_by_role(role, name="Gradient stop 2").resolve())
@@ -309,9 +302,9 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Gradient stop 2").activate()
         window.keyboard.press(keys.RightArrow)
-        assert float(
-            picker_field(window, "Stop 2 position").value()
-        ) == pytest.approx(units * 0.75 + 1, abs=0.01)
+        assert float(picker_field(window, "Stop 2 position").value()) == pytest.approx(
+            units * 0.75 + 1, abs=0.01
+        )
         window.get_by_role("button", name="Remove stop 1").activate()
         window.get_by_role("button", name="Edit stop 1 color").activate()
         expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
@@ -333,7 +326,7 @@ def test_picker_pointer_cancel_restores_stops(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
-        role = slint_testing.AccessibleRole.Slider
+        role = "slider"
         left = center(window.get_by_role(role, name="Gradient stop 1").resolve())
         right = center(window.get_by_role(role, name="Gradient stop 3").resolve())
         start = shifted(left, x=(right.x - left.x) * (0.25 if insert else 0.5))
@@ -367,7 +360,7 @@ def test_stop_interactions_preserve_color_identity(
         insertion = shifted(left, x=(right.x - left.x) * 0.25)
         for _ in range(2):
             gesture(window, insertion, insertion)
-        window.get_by_role("button", name="Gradient stop 4").resolve()
+        window.get_by_role("button", name="Gradient stop 4").wait_for()
         window.get_by_role("button", name="Edit stop 2 color").activate()
         expect(picker_field(window, "Hex color")).to_have_value("#aa0055c0")
         picker_field(window, "Hex color").set_accessible_value("#00ff00b0")
@@ -410,7 +403,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         select_outline_row(window, "fill")
         for cancel in [True, False]:
             open_gradient(window)
-            picker_field(window, "No recent fills", slint_testing.AccessibleRole.Text)
+            picker_field(window, "No recent fills", "text")
             window.get_by_role("button", name="Add gradient stop").activate()
             window.get_by_role("button", name="Edit stop 2 color").activate()
             color = picker_field(window, "Hex color")
@@ -474,8 +467,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
-
-    rectangle = wait_until(lambda: next(iter(window.get_by_id(element_id).all()), None))
+    rectangle = window.get_by_id(element_id).resolve()
     c = center(
         window.get_by_role("button", name="Gradient center handle").resolve(), 35
     )
@@ -490,8 +482,7 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
-
-    rectangle = wait_until(lambda: next(iter(window.get_by_id(element_id).all()), None))
+    rectangle = window.get_by_id(element_id).resolve()
     c = center(
         window.get_by_role("button", name="Gradient center handle").resolve(),
         angle - 90,

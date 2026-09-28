@@ -99,7 +99,7 @@ def test_tree_hover_geometry_updates_after_reload(
         window = first_window(editor)
         artboard = window.get_by_accessible_name("Artboard").resolve()
         window.pointer.move_to(center(outline_row(window, "root-rectangle")))
-        window.get_by_accessible_name("Hovered Rectangle").resolve()
+        window.get_by_accessible_name("Hovered Rectangle").wait_for()
         updated = source.read_bytes().replace(b"x: 40px;", b"x: 70px;", 1)
         source.write_bytes(updated)
         wait_for_source(source, updated)

@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import pytest
-import slint_testing
 from canvas_interactions import (
     OrientedFrame,
     manual_drag,
@@ -82,7 +81,7 @@ def assert_visual(
             window,
             FIELDS[name],
             str(values[name]),
-            slint_testing.AccessibleRole.TextInput,
+            "text-input",
         )
     if not check_radius:
         return
@@ -131,7 +130,7 @@ def edit(
             window,
             "All corner radii" if name == "radius" else FIELDS[name],
             str(value),
-            slint_testing.AccessibleRole.TextInput,
+            "text-input",
         )
         return
     if case == "handle-radius":
@@ -241,22 +240,18 @@ def test_redo_after_external_edit_preserves_source(
             cx - INITIAL["x"] - INITIAL["width"] / 2,
             cy - INITIAL["y"] - INITIAL["height"] / 2,
         )
-        edit_field(window, FIELDS["x"], "104", slint_testing.AccessibleRole.TextInput)
+        edit_field(window, FIELDS["x"], "104", "text-input")
         snapshot.wait_for_applied(edited, SOURCE)
         assert_visual(window, INITIAL | {"x": 104}, origin, False)
         select_fixture_element(window, "Rectangle")
         shortcut(window, redo=False)
         snapshot.wait_for_applied(baseline, SOURCE)
-        wait_for_field(
-            window, FIELDS["x"], "80", slint_testing.AccessibleRole.TextInput
-        )
+        wait_for_field(window, FIELDS["x"], "80", "text-input")
         select_fixture_element(window, "Rectangle")
         source.write_bytes(external)
         snapshot_after_external = SourceSnapshot.capture(fixture_project)
         if wait_for_reload:
-            wait_for_field(
-                window, FIELDS["x"], "900", slint_testing.AccessibleRole.TextInput
-            )
+            wait_for_field(window, FIELDS["x"], "900", "text-input")
         shortcut(window, redo=True)
         snapshot.wait_for_applied(external, SOURCE)
         snapshot_after_external.assert_unchanged()
