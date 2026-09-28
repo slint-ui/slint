@@ -117,8 +117,9 @@ pub fn create_window_adapter()
     i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 
-/// Wrapper around i_slint_core::translations::translate for the generated code
+/// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
+    ctx: &i_slint_core::SlintContext,
     origin: SharedString,
     context: SharedString,
     domain: SharedString,
@@ -126,7 +127,7 @@ pub fn translate(
     n: i32,
     plural: SharedString,
 ) -> SharedString {
-    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice(), n, &plural)
+    ctx.translate(&origin, &context, &domain, args.as_slice(), n, &plural)
 }
 
 #[cfg(feature = "gettext")]
@@ -205,10 +206,7 @@ pub mod re_exports {
     pub use i_slint_core::string::shared_string_from_number_unlocalized;
     pub use i_slint_core::string::shared_string_replace_all;
     pub use i_slint_core::timers::{Timer, TimerMode};
-    pub use i_slint_core::translations::{
-        TranslationsBundled, set_bundled_languages, translate_from_bundle,
-        translate_from_bundle_with_plural,
-    };
+    pub use i_slint_core::translations::TranslationsBundled;
     pub use i_slint_core::window::{
         InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
         context_for_root, default_window_title,
