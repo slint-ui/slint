@@ -1932,16 +1932,16 @@ fn eval_translation_reference(
     };
     let args = StringModelWrapper(args);
     let Some(plural) = plural else {
-        return Value::String(i_slint_core::translations::translate_from_bundle(
-            &translations.strings[string_index],
-            &args,
-        ));
+        return Value::String(
+            context_or_global(ctx)
+                .translate_from_bundle(&translations.strings[string_index], &args),
+        );
     };
 
     let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
     let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
     let globals = ctx.globals.clone();
-    Value::String(i_slint_core::translations::translate_from_bundle_with_plural_form(
+    Value::String(context_or_global(ctx).translate_from_bundle_with_plural_form(
         &forms,
         |language_index| {
             let rule = translations.plural_rules.get(language_index)?.as_ref()?;
@@ -2635,7 +2635,7 @@ fn call_builtin_function(
             };
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
-            Value::String(i_slint_core::translations::translate(
+            Value::String(context_or_global(ctx).translate(
                 &original,
                 &context,
                 &domain,

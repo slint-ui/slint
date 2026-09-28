@@ -430,13 +430,18 @@ fn generate_public_component(
     };
 
     #[cfg(feature = "bundle-translations")]
-    let init_bundle_translations = unit.translations.as_ref().map(|_| {
-        quote!(
-            sp::set_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
-        )
-    });
+    let init_bundle_translations = |context: TokenStream| {
+        unit.translations.as_ref().map(|_| {
+            quote!(
+                #context.set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+            )
+        })
+    };
     #[cfg(not(feature = "bundle-translations"))]
-    let init_bundle_translations = quote!();
+    let init_bundle_translations = |_: TokenStream| quote!();
+    let init_bundle_translations_global =
+        init_bundle_translations(quote!(inner.globals.get().unwrap().context_or_global()));
+    let init_bundle_translations_with_context = init_bundle_translations(quote!(ctx));
 
     let experimental = compiler_config.enable_experimental;
 
@@ -446,8 +451,8 @@ fn generate_public_component(
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
+                #init_bundle_translations_global
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -544,8 +549,8 @@ fn generate_public_component(
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations
                 #eager_create_window
+                #init_bundle_translations_global
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -554,7 +559,7 @@ fn generate_public_component(
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations
+                #init_bundle_translations_with_context
 
                 #init_with_context
 
@@ -4517,10 +4522,11 @@ fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> 
         unreachable!()
     };
     let args = compile_expression(format_args, ctx);
+    let context = access_context(ctx);
     match plural {
         Some(plural) => {
             let plural = compile_expression(plural, ctx);
-            quote!(sp::translate_from_bundle_with_plural(
+            quote!(#context.translate_from_bundle_with_plural(
                 &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
                 &self::_SLINT_TRANSLATED_PLURAL_RULES,
                 sp::Slice::<sp::SharedString>::from(#args).as_slice(),
@@ -4528,7 +4534,7 @@ fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> 
             ))
         }
         None => {
-            quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+            quote!(#context.translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
         }
     }
 }
@@ -5354,7 +5360,8 @@ fn compile_builtin_function_call(
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
         }
         BuiltinFunction::Translate => {
-            quote!(slint::private_unstable_api::translate(#((#a) as _),*))
+            let context = access_context(ctx);
+            quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
         }
         BuiltinFunction::Use24HourFormat => {
             quote!(slint::private_unstable_api::use_24_hour_format())
