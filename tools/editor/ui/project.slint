@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FileTreeNode } from "api.slint";
+
+export struct RecentProject {
+    name: string,
+    root-path: string,
+    component: string,
+    path: string,
+}
+
+export global Project {
+    in-out property <[FileTreeNode]> file-tree;
+    in-out property <string> selected-project-file;
+    in-out property <[RecentProject]> recent;
+
+    callback create-new-project() -> bool;
+    callback create-new-slint-file() -> string;
+    callback open-existing-project() -> bool;
+    callback open-recent-project(RecentProject) -> bool;
+}

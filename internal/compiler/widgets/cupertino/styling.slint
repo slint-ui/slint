@@ -9,12 +9,10 @@ export struct TextStyle {
 }
 
 export global CupertinoFontSettings {
-    out property <TextStyle> body: { font-size: 13 * 0.0769rem, font-weight: FontWeight.normal };
-
-    out property <TextStyle> title: { font-size: 28 * 0.0769rem, font-weight: FontWeight.light };
+    out property <TextStyle> title: { font-size: 28pt * 1rem / 13pt, font-weight: FontWeight.light };
 
     // needed?
-    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: FontWeight.semi-bold };
+    out property <TextStyle> body-strong: { font-size: 14pt * 1rem / 13pt, font-weight: FontWeight.semi-bold };
 }
 
 export global CupertinoColors {

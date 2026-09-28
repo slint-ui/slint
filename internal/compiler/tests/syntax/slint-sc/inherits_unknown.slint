@@ -1,0 +1,8 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The base of a component must resolve to a built-in element.
+
+//#sls.file.component.inherits.base
+export component Test inherits NotAnElement { }
+//                             >           <error{Unknown element 'NotAnElement'}

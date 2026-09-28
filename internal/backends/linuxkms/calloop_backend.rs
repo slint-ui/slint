@@ -20,7 +20,10 @@ use i_slint_core::platform::PlatformError;
 use crate::BackendBuilder;
 use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
-#[cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "libinput",
+    not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32"))
+))]
 mod input;
 
 #[derive(Clone)]
@@ -65,6 +68,7 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
+    context: std::cell::OnceCell<i_slint_core::SlintContextWeak>,
     #[cfg(feature = "libseat")]
     seat: Rc<RefCell<libseat::Seat>>,
     window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
@@ -79,6 +83,7 @@ pub struct Backend {
     requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
     sel_clipboard: RefCell<Option<String>>,
     clipboard: RefCell<Option<String>>,
+    #[cfg(feature = "libinput")]
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
 }
 
@@ -101,6 +106,8 @@ impl Backend {
             Some("femtovg-wgpu") => crate::renderer::femtovg_wgpu::FemtoVGWgpuRendererAdapter::new,
             #[cfg(feature = "renderer-software")]
             Some("software") => crate::renderer::sw::SoftwareRendererAdapter::new,
+            #[cfg(feature = "renderer-vello")]
+            Some("vello") => crate::renderer::vello::VelloRendererAdapter::new,
             None => crate::renderer::try_skia_then_femtovg_then_software,
             Some(renderer_name) => {
                 eprintln!(
@@ -140,6 +147,7 @@ impl Backend {
         }
 
         Ok(Backend {
+            context: Default::default(),
             #[cfg(feature = "libseat")]
             seat: Rc::new(RefCell::new(seat)),
             window: Default::default(),
@@ -149,12 +157,17 @@ impl Backend {
             requested_graphics_api: builder.requested_graphics_api,
             sel_clipboard: Default::default(),
             clipboard: Default::default(),
+            #[cfg(feature = "libinput")]
             libinput_event_hook: builder.libinput_event_hook,
         })
     }
 }
 
 impl i_slint_core::platform::Platform for Backend {
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        let _ = self.context.set(ctx);
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<std::rc::Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
@@ -222,6 +235,7 @@ impl i_slint_core::platform::Platform for Backend {
         }
         let quit_loop = self.proxy.quit_loop.clone();
 
+        #[cfg(feature = "libinput")]
         let mouse_position_property = input::LibInputHandler::init(
             &self.window,
             &event_loop.handle(),
@@ -229,6 +243,13 @@ impl i_slint_core::platform::Platform for Backend {
             &self.seat,
             &self.libinput_event_hook,
         )?;
+
+        // Without libinput there is no pointer to track, so the cursor property
+        // stays empty for the lifetime of the loop.
+        #[cfg(not(feature = "libinput"))]
+        let mouse_position_property = Rc::pin(i_slint_core::Property::<
+            Option<i_slint_core::api::LogicalPosition>,
+        >::new(None));
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err("Re-entering the linuxkms event loop is currently not supported"
@@ -258,8 +279,14 @@ impl i_slint_core::platform::Platform for Backend {
 
         quit_loop.store(false, std::sync::atomic::Ordering::Release);
 
+        let ctx = self
+            .context
+            .get()
+            .and_then(|ctx| ctx.upgrade())
+            .expect("the event loop runs inside the context that owns this backend");
+
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
-            i_slint_core::platform::update_timers_and_animations();
+            ctx.update_timers_and_animations();
 
             // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
             // might set animated properties, which requires an up-to-date start time.
@@ -271,7 +298,7 @@ impl i_slint_core::platform::Platform for Backend {
                 adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
             };
 
-            let next_timeout = i_slint_core::platform::duration_until_next_timer_update();
+            let next_timeout = ctx.duration_until_next_timer_update();
             event_loop
                 .dispatch(next_timeout, &mut loop_data)
                 .map_err(|e| format!("Error dispatch events: {e}"))?;

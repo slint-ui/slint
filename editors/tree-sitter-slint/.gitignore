@@ -1,11 +1,30 @@
-bindings/
 build/
+target/
 node_modules/
-src/
 binding.gyp
-Cargo.toml
+Cargo.lock
 Makefile
-package.json
 package-lock.json
-libtree-sitter-slint.*
-tree-sitter-slint.wasm
+
+# Ignore the generated sources
+# They will be committed to the slint-ui/tree-sitter-slint repo
+# by the nightly workflow, but don't need to be committed in the monorepo.
+src/parser.c
+src/node-types.json
+src/grammar.json
+src/tree_sitter/alloc.h
+src/tree_sitter/array.h
+src/tree_sitter/parser.h
+
+# Tests generated with ./test-to-corpus.py
+test/corpus/gen
+
+# Ignore generated artifacts
+*.so
+*.so.*
+*.dylib
+*.dll
+*.o
+*.obj
+*.wasm
+*.a

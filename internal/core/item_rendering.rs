@@ -5,11 +5,14 @@
 //! module for rendering the tree of items
 
 use super::items::*;
-use crate::graphics::{Color, FontRequest, Image, IntRect};
+use crate::graphics::{
+    Color, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
+};
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalBorderRadius, PhysicalPx, ScaleFactor, SizeLengths,
 };
 pub use crate::partial_renderer::CachedRenderingData;
 use crate::window::WindowAdapterRc;
@@ -123,8 +126,13 @@ impl<T> ItemCache<T> {
     ///
     /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_item_tree`]
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
-        let component_ptr: *const _ =
-            crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
+        self.component_destroyed_at(crate::item_tree::ItemTreeRef::as_ptr(component));
+    }
+
+    /// Like [`Self::component_destroyed`], for a component that is already gone,
+    /// given the address that [`crate::item_tree::ItemTreeRef::as_ptr`] returned for it.
+    pub fn component_destroyed_at(&self, component_ptr: core::ptr::NonNull<u8>) {
+        let component_ptr: *const _ = component_ptr.cast().as_ptr();
         self.map.borrow_mut().remove(&component_ptr);
     }
 
@@ -139,6 +147,14 @@ impl<T> ItemCache<T> {
     /// Returns true if there are no entries in the cache; false otherwise.
     pub fn is_empty(&self) -> bool {
         self.map.borrow().is_empty()
+    }
+
+    /// Keeps only the entries for which `f` returns true.
+    pub fn retain(&self, mut f: impl FnMut(&T) -> bool) {
+        self.map.borrow_mut().retain(|_, per_component| {
+            per_component.retain(|_, entry| f(&entry.data));
+            !per_component.is_empty()
+        });
     }
 
     /// Returns a [`RefMut`](std::cell::RefMut) referencing the cached value associated with
@@ -199,14 +215,16 @@ pub fn render_item_children(
             renderer.save_state();
             let item_rc = ItemRc::new(component.clone(), index);
 
-            let (do_draw, item_geometry) = renderer.filter_item(&item_rc, window_adapter);
+            let (do_draw, item_origin, item_size) = renderer.filter_item(&item_rc, window_adapter);
 
-            let item_origin = item_geometry.origin;
             renderer.translate(item_origin.to_vector());
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
-            let render_result = if do_draw
+            let render_result = if renderer.global_alpha_transparent() {
+                // apply_opacity only multiplies, so the whole subtree stays transparent.
+                RenderingResult::ContinueRenderingWithoutChildren
+            } else if do_draw
                || item.as_ref().clips_children()
                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
@@ -215,11 +233,10 @@ pub fn render_item_children(
                || ItemRef::downcast_pin::<Opacity>(item).is_some()
                || ItemRef::downcast_pin::<Layer>(item).is_some()
             {
-                item.as_ref().render(
-                    &mut (renderer as &mut dyn ItemRenderer),
-                    &item_rc,
-                    item_geometry.size,
-                )
+                let size = item_size.unwrap_or_else(|| {
+                    crate::properties::evaluate_no_tracking(|| item_rc.geometry()).size
+                });
+                item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer), &item_rc, size)
             } else {
                 RenderingResult::ContinueRenderingChildren
             };
@@ -334,6 +351,109 @@ pub trait RenderBorderRectangle {
     fn border_color(self: Pin<&Self>) -> Brush;
 }
 
+/// The geometry for drawing a [`RenderBorderRectangle`] in the CSS box model, shared by
+/// the renderers that stroke the border centered on a path: the border is drawn entirely
+/// inside the item's geometry, the background doesn't extend under an opaque border, and
+/// brushes are resolved against the full border box.
+pub struct BorderRectLayout {
+    /// The size of the border box, for resolving the background and border brushes.
+    pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The rectangle to fill with the background brush.
+    pub background_rect: euclid::Rect<f32, PhysicalPx>,
+    /// The corner radii of `background_rect`.
+    pub background_radius: PhysicalBorderRadius,
+    /// The rectangle to stroke with `border_color` when `border_width` is positive.
+    pub border_rect: euclid::Rect<f32, PhysicalPx>,
+    /// The corner radii of `border_rect`.
+    pub border_radius: PhysicalBorderRadius,
+    /// The stroke width of the border; zero for transparent borders.
+    pub border_width: euclid::Length<f32, PhysicalPx>,
+    /// The border brush.
+    pub border_color: Brush,
+}
+
+impl BorderRectLayout {
+    /// Computes the layout for a border rectangle of `size`, or `None` when the
+    /// geometry is empty.
+    pub fn new(
+        rect: Pin<&dyn RenderBorderRectangle>,
+        size: LogicalSize,
+        scale_factor: ScaleFactor,
+    ) -> Option<Self> {
+        // `cast()`: the logical Coord type can be i32, the physical geometry is f32.
+        let mut geometry = euclid::Rect::from_size(size.cast() * scale_factor);
+        if geometry.is_empty() {
+            return None;
+        }
+        let brush_size = geometry.size;
+
+        let border_color = rect.border_color();
+        let opaque_border = border_color.is_opaque();
+        let mut border_width = if border_color.is_transparent() {
+            euclid::Length::new(0.)
+        } else {
+            rect.border_width().cast() * scale_factor
+        };
+
+        // The stroke is centered on the path (50% inside, 50% outside), while in CSS the
+        // border is entirely inside the geometry. Ensure positive corner radii are at
+        // least half the border width, so that the outer edge keeps a radius at all;
+        // this is incorrect when the radius is smaller than that, but that can't be
+        // helped - better a radius a bit too big than no radius.
+        let fill_radius = (rect.border_radius().cast() * scale_factor)
+            .outer(border_width / 2. + euclid::Length::new(0.01));
+        let border_radius = fill_radius.inner(border_width / 2.);
+
+        let (background_rect, background_radius) = if opaque_border {
+            // The fill doesn't need to extend under an opaque border, so fill and
+            // stroke share the inset geometry.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+            (geometry, border_radius)
+        } else {
+            // A (semi-)transparent border must not cover the background, so the fill
+            // covers the full rectangle.
+            let background = (geometry, fill_radius);
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+            background
+        };
+
+        Some(Self {
+            brush_size,
+            background_rect,
+            background_radius,
+            border_rect: geometry,
+            border_radius,
+            border_width,
+            border_color,
+        })
+    }
+}
+
+/// The region children are clipped to when `clip` is enabled on an element with a
+/// border: the rectangle inside the border ring, with the corner radii reduced
+/// accordingly. See <https://github.com/slint-ui/slint/issues/1988>.
+pub fn clip_content_box(
+    size: LogicalSize,
+    radius: LogicalBorderRadius,
+    border_width: LogicalLength,
+) -> (LogicalRect, LogicalBorderRadius) {
+    // A border covering half the size or more leaves no content region. Integer
+    // arithmetic, as the logical Coord type can be i32.
+    let two = 2 as crate::Coord;
+    let border_width = border_width
+        .max(LogicalLength::default())
+        .min(size.width_length() / two)
+        .min(size.height_length() / two);
+    let rect = LogicalRect::new(
+        LogicalPoint::from_lengths(border_width, border_width),
+        LogicalSize::from_lengths(
+            size.width_length() - border_width * two,
+            size.height_length() - border_width * two,
+        ),
+    );
+    (rect, radius.inner(border_width))
+}
+
 /// Trait for an item that represents an Image towards the renderer
 #[allow(missing_docs)]
 pub trait RenderImage {
@@ -363,6 +483,43 @@ pub enum PlainOrStyledText {
 #[allow(missing_docs)]
 pub trait RenderString: HasFont {
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        0
+    }
+    /// The maximum number of lines to lay out and render, from the `max-lines` property.
+    /// Property values less than or equal to zero mean no limit.
+    fn line_limit(self: Pin<&Self>) -> Option<usize> {
+        usize::try_from(self.max_lines()).ok().filter(|max_lines| *max_lines > 0)
+    }
+    /// Stroke brush, width and style. The style is baked into the shaped glyphs, so it lives
+    /// here (rather than in `RenderText`) to keep measuring and drawing shaping-identical.
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        Default::default()
+    }
+    /// Color of `Style::Link` spans. Like `stroke`, it's baked into the shaped glyphs.
+    fn link_color(self: Pin<&Self>) -> Color {
+        Default::default()
+    }
+}
+
+/// Returns the text box's alignment anchor in physical pixels.
+/// Renderers can snap this point while preserving the box dimensions used for layout.
+pub fn text_alignment_anchor(
+    size: euclid::Size2D<f32, PhysicalPx>,
+    horizontal: TextHorizontalAlignment,
+    vertical: TextVerticalAlignment,
+) -> euclid::Point2D<f32, PhysicalPx> {
+    let x = match horizontal {
+        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
+        TextHorizontalAlignment::Center => size.width / 2.0,
+        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => size.width,
+    };
+    let y = match vertical {
+        TextVerticalAlignment::Top => 0.0,
+        TextVerticalAlignment::Center => size.height / 2.0,
+        TextVerticalAlignment::Bottom => size.height,
+    };
+    euclid::Point2D::new(x, y)
 }
 
 /// Trait for an item that represents an Text towards the renderer
@@ -373,9 +530,7 @@ pub trait RenderText: RenderString {
     fn alignment(self: Pin<&Self>) -> (TextHorizontalAlignment, TextVerticalAlignment);
     fn wrap(self: Pin<&Self>) -> TextWrap;
     fn overflow(self: Pin<&Self>) -> TextOverflow;
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle);
     fn is_markdown(self: Pin<&Self>) -> bool;
-    fn link_color(self: Pin<&Self>) -> Color;
 }
 
 impl HasFont for (SharedString, Brush) {
@@ -386,6 +541,7 @@ impl HasFont for (SharedString, Brush) {
             0,
             LogicalLength::default(),
             LogicalLength::default(),
+            0.0,
             false,
         )
     }
@@ -406,10 +562,6 @@ impl RenderText for (SharedString, Brush) {
         self.1.clone()
     }
 
-    fn link_color(self: Pin<&Self>) -> Color {
-        Default::default()
-    }
-
     fn alignment(
         self: Pin<&Self>,
     ) -> (crate::items::TextHorizontalAlignment, crate::items::TextVerticalAlignment) {
@@ -421,10 +573,6 @@ impl RenderText for (SharedString, Brush) {
     }
 
     fn overflow(self: Pin<&Self>) -> crate::items::TextOverflow {
-        Default::default()
-    }
-
-    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
         Default::default()
     }
 
@@ -517,11 +665,9 @@ pub trait ItemRenderer {
         size: LogicalSize,
     ) -> RenderingResult {
         if clip_item.clip() {
-            let clip_region_valid = self.combine_clip(
-                LogicalRect::new(LogicalPoint::default(), size),
-                clip_item.logical_border_radius(),
-                clip_item.border_width(),
-            );
+            let (clip_rect, clip_radius) =
+                clip_content_box(size, clip_item.logical_border_radius(), clip_item.border_width());
+            let clip_region_valid = self.combine_clip(clip_rect, clip_radius);
 
             // If clipping is enabled but the clip element is outside the visible range, then we don't
             // need to bother doing anything, not even rendering the children.
@@ -533,16 +679,10 @@ pub trait ItemRenderer {
     }
 
     /// Clip the further call until restore_state.
-    /// radius/border_width can be used for border rectangle clip.
-    /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
+    /// (FIXME: consider removing radius and have another function that take a path instead)
     /// Returns a boolean indicating the state of the new clip region: true if the clip region covers
     /// an area; false if the clip region is empty.
-    fn combine_clip(
-        &mut self,
-        rect: LogicalRect,
-        radius: LogicalBorderRadius,
-        border_width: LogicalLength,
-    ) -> bool;
+    fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool;
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> LogicalRect;
 
@@ -556,12 +696,16 @@ pub trait ItemRenderer {
     fn scale(&mut self, scale_x_factor: f32, scale_y_factor: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
+    /// Returns true when the opacity accumulated via [`Self::apply_opacity`] is zero.
+    fn global_alpha_transparent(&self) -> bool {
+        false
+    }
 
     fn save_state(&mut self);
     fn restore_state(&mut self);
 
     /// Returns the scale factor
-    fn scale_factor(&self) -> f32;
+    fn scale_factor(&self) -> ScaleFactor;
 
     /// Draw a pixmap in position indicated by the `pos`.
     /// The pixmap will be taken from cache if the cache is valid, otherwise, update_fn will be called
@@ -582,19 +726,24 @@ pub trait ItemRenderer {
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
-    ///  - the geometry of the item
+    ///  - the origin of the item
+    ///  - the size of the item, or None if it doesn't need to be drawn and the size wasn't computed
     fn filter_item(
         &mut self,
         item: &ItemRc,
         window_adapter: &WindowAdapterRc,
-    ) -> (bool, LogicalRect) {
+    ) -> (bool, LogicalPoint, Option<LogicalSize>) {
         let item_geometry = item.geometry();
         // Query bounding rect untracked, as properties that affect the bounding rect are already tracked
         // when rendering the item.
         let bounding_rect = crate::properties::evaluate_no_tracking(|| {
             item.bounding_rect(&item_geometry, window_adapter)
         });
-        (self.get_current_clip().intersects(&bounding_rect), item_geometry)
+        (
+            self.get_current_clip().intersects(&bounding_rect),
+            item_geometry.origin,
+            Some(item_geometry.size),
+        )
     }
 
     fn window(&self) -> &crate::window::WindowInner;
@@ -650,7 +799,7 @@ where
     R: LayerRenderer<'cache> + ?Sized + 'cache,
 {
     let cache = renderer.layer_cache();
-    let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
+    let scale_factor = renderer.scale_factor();
 
     let compute_bounds = |r: &R| -> LogicalRect {
         item_children_bounding_rect(item_rc, &r.window().window_adapter())

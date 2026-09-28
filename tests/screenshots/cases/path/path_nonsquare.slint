@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+
+// Paths whose width and height differ; a rotated render must keep them
+// inside their bounds (https://github.com/slint-ui/slint/issues/13136)
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Path {
+        x: 4px;
+        y: 4px;
+        width: 20px;
+        height: 56px;
+        viewbox-width: 20;
+        viewbox-height: 56;
+        commands: "M 2 2 L 18 2 L 18 54 L 2 54 Z";
+        fill: green;
+        stroke: black;
+        stroke-width: 2px;
+    }
+
+    Path {
+        x: 32px;
+        y: 20px;
+        width: 28px;
+        height: 12px;
+        viewbox-width: 28;
+        viewbox-height: 12;
+        commands: "M 2 6 L 26 6 M 20 2 L 26 6 L 20 10";
+        stroke: blue;
+        stroke-width: 2px;
+    }
+}

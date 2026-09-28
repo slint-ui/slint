@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #9024: setting `text` programmatically used to leave the
+// undo/redo stack pointing into the now-replaced text, so a subsequent undo panicked
+// with "byte index out of bounds". Setting `text` externally must clear the undo stack
+// (and re-clamp the cursor/anchor, see issue #331).
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput {
+        cursor-position-changed => { root.cursor_changed_count += 1; }
+    }
+
+    in-out property <string> test_text <=> ti.text;
+    in-out property <int> test_cursor_pos: ti.cursor_position_byte_offset;
+    in-out property <int> test_anchor_pos: ti.anchor_position_byte_offset;
+    in-out property <bool> input_focused: ti.has_focus;
+    out property <int> cursor_changed_count;
+
+    callback do_undo();
+    do_undo => { ti.undo(); }
+    callback do_redo();
+    do_redo => { ti.redo(); }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.get_input_focused());
+
+// Type some text, which records undo items and leaves the cursor at the end.
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq(instance.get_test_text(), "Hello");
+assert_eq(instance.get_test_cursor_pos(), 5);
+
+// Replace the text programmatically with a shorter string, as an application would.
+auto cursor_changed_count = instance.get_cursor_changed_count();
+instance.set_test_text("Yo");
+slint_testing::mock_elapsed_time(0);
+
+// Issue #331: the cursor and anchor are re-clamped to the new (shorter) length.
+assert_eq(instance.get_test_cursor_pos(), 2);
+assert_eq(instance.get_test_anchor_pos(), 2);
+// The (delayed) re-clamp reports the new position via cursor-position-changed.
+assert(instance.get_cursor_changed_count() > cursor_changed_count);
+
+// Issue #9024: the undo stack referenced the old text; undo must now be a no-op
+// rather than panicking, because the external assignment cleared the history.
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "Yo");
+instance.invoke_do_redo();
+assert_eq(instance.get_test_text(), "Yo");
+
+// Editing still works and builds a fresh, consistent undo history.
+slint_testing::send_keyboard_string_sequence(&instance, "!");
+assert_eq(instance.get_test_text(), "Yo!");
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "Yo");
+
+// Clearing the text entirely and then undoing must not panic either.
+instance.set_test_text("");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_test_cursor_pos(), 0);
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+
+// Type some text, which records undo items and leaves the cursor at the end.
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq!(instance.get_test_text(), "Hello");
+assert_eq!(instance.get_test_cursor_pos(), 5);
+
+// Replace the text programmatically with a shorter string, as an application would.
+let cursor_changed_count = instance.get_cursor_changed_count();
+instance.set_test_text("Yo".into());
+slint_testing::mock_elapsed_time(0);
+
+// Issue #331: the cursor and anchor are re-clamped to the new (shorter) length.
+assert_eq!(instance.get_test_cursor_pos(), 2);
+assert_eq!(instance.get_test_anchor_pos(), 2);
+// The (delayed) re-clamp reports the new position via cursor-position-changed.
+assert!(instance.get_cursor_changed_count() > cursor_changed_count);
+
+// Issue #9024: the undo stack referenced the old text; undo must now be a no-op
+// rather than panicking, because the external assignment cleared the history.
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "Yo");
+instance.invoke_do_redo();
+assert_eq!(instance.get_test_text(), "Yo");
+
+// Editing still works and builds a fresh, consistent undo history.
+slint_testing::send_keyboard_string_sequence(&instance, "!");
+assert_eq!(instance.get_test_text(), "Yo!");
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "Yo");
+
+// Clearing the text entirely and then undoing must not panic either.
+instance.set_test_text("".into());
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_test_cursor_pos(), 0);
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "");
+```
+*/

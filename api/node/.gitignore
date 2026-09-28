@@ -1,5 +1,6 @@
 rust-module.cjs
 rust-module.d.cts
+rust-module-dev.cjs
 index.js
 docs/
 npm/

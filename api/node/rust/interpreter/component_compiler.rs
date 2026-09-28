@@ -111,11 +111,11 @@ impl JsComponentCompiler {
                     let name = s.name.slint_name().unwrap();
                     let struct_instance = crate::to_js_unknown(
                         env,
-                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.iter().map(
-                            |(name, field_type)| {
+                        &Value::Struct(slint_interpreter::Struct::from_iter(s.fields.keys().map(
+                            |name| {
                                 (
                                     name.to_string(),
-                                    slint_interpreter::default_value_for_type(field_type),
+                                    slint_interpreter::default_value_for_struct_field(s, name),
                                 )
                             },
                         ))),
@@ -141,9 +141,10 @@ impl JsComponentCompiler {
                     let mut o = Object::new(env).ok()?;
 
                     for value in en.values.iter() {
-                        let value = value.replace_smolstr("-", "_");
-                        let str_val = env.create_string(&value).ok()?;
-                        o.set_named_property(&value, str_val).ok()?;
+                        // The property name has the dashes replaced, the value is the
+                        // spelling the runtime accepts.
+                        let str_val = env.create_string(value).ok()?;
+                        o.set_named_property(&value.replace_smolstr("-", "_"), str_val).ok()?;
                     }
                     Some((en.name.to_string(), o.into_unknown(env).ok()?))
                 }
@@ -161,7 +162,7 @@ impl JsComponentCompiler {
     pub fn set_file_loader(
         &mut self,
         env: &Env,
-        callback: crate::DynFunction<'_>,
+        #[napi(ts_arg_type = "(path: string) => string")] callback: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
         let func_ref = std::rc::Rc::new(callback.create_ref()?);
         let env = *env;

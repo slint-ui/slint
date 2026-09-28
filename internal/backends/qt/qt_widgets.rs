@@ -11,7 +11,7 @@ it needs to be kept in sync with different place.
 
  - It needs to be changed in this module
  - the Widget list in lib.rs
- - In the compiler: builtins.slint
+ - In the compiler: internal/compiler/builtin_elements.rs
  - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in slint.h
  - Don't forget to update the documentation
 */
@@ -27,9 +27,7 @@ use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{
-    Item, ItemConsts, ItemRc, ItemVTable, MouseCursor, RenderingResult, VoidArg,
-};
+use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -62,7 +60,7 @@ macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
             self.animation_tracker();
-            let $dpr: f32 = backend.scale_factor();
+            let $dpr: f32 = backend.scale_factor().get();
 
             let active: bool = backend.window().active();
             // This should include self.enabled() as well, but not every native widget

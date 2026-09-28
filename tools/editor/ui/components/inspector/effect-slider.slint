@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Typography, Metrics, EffectSliderStyle } from "../../style.slint";
+import { InspectorSlider } from "slider.slint";
+import { InspectorValueField } from "value-field.slint";
+
+export component InspectorEffectSlider inherits Rectangle {
+    in property <EffectSliderStyle> style: Style.effect-slider;
+    in property <string> accessible-name: "";
+    in property <string> label;
+    in property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <string> commit-key: "";
+    callback accepted(float) -> bool;
+    callback started();
+    callback preview(float) -> bool;
+    callback canceled();
+    width: Style.inspector-layout.content-width;
+    height: root.style.height;
+
+    HorizontalLayout {
+        spacing: Metrics.space-compact;
+        Text {
+            width: root.style.label-width;
+            height: root.style.control-height;
+            text: root.label;
+            color: root.style.foreground;
+            font-size: Typography.caption.size;
+            font-weight: FontWeight.semi-bold;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        slider := InspectorSlider {
+            accessible-name: root.accessible-name;
+            value: root.value;
+            minimum: root.minimum;
+            maximum: root.maximum;
+            commit-key: root.commit-key;
+            started => { root.started(); }
+            preview(value) => { return root.preview(value); }
+            accepted(value) => { return root.accepted(value); }
+            canceled => { root.canceled(); }
+        }
+        InspectorValueField {
+            accessible-name: root.accessible-name + " value";
+            prefix: "";
+            value: "\{slider.visual-value}";
+            commit-key: root.commit-key;
+            width: root.style.value-width;
+            accepted(text) => {
+                return text.is-float() && root.accepted(text.to-float().round().clamp(root.minimum, root.maximum));
+            }
+        }
+    }
+}

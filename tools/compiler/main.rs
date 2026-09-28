@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore dedupe
+#![deny(unsafe_code)]
+
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
@@ -39,21 +41,25 @@ enum Embedding {
     #[value(alias = "true")]
     EmbedFiles,
     /// Embed in a format optimized for the software renderer. This
-    /// option falls back to `embed-files` if the software-renderer is not
+    /// option falls back to `embed-files` if the renderer-software feature is not
     /// used
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     EmbedForSoftwareRenderer,
     /// Same as "embed-files-for-software-renderer" but use Signed Distance Field (SDF) to render fonts.
     /// This produces smaller binaries, but may result in slightly inferior visual output and slower rendering.
-    #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     EmbedForSoftwareRendererWithSdf,
 }
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Set the output format for generated code.
-    /// Possible values: 'cpp' for C++ code or 'rust' for Rust code.
+    /// Set the output format for the generated code.
+    #[cfg_attr(feature = "cpp", doc = "'cpp' generates a C++ header.")]
+    #[cfg_attr(feature = "rust", doc = "'rust' generates Rust code.")]
+    #[cfg_attr(feature = "python", doc = "'python' generates a typed Python module.")]
+    #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
+    /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
     format: Option<generator::OutputFormat>,
 
@@ -61,6 +67,13 @@ struct Cli {
     #[cfg(feature = "slint-sc")]
     #[arg(long = "slint-sc")]
     slint_sc: bool,
+
+    /// Write, next to the output file, the map of the coverage points of the .slint source
+    /// that `slint-sc-coverage` reports from, with the extension `.slintcov`.
+    /// Requires --slint-sc and an output file.
+    #[cfg(feature = "slint-sc")]
+    #[arg(long = "coverage", requires = "slint_sc")]
+    coverage: bool,
 
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
@@ -154,6 +167,9 @@ fn main() -> std::io::Result<()> {
         };
         reject(args.format.is_some(), "--format");
         reject(args.style.is_some(), "--style");
+        // An import resolves relative to the importing file only.
+        reject(!args.include_paths.is_empty(), "-I");
+        reject(!args.library_paths.is_empty(), "-L");
         reject(args.scale_factor.is_some(), "--scale-factor");
         reject(args.embed_resources.is_some(), "--embed-resources");
         reject(args.translation_domain.is_some(), "--translation-domain");
@@ -220,7 +236,25 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    #[cfg(feature = "typescript")]
+    if format == generator::OutputFormat::TypeScript
+        && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
+        && name != "-"
+        && !name.ends_with(".d.ts")
+    {
+        eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
+        std::process::exit(1);
+    }
+
     let mut compiler_config = CompilerConfiguration::new(format.clone());
+    #[cfg(feature = "slint-sc")]
+    {
+        if args.coverage && args.output == std::path::Path::new("-") {
+            eprintln!("--coverage needs an output file to write the coverage map next to");
+            std::process::exit(1);
+        }
+        compiler_config.coverage = args.coverage;
+    }
     compiler_config.translation_domain = args.translation_domain;
     #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {
@@ -233,9 +267,9 @@ fn main() -> std::io::Result<()> {
         compiler_config.embed_resources = match embed {
             Embedding::AsAbsolutePath => EmbedResourcesKind::OnlyBuiltinResources,
             Embedding::EmbedFiles => EmbedResourcesKind::EmbedAllResources,
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedTextures,
-            #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             Embedding::EmbedForSoftwareRendererWithSdf => {
                 compiler_config.use_sdf_fonts = true;
                 EmbedResourcesKind::EmbedTextures
@@ -257,7 +291,7 @@ fn main() -> std::io::Result<()> {
     }
     #[cfg(feature = "bundle-translations")]
     if let Some(path) = args.bundle_translations {
-        compiler_config.translation_path_bundle = Some(path);
+        compiler_config.bundled_translations_path = Some(path);
     }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag, loader) =

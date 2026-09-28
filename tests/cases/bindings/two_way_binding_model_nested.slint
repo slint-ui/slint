@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: interpreted models don't write back
+//ignore: cpp-live-preview
+
 // Verify that two-way bindings to a model row work when the binding lives
 // inside an element that's nested *under* the for-loop body. This exercises
 // the `parent_level > 0` codegen path in the Rust generator and the

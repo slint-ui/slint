@@ -23,7 +23,7 @@
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
-        $macro![
+        $macro! {
             /// This enum describes the different types of alignment of text along the horizontal axis of a `Text` or `StyledText` element.
             #[non_exhaustive]
             enum TextHorizontalAlignment {
@@ -79,6 +79,20 @@ macro_rules! for_each_enums {
                 Outside,
                 /// The center line of the stroke is at the outer edge of the text, like in Adobe Illustrator.
                 Center,
+            }
+
+            /// This enum describes the auto-capitalization behavior that the input method
+            /// (e.g. a soft keyboard) should apply while text is entered in a `TextInput`.
+            #[non_exhaustive]
+            pub enum CapitalizationMode {
+                /// No auto-capitalization.
+                None,
+                /// Capitalize the first character of each sentence.
+                Sentences,
+                /// Capitalize the first character of each word.
+                Words,
+                /// Capitalize all characters.
+                Characters,
             }
 
             /// This enum describes whether an event was rejected or accepted by an event handler.
@@ -197,11 +211,11 @@ macro_rules! for_each_enums {
                 Forward,
             }
 
-            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
+            /// Represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             #[non_exhaustive]
-            enum MouseCursor {
+            enum BuiltInMouseCursor {
                 /// The systems default cursor.
                 Default,
                 /// No cursor is displayed.
@@ -335,7 +349,8 @@ macro_rules! for_each_enums {
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
-                /// This will accept and render characters if it's valid part of a decimal
+                /// This will accept and render characters if it's valid part of a decimal,
+                /// using the decimal separator of the current locale
                 Decimal,
                 /// This identifies the input field as a search box. Characters are rendered normally,
                 /// but assistive technologies are informed that the field is used for searching or
@@ -345,11 +360,17 @@ macro_rules! for_each_enums {
 
             /// Enum representing the `alignment` property of a
             /// `HorizontalBox`, a `VerticalBox`,
-            /// a `HorizontalLayout`, or `VerticalLayout`.
+            /// a `HorizontalLayout`, a `VerticalLayout`, or a `FlexboxLayout`,
+            /// and the `cross-axis-line-alignment` property of a `FlexboxLayout`.
+            ///
+            /// For `cross-axis-line-alignment`, the values below apply to the flex lines
+            /// instead of the elements.
             #[non_exhaustive]
             enum LayoutAlignment {
-                /// Use the minimum size of all elements in a layout, distribute remaining space
-                /// based on `*-stretch` among all elements.
+                /// For `alignment`: use the minimum size of all elements in a layout, distribute
+                /// remaining space based on `*-stretch` among all elements.
+                /// For `cross-axis-line-alignment`: the flex lines have no stretch factor and
+                /// share the remaining space equally.
                 Stretch,
                 /// Use the preferred size for all elements, distribute remaining space evenly before the
                 /// first and after the last element.
@@ -383,30 +404,16 @@ macro_rules! for_each_enums {
                 ColumnReverse,
             }
 
-            /// Controls the distribution of flex lines along the cross axis in a flex container.
+            /// Controls the alignment of items along the cross axis of a layout.
+            /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
+            /// and `FlexboxLayout`, and as the `cross-axis-self-alignment` property of their
+            /// children, which overrides the container's alignment for a single item.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignContent {
-                /// Lines are stretched to fill the container along the cross axis.
-                Stretch,
-                /// Lines are placed at the start of the cross axis.
-                Start,
-                /// Lines are placed at the end of the cross axis.
-                End,
-                /// Lines are centered along the cross axis.
-                Center,
-                /// Equal gaps between lines, no gap at the edges.
-                SpaceBetween,
-                /// Equal gaps around each line (half-size at edges).
-                SpaceAround,
-                /// Equal gaps between lines and at the edges.
-                SpaceEvenly,
-            }
-
-            /// Controls the alignment of individual items along the cross axis of a layout.
-            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
-            /// and `FlexboxLayout`.
-            #[non_exhaustive]
-            enum LayoutAlignItems {
+            enum CrossAxisAlignment {
+                /// The default: for `cross-axis-self-alignment`, use the container's
+                /// `cross-axis-alignment` value. For an unset `cross-axis-alignment` it is
+                /// equivalent to `stretch`; it is an error to set it explicitly there.
+                Auto,
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -414,21 +421,6 @@ macro_rules! for_each_enums {
                 /// Items are placed at the end of the cross axis.
                 End,
                 /// Items are centered along the cross axis.
-                Center,
-            }
-
-            /// Overrides the container's `align-items` for a specific flex item.
-            #[non_exhaustive]
-            enum FlexboxLayoutAlignSelf {
-                /// Use the container's `align-items` value (default).
-                Auto,
-                /// The item is stretched to fill the line along the cross axis.
-                Stretch,
-                /// The item is placed at the start of the cross axis.
-                Start,
-                /// The item is placed at the end of the cross axis.
-                End,
-                /// The item is centered along the cross axis.
                 Center,
             }
 
@@ -515,6 +507,9 @@ macro_rules! for_each_enums {
                 RadioButton,
                 /// The element is a container grouping related `RadioButton`s.
                 RadioGroup,
+                /// The element is a window title bar, typically containing the window title and controls
+                /// such as minimize, maximize, and close.
+                WindowTitleBar,
                 // Landmark roles
                 /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
                 Banner,
@@ -539,12 +534,15 @@ macro_rules! for_each_enums {
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLiveRegion {
-                /// The element is not a live region.
+            pub enum AccessibleLiveness {
+                /// Use in regions that present information that is of low-importance to the user.
+                /// Assistive technologies are expected to not announce changes unless the user explicitly asks for it.
                 Off,
-                /// Updates are announced when the user is idle.
+                /// Use in regions that present new information to users.
+                /// Assistive technologies are expected to not interrupt the user to inform of changes to the live region.
                 Polite,
-                /// Updates are announced as soon as possible.
+                /// Use in regions that present information that a user should know about right away.
+                /// Assistive technologies are expected to announce to the user as soon as possible.
                 Assertive,
             }
 
@@ -564,7 +562,7 @@ macro_rules! for_each_enums {
 
             /// Represents the orientation of an element or widget such as the `Slider`.
             // (on purpose not #[non_exhaustive])
-            enum Orientation {
+            pub enum Orientation {
                 /// Element is oriented horizontally.
                 Horizontal,
                 /// Element is oriented vertically.
@@ -693,6 +691,6 @@ macro_rules! for_each_enums {
                 /// Snapping position at the end. Item's end is snapped to the end
                 End,
             }
-        ];
+        }
     };
 }

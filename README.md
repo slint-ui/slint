@@ -32,7 +32,7 @@ The name *Slint* is derived from our design goals:
 
 Beyond the design goals, here’s what makes Slint stand out:
 
-- **Independent UI Design**: Use a declarative language similar to separate your UI from business logic. Designers can work in parallel with developers.
+- **Independent UI Design**: Use a declarative language to separate your UI from business logic. Designers can work in parallel with developers.
 - **Tooling**: Iterate quickly with our Live Preview & editor integrations. Integrate from Figma with the [Figma to Slint plugin](https://www.figma.com/community/plugin/1474418299182276871/figma-to-slint).
 - **Stable APIs**: Slint follows a stable 1.x API. We evolve carefully without breaking your code.
 
@@ -87,7 +87,7 @@ export component HelloWorld inherits Window {
 
 ### Documentation
 
-For more details, check out the [Slint Language Documentation](https://slint.dev/docs/slint).
+For more details, check out the [Slint Documentation](https://docs.slint.dev).
 
 The [examples](examples) folder contains examples and demos, showing how to
 use the Slint markup language and how to interact with a Slint user interface
@@ -106,11 +106,11 @@ Refer to the README of each language directory in the `api` folder:
 
 ## Architecture
 
-An application is composed of the business logic written in Rust, C++, or
+An application is composed of the business logic written in Rust, C++, Python, or
 JavaScript and the `.slint` user interface design markup, which is compiled to
 native code.
 
-![Architecture Overview](https://slint.dev/resources/architecture.drawio.svg)
+![Architecture Overview](https://slint.dev/resources/slint_architecture_block_diagram.svg)
 
 ### Compiler
 
@@ -160,13 +160,15 @@ configure your favorite editor to work well with Slint.
 
 ## License
 
+See [LICENSE.md](LICENSE.md) for the licensing terms of the whole repository, including documentation and examples.
+
 You can use Slint under ***any*** of the following licenses, at your choice:
 
 1. Build proprietary desktop, mobile, or web applications for free with the [Royalty-free License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. Build open source embedded, desktop, mobile, or web applications for free with the [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
-3. Build proprietary embedded, desktop, mobile, or web applications with the [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
+3. Build proprietary embedded, desktop, mobile, or web applications with the [Commercial license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
-See the [Slint licensing options on the website](https://slint.dev/pricing.html) and the [Licensing FAQ](FAQ.md#licensing).
+See the [Slint licensing options on the website](https://slint.dev/pricing) and the [Licensing FAQ](FAQ.md#licensing).
 
 ## Contributions
 
@@ -189,7 +191,7 @@ located remotely in Germany, Finland, and US.
 ### Stay up to date
 
 - Follow [@slint_ui](https://twitter.com/slint_ui) on X/Twitter.
-- Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
+- Follow [@slint@fosstodon.org](https://fosstodon.org/@slint) on Mastodon.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
 - Follow [@slint.dev](https://bsky.app/profile/slint.dev) on Bluesky
 - Subscribe to our [YouTube channel](https://www.youtube.com/@Slint-UI)
@@ -203,7 +205,7 @@ to report public suggestions or bugs.
 We chat in [our Mattermost instance](https://chat.slint.dev) where you are
 welcome to listen in or ask your questions.
 
-You can of course also contact us privately via email to [info@slint.dev](mailto://info@slint.dev).
+You can of course also contact us privately via email to [info@slint.dev](mailto:info@slint.dev).
 
 [#1]: https://www.youtube.com/watch?v=_BDbNHrjK7g
 [#2]: https://www.youtube.com/watch?v=NNNOJJsOAis
@@ -219,20 +221,20 @@ You can of course also contact us privately via email to [info@slint.dev](mailto
 [#12]: https://slint.dev/demos/energy-monitor/
 [#13]: https://slint.dev/resources/gallery_screenshot.png "Gallery Demo"
 [#14]: https://slint.dev/demos/gallery/
-[#15]: https://slint.dev/latest/docs/cpp
+[#15]: https://docs.slint.dev/latest/docs/cpp/
 [#17]: https://github.com/slint-ui/slint-cpp-template
 [#18]: https://img.shields.io/crates/v/slint
 [#19]: https://crates.io/crates/slint
-[#20]: https://slint.dev/latest/docs/rust/slint/
+[#20]: https://docs.slint.dev/latest/docs/rust/slint/
 [#22]: https://youtu.be/WBcv4V-whHk
 [#23]: https://github.com/slint-ui/slint-rust-template
 [#24]: https://img.shields.io/npm/v/slint-ui
 [#25]: https://www.npmjs.com/package/slint-ui
-[#26]: https://slint.dev/latest/docs/node
+[#26]: https://docs.slint.dev/latest/docs/node/
 [#28]: https://github.com/slint-ui/slint-nodejs-template
 [#29]: ./demos/weather-demo/docs/img/desktop-preview.png "Weather Demo"
 [#30]: https://slint.dev/demos/weather-demo/
 [#31]: https://img.shields.io/pypi/v/slint
 [#32]: https://pypi.org/project/slint/
-[#33]: http://snapshots.slint.dev/master/docs/python/
+[#33]: https://docs.slint.dev/latest/docs/python/slint/
 [#34]: https://github.com/slint-ui/slint-python-template

@@ -33,7 +33,9 @@ const loader_progress = document.getElementById(
 ) as HTMLProgressElement | null;
 
 function update_loader(phase: LoadPhase) {
-    if (loader_message === null || loader_progress === null) return;
+    if (loader_message === null || loader_progress === null) {
+        return;
+    }
     if (phase.kind === "downloading") {
         if (phase.total) {
             const percent = Math.round((phase.received / phase.total) * 100);

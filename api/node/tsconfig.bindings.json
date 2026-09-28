@@ -1,0 +1,14 @@
+// Type-checks the napi-generated declarations themselves, which the other
+// tsconfigs hide behind skipLibCheck. Without this nothing catches a type name
+// that the generator emits but never declares: the reference silently degrades
+// to `any` and every parameter using it stops being checked.
+{
+    "compilerOptions": {
+        "module": "nodenext",
+        "target": "esnext",
+        "noEmit": true,
+        "skipLibCheck": false,
+        "types": ["node"]
+    },
+    "files": ["binding.d.cts"]
+}

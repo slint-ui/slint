@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property read into a local variable and read again later gets deduplicated
+// into a single temporary. Combined with early returns, the Rust generator used
+// to move out of that temporary on the `let` and then read it again, which did
+// not compile.
+
+export component TestCase inherits Window {
+    in property <string> system_language: "en";
+    out property <string> chosen-auto;
+    out property <string> chosen-explicit;
+
+    pure function get-font(lang: string) -> string {
+        let sys = root.system_language;
+        let sys_is_chinese = (sys == "zh" || sys == "zh-CN");
+        if (sys_is_chinese) { return "Segoe UI"; }
+        if (lang == "auto") {
+            if (root.system_language == "auto") { return "YaHei"; }
+            return root.system_language;
+        }
+        return lang;
+    }
+
+    init => {
+        root.chosen-auto = root.get-font("auto");
+        root.chosen-explicit = root.get-font("Roboto");
+    }
+
+    out property <bool> test: root.chosen-auto == "en" && root.chosen-explicit == "Roboto";
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

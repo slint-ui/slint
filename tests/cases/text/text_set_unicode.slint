@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Coverage for re-clamping the cursor/anchor when `text` is set externally (issues #331/#9024),
+// with multi-byte and multi-codepoint input. A stale byte offset must be snapped to a grapheme
+// cluster boundary so it never lands inside a multi-byte character or in the middle of a
+// grapheme (e.g. an emoji with a skin-tone modifier), and the undo stack must be reset so an
+// undo after an external assignment is a no-op rather than panicking.
+
+// cspell:ignore héllo wörld
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput { }
+
+    in-out property <string> test_text <=> ti.text;
+    out property <int> test_cursor_pos: ti.cursor_position_byte_offset;
+    out property <int> test_anchor_pos: ti.anchor_position_byte_offset;
+    out property <bool> input_focused: ti.has_focus;
+
+    callback set_selection_offsets(int, int);
+    set_selection_offsets(start, end) => { ti.set-selection-offsets(start, end); }
+    callback do_undo();
+    do_undo => { ti.undo(); }
+    callback do_redo();
+    do_redo => { ti.redo(); }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// --- Case 1: a stale offset that lands inside a multi-codepoint grapheme snaps past it ---
+// "👍🏽" is a single grapheme of two codepoints (8 bytes); byte offset 4 is a valid char
+// boundary but sits in the middle of the grapheme. A codepoint-only clamp would leave the
+// cursor at 4; snapping to the grapheme boundary moves it to 8.
+instance.set_test_text("ab");
+slint_testing::mock_elapsed_time(0);
+instance.invoke_set_selection_offsets(2, 2);
+assert_eq(instance.get_test_cursor_pos(), 2);
+instance.set_test_text("👍🏽");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_test_cursor_pos(), 8);
+assert_eq(instance.get_test_anchor_pos(), 8);
+
+// --- Case 2: cursor in the middle, shrink past it; cursor and anchor clamp independently ---
+// "héllo" has the 2-byte 'é' at bytes 1..3, so offsets 0,1,3,4,5,6 are valid.
+instance.set_test_text("héllo");
+slint_testing::mock_elapsed_time(0);
+instance.invoke_set_selection_offsets(1, 4);
+assert_eq(instance.get_test_anchor_pos(), 1);
+assert_eq(instance.get_test_cursor_pos(), 4);
+// "hö" is 3 bytes; the anchor at 1 stays valid, the cursor at 4 clamps to the new end (3).
+instance.set_test_text("hö");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_test_anchor_pos(), 1);
+assert_eq(instance.get_test_cursor_pos(), 3);
+
+// --- Case 3: undo after an external set, with multi-byte undo offsets (issue #9024) ---
+// Start from an empty field so the click-positioned caret is deterministic across backends.
+instance.set_test_text("");
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert(instance.get_input_focused());
+// Typing records undo items whose byte offsets exceed the character count ('ö' is 2 bytes).
+slint_testing::send_keyboard_string_sequence(&instance, "wörld");
+assert_eq(instance.get_test_text(), "wörld");
+assert_eq(instance.get_test_cursor_pos(), 6);
+// Replace externally with a shorter multi-byte string.
+instance.set_test_text("yö");
+slint_testing::mock_elapsed_time(0);
+assert_eq(instance.get_test_cursor_pos(), 3);
+// The undo stack referenced the old text; undo/redo must be no-ops rather than panicking.
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "yö");
+instance.invoke_do_redo();
+assert_eq(instance.get_test_text(), "yö");
+// Editing still works and builds a fresh, consistent history.
+slint_testing::send_keyboard_string_sequence(&instance, "!");
+assert_eq(instance.get_test_text(), "yö!");
+instance.invoke_do_undo();
+assert_eq(instance.get_test_text(), "yö");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+// --- Case 1: a stale offset that lands inside a multi-codepoint grapheme snaps past it ---
+// "👍🏽" is a single grapheme of two codepoints (8 bytes); byte offset 4 is a valid char
+// boundary but sits in the middle of the grapheme. A codepoint-only clamp would leave the
+// cursor at 4; snapping to the grapheme boundary moves it to 8.
+instance.set_test_text("ab".into());
+slint_testing::mock_elapsed_time(0);
+instance.invoke_set_selection_offsets(2, 2);
+assert_eq!(instance.get_test_cursor_pos(), 2);
+instance.set_test_text("👍🏽".into());
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_test_cursor_pos(), 8);
+assert_eq!(instance.get_test_anchor_pos(), 8);
+
+// --- Case 2: cursor in the middle, shrink past it; cursor and anchor clamp independently ---
+// "héllo" has the 2-byte 'é' at bytes 1..3, so offsets 0,1,3,4,5,6 are valid.
+instance.set_test_text("héllo".into());
+slint_testing::mock_elapsed_time(0);
+instance.invoke_set_selection_offsets(1, 4);
+assert_eq!(instance.get_test_anchor_pos(), 1);
+assert_eq!(instance.get_test_cursor_pos(), 4);
+// "hö" is 3 bytes; the anchor at 1 stays valid, the cursor at 4 clamps to the new end (3).
+instance.set_test_text("hö".into());
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_test_anchor_pos(), 1);
+assert_eq!(instance.get_test_cursor_pos(), 3);
+
+// --- Case 3: undo after an external set, with multi-byte undo offsets (issue #9024) ---
+// Start from an empty field so the click-positioned caret is deterministic across backends.
+instance.set_test_text("".into());
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+// Typing records undo items whose byte offsets exceed the character count ('ö' is 2 bytes).
+slint_testing::send_keyboard_string_sequence(&instance, "wörld");
+assert_eq!(instance.get_test_text(), "wörld");
+assert_eq!(instance.get_test_cursor_pos(), 6);
+// Replace externally with a shorter multi-byte string.
+instance.set_test_text("yö".into());
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_test_cursor_pos(), 3);
+// The undo stack referenced the old text; undo/redo must be no-ops rather than panicking.
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "yö");
+instance.invoke_do_redo();
+assert_eq!(instance.get_test_text(), "yö");
+// Editing still works and builds a fresh, consistent history.
+slint_testing::send_keyboard_string_sequence(&instance, "!");
+assert_eq!(instance.get_test_text(), "yö!");
+instance.invoke_do_undo();
+assert_eq!(instance.get_test_text(), "yö");
+```
+*/

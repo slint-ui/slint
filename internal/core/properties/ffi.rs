@@ -84,7 +84,7 @@ fn make_c_function_binding(
         }
     }
 
-    unsafe impl<T> BindingCallable<T> for CFunctionBinding<T> {
+    impl<T> BindingCallable<T> for CFunctionBinding<T> {
         fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
             (self.binding_function)(self.user_data, value as *mut T);
             BindingResult::KeepBinding
@@ -190,6 +190,13 @@ pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
     handle.0.mark_dirty()
 }
 
+/// Returns true if a binding is currently being evaluated, so that property
+/// accesses register dependencies.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_property_is_currently_tracking() -> bool {
+    crate::properties::is_currently_tracking()
+}
+
 /// Marks the property as dirty and notifies dependencies.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_property_set_constant(handle: &PropertyHandleOpaque) {
@@ -212,7 +219,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
 ) {
     let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
         from,
-        to,
+        Some(to),
         animation_data.clone(),
     ));
     // Safety: The BindingCallable is for type T
@@ -305,7 +312,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
         };
         let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
             T::default(),
-            T::default(),
+            None,
             PropertyAnimation::default(),
         ));
 
@@ -330,6 +337,8 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 };
                 (anim, start_instant)
             },
+            dirty_time: Cell::new(crate::animations::current_tick()),
+            carried_velocity: Cell::new(0.0),
         });
         handle.0.mark_dirty();
     }
@@ -432,8 +441,11 @@ pub unsafe extern "C" fn slint_property_set_state_binding(
     }
 
     let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
-    let bind_callable =
-        StateInfoBinding { dirty_time: Cell::new(None), binding: move || c_state_binding.call() };
+    let bind_callable = StateInfoBinding {
+        dirty_time: Cell::new(None),
+        binding: move || c_state_binding.call(),
+        _phantom: core::marker::PhantomData::<fn() -> StateInfo>,
+    };
     unsafe { handle.0.set_binding(bind_callable) }
 }
 
@@ -496,27 +508,37 @@ pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTracke
     unsafe { core::ptr::drop_in_place(handle as *mut PropertyTracker) };
 }
 
+#[repr(C)]
+/// Opaque type representing the ChangeTracker
+pub struct ChangeTrackerOpaque {
+    _inner: *const c_void,
+}
+
+static_assertions::assert_eq_align!(ChangeTrackerOpaque, ChangeTracker);
+static_assertions::assert_eq_size!(ChangeTrackerOpaque, ChangeTracker);
+
 /// Construct a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::write(ct, ChangeTracker::default()) };
+pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::write(ct as *mut ChangeTracker, ChangeTracker::default()) };
 }
 
 /// Drop a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::drop_in_place(ct) };
+pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::drop_in_place(ct as *mut ChangeTracker) };
 }
 
 /// initialize the change tracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
-    ct: &ChangeTracker,
+    ct: *const ChangeTrackerOpaque,
     user_data: *mut c_void,
     drop_user_data: extern "C" fn(user_data: *mut c_void),
     eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
     notify_fn: extern "C" fn(user_data: *mut c_void),
 ) {
+    let ct = unsafe { &*ct.cast::<ChangeTracker>() };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
         user_data: *mut c_void,
@@ -540,6 +562,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
+        unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
         let notify = super::current_binding_storage::set(Some(_self_raw), || {
             (inner.eval_fn)(inner.user_data)
         });
@@ -555,6 +578,8 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         mark_dirty: ChangeTracker::mark_dirty,
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
+        velocity: |_| None,
+        common_property: |_| None,
     };
 
     ct.clear();
@@ -566,7 +591,6 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         dep_nodes: Default::default(),
         vtable: VT,
         dirty: Cell::new(false),
-        is_two_way_binding: false,
         pinned: PhantomPinned,
         binding: inner,
         #[cfg(slint_debug_property)]
@@ -586,4 +610,54 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
     crate::animations::animation_tick()
+}
+
+#[cfg(test)]
+mod ffi_change_tracker_leak_test {
+    use super::*;
+    use crate::properties::ChangeTracker;
+    use alloc::boxed::Box;
+    use core::cell::Cell;
+    use core::pin::Pin;
+
+    // What the generated C++ stores for a `changed` handler: the watched
+    // property and the last seen value.
+    struct EvalState {
+        prop: *const Property<i32>,
+        last: Cell<i32>,
+    }
+
+    extern "C" fn eval_fn(user_data: *mut c_void) -> bool {
+        let st = unsafe { &*(user_data as *const EvalState) };
+        let v = unsafe { Pin::new_unchecked(&*st.prop) }.get();
+        let changed = v != st.last.get();
+        st.last.set(v);
+        changed
+    }
+    extern "C" fn notify_fn(_user_data: *mut c_void) {}
+    extern "C" fn drop_fn(_user_data: *mut c_void) {}
+
+    // The dependency nodes must not accumulate across re-evaluations.
+    #[test]
+    fn ffi_change_tracker_does_not_leak_dep_nodes() {
+        let prop = Box::pin(Property::new(0));
+        let state = EvalState { prop: &*prop as *const _, last: Cell::new(0) };
+        let ct = ChangeTracker::default();
+        unsafe {
+            slint_change_tracker_init(
+                &ct as *const ChangeTracker as *const ChangeTrackerOpaque,
+                &state as *const EvalState as *mut c_void,
+                drop_fn,
+                eval_fn,
+                notify_fn,
+            );
+        }
+        assert_eq!(ct.test_dep_node_count(), 1);
+
+        for i in 1..=200 {
+            prop.as_ref().set(i);
+            ChangeTracker::run_change_handlers();
+            assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
+        }
+    }
 }

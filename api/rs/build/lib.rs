@@ -43,12 +43,16 @@ fn main() {
 }
 ```
 */
+#![cfg_attr(
+    feature = "document-features",
+    doc = concat!("## Feature flags\n\n", document_features::document_features!())
+)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
-#[cfg(not(feature = "default"))]
+#[cfg(not(feature = "compat-1-18"))]
 compile_error!(
-    "The feature `default` must be enabled to ensure \
+    "The feature `compat-1-18` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 
@@ -82,6 +86,7 @@ pub enum EmbedResourcesKind {
     /// The files referenced from .slint files are embedded in the binary as-is (for example
     /// a PNG stays compressed), and decoded at run-time.
     EmbedFiles,
+    #[cfg(feature = "renderer-software")]
     /// Images and fonts are pre-processed at compile time and embedded as uncompressed pixel
     /// data, ready to be drawn by the software renderer without any decoding at run-time.
     ///
@@ -169,6 +174,7 @@ impl CompilerConfiguration {
             EmbedResourcesKind::EmbedFiles => {
                 i_slint_compiler::EmbedResourcesKind::EmbedAllResources
             }
+            #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
             }
@@ -202,7 +208,7 @@ impl CompilerConfiguration {
         path: impl Into<std::path::PathBuf>,
     ) -> CompilerConfiguration {
         let mut config = self.config;
-        config.translation_path_bundle = Some(path.into());
+        config.bundled_translations_path = Some(path.into());
         Self { config }
     }
 
@@ -290,6 +296,10 @@ impl CompilerConfiguration {
         }
 
         for path in config.include_paths.iter_mut() {
+            to_absolute_path(path);
+        }
+
+        if let Some(path) = config.bundled_translations_path.as_mut() {
             to_absolute_path(path);
         }
 
@@ -522,6 +532,11 @@ pub fn compile_with_config(
             println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
         }
     }
+    // Cargo scans a directory dependency recursively, so this also catches an added language.
+    if let Some(bundle_path) = &config.config.bundled_translations_path {
+        println!("cargo:rerun-if-changed={}", bundle_path.display());
+    }
+
     let paths_dependencies =
         compile_with_output_path(path, absolute_rust_output_file_path.clone(), config)?;
 
@@ -536,6 +551,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
     println!("cargo:rerun-if-env-changed=SLINT_EMIT_DEBUG_INFO");
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+    println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",

@@ -1,0 +1,52 @@
+---
+title: Potential Errors
+description: What can go wrong in the tools of Slint SC, and what we do about each.
+---
+
+**Addresses:** ISO 26262-8 11.4.4.2 f
+
+Each potential error is a way one of the analyzed nodes can deviate from what it should do.
+They come from applying the guide words to the nodes, so the list is meant to be systematic rather than a collection of things we happened to think of.
+
+Every error ends up in one of two places.
+If we can detect it, a detection measure covers it and a test proves the detection works.
+If we can't, it becomes a constraint on the integrator, because only they can rule it out.
+
+This chapter covers the tools.
+The errors of the runtime are in its [Safety Analysis](/component-documentation/safety-analysis/).
+
+:::caution[TODO]
+Write up the guide words and the node list.
+Until then this chapter is seeded from the requirements it replaces, and the traceability to tests isn't generated yet.
+:::
+
+## Slint Compiler
+
+| Identifier | Description | Risk | Mitigation | Detectable |
+| --- | --- | --- | --- | --- |
+| `slint.compiler.err.subset-not-enforced` | A construct outside the qualified subset compiles without a diagnostic. | The integrator ships code that no qualification covers, believing it's covered. | [`slint.compiler.avd.subset-check`](#slint.compiler.avd.subset-check) | Yes |
+| `slint.compiler.err.codegen-wrong` | The generated Rust doesn't implement what the `.slint` source means. | Any display error, with no indication that anything is wrong. | [`slint.compiler.avd.spec-tests`](#slint.compiler.avd.spec-tests) | Yes |
+| `slint.compiler.err.binding-dropped` | A lowering pass drops or reorders a property binding. | A value stops updating, so the display shows a stale reading that looks plausible. | [`slint.compiler.avd.spec-tests`](#slint.compiler.avd.spec-tests) | Yes |
+| `slint.compiler.err.missing-resource` | A missing or undecodable asset isn't reported at compile time. | The element is absent at runtime, so a warning icon may simply not appear. | [`slint.compiler.avd.resource-check`](#slint.compiler.avd.resource-check) | Yes |
+
+## slint-sc-coverage
+
+| Identifier | Description | Risk | Mitigation | Detectable |
+| --- | --- | --- | --- | --- |
+| `slint.coverage.err.false-reached` | A coverage point is reported as reached when the tests never reached it. | Untested `.slint` code passes as tested. | [`slint.coverage.avd.stated-coverage`](#slint.coverage.avd.stated-coverage) | Yes |
+| `slint.coverage.err.point-missing` | A coverage point is left out of the report. | Untested `.slint` code doesn't show up as a gap. | [`slint.coverage.avd.stated-coverage`](#slint.coverage.avd.stated-coverage) | Yes |
+
+## Detection Measures and Usage Restrictions
+
+A detection measure is something we do.
+A constraint is something we ask the integrator to do, and it exists only because no detection measure covers the error.
+
+| Identifier | Measure |
+| --- | --- |
+| <span id="slint.compiler.avd.subset-check">`slint.compiler.avd.subset-check`</span> | The compiler rejects any construct outside the qualified subset and reports an error naming it. |
+| <span id="slint.compiler.avd.opaque-window">`slint.compiler.avd.opaque-window`</span> | The compiler rejects a window whose background it can't prove is opaque, so a frame can't depend on what the buffer held beforehand. |
+| <span id="slint.compiler.avd.resource-check">`slint.compiler.avd.resource-check`</span> | The compiler resolves every referenced asset at compile time and fails if one is missing or doesn't decode. |
+| <span id="slint.compiler.avd.spec-tests">`slint.compiler.avd.spec-tests`</span> | Every paragraph of the language specification is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
+| <span id="slint.coverage.avd.stated-coverage">`slint.coverage.avd.stated-coverage`</span> | Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement. The cases under `coverage/` must state it. See [Coverage Tool Verification](/qualification-plan/slint-coverage/). |
+
+The errors no measure covers become [compiler constraints](/user-manual/compiler/constraints/).

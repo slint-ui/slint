@@ -6,7 +6,6 @@ use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{IntoPyObjectExt, PyTraverseError};
 use pyo3::{PyVisit, prelude::*};
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
@@ -18,7 +17,6 @@ use i_slint_core::model::{Model, ModelRc};
 
 use crate::keys::PyKeys;
 
-#[gen_stub_pyclass]
 pub struct SlintToPyValue {
     pub slint_value: slint_interpreter::Value,
     pub type_collection: TypeCollection,
@@ -102,6 +100,7 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
     }
 }
 
+/// Let the cyclic GC see the Python objects that `value` keeps alive.
 pub fn traverse_value(
     value: &slint_interpreter::Value,
     visit: &PyVisit<'_>,
@@ -110,10 +109,10 @@ pub fn traverse_value(
         slint_interpreter::Value::Model(model) => {
             if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
             {
-                rust_model.__traverse__(&visit)?
+                rust_model.visit_wrapper(visit)?;
             }
         }
-        slint_interpreter::Value::Struct(structval) => traverse_struct(&structval, visit)?,
+        slint_interpreter::Value::Struct(structval) => traverse_struct(structval, visit)?,
         _ => {}
     }
 
@@ -137,15 +136,16 @@ fn struct_field_as_f32(structval: &slint_interpreter::Struct, name: &str) -> f32
     }
 }
 
+/// Release the Python references that `value` keeps alive.
 pub fn clear_strongrefs_in_value(value: &slint_interpreter::Value) {
     match value {
         slint_interpreter::Value::Model(model) => {
             if let Some(rust_model) = model.as_any().downcast_ref::<crate::models::PyModelShared>()
             {
-                rust_model.__clear__();
+                rust_model.clear_self_ref();
             }
         }
-        slint_interpreter::Value::Struct(structval) => clear_strongrefs_in_struct(&structval),
+        slint_interpreter::Value::Struct(structval) => clear_strongrefs_in_struct(structval),
         _ => {}
     }
 }
@@ -156,7 +156,6 @@ fn clear_strongrefs_in_struct(structval: &slint_interpreter::Struct) {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(subclass, unsendable, skip_from_py_object)]
 #[derive(Clone)]
 pub struct PyStruct {
@@ -228,7 +227,6 @@ impl PyStruct {
     }
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 struct PyStructFieldIterator {
     inner: std::collections::hash_map::IntoIter<String, slint_interpreter::Value>,
@@ -236,7 +234,6 @@ struct PyStructFieldIterator {
     expected_type: Option<Type>,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyStructFieldIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -417,7 +414,7 @@ impl TypeCollection {
                     slint_interpreter::Value::Model(Self::apply(
                         type_collection,
                         expected_type,
-                        pymodel.as_model(),
+                        pymodel.hand_to_slint(ob),
                     ))
                 })
             })

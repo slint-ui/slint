@@ -9,7 +9,4 @@ class Base:
         """A method inherited by subclasses."""
         return 0
 
-    def init_self(self) -> None:
-        """@private"""
-
     def _hidden(self) -> None: ...

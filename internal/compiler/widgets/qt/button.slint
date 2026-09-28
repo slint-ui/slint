@@ -21,10 +21,12 @@ export component Button {
     accessible-checked: root.checked;
     accessible-label: root.text;
     accessible-action-default => {
-        if (root.checkable) {
-            root.checked = !root.checked;
+        if (root.enabled) {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            clicked();
         }
-        clicked();
     }
 
     forward-focus: native;
@@ -52,8 +54,13 @@ export component StandardButton {
         native := NativeButton {
             accessible-role: button;
             accessible-label: native.text;
-            accessible-action-default => { clicked(); }
+            accessible-action-default => {
+                if (root.enabled) {
+                    clicked();
+                }
+            }
             is-standard-button: true;
+            accessible-enabled: root.enabled;
             checkable: false;
         }
     }

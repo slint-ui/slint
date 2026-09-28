@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 
-Foo := Rectangle {
+component Foo inherits Rectangle {
     public function show() { x.show(); }
     x := PopupWindow {  }
 }
 
-Bar := Rectangle {
+component Bar inherits Rectangle {
 
     TouchArea {
         clicked => { x.show();  f.show(); }

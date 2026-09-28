@@ -1,0 +1,69 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# cSpell: ignore CLANGCC CLANGCXX CXXFLAGS SDKTARGETSYSROOT Yocto dumpversion eudev initdb musllinux
+
+# Alpine sysroot with the target libraries for the clang cross-build below.
+# Alpine 3.22 ships musl 1.2, matching the musllinux_1_2 Python wheel tag.
+# apk reads configuration from inside --root: give it this image's pinned
+# repositories and the all-architectures index signing keys.
+FROM alpine:3.22 AS sysroot
+RUN mkdir -p /sysroot/etc/apk/keys && \
+    cp /usr/share/apk/keys/*.pub /sysroot/etc/apk/keys/ && \
+    cp /etc/apk/repositories /sysroot/etc/apk/ && \
+    apk add --root /sysroot --initdb --no-scripts --no-cache --arch x86_64 \
+        g++ musl-dev fontconfig-dev freetype-dev libxkbcommon-dev libinput-dev eudev-dev mesa-dev
+
+# Ubuntu 26.04 for its clang 21: Alpine's libstdc++ 14 headers need a recent
+# clang, and its git is new enough for the Skia source build.
+FROM ubuntu:26.04
+
+# clang cross-compiles against the Alpine sysroot; ninja and python3 are for
+# the Skia source build (Skia has no prebuilt musl binaries). zstd is for the
+# rust-cache action when this image is used as a job container.
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --assume-yes clang gcc libclang-dev pkg-config libfontconfig-dev ninja-build python3 git curl ca-certificates zstd && \
+    # The skia-bindings build clones git repos into the mounted, differently
+    # owned cargo home (see Dockerfile.x86_64-unknown-linux-gnu).
+    git config --global safe.directory '*'
+
+# The cxx-include/gcc-lib symlinks give the ENV below a GCC-version-independent
+# path to Alpine's libstdc++.
+COPY --from=sysroot /sysroot /alpine-sysroot
+RUN ln -s /alpine-sysroot/usr/include/c++/$(ls /alpine-sysroot/usr/include/c++) /alpine-sysroot/cxx-include && \
+    ln -s /alpine-sysroot/usr/lib/gcc/x86_64-alpine-linux-musl/$(ls /alpine-sysroot/usr/lib/gcc/x86_64-alpine-linux-musl) /alpine-sysroot/gcc-lib
+
+# skia-bindings derives host /usr/include/c++ paths from `g++ -dumpversion`,
+# which are wrong for the cross build; it drops them when g++ fails.
+RUN mkdir /opt/no-gxx && \
+    printf '#!/bin/sh\necho "g++ disabled (skia-bindings host-include workaround)" >&2\nexit 1\n' > /opt/no-gxx/g++ && \
+    chmod +x /opt/no-gxx/g++
+ENV PATH=/opt/no-gxx:$PATH
+
+ARG CROSS="--target=x86_64-unknown-linux-musl --sysroot=/alpine-sysroot"
+ARG CXX_INCLUDES="-I/alpine-sysroot/cxx-include -I/alpine-sysroot/cxx-include/x86_64-alpine-linux-musl"
+
+# The link flags live in a linker wrapper rather than in the rustflags: tools
+# like napi overwrite RUSTFLAGS, which takes precedence over the
+# CARGO_TARGET_*_RUSTFLAGS variable and would drop them.
+RUN printf '#!/bin/sh\nexec clang %s -B/alpine-sysroot/gcc-lib -L/alpine-sysroot/gcc-lib "$@"\n' "$CROSS" > /usr/local/bin/x86_64-unknown-linux-musl-clang && \
+    chmod +x /usr/local/bin/x86_64-unknown-linux-musl-clang
+
+# skia-bindings' Yocto-style cross setup: the sysroot plus full compiler
+# command lines for the gn build. Stock clang doesn't detect the GCC
+# installation inside a sysroot for Alpine triples, so the libstdc++ paths are
+# passed explicitly.
+ENV SDKTARGETSYSROOT=/alpine-sysroot
+ENV CLANGCC="clang $CROSS"
+ENV CLANGCXX="clang++ $CROSS $CXX_INCLUDES"
+ENV PKG_CONFIG_SYSROOT_DIR_x86_64_unknown_linux_musl=/alpine-sysroot
+ENV PKG_CONFIG_LIBDIR_x86_64_unknown_linux_musl=/alpine-sysroot/usr/lib/pkgconfig
+ENV CC_x86_64_unknown_linux_musl=clang
+ENV CXX_x86_64_unknown_linux_musl=clang++
+ENV CFLAGS_x86_64_unknown_linux_musl="$CROSS"
+ENV CXXFLAGS_x86_64_unknown_linux_musl="$CROSS $CXX_INCLUDES"
+ENV BINDGEN_EXTRA_CLANG_ARGS_x86_64_unknown_linux_musl="$CROSS $CXX_INCLUDES"
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=x86_64-unknown-linux-musl-clang
+# crt-static is off: build scripts must dlopen libclang, and the published
+# artifacts are shared libraries.
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-C target-feature=-crt-static"

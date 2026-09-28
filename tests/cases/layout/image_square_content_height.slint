@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A square (`width: self.height`) wrapping a fixed-size Image, in a
+// content-height window, used to panic with "Recursion detected": the sized
+// Image was treated as height-for-width, feeding a cross-axis width constraint
+// into the width<->height cycle. A sized Image is not height-for-width.
+
+component IconButton {
+    width: self.height;
+    min-height: max(32px, inner.min-height);
+    inner := VerticalLayout {
+        alignment: center;
+        Image { width: 16px; height: 16px; }
+    }
+}
+
+component Field {
+    min-height: max(48px, layout.min-height);
+    Rectangle {
+        layout := HorizontalLayout {
+            Rectangle { horizontal-stretch: 1; }
+            for x in [1]: VerticalLayout {
+                alignment: center;
+                IconButton { }
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: layout.min-height;
+
+    layout := VerticalLayout {
+        Field { }
+    }
+
+    out property <bool> test: root.height == 48px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

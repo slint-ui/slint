@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore fifi
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+// A selection boundary can fall *inside* a single glyph: Noto Sans shapes "fi" into one
+// ligature, so selecting only the `i` covers the glyph's right half. Selection must therefore
+// be drawn by clipping rather than by restyling the run -- a style can only ever recolor a
+// whole glyph, which would paint the entire ligature in one color while the highlight covers
+// half of it.
+//
+// Both rows below must show the highlight and the red selection foreground ending at exactly
+// the same vertical edge, in the middle of the ligature.
+TestCase := Window {
+    width: 64px;
+    height: 64px;
+
+    // Trailing half selected: `f` stays black, `i` turns red.
+    TextInput {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 30px;
+        text: "fi";
+        font-size: 28px;
+        color: black;
+        selection-background-color: #c8c8c8;
+        selection-foreground-color: red;
+        anchor-position-byte-offset: 1;
+        cursor-position-byte-offset: 2;
+    }
+
+    // Leading half selected: the mirror image -- `f` turns red, `i` stays black.
+    TextInput {
+        x: 0;
+        y: 32px;
+        width: parent.width;
+        height: 30px;
+        text: "fi";
+        font-size: 28px;
+        color: black;
+        selection-background-color: #c8c8c8;
+        selection-foreground-color: red;
+        anchor-position-byte-offset: 0;
+        cursor-position-byte-offset: 1;
+    }
+}

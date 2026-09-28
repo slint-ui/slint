@@ -115,11 +115,15 @@ export function parseXml(source: string): XmlElement {
             }
             // Opening tag.
             const end = source.indexOf(">", i);
-            if (end === -1) throw new Error("Unterminated tag");
+            if (end === -1) {
+                throw new Error("Unterminated tag");
+            }
             let raw = source.slice(i + 1, end);
             i = end + 1;
             const selfClosing = raw.endsWith("/");
-            if (selfClosing) raw = raw.slice(0, -1);
+            if (selfClosing) {
+                raw = raw.slice(0, -1);
+            }
 
             const { name, attrs } = parseTag(raw);
             const element: XmlElement = {
@@ -129,7 +133,9 @@ export function parseXml(source: string): XmlElement {
                 children: [],
             };
             top().children.push(element);
-            if (!selfClosing) stack.push(element);
+            if (!selfClosing) {
+                stack.push(element);
+            }
             continue;
         }
 
@@ -145,7 +151,9 @@ export function parseXml(source: string): XmlElement {
     const documentElement = root.children.find(
         (child): child is XmlElement => child.type === "element",
     );
-    if (!documentElement) throw new Error("XML document has no root element");
+    if (!documentElement) {
+        throw new Error("XML document has no root element");
+    }
     return documentElement;
 }
 
@@ -185,6 +193,8 @@ export function child(node: XmlElement, name: string): XmlElement | undefined {
 
 /** Concatenated text content of an element, recursively. */
 export function textContent(node: XmlNode): string {
-    if (node.type === "text") return node.value;
+    if (node.type === "text") {
+        return node.value;
+    }
     return node.children.map(textContent).join("");
 }

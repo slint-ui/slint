@@ -3,7 +3,7 @@
 
 // cSpell:ignore redblue
 
-RectRed := Rectangle {
+component RectRed inherits Rectangle {
     background: red;
     min_width: 200phx;
     horizontal-stretch: 0;
@@ -32,7 +32,7 @@ RectRed := Rectangle {
         rect_pink.height == 50phx;
 }
 
-RedBlue := HorizontalLayout {
+component RedBlue inherits HorizontalLayout {
     spacing: 0phx;
     padding: 0phx;
 
@@ -141,7 +141,7 @@ export component TestCase inherits Rectangle {
     out property rect_green_ok <=> hl_redblue.rect_green_ok;
     out property rect_pink_ok <=> hl_redblue.rect_pink_ok;
 
-    out property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && rect_green_ok && rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
+    out property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && root.rect_green_ok && root.rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
 }
 
 /*

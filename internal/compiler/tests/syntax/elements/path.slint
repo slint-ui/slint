@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+component Empty inherits Path { }
+
 component Arc inherits Path {
     MoveTo {
         x: 0;
@@ -8,11 +10,87 @@ component Arc inherits Path {
     }
 }
 
+component Arc2 inherits Path {
+    commands: "M 0 0 L 1 1";
+}
+
+component EmptySlot {
+    Path {
+        @children
+    }
+}
+
+component Slotted {
+    Path {
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+        @children
+//      >       <error{The @children placeholder cannot be placed in a Path that already has path elements}
+    }
+}
+
+component SlottedCommands {
+    Path {
+        commands: "M 0 0 L 1 1";
+        @children
+    }
+}
+
 export component Foo inherits Rectangle {
+    Empty { } // OK!
+    Empty {
+        // OK, the base declares nothing
+        LineTo {
+            x: 1;
+            y: 1;
+        }
+    }
+    Empty {
+        commands: "M 0 0 L 1 1"; // OK
+    }
     Arc { } // OK!
     Arc {
 //  >  <error{The Path was already populated in the base type and it can't be re-populated again}
         LineTo {
+            x: 1;
+            y: 1;
+        }
+    }
+    Arc {
+//  >  <error{The Path was already populated in the base type and it can't be re-populated again}
+        commands: "M 0 0 L 1 1";
+    }
+    Arc2 { } // OK!
+    Arc2 {
+        commands: "M 1 1 L 2 2"; // OK, replaces the commands of the base
+    }
+    Arc2 {
+        LineTo {
+//      >     <error{Path elements cannot be mixed with the use of the SVG commands property}
+            x: 1;
+            y: 1;
+        }
+    }
+    EmptySlot { } // OK!
+    EmptySlot {
+        // OK, the Path declares nothing
+        LineTo {
+            x: 1;
+            y: 1;
+        }
+        Close { }
+    }
+    Slotted {
+        LineTo {
+            x: 1;
+            y: 1;
+        }
+    }
+    SlottedCommands {
+        LineTo {
+//      >     <error{Path elements cannot be mixed with the use of the SVG commands property}
             x: 1;
             y: 1;
         }

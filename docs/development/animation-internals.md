@@ -1,3 +1,4 @@
+<!-- cSpell: ignore millis -->
 # Animation System Internals
 
 > Note for AI coding assistants (agents):
@@ -16,9 +17,9 @@ The animation driver (`internal/core/animations.rs`) manages a global instant th
 
 ```
 AnimationDriver
-├── global_instant: Property<Instant>  // Current animation time
-├── active_animations: bool            // Whether animations are running
-└── update_animations(new_tick)        // Called per frame by the backend
+├── global_instant: Pin<Box<Property<Instant>>>  // Current animation time
+├── active_animations: Cell<bool>                // Whether animations are running
+└── update_animations(new_tick)                  // Called per frame by the backend
 ```
 
 **Key components:**
@@ -29,11 +30,13 @@ AnimationDriver
 | `current_tick()` | `internal/core/animations.rs` | Get current animation time (registers dependency) |
 | `animation_tick()` | `internal/core/animations.rs` | Same, but signals a frame is needed |
 | `update_timers_and_animations()` | `internal/core/platform.rs` | Called by platform each frame |
-| `EasingCurve` | `internal/core/items.rs` | Enum of easing curve types |
+| `EasingCurve` | `internal/core/animations.rs` | Enum of easing curve types |
 
 ## Easing Curve Implementation
 
-Easing curves are defined in the `EasingCurve` enum in `internal/core/items.rs`. The interpolation logic is in `internal/core/animations.rs`.
+Easing curves are defined in the `EasingCurve` enum in `internal/core/animations.rs`, which
+also holds the interpolation logic. (The compiler has its own copy of the enum for constant
+folding at compile time, in `internal/compiler/expression_tree.rs`.)
 
 For `cubic-bezier(a, b, c, d)`, Slint uses a binary search algorithm to find the t parameter for a given x value, then evaluates the y component of the bezier curve.
 
@@ -88,23 +91,23 @@ if window.has_active_animations() {
 For deterministic testing without real-time waits:
 
 ```rust
-use slint_testing::mock_elapsed_time;
+use i_slint_backend_testing::mock_elapsed_time;
+use core::time::Duration;
 
 // Advance animation time by 100ms
-mock_elapsed_time(100);
+mock_elapsed_time(Duration::from_millis(100));
 
 // Complete a 300ms animation
-mock_elapsed_time(300);
+mock_elapsed_time(Duration::from_millis(300));
 ```
 
-This is implemented in `internal/core/tests/` and used throughout the test suite.
+This is implemented in `internal/backends/testing/` and used throughout the test suite.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/core/animations.rs` | Animation driver, timing, interpolation |
-| `internal/core/items.rs` | `EasingCurve` enum definition |
+| `internal/core/animations.rs` | Animation driver, timing, interpolation, `EasingCurve` enum |
 | `internal/core/timers.rs` | Timer integration with animation system |
 | `internal/core/platform.rs` | `update_timers_and_animations()` entry point |
 
@@ -112,7 +115,8 @@ This is implemented in `internal/core/tests/` and used throughout the test suite
 
 ### Adding a New Easing Curve
 
-1. Add variant to `EasingCurve` enum in `internal/core/items.rs`
+1. Add a variant to the `EasingCurve` enum in `internal/core/animations.rs` (and its
+   compiler-side copy in `internal/compiler/expression_tree.rs`)
 2. Handle interpolation in `internal/core/animations.rs`
 3. Add parsing support in `internal/compiler/` if new syntax needed
 4. Add tests in `tests/cases/`

@@ -52,7 +52,9 @@ wasm_module_promise
         const connection = createConnection(reader, writer);
 
         function send_notification(method: string, params: unknown): boolean {
-            connection.sendNotification(method, params);
+            void connection.sendNotification(method, params).catch((error) => {
+                post_panic(String(error ?? "Failed to send LSP notification"));
+            });
             return true;
         }
 

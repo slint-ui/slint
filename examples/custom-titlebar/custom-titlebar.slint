@@ -1,0 +1,153 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Palette } from "std-widgets.slint";
+
+component TitleBarButton inherits Rectangle {
+    /// The button's icon as SVG path commands in a 10x10 view box.
+    in property <string> icon-commands;
+    in property <color> hover-background: #ffffff26;
+    in property <string> label;
+    callback clicked;
+
+    width: 44px;
+    background: touch.has-hover ? root.hover-background : transparent;
+    animate background { duration: 150ms; }
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Path {
+        commands: root.icon-commands;
+        stroke: white;
+        stroke-width: 1px;
+        viewbox-width: 10;
+        viewbox-height: 10;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "Custom title bar";
+    no-frame: true;
+    background: transparent;
+    preferred-width: 520px;
+    preferred-height: 380px;
+    min-width: 320px;
+    min-height: 200px;
+
+    // Squared off when maximized, like native window decorations.
+    property <length> corner-radius: root.maximized ? 0px : 12px;
+
+    resize-border-width: root.maximized ? 0px : 6px;
+
+    Rectangle {
+        background: Palette.background;
+        border-radius: root.corner-radius;
+        border-width: 1phx;
+        border-color: Palette.border;
+
+        VerticalLayout {
+            Rectangle {
+                height: 40px;
+                background: @linear-gradient(180deg, #37373c 0%, #2a2a2e 100%);
+                border-top-left-radius: root.corner-radius;
+                border-top-right-radius: root.corner-radius;
+                // Keep the hover highlights inside the rounded corners.
+                clip: true;
+
+                accessible-role: window-title-bar;
+                accessible-label: root.title;
+
+                WindowMoveArea {
+                    // Before the buttons so they stay on top.
+                    TouchArea {
+                        double-clicked => {
+                            root.maximized = !root.maximized;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        spacing: 10px;
+
+                        Image {
+                            source: @image-url("../../logo/slint-logo-small-dark.svg");
+                            width: 16px;
+                            height: 16px;
+                            cross-axis-self-alignment: center;
+                        }
+
+                        Text {
+                            text: root.title;
+                            color: white;
+                            vertical-alignment: center;
+                        }
+
+                        // Spacer pushing the buttons to the right.
+                        Rectangle { }
+
+                        // Half-pixel coordinates keep the 1px strokes crisp.
+                        TitleBarButton {
+                            label: "Minimize";
+                            icon-commands: "M 0.5 5.5 L 9.5 5.5";
+                            clicked => {
+                                root.minimized = true;
+                            }
+                        }
+
+                        TitleBarButton {
+                            label: root.maximized ? "Restore" : "Maximize";
+                            icon-commands: root.maximized
+                                ? "M 0.5 3.5 L 6.5 3.5 L 6.5 9.5 L 0.5 9.5 Z M 2.5 3.5 L 2.5 0.5 L 9.5 0.5 L 9.5 7.5 L 6.5 7.5"
+                                : "M 0.5 0.5 L 9.5 0.5 L 9.5 9.5 L 0.5 9.5 Z";
+                            clicked => {
+                                root.maximized = !root.maximized;
+                            }
+                        }
+
+                        TitleBarButton {
+                            label: "Close";
+                            hover-background: #e81123;
+                            icon-commands: "M 0.5 0.5 L 9.5 9.5 M 9.5 0.5 L 0.5 9.5";
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                padding: 32px;
+                spacing: 12px;
+
+                Rectangle { }
+
+                Text {
+                    text: "This window has no native frame";
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: "The title bar and rounded corners above are ordinary Slint UI. Drag the title bar to move the window, drag the edges to resize it, and double-click the title bar to maximize.";
+                    color: Palette.foreground.transparentize(0.4);
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle { }
+            }
+        }
+    }
+}

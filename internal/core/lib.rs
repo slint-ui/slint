@@ -35,6 +35,7 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
@@ -145,26 +146,55 @@ pub fn detect_operating_system() -> OperatingSystemType {
         return os_override;
     }
 
-    let mut user_agent =
-        web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
-    user_agent.make_ascii_lowercase();
-    let mut platform =
-        web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
-    platform.make_ascii_lowercase();
-
-    if user_agent.contains("ipad") || user_agent.contains("iphone") {
-        OperatingSystemType::Ios
-    } else if user_agent.contains("android") {
-        OperatingSystemType::Android
-    } else if platform.starts_with("mac") {
-        OperatingSystemType::Macos
-    } else if platform.starts_with("win") {
-        OperatingSystemType::Windows
-    } else if platform.starts_with("linux") {
-        OperatingSystemType::Linux
-    } else {
-        OperatingSystemType::Other
+    #[cfg(not(target_os = "emscripten"))]
+    fn navigator_user_agent_and_platform() -> (std::string::String, std::string::String) {
+        let navigator = web_sys::window().map(|w| w.navigator());
+        let user_agent = navigator.as_ref().and_then(|n| n.user_agent().ok()).unwrap_or_default();
+        let platform = navigator.as_ref().and_then(|n| n.platform().ok()).unwrap_or_default();
+        (user_agent, platform)
     }
+
+    #[cfg(target_os = "emscripten")]
+    #[allow(unsafe_code)]
+    fn navigator_user_agent_and_platform() -> (std::string::String, std::string::String) {
+        unsafe extern "C" {
+            fn emscripten_run_script_string(
+                script: *const core::ffi::c_char,
+            ) -> *const core::ffi::c_char;
+        }
+        let run = |script: &core::ffi::CStr| {
+            // The result points to a buffer that the next call overwrites, so copy it right away.
+            let result = unsafe { emscripten_run_script_string(script.as_ptr()) };
+            if result.is_null() {
+                return std::string::String::new();
+            }
+            unsafe { core::ffi::CStr::from_ptr(result) }.to_string_lossy().into_owned()
+        };
+        (run(c"navigator.userAgent"), run(c"navigator.platform"))
+    }
+
+    // Querying the navigator involves a round-trip to JavaScript and some string processing, so
+    // cache the result: it cannot change for the lifetime of the page.
+    static DETECTED: std::sync::LazyLock<OperatingSystemType> = std::sync::LazyLock::new(|| {
+        let (mut user_agent, mut platform) = navigator_user_agent_and_platform();
+        user_agent.make_ascii_lowercase();
+        platform.make_ascii_lowercase();
+
+        if user_agent.contains("ipad") || user_agent.contains("iphone") {
+            OperatingSystemType::Ios
+        } else if user_agent.contains("android") {
+            OperatingSystemType::Android
+        } else if platform.starts_with("mac") {
+            OperatingSystemType::Macos
+        } else if platform.starts_with("win") {
+            OperatingSystemType::Windows
+        } else if platform.starts_with("linux") {
+            OperatingSystemType::Linux
+        } else {
+            OperatingSystemType::Other
+        }
+    });
+    *DETECTED
 }
 
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
@@ -177,7 +207,7 @@ pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api
 }
 
 #[cfg(target_os = "macos")]
-pub fn bring_all_to_front() {
+pub fn macos_bring_all_windows_to_front() {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSApplication;
     let Some(mtm) = MainThreadMarker::new() else { return };
@@ -185,4 +215,4 @@ pub fn bring_all_to_front() {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn bring_all_to_front() {}
+pub fn macos_bring_all_windows_to_front() {}

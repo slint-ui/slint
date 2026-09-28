@@ -8,15 +8,35 @@ description: Set up dependencies needed to build Skia
 runs:
     using: composite
     steps:
-        - name: Upgrade LLVM for Skia build on Windows
+        # libclang must not be newer than the clang bundled with Visual Studio,
+        # otherwise bindgen ends up parsing VS's older clang resource headers
+        # (mmintrin.h & friends) with a libclang that no longer knows their
+        # builtins. VS 2022 bundles clang 19; newer images bundle clang >= 20
+        # and work with the LLVM preinstalled on the image.
+        - name: Pin LLVM to match the Visual Studio 2022 bundled clang
           if: runner.os == 'Windows'
-          run: choco upgrade llvm --version "19.1.7" --allow-downgrade
+          run: |
+              if [ "$ImageOS" = "win22" ]; then
+                  choco upgrade llvm --version "19.1.7" --allow-downgrade
+              fi
           shell: bash
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
         - name: Remove GNU link.exe from GH actions
           if: runner.os == 'Windows'
           run: rm /usr/bin/link
           shell: bash
+        # The macos-14 image defaults to Xcode 15.4, whose libc++ lacks the
+        # P0960 parenthesized-aggregate-init support that skia-bindings' PDF
+        # code (SkPDFTag.cpp) relies on. Select a newer Xcode that the image
+        # also ships. xcode-select propagates to /usr/bin/clang and the
+        # LIBCLANG_PATH derived below. Newer images default to a working Xcode.
+        - name: Select a newer Xcode on macos-14
+          if: runner.os == 'macOS'
+          shell: bash
+          run: |
+              if [ "$ImageOS" = "macos14" ]; then
+                  sudo xcode-select -s /Applications/Xcode_16.2.app
+              fi
         - name: Unselect homebrew clang to work around https://github.com/actions/runner-images/issues/13827
           if: runner.os == 'macOS'
           shell: bash

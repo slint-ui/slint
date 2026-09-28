@@ -7,48 +7,22 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
+use crate::lengths::LogicalLength;
 use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
 
 /// Type alias for the closure type installed via [`set_window_event_hook`].
 /// Exposed so callers (notably tests) can save and restore a previously-installed hook.
 pub type WindowEventHook =
-    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
-
-/// Result of dispatching a window event through Slint's runtime.
-///
-/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
-/// `PointerScrolled`), the mapping is:
-/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
-///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
-///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
-/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
-///   there was no component to dispatch to. Hover-only handling (e.g. a
-///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
-///   consuming) is reported as `Ignored`.
-///
-/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
-/// event: the runtime always acts on it, so it is reported as `Accepted` even
-/// when no item was under the cursor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WindowEventDispatchResult {
-    /// A receiver handled the event (e.g. a key handler consumed it, or the
-    /// runtime acted on a resize / scale / close).
-    Accepted,
-    /// A receiver actively refused the event (e.g. a `close-requested` callback
-    /// prevented the window from closing).
-    Rejected,
-    /// The event fell through without being handled (e.g. a key event with no
-    /// matching handler, or a pointer event that no item consumed).
-    Ignored,
-}
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
 crate::thread_local! {
-    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = const { once_cell::unsync::OnceCell::new() }
+    pub(crate) static GLOBAL_CONTEXT : core::cell::OnceCell<SlintContext>
+        = const { core::cell::OnceCell::new() }
 }
 
 #[pin_project::pin_project]
@@ -61,8 +35,9 @@ pub(crate) struct SlintContextInner {
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
+    /// The bundled languages. `translations_dirty` holds the index of the selected one.
     pub(crate) translations_bundle:
-        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
+        core::cell::RefCell<Option<crate::translations::BundledLanguages>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[pin]
@@ -78,9 +53,16 @@ pub(crate) struct SlintContextInner {
     /// transparent color when the platform doesn't expose one.
     #[pin]
     pub(crate) accent_color: Property<Color>,
+    /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
+    /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
+    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
+    /// doesn't report one.
+    #[pin]
+    pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
+    pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -88,6 +70,10 @@ pub(crate) struct SlintContextInner {
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
+
+    /// The timers registered on this context. Shared, so that `Timer` handles can hold a
+    /// `Weak` to the list they registered in without knowing which context owns it.
+    pub(crate) timers: crate::timers::TimerListRc,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -97,12 +83,18 @@ pub(crate) struct SlintContextInner {
 pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
-    /// Create a new context with a given platform
+    /// Create a new context with a given platform.
+    ///
+    /// If this thread has no context yet, the new one becomes it — first come, first
+    /// served. That is what the ambient APIs resolve to: [`crate::timers::Timer`],
+    /// `spawn_local`, `quit_event_loop` and friends. Contexts created afterwards are
+    /// perfectly usable, but are not the thread's current one, so code holding such a
+    /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::pin(SlintContextInner {
+        let this = Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
 
@@ -117,8 +109,13 @@ impl SlintContext {
 
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
+            platform_default_font_size: Property::new_named(
+                None,
+                "SlintContext::platform_default_font_size",
+            ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
+            log_message_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -134,7 +131,25 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             modifiers: Cell::new(Default::default()),
-        }))
+            // Timers started before this thread had a context registered in the pending
+            // list; take it over so those timers keep working. It is the very list they
+            // hold a `Weak` to, so nothing needs fixing up.
+            timers: crate::timers::take_pending_timers(),
+        }));
+        // The list's deadlines are measured on this context's clock from now on. Done after
+        // construction because it needs a handle to the context that owns it.
+        crate::timers::set_owning_context(&this.0.timers, &this);
+        // Claim this thread's context slot if it is still free, so that the ambient APIs
+        // resolve here rather than to a list nothing drives. Fails harmlessly when the
+        // thread already has a context: that one stays current.
+        GLOBAL_CONTEXT.with(|slot| {
+            let _ = slot.set(this.clone());
+        });
+        // Every context tells its platform which context it belongs to, not just the one
+        // that becomes this thread's global: a platform is owned by exactly one context, and
+        // a backend driving a context needs to be able to find it.
+        this.platform().bind_context(this.downgrade(), crate::InternalToken);
+        this
     }
 
     /// Return a reference to the platform abstraction
@@ -175,6 +190,60 @@ impl SlintContext {
         self.0.platform.run_event_loop()
     }
 
+    /// Creates a [`Timer`](crate::timers::Timer) that registers on this context rather than
+    /// on whichever one is current when it is started.
+    ///
+    /// For the context that a thread runs its event loop on this is the same as
+    /// `Timer::default()`, and the event loop activates the timer as usual. A context that
+    /// isn't the current one has no event loop driving it, so its owner is responsible for
+    /// calling [`Self::maybe_activate_timers`].
+    pub fn new_timer(&self) -> crate::timers::Timer {
+        crate::timers::Timer::with_list(&self.0.timers)
+    }
+
+    /// Runs `callback` once, `duration` from now, on this context.
+    ///
+    /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),
+    /// which registers on whichever context is current instead.
+    pub fn single_shot(&self, duration: core::time::Duration, callback: impl FnOnce() + 'static) {
+        crate::timers::single_shot_on(&self.0.timers, duration, callback);
+    }
+
+    /// Advances this context's animations and timers to its own clock, and runs any change
+    /// handlers that fall out of it.
+    ///
+    /// This is what an event loop driving this context should call at the top of each
+    /// iteration. [`crate::platform::update_timers_and_animations`] is the same thing for
+    /// whichever context is this thread's global one.
+    pub fn update_timers_and_animations(&self) {
+        let now = crate::animations::Instant::now(self);
+        crate::animations::update_animations(now);
+        self.maybe_activate_timers(now);
+        crate::properties::ChangeTracker::run_change_handlers();
+    }
+
+    /// How long this context can go to sleep before its next timer is due, or `None` when it
+    /// has no active timer.
+    ///
+    /// The deadline and the clock it is measured against both come from this context, so
+    /// they cannot disagree.
+    pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
+        let timeout = self.next_timer_timeout()?;
+        let now = crate::animations::Instant::now(self);
+        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+    }
+
+    /// Fires the callbacks of this context's timers that have expired by `now`, and returns
+    /// whether any of them was activated.
+    pub fn maybe_activate_timers(&self, now: crate::animations::Instant) -> bool {
+        crate::timers::TimerList::activate_expired(&self.0.timers, now)
+    }
+
+    /// Returns when this context's next timer is due, or `None` if it has no active timer.
+    pub fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
+        self.0.timers.borrow().first_timeout()
+    }
+
     /// Returns the effective color scheme for the given component root, or the
     /// process-wide scheme when `root` is `None`. A `SystemTrayIcon`-rooted
     /// component resolves against the tray's own scheme first, falling back to
@@ -210,6 +279,37 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
         self.0.as_ref().project_ref().accent_color.set(color);
+    }
+
+    /// Returns the platform-reported default font size, or `None` if the backend doesn't
+    /// report one. Reads register a property dependency, so bindings re-evaluate when the
+    /// platform reports a change (e.g. the user adjusts the system text size).
+    pub fn platform_default_font_size(&self) -> Option<LogicalLength> {
+        self.0.as_ref().project_ref().platform_default_font_size.get()
+    }
+
+    /// Backend-side write path for the platform-reported default font size. Called by
+    /// backends that track the system setting; `Property::set` short-circuits no-op writes.
+    pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
+        self.0.as_ref().project_ref().platform_default_font_size.set(size);
+    }
+
+    #[doc(hidden)]
+    pub fn dispatch_log_message(&self, message: crate::debug_log::LogMessage<'_>) {
+        if let Some(handler) = self.0.log_message_handler.borrow().as_ref() {
+            handler(message);
+        } else {
+            self.0.platform.debug_log(message.message_arguments());
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn set_log_message_handler(
+        &self,
+        handler: Option<crate::debug_log::LogMessageHandler>,
+    ) -> Option<crate::debug_log::LogMessageHandler> {
+        let mut slot = self.0.log_message_handler.borrow_mut();
+        core::mem::replace(&mut *slot, handler)
     }
 
     /// Add one to the counter of "things keeping the event loop alive".
@@ -261,6 +361,18 @@ impl SlintContext {
             .project_ref()
             .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
+    }
+
+    /// Assign the list of bundled languages and their decimal separator to this context,
+    /// and select the one that matches the system locale.
+    ///
+    /// Does nothing if this context already has a list, so that a language selected with
+    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
+    pub fn set_bundled_languages(
+        &self,
+        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
+    ) {
+        crate::translations::set_bundled_languages_for_context(self, languages);
     }
 
     #[cfg(feature = "tr")]

@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Re-exporting a widget makes the test driver instantiate its wrapper. Only
+// RadioGroup and TabWidget lower a builtin root that must not be left bare, so
+// they come last (the interpreter driver instantiates the last export); the
+// others are re-exported for completeness. Using two of them in TestCase also
+// reaches a wrapper both as a used component and through an instance, which
+// exercises the deduplication.
+import {
+    Button, CheckBox, ComboBox, GroupBox, LineEdit, ListView, ProgressIndicator,
+    ScrollView, Slider, SpinBox, Spinner, StandardButton, Switch, TextEdit,
+    RadioGroup, TabWidget,
+} from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    RadioGroup { RadioButton {} }
+    TabWidget { Tab { } }
+    out property <bool> test: true;
+}
+
+export {
+    Button, CheckBox, ComboBox, GroupBox, LineEdit, ListView, ProgressIndicator,
+    ScrollView, Slider, SpinBox, Spinner, StandardButton, Switch, TextEdit,
+    RadioGroup, TabWidget,
+}

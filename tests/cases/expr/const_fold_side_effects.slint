@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Const propagation must not fold away the non-pure calls next to statically
+// known operands, or else counter stops incrementing.
+
+export component TestCase inherits Rectangle {
+    in-out property <int> counter;
+    function bump() -> bool { counter += 1; return true; }
+    function bump_num() -> float { counter += 1; return 2; }
+
+    private property <bool> or_true;
+    private property <bool> and_false;
+    private property <bool> mul_zero;
+    init => {
+        or_true = bump() || true;
+        and_false = bump() && false;
+        mul_zero = (0 * bump_num()) == 0;
+        if (bump() && false) { counter = 100; }
+    }
+    out property <bool> test: or_true && !and_false && mul_zero;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_counter(), 4);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_counter(), 4);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+assert.equal(instance.counter, 4);
+```
+*/

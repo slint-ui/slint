@@ -1,0 +1,248 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
+import { BodyLabel, ComponentPaletteRow, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "index.slint";
+import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { Project } from "../project.slint";
+import { FileTreeView } from "file-tree-view.slint";
+import { ElementPalette } from "element-palette.slint";
+
+component NewSlintFileButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.compact-button;
+    in property <bool> enabled: true;
+    callback clicked();
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
+
+    width: root.style.height;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-color: root.paint.border;
+    opacity: root.enabled ? 1 : root.style.disabled-opacity;
+    accessible-role: AccessibleRole.button;
+    accessible-label: @tr("New Slint file");
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if root.enabled {
+            root.clicked();
+        }
+    }
+
+    Image {
+        width: Metrics.icon-medium;
+        height: Metrics.icon-medium;
+        source: @image-url("../assets/lucide/file-plus.svg");
+        colorize: root.paint.foreground;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    Tooltip {
+        text: @markdown("\{@tr("New Slint file")}");
+    }
+}
+
+component FilesUnavailableNotice inherits Rectangle {
+    in property <PaletteCardStyle> style: Style.palette-card;
+    height: root.style.height;
+    border-radius: Metrics.radius-large;
+    border-width: Metrics.border-width;
+    border-color: Colors.subtle-border;
+    background: root.style.background;
+
+    HorizontalLayout {
+        padding: Metrics.space-medium;
+        spacing: Metrics.space-medium;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            border-radius: Metrics.radius-large;
+            border-width: Metrics.border-width;
+            border-color: root.style.border;
+            background: root.style.icon-background;
+
+            Rectangle {
+                x: 8px;
+                y: 10px;
+                width: 18px;
+                height: 14px;
+                border-radius: Metrics.radius-small;
+                border-width: Metrics.focus-width;
+                border-color: root.style.muted-icon;
+                background: transparent;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: Metrics.space-small;
+            alignment: center;
+
+            BodyLabel {
+                text: "No files available";
+            }
+
+            MutedLabel {
+                text: "Open a project file to browse siblings.";
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+export component LeftPane inherits Rectangle {
+    in property <bool> can-collapse: false;
+    in property <length> elements-pane-height: 0px;
+    callback drag-started();
+    callback panes-collapsed();
+    callback elements-pane-resized(length);
+    callback elements-pane-reset();
+    callback create-new-slint-file();
+
+    private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    private property <length> default-elements-height: root.image-mode ? Style.panes.image-height : Style.panes.component-height;
+    private property <length> requested-elements-height: root.elements-pane-height > 0px
+        ? root.elements-pane-height
+        : root.default-elements-height;
+    private property <length> elements-height: 0px;
+    private property <length> drag-start-height;
+
+    function clamp-elements-height(height: length) -> length {
+        return height.clamp(Style.panes.minimum, max(Style.panes.minimum, root.height - Style.panes.files-minimum));
+    }
+
+    init => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed requested-elements-height => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed image-mode => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    changed height => {
+        root.elements-height = root.clamp-elements-height(root.requested-elements-height);
+    }
+
+    width: Style.panes.left-width;
+    background: Colors.surface;
+    accessible-role: AccessibleRole.navigation;
+    accessible-label: "Project and elements";
+
+    EdgeDivider {
+        x: parent.width - self.width;
+    }
+
+    VerticalLayout {
+        height: 100%;
+        spacing: 0px;
+
+        HorizontalLayout {
+            height: Style.panes.heading-height;
+            padding-top: Metrics.space-medium;
+            padding-left: Metrics.space-medium;
+            padding-right: Metrics.space-medium;
+            spacing: Metrics.space-medium;
+            cross-axis-alignment: center;
+
+            if root.can-collapse: SidebarToggleButton {
+                accessible-role: AccessibleRole.button;
+                accessible-label: "Collapse sidebars";
+                clicked => {
+                    root.panes-collapsed();
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: Metrics.space-tight;
+                alignment: center;
+
+                BodyLabel {
+                    text: "Project";
+                    font-size: Typography.action.size;
+                }
+
+                MutedLabel {
+                    text: "Files and elements";
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding: Metrics.space-medium;
+            padding-bottom: 0px;
+            SectionTitle {
+                label: "FILES";
+
+                NewSlintFileButton {
+                    x: parent.width - self.width;
+                    y: -Metrics.space-medium;
+                    enabled: Project.file-tree.length > 0;
+                    clicked => { root.create-new-slint-file(); }
+                }
+            }
+
+            if Project.file-tree.length == 0: FilesUnavailableNotice { }
+
+            if Project.file-tree.length > 0: Rectangle {
+                vertical-stretch: 1;
+
+                FileTreeView {
+                    x: 0px;
+                    width: parent.width + Metrics.space-medium;
+                    height: parent.height;
+                    rename-right-extension: Metrics.space-medium;
+                }
+            }
+        }
+
+        HorizontalResizeDivider {
+            resize-label: "Elements pane resize";
+            value: root.elements-height;
+            value-maximum: max(Style.panes.minimum, root.height - Style.panes.files-minimum);
+            drag-started => {
+                root.drag-start-height = root.elements-height;
+            }
+            dragged(delta) => {
+                root.elements-height = root.clamp-elements-height(
+                    max(Style.panes.minimum, root.drag-start-height - delta),
+                );
+            }
+            drag-finished(delta) => {
+                if delta != 0px {
+                    root.elements-pane-resized(root.clamp-elements-height(
+                        max(Style.panes.minimum, root.drag-start-height - delta),
+                    ));
+                }
+            }
+            value-set(height) => {
+                let clamped-height = root.clamp-elements-height(max(Style.panes.minimum, height));
+                root.elements-height = clamped-height;
+                root.elements-pane-resized(clamped-height);
+            }
+            reset-requested => {
+                root.elements-pane-reset();
+            }
+        }
+
+        ElementPalette {
+            height: root.elements-height;
+            image-mode: root.image-mode;
+            drag-started => { root.drag-started(); }
+        }
+    }
+}

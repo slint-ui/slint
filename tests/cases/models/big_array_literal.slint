@@ -1,0 +1,168 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The Rust generator builds array literals longer than ARRAY_CHUNK_SIZE in chunks.
+// One element holds an array that is chunked as well, with a partial last chunk.
+
+struct Elem { name: string, values: [string] }
+
+export component TestCase {
+    out property <[Elem]> elements: [
+        { name: "e0", values: ["v0", "w0"] },
+        { name: "e1", values: ["v1", "w1"] },
+        { name: "e2", values: ["v2", "w2"] },
+        { name: "e3", values: ["v3", "w3"] },
+        { name: "e4", values: ["v4", "w4"] },
+        { name: "e5", values: ["v5", "w5"] },
+        { name: "e6", values: ["v6", "w6"] },
+        { name: "e7", values: ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9", "n10", "n11", "n12", "n13", "n14", "n15", "n16", "n17", "n18", "n19", "n20", "n21", "n22", "n23", "n24", "n25", "n26", "n27", "n28", "n29", "n30", "n31", "n32"] },
+        { name: "e8", values: ["v8", "w8"] },
+        { name: "e9", values: ["v9", "w9"] },
+        { name: "e10", values: ["v10", "w10"] },
+        { name: "e11", values: ["v11", "w11"] },
+        { name: "e12", values: ["v12", "w12"] },
+        { name: "e13", values: ["v13", "w13"] },
+        { name: "e14", values: ["v14", "w14"] },
+        { name: "e15", values: ["v15", "w15"] },
+        { name: "e16", values: ["v16", "w16"] },
+        { name: "e17", values: ["v17", "w17"] },
+        { name: "e18", values: ["v18", "w18"] },
+        { name: "e19", values: ["v19", "w19"] },
+        { name: "e20", values: ["v20", "w20"] },
+        { name: "e21", values: ["v21", "w21"] },
+        { name: "e22", values: ["v22", "w22"] },
+        { name: "e23", values: ["v23", "w23"] },
+        { name: "e24", values: ["v24", "w24"] },
+        { name: "e25", values: ["v25", "w25"] },
+        { name: "e26", values: ["v26", "w26"] },
+        { name: "e27", values: ["v27", "w27"] },
+        { name: "e28", values: ["v28", "w28"] },
+        { name: "e29", values: ["v29", "w29"] },
+        { name: "e30", values: ["v30", "w30"] },
+        { name: "e31", values: ["v31", "w31"] },
+        { name: "e32", values: ["v32", "w32"] },
+        { name: "e33", values: ["v33", "w33"] },
+        { name: "e34", values: ["v34", "w34"] },
+        { name: "e35", values: ["v35", "w35"] },
+        { name: "e36", values: ["v36", "w36"] },
+        { name: "e37", values: ["v37", "w37"] },
+        { name: "e38", values: ["v38", "w38"] },
+        { name: "e39", values: ["v39", "w39"] },
+        { name: "e40", values: ["v40", "w40"] },
+        { name: "e41", values: ["v41", "w41"] },
+        { name: "e42", values: ["v42", "w42"] },
+        { name: "e43", values: ["v43", "w43"] },
+        { name: "e44", values: ["v44", "w44"] },
+        { name: "e45", values: ["v45", "w45"] },
+        { name: "e46", values: ["v46", "w46"] },
+        { name: "e47", values: ["v47", "w47"] },
+        { name: "e48", values: ["v48", "w48"] },
+        { name: "e49", values: ["v49", "w49"] },
+        { name: "e50", values: ["v50", "w50"] },
+        { name: "e51", values: ["v51", "w51"] },
+        { name: "e52", values: ["v52", "w52"] },
+        { name: "e53", values: ["v53", "w53"] },
+        { name: "e54", values: ["v54", "w54"] },
+        { name: "e55", values: ["v55", "w55"] },
+        { name: "e56", values: ["v56", "w56"] },
+        { name: "e57", values: ["v57", "w57"] },
+        { name: "e58", values: ["v58", "w58"] },
+        { name: "e59", values: ["v59", "w59"] },
+        { name: "e60", values: ["v60", "w60"] },
+        { name: "e61", values: ["v61", "w61"] },
+        { name: "e62", values: ["v62", "w62"] },
+        { name: "e63", values: ["v63", "w63"] },
+        { name: "e64", values: ["v64", "w64"] },
+        { name: "e65", values: ["v65", "w65"] },
+        { name: "e66", values: ["v66", "w66"] },
+        { name: "e67", values: ["v67", "w67"] },
+        { name: "e68", values: ["v68", "w68"] },
+        { name: "e69", values: ["v69", "w69"] },
+        { name: "e70", values: ["v70", "w70"] },
+        { name: "e71", values: ["v71", "w71"] },
+        { name: "e72", values: ["v72", "w72"] },
+        { name: "e73", values: ["v73", "w73"] },
+        { name: "e74", values: ["v74", "w74"] },
+        { name: "e75", values: ["v75", "w75"] },
+        { name: "e76", values: ["v76", "w76"] },
+        { name: "e77", values: ["v77", "w77"] },
+        { name: "e78", values: ["v78", "w78"] },
+        { name: "e79", values: ["v79", "w79"] },
+        { name: "e80", values: ["v80", "w80"] },
+        { name: "e81", values: ["v81", "w81"] },
+        { name: "e82", values: ["v82", "w82"] },
+        { name: "e83", values: ["v83", "w83"] },
+        { name: "e84", values: ["v84", "w84"] },
+        { name: "e85", values: ["v85", "w85"] },
+        { name: "e86", values: ["v86", "w86"] },
+        { name: "e87", values: ["v87", "w87"] },
+        { name: "e88", values: ["v88", "w88"] },
+        { name: "e89", values: ["v89", "w89"] },
+        { name: "e90", values: ["v90", "w90"] },
+        { name: "e91", values: ["v91", "w91"] },
+        { name: "e92", values: ["v92", "w92"] },
+        { name: "e93", values: ["v93", "w93"] },
+        { name: "e94", values: ["v94", "w94"] },
+        { name: "e95", values: ["v95", "w95"] },
+        { name: "e96", values: ["v96", "w96"] },
+        { name: "e97", values: ["v97", "w97"] },
+        { name: "e98", values: ["v98", "w98"] },
+        { name: "e99", values: ["v99", "w99"] },
+        { name: "e100", values: ["v100", "w100"] },
+        { name: "e101", values: ["v101", "w101"] },
+        { name: "e102", values: ["v102", "w102"] },
+        { name: "e103", values: ["v103", "w103"] },
+        { name: "e104", values: ["v104", "w104"] },
+        { name: "e105", values: ["v105", "w105"] },
+        { name: "e106", values: ["v106", "w106"] },
+        { name: "e107", values: ["v107", "w107"] },
+        { name: "e108", values: ["v108", "w108"] },
+        { name: "e109", values: ["v109", "w109"] },
+        { name: "e110", values: ["v110", "w110"] },
+        { name: "e111", values: ["v111", "w111"] },
+        { name: "e112", values: ["v112", "w112"] },
+        { name: "e113", values: ["v113", "w113"] },
+        { name: "e114", values: ["v114", "w114"] },
+        { name: "e115", values: ["v115", "w115"] },
+        { name: "e116", values: ["v116", "w116"] },
+        { name: "e117", values: ["v117", "w117"] },
+        { name: "e118", values: ["v118", "w118"] },
+        { name: "e119", values: ["v119", "w119"] },
+        { name: "e120", values: ["v120", "w120"] },
+        { name: "e121", values: ["v121", "w121"] },
+        { name: "e122", values: ["v122", "w122"] },
+        { name: "e123", values: ["v123", "w123"] },
+        { name: "e124", values: ["v124", "w124"] },
+        { name: "e125", values: ["v125", "w125"] },
+        { name: "e126", values: ["v126", "w126"] },
+        { name: "e127", values: ["v127", "w127"] },
+    ];
+
+    out property <int> count: elements.length;
+    out property <string> first-name: elements[0].name;
+    out property <string> last-name: elements[127].name;
+    out property <string> third-value: elements[3].values[1];
+    out property <int> nested-length: elements[7].values.length;
+    out property <string> nested-value: elements[7].values[32];
+
+    out property <bool> test: count == 128 && first-name == "e0" && last-name == "e127"
+        && third-value == "w3" && nested-length == 33 && nested-value == "n32";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

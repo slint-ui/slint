@@ -41,6 +41,14 @@ export component TestCase inherits Window {
             clicked_index = i;
         }
     }
+
+    public function push_person(name: string, account: string, score: float) {
+        model.push({name: name, account: account, score: score})
+    }
+    public function remove_person(index: int) { model.remove(index) }
+    public function insert_person(index: int, name: string, account: string, score: float) {
+        model.insert(index, {name: name, account: account, score: score})
+    }
 }
 
 /*
@@ -285,6 +293,86 @@ assert.equal(instance.clicked_score, 333000);
 assert.equal(instance.clicked_name, "world");
 assert.equal(instance.clicked_internal_state, 2);
 assert.equal(instance.clicked_index, 1);
+```
+
+////////// Test push, remove and insert on repeater
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_push_person("world".into(), "a3".into(), 333.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 333000);
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("world"));
+assert_eq!(instance.get_clicked_index(), 2);
+
+instance.invoke_remove_person(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_score(), 789000);
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("Simon"));
+assert_eq!(instance.get_clicked_index(), 0);
+
+instance.invoke_insert_person(1, "inserted".into(), "a_new".into(), 999.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 999000);
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("inserted"));
+assert_eq!(instance.get_clicked_index(), 1);
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 333000);
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("world"));
+assert_eq!(instance.get_clicked_index(), 2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_push_person("world", "a3", 333.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 333000);
+assert_eq(instance.get_clicked_name(), "world");
+assert_eq(instance.get_clicked_index(), 2);
+
+instance.invoke_remove_person(0);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_clicked_score(), 789000);
+assert_eq(instance.get_clicked_name(), "Simon");
+assert_eq(instance.get_clicked_index(), 0);
+
+instance.invoke_insert_person(1, "inserted", "a_new", 999.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 999000);
+assert_eq(instance.get_clicked_name(), "inserted");
+assert_eq(instance.get_clicked_index(), 1);
+slint_testing::send_mouse_click(&instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 333000);
+assert_eq(instance.get_clicked_name(), "world");
+assert_eq(instance.get_clicked_index(), 2);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+instance.push_person("world", "a3", 333.);
+slintlib.private_api.send_mouse_click(instance, 25., 5.);
+assert.equal(instance.clicked_score, 333000);
+assert.equal(instance.clicked_name, "world");
+assert.equal(instance.clicked_index, 2);
+
+instance.remove_person(0);
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.clicked_score, 789000);
+assert.equal(instance.clicked_name, "Simon");
+assert.equal(instance.clicked_index, 0);
+
+instance.insert_person(1, "inserted", "a_new", 999.);
+slintlib.private_api.send_mouse_click(instance, 15., 5.);
+assert.equal(instance.clicked_score, 999000);
+assert.equal(instance.clicked_name, "inserted");
+assert.equal(instance.clicked_index, 1);
+slintlib.private_api.send_mouse_click(instance, 25., 5.);
+assert.equal(instance.clicked_score, 333000);
+assert.equal(instance.clicked_name, "world");
+assert.equal(instance.clicked_index, 2);
 ```
 
 ////////// Issue #8021

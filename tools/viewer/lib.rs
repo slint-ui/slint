@@ -8,6 +8,9 @@
 compile_error!("The `remote` feature is required when building for Android");
 
 #[cfg(all(target_os = "android", feature = "remote"))]
+mod debug;
+
+#[cfg(all(target_os = "android", feature = "remote"))]
 mod remote;
 
 #[cfg(all(target_os = "android", feature = "remote"))]
@@ -19,7 +22,7 @@ fn android_main(app: i_slint_backend_android_activity::android_activity::Android
         i_slint_backend_android_activity::AndroidPlatform::new(app),
     ))
     .unwrap();
-    remote::run(None, true).unwrap();
+    remote::run(None, true, i_slint_live_preview::remote::PairingPolicy::Generated).unwrap();
 }
 
 /// Read the user-set device name from `Settings.Global.DEVICE_NAME` via JNI.

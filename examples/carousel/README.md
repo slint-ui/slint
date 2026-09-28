@@ -15,4 +15,4 @@ See the [MCU backend Readme](../mcu-board-support) to see how to run the example
 
 The example can run with the mcu simulator with the following command
 
-```cargo run -p carousel --no-default-features --features=simulator --release```
+```cargo run --manifest-path examples/carousel/rust/Cargo.toml --no-default-features --features=simulator --release```

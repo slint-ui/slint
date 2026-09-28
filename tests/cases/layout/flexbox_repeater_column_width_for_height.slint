@@ -1,0 +1,203 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Mirror of flexbox_repeater_row_height_for_width.slint for the other axis.
+// A wrapping column flex whose height the parent flex assigns is measured at
+// an unbounded height, so it reports one column and never wraps into columns
+// wider than that. A repeated instance used to
+// panic with "Recursion detected" here (its horizontal info read self.height,
+// set by the parent flex cache it was feeding). Cover a repeated cell and a
+// static cell sharing a flexbox with a repeater, in every repeater index
+// shape: they must all measure the same one column.
+
+// A wrapping column flex: 4 boxes of 30px stack into a single 40px column,
+// 120px tall. In a 70px cell the last two spill below it.
+component WrapCol {
+    out property <length> last-x: last.x;
+    out property <length> last-y: last.y;
+    FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px;
+        padding: 0px;
+        cross-axis-line-alignment: start;
+        Rectangle { width: 40px; height: 30px; background: red; }
+        Rectangle { width: 40px; height: 30px; background: green; }
+        Rectangle { width: 40px; height: 30px; background: blue; }
+        last := Rectangle { width: 40px; height: 30px; background: yellow; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 2200px;
+    // The flexes are 70px tall; the window is not, so the boxes that do not
+    // fit stay visible below them instead of being cut off.
+    height: 180px;
+
+    property <[int]> empty-model: [];
+
+    // Each flex is 70px tall and wraps: the WrapCol fills the first column on
+    // its own, the anchor is pushed to the second column, so `anchor.x` is the
+    // solved width of the WrapCol. The cell height comes from min/max-height
+    // rather than `height`, which would settle it and count the columns (see
+    // flexbox_column_wrap_width.slint) — the flex must be the one assigning it.
+
+    // A: repeated cell.
+    FlexboxLayout {
+        x: 0; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        for x in [1]: WrapCol { min-height: 70px; max-height: 70px; }
+        aAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // B: static reference, no repeater in the flexbox.
+    FlexboxLayout {
+        x: 300px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        ref-cell := WrapCol { min-height: 70px; max-height: 70px; }
+        bAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // C: static cell sharing a flexbox with a repeater declared after it.
+    FlexboxLayout {
+        x: 600px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        WrapCol { min-height: 70px; max-height: 70px; }
+        cAnchor := Rectangle { width: 5px; height: 5px; }
+        for x in [1]: Rectangle { width: 0px; height: 0px; }
+    }
+
+    // D: repeater declared before the static cell, so the static cell's flat
+    // cell index is offset by the repeater's instance count.
+    FlexboxLayout {
+        x: 900px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        for x in [1, 2]: Rectangle { width: 0px; height: 0px; }
+        WrapCol { min-height: 70px; max-height: 70px; }
+        dAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // E: two repeated cells. Each fills a column of the parent, so the second
+    // is measured at `index - cursor == 1` and the anchor lands at twice the
+    // cell width — this exercises the multi-instance walk.
+    FlexboxLayout {
+        x: 1200px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        for x in [1, 2]: WrapCol { min-height: 70px; max-height: 70px; }
+        eAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // F: `if`-conditional cell, lowered as a repeater with one instance
+    // (covers Conditional::typed_instance_at).
+    FlexboxLayout {
+        x: 1500px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        if true: WrapCol { min-height: 70px; max-height: 70px; }
+        fAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // G: an empty repeater before a static cell: `cursor += 0` must not
+    // shift the cell's flat cell index.
+    FlexboxLayout {
+        x: 1800px; y: 0; width: 300px; height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        cross-axis-alignment: stretch;
+        for x in empty-model: Rectangle { width: 0px; height: 0px; }
+        WrapCol { min-height: 70px; max-height: 70px; }
+        gAnchor := Rectangle { width: 5px; height: 5px; }
+    }
+
+    // Every flex above is 70px tall at y 0, so one line marks the bottom of
+    // all of them: each WrapCol's boxes 3-4 sit below it.
+    Rectangle { x: 0; y: 69px; width: 100%; height: 2px; background: #e08020; }
+
+    Text { x: 4px; y: 130px; width: 2000px; font-size: 11px; color: #555555;
+        text: "Each WrapCol is measured as one column and does not wrap, so its boxes 3-4 spill below the orange line (the bottom of the 70px box the flex gave it). The anchor after each WrapCol must sit at the same x in every case."; }
+
+    out property <length> repeated-w: aAnchor.x;
+    out property <length> static-w: bAnchor.x;
+    out property <length> mixed-w: cAnchor.x;
+    out property <length> offset-w: dAnchor.x;
+    out property <length> multi-w: eAnchor.x;
+    out property <length> cond-w: fAnchor.x;
+    out property <length> empty-w: gAnchor.x;
+
+    // The reference cell is one column (40px), and its boxes stay within it:
+    // the last one is below the third, past the 70px cell.
+    out property <bool> one-column: static-w == 40px
+        && ref-cell.last-x == 0px && ref-cell.last-y == 90px;
+
+    out property <bool> repeated-ok: abs(repeated-w - static-w) < 1px;
+    out property <bool> mixed-ok: abs(mixed-w - static-w) < 1px;
+    out property <bool> offset-ok: abs(offset-w - static-w) < 1px;
+    // Two cells side by side, so the anchor is at twice the single width.
+    out property <bool> multi-ok: abs(multi-w - 2 * static-w) < 1px;
+    out property <bool> cond-ok: abs(cond-w - static-w) < 1px;
+    out property <bool> empty-ok: abs(empty-w - static-w) < 1px;
+
+    out property <bool> test: one-column && repeated-ok && mixed-ok && offset-ok
+        && multi-ok && cond-ok && empty-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_one_column(), "reference cell must be one column and stack its boxes below it");
+assert!(instance.get_repeated_ok(), "repeated cell measured differently from the static one");
+assert!(instance.get_mixed_ok(), "static cell next to a repeater measured differently");
+assert!(instance.get_offset_ok(), "static cell after a repeater measured differently");
+assert!(instance.get_multi_ok(), "second repeated instance measured differently");
+assert!(instance.get_cond_ok(), "conditional cell measured differently");
+assert!(instance.get_empty_ok(), "empty repeater shifted the static cell index");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_one_column());
+assert(instance.get_repeated_ok());
+assert(instance.get_mixed_ok());
+assert(instance.get_offset_ok());
+assert(instance.get_multi_ok());
+assert(instance.get_cond_ok());
+assert(instance.get_empty_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.one_column);
+assert(instance.repeated_ok);
+assert(instance.mixed_ok);
+assert(instance.offset_ok);
+assert(instance.multi_ok);
+assert(instance.cond_ok);
+assert(instance.empty_ok);
+```
+*/

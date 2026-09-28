@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    //#sls.callback.decl.unique
+    callback alarm-raised;
+    callback confirmed;
+}
+
+/*
+```rust
+struct Application;
+// The trait is named after the component
+//#sls.gen.callback.trait
+impl TestCaseCallbacks for Application {
+    // and has one method per callback, named after it with `on_` prepended
+    // and `-` replaced by `_`
+    //#sls.gen.callback.names
+    fn on_alarm_raised(&mut self, _component: &mut TestCase) {}
+    fn on_confirmed(&mut self, _component: &mut TestCase) {}
+}
+let _ = TestCase::new(crate::harness::WINDOW_SIZE);
+let _ = Application;
+```
+
+Every callback of the component has to be implemented:
+```rust compile_fail
+struct Application;
+//#sls.gen.callback.required
+impl TestCaseCallbacks for Application {
+    fn on_alarm_raised(&mut self, _component: &mut TestCase) {}
+}
+//~ ERROR not all trait items implemented
+//~ ERROR `on_confirmed`
+```
+*/

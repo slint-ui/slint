@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore descendents dontcrash
+
+#[allow(unused_imports)]
+use i_slint_core::api::ComponentHandle;
+
 #[cfg(feature = "internal")]
 #[test]
 fn reuse_window() {
@@ -96,4 +101,965 @@ export component Clock {
     );
     assert_eq!(instance.get_property("ta_enabled").unwrap(), Value::from(false));
     assert_eq!(instance.get_property("time").unwrap(), Value::String("10:37".into()));
+}
+
+/// Run the eager instantiation pass, materializing repeaters and
+/// conditionals — normally driven by the window before rendering and
+/// event dispatch. Headless tests call it explicitly after creation and
+/// after changing what a repeater depends on.
+fn ensure_instantiated(instance: &crate::component::ComponentInstanceInner) {
+    instance.0.ensure_instantiated();
+}
+
+/// Compile and create a runtime instance of a single component for tests.
+fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInner {
+    let config = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Interpreter,
+    );
+    let result = spin_on::spin_on(crate::component::build_from_source(
+        code.into(),
+        Default::default(),
+        config,
+        crate::AnimationMode::Running,
+    ));
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|d| d.level() != i_slint_compiler::diagnostics::DiagnosticLevel::Error),
+        "{:?}",
+        result.diagnostics
+    );
+    result.components.get(name).expect("component should compile").create()
+}
+
+#[cfg(feature = "internal")]
+fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInstance {
+    let compiler = crate::Compiler::default();
+    let result = if static_preview {
+        use i_slint_core::InternalToken;
+
+        spin_on::spin_on(compiler.build_static_from_source(
+            code.into(),
+            std::path::PathBuf::from("test.slint"),
+            InternalToken,
+        ))
+    } else {
+        spin_on::spin_on(
+            compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+        )
+    };
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    result.component("MotionTest").unwrap().create().unwrap()
+}
+
+#[cfg(feature = "internal")]
+#[test]
+fn static_preview_stops_runtime_motion() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let code = r#"
+        export component MotionTest {
+            out property <int> timer-count: 0;
+            out property <int> tick: animation-tick() / 1ms;
+            out property <bool> initialized: false;
+            in-out property <int> animated-value: 0;
+            in-out property <int> active-index: 0;
+            in-out property <int> transitioned-value: 5;
+
+            animate animated-value { duration: 1s; }
+
+            timer := Timer {
+                interval: 100ms;
+                running: true;
+                triggered => { root.timer-count += 1; }
+            }
+
+            states [
+                active when root.active-index == 1: {
+                    transitioned-value: 200;
+                    in {
+                        animate transitioned-value { duration: 1s; }
+                    }
+                }
+            ]
+
+            init => {
+                root.initialized = true;
+                root.animated-value = 100;
+                timer.restart();
+            }
+
+            public function update() {
+                root.animated-value = 200;
+                root.active-index = 1;
+                timer.stop();
+                timer.start();
+                timer.restart();
+            }
+        }
+    "#;
+
+    let static_instance = compile_motion_test(code, true);
+    assert_eq!(static_instance.get_property("initialized"), Ok(Value::Bool(true)));
+    assert_eq!(static_instance.get_property("animated-value"), Ok(Value::Number(100.)));
+    static_instance.invoke("update", &[]).unwrap();
+    for (property_name, expected_value) in
+        [("timer-count", 0.), ("tick", 0.), ("animated-value", 200.), ("transitioned-value", 200.)]
+    {
+        assert_eq!(static_instance.get_property(property_name), Ok(Value::Number(expected_value)));
+    }
+    i_slint_backend_testing::mock_elapsed_time(500);
+    assert_eq!(static_instance.get_property("timer-count"), Ok(Value::Number(0.)));
+    assert_eq!(static_instance.get_property("tick"), Ok(Value::Number(0.)));
+
+    let dynamic_instance = compile_motion_test(code, false);
+    let initial_tick = dynamic_instance.get_property("tick").unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    dynamic_instance.invoke("update", &[]).unwrap();
+    assert_eq!(dynamic_instance.get_property("transitioned-value"), Ok(Value::Number(5.)));
+    i_slint_backend_testing::mock_elapsed_time(500);
+    let Value::Number(initial_tick) = initial_tick else { unreachable!() };
+    let Ok(Value::Number(dynamic_tick)) = dynamic_instance.get_property("tick") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(timer_count)) = dynamic_instance.get_property("timer-count") else {
+        unreachable!()
+    };
+    let Ok(Value::Number(transitioned_value)) = dynamic_instance.get_property("transitioned-value")
+    else {
+        unreachable!()
+    };
+    assert!(dynamic_tick > initial_tick);
+    assert!(timer_count > 0.);
+    assert!(transitioned_value > 5. && transitioned_value < 200.);
+}
+
+/// Nested sub-component composition.
+#[test]
+fn interpreter_sub_component() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            component Inner {
+                in property <int> value: 5;
+                out property <int> doubled: value * 2;
+            }
+            export component Outer {
+                in-out property <int> v: 11;
+                inner := Inner { value: root.v; }
+                out property <int> seen: inner.doubled;
+            }
+        "#,
+        "Outer",
+    );
+
+    assert_eq!(instance.get_property("seen"), Some(Value::Number(22.)));
+    instance.set_property("v", Value::Number(7.)).unwrap();
+    assert_eq!(instance.get_property("seen"), Some(Value::Number(14.)));
+}
+
+/// A callback declared on a sub-component can be invoked
+/// via a conditional child's `init` handler. Without inlining, `if true`
+/// expands to a repeater whose init must reach the parent sub-component's
+/// callbacks table.
+#[test]
+fn interpreter_sub_component_callback_from_if() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            component Inner {
+                callback dontcrash();
+                dontcrash => {}
+                VerticalLayout {
+                    if true: Rectangle {
+                        init => { dontcrash(); }
+                    }
+                }
+            }
+            export component Outer {
+                property <bool> ok;
+                inner := Inner {
+                    dontcrash => { ok = true; }
+                }
+                out property <length> pw: inner.preferred-width;
+                out property <bool> test: ok;
+            }
+        "#,
+        "Outer",
+    );
+    // Exactly mirrors `callbacks/init_access_base_compo.slint`: the
+    // instantiation pass initializes the nested conditional child (running
+    // its `init` code) before the boolean is evaluated.
+    ensure_instantiated(&instance);
+    assert_eq!(instance.get_property("test"), Some(Value::Bool(true)));
+}
+
+/// A two-way binding from a repeated sub-component's property
+/// up to a parent property. The parent's value must be preserved; the inner
+/// component's default binding should not clobber it.
+#[test]
+fn interpreter_two_way_binding_repeated_priority() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            component Compo {
+                preferred-height: 10px;
+                in-out property <int> bar: 120;
+            }
+            export component TestCase {
+                in-out property <int> override_bar: 22;
+                force_instance := VerticalLayout {
+                    if true : Compo { bar <=> root.override_bar; }
+                }
+                out property <bool> test: force_instance.preferred-height == 10px
+                    && override_bar == 22;
+            }
+        "#,
+        "TestCase",
+    );
+    ensure_instantiated(&instance);
+    assert_eq!(instance.get_property("test"), Some(Value::Bool(true)));
+}
+
+/// A container component with `@children` must host outer
+/// children at the placeholder slot even without full element inlining.
+#[test]
+fn interpreter_children_placeholder() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            component Container inherits HorizontalLayout {
+                Rectangle { width: 50px; }
+                @children
+                Rectangle { width: 50px; }
+            }
+            export component TestCase inherits Window {
+                width: 300px;
+                height: 100px;
+                Container {
+                    target := Rectangle { width: 50px; }
+                }
+                out property <length> target_x: target.absolute-position.x;
+                out property <bool> test: target_x == 50px;
+            }
+        "#,
+        "TestCase",
+    );
+    assert_eq!(instance.get_property("test"), Some(Value::Bool(true)));
+}
+
+/// Nested @children where a wrapper component has
+/// `@children` placed inside a nested element (not at the root).
+#[test]
+fn interpreter_nested_children_placeholder() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            component Fgh inherits HorizontalLayout {
+                Rectangle { background: red; width: 100px; }
+                Rectangle {
+                    background: yellow;
+                    GridLayout { @children }
+                }
+                Rectangle { background: gray; width: 100px; }
+            }
+            export component TestCase inherits Window {
+                width: 300px;
+                height: 100px;
+                Fgh { target := Rectangle {} }
+                out property <length> target_x: target.absolute-position.x;
+                out property <bool> test: target_x == 100px;
+            }
+        "#,
+        "TestCase",
+    );
+    assert_eq!(instance.get_property("test"), Some(Value::Bool(true)));
+}
+
+/// model_data and model_index propagation through repeaters.
+#[test]
+fn interpreter_model_index_propagation() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            export component MI inherits Window {
+                in property <[int]> values: [10, 20, 30];
+                out property <int> total;
+                out property <int> hits;
+                in-out property <length> echo: layout.preferred-height;
+                layout := VerticalLayout {
+                    for v[i] in values: Rectangle {
+                        height: v * 1px;
+                        init => { root.hits += 1; root.total += v; }
+                    }
+                }
+            }
+        "#,
+        "MI",
+    );
+    // The instantiation pass materializes the repeater and runs each
+    // row's `init` block.
+    ensure_instantiated(&instance);
+    assert_eq!(instance.get_property("hits"), Some(Value::Number(3.)));
+    assert_eq!(instance.get_property("total"), Some(Value::Number(60.)));
+}
+
+/// Simple grid layout with `for` cells using explicit row/col.
+#[test]
+fn interpreter_grid_with_for_cells() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Value;
+
+    let instance = llr_compile(
+        r#"
+            export component G inherits Window {
+                width: 200px;
+                height: 200px;
+                in property <[{r: int, c: int}]> cells: [
+                    { r: 0, c: 0 },
+                    { r: 0, c: 1 },
+                    { r: 1, c: 0 },
+                ];
+                GridLayout {
+                    for cell[i] in cells: Rectangle {
+                        row: cell.r;
+                        col: cell.c;
+                        width: 50px;
+                        height: 50px;
+                    }
+                    next := Rectangle { width: 50px; height: 50px; }
+                }
+                out property <int> next-row: next.row;
+                out property <int> next-col: next.col;
+            }
+        "#,
+        "G",
+    );
+    // After 3 cells at (0,0), (0,1), (1,0), `next` should auto-place at (1,1).
+    ensure_instantiated(&instance);
+    assert_eq!(instance.get_property("next-row"), Some(Value::Number(1.)));
+    assert_eq!(instance.get_property("next-col"), Some(Value::Number(1.)));
+}
+
+/// Exercises `Cast { to: Type::PathData }` during binding install. The LLR
+/// lowers `Path { MoveTo {..} … }` to a cast over an array of builtin-struct
+/// literals, which the interpreter has to recover at eval time because
+/// `Value::Struct` does not carry the source struct type name. Regression
+/// for the panic `binding was of the wrong type` hit when rendering paths.
+#[test]
+fn interpreter_path_elements() {
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+        export component Drawing {
+            out property <int> dummy: 1;
+            Path {
+                stroke: black;
+                stroke-width: 1px;
+                MoveTo { x: 10; y: 20; }
+                LineTo { x: 30; y: 40; }
+                QuadraticTo { x: 50; y: 60; control-x: 40; control-y: 30; }
+                CubicTo { x: 70; y: 80; control-1-x: 50; control-1-y: 60; control-2-x: 60; control-2-y: 70; }
+                ArcTo { x: 90; y: 100; radius-x: 5; radius-y: 5; }
+                Close {}
+            }
+            Path {
+                stroke: red;
+                stroke-width: 1px;
+                commands: "M 0 0 L 10 10 Z";
+            }
+        }
+    "#;
+
+    let config = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Interpreter,
+    );
+    let result = spin_on::spin_on(crate::component::build_from_source(
+        code.into(),
+        Default::default(),
+        config,
+        crate::AnimationMode::Running,
+    ));
+    assert!(
+        result
+            .diagnostics
+            .iter()
+            .all(|d| d.level() != i_slint_compiler::diagnostics::DiagnosticLevel::Error),
+        "{:?}",
+        result.diagnostics
+    );
+    let def = result.components.get("Drawing").expect("Drawing should compile");
+    // The rtti-wrapped binding closure only enforces the `PathData` type
+    // check on the first `Property::get`, which happens during rendering —
+    // not drivable from this harness. Creating the instance still exercises
+    // the LLR walk where `cast_to_path_data` intercepts the expression;
+    // end-to-end coverage comes from running an example through
+    // `slint-viewer`.
+    let instance = def.create();
+    assert_eq!(instance.get_property("dummy"), Some(crate::Value::Number(1.)));
+}
+
+fn set_global_log_message_handler(
+    handler: Option<i_slint_core::debug_log::LogMessageHandler>,
+) -> Option<i_slint_core::debug_log::LogMessageHandler> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.set_log_message_handler(handler))
+        .unwrap()
+}
+
+#[test]
+fn context_debug_handler_overrides_platform() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            captured.borrow_mut().push(message.message_arguments().to_string());
+        }
+    })));
+
+    let code = r#"
+        export component MainWindow inherits Window {
+            init => { debug("from component"); }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(captured.borrow().as_slice(), ["from component"]);
+    assert!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        )
+        .is_empty()
+    );
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn log_messages_carry_the_slint_source_location() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            let location = message.location().map(|l| (l.path.to_string(), l.line, l.column));
+            captured.borrow_mut().push((message.message_arguments().to_string(), location));
+        }
+    })));
+
+    let code = r#"
+export component MainWindow inherits Window {
+    init => { debug("located"); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(
+        compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let _instance = definition.create().unwrap();
+
+    {
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1, "unexpected messages: {captured:?}");
+        assert_eq!(captured[0].0, "located");
+        let location = captured[0].1.as_ref().expect("the message has a location");
+        assert_eq!(location.0, "test.slint");
+        assert_eq!(location.1, 3, "the debug() call is on line 3");
+    }
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn rejected_model_modification_reports_the_source_location() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            let location = message.location().map(|l| (l.path.to_string(), l.line));
+            captured.borrow_mut().push((message.message_arguments().to_string(), location));
+        }
+    })));
+
+    let code = r#"
+export component MainWindow inherits Window {
+    in-out property <[int]> ints: [1, 2, 3];
+    public function remove-one() { ints.remove(42); }
+}
+"#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(
+        compiler.build_from_source(code.into(), std::path::PathBuf::from("test.slint")),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+    instance.invoke("remove-one", &[]).unwrap();
+
+    {
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1, "unexpected messages: {captured:?}");
+        assert_eq!(
+            captured[0].0,
+            "array.remove(): the row index is out of bounds (the model has 3 rows)"
+        );
+        let location = captured[0].1.as_ref().expect("the message has a location");
+        assert_eq!(location.0, "test.slint");
+        assert_eq!(location.1, 4, "the remove call is on line 4");
+    }
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn platform_debug_handler_is_fallback() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+
+    let code = r#"
+        export component MainWindow inherits Window {
+            init => { debug("from component"); }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        ),
+        ["from component"]
+    );
+}
+
+#[test]
+fn global_debug_messages_use_context_handler() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = set_global_log_message_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            captured.borrow_mut().push(message.message_arguments().to_string());
+        }
+    })));
+
+    let code = r#"
+        export global Logic {
+            in-out property<string> greeting: {
+                debug("from global");
+                "hello"
+            };
+        }
+
+        export component MainWindow inherits Window { }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(
+        instance.get_global_property("Logic", "greeting").unwrap(),
+        crate::Value::from(crate::SharedString::from("hello"))
+    );
+    assert_eq!(captured.borrow().as_slice(), ["from global"]);
+    assert!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        )
+        .is_empty()
+    );
+
+    set_global_log_message_handler(previous);
+}
+
+#[test]
+fn popup_is_open() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle, Value};
+    // `Dropdown` is used twice, so it stays a real sub-component and gets fully inlined, which moves
+    // the synthesized `is-open` property to the parent's root with a mangled name -- exercising the
+    // `move_declarations` fixup path. `popup.is-open` is read from `open` inside the sub-component.
+    let code = r#"
+component Dropdown inherits Rectangle {
+    width: 40px;
+    height: 20px;
+    out property <bool> open: popup.is-open;
+    callback do-show;
+    callback do-close;
+    do-show => { popup.show(); }
+    do-close => { popup.close(); }
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 0; y: 20px; width: 40px; height: 40px;
+        Rectangle { background: blue; }
+    }
+}
+export component TestCase {
+    width: 300px;
+    height: 300px;
+    out property <bool> a-open: a.open;
+    out property <bool> a2-open: a2.open;
+    callback show-a;
+    callback close-a;
+    callback show-a2;
+    show-a => { a.do-show(); }
+    close-a => { a.do-close(); }
+    show-a2 => { a2.do-show(); }
+    a := Dropdown { x: 0; y: 0; }
+    a2 := Dropdown { x: 50px; y: 0; }
+}
+    "#;
+    let compiler = Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let instance = definition.create().unwrap();
+    let _ = instance.window(); // ensure window
+
+    assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a before show");
+    assert_eq!(instance.get_property("a2-open").unwrap(), Value::from(false), "a2 before show");
+
+    // Showing `a` flips only `a`'s is-open to true.
+    instance.invoke("show-a", &[]).unwrap();
+    assert_eq!(instance.get_property("a-open").unwrap(), Value::from(true), "a after show");
+    assert_eq!(instance.get_property("a2-open").unwrap(), Value::from(false), "a2 unaffected");
+
+    // A second independent instance opens on its own.
+    instance.invoke("show-a2", &[]).unwrap();
+    assert_eq!(instance.get_property("a2-open").unwrap(), Value::from(true), "a2 after show");
+
+    // Programmatic close() drops the `PopupWindow`, whose `Drop` impl resets is-open to false.
+    instance.invoke("close-a", &[]).unwrap();
+    assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
+}
+
+/// `root_component()` must return the component the definition was built
+/// from, not a same-named component from another loaded document.
+#[cfg(feature = "internal")]
+#[test]
+fn root_component_resolves_to_the_right_document() {
+    i_slint_backend_testing::init_no_event_loop();
+    let mut compiler = crate::Compiler::default();
+    compiler.set_file_loader(|path| {
+        let path = path.to_path_buf();
+        Box::pin(async move {
+            (path.file_name().and_then(|n| n.to_str()) == Some("lib.slint")).then(|| {
+                Ok("component App inherits Rectangle { }\nexport component Helper inherits Rectangle { App {} }".to_owned())
+            })
+        })
+    });
+    let result = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+            import { Helper } from "lib.slint";
+            export component App inherits Window {
+                width: 123px;
+                Helper { }
+            }
+        "#
+            .into(),
+            std::path::PathBuf::from("main.slint"),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("App").unwrap();
+    let root = definition.root_component();
+    assert_eq!(
+        root.root_element.borrow().debug.first().unwrap().node.source_file.path(),
+        std::path::Path::new("main.slint")
+    );
+}
+
+#[test]
+fn accent_color_reachable_from_global() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    // The style palette reads the accent color in a global, which has no
+    // enclosing sub-component to reach the window from.
+    let code = r#"
+        import { Palette } from "std-widgets.slint";
+        export component App inherits Window {
+            out property <brush> accent: Palette.accent-background;
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    let before = instance.get_property("accent").unwrap();
+    i_slint_core::context::with_global_context(
+        || panic!("context should already be initialized"),
+        |ctx| ctx.set_accent_color(i_slint_core::Color::from_argb_u8(255, 255, 0, 0)),
+    )
+    .unwrap();
+    let after = instance.get_property("accent").unwrap();
+    assert_ne!(before, after, "accent-background should follow the system accent color");
+}
+
+#[test]
+fn text_runs_belong_to_the_nearest_accessible_item() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle};
+    use i_slint_core::accessibility::{
+        AccessibleStringProperty, accessible_descendents, find_exposed_text_input,
+        find_text_input_with_rc,
+    };
+    use i_slint_core::items::ItemRc;
+    use i_slint_core::window::WindowInner;
+
+    // `nested` leaves its TextInput accessible, `hidden` doesn't.
+    let code = r#"
+        export component App inherits Window {
+            HorizontalLayout {
+                nested := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "nested";
+                    TextInput { text: "one"; }
+                }
+                hidden := Rectangle {
+                    accessible-role: text-input;
+                    accessible-label: "hidden";
+                    TextInput { text: "two"; accessible-role: none; }
+                }
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let instance = result.component("App").unwrap().create().unwrap();
+    instance.show().unwrap();
+
+    let root = ItemRc::new_root(WindowInner::from_pub(instance.window()).component());
+    let labeled = |label: &str| {
+        accessible_descendents(&root)
+            .find(|item| {
+                item.accessible_string_property(AccessibleStringProperty::Label)
+                    .is_some_and(|found| found == label)
+            })
+            .unwrap_or_else(|| panic!("no accessible item labeled {label}"))
+    };
+
+    for (label, wrapper_exposes) in [("nested", false), ("hidden", true)] {
+        let wrapper = labeled(label);
+        let (input, _) = find_text_input_with_rc(&wrapper).expect("input below the wrapper");
+        assert_eq!(find_exposed_text_input(&wrapper).is_some(), wrapper_exposes, "{label}");
+        assert_eq!(find_exposed_text_input(&input).is_some(), !wrapper_exposes, "{label}");
+    }
+}
+
+/// The address of the compilation unit's sub component storage. It survives the
+/// unit being moved out of its `Rc`, and changes when the unit is copied.
+fn unit_storage(result: &crate::CompilationResult) -> usize {
+    result
+        .components
+        .values()
+        .next()
+        .expect("needs a component")
+        .inner
+        .compilation_unit
+        .sub_components
+        .raw
+        .as_ptr() as usize
+}
+
+/// The point of `into_send`: compile on a worker thread, instantiate on this one.
+#[test]
+fn compilation_result_moves_to_the_instantiating_thread() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let code = r#"
+        export component App inherits Window {
+            in-out property <int> counter: 40;
+            out property <int> doubled: root.counter * 2;
+            public function bump() { root.counter += 1; }
+        }
+    "#;
+
+    // The compiler is not Send either, so the worker builds its own.
+    let (sent, storage_on_the_worker) = std::thread::spawn(move || {
+        let compiler = Compiler::default();
+        let result = poll_ready(compiler.build_from_source(code.into(), Default::default()));
+        let storage = unit_storage(&result);
+        (result.into_send(), storage)
+    })
+    .join()
+    .expect("compile worker panicked");
+    assert!(!sent.has_errors(), "{:?}", sent.diagnostics().collect::<Vec<_>>());
+
+    let result = CompilationResult::from(sent);
+    assert_eq!(
+        unit_storage(&result),
+        storage_on_the_worker,
+        "the unit was copied out of its Rc instead of moved"
+    );
+    let definition = result.component("App").unwrap();
+    let instance = definition.create().unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(80.));
+
+    // Not just readable: the item tree built from the moved unit is live.
+    instance.invoke("bump", &[]).unwrap();
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(82.));
+
+    // The unit is shared, not copied per component, so it still feeds a second
+    // independent instance.
+    let other = definition.create().unwrap();
+    other.set_property("counter", Value::Number(1.)).unwrap();
+    assert_eq!(other.get_property("doubled").unwrap(), Value::Number(2.));
+    assert_eq!(instance.get_property("doubled").unwrap(), Value::Number(82.));
+}
+
+/// Every component of the result survives the round trip, resolved to the one
+/// it was compiled from rather than to a same-named component of another.
+#[test]
+fn every_component_survives_the_round_trip() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(
+        compiler.build_from_source(
+            r#"
+            export component First inherits Window { out property <int> v: 1; }
+            export component Second inherits Window { out property <int> v: 2; }
+            export component Third inherits Window { out property <int> v: 3; }
+        "#
+            .into(),
+            Default::default(),
+        ),
+    );
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let before: Vec<String> = {
+        let mut n: Vec<String> = result.component_names().map(String::from).collect();
+        n.sort();
+        n
+    };
+
+    let result = CompilationResult::from(result.into_send());
+    let mut after: Vec<String> = result.component_names().map(String::from).collect();
+    after.sort();
+    assert_eq!(before, after);
+    for (name, expected) in [("First", 1.), ("Second", 2.), ("Third", 3.)] {
+        let instance = result.component(name).unwrap().create().unwrap();
+        assert_eq!(instance.get_property("v").unwrap(), Value::Number(expected), "{name}");
+    }
+}
+
+/// A failed compilation carries its diagnostics across, and no component.
+#[test]
+fn a_failed_compilation_survives_the_round_trip() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(
+        compiler
+            .build_from_source("export component App inherits { oops".into(), Default::default()),
+    );
+    assert!(result.has_errors());
+    let expected = result.diagnostics().count();
+
+    let sent = result.into_send();
+    assert!(sent.has_errors());
+    let result = CompilationResult::from(sent);
+    assert!(result.has_errors());
+    assert_eq!(result.diagnostics().count(), expected);
+    assert_eq!(result.components().count(), 0);
+}
+
+/// `into_send` takes the unit out of its `Rc` when nothing else holds it, and
+/// copies it when something does. Exercise the copy: keep a definition alive
+/// across the call, and check both it and the round-tripped result still work.
+#[test]
+fn a_definition_kept_alive_across_into_send_still_works() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{CompilationResult, Compiler, Value};
+
+    let compiler = Compiler::default();
+    let result = poll_ready(compiler.build_from_source(
+        "export component App inherits Window { in-out property <int> v: 7; }".into(),
+        Default::default(),
+    ));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+
+    let kept = result.component("App").unwrap();
+    let before = unit_storage(&result);
+    let round_tripped = CompilationResult::from(result.into_send());
+    assert_ne!(
+        unit_storage(&round_tripped),
+        before,
+        "the kept definition still holds the unit, so it had to be copied"
+    );
+
+    let from_kept = kept.create().unwrap();
+    let from_sent = round_tripped.component("App").unwrap().create().unwrap();
+    from_kept.set_property("v", Value::Number(1.)).unwrap();
+    from_sent.set_property("v", Value::Number(2.)).unwrap();
+    assert_eq!(from_kept.get_property("v").unwrap(), Value::Number(1.));
+    assert_eq!(from_sent.get_property("v").unwrap(), Value::Number(2.));
+}
+
+/// Poll a future that is expected to be immediately ready. The compiler is only
+/// asynchronous when an async file loader is set, which these tests don't use.
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = core::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match std::future::Future::poll(future.as_mut(), &mut cx) {
+        std::task::Poll::Ready(result) => result,
+        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    }
 }

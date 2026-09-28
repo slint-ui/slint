@@ -1,0 +1,686 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test dynamic z-ordering: z bound to expressions that change at runtime.
+// Tests: property-bound z, multiple children with mixed static/dynamic z,
+// and z values changing dynamically to reorder click targets.
+
+export global ZOrderGlobal {
+    in-out property <float> overlay-z: 10;
+}
+
+// Used twice so it stays a sub-component in the generated code instead of being inlined.
+component Swapper inherits Rectangle {
+    in property <bool> swap;
+    in property <int> base;
+    callback report(int);
+    TouchArea {
+        width: 100%; height: 100%;
+        z: swap ? 1 : 10;
+        clicked => { report(base + 1); }
+    }
+    TouchArea {
+        width: 100%; height: 100%;
+        z: swap ? 10 : 1;
+        clicked => { report(base + 2); }
+    }
+}
+
+export component TestCase inherits Rectangle {
+    width: 1300phx;
+    height: 100phx;
+
+    in-out property <int> clicked-value;
+    in-out property <bool> front: false;
+    in-out property <int> top-layer: 0;
+
+    // --- Section 1: Simple dynamic z swap (x: 0..100) ---
+    Rectangle {
+        x: 0phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 0 : 10;
+            clicked => { clicked-value = 1; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 10 : 0;
+            clicked => { clicked-value = 2; }
+        }
+    }
+
+    // --- Section 2: Multiple layers with one dynamic top (x: 100..200) ---
+    // Four overlapping layers. top-layer selects which is on top (z=100).
+    // Others have z=0 so the last one in source order wins ties.
+    Rectangle {
+        x: 100phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 0 ? 100 : 0;
+            clicked => { clicked-value = 10; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 1 ? 100 : 0;
+            clicked => { clicked-value = 11; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 2 ? 100 : 0;
+            clicked => { clicked-value = 12; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == 3 ? 100 : 0;
+            clicked => { clicked-value = 13; }
+        }
+    }
+
+    // --- Section 3: Dynamic z mixed with static z children (x: 200..300) ---
+    // A static z=5 element and a dynamic z element that toggles above/below.
+    Rectangle {
+        x: 200phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: 5;
+            clicked => { clicked-value = 20; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 10 : 1;
+            clicked => { clicked-value = 21; }
+        }
+    }
+
+    // --- Section 4: Dynamic z inside a reused component (x: 300..500) ---
+    Swapper {
+        x: 300phx; width: 100phx; height: 100phx;
+        swap: front; base: 30;
+        report(v) => { clicked-value = v; }
+    }
+    Swapper {
+        x: 400phx; width: 100phx; height: 100phx;
+        swap: front; base: 40;
+        report(v) => { clicked-value = v; }
+    }
+
+    // --- Section 5: dynamic z through injected wrapper elements (x: 500..600) ---
+    // clip on the parent and opacity/visible on the children make the compiler
+    // wrap the sorted children in synthetic elements.
+    Rectangle {
+        x: 500phx; width: 100phx; height: 100phx;
+        clip: true;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 0 : 10;
+            opacity: 0.5;
+            visible: root.width > 0phx;
+            clicked => { clicked-value = 50; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 10 : 0;
+            opacity: 0.8;
+            clicked => { clicked-value = 51; }
+        }
+    }
+
+    // --- Section 6: z two-way bound to a global property (x: 600..700) ---
+    Rectangle {
+        x: 600phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z <=> ZOrderGlobal.overlay-z;
+            clicked => { clicked-value = 60; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: 5;
+            clicked => { clicked-value = 61; }
+        }
+    }
+
+    // --- Section 7: per-instance dynamic z in a repeater (x: 700..800) ---
+    // The instances of the `for` are sorted by their z value.
+    Rectangle {
+        x: 700phx; width: 100phx; height: 100phx;
+
+        for idx in [0, 1, 2] : TouchArea {
+            width: 100%; height: 100%;
+            z: top-layer == idx ? 10 : 0;
+            clicked => { clicked-value = 70 + idx; }
+        }
+    }
+
+    // --- Section 8: mix of plain, `if` and `for` children with constant and
+    // dynamic z in a single element (x: 800..900) ---
+    Rectangle {
+        x: 800phx; width: 100phx; height: 100phx;
+
+        // Top half: plain and conditional children
+        TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: 4;
+            clicked => { clicked-value = 80; }
+        }
+        TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: front ? 8 : 0;
+            clicked => { clicked-value = 81; }
+        }
+        if top-layer != 9 : TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: front ? 12 : 1;
+            clicked => { clicked-value = 82; }
+        }
+        if top-layer != 9 : TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: 7;
+            clicked => { clicked-value = 83; }
+        }
+        // A second dynamic conditional: each hoisted z gets its own parent property
+        if top-layer != 8 : TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: front ? 13 : 2;
+            clicked => { clicked-value = 88; }
+        }
+        for i in [0] : TouchArea {
+            y: 0; width: 100%; height: 50phx;
+            z: 6;
+            clicked => { clicked-value = 84; }
+        }
+
+        // Bottom half: a dynamic repeater whose instances interleave with the
+        // sibling next to it
+        for i in [0, 1] : TouchArea {
+            y: 50phx; width: 100%; height: 50phx;
+            z: top-layer == i ? 20 : 0;
+            clicked => { clicked-value = 85 + i; }
+        }
+        TouchArea {
+            y: 50phx; width: 100%; height: 50phx;
+            z: front ? 7 : -1;
+            clicked => { clicked-value = 87; }
+        }
+    }
+
+    // --- Section 9: per-instance z computed from the model data (x: 900..1000) ---
+    Rectangle {
+        x: 900phx; width: 100phx; height: 100phx;
+
+        for item in [
+            { val: 1, elevation: 2.0 },
+            { val: 2, elevation: 4.0 },
+            { val: 3, elevation: 3.0 },
+        ] : TouchArea {
+            width: 100%; height: 100%;
+            z: item.elevation + (front ? 10 * item.val : 0);
+            clicked => { clicked-value = 90 + item.val; }
+        }
+    }
+
+    // --- Section 10: dynamic z group inside the body of a repeated element (x: 1000..1100) ---
+    for r in [0] : Rectangle {
+        x: 1000phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 6 : 1;
+            clicked => { clicked-value = 100; }
+        }
+        TouchArea {
+            width: 100%; height: 100%;
+            z: front ? 3 : 4;
+            clicked => { clicked-value = 101; }
+        }
+    }
+
+    // --- Section 11: two-way z to a global on a conditional element (x: 1100..1200) ---
+    Rectangle {
+        x: 1100phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: 5;
+            clicked => { clicked-value = 110; }
+        }
+        if top-layer != 9 : TouchArea {
+            width: 100%; height: 100%;
+            z <=> ZOrderGlobal.overlay-z;
+            clicked => { clicked-value = 111; }
+        }
+    }
+
+    // --- Section 12: conditional z depending on the element itself (x: 1200..1300) ---
+    Rectangle {
+        x: 1200phx; width: 100phx; height: 100phx;
+
+        TouchArea {
+            width: 100%; height: 100%;
+            z: 5;
+            clicked => { clicked-value = 120; }
+        }
+        if top-layer != 9 : TouchArea {
+            width: front ? 100% : 50%;
+            height: 100%;
+            z: self.width > 60phx ? 10 : 1;
+            clicked => { clicked-value = 121; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// Section 1: front=false, first area has z=10 (on top)
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 1);
+
+// Flip: second area now z=10
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 2);
+
+// Section 2: top_layer=0, layer 0 is on top
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 10);
+
+// top_layer=2, layer 2 on top
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 12);
+
+// top_layer=3, layer 3 on top
+instance.set_top_layer(3);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 13);
+
+// top_layer=1, layer 1 on top
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq!(instance.get_clicked_value(), 11);
+
+// Section 3: front=true, dynamic element z=10 > static z=5
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 21);
+
+// front=false, dynamic element z=1 < static z=5
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq!(instance.get_clicked_value(), 20);
+
+// Section 4: front=false, first area of each Swapper is on top
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_clicked_value(), 31);
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq!(instance.get_clicked_value(), 41);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_clicked_value(), 32);
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq!(instance.get_clicked_value(), 42);
+
+// Section 5: dynamic z through wrapper elements
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq!(instance.get_clicked_value(), 50);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq!(instance.get_clicked_value(), 51);
+
+// Section 6: z two-way bound to a global property
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq!(instance.get_clicked_value(), 60);
+instance.global::<ZOrderGlobal<'_>>().set_overlay_z(1.);
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq!(instance.get_clicked_value(), 61);
+
+// Section 7: dynamic z in a repeater sorts the instances
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq!(instance.get_clicked_value(), 70);
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq!(instance.get_clicked_value(), 72);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq!(instance.get_clicked_value(), 71);
+
+// Section 8: mixed plain/if/for children with constant and dynamic z
+// Top half: the second dynamic `if` (z=13) is above everything
+instance.set_front(true);
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq!(instance.get_clicked_value(), 88);
+// Hiding it moves the first dynamic `if` (z=12) to the top
+instance.set_top_layer(8);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq!(instance.get_clicked_value(), 82);
+// front=false: the constant `if` (z=7) beats the `for` block (z=6) and the plain ones
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq!(instance.get_clicked_value(), 83);
+// Bottom half: the repeater instances interleave with their sibling
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq!(instance.get_clicked_value(), 85);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq!(instance.get_clicked_value(), 86);
+// The lifted instance (z=20) stays above the sibling even at z=7
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq!(instance.get_clicked_value(), 86);
+// With no lifted instance (all at z=0), the sibling (z=7) is on top
+instance.set_top_layer(9);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq!(instance.get_clicked_value(), 87);
+// Removing the conditionals re-sorts the remaining top half: the `for` (z=6) wins
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq!(instance.get_clicked_value(), 84);
+
+// Section 9: per-instance z computed from the model data
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq!(instance.get_clicked_value(), 92);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq!(instance.get_clicked_value(), 93);
+
+// Section 10: dynamic z group inside the body of a repeated element
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq!(instance.get_clicked_value(), 100);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq!(instance.get_clicked_value(), 101);
+
+// Section 11: two-way z to a global on a conditional element
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq!(instance.get_clicked_value(), 110);
+instance.global::<ZOrderGlobal<'_>>().set_overlay_z(10.);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq!(instance.get_clicked_value(), 111);
+instance.set_top_layer(9);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq!(instance.get_clicked_value(), 110);
+
+// Section 12: the conditional's z depends on its own width
+instance.set_top_layer(0);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 1225., 50.);
+assert_eq!(instance.get_clicked_value(), 121);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 1225., 50.);
+assert_eq!(instance.get_clicked_value(), 120);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 1);
+
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 2);
+
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 10);
+
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 12);
+
+instance.set_top_layer(3);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 13);
+
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 150., 50.);
+assert_eq(instance.get_clicked_value(), 11);
+
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 21);
+
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 250., 50.);
+assert_eq(instance.get_clicked_value(), 20);
+
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_clicked_value(), 31);
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq(instance.get_clicked_value(), 41);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_clicked_value(), 32);
+slint_testing::send_mouse_click(&instance, 450., 50.);
+assert_eq(instance.get_clicked_value(), 42);
+
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq(instance.get_clicked_value(), 50);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 550., 50.);
+assert_eq(instance.get_clicked_value(), 51);
+
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq(instance.get_clicked_value(), 60);
+instance.global<ZOrderGlobal>().set_overlay_z(1.);
+slint_testing::send_mouse_click(&instance, 650., 50.);
+assert_eq(instance.get_clicked_value(), 61);
+
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq(instance.get_clicked_value(), 70);
+instance.set_top_layer(2);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq(instance.get_clicked_value(), 72);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 750., 50.);
+assert_eq(instance.get_clicked_value(), 71);
+
+instance.set_front(true);
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq(instance.get_clicked_value(), 88);
+instance.set_top_layer(8);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq(instance.get_clicked_value(), 82);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq(instance.get_clicked_value(), 83);
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq(instance.get_clicked_value(), 85);
+instance.set_top_layer(1);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq(instance.get_clicked_value(), 86);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq(instance.get_clicked_value(), 86);
+instance.set_top_layer(9);
+slint_testing::send_mouse_click(&instance, 850., 75.);
+assert_eq(instance.get_clicked_value(), 87);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 850., 25.);
+assert_eq(instance.get_clicked_value(), 84);
+
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq(instance.get_clicked_value(), 92);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 950., 50.);
+assert_eq(instance.get_clicked_value(), 93);
+
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq(instance.get_clicked_value(), 100);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 1050., 50.);
+assert_eq(instance.get_clicked_value(), 101);
+
+instance.set_top_layer(0);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq(instance.get_clicked_value(), 110);
+instance.global<ZOrderGlobal>().set_overlay_z(10.);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq(instance.get_clicked_value(), 111);
+instance.set_top_layer(9);
+slint_testing::send_mouse_click(&instance, 1150., 50.);
+assert_eq(instance.get_clicked_value(), 110);
+
+instance.set_top_layer(0);
+instance.set_front(true);
+slint_testing::send_mouse_click(&instance, 1225., 50.);
+assert_eq(instance.get_clicked_value(), 121);
+instance.set_front(false);
+slint_testing::send_mouse_click(&instance, 1225., 50.);
+assert_eq(instance.get_clicked_value(), 120);
+```
+
+```js
+var instance = new slint.TestCase();
+
+// Section 1
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 1);
+
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 2);
+
+// Section 2
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 10);
+
+instance.top_layer = 2;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 12);
+
+instance.top_layer = 3;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 13);
+
+instance.top_layer = 1;
+slintlib.private_api.send_mouse_click(instance, 150., 50.);
+assert.equal(instance.clicked_value, 11);
+
+// Section 3
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 21);
+
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 250., 50.);
+assert.equal(instance.clicked_value, 20);
+
+// Section 4
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.clicked_value, 31);
+slintlib.private_api.send_mouse_click(instance, 450., 50.);
+assert.equal(instance.clicked_value, 41);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.clicked_value, 32);
+slintlib.private_api.send_mouse_click(instance, 450., 50.);
+assert.equal(instance.clicked_value, 42);
+
+// Section 5
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 550., 50.);
+assert.equal(instance.clicked_value, 50);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 550., 50.);
+assert.equal(instance.clicked_value, 51);
+
+// Section 6
+slintlib.private_api.send_mouse_click(instance, 650., 50.);
+assert.equal(instance.clicked_value, 60);
+instance.ZOrderGlobal.overlay_z = 1;
+slintlib.private_api.send_mouse_click(instance, 650., 50.);
+assert.equal(instance.clicked_value, 61);
+
+// Section 7
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 750., 50.);
+assert.equal(instance.clicked_value, 70);
+instance.top_layer = 2;
+slintlib.private_api.send_mouse_click(instance, 750., 50.);
+assert.equal(instance.clicked_value, 72);
+instance.top_layer = 1;
+slintlib.private_api.send_mouse_click(instance, 750., 50.);
+assert.equal(instance.clicked_value, 71);
+
+// Section 8
+instance.front = true;
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 850., 25.);
+assert.equal(instance.clicked_value, 88);
+instance.top_layer = 8;
+slintlib.private_api.send_mouse_click(instance, 850., 25.);
+assert.equal(instance.clicked_value, 82);
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 850., 25.);
+assert.equal(instance.clicked_value, 83);
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 850., 75.);
+assert.equal(instance.clicked_value, 85);
+instance.top_layer = 1;
+slintlib.private_api.send_mouse_click(instance, 850., 75.);
+assert.equal(instance.clicked_value, 86);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 850., 75.);
+assert.equal(instance.clicked_value, 86);
+instance.top_layer = 9;
+slintlib.private_api.send_mouse_click(instance, 850., 75.);
+assert.equal(instance.clicked_value, 87);
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 850., 25.);
+assert.equal(instance.clicked_value, 84);
+
+// Section 9
+slintlib.private_api.send_mouse_click(instance, 950., 50.);
+assert.equal(instance.clicked_value, 92);
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 950., 50.);
+assert.equal(instance.clicked_value, 93);
+
+// Section 10
+slintlib.private_api.send_mouse_click(instance, 1050., 50.);
+assert.equal(instance.clicked_value, 100);
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 1050., 50.);
+assert.equal(instance.clicked_value, 101);
+
+// Section 11
+instance.top_layer = 0;
+slintlib.private_api.send_mouse_click(instance, 1150., 50.);
+assert.equal(instance.clicked_value, 110);
+instance.ZOrderGlobal.overlay_z = 10;
+slintlib.private_api.send_mouse_click(instance, 1150., 50.);
+assert.equal(instance.clicked_value, 111);
+instance.top_layer = 9;
+slintlib.private_api.send_mouse_click(instance, 1150., 50.);
+assert.equal(instance.clicked_value, 110);
+
+// Section 12
+instance.top_layer = 0;
+instance.front = true;
+slintlib.private_api.send_mouse_click(instance, 1225., 50.);
+assert.equal(instance.clicked_value, 121);
+instance.front = false;
+slintlib.private_api.send_mouse_click(instance, 1225., 50.);
+assert.equal(instance.clicked_value, 120);
+```
+*/

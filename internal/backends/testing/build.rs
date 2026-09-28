@@ -3,6 +3,12 @@
 
 // cSpell: ignore rsplit Sfixed
 fn main() {
+    cfg_aliases::cfg_aliases! {
+        supports_headless: { any(feature = "renderer-software", feature = "renderer-skia") },
+        // Skia's software rasterizer is not built on Android.
+        skia_headless: { all(feature = "renderer-skia", not(target_os = "android")) },
+    }
+
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     {
         use prost::Message;

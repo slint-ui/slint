@@ -30,12 +30,12 @@ jobs:
         name: ${{ inputs.name }}
         runs-on: ${{ inputs.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-python-v0-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-            - uses: actions/setup-python@v6
+            - uses: actions/setup-python@v7
               with:
                   python-version: "3.12"
             - name: Install uv
@@ -43,17 +43,21 @@ jobs:
             - name: Build and sync environment
               working-directory: api/python/slint
               run: uv sync
+            # ruff and ty come from the dev dependency group, pinned in the
+            # respective pyproject.toml so Dependabot can bump them.
             - name: Run ty
               working-directory: api/python/slint
-              run: uvx ty check
+              run: uv run ty check
             - name: Run ruff linter
               working-directory: api/python/slint
-              run: uv tool run ruff check
+              run: uv run ruff check
             - name: Run ruff linter
               working-directory: api/python/briefcase
-              run: uv tool run ruff check
+              # briefcase itself isn't needed to lint it, so install just the
+              # dev group.
+              run: uv run --only-group dev ruff check
             - name: Run python tests
               working-directory: api/python/slint
               run: uv run pytest -s -v
             - name: Run python test driver
-              run: cargo test -p test-driver-python
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-python

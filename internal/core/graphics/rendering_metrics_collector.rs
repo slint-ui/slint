@@ -118,9 +118,21 @@ impl RenderingMetricsCollector {
 
         debug_log!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
-        let self_weak = Rc::downgrade(&collector);
-        collector.update_timer.stop();
-        collector.update_timer.start(
+        Some(collector)
+    }
+
+    /// Starts the once-a-second report, on the context of the window being rendered.
+    ///
+    /// Deferred until the first frame because construction happens before any window
+    /// exists: the software renderer builds its collector in `Default::default()`.
+    fn ensure_reporting(self: &Rc<Self>, ctx: &crate::SlintContext) {
+        if self.update_timer.running() {
+            return;
+        }
+        let self_weak = Rc::downgrade(self);
+        let ctx_weak = ctx.downgrade();
+        self.update_timer.start_on(
+            ctx,
             TimerMode::Repeated,
             core::time::Duration::from_secs(1),
             move || {
@@ -128,7 +140,8 @@ impl RenderingMetricsCollector {
                     Some(this) => this,
                     None => return,
                 };
-                this.trim_frame_data_to_second_boundary();
+                let Some(ctx) = ctx_weak.upgrade() else { return };
+                this.trim_frame_data_to_second_boundary(Instant::now(&ctx));
 
                 let mut last_frame_details = String::new();
                 if let Some(last_frame_data) =
@@ -151,13 +164,10 @@ impl RenderingMetricsCollector {
                 }
             },
         );
-
-        Some(collector)
     }
 
-    fn trim_frame_data_to_second_boundary(self: &Rc<Self>) {
+    fn trim_frame_data_to_second_boundary(self: &Rc<Self>, now: Instant) {
         let mut frame_times = self.collected_frame_data_since_second_ago.borrow_mut();
-        let now = Instant::now();
         frame_times.retain(|frame| {
             now.duration_since(frame.timestamp) <= core::time::Duration::from_secs(1)
         });
@@ -170,14 +180,17 @@ impl RenderingMetricsCollector {
         renderer: &mut dyn crate::item_rendering::ItemRenderer,
         metrics: RenderingMetrics,
     ) {
+        let ctx = renderer.window().context().clone();
+        self.ensure_reporting(&ctx);
+        let now = Instant::now(&ctx);
         self.collected_frame_data_since_second_ago
             .borrow_mut()
-            .push(FrameData { timestamp: Instant::now(), metrics });
+            .push(FrameData { timestamp: now, metrics });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
         }
-        self.trim_frame_data_to_second_boundary();
+        self.trim_frame_data_to_second_boundary(now);
 
         if self.output_overlay {
             renderer.draw_string(

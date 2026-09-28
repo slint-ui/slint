@@ -287,7 +287,7 @@ pub fn set_json_preview_data(
         return Err(failed_properties);
     }
 
-    if result.is_empty() { Err(vec![format!("No property set")]) } else { Ok(result) }
+    if result.is_empty() { Err(vec!["No property set".to_string()]) } else { Ok(result) }
 }
 
 #[cfg(test)]
@@ -295,7 +295,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        common::test::{main_test_file_name, test_file_name},
+        editor_preview::test::{main_test_file_name, test_file_name},
         preview::test::interpret_test_with_sources,
     };
 

@@ -82,8 +82,8 @@ export component TabImpl inherits Rectangle {
         i-text := Text {
             vertical-alignment: center;
             horizontal-alignment: left;
-            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : FluentFontSettings.body.font-size;
-            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FluentFontSettings.body.font-weight;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : 1rem;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FontWeight.normal;
             color: root.is-current ? FluentPalette.control-foreground : FluentPalette.text-secondary;
             accessible-role: none;
         }
@@ -121,7 +121,7 @@ component FluentTabBarBase inherits TabBarBase {
         // Do not react on clicks
         width: 0px;
         key-pressed(event) => {
-            if (event.text == "\n") {
+            if (event.text == Key.Return) {
                 root.current = root.current-focused;
                 return accept;
             }
@@ -136,7 +136,7 @@ component FluentTabBarBase inherits TabBarBase {
             return reject;
         }
         key-released(event) => {
-            if (event.text == " ") {
+            if (event.text == Key.Space) {
                 root.current = root.current-focused;
                 return accept;
             }

@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// && and || short circuit: the rhs must not run once the lhs decides the result.
+
+export component TestCase inherits Rectangle {
+    in-out property <int> counter;
+    function bump() -> bool { counter += 1; return true; }
+    function dynamic_and(v: bool) -> bool { return v && bump(); }
+
+    private property <bool> false_and;
+    private property <bool> true_or;
+    private property <bool> dynamic_false;
+    private property <bool> true_and;
+    private property <bool> false_or;
+    private property <bool> dynamic_true;
+    out property <int> counter_after_skips;
+    init => {
+        false_and = false && bump();
+        true_or = true || bump();
+        dynamic_false = dynamic_and(false);
+        counter_after_skips = counter;
+        true_and = true && bump();
+        false_or = false || bump();
+        dynamic_true = dynamic_and(true);
+    }
+    out property <bool> skipped_correct: !false_and && true_or && !dynamic_false;
+    out property <bool> ran_correct: true_and && false_or && dynamic_true;
+    out property <bool> test: skipped_correct && ran_correct;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_skipped_correct());
+assert_eq!(instance.get_counter_after_skips(), 0);
+assert!(instance.get_ran_correct());
+assert_eq!(instance.get_counter(), 3);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_skipped_correct());
+assert_eq(instance.get_counter_after_skips(), 0);
+assert(instance.get_ran_correct());
+assert_eq(instance.get_counter(), 3);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.skipped_correct);
+assert.equal(instance.counter_after_skips, 0);
+assert(instance.ran_correct);
+assert.equal(instance.counter, 3);
+```
+*/

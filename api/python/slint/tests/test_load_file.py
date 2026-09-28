@@ -3,9 +3,11 @@
 
 # cSpell:ignore wohoo
 
-import pytest
-from slint import load_file, CompileError
 from pathlib import Path
+
+import pytest
+
+from slint import CompileError, load_file
 
 
 def base_dir() -> Path:
@@ -21,7 +23,7 @@ def test_load_file(caplog: pytest.LogCaptureFixture) -> None:
     module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 
     assert (
-        "The property 'color' has been deprecated. Please use 'background' instead"
+        "The property 'color' has been deprecated: Please use 'background' instead"
         in caplog.text
     )
 

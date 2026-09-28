@@ -8,7 +8,55 @@ use core::ffi::c_void;
 
 use super::DataTransfer;
 use crate::SharedString;
+#[cfg(feature = "std")]
+use crate::SharedVector;
 use crate::api::Image;
+#[cfg(feature = "std")]
+use crate::slice::Slice;
+
+// The unit of a path's native representation, matching C++'s
+// `std::filesystem::path::value_type`: UTF-16 code units on Windows, bytes
+// elsewhere. Paths cross the FFI as slices of this type so that any valid
+// path round-trips losslessly.
+#[cfg(all(feature = "std", windows))]
+pub type PathValueType = u16;
+#[cfg(all(feature = "std", not(windows)))]
+pub type PathValueType = u8;
+
+#[cfg(feature = "std")]
+fn path_from_units(units: &[PathValueType]) -> std::path::PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        std::ffi::OsStr::from_bytes(units).into()
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStringExt;
+        std::ffi::OsString::from_wide(units).into()
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        alloc::string::String::from_utf8_lossy(units).into_owned().into()
+    }
+}
+#[cfg(feature = "std")]
+fn path_to_units(path: &std::path::Path) -> SharedVector<PathValueType> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        path.as_os_str().as_bytes().into()
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        path.as_os_str().encode_wide().collect()
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        path.to_string_lossy().as_bytes().into()
+    }
+}
 
 /// Opaque placeholder used by C++ to reserve storage with the same size and
 /// alignment as Rust's `DataTransfer`. The actual `DataTransfer` contains
@@ -84,6 +132,19 @@ pub extern "C" fn slint_data_transfer_set_image(d: &mut DataTransfer, image: &Im
     d.set_image(image.clone());
 }
 
+/// Set the file path list of `d`. Each path is a slice of its native
+/// representation units (see `PathValueType`).
+///
+/// An empty `paths` clears the previously-set file paths instead of storing it.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_set_file_paths(
+    d: &mut DataTransfer,
+    paths: Slice<Slice<PathValueType>>,
+) {
+    d.set_file_paths_vec(paths.iter().map(|path| path_from_units(path.as_slice())).collect());
+}
+
 /// Returns `true` if `d` advertises a plain text representation.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_has_plain_text(d: &DataTransfer) -> bool {
@@ -96,7 +157,15 @@ pub extern "C" fn slint_data_transfer_has_image(d: &DataTransfer) -> bool {
     d.has_image()
 }
 
-/// Returns `true` if `d` carries no data: no plain text, no image, and no user data.
+/// Returns `true` if `d` advertises a list of file paths.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_has_file_paths(d: &DataTransfer) -> bool {
+    d.has_file_paths()
+}
+
+/// Returns `true` if `d` carries no data: no plain text, no image, no file paths,
+/// and no user data.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_is_empty(d: &DataTransfer) -> bool {
     d.is_empty()
@@ -126,6 +195,26 @@ pub extern "C" fn slint_data_transfer_image(d: &DataTransfer, out: &mut Image) -
     match d.image() {
         Ok(i) => {
             *out = i;
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// If `d` has a list of file paths, write them into `out` and return `true`.
+/// Otherwise leave `out` unchanged and return `false`. Each path is a vector
+/// of its native representation units (see `PathValueType`).
+///
+/// `out` must point to an initialized `SharedVector<SharedVector<PathValueType>>`.
+#[cfg(feature = "std")]
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_file_paths(
+    d: &DataTransfer,
+    out: &mut SharedVector<SharedVector<PathValueType>>,
+) -> bool {
+    match d.file_paths() {
+        Ok(paths) => {
+            *out = paths.map(path_to_units).collect();
             true
         }
         Err(_) => false,

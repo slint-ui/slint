@@ -1,0 +1,48 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 600px;
+    height: 120px;
+    HorizontalLayout {
+        alignment: start;
+        spacing: 24px;
+        padding: 12px;
+        flex1 := FlexboxLayout {
+            flex-direction: column;
+            spacing: 8px;
+            b1 := Button { text: "Portrait"; }
+            b2 := Button { text: "Landscape"; }
+            b3 := Button { text: "Auto"; }
+        }
+        flex2 := FlexboxLayout {
+            flex-direction: row;
+            spacing: 8px;
+            Button { text: "Start"; }
+            Button { text: "Center"; }
+            Button { text: "End"; }
+        }
+    }
+    out property <length> f1_pw: flex1.preferred-width;
+    out property <length> f1_w: flex1.width;
+    out property <length> f1_h: flex1.height;
+    out property <length> b1_x: b1.x;
+    out property <length> b2_x: b2.x;
+    out property <length> b3_x: b3.x;  // if > 0, flex1 wrapped into a 2nd column
+    out property <length> b3_right: b3.x + b3.width; // actual right edge inside flex1
+    out property <length> f2_x: flex2.x;
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+eprintln!("flex1: preferred_w={} assigned_w={} assigned_h={}",
+    instance.get_f1_pw(), instance.get_f1_w(), instance.get_f1_h());
+eprintln!("flex1 buttons x: b1={} b2={} b3={} | b3_right_edge={} | flex2.x={}",
+    instance.get_b1_x(), instance.get_b2_x(), instance.get_b3_x(),
+    instance.get_b3_right(), instance.get_f2_x());
+assert!(instance.get_test());
+```
+*/

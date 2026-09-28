@@ -17,7 +17,7 @@ export component TestCase inherits Window {
         { name: "B", checked: true },
         { name: "C", checked: false },
     ];
-    in-out property <string> current-value <=> group.current-value;
+    out property <string> current-value: group.current-value;
 
     HorizontalLayout {
         alignment: start;

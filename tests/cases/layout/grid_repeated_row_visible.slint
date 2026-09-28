@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test: a `visible` binding on a cell inside a repeated Row used to
+// move the grid-cell info onto the injected Clip wrapper, while the row template
+// still referred to the inner element, panicking the compiler and interpreter.
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+    in-out property <bool> cond: false;
+
+    GridLayout {
+        spacing: 0px;
+        padding: 0px;
+        for r in [0, 1]: Row {
+            Rectangle { visible: cond; }
+            Rectangle { }
+            Rectangle { }
+        }
+        Row {
+            c0 := Rectangle { }
+            c1 := Rectangle { }
+            c2 := Rectangle { }
+        }
+    }
+
+    out property <bool> test: c0.x == 0phx && c1.x == 100phx && c2.x == 200phx
+        && c0.y == 200phx && c0.height == 100phx;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

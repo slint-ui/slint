@@ -21,13 +21,14 @@ component SubCompo inherits Rectangle {
     }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 300phx;
     in-out property clicked <=> c.clicked;
+    in property <bool> show: false;
     Text {
         x:0;y:0;
-        if (false): TouchArea {
+        if (root.show): TouchArea {
         }
     }
     c := SubCompo {

@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A builtin enum exposed as a public property must convert to and from the interpreter Value,
+// for enums in different namespaces and for multi-word values.
+
+export component TestCase inherits Rectangle {
+    in-out property <ColorScheme> scheme: dark;
+    in-out property <Orientation> orientation: horizontal;
+    in-out property <MouseCursor> cursor: no-drop;
+    in-out property <AccessibleRole> role: list-item;
+    out property <bool> test: scheme == ColorScheme.dark && orientation == Orientation.horizontal
+        && cursor == MouseCursor.no-drop && role == AccessibleRole.list-item;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert(instance.get_scheme() == slint::cbindgen_private::ColorScheme::Dark);
+assert(instance.get_orientation() == slint::cbindgen_private::Orientation::Horizontal);
+assert(instance.get_cursor() == slint::cbindgen_private::MouseCursorInner(slint::cbindgen_private::BuiltInMouseCursor::NoDrop));
+assert(instance.get_role() == slint::cbindgen_private::AccessibleRole::ListItem);
+instance.set_cursor(slint::cbindgen_private::MouseCursorInner(slint::cbindgen_private::BuiltInMouseCursor::ColResize));
+assert(instance.get_cursor() == slint::cbindgen_private::MouseCursorInner(slint::cbindgen_private::BuiltInMouseCursor::ColResize));
+instance.set_role(slint::cbindgen_private::AccessibleRole::RadioButton);
+assert(instance.get_role() == slint::cbindgen_private::AccessibleRole::RadioButton);
+assert(!instance.get_test());
+```
+
+```rust
+use slint::private_unstable_api::re_exports as sp;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_scheme(), sp::ColorScheme::Dark);
+assert_eq!(instance.get_orientation(), sp::Orientation::Horizontal);
+assert_eq!(instance.get_cursor(), sp::MouseCursorInner::BuiltIn(sp::BuiltInMouseCursor::NoDrop));
+assert_eq!(instance.get_role(), sp::AccessibleRole::ListItem);
+instance.set_cursor(sp::MouseCursorInner::BuiltIn(sp::BuiltInMouseCursor::ColResize));
+assert_eq!(instance.get_cursor(), sp::MouseCursorInner::BuiltIn(sp::BuiltInMouseCursor::ColResize));
+instance.set_role(sp::AccessibleRole::RadioButton);
+assert_eq!(instance.get_role(), sp::AccessibleRole::RadioButton);
+assert!(!instance.get_test());
+```
+*/

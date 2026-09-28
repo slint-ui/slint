@@ -27,7 +27,7 @@ class Thing(Base):
 class ListThing[T](Thing):
     """A generic list of things."""
 
-    def first(self) -> typing.Optional[T]:
+    def first(self) -> T | None:
         """Return the first item, if any."""
         return None
 

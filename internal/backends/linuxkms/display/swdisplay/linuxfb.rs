@@ -305,6 +305,12 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         Ok(())
     }
 
+    fn is_write_combined_memory(&self) -> bool {
+        // `map_back_buffer` hands out a regular heap buffer; only
+        // `copy_to_framebuffer` touches the mmap'ed frame buffer.
+        false
+    }
+
     fn as_presenter(self: Arc<Self>) -> Arc<dyn crate::display::Presenter> {
         self.presenter.clone()
     }

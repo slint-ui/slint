@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "target": "esnext",
+        "noEmit": true,
+        "skipLibCheck": true,
+        "allowImportingTsExtensions": true,
+        "types": ["node"],
+        "paths": {
+            "slint-ui": ["./typescript/index.ts"]
+        }
+    },
+    "include": [
+        "__test__/registry/",
+        "scripts/"
+    ]
+}

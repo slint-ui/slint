@@ -13,6 +13,9 @@
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
 #    include "esp_lcd_panel_rgb.h"
 #endif
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+#    include "esp_lcd_mipi_dsi.h"
+#endif
 #include "esp_log.h"
 
 static const char *TAG = "slint_platform";
@@ -44,6 +47,7 @@ struct EspPlatform : public slint::platform::Platform
     EspPlatform(const SlintPlatformConfiguration<PixelType> &config)
         : size(config.size),
           panel_handle(config.panel_handle),
+          panel_type(config.panel_type),
           touch_handle(config.touch_handle),
           buffer1(config.buffer1),
           buffer2(config.buffer2),
@@ -63,6 +67,7 @@ struct EspPlatform : public slint::platform::Platform
 private:
     slint::PhysicalSize size;
     esp_lcd_panel_handle_t panel_handle;
+    SlintDisplayPanelType panel_type;
     esp_lcd_touch_handle_t touch_handle;
     std::optional<std::span<PixelType>> buffer1;
     std::optional<std::span<PixelType>> buffer2;
@@ -115,6 +120,45 @@ extern "C" bool on_vsync_event(esp_lcd_panel_handle_t panel,
 }
 #endif
 
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+// Synchronization for MIPI-DSI DPI panels, whose operations are asynchronous:
+//  - sem_dpi_draw_done serializes esp_lcd_panel_draw_bitmap. The draw is async and only one
+//    transfer may be in flight at a time; issuing a new draw before the previous one finished
+//    trips the driver's "previous draw operation is not finished" error. It starts "available"
+//    (given), is taken before each draw_bitmap, and is given back by on_color_trans_done.
+//  - sem_dpi_refresh is given by on_refresh_done at each frame boundary, letting the event loop
+//    pace animations to the panel's refresh rate instead of busy-looping (which would saturate
+//    the CPU and starve the idle task, tripping the task watchdog). It starts empty.
+static SemaphoreHandle_t sem_dpi_draw_done;
+static SemaphoreHandle_t sem_dpi_refresh;
+
+// Give a semaphore from either ISR or task context: on_color_trans_done runs in an ISR for the
+// DMA2D copy path but inline (task context) for the no-copy and CPU-copy paths, while
+// on_refresh_done always runs in an ISR.
+static bool dpi_give_from_any_context(SemaphoreHandle_t sem)
+{
+    if (xPortInIsrContext()) {
+        BaseType_t high_task_awoken = pdFALSE;
+        xSemaphoreGiveFromISR(sem, &high_task_awoken);
+        return high_task_awoken == pdTRUE;
+    }
+    xSemaphoreGive(sem);
+    return false;
+}
+
+extern "C" bool on_dpi_color_trans_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
+                                        void *)
+{
+    return dpi_give_from_any_context(sem_dpi_draw_done);
+}
+
+extern "C" bool on_dpi_refresh_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
+                                    void *)
+{
+    return dpi_give_from_any_context(sem_dpi_refresh);
+}
+#endif
+
 namespace {
 void byte_swap_color(slint::platform::Rgb565Pixel *pixel)
 {
@@ -145,8 +189,21 @@ void EspPlatform<PixelType>::run_event_loop()
             max_ticks_to_wait = pdMS_TO_TICKS(10);
         }
     }
+    // The esp_lcd_rgb_panel_* and esp_lcd_dpi_panel_* APIs write through the opaque panel handle
+    // assuming their own driver's struct layout, without any run-time type check, so they must
+    // only be called on a panel that the matching peripheral drives. The peripheral cannot be
+    // queried from the handle; resolve SlintDisplayPanelType::Auto from the chip's capabilities.
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    const bool is_dpi_panel = panel_type == SlintDisplayPanelType::MipiDsiDpi
+            || panel_type == SlintDisplayPanelType::Auto;
+#else
+    [[maybe_unused]] const bool is_dpi_panel = false;
+#endif
+
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    if (buffer2) {
+    const bool is_rgb_panel = panel_type == SlintDisplayPanelType::RgbLcd
+            || (panel_type == SlintDisplayPanelType::Auto && !is_dpi_panel);
+    if (buffer2 && is_rgb_panel) {
         sem_vsync_end = xSemaphoreCreateBinary();
         sem_gui_ready = xSemaphoreCreateBinary();
         esp_lcd_rgb_panel_event_callbacks_t cbs = {};
@@ -154,6 +211,38 @@ void EspPlatform<PixelType>::run_event_loop()
         esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, this);
     }
 #endif
+
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    if (is_dpi_panel) {
+        // Register the completion callbacks that drive the draw and refresh synchronization
+        // described above. sem_dpi_draw_done starts "available" so the first draw isn't blocked.
+        sem_dpi_draw_done = xSemaphoreCreateBinary();
+        xSemaphoreGive(sem_dpi_draw_done);
+        sem_dpi_refresh = xSemaphoreCreateBinary();
+        esp_lcd_dpi_panel_event_callbacks_t dpi_cbs = {};
+        dpi_cbs.on_color_trans_done = on_dpi_color_trans_done;
+        dpi_cbs.on_refresh_done = on_dpi_refresh_done;
+        if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, nullptr) != ESP_OK) {
+            // Callbacks unsupported: fall back to draws without synchronization.
+            vSemaphoreDelete(sem_dpi_draw_done);
+            sem_dpi_draw_done = nullptr;
+            vSemaphoreDelete(sem_dpi_refresh);
+            sem_dpi_refresh = nullptr;
+        }
+    }
+#endif
+
+    // Issues esp_lcd_panel_draw_bitmap, first waiting for any previous asynchronous DPI
+    // transfer to complete so we never overrun the panel's single in-flight draw operation.
+    auto draw_bitmap = [this](int x_start, int y_start, int x_end, int y_end,
+                              const void *color_data) {
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+        if (sem_dpi_draw_done) {
+            xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+        }
+#endif
+        esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
+    };
 
     float last_touch_x = 0;
     float last_touch_y = 0;
@@ -224,7 +313,9 @@ void EspPlatform<PixelType>::run_event_loop()
                 auto stride = rotated ? size.height : size.width;
                 if (buffer1) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-                    if (buffer2) {
+                    // Only created for double buffering on an RGB panel; wait for the vsync
+                    // event before rendering into the buffer the panel no longer scans out.
+                    if (sem_gui_ready) {
                         xSemaphoreGive(sem_gui_ready);
                         xSemaphoreTake(sem_vsync_end, portMAX_DELAY);
                     }
@@ -247,26 +338,25 @@ void EspPlatform<PixelType>::run_event_loop()
                             // Assuming that using double buffer means that the buffer comes from
                             // the driver and we need to pass the exact pointer.
                             // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
-                                                      buffer1->data());
+                            draw_bitmap(0, 0, size.width, size.height, buffer1->data());
 
                             std::swap(buffer1, buffer2);
                         }
                     } else {
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
-                                esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
-                                                          y + 1,
-                                                          buffer1->data() + y * stride + o.x);
+                                draw_bitmap(o.x, y, o.x + s.width, y + 1,
+                                            buffer1->data() + y * stride + o.x);
                             }
                         }
                     }
                 } else {
                     // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
                     // render, and one which is being transmitted with a DMA transfer in parallel.
-                    // TODO: add some synchronization code anyway to make sure that we don't
-                    // call esp_lcd_panel_draw_bitmap when an operation is still in progress
-                    // or free the buffer too early. (using `on_color_trans_done` callback).
+                    // On MIPI-DSI DPI panels draw_bitmap() above waits for the previous transfer to
+                    // finish before starting the next one, and we wait once more below before the
+                    // line buffers are freed. Other asynchronous panels (e.g. SPI/i80) are not yet
+                    // synchronized here, so a transfer may still be in progress past these calls.
                     using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
                     auto alloc = [&] {
                         void *ptr = heap_caps_malloc(stride * sizeof(PixelType),
@@ -280,8 +370,9 @@ void EspPlatform<PixelType>::run_event_loop()
                     Uniq lb[2] = { alloc(), alloc() };
                     int idx = 0;
                     m_window->m_renderer.render_by_line<PixelType>(
-                            [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
-                                              std::size_t line_end, auto &&render_fn) {
+                            [this, &lb, &idx,
+                             &draw_bitmap](std::size_t line_y, std::size_t line_start,
+                                           std::size_t line_end, auto &&render_fn) {
                                 std::span<PixelType> view { lb[idx].get(), line_end - line_start };
                                 render_fn(view);
                                 if (byte_swap) {
@@ -289,14 +380,32 @@ void EspPlatform<PixelType>::run_event_loop()
                                     std::for_each(view.begin(), view.end(),
                                                   [](auto &rgbpix) { byte_swap_color(&rgbpix); });
                                 }
-                                esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
-                                                          line_end, line_y + 1, view.data());
+                                draw_bitmap(line_start, line_y, line_end, line_y + 1, view.data());
                                 idx = (idx + 1) % 2;
                             });
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                    // Wait for the last line's transfer to finish before the line buffers are
+                    // freed, then leave the semaphore available for the next frame's first draw.
+                    if (sem_dpi_draw_done) {
+                        xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+                        xSemaphoreGive(sem_dpi_draw_done);
+                    }
+#endif
                 }
             }
 
             if (m_window->window().has_active_animations()) {
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                // Pace continuous animations to the panel's refresh so the GUI task blocks
+                // (letting the idle task run) between frames instead of saturating the CPU and
+                // tripping the task watchdog. Drain a refresh that may have arrived while we were
+                // rendering, then wait for the next one. The timeout bounds the wait so a panel
+                // that stops signaling refresh degrades to a slow loop rather than hanging.
+                if (sem_dpi_refresh) {
+                    xSemaphoreTake(sem_dpi_refresh, 0);
+                    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                }
+#endif
                 continue;
             }
         }

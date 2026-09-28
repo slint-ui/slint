@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 
+mod debug;
 mod screenshot;
 
 #[cfg(feature = "remote")]
@@ -10,6 +11,7 @@ mod remote;
 
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
+use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
     CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
@@ -78,6 +80,17 @@ struct Cli {
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
 
+    /// Always require this pairing code, given as four digits, instead of showing a
+    /// freshly generated one. For devices without a usable display, and for scripted
+    /// clients.
+    #[arg(long, value_name = "code", requires = "remote", conflicts_with = "no_pairing")]
+    pairing_code: Option<String>,
+
+    /// Accept any connection without pairing. Anyone who can reach this viewer can
+    /// then drive what it displays, so only use this on a network you control.
+    #[arg(long, requires = "remote")]
+    no_pairing: bool,
+
     /// The style name. Defaults to 'fluent' if not specified
     #[arg(long, value_name = "style name", action)]
     style: Option<String>,
@@ -103,15 +116,25 @@ struct Cli {
     #[arg(long, value_name = "json file", action)]
     save_data: Option<std::path::PathBuf>,
 
-    /// Render the component to an image file and exit instead of opening a window.
-    /// The file format is inferred from the extension (e.g. .png, .jpg).
-    /// Use `-` to write a PNG to standard output. The component is rendered at its
-    /// preferred size with a headless renderer (Skia's software rasterizer when the
-    /// `renderer-skia` feature is enabled, otherwise Slint's software renderer); pass
-    /// `--backend` to pick another renderer. Set `SLINT_SCALE_FACTOR` to override the
-    /// default scale factor of 1. Incompatible with `--auto-reload` and `--remote`.
+    /// Render the component to an image and exit.
+    /// The format follows the extension (e.g. `.png`, `.jpg`);
+    /// use `-` to write a PNG to standard output.
     #[arg(long, value_name = "image file", action)]
     screenshot: Option<std::path::PathBuf>,
+
+    /// Size of the `--screenshot` window as `WIDTHxHEIGHT` in logical pixels
+    /// (e.g. `360x800`). Defaults to the component's preferred size.
+    #[arg(long, value_name = "WxH", action, requires = "screenshot")]
+    size: Option<String>,
+
+    /// Compile, print any diagnostics, and exit without opening a window.
+    /// Exit status is 1 on errors, 0 otherwise (warnings still print).
+    #[arg(
+        long,
+        action,
+        conflicts_with_all = ["auto_reload", "screenshot", "save_data", "load_data", "on", "remote"],
+    )]
+    check: bool,
 
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
@@ -145,7 +168,18 @@ impl Cli {
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .log_internal_errors(false)
+        .without_time()
+        .with_target(false)
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(tracing::level_filters::LevelFilter::WARN.into())
+                .from_env_lossy(),
+        )
+        .init();
+
+    tracing_log::LogTracer::init().ok();
 
     // On iOS the binary is launched as an app without command line arguments, so always
     // start in remote viewer mode.
@@ -157,23 +191,33 @@ fn main() -> Result<()> {
     if args.screenshot.is_some() {
         if args.auto_reload {
             eprintln!("Cannot pass both --auto-reload and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
         if args.save_data.is_some() {
             eprintln!("Cannot pass both --save-data and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
         #[cfg(feature = "remote")]
         if args.remote {
             eprintln!("Cannot pass both --remote and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
     }
 
     if args.remote {
         #[cfg(feature = "remote")]
         {
-            remote::run(args.remote_address, true)?;
+            use i_slint_live_preview::protocol::pairing;
+            let pairing_policy = match (args.no_pairing, args.pairing_code) {
+                (true, _) => i_slint_live_preview::remote::PairingPolicy::Disabled,
+                (false, Some(code)) if !pairing::is_valid_code(&code) => {
+                    eprintln!("--pairing-code must be exactly {} digits", pairing::CODE_DIGITS);
+                    std::process::exit(2);
+                }
+                (false, Some(code)) => i_slint_live_preview::remote::PairingPolicy::Fixed(code),
+                (false, None) => i_slint_live_preview::remote::PairingPolicy::Generated,
+            };
+            remote::run(args.remote_address, true, pairing_policy)?;
             return Ok(());
         }
         #[cfg(not(feature = "remote"))]
@@ -187,11 +231,7 @@ fn main() -> Result<()> {
 
     if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");
-        std::process::exit(-1);
-    }
-
-    if let Some(backend) = &args.backend {
-        slint_interpreter::BackendSelector::new().backend_name(backend.clone()).select()?;
+        std::process::exit(2);
     }
 
     #[cfg(feature = "gettext")]
@@ -203,25 +243,42 @@ fn main() -> Result<()> {
     };
 
     if args.screenshot.is_some() {
+        if args.backend.is_some() {
+            select_backend(args.backend.as_deref())?;
+        }
         return screenshot::take_screenshot(&args);
     }
 
-    let compiler = init_compiler(&args);
+    if args.check {
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
+        result.print_diagnostics();
+        std::process::exit(if result.has_errors() { 1 } else { 0 });
+    }
 
     if args.auto_reload {
+        select_backend(args.backend.as_deref())?;
+        install_log_message_handler()?;
+
+        let compiler_factory = {
+            let args = args.clone();
+            move || init_compiler(&args)
+        };
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
-            compiler,
+            compiler_factory,
             args.path().to_path_buf(),
             args.component.clone(),
         )?;
 
-        setup_instance(live.borrow().instance(), &args.on, args.load_data.as_deref())?;
+        reject_non_window_component(&live.borrow().instance().definition());
+
+        setup_instance(live.borrow().instance(), &args.on, args.load_data.as_deref(), args.path())?;
 
         {
             let on = args.on.clone();
             let load_data_path = args.load_data.clone();
+            let source_path = args.path().to_path_buf();
             live.borrow_mut().set_post_reload_hook(move |instance| {
-                let _ = setup_instance(instance, &on, load_data_path.as_deref());
+                let _ = setup_instance(instance, &on, load_data_path.as_deref(), &source_path);
             });
         }
 
@@ -234,7 +291,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
@@ -242,9 +299,13 @@ fn main() -> Result<()> {
         let Some(c) = extract_component(&result, &args) else {
             std::process::exit(-1);
         };
+        reject_non_window_component(&c);
+
+        select_backend(args.backend.as_deref())?;
+        install_log_message_handler()?;
 
         let component = c.create()?;
-        setup_instance(&component, &args.on, args.load_data.as_deref())?;
+        setup_instance(&component, &args.on, args.load_data.as_deref(), args.path())?;
 
         component.run()?;
 
@@ -254,6 +315,24 @@ fn main() -> Result<()> {
     }
 
     std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+fn select_backend(backend: Option<&str>) -> Result<()> {
+    let mut backend_selector = slint_interpreter::BackendSelector::new();
+    if let Some(backend) = backend {
+        backend_selector = backend_selector.backend_name(backend.to_owned());
+    }
+    backend_selector.select()?;
+    Ok(())
+}
+
+fn install_log_message_handler() -> Result<()> {
+    let _ = i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_log_message_handler(Some(Box::new(move |message| {
+            debug::log_message_handler(&message);
+        })))
+    })?;
+    Ok(())
 }
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
@@ -278,11 +357,12 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler.set_style(style.clone());
     }
 
-    compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
-        match &args.component {
-            Some(component) => ComponentSelection::Named(component.clone()),
-            None => ComponentSelection::LastExported,
-        };
+    let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
+    cc.components_to_generate = match &args.component {
+        Some(component) => ComponentSelection::Named(component.clone()),
+        None => ComponentSelection::LastExported,
+    };
+    cc.is_preview = true;
 
     compiler
 }
@@ -291,13 +371,33 @@ fn setup_instance(
     instance: &ComponentInstance,
     callbacks: &[String],
     load_data_path: Option<&Path>,
+    source_path: &Path,
 ) -> Result<()> {
+    name_the_window(instance, source_path);
     init_dialog(instance);
     if let Some(data_path) = load_data_path {
         load_data(instance, data_path)?;
     }
     install_callbacks(instance, callbacks);
     Ok(())
+}
+
+/// Name the window after the component and the source file, so several viewer windows can be
+/// told apart.
+///
+/// This only sets the fallback the compiler binds an unset `title` to.
+/// A component that declares its own title keeps it, an empty one included.
+fn name_the_window(instance: &ComponentInstance, source_path: &Path) {
+    let definition = instance.definition();
+    let mut parts = vec![definition.name().to_string()];
+    // Reading from stdin, there is no file name to show
+    if source_path != Path::new("-")
+        && let Some(file_name) = source_path.file_name()
+    {
+        parts.push(file_name.to_string_lossy().into_owned());
+    }
+    parts.push("Slint Viewer".into());
+    i_slint_core::window::set_default_window_title(parts.join(" - ").into());
 }
 
 /// Init dialog if `instance` is a Dialog
@@ -323,16 +423,19 @@ fn init_dialog(instance: &ComponentInstance) {
 }
 
 fn watchable_path(path: &Path) -> Option<PathBuf> {
-    // Filter out `-` for stdin
-    (path != Path::new("-")).then(|| {
-        if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            std::env::current_dir()
-                .map(|current_dir| current_dir.join(path))
-                .unwrap_or_else(|_| path.to_path_buf())
-        }
-    })
+    // Filter out `-` for stdin; the file watcher resolves relative paths.
+    (path != Path::new("-")).then(|| path.to_path_buf())
+}
+
+/// Exit with an error if the component has no window to display (e.g. a `SystemTrayIcon` root).
+fn reject_non_window_component(definition: &ComponentDefinition) {
+    if !definition.is_window() {
+        eprintln!(
+            "Component '{}' is a SystemTrayIcon, which the viewer cannot display.",
+            definition.name()
+        );
+        std::process::exit(-1);
+    }
 }
 
 /// Extract the component to show from the compilation result, and print an error if it cannot be found
@@ -540,15 +643,4 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
-}
-
-/// Poll a future that is expected to resolve immediately (e.g. the interpreter's
-/// `build_from_path` when no async file loader is installed).
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
-    let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
-    }
 }

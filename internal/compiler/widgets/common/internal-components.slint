@@ -43,7 +43,7 @@ export component FocusTouchArea {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 touch-area.clicked();
                  return accept;
             }
@@ -63,7 +63,8 @@ export component IconButton {
     min-width: max(48px, content-layer.min-width);
     min-height: max(48px, content-layer.min-height);
     accessible-role: button;
-    accessible-action-default => { touch-area.clicked(); }
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if (root.enabled) { touch-area.clicked(); } }
     forward-focus: touch-area;
 
     touch-area := FocusTouchArea {
@@ -88,6 +89,7 @@ export component IconButton {
             x: (parent.width - self.width) / 2;
             width: root.style.icon-size;
             colorize: root.style.foreground;
+            accessible-role: none;
         }
     }
 
@@ -120,8 +122,9 @@ export component SelectionButton {
     accessible-label: root.text;
     accessible-role: button;
     accessible-checkable: true;
+    accessible-enabled: root.enabled;
     accessible-checked: root.checked;
-    accessible-action-default => { touch-area.clicked(); }
+    accessible-action-default => { if (root.enabled) { touch-area.clicked(); } }
     forward-focus: touch-area;
 
     touch-area := FocusTouchArea {
@@ -154,6 +157,7 @@ export component SelectionButton {
             font-weight: root.style.font-weight;
             color: root.style.foreground;
             vertical-alignment: center;
+            accessible-role: none;
         }
 
         icon-image := Image {
@@ -161,6 +165,7 @@ export component SelectionButton {
             width: root.style.icon-size;
             colorize: root.style.foreground;
             transform-rotation: root.checked ? 180deg : 0;
+            accessible-role: none;
 
             animate transform-rotation { duration: 250ms; }
         }

@@ -38,6 +38,8 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
 import android.os.Build;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 class InputHandle extends ImageView {
     private PopupWindow mPopupWindow;
@@ -203,8 +205,10 @@ class SlintInputView extends View {
 
     public void setText(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
             int inputType) {
-        boolean restart = mInputType != inputType || !mText.equals(text) || mCursorPosition != cursorPosition
-                || mAnchorPosition != anchorPosition;
+        boolean typeChanged = mInputType != inputType;
+        boolean textChanged = !mText.equals(text);
+        boolean selectionChanged = mCursorPosition != cursorPosition || mAnchorPosition != anchorPosition;
+
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
@@ -212,12 +216,29 @@ class SlintInputView extends View {
         mPreeditEnd = preeditEnd;
         mInputType = inputType;
 
-        if (restart) {
+        if (typeChanged) {
             mEditable = new SlintEditable();
             Selection.setSelection(mEditable, cursorPosition, anchorPosition);
             InputMethodManager imm = (InputMethodManager) this.getContext()
                     .getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.restartInput(this);
+        } else if (textChanged || selectionChanged) {
+            InputMethodManager imm = (InputMethodManager) this.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            mInBatch += 1;
+            try {
+                if (textChanged) {
+                    mEditable.replace(0, mEditable.length(), text);
+                }
+                if (Selection.getSelectionStart(mEditable) != cursorPosition
+                        || Selection.getSelectionEnd(mEditable) != anchorPosition) {
+                    Selection.setSelection(mEditable, cursorPosition, anchorPosition);
+                }
+            } finally {
+                mInBatch -= 1;
+                mPending = false;
+            }
+            imm.updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
         }
     }
 
@@ -226,6 +247,7 @@ class SlintInputView extends View {
         super.onConfigurationChanged(newConfig);
         int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
         SlintAndroidJavaHelper.setNightMode(currentNightMode);
+        SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
     }
 
     private InputHandle mCursorHandle;
@@ -243,11 +265,15 @@ class SlintInputView extends View {
             if (mRightHandle != null) {
                 mRightHandle.hide();
             }
-            if (mCursorHandle == null) {
-                mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+            if (left_x != -1) {
+                if (mCursorHandle == null) {
+                    mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+                }
+                mCursorHandle.setPosition(left_x, left_y);
+                handleHeight = mCursorHandle.getHeight();
+            } else if (mCursorHandle != null) {
+                mCursorHandle.hide();
             }
-            mCursorHandle.setPosition(left_x, left_y);
-            handleHeight = mCursorHandle.getHeight();
         } else if (num_handles == 2) {
             if (left_x != -1) {
                 if (mLeftHandle == null) {
@@ -399,6 +425,7 @@ class SlintInputView extends View {
 public class SlintAndroidJavaHelper {
     Activity mActivity;
     SlintInputView mInputView;
+    private OnBackInvokedCallback mBackCallback;
 
     public SlintAndroidJavaHelper(Activity activity) {
         this.mActivity = activity;
@@ -425,6 +452,13 @@ public class SlintAndroidJavaHelper {
                                     return dispatchInsets(insets);
                                 }
                             });
+                }
+                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
+                // it into Slint's key-event pipeline.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
+                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
+                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
                 }
             }
         });
@@ -485,7 +519,23 @@ public class SlintAndroidJavaHelper {
     }
 
     private WindowInsets dispatchInsets(WindowInsets insets) {
-        Insets safeAreaInsets = insets.getInsets(WindowInsets.Type.systemBars());
+        // The listener-supplied `insets` reflects what reaches the decor view
+        // AFTER any ancestor has consumed insets, so in edge-to-edge mode the
+        // system bars and the display cutout often arrive as zero. Read those
+        // straight from the WindowManager, which always returns the unconsumed
+        // values — matching what get_safe_area() does. The IME inset still
+        // comes from the listener stream so keyboard show/hide animates.
+        Insets sysBars;
+        Insets cutout;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsets src = mActivity.getWindowManager().getCurrentWindowMetrics().getWindowInsets();
+            sysBars = src.getInsets(WindowInsets.Type.systemBars());
+            cutout = src.getInsets(WindowInsets.Type.displayCutout());
+        } else {
+            sysBars = insets.getInsets(WindowInsets.Type.systemBars());
+            cutout = insets.getInsets(WindowInsets.Type.displayCutout());
+        }
+        Insets safeAreaInsets = Insets.max(sysBars, cutout);
         Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
         Rect windowRect = get_view_rect();
         SlintAndroidJavaHelper.setInsets(
@@ -521,10 +571,26 @@ public class SlintAndroidJavaHelper {
         });
     }
 
+    // Called from Rust when an OnBackInvokedCallback fires and Slint's key
+    // dispatch reports the Back key as unhandled — preserves the legacy
+    // Back-closes-the-activity default.
+    public void finish_activity() {
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mActivity.finish();
+            }
+        });
+    }
+
     static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditOffset);
 
     static public native void setNightMode(int nightMode);
+
+    static public native void setFontScale(float fontScale);
+
+    static public native void onBackInvoked();
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 
@@ -572,6 +638,10 @@ public class SlintAndroidJavaHelper {
         return nightModeFlags;
     }
 
+    public float font_scale() {
+        return mActivity.getResources().getConfiguration().fontScale;
+    }
+
     public int accent_color() {
         TypedValue typedValue = new TypedValue();
         if (mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, typedValue, true)) {
@@ -598,8 +668,10 @@ public class SlintAndroidJavaHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
             WindowInsets insets = metrics.getWindowInsets();
-            Insets systemBars = insets.getInsets(WindowInsets.Type.systemBars());
-            return new Rect(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            Insets safeArea = Insets.max(
+                    insets.getInsets(WindowInsets.Type.systemBars()),
+                    insets.getInsets(WindowInsets.Type.displayCutout()));
+            return new Rect(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
         } else {
             View decorView = mActivity.getWindow().getDecorView();
             // Note: `View.getRootWindowInsets` requires API level 23 or above

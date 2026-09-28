@@ -32,8 +32,10 @@ child of the group.
 ## Properties
 
 ### current-value
-<SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
-The `text` of the currently selected `RadioButton`.
+<SlintProperty propName="current-value" typeName="string" propertyVisibility="out">
+The `text` of the currently selected `RadioButton`. To change the selection from
+host code, set the target `RadioButton`'s `checked` to `true` — typically through
+a two-way binding (`checked <=> model.field`).
 </SlintProperty>
 
 ### enabled
@@ -58,7 +60,7 @@ Use `Orientation.vertical` (default) to stack options, or `Orientation.horizonta
 
 ## Callbacks
 
-### selected(string)
+### selected(value: string)
 Invoked when the user selects a different option. The argument is the `text` of the newly selected entry.
 
 ```slint {4-6}

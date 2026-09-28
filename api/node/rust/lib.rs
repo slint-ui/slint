@@ -76,7 +76,10 @@ pub fn process_events() -> napi::Result<ProcessEventsResult> {
 }
 
 #[napi]
-pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Result<()> {
+pub fn invoke_from_event_loop(
+    env: &Env,
+    #[napi(ts_arg_type = "() => void")] callback: DynFunction<'_>,
+) -> napi::Result<()> {
     i_slint_backend_selector::with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
@@ -120,6 +123,24 @@ pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi:
 pub fn init_testing() {
     #[cfg(feature = "testing")]
     i_slint_backend_testing::init_integration_test_with_mock_time();
+}
+
+/// Returns the list of optional capabilities that were compiled into the loaded
+/// native binary. This is how JavaScript can tell whether the "dev" binary
+/// (with system-testing and MCP support) was loaded, or just the default one.
+#[napi]
+pub fn build_features() -> Vec<String> {
+    let mut features = Vec::new();
+    if cfg!(feature = "testing") {
+        features.push("testing".to_string());
+    }
+    if cfg!(feature = "system-testing") {
+        features.push("system-testing".to_string());
+    }
+    if cfg!(feature = "mcp") {
+        features.push("mcp".to_string());
+    }
+    features
 }
 
 #[napi]
@@ -175,4 +196,29 @@ pub fn print_to_console(env: Env, function: &str, arguments: core::fmt::Argument
 #[macro_export]
 macro_rules! console_err {
     ($env:expr, $($t:tt)*) => ($crate::print_to_console($env, "error", format_args!($($t)*)))
+}
+
+/// Route Slint log messages (the `debug()` function in Slint code and runtime warnings)
+/// to `console.log`, like on wasm.
+pub(crate) fn install_log_message_handler(env: &Env, ctx: &i_slint_core::SlintContext) {
+    let env = *env;
+    ctx.set_log_message_handler(Some(Box::new(move |message| {
+        let arguments = message.message_arguments();
+        // A handle scope is needed because a message can arrive outside of any JS frame,
+        // e.g. from a timer dispatched by the integrated event loop.
+        let result = env.run_in_scope(|| {
+            match message.location() {
+                Some(l) => print_to_console(
+                    env,
+                    "log",
+                    format_args!("{}:{}:{}: {arguments}", l.path, l.line, l.column),
+                ),
+                None => print_to_console(env, "log", arguments),
+            }
+            Ok(())
+        });
+        if result.is_err() {
+            i_slint_core::debug_log::default_log_message(arguments);
+        }
+    })));
 }

@@ -25,6 +25,7 @@ export component DropDownMenu inherits VerticalLayout {
 
         HorizontalLayout {
             alignment: space-between;
+            cross-axis-alignment: center;
             spacing: 10px;
             padding: 12px;
             height: self.preferred-height;
@@ -41,7 +42,6 @@ export component DropDownMenu inherits VerticalLayout {
                 colorize: DemoPalette.text-primary;
                 width: 8px;
                 image-fit: contain;
-                y: (parent.height - self.height) / 2;
             }
         }
 

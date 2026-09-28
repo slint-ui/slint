@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component InspectorCases inherits Window {
+    width: 640px;
+    height: 480px;
+    background: #f8fafc;
+
+    inspect-rectangle := Rectangle {
+        x: 32px;
+        y: 32px;
+        width: 160px;
+        height: 96px;
+        background: #2563eb;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-x: 0px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-blur: 16px;
+        drop-shadow-spread: 0px;
+    }
+
+    inspect-text := Text {
+        x: 224px;
+        y: 40px;
+        width: 200px;
+        height: 48px;
+        text: "Inspector text";
+        accessible-label: self.text;
+        color: #111827;
+        font-family: "Inter";
+        font-weight: 400;
+        font-size: 20px;
+    }
+
+    inspect-image := Image {
+        x: 224px;
+        y: 128px;
+        width: 128px;
+        height: 96px;
+        source: @image-url("assets/checker.svg");
+        image-fit: contain;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

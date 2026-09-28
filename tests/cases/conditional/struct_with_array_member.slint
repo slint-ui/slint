@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+struct Data2 {
+    text: string,
+}
+
+struct Data {
+    datas: [Data2],
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> switch: false;
+
+    out property<Data> data: switch ? {} : {
+                datas: [
+                    {text: "text 1"},
+                    {text: "text 2"}
+                ],
+            };
+
+    out property<bool> test: data.datas.length == 2
+        && data.datas[0].text == "text 1"
+        && data.datas[1].text == "text 2";
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_switch(), false);
+assert_eq!(instance.get_data().datas.row_count(), 2);
+assert_eq!(instance.get_test(), true);
+
+assert_eq!(instance.get_data().datas.row_data(0).unwrap(), Data2 {
+    text: "text 1".into()
+});
+assert_eq!(instance.get_data().datas.row_data(1).unwrap(), Data2 {
+    text: "text 2".into()
+});
+
+instance.set_switch(true);
+assert_eq!(instance.get_switch(), true);
+assert_eq!(instance.get_data().datas.row_count(), 0);
+assert_eq!(instance.get_test(), false);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_switch(), false);
+assert_eq(instance.get_data().datas->row_count(), 2);
+assert_eq(instance.get_test(), true);
+
+assert_eq(instance.get_data().datas->row_data(0).value().text, "text 1");
+assert_eq(instance.get_data().datas->row_data(1).value().text, "text 2");
+
+instance.set_switch(true);
+assert_eq(instance.get_switch(), true);
+assert_eq(instance.get_data().datas->row_count(), 0);
+assert_eq(instance.get_test(), false);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(!instance.switch);
+assert.equal(instance.data.datas.rowCount(), 2);
+assert(instance.test);
+
+assert.equal(instance.data.datas.rowData(0).text, "text 1");
+assert.equal(instance.data.datas.rowData(1).text, "text 2");
+
+instance.switch = true;
+assert(instance.switch);
+assert.equal(instance.data.datas.rowCount(), 0);
+assert(!instance.test);
+```
+
+```python
+instance = TestCase()
+assert not instance.switch
+datas = list(instance.data.datas)
+assert len(datas) == 2
+assert instance.test
+assert datas[0].text == "text 1"
+assert datas[1].text == "text 2"
+
+instance.switch = True
+assert instance.switch
+assert len(list(instance.data.datas)) == 0
+assert not instance.test
+```
+*/

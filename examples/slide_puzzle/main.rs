@@ -115,7 +115,7 @@ impl AppState {
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
         let mut p;
         loop {
-            p = rand::Rng::random_range(&mut rng, 0..16);
+            p = rand::RngExt::random_range(&mut rng, 0..16);
             if hole == p {
                 continue;
             } else if (hole % 4 == p % 4) || (hole / 4 == p / 4) {

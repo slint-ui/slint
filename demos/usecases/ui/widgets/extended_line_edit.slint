@@ -24,8 +24,8 @@ component LineEditBase inherits Rectangle {
     callback accepted( /* text */ string);
     callback edited(/* text */ string);
 
-    public function set-selection-offsets(start: int, end: int) {
-        text-input.set-selection-offsets(start, end);
+    public function set-selection-offsets(anchor: int, focus: int) {
+        text-input.set-selection-offsets(anchor, focus);
     }
 
     public function select-all() {
@@ -107,8 +107,8 @@ export component ExtendedLineEdit {
     accessible-role: text-input;
     accessible-value <=> text;
 
-    public function set-selection-offsets(start: int, end: int) {
-        base.set-selection-offsets(start, end);
+    public function set-selection-offsets(anchor: int, focus: int) {
+        base.set-selection-offsets(anchor, focus);
     }
 
     public function select-all() {

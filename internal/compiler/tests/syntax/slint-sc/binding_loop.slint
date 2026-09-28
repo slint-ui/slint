@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A binding into a child's declared property can form a cycle just like a
+// binding between builtin properties; binding_analysis must report it, not
+// hang.
+
+component Inner inherits Rectangle {
+    in property <length> input;
+    out property <length> output: input;
+//                                >    <error{The binding for the property 'output' is part of a binding loop (root.loopback -> inner.input -> inner.output -> root.loopback)}
+}
+
+export component Test inherits Window {
+    property <length> loopback: inner.output;
+//                              >           <note{'loopback' is part of the binding loop reported for 'output' at line 10}
+    inner := Inner {
+        input: loopback;
+//             >       <note{'input' is part of the binding loop reported for 'output' at line 10}
+    }
+}

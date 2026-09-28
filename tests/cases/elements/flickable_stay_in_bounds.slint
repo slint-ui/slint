@@ -11,16 +11,16 @@ export component TestCase inherits Window {
         y: 10phx;
         width: 250phx;
         height: 300phx;
-        viewport-height: 800phx;
-        viewport-width: 400phx;
+        content-height: 800phx;
+        content-width: 400phx;
     }
 
     in-out property fli_width <=> fli.width;
     in-out property fli_height <=> fli.height;
-    in-out property fli_viewport_width <=> fli.viewport_width;
-    in-out property fli_viewport_height <=> fli.viewport_height;
-    in-out property fli_viewport_x <=> fli.viewport_x;
-    in-out property fli_viewport_y <=> fli.viewport_y;
+    in-out property fli_content_width <=> fli.content_width;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_x <=> fli.content_x;
+    in-out property fli_content_y <=> fli.content_y;
 }
 
 /*
@@ -28,33 +28,33 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_fli_width(), 250.0);
 assert_eq!(instance.get_fli_height(), 300.0);
-assert_eq!(instance.get_fli_viewport_width(), 400.0);
-assert_eq!(instance.get_fli_viewport_height(), 800.0);
-assert_eq!(instance.get_fli_viewport_x(), 0.0);
-assert_eq!(instance.get_fli_viewport_y(), 0.0);
+assert_eq!(instance.get_fli_content_width(), 400.0);
+assert_eq!(instance.get_fli_content_height(), 800.0);
+assert_eq!(instance.get_fli_content_x(), 0.0);
+assert_eq!(instance.get_fli_content_y(), 0.0);
 
-instance.set_fli_viewport_x(-100.0);
-instance.set_fli_viewport_y(100.0);
+instance.set_fli_content_x(-100.0);
+instance.set_fli_content_y(100.0);
 
-assert_eq!(instance.get_fli_viewport_x(), -100.0);
-assert_eq!(instance.get_fli_viewport_y(), 100.0);
+assert_eq!(instance.get_fli_content_x(), -100.0);
+assert_eq!(instance.get_fli_content_y(), 100.0);
 
 slint_testing::mock_elapsed_time(1); // let change handler run
 
-assert_eq!(instance.get_fli_viewport_x(), -100.0);
-assert_eq!(instance.get_fli_viewport_y(), 0.0);
+assert_eq!(instance.get_fli_content_x(), -100.0);
+assert_eq!(instance.get_fli_content_y(), 0.0);
 
-instance.set_fli_viewport_y(-200.0);
+instance.set_fli_content_y(-200.0);
 instance.set_fli_width(350.0);
 
 slint_testing::mock_elapsed_time(1); // let change handler run
-assert_eq!(instance.get_fli_viewport_y(), -200.0);
-assert_eq!(instance.get_fli_viewport_x(), -50.0); // we must stay in bounds
+assert_eq!(instance.get_fli_content_y(), -200.0);
+assert_eq!(instance.get_fli_content_x(), -50.0); // we must stay in bounds
 
-instance.set_fli_viewport_height(315.0);
+instance.set_fli_content_height(315.0);
 slint_testing::mock_elapsed_time(1);
-assert_eq!(instance.get_fli_viewport_y(), -15.0);
-assert_eq!(instance.get_fli_viewport_x(), -50.0);
+assert_eq!(instance.get_fli_content_y(), -15.0);
+assert_eq!(instance.get_fli_content_x(), -50.0);
 ```
 
 ```cpp
@@ -63,33 +63,33 @@ const TestCase &instance = *handle;
 
 assert_eq(instance.get_fli_width(), 250.0);
 assert_eq(instance.get_fli_height(), 300.0);
-assert_eq(instance.get_fli_viewport_width(), 400.0);
-assert_eq(instance.get_fli_viewport_height(), 800.0);
-assert_eq(instance.get_fli_viewport_x(), 0.0);
-assert_eq(instance.get_fli_viewport_y(), 0.0);
+assert_eq(instance.get_fli_content_width(), 400.0);
+assert_eq(instance.get_fli_content_height(), 800.0);
+assert_eq(instance.get_fli_content_x(), 0.0);
+assert_eq(instance.get_fli_content_y(), 0.0);
 
-instance.set_fli_viewport_x(-100.0);
-instance.set_fli_viewport_y(100.0);
+instance.set_fli_content_x(-100.0);
+instance.set_fli_content_y(100.0);
 
-assert_eq(instance.get_fli_viewport_x(), -100.0);
-assert_eq(instance.get_fli_viewport_y(), 100.0);
+assert_eq(instance.get_fli_content_x(), -100.0);
+assert_eq(instance.get_fli_content_y(), 100.0);
 
 slint_testing::mock_elapsed_time(1); // let change handler run
 
-assert_eq(instance.get_fli_viewport_x(), -100.0);
-assert_eq(instance.get_fli_viewport_y(), 0.0);
+assert_eq(instance.get_fli_content_x(), -100.0);
+assert_eq(instance.get_fli_content_y(), 0.0);
 
-instance.set_fli_viewport_y(-200.0);
+instance.set_fli_content_y(-200.0);
 instance.set_fli_width(350.0);
 
 slint_testing::mock_elapsed_time(1); // let change handler run
-assert_eq(instance.get_fli_viewport_y(), -200.0);
-assert_eq(instance.get_fli_viewport_x(), -50.0); // we must stay in bounds
+assert_eq(instance.get_fli_content_y(), -200.0);
+assert_eq(instance.get_fli_content_x(), -50.0); // we must stay in bounds
 
-instance.set_fli_viewport_height(315.0);
+instance.set_fli_content_height(315.0);
 slint_testing::mock_elapsed_time(1);
-assert_eq(instance.get_fli_viewport_y(), -15.0);
-assert_eq(instance.get_fli_viewport_x(), -50.0);
+assert_eq(instance.get_fli_content_y(), -15.0);
+assert_eq(instance.get_fli_content_x(), -50.0);
 ```
 
 ```js
@@ -97,33 +97,33 @@ var instance = new slint.TestCase();
 
 assert.equal(instance.fli_width, 250);
 assert.equal(instance.fli_height, 300);
-assert.equal(instance.fli_viewport_width, 400);
-assert.equal(instance.fli_viewport_height, 800);
-assert.equal(instance.fli_viewport_x, 0);
-assert.equal(instance.fli_viewport_y, 0);
+assert.equal(instance.fli_content_width, 400);
+assert.equal(instance.fli_content_height, 800);
+assert.equal(instance.fli_content_x, 0);
+assert.equal(instance.fli_content_y, 0);
 
-instance.fli_viewport_x = -100;
-instance.fli_viewport_y = 100;
+instance.fli_content_x = -100;
+instance.fli_content_y = 100;
 
-assert.equal(instance.fli_viewport_x, -100);
-assert.equal(instance.fli_viewport_y, 100);
+assert.equal(instance.fli_content_x, -100);
+assert.equal(instance.fli_content_y, 100);
 
 slintlib.private_api.mock_elapsed_time(1); // let change handler run
 
-assert.equal(instance.fli_viewport_x, -100);
-assert.equal(instance.fli_viewport_y, 0);
+assert.equal(instance.fli_content_x, -100);
+assert.equal(instance.fli_content_y, 0);
 
-instance.fli_viewport_y = -200;
+instance.fli_content_y = -200;
 instance.fli_width = 350;
 
 slintlib.private_api.mock_elapsed_time(1); // let change handler run
-assert.equal(instance.fli_viewport_y, -200);
-assert.equal(instance.fli_viewport_x, -50); // we must stay in bounds
+assert.equal(instance.fli_content_y, -200);
+assert.equal(instance.fli_content_x, -50); // we must stay in bounds
 
-instance.fli_viewport_height = 315;
+instance.fli_content_height = 315;
 slintlib.private_api.mock_elapsed_time(1);
-assert.equal(instance.fli_viewport_y, -15);
-assert.equal(instance.fli_viewport_x, -50);
+assert.equal(instance.fli_content_y, -15);
+assert.equal(instance.fli_content_x, -50);
 ```
 
 

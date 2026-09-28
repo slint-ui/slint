@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     width: 400phx;
     height: 400phx;
     forward-focus: input2;
+    in property <bool> show: false;
 
     input1 := TextInput {
         y:0;
@@ -21,7 +22,7 @@ component TestCase inherits Rectangle {
                     accept
                 }
 
-                if (false) : Rectangle { FocusScope {} }
+                if (root.show) : Rectangle { FocusScope {} }
 
                 input2 := TextInput {
                     x:0;

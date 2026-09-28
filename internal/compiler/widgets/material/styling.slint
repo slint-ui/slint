@@ -8,12 +8,12 @@ import { ColorSchemeSelector } from "color-scheme.slint";
 struct TextStyle { font-size: relative-font-size, font-weight: int}
 
 export global MaterialFontSettings {
-    out property <TextStyle> label-large: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
-    out property <TextStyle> label-medium: { font-size: 12 * 0.0625rem, font-weight: FontWeight.medium };
-    out property <TextStyle> body-large: { font-size: 16 * 0.0625rem, font-weight: FontWeight.normal };
-    out property <TextStyle> body-small: { font-size: 12 * 0.0625rem, font-weight: FontWeight.normal };
-    out property <TextStyle> title-small: { font-size: 14 * 0.0625rem, font-weight: FontWeight.medium };
-    out property <TextStyle> headline-large: { font-size: 32 * 0.0625rem, font-weight: FontWeight.medium };
+    out property <TextStyle> label-large: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> label-medium: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> body-large: { font-size: 16pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> body-small: { font-size: 12pt * 1rem / 14pt, font-weight: FontWeight.normal };
+    out property <TextStyle> title-small: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.medium };
+    out property <TextStyle> headline-large: { font-size: 32pt * 1rem / 14pt, font-weight: FontWeight.medium };
 }
 
 export global Elevation {

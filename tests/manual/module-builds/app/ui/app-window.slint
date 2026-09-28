@@ -9,6 +9,12 @@ import { BLogicB, BLogicBAPI } from "@BLogicB";
 export component AppWindow inherits Window {
     callback update-blogic-data();
 
+    // Used by the regression test in src/main.rs. Mirrors a property declared
+    // on a library-imported global; without the bug fix the compiler would
+    // inline the global's default value here and the binding would no longer
+    // observe writes made via the library's Rust API.
+    out property <string> test-status: BLogicBAPI.status;
+
     VerticalBox {
         BLogicA {}
         BLogicB {}

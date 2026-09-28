@@ -68,7 +68,7 @@ component Clock {
         border_radius: max(self.width, self.height) / 2;
         background: MaterialPalette.surface_container_highest;
 
-        if root.current_index >= 0 || root.current_index < root.model.length: Path {
+        if root.current_index >= 0 && root.current_index < root.model.length: Path {
             stroke: MaterialPalette.primary;
             stroke_width: 2px;
             viewbox_width: self.width / 1px;

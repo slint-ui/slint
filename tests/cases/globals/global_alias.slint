@@ -10,7 +10,7 @@ global MyGlobal  {
 export { MyGlobal }
 export { MyGlobal as GlobalAlias }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <bool> test_global_prop_value: MyGlobal.hello == 100;
 }
 
@@ -37,6 +37,22 @@ assert(instance.get_test_global_prop_value());
 assert_eq(instance.global<MyGlobal>().get_hello(), 100);
 assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
 
+```
+
+```d.ts
+export interface GlobalAlias {
+    hello: number;
+}
+
+export type MyGlobal = GlobalAlias;
+
+export interface TestCase {
+    test_global_prop_value: boolean;
+    readonly GlobalAlias: GlobalAlias;
+    readonly MyGlobal: GlobalAlias;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
 ```
 
 ```js

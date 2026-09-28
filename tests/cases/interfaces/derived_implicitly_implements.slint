@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 interface InterfaceWithDefaults {
-    in-out property <string> text: "Hello";
-    out property <bool> enabled: true;
-    in property <int> precision: 2;
-    in property <float> confidence: 1.0;
+    in-out property <string> text;
+    out property <bool> enabled;
+    in property <int> precision;
+    in property <float> confidence;
 
     public pure function length(text: string) -> int;
     callback checked();
@@ -29,7 +29,8 @@ component Base {
     @children
 }
 
-export component TestCase implements InterfaceWithDefaults inherits Base {
+export component TestCase inherits Base {
+    implement InterfaceWithDefaults <=> self;
 
     // Explicitly override the InterfaceWithDefaults default for precision
     precision: 3;
@@ -42,9 +43,9 @@ export component TestCase implements InterfaceWithDefaults inherits Base {
 ```rust
 let instance = TestCase::new().unwrap();
 // TODO: Interface properties aren't part of the public API
-// assert_eq!(instance.get_text(), "Hello");
-// assert_eq!(instance.get_enabled(), true);
-// assert_eq!(instance.get_precision(), 2);
+// assert_eq!(instance.get_text(), "");
+// assert_eq!(instance.get_enabled(), false);
+// assert_eq!(instance.get_precision(), 0);
 // assert_eq!(instance.get_confidence(), 0.5);
 assert!(instance.get_test());
 ```
@@ -53,9 +54,9 @@ assert!(instance.get_test());
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 // TODO: Interface properties aren't part of the public API
-// assert_eq(instance.get_text(), "Hello");
-// assert_eq(instance.get_enabled(), true);
-// assert_eq(instance.get_precision(), 2);
+// assert_eq(instance.get_text(), "");
+// assert_eq(instance.get_enabled(), false);
+// assert_eq(instance.get_precision(), 0);
 // assert_eq(instance.get_confidence(), 0.5);
 assert(instance.get_test());
 ```
@@ -63,9 +64,9 @@ assert(instance.get_test());
 ```js
 var instance = new slint.TestCase({});
 // TODO: Interface properties aren't part of the public API
-// assert.equal(instance.text, "Hello");
-// assert.equal(instance.enabled, true);
-// assert.equal(instance.precision, 2);
+// assert.equal(instance.text, "");
+// assert.equal(instance.enabled, false);
+// assert.equal(instance.precision, 0);
 // assert.equal(instance.confidence, 0.5);
 assert(instance.test);
 ```

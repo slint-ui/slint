@@ -18,6 +18,13 @@ pub enum RenderingRotation {
     Rotate270,
 }
 
+/// Force a cross-platform OS so OS-dependent rendering (e.g. the text cursor color) matches the
+/// references regardless of the host OS.
+pub fn force_reference_os() {
+    i_slint_core::OPERATING_SYSTEM_OVERRIDE
+        .set(Some(i_slint_core::items::OperatingSystemType::Linux));
+}
+
 pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgba8Pixel>, image::ImageError> {
     image::open(path).map(|image| {
         let image = image.into_rgba8();
@@ -47,6 +54,11 @@ pub struct TestCaseOptions {
 
     /// When true, we don't compare screenshots rendered with clipping
     pub skip_clipping: bool,
+
+    /// When `SLINT_CREATE_SCREENSHOTS` is set and a comparison fails, the new reference is written
+    /// here instead of to the compared path. This lets the default software driver compare against
+    /// the `software_embed_assets/` reference but only ever create new references under `software/`.
+    pub create_path: Option<String>,
 }
 
 pub fn compare_images(
@@ -167,18 +179,23 @@ pub fn compare_images(
         && rotated == RenderingRotation::NoRotation
         && std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1")
     {
-        eprintln!("saving rendered image as comparison to reference failed");
+        let write_path = options.create_path.as_deref().unwrap_or(reference_path);
+        eprintln!("saving rendered image as new reference {write_path}");
 
-        std::fs::create_dir_all(std::path::Path::new(&reference_path).parent().unwrap()).unwrap();
+        std::fs::create_dir_all(std::path::Path::new(write_path).parent().unwrap()).unwrap();
 
         image::save_buffer(
-            reference_path,
+            write_path,
             screenshot.as_bytes(),
             screenshot.width(),
             screenshot.height(),
             image::ColorType::Rgba8,
         )
         .unwrap();
+
+        // The reference is written, but the test still fails so a stale or missing
+        // reference can't pass unnoticed. Re-run without SLINT_CREATE_SCREENSHOTS to verify.
+        eprintln!("SLINT_CREATE_SCREENSHOTS=1: wrote reference image to {reference_path}");
     }
 
     result

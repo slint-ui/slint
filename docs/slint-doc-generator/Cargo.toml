@@ -15,7 +15,7 @@ publish = false
 
 [dependencies]
 # Slint internal crates
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["builtin-docs"] }
 i-slint-common = { workspace = true }
 i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility"] }
@@ -25,6 +25,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "wayland"] }
 anyhow = "1.0"
 clap = { workspace = true }
 itertools = { workspace = true }
+serde_json = { workspace = true }
 spin_on = { workspace = true }
 termcolor = { version = "1.4.1" }
 walkdir = { version = "2.5" }

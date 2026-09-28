@@ -22,12 +22,11 @@ export component SpinBoxButton {
         animate background, border-color { duration: 150ms; }
 
         text := Text {
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: CosmicFontSettings.body.font-weight;
             horizontal-alignment: center;
             vertical-alignment: center;
             text: root.text;
             color:CosmicPalette.control-foreground;
+            accessible-role: none;
         }
     }
 
@@ -59,10 +58,11 @@ export component SpinBox {
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
-    accessible-value-step: (root.maximum - root.minimum) / 100;
+    accessible-value-step: root.step-size;
     accessible-action-set-value(v) => { if v.is-float() { base.update-value(v.to-float()); } }
     accessible-action-increment => { base.increment(); }
     accessible-action-decrement => { base.decrement(); }
+    accessible-action-set-selection-offsets(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
     accessible-read-only: root.read-only;
 
     states [
@@ -92,8 +92,6 @@ export component SpinBox {
             base := SpinBoxBase {
                 width: 100%;
                 color: CosmicPalette.control-foreground;
-                font-size: CosmicFontSettings.body.font-size;
-                font-weight: CosmicFontSettings.body.font-weight;
                 selection-background-color: CosmicPalette.selection-background;
                 selection-foreground-color: CosmicPalette.accent-foreground;
                 horizontal-alignment: center;

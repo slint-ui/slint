@@ -11,7 +11,7 @@ export component SliderBase {
     in property <length> handle-y;
     in property <length> handle-width;
     in property <length> handle-height;
-    out property <bool> pressed <=> touch-area.enabled;
+    out property <bool> pressed <=> touch-area.pressed;
     out property <bool> has-hover <=> touch-area.has-hover;
     out property <bool> vertical: root.orientation == Orientation.vertical;
     out property <bool> has-focus <=> focus-scope.has-focus;
@@ -115,11 +115,15 @@ export component SliderBase {
     }
 
     public function set-value(value: float) {
-        if (root.value == value) {
+        if !root.enabled {
+            return;
+        }
+        let clamped = max(root.minimum, min(root.maximum, value));
+        if (root.value == clamped) {
             return;
         }
 
-        root.value = max(root.minimum, min(root.maximum, value));
+        root.value = clamped;
         root.changed(root.value);
     }
 

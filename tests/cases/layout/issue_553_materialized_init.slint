@@ -3,16 +3,16 @@
 
 // Test the propagation of maximum and minimum size through nested grid layouts
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     min-width: 500px;
-    max-width: min-width;
+    max-width: root.min-width;
 
-    property xxx <=> preferred-height;
+    in-out property xxx <=> root.preferred-height;
     HorizontalLayout {
         Rectangle { height: 88px; }
     }
 
-    property <bool> test: min-width == 500px && max-width == 500px && xxx == 88px;
+    in-out property <bool> test: root.min-width == 500px && root.max-width == 500px && root.xxx == 88px;
 }
 
 /*

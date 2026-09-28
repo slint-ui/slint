@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import * as napi from "../rust-module.cjs";
+import * as napi from "../binding.cjs";
 
 class ModelIterator<T> implements Iterator<T> {
     private row: number;
@@ -126,13 +126,44 @@ export abstract class Model<T> implements Iterable<T> {
     /**
      * Implementations of this function must store the provided data parameter
      * in the model at the specified row.
+     * The default implementation throws, rejecting the modification.
      * @param _row index in range 0..(rowCount() - 1).
      * @param _data new data item to store on the given row index
      */
     setRowData(_row: number, _data: T): void {
-        console.log(
-            "setRowData called on a model which does not re-implement this method. This happens when trying to modify a read-only model",
-        );
+        throw new TypeError("setRowData is not implemented on this model");
+    }
+
+    /**
+     * Adds a line to the model with the provided data.
+     * Throws when the model rejects the modification.
+     * The default implementation calls {@link Model.insertRow} with the row count.
+     * @param data new data item to store in a new row.
+     */
+    pushRow(data: T): void {
+        this.insertRow(this.rowCount(), data);
+    }
+
+    /**
+     * Implementations of this function must remove the row at the specified index.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
+     * @param _index index of the row to remove.
+     */
+    removeRow(_index: number): void {
+        throw new TypeError("removeRow is not implemented on this model");
+    }
+
+    /**
+     * Implementations of this function must add a row at the specified index, pushing all next
+     * rows to the right.
+     * Throws when the model rejects the modification; the default implementation
+     * always throws.
+     * @param _index index of the row to insert.
+     * @param _data new data item to store in a new row.
+     */
+    insertRow(_index: number, _data: T): void {
+        throw new TypeError("insertRow is not implemented on this model");
     }
 
     [Symbol.iterator](): Iterator<T> {
@@ -175,7 +206,8 @@ export abstract class Model<T> implements Iterable<T> {
 
 /**
  * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
- * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
+ * array can be modified with the [[ArrayModel.push]], [[ArrayModel.remove]], and
+ * [[ArrayModel.splice]] methods.
  */
 export class ArrayModel<T> extends Model<T> {
     /**
@@ -227,6 +259,31 @@ export class ArrayModel<T> extends Model<T> {
     }
 
     /**
+     * Remove a row from the array backing the model and notifies run-time about the removed row.
+     * Throws a RangeError when the index is out of bounds.
+     * @param index index of the row to remove.
+     */
+    removeRow(index: number): void {
+        if (index < 0 || index >= this.#array.length) {
+            throw new RangeError(`row index ${index} is out of bounds`);
+        }
+        this.remove(index, 1);
+    }
+
+    /**
+     * Insert a new row into the array backing the model at the specified index and notifies run-time about the added row.
+     * Throws a RangeError when the index is out of bounds.
+     * @param index index at which to insert the new row.
+     * @param data data item to store in the new row.
+     */
+    insertRow(index: number, data: T): void {
+        if (index < 0 || index > this.#array.length) {
+            throw new RangeError(`row index ${index} is out of bounds`);
+        }
+        this.splice(index, 0, data);
+    }
+
+    /**
      * Pushes new values to the array that's backing the model and notifies
      * the run-time about the added rows.
      * @param values list of values that will be pushed to the array.
@@ -250,7 +307,6 @@ export class ArrayModel<T> extends Model<T> {
         return last;
     }
 
-    // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
      * the model, starting at the specified index.
@@ -263,15 +319,32 @@ export class ArrayModel<T> extends Model<T> {
     }
 
     /**
-     * Inserts new values into the array that's backing the model at the given
-     * index and notifies the run-time about the added rows.
-     * @param index zero-based index at which to insert; clamped to [0, length].
-     * @param values list of values to insert.
+     * Removes elements from the array that's backing the model and, if
+     * necessary, inserts new elements in their place, following the semantics
+     * of `Array.prototype.splice`. The run-time is notified about the removed
+     * and added rows.
+     * @param start zero-based index at which to start changing the array; negative values count back from the end and out-of-range values are clamped.
+     * @param deleteCount number of elements to remove starting at `start`; if omitted, all elements from `start` to the end are removed.
+     * @param items elements to insert at `start`.
+     * @returns an array containing the removed elements.
      */
-    insert(index: number, ...values: T[]) {
-        const clamped = Math.max(0, Math.min(index, this.#array.length));
-        this.#array.splice(clamped, 0, ...values);
-        this.notifyRowAdded(clamped, values.length);
+    splice(start: number, deleteCount?: number, ...items: T[]): T[] {
+        const len = this.#array.length;
+        // Normalize `start` the way `Array.prototype.splice` does, so the
+        // change notifications point at the actual mutation index.
+        const actualStart =
+            start < 0 ? Math.max(len + start, 0) : Math.min(start, len);
+        const removed =
+            deleteCount === undefined
+                ? this.#array.splice(actualStart)
+                : this.#array.splice(actualStart, deleteCount, ...items);
+        if (removed.length > 0) {
+            this.notifyRowRemoved(actualStart, removed.length);
+        }
+        if (items.length > 0) {
+            this.notifyRowAdded(actualStart, items.length);
+        }
+        return removed;
     }
 
     /**

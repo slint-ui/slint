@@ -3,11 +3,12 @@
 
 // Skia font rendering is not consistent across platforms
 //ignore:skia
+// SIZE=64x80
 
 
 export component TestCase inherits Window {
     width: 64px;
-    height: 64px;
+    height: 80px;
 
     Text {
         text: "No wrap, single line";
@@ -32,7 +33,7 @@ export component TestCase inherits Window {
         text: "Wrap and elide multiple lines of text";
         y: 32px;
         width: 100%;
-        height: 24px;
+        height: 28px;
         wrap: word-wrap;
         overflow: elide;
         font-size: 9px;
@@ -42,7 +43,7 @@ export component TestCase inherits Window {
 
     Text {
         text: "i i i i i i i i i i i i i i i i i i i i";
-        y: 54px;
+        y: 64px;
         width: 100%;
         overflow: elide;
         font-size: 9px;

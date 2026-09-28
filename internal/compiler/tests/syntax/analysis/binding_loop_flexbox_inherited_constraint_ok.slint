@@ -1,0 +1,57 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The counterpart of binding_loop_flexbox_cell_own_other_axis: a cell whose
+// constraint is inherited rather than set on the instance must NOT be reported.
+// 'Card' forwards a height-for-width layout's min-height, which the flexbox
+// solve reads through the cell's own layout-info, not through the constraint.
+// The second case pins the other side: a constraint may read the element's own
+// other axis when that axis is set explicitly rather than solved. The third
+// reaches the other axis through a callback, whose body is not a tracked
+// dependency of the caller, so it doesn't loop at runtime either.
+// No diagnostic is expected anywhere in this file. Keep the Window's explicit
+// size: an auto-sized one warns for its own reasons and hides what this pins.
+
+component Fixed {
+    height: 100px;
+    min-width: self.height;
+    inner2 := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component Callback {
+    pure callback f() -> length;
+    f => { self.width }
+    min-height: self.f();
+    inner3 := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component Card {
+    min-height: inner.min-height;
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+export component Demo inherits Window {
+    width: 200px;
+    height: 400px;
+    FlexboxLayout {
+        flex-direction: column;
+        Card { }
+    }
+
+    // Reading the other axis is fine when the layout doesn't compute it.
+    FlexboxLayout {
+        Fixed { }
+        Rectangle { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        Callback { }
+    }
+}

@@ -16,38 +16,49 @@ import {
 
 private_api.initTesting();
 
-test("ArrayModel.insert at start, middle, and end", () => {
+test("ArrayModel.splice inserts at start, middle, and end", () => {
     const m = new ArrayModel<number>([1, 2, 3]);
-    m.insert(0, 0);
+    m.splice(0, 0, 0);
     expect([...m.values()]).toEqual([0, 1, 2, 3]);
-    m.insert(2, 99);
+    m.splice(2, 0, 99);
     expect([...m.values()]).toEqual([0, 1, 99, 2, 3]);
-    m.insert(m.rowCount(), 100);
+    m.splice(m.rowCount(), 0, 100);
     expect([...m.values()]).toEqual([0, 1, 99, 2, 3, 100]);
     expect(m.rowCount()).toBe(6);
 });
 
-test("ArrayModel.insert clamps out-of-range indices", () => {
+test("ArrayModel.splice removes and returns elements", () => {
+    const m = new ArrayModel<number>([1, 2, 3, 4, 5]);
+    expect(m.splice(1, 2)).toEqual([2, 3]);
+    expect([...m.values()]).toEqual([1, 4, 5]);
+    // Omitted deleteCount removes everything from `start` to the end.
+    expect(m.splice(1)).toEqual([4, 5]);
+    expect([...m.values()]).toEqual([1]);
+});
+
+test("ArrayModel.splice replaces elements", () => {
+    const m = new ArrayModel<number>([1, 2, 3, 4]);
+    expect(m.splice(1, 2, 20, 30)).toEqual([2, 3]);
+    expect([...m.values()]).toEqual([1, 20, 30, 4]);
+});
+
+test("ArrayModel.splice handles out-of-range indices like Array.prototype.splice", () => {
     const m = new ArrayModel<number>([1, 2, 3]);
-    m.insert(-5, 7);
-    expect([...m.values()]).toEqual([7, 1, 2, 3]);
-    m.insert(100, 8);
-    expect([...m.values()]).toEqual([7, 1, 2, 3, 8]);
+    m.splice(-1, 0, 7);
+    expect([...m.values()]).toEqual([1, 2, 7, 3]);
+    m.splice(-100, 0, 8);
+    expect([...m.values()]).toEqual([8, 1, 2, 7, 3]);
+    m.splice(100, 1, 9);
+    expect([...m.values()]).toEqual([8, 1, 2, 7, 3, 9]);
 });
 
-test("ArrayModel.insert accepts multiple values", () => {
-    const m = new ArrayModel<number>([1, 4]);
-    m.insert(1, 2, 3);
-    expect([...m.values()]).toEqual([1, 2, 3, 4]);
-});
-
-test("ArrayModel.insert into empty model", () => {
+test("ArrayModel.splice into empty model", () => {
     const m = new ArrayModel<number>([]);
-    m.insert(0, 42);
+    expect(m.splice(0, 0, 42)).toEqual([]);
     expect([...m.values()]).toEqual([42]);
 });
 
-test("ArrayModel.insert notifies the run-time", () => {
+test("ArrayModel.splice notifies the run-time", () => {
     const source = `
     export component App {
       in-out property <[int]> data;
@@ -59,10 +70,12 @@ test("ArrayModel.insert notifies the run-time", () => {
     const m = new ArrayModel<number>([10, 20]);
     instance.data = m;
     expect(instance.total).toBe(30);
-    m.insert(0, 5);
+    m.splice(0, 0, 5);
     expect(instance.total).toBe(25);
-    m.insert(m.rowCount(), 100);
+    m.splice(m.rowCount(), 0, 100);
     expect(instance.total).toBe(105);
+    m.splice(0, 1, 7);
+    expect(instance.total).toBe(107);
 });
 
 test("MapModel notify rowChanged", () => {

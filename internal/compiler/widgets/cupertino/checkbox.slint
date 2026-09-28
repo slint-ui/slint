@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CupertinoFontSettings, CupertinoPalette, Icons } from "styling.slint";
+import { CupertinoPalette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
     in property <string> text;
     in property <bool> enabled <=> i-touch-area.enabled;
-    in property <length> font-size: CupertinoFontSettings.body.font-size;
-    in property <int> font-weight: CupertinoFontSettings.body.font-weight;
+    in property <length> font-size;
+    in property <int> font-weight;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <bool> checked;
 
@@ -127,6 +127,7 @@ export component CheckBox {
             font-weight: root.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
+            accessible-role: none;
         }
     }
 
@@ -145,7 +146,7 @@ export component CheckBox {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 i-touch-area.clicked();
                 return accept;
             }

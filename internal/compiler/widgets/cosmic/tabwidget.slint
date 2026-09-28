@@ -130,8 +130,7 @@ export component TabImpl inherits Rectangle {
         text := Text {
             vertical-alignment: center;
             horizontal-alignment: center;
-            font-size: CosmicFontSettings.body.font-size;
-            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : CosmicFontSettings.body.font-weight;
+            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : FontWeight.normal;
             color: root.is-current ? CosmicPalette.accent-background : CosmicPalette.control-foreground;
             accessible-role: none;
         }
@@ -162,7 +161,7 @@ component CosmicTabBarBase inherits TabBarBase {
         width: 0px;
 
         key-pressed(event) => {
-            if (event.text == "\n") {
+            if (event.text == Key.Return) {
                 root.current = root.current-focused;
                 return accept;
             }
@@ -178,7 +177,7 @@ component CosmicTabBarBase inherits TabBarBase {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
+            if (event.text == Key.Space) {
                 root.current = root.current-focused;
                 return accept;
             }

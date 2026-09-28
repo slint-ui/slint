@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #12128: a component created by an outer repeater whose
+// layout preferred-height depends on an inner repeater must invalidate its
+// cached layout info once the inner repeater is instantiated, even when
+// preferred-height is read eagerly during `init` (before the inner repeater
+// exists). The C++ Repeater used to skip registering the instance-generation
+// dependency while it had no instances, so the cached value stayed frozen.
+// (Worked with `if` because Conditional always registered the dependency.)
+
+component Row inherits Rectangle {
+    height: 25phx;
+}
+
+component List inherits Rectangle {
+    in property <int> count;
+    preferred-height: lay.preferred-height;
+    // Force eager evaluation of preferred-height before the inner repeater is
+    // instantiated. This is what exposes the bug.
+    init => {
+        debug("List init preferred-height:", self.preferred-height / 1phx);
+    }
+    lay := VerticalLayout {
+        for i in root.count: Row { }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 200phx;
+
+    outer := VerticalLayout {
+        for x in 1: List {
+            count: 8;
+        }
+    }
+
+    out property <length> measured: outer.preferred-height;
+    out property <bool> test: outer.preferred-height == 200phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_measured(), 200.);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_measured(), 200.);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.measured, 200.);
+assert(instance.test);
+```
+
+*/

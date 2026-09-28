@@ -30,7 +30,7 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 
 1. [Royalty-free license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt),
-3. [Paid license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+3. [Commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
 
 See also the [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing).
 

@@ -117,4 +117,4 @@
   (#set! reference.kind "type"))
 
 (unary_expression
-  left: (_) @local.reference)
+  expr: (_) @local.reference)

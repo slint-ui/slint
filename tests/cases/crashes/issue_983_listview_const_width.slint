@@ -3,21 +3,21 @@
 
 import { ListView } from "std-widgets.slint";
 
-FileLine := Rectangle {
-    property <string> filename;
+component FileLine inherits Rectangle {
+    in-out property <string> filename;
     HorizontalLayout {
         t_filename := Text {
-            text: root.filename;
+            text: filename;
         }
     }
 }
 
-export struct FileItem := {
+export struct FileItem  {
     filename: string,
 }
 
-MainWindow := Window {
-    property <[FileItem]> file-model: [ ];
+component MainWindow inherits Window {
+    in-out property <[FileItem]> file-model: [ ];
     height: 500px;
     width: 500px;
 

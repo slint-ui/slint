@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test that an out-of-range row index doesn't make grid layout panic.
+// A row near u16::MAX (65535) used to overflow the row-count computation and
+// index past the end of the layout vector, both for plain cells and for spans.
+// (Columns can't reach this because col + colspan is already clamped to u16::MAX.)
+export component TestCase inherits Rectangle {
+    width: 200phx;
+    height: 200phx;
+
+    GridLayout {
+        spacing: 0px;
+        padding: 0px;
+        // Anchor at the origin.
+        Rectangle {
+            row: 0;
+            col: 0;
+            min-width: 30phx;
+            min-height: 30phx;
+        }
+        // Far row with a span: occupies rows 65534 and 65535. This exercises both the
+        // row-count overflow and the span-slice indexing at the top of the row range.
+        Rectangle {
+            row: 65534;
+            col: 0;
+            rowspan: 2;
+            min-height: 20phx;
+        }
+        // Far column, to exercise the (clamped) horizontal path with a large index.
+        Rectangle {
+            row: 0;
+            col: 65535;
+            min-width: 25phx;
+        }
+    }
+
+    // Reading the constraints forces the grid to be solved. The empty rows/columns in
+    // between contribute nothing, so the size is just the non-empty cells: row 0 (30) plus
+    // the spanned rows (20 split evenly), and column 0 (30) plus the far column (25).
+    out property <bool> test: root.min-height == 50phx && root.min-width == 55phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

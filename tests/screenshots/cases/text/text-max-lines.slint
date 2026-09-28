@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test for `max-lines` with an implicit height: the preferred height reported by `text_size` must
+// leave room for exactly `max-lines` laid-out lines, every kept line must render inside the item,
+// and with `overflow: elide` the last kept line carries the ellipsis when text was dropped for
+// the line limit. The parley path (`software` reference) computes the height cap from the laid
+// out lines; the bitmap path (`software_embed_assets` reference) derives it from font metrics
+// and its line budget from the height again, so this also guards the two paths against
+// disagreeing on how many lines fit.
+//
+// Each Text holds a child Rectangle that fills it with a 1px red border, so the Text geometry is
+// visible. The Rectangle is a child of the Text and does not influence its layout.
+//ignore: skia
+//SIZE=180x260
+
+component TextGeometry inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+export component TestCase inherits Window {
+    default-font-family: "Noto Sans";
+    background: white;
+    width: 180px;
+    height: 260px;
+
+    // Wrapping text cut by the line limit. No height is set anywhere: the layout must size the
+    // Text to exactly two lines, both lines must render, and the ellipsis goes on the second one.
+    HorizontalLayout {
+        x: 0; y: 4px;
+        width: 130px;
+        Text {
+            overflow: elide;
+            wrap: word-wrap;
+            max-lines: 2;
+            color: black;
+            text: "This text wraps onto quite a few more lines than just the two that are kept";
+            TextGeometry {}
+        }
+    }
+
+    // Explicit `\n` line breaks with the default `overflow: clip`: the limit drops the last two
+    // paragraphs and no ellipsis appears.
+    HorizontalLayout {
+        x: 0; y: 60px;
+        width: 130px;
+        Text {
+            max-lines: 2;
+            color: black;
+            text: "Line One\nLine Two\nLine Three\nLine Four";
+            TextGeometry {}
+        }
+    }
+
+    // A limit that no line reaches: renders identically to the unlimited Text next to it,
+    // including the preferred height.
+    HorizontalLayout {
+        x: 0; y: 116px;
+        width: 88px;
+        Text {
+            max-lines: 5;
+            color: black;
+            text: "Alpha\nBeta\nGamma";
+            TextGeometry {}
+        }
+    }
+    HorizontalLayout {
+        x: 90px; y: 116px;
+        width: 88px;
+        Text {
+            color: black;
+            text: "Alpha\nBeta\nGamma";
+            TextGeometry {}
+        }
+    }
+
+    // StyledText: the inline-code span wraps onto the dropped second line; no capsule may be
+    // painted under text that isn't rendered.
+    HorizontalLayout {
+        x: 0; y: 220px;
+        width: 150px;
+        StyledText {
+            max-lines: 1;
+            default-color: black;
+            text: @markdown("some words then `a wrapped code span`");
+        }
+    }
+}

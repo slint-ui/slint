@@ -1,9 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: Auto-triage on Comment
+name: Issue Triage
 
 on:
+  issues:
+    types: [opened]
   issue_comment:
     types: [created]
 
@@ -12,7 +14,27 @@ permissions:
   pull-requests: write
 
 jobs:
+  # The issue templates apply `need triaging` themselves, but the REST API ignores
+  # templates, so an issue filed through it never reaches the triage filter.
+  # So apply the issue via Github Actions automatically if it is missing.
+  # Slint Team Members are exempt from this rule.
+  add_need_triaging:
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.issue.user.type != 'Bot' &&
+      !contains(fromJson('["OWNER", "MEMBER"]'), github.event.issue.author_association) &&
+      !contains(github.event.issue.labels.*.name, 'need triaging')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Add the need triaging label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/labels -f labels[]='need triaging'
+
   update_labels:
+    if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
     steps:
       - name: Check whether we should update the tags

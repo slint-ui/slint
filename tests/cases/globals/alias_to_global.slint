@@ -17,7 +17,7 @@ component Widget inherits Rectangle {
     in-out property second <=> Glop.second;
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     // This is meant to test an alias to a native global.
     // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
     out property <length> alias_to_native <=> StyleMetrics.text_cursor_width;

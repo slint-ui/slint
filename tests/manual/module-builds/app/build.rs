@@ -2,5 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    slint_build::compile("ui/app-window.slint").expect("Slint build failed");
+    // Emit debug info so the integration tests can locate elements via
+    // `ElementHandle`.
+    let config = slint_build::CompilerConfiguration::new().with_debug_info(true);
+    slint_build::compile_with_config("ui/app-window.slint", config).expect("Slint build failed");
 }

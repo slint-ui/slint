@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    // `@shadowable` only prefixes a property, callback or function declaration
+    @shadowable
+    Rectangle {}
+//  >       <error{@shadowable can only be applied to a member declaration}
+
+    @shadowable @shadowable in-out property <int> twice;
+//                         ^error{Duplicated @shadowable attribute}
+
+    // combining the two attributes in either order is fine
+    @shadowable @deprecated("Use 'twice' instead") in-out property <int> a <=> twice;
+    @deprecated("Use 'twice' instead") @shadowable in-out property <int> b <=> twice;
+
+    @shadowable callback ok-callback();
+    @shadowable public function ok-function() {}
+}

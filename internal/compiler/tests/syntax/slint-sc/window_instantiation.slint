@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Window is the exported component's root and shall not appear as an
+// element, neither directly nor through a component that inherits it.
+
+//#sls.file.element.no-window-instantiation
+component Inner inherits Window { }
+
+export component Panel inherits Window {
+    Inner { }
+//  >    <error{Instantiating Window as an element is not supported in Slint SC↵(Note: Inner inherits Window)}
+
+    Window { }
+//  >     <error{Instantiating Window as an element is not supported in Slint SC}
+}

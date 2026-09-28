@@ -1,4 +1,10 @@
 {
   "extends": "astro/tsconfigs/strict",
-  "exclude": ["dist"]
+  "exclude": ["dist"],
+  "compilerOptions": {
+    // The `App.Locals` augmentation of starlight-sidebar-topics, which the
+    // plugin's own components rely on. Declared here because `*.d.ts` is
+    // gitignored.
+    "types": ["starlight-sidebar-topics/locals"]
+  }
 }

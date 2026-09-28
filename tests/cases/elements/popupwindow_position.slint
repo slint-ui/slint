@@ -17,8 +17,8 @@ export global Properties {
     in-out property <length> popup-y-increment;
     in-out property <length> popup-width-increment;
     in-out property <length> popup-height-increment;
-
 }
+
 export component TestCase {
     width: 600px;
     height: 400px;
@@ -112,6 +112,7 @@ use slint::*;
 
 let instance = TestCase::new().unwrap();
 let window = instance.window();
+instance.window().set_size(slint::PhysicalSize::new(5000, 5000)); // Make the window large enough so we don't clip
 let inner =  slint_testing::WindowInner::from_pub(&window);
 
 assert_eq!(instance.global::<Properties<'_>>().get_popup_height(), -1.);

@@ -4,10 +4,10 @@
 export component ScrollView {
     out property <length> visible_width;
     out property <length> visible_height;
-    in_out property <length> viewport_width;
-    in_out property <length> viewport_height;
-    in_out property <length> viewport_x;
-    in_out property <length> viewport_y;
+    in_out property <length> content_width;
+    in_out property <length> content_height;
+    in_out property <length> content_x;
+    in_out property <length> content_y;
 
     flickable := Flickable {
         @children

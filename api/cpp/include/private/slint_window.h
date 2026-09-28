@@ -147,12 +147,11 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter>
-    uint32_t
-    show_popup(const Parent *parent_component, PosGetter pos,
-               cbindgen_private::PopupClosePolicy close_policy,
-               cbindgen_private::ItemRc parent_item,
-               cbindgen_private::WindowKind window_kind = cbindgen_private::WindowKind::Popup) const
+    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
+    uint32_t show_popup(const Parent *parent_component, PosGetter pos,
+                        cbindgen_private::PopupClosePolicy close_policy,
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
@@ -173,6 +172,9 @@ public:
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
+        // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
+        // when the popup is shown and with `false` from every close path.
+        auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
                 [](void *user_data, LogicalPosition *pos) {
@@ -180,7 +182,12 @@ public:
                     *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, window_kind);
+                position_data, close_policy, &parent_item, window_kind,
+                [](void *user_data, bool is_open) {
+                    (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
+                },
+                [](void *user_data) { delete reinterpret_cast<IsOpenSetter *>(user_data); },
+                is_open_data);
         popup->user_init();
         return id;
     }
@@ -232,7 +239,9 @@ public:
                 },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
                 position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, cbindgen_private::WindowKind::Menu);
+                &context_menu_rc, cbindgen_private::WindowKind::Menu,
+                // Menus do not expose `is-open`, so the setter is a no-op.
+                [](void *, bool) {}, [](void *) {}, nullptr);
         popup->user_init();
         return id;
     }
@@ -301,7 +310,7 @@ public:
     }
 
     /// Send a pointer event to this window
-    void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
+    void dispatch_pointer_event(const cbindgen_private::BackendMouseEvent &event)
     {
         private_api::assert_main_thread();
         cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, &event);
@@ -573,8 +582,8 @@ public:
     void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Pressed(
+                { pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -586,8 +595,8 @@ public:
     void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Released(
+                { pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -598,7 +607,7 @@ public:
     void dispatch_pointer_exit_event()
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Exit());
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Exit());
     }
 
     /// Dispatches a pointer move event to the scene.
@@ -611,7 +620,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, 0));
+                slint::cbindgen_private::BackendMouseEvent::Moved({ pos.x, pos.y }, 0));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
@@ -629,7 +638,7 @@ public:
                                                slint::cbindgen_private::types::TouchPhase::Moved)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Wheel(
+        inner.dispatch_pointer_event(slint::cbindgen_private::BackendMouseEvent::Wheel(
                 { pos.x, pos.y }, delta_x, delta_y, scroll_phase));
     }
 
@@ -697,9 +706,12 @@ public:
         return cbindgen_private::slint_windowrc_has_active_animations(&inner.handle());
     }
 
+#if !defined(SLINT_FEATURE_FREESTANDING) || defined(DOXYGEN)
     /// Takes a snapshot of the window contents and returns it as RGBA8 encoded pixel buffer.
     ///
     /// Note that this function may be slow to call as it may need to re-render the scene.
+    ///
+    /// This function is not available in freestanding environments.
     std::optional<SharedPixelBuffer<Rgba8Pixel>> take_snapshot() const
     {
         SharedPixelBuffer<Rgba8Pixel> result;
@@ -710,6 +722,7 @@ public:
             return {};
         }
     }
+#endif
 
 #if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)                                   \
      && !defined(SLINT_FEATURE_FREESTANDING))                                                      \

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import * as napi from "../rust-module.cjs";
+import * as napi from "../binding.cjs";
 export {
     Diagnostic,
     DiagnosticLevel,
@@ -10,7 +10,7 @@ export {
     DataTransfer,
     StyledText,
     Keys,
-} from "../rust-module.cjs";
+} from "../binding.cjs";
 
 import { Model } from "./models";
 export { Model };
@@ -19,7 +19,10 @@ export { ArrayModel } from "./models";
 
 export { language } from "./generated/language";
 
-import { Diagnostic } from "../rust-module.cjs";
+import * as platform from "./platform";
+export { platform };
+
+import { Diagnostic } from "../binding.cjs";
 
 import { fileURLToPath } from "node:url";
 
@@ -71,13 +74,13 @@ export interface Window {
     /** Gets or sets the physical size of the window on the screen, */
     physicalSize: Size;
 
-    /** Gets or sets the window's fullscreen state **/
+    /** Gets or sets the window's fullscreen state. */
     fullscreen: boolean;
 
-    /** Gets or sets the window's maximized state **/
+    /** Gets or sets the window's maximized state. */
     maximized: boolean;
 
-    /** Gets or sets the window's minimized state **/
+    /** Gets or sets the window's minimized state. */
     minimized: boolean;
 
     /**
@@ -97,6 +100,15 @@ export interface Window {
 
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
+
+    /**
+     * Dispatches a window event to the scene.
+     *
+     * Returns whether the scene accepted the event or rejected it.
+     */
+    dispatchEvent(
+        event: platform.WindowEvent,
+    ): platform.WindowEventDispatchResult;
 }
 
 /**
@@ -157,9 +169,9 @@ export interface ComponentHandle {
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      *
-     * Not present on non-windowed components such as ones inheriting from `SystemTrayIcon`.
+     * Throws an error when accessed on non-windowed components such as ones inheriting from `SystemTrayIcon`.
      */
-    readonly window?: Window;
+    get window(): Window;
 }
 
 /**
@@ -174,17 +186,10 @@ class Component implements ComponentHandle {
      */
     constructor(instance: napi.ComponentInstance) {
         this.#instance = instance;
+    }
 
-        // Non-windowed components (e.g. `SystemTrayIcon`) don't have a `window`:
-        // the underlying `instance.window()` would panic. Install the getter
-        // only when meaningful so `'window' in component` reflects support.
-        if (instance.definition().isWindow) {
-            Object.defineProperty(this, "window", {
-                get: () => this.#instance.window(),
-                enumerable: true,
-                configurable: false,
-            });
-        }
+    get window(): Window {
+        return this.#instance.window();
     }
 
     /**
@@ -391,13 +396,31 @@ function loadSlint(loadData: LoadData): Object {
                     );
                 }
 
+                // A `.slint` name may contain dashes, which JavaScript won't
+                // take as a plain identifier, so the properties and callbacks
+                // of a component are exposed under their translated name.
+                // Accept both spellings here, so that the object passed to the
+                // constructor reads like the component it initializes.
+                const componentDefinition = instance.definition();
+                const declaredName = new Map<string, string>();
+                for (const name of [
+                    ...componentDefinition.properties.map((prop) => prop.name),
+                    ...componentDefinition.callbacks,
+                ]) {
+                    declaredName.set(name, name);
+                    declaredName.set(translateName(name), name);
+                }
+
                 for (var key in properties) {
                     const value = properties[key];
+                    // Unknown names are passed through, to be reported by the
+                    // setter below.
+                    const name = declaredName.get(key) ?? key;
 
                     if (value instanceof Function) {
-                        instance.setCallback(key, value);
+                        instance.setCallback(name, value);
                     } else {
-                        instance.setProperty(key, properties[key]);
+                        instance.setProperty(name, properties[key]);
                     }
                 }
 
@@ -739,7 +762,8 @@ class EventLoop {
             }
         }
 
-        // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+        // Fallback for Deno and runtimes where libuv's I/O source
+        // can't be watched.
         {
             const nodejsPollInterval = 16;
             const id = setInterval(() => {
@@ -789,13 +813,13 @@ var globalEventLoop: EventLoop = new EventLoop();
  *                          on its own under the default, so set this to `false` only when an
  *                          application must run without any visible UI. (default true).
  *
- * On Linux and macOS with Node.js,
- * Slint uses an efficient event loop integration that watches libuv's backend
- * file descriptor from a background thread.
+ * On Linux, macOS, and Windows with Node.js,
+ * Slint uses an efficient event loop integration that watches libuv's
+ * I/O source from a background thread.
  * This provides zero idle CPU usage and near-instant response to both UI and
  * JavaScript events.
  *
- * On Windows and other runtimes (Deno),
+ * On other runtimes (Deno),
  * the integration falls back to polling at 16 millisecond intervals,
  * which consumes a small amount of CPU when idle.
  */
@@ -1052,4 +1076,12 @@ export namespace private_api {
     }
 
     export import initTesting = napi.initTesting;
+
+    /**
+     * Returns the optional capabilities that were compiled into the loaded
+     * native binary, e.g. `"testing"`, `"system-testing"` and `"mcp"`. When the
+     * default binary is loaded this is empty; when the "dev" binary is loaded
+     * it contains the additional features. See binding.cjs.
+     */
+    export import buildFeatures = napi.buildFeatures;
 }

@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore xyzxyz
+
+// A TabWidget subclass that declares a Tab of its own used to have that Tab
+// silently disappear wherever the subclass was instantiated: the pass that
+// lowers TabWidget also matched the instantiation site (it "looks like" a
+// TabWidget too, through the subclass's base_type), and lowering it there
+// discarded the link to the subclass, orphaning its already-lowered Tab.
+// Instantiate the subclass twice to also cover the pass's deduplication.
+//
+// https://github.com/slint-ui/slint/issues/8394
+import { TabWidget } from "std-widgets.slint";
+
+component Xyz inherits TabWidget {
+    Tab { title: "Tab 1"; }
+}
+
+// An empty subclass of Xyz: its own Tab must also survive being reached
+// through one more level of inheritance.
+component XyzXyz inherits Xyz { }
+
+// A subclass that also sets its own `orientation`: that must still be picked
+// up (it's declared on the same element as the Tab, so this element is never
+// skipped) even though instantiation sites of *other* already-tabbed
+// subclasses now skip their own orientation handling (see the syntax tests
+// for that skip).
+component VerticalXyz inherits TabWidget {
+    orientation: vertical;
+    Tab { title: "Vertical Tab"; }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    VerticalLayout {
+        xyz1 := Xyz { }
+        Xyz { }
+        xyzxyz1 := XyzXyz { }
+        VerticalXyz { }
+    }
+
+    // A basic sanity check for drivers that don't run the accessibility-based
+    // assertions below: both instances must still behave like working
+    // TabWidgets (current-index in range, not stuck because the Tab it
+    // pointed at was silently dropped).
+    out property <bool> test: xyz1.current-index == 0 && xyzxyz1.current-index == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Every instance (direct or through the empty XyzXyz subclass) must keep
+// showing the inherited Tab: each contributes two matches (the tab bar entry
+// and its, by default active, panel).
+assert_eq!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Tab 1").count(), 6);
+
+// A subclass with its own `orientation` (set alongside its own Tab, so it's
+// never skipped by the fix above) must still get its own, vertical tab bar.
+assert!(slint_testing::ElementHandle::find_by_element_id(&instance, "TabBarVerticalImpl::root").next().is_some());
+```
+*/

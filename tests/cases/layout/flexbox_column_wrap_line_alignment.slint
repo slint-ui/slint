@@ -1,0 +1,87 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A wrapping column flex never lays its content outside its own width (see
+// flexbox_column_wrap_width.slint). `cross-axis-line-alignment` places the
+// lines within that width, and would place a line wider than the flex at a
+// negative x, spilling to the left over whatever sits there. The non-wrapping
+// re-solve in `solve_flexbox_layout` pins such a line at the left edge, for
+// `center` and `end` as much as for `start`.
+//
+// It only does that on overflow: D below has room, so its line is centered
+// normally.
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 260px;
+
+    Text { x: 8px; y: 4px; width: 484px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "A-C: one 80px box in a 50px-wide column flex, with line alignment start, center and end. The box starts at the flex's left edge in all three: centering or end-aligning a line that does not fit would push it out to the left. D: the same box in a 200px flex, where it fits and is centered."; }
+
+    a := FlexboxLayout {
+        x: 20px; y: 50px; width: 50px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: start;
+        a1 := Rectangle { width: 80px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: a.x; y: a.y; width: a.width; height: a.height; border-color: #f0f; border-width: 1px; }
+
+    b := FlexboxLayout {
+        x: 140px; y: 50px; width: 50px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: center;
+        b1 := Rectangle { width: 80px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: b.x; y: b.y; width: b.width; height: b.height; border-color: #f0f; border-width: 1px; }
+
+    c := FlexboxLayout {
+        x: 260px; y: 50px; width: 50px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: end;
+        c1 := Rectangle { width: 80px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: c.x; y: c.y; width: c.width; height: c.height; border-color: #f0f; border-width: 1px; }
+
+    d := FlexboxLayout {
+        x: 20px; y: 160px; width: 200px; height: 70px;
+        flex-direction: column; flex-wrap: wrap; spacing: 0px; padding: 0px;
+        cross-axis-line-alignment: center;
+        d1 := Rectangle { width: 80px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+    Rectangle { x: d.x; y: d.y; width: d.width; height: d.height; border-color: #f0f; border-width: 1px; }
+
+    out property <bool> start-ok: a1.x == 0px;
+    out property <bool> center-ok: b1.x == 0px;
+    out property <bool> end-ok: c1.x == 0px;
+    // Fits, so the line is centered as asked: (200 - 80) / 2.
+    out property <bool> fits-ok: d1.x == 60px;
+
+    out property <bool> test: start-ok && center-ok && end-ok && fits-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_start_ok(), "a line wider than the flex must start at its left edge");
+assert!(instance.get_center_ok(), "centering must not push an oversized line to a negative x");
+assert!(instance.get_end_ok(), "end alignment must not push an oversized line to a negative x");
+assert!(instance.get_fits_ok(), "a line that fits must still be centered");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_start_ok());
+assert(instance.get_center_ok());
+assert(instance.get_end_ok());
+assert(instance.get_fits_ok());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.start_ok);
+assert(instance.center_ok);
+assert(instance.end_ok);
+assert(instance.fits_ok);
+```
+*/

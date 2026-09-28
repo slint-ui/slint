@@ -9,7 +9,7 @@ test("smoke test", async ({ page }) => {
         .getByLabel("Main")
         .getByRole("link", { name: "Reference" })
         .click();
-    await page.getByText("Visual Elements").click();
+    await page.getByText("Elements", { exact: true }).click();
     await page.getByRole("link", { name: "Image" }).click();
     await page.getByRole("link", { name: "colorize", exact: true }).click();
     await page.getByRole("link", { name: "brush" }).click();

@@ -1,14 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Non-exported component declarations are rejected in Slint SC mode.
-// Only one exported component per file is allowed.
+// Non-exported component declarations are allowed and can be instantiated.
+// A file may export more than one component.
 
-component Helper inherits Window { }
-//        >    <error{Component declarations are not supported in Slint SC}
-//>                                  <^<<warning{Component is neither used nor exported}
+component Helper inherits Rectangle {
+    width: 4px;
+    height: 4px;
+    background: #ff0000;
+}
 
-export component First inherits Window { }
+export component First inherits Window {
+    Helper { }
+}
 
 export component Second inherits Window { }
-//               >    <error{Multiple exported components per file are not supported in Slint SC}

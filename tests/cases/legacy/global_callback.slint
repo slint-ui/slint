@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global Glo := {
+    property <int> hello: 42;
+    pure callback sum(int, int) -> int;
+    pure callback mul(int, int) -> int;
+    pure callback calculate_profit() -> int;
+    calculate_profit() => { return 1000; }
+}
+
+ExtraComp := Rectangle {
+    property<int> five: Glo.sum(3, 2);
+    property<int> six: Glo.mul(3, 2);
+}
+
+
+TestCase := Window {
+    pure callback sum <=> Glo.sum;
+    pure callback mul <=> Glo.mul;
+
+    x := ExtraComp {}
+    property<int> five: x.five;
+    property<int> six: x.six;
+
+    property<int> profit: Glo.calculate-profit();
+
+    //mul(α, β) => { return α * β; }
+    property<bool> test: five == 0 && profit == 1000; // because the callback is not set
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.on_sum(|a, b| a + b);
+instance.on_mul(|a, b| a * b);
+assert_eq!(instance.get_five(), 5);
+assert_eq!(instance.get_six(), 6);
+assert_eq!(instance.get_profit(), 1000);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.on_sum([](int a, int b) { return a + b; });
+instance.on_mul([](int a, int b) { return a * b; });
+assert_eq(instance.get_five(), 5);
+assert_eq(instance.get_six(), 6);
+assert_eq(instance.get_profit(), 1000);
+```
+
+```js
+let instance = new slint.TestCase({
+    sum: function(a, b) { return a + b; },
+    mul: function(a, b) { return a * b; }
+});
+assert.equal(instance.five, 5);
+assert.equal(instance.six, 6);
+assert.equal(instance.profit, 1000);
+```
+
+*/

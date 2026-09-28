@@ -30,11 +30,14 @@ Slint is available via NPM, so you can install by running the following command:
 npm install slint-ui
 ```
 
-### Dependencies
+This requires **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer). Pre-built binaries are
+included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
 
-You need to install the following components:
+### Building from Source
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
+On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
+`pnpm install && pnpm build` in `api/node`. You need to install the following components:
+
   * **[pnpm](https://www.pnpm.io/)**
   * **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
@@ -69,9 +72,9 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ## API Overview
 
-### Instantiating a Component
+### Loading `.slint` Files
 
-The following example shows how to instantiate a Slint component from JavaScript.
+The examples in this section use the following component:
 
 **`ui/main.slint`**
 
@@ -89,14 +92,39 @@ export component MainWindow inherits Window {
 ```
 
 Each exported Window component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
+an object which allow to initialize the value of public properties or callbacks. A name declared with a
+dash in `.slint` can be given either as declared (`"my-property"`) or with underscores (`my_property`),
+which is how it is exposed on the instance.
 
-**`main.js`**
+#### `import` the `.slint` File (Recommended)
+
+Import `.slint` files directly.
+Load `slint-ui/register` before your own code:
+
+```sh
+node --import slint-ui/register app.mjs
+deno run --preload npm:slint-ui/register app.ts
+bun --preload slint-ui/register app.ts
+```
 
 ```js
 import * as slint from "slint-ui";
-// In this example, the main.slint file exports a module which
-// has a counter property and a clicked callback
+import { MainWindow } from "./ui/main.slint";
+
+let component = new MainWindow({
+    counter: 42,
+    clicked: function() { console.log("hello"); }
+});
+```
+
+#### `loadFile()`
+
+Alternatively, call `loadFile()` at runtime.
+Use this for dynamic loading or to pass compiler options like `style` or `includePaths`:
+
+```js
+import * as slint from "slint-ui";
+
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,

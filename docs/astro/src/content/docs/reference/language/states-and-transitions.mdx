@@ -1,0 +1,161 @@
+---
+title: States and Transitions
+description: Declaring states and animating state changes.
+SC: true
+---
+
+import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+<SC>
+A `states` block declares a set of named *states* on an element.
+Each state carries a condition and a set of property changes. \{#sls.state.def}
+
+```slint
+export component Example inherits Window {
+    in-out property <int> level;
+    indicator := Rectangle {
+        width: 32px;
+        height: 32px;
+        background: #808080;
+    }
+
+    states [
+        alarm when level > 10: {
+            indicator.background: #a02020;
+            indicator.width: 64px;
+        }
+        warning when level > 5: {
+            indicator.background: #c08000;
+            indicator.width: 48px;
+        }
+    ]
+}
+```
+
+A `states` block is a single statement inside an element's body, written `states [ ... ]`. \{#sls.state.form}
+
+A `states` block may appear on any element, and each element has its own set of states. \{#sls.state.scope}
+
+<NotInSC>
+That includes the root, a child, a sub-component's root, and the element of a [`for`](../repetition-and-conditional-elements/).
+A [global](../globals/) may not contain a `states` block; doing so is a compile error.
+</NotInSC>
+
+An element may hold more than one `states` block, and the entries of all of them make up its set of states. \{#sls.state.blocks}
+
+## States
+
+Each entry consists of a name, a `when` clause holding a boolean expression, `:`, and a brace-delimited body of property changes. \{#sls.state.entry.form}
+
+<NotInSC>
+The `when` clause is optional.
+A state without one is never selected; it only names a state a transition can refer to.
+</NotInSC>
+
+```slint no-test
+name when condition: {
+    element.property: value;
+    // ...
+}
+```
+
+The name is an identifier local to the element, so two elements may each declare a state of the same name. \{#sls.state.name}
+
+The condition may reference any property in scope, including properties of other elements. \{#sls.state.condition}
+
+At most one state is active at a time. \{#sls.state.active}
+
+When the conditions of several states hold, the state listed first in source order is the active one. \{#sls.state.first-wins}
+
+When no condition holds, no state is active, and every property keeps its own binding. \{#sls.state.inactive}
+
+<OnlyInSC>
+Each state shall carry a `when` clause: a state without one can never be active. \{#sls.state.condition-required}
+</OnlyInSC>
+
+## Property Changes
+
+The body of a state is a list of *property changes*.
+Each change consists of a name, `:`, a value, and `;`. \{#sls.state.change.form}
+
+An unqualified name refers to a property of the element that owns the `states` block, so `background` is the same as `root.background`.
+A qualified name addresses a descendant by its element id, as in `indicator.background`. \{#sls.state.change.target}
+
+The name shall resolve to a property. \{#sls.state.change.target-must-exist}
+
+The value is a [binding](../bindings/) of that property. \{#sls.state.change.value}
+
+While a state is active, each property it lists takes the state's value instead of its own binding. \{#sls.state.change.effect}
+
+Setting the property [replaces](../bindings/#sls.binding.set-replaces) the binding a property change gives it.
+The property then keeps the value it was set to, whichever state is active. \{#sls.state.change.set}
+
+<NotInSC>
+A property initialized with a [two-way binding](../two-way-bindings/) cannot be changed in a state; doing so is an error.
+</NotInSC>
+
+<OnlyInSC>
+A state shall only change a property that is part of the subset. \{#sls.state.change.subset}
+
+A state shall carry no transition. \{#sls.state.no-transition}
+</OnlyInSC>
+</SC>
+
+## Transitions
+
+A *transition* binds [animations](../animations/) to the entering or leaving of a state.
+Transitions are declared with `in`, `out`, or `in-out` blocks inside the state they belong to:
+
+```slint
+export component Example inherits Window {
+    in-out property <bool> pressed;
+    in-out property <bool> is-enabled;
+    text := Text { text: "hello"; }
+
+    states [
+        disabled when !root.is-enabled: {
+            background: gray;
+            text.color: white;
+            out {
+                animate * { duration: 800ms; }
+            }
+        }
+        down when pressed: {
+            background: blue;
+            in {
+                animate background { duration: 300ms; }
+            }
+        }
+    ]
+}
+```
+
+The three directions are:
+
+- `in` — animate when entering the state.
+- `out` — animate when leaving the state.
+- `in-out` — animate in both directions. `in_out` is accepted as a spelling of `in-out`.
+
+A direction block sits alongside the property changes in the state body and may be repeated; a state may hold several `in`, `out`, or `in-out` blocks.
+
+### Animations in Transitions
+
+The body of a direction block contains only `animate` clauses; anything else is an error.
+Each `animate` clause names one or more properties, or the catch-all `*`, and carries the same fields as an animation elsewhere (see [Animations](../animations/)):
+
+```slint no-test
+in {
+    animate * { duration: 200ms; }
+    animate background, text.color { duration: 100ms; }
+}
+```
+
+- `animate *` matches every property changed by the state.
+  The catch-all is allowed only inside a transition.
+- The properties named must be among those changed by the state the transition belongs to; naming an unchanged property is an error.
+- A property that already has an [`animate`](../animations/) binding of its own cannot also be driven by a transition; that combination is an error.
+
+The standalone `transitions [ ... ]` block from the legacy syntax is no longer supported.
+Declare transitions with `in`, `out`, and `in-out` directly inside the state.

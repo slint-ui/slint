@@ -20,9 +20,38 @@ struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
-/// Cache key includes blob id, font index, pixel size, glyph id, and a hash of normalized
-/// variation coordinates so that different variable font instances produce distinct cache entries.
-type GlyphCacheKey = (u64, u32, PhysicalLength, core::num::NonZeroU16, u64);
+/// Number of horizontal sub-pixel positions a glyph can be placed at. The
+/// shaper produces sub-pixel accurate pen positions, but glyph bitmaps live on
+/// the integer pixel grid; rendering each glyph at the nearest 1/N pixel bin
+/// (instead of snapping the pen to a whole pixel) keeps inter-glyph spacing
+/// even. 4 bins (quarter-pixel) is enough to remove the visible unevenness at
+/// UI text sizes while keeping the glyph cache small.
+pub(crate) const SUBPIXEL_BIN_COUNT: i32 = 4;
+
+/// Cache key includes blob id, font index, pixel size, glyph id, a hash of normalized
+/// variation coordinates (so different variable font instances produce distinct cache
+/// entries), the horizontal sub-pixel bin, and the faux-italic synthesis applied at render
+/// time. Without `skew_bits`, an upright and a synthetically-italicized glyph from the same
+/// font, size, and id would collide on the same cache entry and one of the two runs would
+/// silently render with the other's bitmap.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+struct GlyphCacheKey {
+    /// Font blob id.
+    font_blob_id: u64,
+    /// Font index within the blob.
+    font_index: u32,
+    /// Rendered pixel size.
+    pixel_size: PhysicalLength,
+    /// Glyph id.
+    glyph_id: core::num::NonZeroU16,
+    /// Hash of the normalized variation coordinates.
+    coords_hash: u64,
+    /// Horizontal sub-pixel bin.
+    subpixel_bin: u8,
+    /// Faux-italic skew angle in degrees, bit-cast for `Eq`/`Hash`; `None` when the font has
+    /// (or doesn't need) a real italic/oblique face.
+    skew_bits: Option<u32>,
+}
 
 struct RenderableGlyphWeightScale;
 
@@ -63,6 +92,10 @@ pub struct VectorFont {
     normalized_coords: Vec<i16>,
     /// Hash of normalized_coords for use in the glyph cache key.
     coords_hash: u64,
+    /// Faux-italic/faux-bold hints from fontique, applied at render time via
+    /// [`with_synthesis`](Self::with_synthesis). Left at the default (no-op) for instances used
+    /// only for shaping and metrics, where synthesis is irrelevant.
+    synthesis: fontique::Synthesis,
 }
 
 fn hash_coords(coords: &[i16]) -> u64 {
@@ -146,23 +179,45 @@ impl VectorFont {
             cap_height: (cap_height.cast() * scale).cast(),
             normalized_coords: normalized_coords.to_vec(),
             coords_hash,
+            synthesis: fontique::Synthesis::default(),
         }
+    }
+
+    /// Attaches fontique's synthesis suggestions (currently only faux-italic skew is applied,
+    /// see [`render_vector_glyph`](Self::render_vector_glyph)) to use when rasterizing glyphs.
+    /// Only meaningful for a font instance used to render (as opposed to shape) text, since
+    /// synthesis changes the glyph outline, not its advance width.
+    pub fn with_synthesis(mut self, synthesis: fontique::Synthesis) -> Self {
+        self.synthesis = synthesis;
+        self
     }
 
     pub fn render_vector_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
+        subpixel_bin: u8,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
-            let cache_key =
-                (self.font_blob.id(), self.font_index, self.pixel_size, glyph_id, self.coords_hash);
+            let skew_degrees = self.synthesis.skew();
+
+            let cache_key = GlyphCacheKey {
+                font_blob_id: self.font_blob.id(),
+                font_index: self.font_index,
+                pixel_size: self.pixel_size,
+                glyph_id,
+                coords_hash: self.coords_hash,
+                subpixel_bin,
+                skew_bits: skew_degrees.map(f32::to_bits),
+            };
 
             if let Some(entry) = cache.get(&cache_key) {
                 return Some(entry.clone());
             }
+
+            let subpixel_offset_x = subpixel_bin as f32 / SUBPIXEL_BIN_COUNT as f32;
 
             let glyph = {
                 let font_ref = self.swash_font_ref();
@@ -172,8 +227,23 @@ impl VectorFont {
                     .size(self.pixel_size.get() as f32)
                     .normalized_coords(&self.normalized_coords)
                     .build();
+                // Faux italic, for fonts fontique picked as the closest match to an `italic`
+                // request but that carry neither a true italic face nor an `ital`/`slnt`
+                // variation axis (common for CJK fonts, see issue #10178). This transform runs
+                // in the outline's own font-design space (Y-up: ascenders have larger Y), not
+                // device pixels, so the sign that leans glyphs forward here is the opposite of
+                // the device-space renderers -- verified by rendering both ways and comparing
+                // which one actually leans right, not derived from a convention doc alone.
+                let transform = skew_degrees.map(|degrees| {
+                    swash::zeno::Transform::skew(
+                        swash::zeno::Angle::from_degrees(degrees),
+                        swash::zeno::Angle::ZERO,
+                    )
+                });
                 let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
                     .format(swash::zeno::Format::Alpha)
+                    .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
+                    .transform(transform)
                     .render(&mut scaler, glyph_id.get())?;
 
                 let placement = image.placement;
@@ -241,10 +311,6 @@ impl TextShaper for VectorFont {
             ..Default::default()
         })
     }
-
-    fn max_lines(&self, max_height: PhysicalLength) -> usize {
-        (max_height / self.height).get() as _
-    }
 }
 
 impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for VectorFont {
@@ -275,7 +341,7 @@ impl super::GlyphRenderer for VectorFont {
         glyph_id: core::num::NonZeroU16,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
-        self.render_vector_glyph(glyph_id, slint_context).map(|glyph| super::RenderableGlyph {
+        self.render_vector_glyph(glyph_id, 0, slint_context).map(|glyph| super::RenderableGlyph {
             x: glyph.x,
             y: glyph.y,
             width: glyph.width,

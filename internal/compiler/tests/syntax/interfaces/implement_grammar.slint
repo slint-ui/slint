@@ -1,0 +1,21 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Parser-level syntax errors for the `implement` statement.
+
+interface Base {
+    out property <bool> test;
+}
+
+// `implement` requires `<=>` and a target.
+export component NoArrow {
+    implement Base;
+//                ^error{Syntax error: expected '<=>'}
+//                ^^error{Syntax error: expected Identifier}
+}
+
+// `implement` requires a target identifier after `<=>`.
+export component NoTarget {
+    implement Base <=> ;
+//                     ^error{Syntax error: expected Identifier}
+}

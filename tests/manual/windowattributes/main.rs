@@ -3,7 +3,7 @@
 
 slint::slint! {
 
-import { VerticalBox, CheckBox, LineEdit, Spinner } from "std-widgets.slint";
+import { VerticalBox, CheckBox, LineEdit, Spinner, Palette } from "std-widgets.slint";
 
 export component MainWindow inherits Window {
     callback toggle-visibility(bool);
@@ -44,6 +44,19 @@ export component TestWindow inherits Window {
         }
         Spinner {
             indeterminate: true;
+        }
+        Text {
+            text: "Or use these:";
+        }
+        CheckBox {
+            text: "transparent";
+            checked: false;
+            toggled => { root.background = self.checked ? #ff000080 : Palette.background; }
+        }
+        CheckBox {
+            text: "no-frame";
+            checked: false;
+            toggled => { root.no-frame = self.checked; }
         }
     }
 }

@@ -720,10 +720,13 @@ where
             return;
         }
 
-        // Adjust the existing sorted row indices to match the updated source model
-        for row in self.mapping.borrow_mut().iter_mut() {
-            if *row >= index {
-                *row += count;
+        // Adjust the existing sorted row indices to match the updated source model.
+        // (Skipped for an append: every existing index is below `index` then.)
+        if index + count < self.wrapped_model.row_count() {
+            for row in self.mapping.borrow_mut().iter_mut() {
+                if *row >= index {
+                    *row += count;
+                }
             }
         }
 
@@ -754,28 +757,22 @@ where
         }
 
         let mut removed_rows = Vec::new();
+        let mut mapping = self.mapping.borrow_mut();
 
-        let mut i = 0;
-
-        loop {
-            if i >= self.mapping.borrow().len() {
-                break;
+        // `write` is the position the removed row would have had with one-at-a-time
+        // removal, so the emitted notifications are unchanged.
+        let mut write = 0;
+        for read in 0..mapping.len() {
+            let sort_index = mapping[read];
+            if (index..index + count).contains(&sort_index) {
+                removed_rows.push(write);
+                continue;
             }
-
-            let sort_index = self.mapping.borrow()[i];
-
-            if sort_index >= index {
-                if sort_index < index + count {
-                    removed_rows.push(i);
-                    self.mapping.borrow_mut().remove(i);
-                    continue;
-                } else {
-                    self.mapping.borrow_mut()[i] -= count;
-                }
-            }
-
-            i += 1;
+            mapping[write] = if sort_index >= index { sort_index - count } else { sort_index };
+            write += 1;
         }
+        mapping.truncate(write);
+        drop(mapping);
 
         for removed_row in removed_rows {
             self.notify.row_removed(removed_row, 1);
@@ -985,6 +982,7 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
+        self.0.build_mapping_vec();
         let wrapped_row = self.0.mapping.borrow()[row];
         self.0.wrapped_model.set_row_data(wrapped_row, data);
     }
@@ -1140,6 +1138,35 @@ mod sort_tests {
         assert!(Rc::ptr_eq(model.source_model(), &wrapped_rc));
         model.reset();
         assert_eq!(*observer.reset.borrow(), 1);
+    }
+
+    #[test]
+    fn test_sorted_model_set_row_data_before_row_data() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 1, 2]));
+        let model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        model.set_row_data(0, 10);
+
+        assert_eq!(wrapped_rc.row_data(1), Some(10));
+    }
+
+    #[test]
+    fn test_sorted_model_set_row_data_after_reset() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![1, 2, 3]));
+        let descending = Rc::new(Cell::new(false));
+        let model = SortModel::new(wrapped_rc.clone(), {
+            let descending = descending.clone();
+            move |lhs: &i32, rhs: &i32| {
+                if descending.get() { rhs.cmp(lhs) } else { lhs.cmp(rhs) }
+            }
+        });
+        assert_eq!(model.row_data(0), Some(1));
+
+        descending.set(true);
+        model.reset();
+        model.set_row_data(0, 30);
+
+        assert_eq!(wrapped_rc.iter().collect::<Vec<_>>(), vec![1, 2, 30]);
     }
 
     #[test]
@@ -1557,4 +1584,37 @@ fn test_long_chain_integrity() {
     origin_model.insert(45, 3006);
     origin_model.insert(45, 3007);
     check_all();
+}
+
+#[test]
+fn test_sorted_model_row_added_adjustment() {
+    use tests_helper::*;
+
+    // Insertions before the end still shift the mapping entries above them.
+    for insert_at in [0usize, 3, 7, 10] {
+        let origin = Rc::new(VecModel::from(alloc::vec![50, 10, 40, 20, 30, 90, 60, 80, 70, 0]));
+        let sorted = Rc::new(SortModel::new(origin.clone(), |lhs, rhs| lhs.cmp(rhs)));
+        let checker = ModelChecker::new(sorted.clone());
+        origin.insert(insert_at, 35);
+        origin.insert(insert_at, 45);
+        checker.check();
+        assert_eq!(
+            (0..sorted.row_count()).filter_map(|row| sorted.row_data(row)).collect::<Vec<_>>(),
+            alloc::vec![0, 10, 20, 30, 35, 40, 45, 50, 60, 70, 80, 90],
+            "inserting at {insert_at}"
+        );
+    }
+
+    // Appends take the path that skips the adjustment.
+    let origin = Rc::new(VecModel::from(alloc::vec![50, 10, 40, 20, 30]));
+    let sorted = Rc::new(SortModel::new(origin.clone(), |lhs, rhs| lhs.cmp(rhs)));
+    let checker = ModelChecker::new(sorted.clone());
+    origin.push(35);
+    origin.push(5);
+    origin.push(100);
+    checker.check();
+    assert_eq!(
+        (0..sorted.row_count()).filter_map(|row| sorted.row_data(row)).collect::<Vec<_>>(),
+        alloc::vec![5, 10, 20, 30, 35, 40, 50, 100]
+    );
 }

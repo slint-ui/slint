@@ -10,7 +10,7 @@ component SubElem inherits Rectangle {
     }
 }
 
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     callback change();
     change => sub.change();
     in-out property <int> toplevel: sub.value + 1;

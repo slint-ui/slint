@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for https://github.com/slint-ui/slint/issues/12985
+
+// Skia text isn't pixel-stable across platforms
+//ignore:skia
+
+TestCase := Window {
+    width: 64px;
+    height: 64px;
+    // A single line long enough to run past the i16 coordinate range, built by concatenation
+    // to keep the source short.
+    property <string> x50: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    property <string> x500: x50 + x50 + x50 + x50 + x50 + x50 + x50 + x50 + x50 + x50;
+    property <string> line: x500 + x500 + x500 + x500 + x500 + x500;
+    TextInput {
+        text: root.line;
+        font-size: 30px;
+        single-line: true;
+        wrap: no-wrap;
+    }
+}

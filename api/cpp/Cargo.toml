@@ -34,21 +34,41 @@ backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
+# The LinuxKMS backend's capabilities are selected individually. `-libseat` and
+# `-libinput` each enable the backend and compose, so this is not a prerequisite.
 backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
-backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+backend-linuxkms-libseat = ["i-slint-backend-selector/backend-linuxkms-libseat", "std"]
+backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg"]
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu"]
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
+renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software"]
+renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-backend-selector?/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+]
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-backend-selector?/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+]
 accessibility = ["i-slint-backend-selector/accessibility"]
+# Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
+system-tray = ["i-slint-core/system-tray"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["std", "i-slint-backend-selector/mcp"]
 
 std = [
   "i-slint-core/default",
+  "i-slint-core/image-decoders",
+  "i-slint-core/svg",
   "i-slint-core/image-default-formats",
   "i-slint-backend-selector",
   "i-slint-backend-selector/backend-android-activity",
@@ -60,7 +80,7 @@ std = [
 freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded", "i-slint-renderer-software?/libm"]
 experimental = ["i-slint-renderer-software?/experimental"]
 
-default = ["std", "backend-winit", "renderer-femtovg"]
+default = ["std", "backend-winit", "renderer-femtovg", "system-tray"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true, optional = true }
@@ -72,12 +92,16 @@ slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], option
 i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
 
-esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], optional = true }
-esp-println = { version = "0.15.0", default-features = false, features = ["auto", "log-04"], optional = true }
+esp-backtrace = { version = "0.20.0", features = ["panic-handler", "println"], optional = true }
+esp-println = { version = "0.18.0", default-features = false, features = ["auto", "log-04"], optional = true }
 unicode-segmentation = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
+
+[target.'cfg(target_os = "emscripten")'.dependencies]
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-renderer-femtovg = { workspace = true, features = ["default", "opengl"], optional = true }
 
 [build-dependencies]
 anyhow = "1.0"

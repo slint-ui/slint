@@ -1,0 +1,31 @@
+================================================================================
+changed_callback_and_changed_event
+================================================================================
+
+component Test {
+    changed => {
+    }
+    changed(test) => {
+    }
+    changed value => {
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (callback_event
+        (simple_identifier)
+        (imperative_block))
+      (callback_event
+        (simple_identifier)
+        (arguments
+          (argument
+            (expression
+              (simple_identifier))))
+        (imperative_block))
+      (changed_event
+        (simple_identifier)
+        (imperative_block)))))

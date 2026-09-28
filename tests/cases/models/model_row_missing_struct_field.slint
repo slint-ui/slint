@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Model rows provided by native code may lack struct fields.
+// Reading a missing field yields the field's default instead of panicking.
+
+struct Row {
+    name: string,
+    on: bool = true,
+}
+
+export component TestCase {
+    in property <[Row]> rows: [{ name: "a", on: false }];
+    ta := TouchArea {
+        enabled: rows[0].on;
+    }
+
+    txt := Text {
+        text: rows[0].name;
+    }
+
+    out property <bool> ta-enabled: ta.enabled;
+    out property <string> text: txt.text;
+    out property <bool> test: !ta.enabled && txt.text == "a";
+}
+
+/*
+```python
+instance = TestCase()
+assert instance.test
+
+# A dict converts to a struct that lacks the omitted fields.
+# An exported `Row` wouldn't: it initializes all of its fields.
+instance.rows = slint.ListModel[typing.Any]([{"name": "b"}])
+assert instance.ta_enabled
+assert instance.text == "b"
+
+instance.rows = slint.ListModel[typing.Any]([{}])
+assert instance.ta_enabled
+assert instance.text == ""
+```
+*/

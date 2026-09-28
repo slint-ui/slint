@@ -1,0 +1,148 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Showing and closing a popup from a different component than the one that declares it (#12602):
+// `open-it` is inlined into the conditional element,
+// `close-it` into the popup's own item tree,
+// and the child component's functions into the parent.
+// The popup and its id must still be resolved in the declaring component.
+// `Inner` is used twice so it stays a real sub-component;
+// only i1's popup must open.
+
+component Inner {
+    out property <bool> open: p.is-open;
+
+    p := PopupWindow {
+        x: 0;
+        y: 0;
+        width: 40px;
+        height: 40px;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        Rectangle { }
+    }
+
+    public function open-it() {
+        p.show();
+    }
+
+    public function close-it() {
+        p.close();
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    out property <bool> popup-open: p.is-open;
+
+    p := PopupWindow {
+        x: 0;
+        y: 0;
+        width: 50px;
+        height: 100px;
+        close-policy: PopupClosePolicy.no-auto-close;
+
+        TouchArea {
+            clicked => {
+                root.close-it();
+            }
+        }
+    }
+
+    function open-it() {
+        p.show();
+    }
+
+    function close-it() {
+        p.close();
+    }
+
+    i1 := Inner { }
+    i2 := Inner { }
+
+    out property <bool> open1: i1.open;
+    out property <bool> open2: i2.open;
+
+    public function open-first-inner() {
+        i1.open-it();
+    }
+
+    public function close-first-inner() {
+        i1.close-it();
+    }
+
+    if true: TouchArea {
+        x: 50px;
+        width: 50px;
+        height: 100px;
+        clicked => {
+            root.open-it();
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_popup_open());
+// The conditional touch area opens the popup through the inlined function.
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert!(instance.get_popup_open());
+// The touch area inside the popup closes it.
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert!(!instance.get_popup_open());
+// And it can be opened again.
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert!(instance.get_popup_open());
+// The child component's functions inlined into the parent open and close its popup.
+assert!(!instance.get_open1());
+assert!(!instance.get_open2());
+instance.invoke_open_first_inner();
+assert!(instance.get_open1());
+assert!(!instance.get_open2());
+instance.invoke_close_first_inner();
+assert!(!instance.get_open1());
+assert!(!instance.get_open2());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert(instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 25., 50.);
+assert(!instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 75., 50.);
+assert(instance.get_popup_open());
+assert(!instance.get_open1());
+assert(!instance.get_open2());
+instance.invoke_open_first_inner();
+assert(instance.get_open1());
+assert(!instance.get_open2());
+instance.invoke_close_first_inner();
+assert(!instance.get_open1());
+assert(!instance.get_open2());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.popup_open, false);
+slintlib.private_api.send_mouse_click(instance, 75., 50.);
+assert.equal(instance.popup_open, true);
+slintlib.private_api.send_mouse_click(instance, 25., 50.);
+assert.equal(instance.popup_open, false);
+slintlib.private_api.send_mouse_click(instance, 75., 50.);
+assert.equal(instance.popup_open, true);
+assert.equal(instance.open1, false);
+assert.equal(instance.open2, false);
+instance.open_first_inner();
+assert.equal(instance.open1, true);
+assert.equal(instance.open2, false);
+instance.close_first_inner();
+assert.equal(instance.open1, false);
+assert.equal(instance.open2, false);
+```
+*/

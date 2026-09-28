@@ -23,12 +23,12 @@ component CitySlideArea inherits Rectangle {
     callback content-clicked;
 
     public function open() {
-        flickable.viewport-x = -buttons-layout.width;
+        flickable.content-x = -buttons-layout.width;
         root.opened();
     }
 
     public function close() {
-        flickable.viewport-x = 0;
+        flickable.content-x = 0;
         root.closed();
     }
 
@@ -37,12 +37,12 @@ component CitySlideArea inherits Rectangle {
     flickable := Flickable {
         width: 100%;
 
-        viewport-width: slide-layout.preferred-width;
-        viewport-x: 0;
+        content-width: slide-layout.preferred-width;
+        content-x: 0;
 
-        property<length> last-viewport-x: 0px;
+        property<length> last-content-x: 0px;
         flicked => {
-            if (self.last-viewport-x > self.viewport-x) {
+            if (self.last-content-x > self.content-x) {
                 root.open();
             }
             else {
@@ -61,7 +61,7 @@ component CitySlideArea inherits Rectangle {
                 TouchArea {
                     pointer-event(event) => {
                         if (event.kind == PointerEventKind.down) {
-                            flickable.last-viewport-x = flickable.viewport-x;
+                            flickable.last-content-x = flickable.content-x;
                         }
                     }
 

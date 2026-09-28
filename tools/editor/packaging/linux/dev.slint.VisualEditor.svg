@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The Linux application icon: the square tile backdrop the Windows package
+    also uses, with the Slint logo on top at two thirds of the height like on
+    the other platforms. Both parts are referenced rather than copied; the
+    package build puts them next to this file, because librsvg only resolves
+    references within the document's own directory.
+  -->
+  <image href="tile-backdrop.svg" width="512" height="512"/>
+
+  <!-- The logo's 64-unit viewBox scaled to 7.2x -->
+  <image href="slint-logo-small-dark.svg" x="25.6" y="25.6" width="460.8" height="460.8"/>
+</svg>

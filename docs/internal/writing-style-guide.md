@@ -1,0 +1,155 @@
+# Writing Style Guide
+
+This guide applies to everything we write:
+
+- code comments and documentation comments (internal and public API)
+- repository documentation and the documentation website
+- blog posts and posts on social media
+- compiler diagnostics
+- commit messages
+
+Every piece of text follows the Universal Principles, plus the section that matches what it is:
+
+- Code comments and doc comments: [Code Comments](#code-comments).
+- Compiler diagnostics: [Diagnostics](#diagnostics).
+- Markdown in the repository, documentation pages, blog posts, and social media:
+  [Documentation, Blog, and Social](#documentation-blog-and-social).
+- Commit messages: the Universal Principles only.
+
+Apply the guide to text you add or change.
+Don't reformat existing text just to match it.
+
+## Universal Principles
+
+Whatever you write, aim to be:
+
+- **Concise** — people skim, so cut words that don't earn their place.
+- **Clear** — simple terms and short sentences reach the widest audience.
+- **Direct** — give the instruction or fact straight, without hedging.
+
+Concretely:
+
+1. Offer direct advice.
+   - Avoid: "Please install XYZ ..."
+   - Use: "Install XYZ"
+   - Rationale: The reader is here for instructions, there's no need to beat around the bush.
+2. Write actionable.
+   - Avoid: "Element XYZ makes it possible to set the background color."
+   - Use: "Use element XYZ to set the background color."
+   - Rationale: Shorter, straight to the point.
+3. Don't shout.
+   - Avoid: "Try out XYZ!"
+   - Use: "Try out XYZ."
+   - Rationale: Use exclamation points sparingly and save them for when they really count; we already have the reader's attention.
+4. In Markdown and doc comments, put each sentence on its own line, or break after a comma when a line gets long.
+   - Rationale: Just like a newline after `;` in code, this keeps diffs readable and avoids reflowing a whole paragraph for one edit.
+     It also makes an overlong sentence obvious: one that fills three lines on its own needs splitting, not rewrapping.
+5. Use American English spelling.
+   - Rationale: Slint's API uses American spelling (such as `color`), so the rest of our writing matches.
+6. Keep sentences under about 25 words.
+   - Avoid: reaching for a third clause, a dash, or a parenthetical aside.
+   - Use: a split at the first "and" or ";".
+   - Rationale: A sentence the reader has to take twice costs more than the two sentences it replaces.
+
+## Code Comments
+
+For comments in source code — both internal implementation notes and public API documentation comments:
+
+1. Where a comment earns its place (see rule 6), describe what the code *is*, in the present tense.
+   - Rationale: The comment should make sense to whoever reads the code next; what changed belongs in the commit message, not the source.
+2. A public item's documentation is its contract, and the one exception to rule 6.
+   - It says what the item does and when to use it, not how it works inside.
+   - It may restate the signature,
+     because it's published apart from the code and callers read it instead of the body.
+   - "Public" means an item that appears in published API documentation, not merely one marked `pub`.
+     Everything else falls under rule 6, where a name and signature are the documentation.
+   - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
+3. Explain a thing once, then cross-reference it.
+   - Avoid: repeating the same rationale on the trait, on each implementation, and again at the call site.
+   - Use: the full explanation where the thing is defined, and "see `foo`" everywhere else.
+   - Rationale: One copy can't drift out of sync with the other three, and a reader who already knows the rationale skips a reference faster than a paragraph.
+4. Never write what the code used to be, or what a review said about it.
+   - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
+   - Use: a bare issue reference such as `#6739` when the background is worth chasing.
+   - Exception: a regression test may state the old, wrong behavior, since pinning it is why the test exists.
+   - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
+5. A comment shouldn't be longer than the item it describes, and rarely needs more than fifteen lines.
+   - Use: a page under `docs/development/` for anything longer, linked from the comment.
+   - Rationale: A comment that outgrows the code it describes stops being read.
+6. A comment must carry information that isn't in this repository.
+   - Avoid: restating a name, a signature, or the lines below it;
+     justifying why the code does what it plainly does.
+   - Use: an external constraint the code can't show, such as an editor's behavior,
+     a specification, or a platform quirk.
+     A bare issue reference such as `#6739` also qualifies.
+   - Test: if a reader could learn it by reading the code, delete the comment.
+   - Rationale: Anything the code already says will drift out of sync with it,
+     and costs a read either way.
+7. Apply rule 6 to the whole comment, before judging its wording.
+   - Avoid: trimming a redundant sentence and keeping the rest.
+   - Look past the lines under the comment.
+     The code that consumes a type usually answers a comment on the type.
+     A check, and the tests that pin it, usually answer a comment on the check.
+   - "It explains the why", "it states the design intent", and "it records an invariant" aren't exemptions.
+     Rule 2 is the only one.
+   - Use: a code-level fix over a reworded comment,
+     such as a shared constant, a clearer name, or a cross-reference.
+   - Rationale: A comment can be true and sound useful, yet still repeat what the code says.
+
+## Diagnostics
+
+For diagnostics emitted by the Slint compiler:
+
+1. The diagnostic should span the smallest piece of code responsible for the issue.
+   - When several places combine to cause an issue, use `note` diagnostics to highlight the related code.
+   - Rationale: The primary span draws attention to the code that likely needs to change.
+2. Diagnostics must be helpful and actionable: say what needs to change, not just that something is wrong.
+   - Rationale: The span already tells us where and what the current code is. The message should help the reader to understand how to change their code to resolve the issue.
+3. Suggest solutions.
+   - Rationale: Many errors/warnings have common solutions. Suggest common solutions when possible, even if they are not always correct.
+4. Use single quotes (`'`) around Slint syntax.
+   - Rationale: It should be easy to distinguish between code and prose, e.g. "an 'in' property" vs "an in property".
+5. Use the `Display` implementation for Rust types, if they exists.
+   - Rationale: The displayed text is generated from one location, keeping it consistent and allowing it to be updated easily.
+6. Diagnostic messages do not end in a period (`.`).
+
+## Documentation, Blog, and Social
+
+For the documentation website, blog posts, and social media we also aim to sound like a small, human company rather than a corporation:
+
+1. Use contractions.
+   - Avoid: "We are proud to announce ..."
+   - Use: "We're proud to announce ..."
+   - Rationale: Makes for a conversational, human tone.
+2. Use Title Case for headings.
+3. Use active voice for things *we* did.
+   - Avoid: "The foo widget got revamped."
+   - Use: "We revamped the foo widget."
+   - Rationale: We're announcing the result of our work, not watching it from the audience.
+4. Write from the user's perspective — emphasize the outcome they gain, not the product change.
+   - Avoid: "Slint adds feature X."
+   - Use: "Achieve Y with the new X feature in Slint."
+   - Rationale: Users care how a feature helps them reach a goal, not just that it exists.
+
+### Docs
+
+- Make sure links resolve — don't point at blank or moved pages.
+
+### Tab Order
+
+In the documentation website, order the items of a `<Tabs>` block consistently.
+
+For `syncKey="dev-language"`:
+
+- Rust
+- C++
+- NodeJS
+- Python
+
+For `syncKey="dev-platform"`:
+
+- Windows
+- macOS
+- Linux
+- Android
+- iOS

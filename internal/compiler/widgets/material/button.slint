@@ -49,6 +49,7 @@ component MaterialButtonBase {
             min-height: root.icon-size;
             opacity: root.text-opacity;
             colorize: root.colorize-icon ? root.text-color : transparent;
+            accessible-role: none;
         }
 
         if root.text != "": Text {
@@ -93,7 +94,9 @@ export component Button {
     accessible-checked: root.checked;
     accessible-label: root.text;
     accessible-action-default => {
-        base.clicked();
+        if (root.enabled) {
+            base.clicked();
+        }
     }
 
     states [
@@ -153,7 +156,9 @@ export component TextButton {
     accessible-role: button;
     accessible-label: root.text;
     accessible-action-default => {
-        clicked();
+        if (root.enabled) {
+            clicked();
+        }
     }
 
     base := MaterialButtonBase {
@@ -182,7 +187,9 @@ export component IconButton {
 
     accessible-role: button;
     accessible-action-default => {
-        clicked();
+        if (root.enabled) {
+            clicked();
+        }
     }
 
     base := MaterialButtonBase {

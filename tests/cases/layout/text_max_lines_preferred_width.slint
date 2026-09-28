@@ -1,0 +1,50 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cspell:ignore longestword nlongestword
+
+// `max-lines` drops the lines that are not drawn, so neither the preferred width nor the
+// min width of a word-wrapping Text may account for a word on a dropped line.
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 200px;
+
+    VerticalLayout {
+        // `alignment: start` gives each Text its preferred width.
+        HorizontalLayout {
+            alignment: start;
+            reference := Text {
+                text: "short";
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            limited := Text {
+                text: "short\nlongestword";
+                wrap: word-wrap;
+                max-lines: 1;
+            }
+        }
+    }
+
+    // Only "short" is drawn, so "longestword" must not widen the item.
+    out property <bool> test: limited.width == reference.width;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, Button, ListView } from "std-widgets.slint";
+
+// One row of the attribution listing. The listing mixes two kinds of rows in a
+// single model so the whole page is one virtualized ListView: crate rows
+// (title + author + license, empty body) followed by one section per
+// license text (title + body).
+export struct AttributionItem {
+    // Crate rows: "name version"; license sections: the license's full name.
+    title: string,
+    // Crate rows only: the author / copyright holder(s).
+    author: string,
+    // Crate rows only: the SPDX license expression.
+    license: string,
+    // License sections only: the canonical license text.
+    body: string,
+}
+
+// Full-window overlay listing the third-party crates and their license texts.
+export component LicensesPage inherits Rectangle {
+    in property <[AttributionItem]> items;
+    in property <length> safe-area-top;
+    in property <length> safe-area-bottom;
+    in property <length> safe-area-left;
+    in property <length> safe-area-right;
+
+    callback close();
+
+    background: Palette.background;
+
+    VerticalLayout {
+        // Keep the content clear of the notch in landscape: the larger of the
+        // side safe-area inset and the design's 24px margin.
+        padding-left: max(root.safe-area-left, 24px);
+        padding-right: max(root.safe-area-right, 24px);
+        padding-top: root.safe-area-top + 8px;
+        padding-bottom: root.safe-area-bottom;
+        spacing: 8px;
+
+        HorizontalLayout {
+            spacing: 8px;
+            cross-axis-alignment: center;
+
+            Text {
+                text: @tr("Licenses of the third-party software used by this application");
+                font-size: 1.41rem;
+                wrap: word-wrap;
+                horizontal-stretch: 1;
+            }
+
+            Button {
+                text: @tr("Close");
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+
+        ListView {
+            vertical-stretch: 1;
+            mouse-drag-pan-enabled: true;
+
+            for item in root.items: VerticalLayout {
+                padding-top: 6px;
+                padding-bottom: 6px;
+                spacing: 2px;
+
+                Text {
+                    text: item.title;
+                    font-weight: 600;
+                    wrap: word-wrap;
+                }
+
+                if item.author != "": Text {
+                    text: item.author;
+                    font-size: 0.82rem;
+                    opacity: 0.8;
+                    wrap: word-wrap;
+                }
+
+                if item.license != "": Text {
+                    text: item.license;
+                    font-size: 0.82rem;
+                    opacity: 0.6;
+                    wrap: word-wrap;
+                }
+
+                if item.body != "": Text {
+                    text: item.body;
+                    font-size: 0.71rem;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

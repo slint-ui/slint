@@ -39,6 +39,15 @@ pub fn check_public_api(
             // Warn about exported non-window (and remove them from the export unless it's the last for compatibility)
             if let Either::Left(c) = &export.1
                 && !c.is_global() && !super::windows::inherits_window(c) {
+                    #[cfg(feature = "slint-sc")]
+                    if diag.slint_sc {
+                        diag.slint_sc_error(
+                            "Exporting a component that doesn't inherit Window is",
+                            &export.0.name_ident,
+                        );
+                        // The error aborts compilation, no need to prune the export
+                        return true;
+                    }
                     let is_last = last.as_ref().is_some_and(|last| !Rc::ptr_eq(last, c));
 
                     if cfg!(feature = "experimental-library-module") && config.library_name.is_some() {
@@ -64,11 +73,17 @@ pub fn check_public_api(
                 true
             }
         }),
-        // Only keep the component with the given name
+        // Only keep the component with the given name, which may be one it is exported under
         ComponentSelection::Named(name) => {
+            let selected = doc.exports.iter().find_map(|(export_name, item)| match item {
+                Either::Left(c) if !c.is_global() && (c.id == *name || export_name.name == *name) => {
+                    Some(c.clone())
+                }
+                _ => None,
+            });
             doc.exports.retain(|export| {
                 if let Either::Left(c) = &export.1 {
-                    c.is_global() || c.id == name
+                    c.is_global() || selected.as_ref().is_some_and(|s| Rc::ptr_eq(s, c))
                 } else {
                     true
                 }
@@ -107,7 +122,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
             if d.visibility == PropertyVisibility::Private {
-                root_component.private_properties.borrow_mut().push((n.clone(), d.property_type.clone()));
+                root_component.private_properties.borrow_mut().push((d.declared_name(n).clone(), d.property_type.clone()));
             } else {
                 d.expose_in_public_api = true;
                 if d.visibility != PropertyVisibility::Output {
@@ -122,4 +137,25 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
             );
         }
     });
+}
+
+#[test]
+fn component_selected_by_either_of_its_names() {
+    fn selected(name: &str) -> Option<smol_str::SmolStr> {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.components_to_generate = ComponentSelection::Named(name.into());
+        let mut diags = BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            "component Foo inherits Window { } export { Foo as Bob }".into(),
+            Some(std::path::Path::new("test.slint")),
+            &mut diags,
+        );
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
+        doc.last_exported_component().map(|c| c.id.clone())
+    }
+
+    assert_eq!(selected("Foo").as_deref(), Some("Foo"));
+    assert_eq!(selected("Bob").as_deref(), Some("Foo"));
 }

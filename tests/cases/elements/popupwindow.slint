@@ -7,11 +7,11 @@ component Window {}
 
 component InheritsPopup inherits PopupWindow {}
 
-Combo := Rectangle {
-    property <color> inner_color;
+component Combo inherits Rectangle {
+    in-out property <color> inner_color;
     my_popup := PopupWindow {
         Rectangle {
-            background: root.inner_color;
+            background: inner_color;
             insidelayout := VerticalLayout {
                 spacing: 3px;
                 for aa in [1, 2]: Text { text: aa; }
@@ -23,11 +23,11 @@ Combo := Rectangle {
     }
 }
 
-TestCase := Rectangle {
+export component TestCase inherits Rectangle {
     for x in [1, 2] :  Combo { }
 }
 
-ComplexTestCase := Rectangle {
+component ComplexTestCase inherits Rectangle {
     TestCase {
         cob := Combo {
             PopupWindow {
@@ -40,7 +40,7 @@ ComplexTestCase := Rectangle {
     TestCase {  }
 }
 
-TypeConversionTestCase := Rectangle {
+component TypeConversionTestCase inherits Rectangle {
     height: 400px;
     popup := PopupWindow {
         y: root.height / 2;

@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle } from "../style.slint";
+import { Api, EditorSurfaceMode } from "../api.slint";
+import { Preview } from "../preview.slint";
+
+import { Project } from "../project.slint";
+
+component RunButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.primary-button;
+    in property <bool> enabled;
+    in property <bool> running;
+    callback clicked;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : touch.pressed ? root.style.appearance.pressed
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
+
+    width: bt.width + 2 * root.style.padding-inline;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-color: root.paint.border;
+    opacity: enabled ? 1 : root.style.disabled-opacity;
+
+    bt := Text {
+        text: root.running ? "Running" : "Run";
+        color: root.paint.foreground;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        accessible-role: button;
+        accessible-label: root.running ? "Running" : "Run";
+        clicked => { root.clicked(); }
+    }
+}
+
+export component EditorTopBar inherits Rectangle {
+    height: Style.shell.top-bar-height;
+    background: Colors.surface;
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: Metrics.border-width;
+        background: Colors.border;
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        cross-axis-alignment: center;
+
+        Text {
+            text: Project.selected-project-file;
+            color: Colors.muted;
+            font-size: Typography.body.size;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    RunButton {
+        x: parent.width - self.width - Metrics.space-large;
+        y: (parent.height - self.height) / 2;
+        enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
+        running: Preview.is-running;
+        clicked => { Preview.run(); }
+    }
+}

@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When the member that fails to satisfy an interface is a shadowing declaration (stored under a
+// mangled internal name), the "declares here" note must still point at its source location.
+
+interface I {
+    in-out property <bool> value;
+}
+
+component Base inherits Rectangle {
+    @shadowable in-out property <bool> value;
+}
+
+export component Impl inherits Base {
+    implement I <=> self;
+//            ><error{Cannot implement 'I'.↵- 'value' must be a 'bool' property (found a 'int' property)}
+    // The shadowing declaration changes the type, so it no longer satisfies the interface:
+    in-out property <int> value;
+//                        >   <warning{'value' shadows the inherited property of the same name}
+//                   > <^note{'Impl' declares 'value' here, 'I' expects 'in-out property <bool> value;'}
+}

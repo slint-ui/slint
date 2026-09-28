@@ -1,0 +1,69 @@
+---
+title: Constraints
+description: What the integrator must guarantee when running Slint SC.
+---
+
+These constraints exist because no detection measure in Slint SC covers the matching potential error.
+Only the integrator can rule them out, because each depends on the hardware, the schedule, or the surrounding application.
+
+Individual Constraints get a section each here, identified by `slint.runtime.cstr.<slug>`.
+
+## Qualified Toolchain
+
+`slint.runtime.cstr.qualified-toolchain`
+
+The user shall build the final binary, including the `slint-sc` runtime and the generated code, with a Rust toolchain qualified for the integrity level their application targets.
+
+**Rationale**: The runtime ships as source and is compiled by the integrator's toolchain, not ours. Slint SC's own builds and test evidence use Ferrocene, but that says nothing about the toolchain of the final build.
+
+**Impact**: A miscompilation in the final build can produce any display error, and none of Slint SC's evidence covers it.
+
+**Prevents**: `slint.runtime.err.miscompiled`
+
+## Single Thread
+
+`slint.runtime.cstr.single-thread`
+
+The user shall call the generated component's render function from a single thread, and shall not access the component from any other thread while rendering is in progress.
+
+**Rationale**: The runtime has no locking and no threads of its own. `render_rgb8` takes `&self` and runs to completion synchronously, so ordering is the caller's responsibility.
+
+**Impact**: Concurrent access can produce any display error, including a partly drawn frame.
+
+**Prevents**: `slint.runtime.err.data-race`
+
+## Frame Time
+
+`slint.runtime.cstr.frame-time`
+
+The user shall measure the worst-case time of a full render on their own target hardware, and shall confirm it fits within their display refresh interval.
+
+**Rationale**: The time a frame takes depends on the hardware, the frame buffer size, and the content being drawn. Slint SC can't know any of these, so it can't promise a bound.
+
+**Impact**: A frame that misses the interval leaves the previous frame on the display. A frozen instrument looks like a working one, so the operator gets no indication that the reading is old.
+
+**Prevents**: `slint.runtime.err.frame-overrun`
+
+## Frame Buffer
+
+`slint.runtime.cstr.frame-buffer`
+
+The user shall pass a frame buffer of exactly `width * height * 3` bytes, and shall ensure nothing else reads or writes it while a render is in progress.
+
+**Rationale**: The runtime doesn't allocate. It paints into the memory the caller provides and has no way to tell whether anything else is using it.
+
+**Impact**: A buffer that changes underneath a render produces a frame that mixes two states.
+
+**Prevents**: `slint.runtime.err.buffer-overrun`
+
+## Check the Result
+
+`slint.runtime.cstr.check-result`
+
+The user shall check the value returned by `render_rgb8` and shall not display the frame buffer when it reports an error.
+
+**Rationale**: A wrong buffer size makes `render_rgb8` return `Err(RenderError::InvalidFrameBufferSize)` and paint nothing, per `sls.gen.render-error`. The detection only helps if the caller acts on it.
+
+**Impact**: Ignoring the result means displaying the previous frame while believing a new one was drawn.
+
+**Prevents**: `slint.runtime.err.stale-pixels`

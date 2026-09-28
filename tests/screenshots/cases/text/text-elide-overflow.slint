@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #12197: with parley, a line's height is fractional, so an elided line that
+// is taller than its box by a sub-pixel amount must not be dropped (which rendered nothing). The
+// bug only reproduces through the parley text layout, so the `software` reference is the meaningful
+// guard; the `software_embed_assets` (bitmap) driver renders it as a baseline. Skia is too
+// platform-dependent. No font import is needed: the default software driver registers the bundled
+// NotoSans via `configure_test_fonts()`, and the embed-assets driver embeds its glyphs at compile
+// time.
+//
+// Each Text holds a child Rectangle that fills it with a 1px red border, so the actual Text
+// geometry is visible. The Rectangle is a child of the Text and does not influence its layout.
+//ignore: skia
+//SIZE=160x96
+
+component TextGeometry inherits Rectangle {
+    border-width: 1px;
+    border-color: red;
+}
+
+export component TestCase inherits Window {
+    default-font-family: "Noto Sans";
+    background: white;
+    width: 160px;
+    height: 96px;
+
+    // #12197: a single elided line taller than its box must still render (clipped), not vanish.
+    // The box is about half the line height, so the clipping is plainly visible in the screenshot.
+    HorizontalLayout {
+        x: 0; y: 0;
+        width: 120px;
+        height: 14px; // content height 8px, the line is ~16px
+        padding: 3px;
+        Text {
+            overflow: elide;
+            color: black;
+            text: "Hello World";
+            TextGeometry {}
+        }
+    }
+
+    // First line too tall (by a sub-pixel amount) AND too wide: clipped vertically, ellipsis
+    // placed horizontally.
+    HorizontalLayout {
+        x: 0; y: 24px;
+        width: 90px;
+        height: 22px;
+        padding: 3px;
+        Text {
+            overflow: elide;
+            color: black;
+            text: "Hello World this is long";
+            TextGeometry {}
+        }
+    }
+
+    // Box tall enough for two lines: vertical line dropping keeps the ones that fit.
+    HorizontalLayout {
+        x: 0; y: 48px;
+        width: 120px;
+        height: 45px;
+        padding: 3px;
+        Text {
+            overflow: elide;
+            wrap: word-wrap;
+            color: black;
+            text: "One Two Three Four Five Six Seven Eight Nine Ten";
+            TextGeometry {}
+        }
+    }
+}

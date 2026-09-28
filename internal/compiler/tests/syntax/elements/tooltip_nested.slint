@@ -7,7 +7,7 @@ export component Test inherits Window {
 //      >      <error{Tooltip cannot have both text and custom content}
             text: @markdown("Outer");
             Tooltip {
-//          >      <error{Tooltip cannot be used inside non-item elements}
+//          >      <error{Tooltip cannot be added to Tooltip}
                 text: @markdown("Nested");
             }
         }

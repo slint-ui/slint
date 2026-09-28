@@ -10,5 +10,7 @@ yarn.lock
 *.node
 .yarn
 __test__
+dev-package
+rust-module-dev.cjs
 renovate.json
 *.tgz

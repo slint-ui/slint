@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview cannot search elements (the wrapper has no item tree).
+//ignore: cpp-live-preview
+
+// Two-way binding the `first` and `second` fields of a struct to separate
+// sub-components must keep both fields working. Preparing the second field's
+// two-way binding used to detach the first from the struct, so the array
+// `first` rendered as empty. The corruption only shows in the interpreter
+// while rendering, so the test blocks visit the elements to render the tree
+// and then check that the array still has its three items.
+// Regression test for #12268.
+
+struct Data {
+    first: [bool],
+    second: bool,
+}
+
+component BindFirst {
+    in-out property <[bool]> first;
+    VerticalLayout {
+        Text { text: "first.length = " + first.length; }
+        for value in first: Text { text: value ? "on" : "off"; }
+    }
+}
+
+component BindSecond {
+    in-out property <bool> second;
+    Text { text: second ? "on" : "off"; }
+}
+
+component BindMultiple {
+    in-out property <Data> data;
+    VerticalLayout {
+        BindFirst { first <=> data.first; }
+        BindSecond { second <=> data.second; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <[Data]> data: [{ first: [false, false, false], second: false }];
+    for row in data: BindMultiple { data <=> row; }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// Visiting the elements renders the tree, which evaluates `first.length`.
+// With the bug the array is empty, so the label reads "first.length = 0".
+let found = slint_testing::ElementHandle::find_by_accessible_label(&instance, "first.length = 3").count();
+assert_eq!(found, 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+auto found =
+    slint::testing::ElementHandle::find_by_accessible_label(handle, "first.length = 3");
+assert_eq(found.size(), 1);
+```
+*/

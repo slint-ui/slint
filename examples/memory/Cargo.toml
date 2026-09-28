@@ -3,7 +3,7 @@
 
 [package]
 name = "memory"
-version = "1.17.0"
+version = "1.19.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
@@ -14,11 +14,14 @@ path = "main.rs"
 name = "memory"
 
 [dependencies]
-rand = "0.9"
-slint = { path = "../../api/rs/slint" }
+rand = "0.10"
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-18", "std"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
@@ -32,4 +35,4 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
-#wasm# getrandom = { version = "0.3.4", features = ["wasm_js"] }
+#wasm# getrandom = { version = "0.4", features = ["wasm_js"] }

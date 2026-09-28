@@ -1,0 +1,67 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Cross Containers and Demos
+
+# No schedule: this is triggered manually (workflow_dispatch). Fresh containers for
+# the nightly snapshot come from the nightly workflow calling cross_containers.yaml.
+on:
+    workflow_dispatch:
+
+jobs:
+    build_containers:
+        uses: ./.github/workflows/cross_containers.yaml
+        secrets: inherit
+
+    build_demos:
+        needs: [build_containers]
+        runs-on: ubuntu-22.04
+        env:
+            # cross looks for Cross.toml in the workspace root of the manifest it
+            # builds. The examples/ and demos/ workspaces don't have one, so without
+            # this they would fall back to the stock cross images, which lack the
+            # fontconfig/Skia build dependencies of our custom containers.
+            CROSS_CONFIG: ${{ github.workspace }}/Cross.toml
+        strategy:
+            matrix:
+                target:
+                    - armv7-unknown-linux-gnueabihf
+                    - aarch64-unknown-linux-gnu
+                    - x86_64-unknown-linux-gnu
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - name: Enable Skia build
+              if: matrix.target != 'riscv64gc-unknown-linux-gnu'
+              run: |
+                  echo "EXTRA_ARGS=--features slint/renderer-skia" >> $GITHUB_ENV
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            # slint-viewer is in the root workspace, todo and gallery in the
+            # examples workspace, and the demos in the demos workspace. They share
+            # the same target directory, so the slint libraries are only built once.
+            - name: Build
+              run: |
+                  cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p slint-viewer
+                  cross build --release --target=${{ matrix.target }} --manifest-path examples/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p todo -p gallery
+                  cross build --release --target=${{ matrix.target }} --manifest-path demos/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p printerdemo -p home-automation
+            - name: Build energy-monitor
+              # Built separately with its `network` feature disabled: that feature pulls in
+              # reqwest -> rustls/aws-lc-rs -> aws-lc-sys, whose cc-builder aborts on the x86_64
+              # cross image's GCC (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189). Without
+              # `network` the demo builds fine; only the live weather panel is inactive.
+              run: cross build --release --target=${{ matrix.target }} --manifest-path demos/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor --no-default-features --features chrono
+            - name: "Upload demo artifacts"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-embedded-demos-${{ matrix.target }}
+                  path: |
+                      target/${{ matrix.target }}/release/printerdemo
+                      target/${{ matrix.target }}/release/todo
+                      target/${{ matrix.target }}/release/gallery
+                      target/${{ matrix.target }}/release/viewer
+                      target/${{ matrix.target }}/release/energy-monitor
+                      target/${{ matrix.target }}/release/home-automation

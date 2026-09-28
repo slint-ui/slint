@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An integer literal is a whole number written without a unit. A fractional
+// number without a unit would be a float, which is not in the subset.
+
+export component Test inherits Window {
+    // A whole number without a unit is an int literal.
+    //#sls.expr.int.form
+    property <int> a: 42;
+
+    // A number with a fractional part but no unit is an error.
+    //#sls.expr.int.fractional
+    property <int> b: 42.5;
+//                    >  <error{Non-integral numbers are not supported in Slint SC}
+}

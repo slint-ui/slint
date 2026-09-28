@@ -1,0 +1,41 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13059 variant: the constraint reads a sibling flexbox. Used to panic with
+// "Recursion detected"; the driver blocks run both arms.
+export component TestCase inherits Window {
+    in property <bool> horizontal: true;
+
+    HorizontalLayout {
+        Rectangle { width: 40px; }
+        VerticalLayout {
+            if false: Rectangle { }
+            fl := FlexboxLayout { flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column; flex-wrap: wrap; Rectangle { min-width: 60px; min-height: 20px; } }
+            fl2 := FlexboxLayout { min-height: fl.preferred-height; flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column; flex-wrap: wrap; Rectangle { min-width: 60px; min-height: 20px; } }
+        }
+    }
+    out property <bool> test: fl.preferred-height >= 0px && fl.width >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(false);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = false;
+assert(instance.test);
+```
+*/

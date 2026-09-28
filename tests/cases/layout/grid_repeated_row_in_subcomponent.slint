@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #12123: a GridLayout containing a repeated Row used to
+// crash with "Item not found" when its component was instantiated (and thus
+// inlined) into another component. Inlining cloned the grid cells but did not
+// remap the element references stored inside the repeated-row child templates.
+
+component Inner {
+    in property <[length]> heights: [30phx, 40phx, 50phx];
+    GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+        for h in heights: Row {
+            Rectangle {
+                min-height: h;
+                max-height: h;
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 200phx;
+
+    inner := Inner { }
+
+    out property <length> inner-min-height: inner.min-height;
+    out property <bool> test: inner.min-height == 120phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_inner_min_height(), 120.);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_inner_min_height(), 120.);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.inner_min_height, 120.);
+assert(instance.test);
+```
+
+*/

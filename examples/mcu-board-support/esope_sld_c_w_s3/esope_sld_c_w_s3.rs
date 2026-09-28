@@ -37,17 +37,18 @@ use esp_hal::lcd_cam::{
 type I2cDevice = RefCellDevice<'static, esp_hal::i2c::master::I2c<'static, esp_hal::Blocking>>;
 type TouchController = sitronix_touch::TouchIC<I2cDevice>;
 use esp_hal::Config as HalConfig;
-use esp_hal::peripherals::Peripherals;
-use esp_hal::system::{CpuControl, Stack};
+use esp_hal::interrupt::software::SoftwareInterruptControl;
+use esp_hal::peripherals::{CPU_CTRL, TIMG0};
+use esp_hal::system::Stack;
 use esp_hal::time::{Instant, Rate};
-use esp_hal::timer::{AnyTimer, timg::TimerGroup};
+use esp_hal::timer::timg::TimerGroup;
 use esp_println::logger::init_logger_from_env;
 use log::{debug, error, info};
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Ticker, Timer};
-use esp_hal_embassy::Executor;
+use esp_rtos::embassy::Executor;
 use static_cell::StaticCell;
 
 // Static storage for I2C bus
@@ -87,58 +88,198 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+/// Board hardware constructed in [`init`] and consumed by the event loop, which
+/// starts the esp-rtos scheduler and hands the drivers to the embassy tasks.
+struct BoardState {
+    dpi: Dpi<'static, esp_hal::Blocking>,
+    dma_tx: DmaTxBuf,
+    touch_controller: TouchController,
+    timer_group: TimerGroup<'static, TIMG0<'static>>,
+    sw_ints: SoftwareInterruptControl<'static>,
+    cpu_ctrl: CPU_CTRL<'static>,
+    // Kept alive for the lifetime of the event loop.
+    _panel_enable: Output<'static>,
+    _backlight: Output<'static>,
+    _touch_reset: Output<'static>,
+}
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    peripherals: RefCell<Option<Peripherals>>,
+    state: RefCell<Option<BoardState>>,
 }
 
 impl Default for EspBackend {
     fn default() -> Self {
-        EspBackend { window: RefCell::new(None), peripherals: RefCell::new(None) }
+        EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
 
-/// Initialize the heap and set the Slint platform.
+/// Initialize the heap, the board peripherals and set the Slint platform.
 pub fn init() {
-    // Initialize peripherals first.
     let config = HalConfig::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
     init_logger_from_env();
     info!("=== ESP32-S3 ESoPe Board Initialization Starting ===");
-    info!("Peripherals initialized");
 
-    // Log memory status before PSRAM init
-    let heap_start = esp_alloc::HEAP.used();
-    info!("Heap usage before PSRAM init: {} bytes", heap_start);
-
-    // Initialize the PSRAM allocator.
-    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
+    // Register the PSRAM heap before anything allocates. PSRAM is consumed here;
+    // every other peripheral is used field by field below, so the whole
+    // `Peripherals` struct is never stored and no `steal` is needed.
+    esp_alloc::psram_allocator!(
+        peripherals.PSRAM,
+        esp_hal::psram,
+        esp_hal::psram::PsramConfig {
+            mode: esp_hal::psram::PsramMode::OctalSpi,
+            ..Default::default()
+        }
+    );
     info!("PSRAM allocator initialized");
 
-    // Log memory status after PSRAM init
-    let heap_after_psram = esp_alloc::HEAP.used();
-    info!(
-        "Heap usage after PSRAM init: {} bytes (delta: +{})",
-        heap_after_psram,
-        heap_after_psram.saturating_sub(heap_start)
-    );
+    // Read and set up the display configuration from EEPROM
+    let i2c = I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
+        .unwrap()
+        .with_sda(peripherals.GPIO1)
+        .with_scl(peripherals.GPIO41);
+    let i2c_bus = I2C_BUS.init(RefCell::new(i2c));
+    let mut eeid = [0u8; 0x1c];
+    let mut eeprom = Eeprom24x::new_24x01(RefCellDevice::new(i2c_bus), SlaveAddr::default());
+    eeprom.read_data(0x00, &mut eeid).unwrap();
+    let display_width = u16::from_be_bytes([eeid[8], eeid[9]]);
+    let display_height = u16::from_be_bytes([eeid[10], eeid[11]]);
+    info!("Display size from EEPROM: {}x{}", display_width, display_height);
 
-    // Create and install the Slint backend that owns the peripherals.
-    info!("Creating Slint platform backend...");
-    let heap_before_backend = esp_alloc::HEAP.used();
+    // Initialize touch controller using shared I2C bus
+    info!("Initializing touch controller...");
+    let touch_device = RefCellDevice::new(i2c_bus);
+    let mut touch_controller = sitronix_touch::TouchIC::new_default(touch_device);
+    match touch_controller.init() {
+        Ok(_) => info!("Touch controller initialized successfully"),
+        Err(e) => {
+            error!("Failed to initialize touch controller: {:?}", e);
+            // Continue without touch support
+        }
+    }
+
+    // Enable panel / backlight
+    let mut panel_enable = Output::new(peripherals.GPIO42, Level::Low, OutputConfig::default());
+    panel_enable.set_high();
+
+    let mut backlight = Output::new(peripherals.GPIO39, Level::Low, OutputConfig::default());
+    backlight.set_high();
+
+    let touch_reset = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
+
+    // Allocate framebuffer in PSRAM with 64-byte alignment for DMA
+    const FRAME_BYTES: usize = LCD_BUFFER_SIZE * 2;
+    let layout =
+        Layout::from_size_align(FRAME_BYTES, 64).expect("Failed to create layout for framebuffer");
+    let fb_ptr = unsafe { alloc(layout) };
+    if fb_ptr.is_null() {
+        handle_alloc_error(layout);
+    }
+
+    // Initialize the buffer with green color
+    let fb_slice = unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
+    let rgb565_slice =
+        unsafe { core::slice::from_raw_parts_mut(fb_ptr as *mut Rgb565, LCD_BUFFER_SIZE) };
+    for pixel in rgb565_slice.iter_mut() {
+        *pixel = Rgb565::new(0, 31, 0);
+    }
+
+    let psram_buf: &'static mut [u8] = fb_slice;
+    let buf_ptr = psram_buf.as_ptr() as usize;
+    assert!(buf_ptr % 64 == 0, "PSRAM buffer must be 64-byte aligned for DMA");
+
+    // Publish PSRAM buffer pointer and len for app core
+    unsafe {
+        PSRAM_BUF_PTR = psram_buf.as_mut_ptr();
+        PSRAM_BUF_LEN = psram_buf.len();
+    }
+
+    // Configure DMA buffer with proper burst configuration
+    let dma_tx: DmaTxBuf = unsafe {
+        DmaTxBuf::new_with_config(
+            &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS),
+            psram_buf,
+            ExternalBurstConfig::Size64,
+        )
+        .unwrap()
+    };
+
+    // Initialize LCD DPI interface
+    let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
+
+    // Read configuration from EEPROM
+    let pclk_hz = ((eeid[12] as u32) * 1_000_000 + (eeid[13] as u32) * 100_000).min(13_600_000);
+    let flags = eeid[25];
+    let hsync_idle_low = (flags & 0x01) != 0;
+    let vsync_idle_low = (flags & 0x02) != 0;
+    let de_idle_high = (flags & 0x04) != 0;
+    let pclk_active_neg = (flags & 0x20) != 0;
+
+    let dpi_config = DpiConfig::default()
+        .with_clock_mode(ClockMode {
+            polarity: if pclk_active_neg { Polarity::IdleHigh } else { Polarity::IdleLow },
+            phase: if pclk_active_neg { Phase::ShiftHigh } else { Phase::ShiftLow },
+        })
+        .with_frequency(Rate::from_hz(pclk_hz))
+        .with_format(Format { enable_2byte_mode: true, ..Default::default() })
+        .with_timing(FrameTiming {
+            horizontal_active_width: 320,
+            horizontal_total_width: 320 + 4 + 43 + 79 + 8,
+            horizontal_blank_front_porch: 79 + 8,
+            vertical_active_height: 240,
+            vertical_total_height: 240 + 4 + 12 + 16,
+            vertical_blank_front_porch: 16,
+            hsync_width: 4,
+            vsync_width: 4,
+            hsync_position: 43 + 4,
+        })
+        .with_vsync_idle_level(if vsync_idle_low { Level::Low } else { Level::High })
+        .with_hsync_idle_level(if hsync_idle_low { Level::Low } else { Level::High })
+        .with_de_idle_level(if de_idle_high { Level::High } else { Level::Low })
+        .with_disable_black_region(false);
+
+    let dpi = Dpi::new(lcd_cam.lcd, peripherals.DMA_CH2, dpi_config)
+        .unwrap()
+        .with_vsync(peripherals.GPIO6)
+        .with_hsync(peripherals.GPIO15)
+        .with_de(peripherals.GPIO5)
+        .with_pclk(peripherals.GPIO4)
+        // Blue bus
+        .with_data0(peripherals.GPIO9)
+        .with_data1(peripherals.GPIO17)
+        .with_data2(peripherals.GPIO46)
+        .with_data3(peripherals.GPIO16)
+        .with_data4(peripherals.GPIO7)
+        // Green bus
+        .with_data5(peripherals.GPIO8)
+        .with_data6(peripherals.GPIO21)
+        .with_data7(peripherals.GPIO3)
+        .with_data8(peripherals.GPIO11)
+        .with_data9(peripherals.GPIO18)
+        .with_data10(peripherals.GPIO10)
+        // Red bus
+        .with_data11(peripherals.GPIO14)
+        .with_data12(peripherals.GPIO20)
+        .with_data13(peripherals.GPIO13)
+        .with_data14(peripherals.GPIO19)
+        .with_data15(peripherals.GPIO12);
 
     slint::platform::set_platform(Box::new(EspBackend {
         window: RefCell::new(None),
-        peripherals: RefCell::new(Some(peripherals)),
+        state: RefCell::new(Some(BoardState {
+            dpi,
+            dma_tx,
+            touch_controller,
+            timer_group: TimerGroup::new(peripherals.TIMG0),
+            sw_ints: SoftwareInterruptControl::new(peripherals.SW_INTERRUPT),
+            cpu_ctrl: peripherals.CPU_CTRL,
+            _panel_enable: panel_enable,
+            _backlight: backlight,
+            _touch_reset: touch_reset,
+        })),
     }))
     .expect("Slint platform already initialized");
-
-    let heap_after_backend = esp_alloc::HEAP.used();
-    info!(
-        "Slint backend created. Heap usage: {} bytes (delta: +{})",
-        heap_after_backend,
-        heap_after_backend.saturating_sub(heap_before_backend)
-    );
     info!("=== Initialization Complete ===");
 }
 
@@ -183,198 +324,36 @@ impl slint::platform::Platform for EspBackend {
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         info!("=== Starting Main Event Loop ===");
-        let heap_at_start = esp_alloc::HEAP.used();
-        info!("Heap usage at event loop start: {} bytes", heap_at_start);
 
-        let peripherals = self.peripherals.borrow_mut().take().expect("Peripherals already taken");
-
-        // Read and set up the display configuration from EEPROM
-        let i2c = I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
-            .unwrap()
-            .with_sda(peripherals.GPIO1)
-            .with_scl(peripherals.GPIO41);
-        let i2c_bus = I2C_BUS.init(RefCell::new(i2c));
-        let mut eeid = [0u8; 0x1c];
-        let mut eeprom = Eeprom24x::new_24x01(RefCellDevice::new(i2c_bus), SlaveAddr::default());
-        eeprom.read_data(0x00, &mut eeid).unwrap();
-        let display_width = u16::from_be_bytes([eeid[8], eeid[9]]);
-        let display_height = u16::from_be_bytes([eeid[10], eeid[11]]);
-        info!("Display size from EEPROM: {}x{}", display_width, display_height);
-
-        // Initialize touch controller using shared I2C bus
-        info!("Initializing touch controller...");
-        let touch_device = RefCellDevice::new(i2c_bus);
-        let mut touch_controller = sitronix_touch::TouchIC::new_default(touch_device);
-        match touch_controller.init() {
-            Ok(_) => info!("Touch controller initialized successfully"),
-            Err(e) => {
-                error!("Failed to initialize touch controller: {:?}", e);
-                // Continue without touch support
-            }
-        }
-
-        // Enable panel / backlight
-        let mut panel_enable = Output::new(peripherals.GPIO42, Level::Low, OutputConfig::default());
-        panel_enable.set_high();
-
-        let mut backlight = Output::new(peripherals.GPIO39, Level::Low, OutputConfig::default());
-        backlight.set_high();
-
-        let mut _touch_reset = Output::new(peripherals.GPIO2, Level::High, OutputConfig::default());
-
-        info!("Display initialized, entering main loop...");
-
-        // Allocate framebuffer in PSRAM with 64-byte alignment for DMA
-        const FRAME_BYTES: usize = LCD_BUFFER_SIZE * 2;
-
-        // Use aligned allocation for DMA requirements
-        let layout = Layout::from_size_align(FRAME_BYTES, 64)
-            .expect("Failed to create layout for framebuffer");
-        let fb_ptr = unsafe { alloc(layout) };
-
-        if fb_ptr.is_null() {
-            handle_alloc_error(layout);
-        }
-
-        // Initialize the buffer with green color
-        let fb_slice = unsafe { core::slice::from_raw_parts_mut(fb_ptr, FRAME_BYTES) };
-        let rgb565_slice =
-            unsafe { core::slice::from_raw_parts_mut(fb_ptr as *mut Rgb565, LCD_BUFFER_SIZE) };
-
-        // Fill with green color (0, 31, 0)
-        for pixel in rgb565_slice.iter_mut() {
-            *pixel = Rgb565::new(0, 31, 0);
-        }
-
-        let psram_buf: &'static mut [u8] = fb_slice;
-
-        // Verify PSRAM buffer allocation and alignment
-        let buf_ptr = psram_buf.as_ptr() as usize;
-        info!("PSRAM buffer allocated at address: 0x{:08X}", buf_ptr);
-        info!("PSRAM buffer length: {}", psram_buf.len());
-        info!("PSRAM buffer alignment modulo 64: {}", buf_ptr % 64);
-        assert!(buf_ptr % 64 == 0, "PSRAM buffer must be 64-byte aligned for DMA");
-
-        // Publish PSRAM buffer pointer and len for app core
-        unsafe {
-            PSRAM_BUF_PTR = psram_buf.as_mut_ptr();
-            PSRAM_BUF_LEN = psram_buf.len();
-        }
-
-        // Configure DMA buffer with proper burst configuration
-        info!("=== DMA Buffer Configuration ===");
-        let heap_before_dma = esp_alloc::HEAP.used();
-        info!("Heap usage before DMA buffer creation: {} bytes", heap_before_dma);
-
-        let dma_tx: DmaTxBuf = unsafe {
-            DmaTxBuf::new_with_config(
-                &mut *core::ptr::addr_of_mut!(TX_DESCRIPTORS),
-                psram_buf,
-                ExternalBurstConfig::Size64,
-            )
-            .unwrap()
-        };
-
-        let heap_after_dma = esp_alloc::HEAP.used();
-        info!(
-            "Heap usage after DMA buffer creation: {} bytes (delta: +{})",
-            heap_after_dma,
-            heap_after_dma.saturating_sub(heap_before_dma)
-        );
-
-        // Initialize LCD DPI interface
-        let lcd_cam = LcdCam::new(peripherals.LCD_CAM);
-
-        // Read configuration from EEPROM
-        let pclk_hz = ((eeid[12] as u32) * 1_000_000 + (eeid[13] as u32) * 100_000).min(13_600_000);
-        let flags = eeid[25];
-        let hsync_idle_low = (flags & 0x01) != 0;
-        let vsync_idle_low = (flags & 0x02) != 0;
-        let de_idle_high = (flags & 0x04) != 0;
-        let pclk_active_neg = (flags & 0x20) != 0;
-
-        // Log display configuration to match Conway's working values
-        info!("Display configuration:");
-        info!("  Resolution: {}x{}", display_width, display_height);
-        info!("  PCLK: {} Hz", pclk_hz);
-        info!("  Flags: 0x{:02X}", flags);
-        info!("  HSYNC idle low: {}", hsync_idle_low);
-        info!("  VSYNC idle low: {}", vsync_idle_low);
-        info!("  DE idle high: {}", de_idle_high);
-        info!("  PCLK active neg: {}", pclk_active_neg);
-
-        let dpi_config = DpiConfig::default()
-            .with_clock_mode(ClockMode {
-                polarity: if pclk_active_neg { Polarity::IdleHigh } else { Polarity::IdleLow },
-                phase: if pclk_active_neg { Phase::ShiftHigh } else { Phase::ShiftLow },
-            })
-            .with_frequency(Rate::from_hz(pclk_hz))
-            .with_format(Format { enable_2byte_mode: true, ..Default::default() })
-            // Use exact timing values that work with Conway's implementation
-            .with_timing(FrameTiming {
-                horizontal_active_width: 320,
-                horizontal_total_width: 320 + 4 + 43 + 79 + 8, // =446 (Conway's working value)
-                horizontal_blank_front_porch: 79 + 8,          // was 47, add 32px
-                vertical_active_height: 240,
-                vertical_total_height: 240 + 4 + 12 + 16, // increased blank front porch to 16
-                vertical_blank_front_porch: 16,
-                hsync_width: 4,
-                vsync_width: 4,
-                hsync_position: 43 + 4, // (= back_porch + pulse = 47) Conway's working value
-            })
-            .with_vsync_idle_level(if vsync_idle_low { Level::Low } else { Level::High })
-            .with_hsync_idle_level(if hsync_idle_low { Level::Low } else { Level::High })
-            .with_de_idle_level(if de_idle_high { Level::High } else { Level::Low })
-            .with_disable_black_region(false);
-
-        let dpi = Dpi::new(lcd_cam.lcd, peripherals.DMA_CH2, dpi_config)
-            .unwrap()
-            .with_vsync(peripherals.GPIO6)
-            .with_hsync(peripherals.GPIO15)
-            .with_de(peripherals.GPIO5)
-            .with_pclk(peripherals.GPIO4)
-            // Blue bus
-            .with_data0(peripherals.GPIO9)
-            .with_data1(peripherals.GPIO17)
-            .with_data2(peripherals.GPIO46)
-            .with_data3(peripherals.GPIO16)
-            .with_data4(peripherals.GPIO7)
-            // Green bus
-            .with_data5(peripherals.GPIO8)
-            .with_data6(peripherals.GPIO21)
-            .with_data7(peripherals.GPIO3)
-            .with_data8(peripherals.GPIO11)
-            .with_data9(peripherals.GPIO18)
-            .with_data10(peripherals.GPIO10)
-            // Red bus
-            .with_data11(peripherals.GPIO14)
-            .with_data12(peripherals.GPIO20)
-            .with_data13(peripherals.GPIO13)
-            .with_data14(peripherals.GPIO19)
-            .with_data15(peripherals.GPIO12);
+        let BoardState {
+            dpi,
+            dma_tx,
+            touch_controller,
+            timer_group,
+            sw_ints,
+            cpu_ctrl,
+            _panel_enable,
+            _backlight,
+            _touch_reset,
+        } = self.state.borrow_mut().take().expect("event loop already running");
 
         // Tell Slint the window dimensions match the display resolution
         let size = PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into());
         self.window.borrow().as_ref().expect("Window adapter not created").set_size(size);
 
-        // Initialize Embassy with both timers for multicore support
-        info!("=== Embassy Initialization ===");
-        let heap_before_embassy = esp_alloc::HEAP.used();
-        info!("Heap usage before Embassy init: {} bytes", heap_before_embassy);
+        // Start the esp-rtos scheduler that drives the embassy executors on both cores.
+        info!("=== esp-rtos Initialization ===");
+        let heap_before_rtos = esp_alloc::HEAP.used();
+        info!("Heap usage before esp-rtos init: {} bytes", heap_before_rtos);
 
-        let timg0 = TimerGroup::new(peripherals.TIMG0);
-        let timer0: AnyTimer = timg0.timer0.into();
-        let timg1 = TimerGroup::new(peripherals.TIMG1);
-        let timer1: AnyTimer = timg1.timer0.into();
+        info!("Starting esp-rtos scheduler on the main core...");
+        esp_rtos::start(timer_group.timer0, sw_ints.software_interrupt0);
 
-        info!("Initializing Embassy with dual timers for multicore support...");
-        esp_hal_embassy::init([timer0, timer1]);
-
-        let heap_after_embassy = esp_alloc::HEAP.used();
+        let heap_after_rtos = esp_alloc::HEAP.used();
         info!(
-            "Heap usage after Embassy init: {} bytes (delta: +{})",
-            heap_after_embassy,
-            heap_after_embassy.saturating_sub(heap_before_embassy)
+            "Heap usage after esp-rtos init: {} bytes (delta: +{})",
+            heap_after_rtos,
+            heap_after_rtos.saturating_sub(heap_before_rtos)
         );
 
         // Signal that PSRAM is ready for the app core
@@ -386,9 +365,10 @@ impl slint::platform::Platform for EspBackend {
         let heap_before_core = esp_alloc::HEAP.used();
         info!("Heap usage before app core startup: {} bytes", heap_before_core);
 
-        let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
         info!("Starting app core (Core 1) for DMA display task...");
-        let _app_core = cpu_control.start_app_core(
+        esp_rtos::start_second_core(
+            cpu_ctrl,
+            sw_ints.software_interrupt1,
             unsafe { &mut *core::ptr::addr_of_mut!(APP_CORE_STACK) },
             move || {
                 info!("App core started! Initializing Embassy executor on Core 1...");
@@ -398,8 +378,11 @@ impl slint::platform::Platform for EspBackend {
                 let executor = APP_EXECUTOR.init(Executor::new());
                 info!("App core executor initialized, spawning DMA task...");
 
-                executor.run(|spawner| match spawner.spawn(dma_display_task(dpi, dma_tx)) {
-                    Ok(_) => info!("DMA display task spawned successfully on Core 1"),
+                executor.run(|spawner| match dma_display_task(dpi, dma_tx) {
+                    Ok(token) => {
+                        spawner.spawn(token);
+                        info!("DMA display task spawned successfully on Core 1");
+                    }
                     Err(e) => error!("Failed to spawn DMA display task: {:?}", e),
                 });
             },
@@ -423,8 +406,11 @@ impl slint::platform::Platform for EspBackend {
         );
 
         executor.run(|spawner| {
-            match spawner.spawn(slint_rendering_task(window, touch_controller)) {
-                Ok(_) => info!("Slint rendering task spawned successfully on Core 0"),
+            match slint_rendering_task(window, touch_controller) {
+                Ok(token) => {
+                    spawner.spawn(token);
+                    info!("Slint rendering task spawned successfully on Core 0");
+                }
                 Err(e) => error!("Failed to spawn Slint rendering task: {:?}", e),
             }
 

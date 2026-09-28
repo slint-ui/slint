@@ -205,20 +205,30 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                 }
             });
 
+            // The buffer's rows may be padded to the driver's pitch; the
+            // stride in pixels comes from the mapping, not from the width.
+            let stride = |bytes_per_pixel: usize| {
+                let height = (self.size.height as usize).max(1);
+                (pixels.len() / height / bytes_per_pixel).max(self.size.width as usize)
+            };
             match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
+                    let stride = stride(std::mem::size_of::<DumbBufferPixelXrgb888>());
                     let buffer: &mut [DumbBufferPixelXrgb888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
+                    self.renderer.render(buffer, stride);
                 }
 
                 drm::buffer::DrmFourcc::Bgra8888 => {
+                    let stride = stride(std::mem::size_of::<DumbBufferPixelBgra8888>());
                     let buffer: &mut [DumbBufferPixelBgra8888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
+                    self.renderer.render(buffer, stride);
                 }
                 drm::buffer::DrmFourcc::Rgb565 => {
+                    let stride =
+                        stride(std::mem::size_of::<i_slint_renderer_software::Rgb565Pixel>());
                     let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
                         bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
+                    self.renderer.render(buffer, stride);
                 }
                 _ => {
                     return Err(format!(

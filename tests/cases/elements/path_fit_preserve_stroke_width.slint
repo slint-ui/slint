@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// With `fit: preserve`, the path's geometry is used as-is (no scaling), so two
+// Path elements sharing the same `commands` must report the same point-at()
+// coordinates regardless of their `stroke-width`.
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    thick := Path {
+        width: 100px;
+        height: 100px;
+        fit: preserve;
+        stroke-width: 20px;
+        commands: "M10,10 L90,10";
+    }
+
+    thin := Path {
+        width: 100px;
+        height: 100px;
+        fit: preserve;
+        stroke-width: 0px;
+        commands: "M10,10 L90,10";
+    }
+
+    out property <float> thick_start_x: thick.point-at(0).x / 1px;
+    out property <float> thick_start_y: thick.point-at(0).y / 1px;
+    out property <float> thick_end_x: thick.point-at(1).x / 1px;
+    out property <float> thick_end_y: thick.point-at(1).y / 1px;
+
+    out property <float> thin_start_x: thin.point-at(0).x / 1px;
+    out property <float> thin_start_y: thin.point-at(0).y / 1px;
+    out property <float> thin_end_x: thin.point-at(1).x / 1px;
+    out property <float> thin_end_y: thin.point-at(1).y / 1px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_thin_start_x(), 10.0);
+assert_eq!(instance.get_thin_start_y(), 10.0);
+assert_eq!(instance.get_thin_end_x(), 90.0);
+assert_eq!(instance.get_thin_end_y(), 10.0);
+
+// Check that both paths are equal
+assert_eq!(instance.get_thick_start_x(), instance.get_thin_start_x());
+assert_eq!(instance.get_thick_start_y(), instance.get_thin_start_y());
+assert_eq!(instance.get_thick_end_x(), instance.get_thin_end_x());
+assert_eq!(instance.get_thick_end_y(), instance.get_thin_end_y());
+```
+*/

@@ -65,11 +65,11 @@ define_class!(
         // hasn't auto-popped a menu — i.e. when no `NSMenu` is attached
         // (which `rebuild_menu` toggles based on whether the slint menu
         // currently has any entries).
-        #[unsafe(method(tray_activated:))]
-        fn tray_activated(&self, _sender: *const objc2::runtime::AnyObject) {
+        #[unsafe(method(tray_clicked:))]
+        fn tray_clicked(&self, _sender: *const objc2::runtime::AnyObject) {
             let Some(item_rc) = self.ivars().self_weak.upgrade() else { return };
             let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
-            tray.as_pin_ref().activated.call(&());
+            tray.as_pin_ref().clicked.call(&());
         }
     }
 );
@@ -218,15 +218,17 @@ impl PlatformTray {
             // simply leaves no label, which is the natural default.
             let title = NSString::from_str(params.title);
             button.setTitle(&title);
-            // Route clicks back to slint's `activated` callback. NSStatusItem
+            // Route clicks back to slint's `clicked` callback. NSStatusItem
             // only fires the button's action when no menu is attached;
             // `rebuild_menu` toggles `setMenu` on/off based on whether the
             // slint menu has entries, so a tray with no Menu (or one whose
             // `if cond : Menu` is currently false) routes clicks here, while
             // a tray with menu entries gets the standard auto-popup behavior.
+            // NSButton's default `sendActionOn` mask is `LeftMouseUp`, so the
+            // callback never fires on a right- or middle-click.
             unsafe {
                 button.setTarget(Some(action_target.as_ref()));
-                button.setAction(Some(sel!(tray_activated:)));
+                button.setAction(Some(sel!(tray_clicked:)));
             }
         }
 
@@ -251,7 +253,7 @@ impl PlatformTray {
         entries_out.clear();
         let ns_menu = build_menu(menu, &self.action_target, self.mtm, entries_out);
         // Detach the menu when there are no entries so AppKit forwards clicks
-        // to the button's action (which fires slint's `activated`). An
+        // to the button's action (which fires slint's `clicked`). An
         // `if cond : Menu { ... }` whose condition is false reports zero
         // entries here; on the next flip we re-attach a populated NSMenu.
         if entries_out.is_empty() {
