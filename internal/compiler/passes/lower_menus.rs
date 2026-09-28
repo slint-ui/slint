@@ -283,35 +283,7 @@ fn process_context_menu(
         ty: crate::typeregister::logical_point_type().into(),
     };
     let expr = if !is_internal {
-        let menu_element_type = context_menu_elem
-            .borrow()
-            .base_type
-            .as_builtin()
-            .additional_accepted_child_types
-            .get("Menu")
-            .expect("ContextMenu should accept Menu")
-            .clone()
-            .into();
-
-        let mut menu_elem: Option<Rc<RefCell<Element>>> = None;
-        context_menu_elem.borrow_mut().children.retain(|x| {
-            if x.borrow().base_type == menu_element_type {
-                if let Some(ref existing) = menu_elem {
-                    diag.push_error(
-                        "Only one Menu is allowed in a ContextMenu".into(),
-                        &*x.borrow(),
-                    );
-                    diag.push_note("First Menu defined here".into(), &*existing.borrow());
-                } else {
-                    menu_elem = Some(x.clone());
-                }
-                false
-            } else {
-                true
-            }
-        });
-
-        let Some(menu_elem) = menu_elem else {
+        let Some(menu_elem) = find_root_menu(context_menu_elem, "ContextMenu", diag) else {
             diag.push_error(
                 "ContextMenuArea should have a Menu".into(),
                 &*context_menu_elem.borrow(),
@@ -383,35 +355,7 @@ fn process_system_tray_icon(
     diag: &mut BuildDiagnostics,
 ) {
     // A Menu child is optional; without it, no SetupSystemTrayIcon call is emitted.
-    let menu_element_type: ElementType = system_tray_elem
-        .borrow()
-        .base_type
-        .as_builtin()
-        .additional_accepted_child_types
-        .get("Menu")
-        .expect("SystemTrayIcon should accept Menu")
-        .clone()
-        .into();
-
-    let mut menu_elem: Option<Rc<RefCell<Element>>> = None;
-    system_tray_elem.borrow_mut().children.retain(|x| {
-        if x.borrow().base_type == menu_element_type {
-            if let Some(ref existing) = menu_elem {
-                diag.push_error(
-                    "Only one Menu is allowed in a SystemTrayIcon".into(),
-                    &*x.borrow(),
-                );
-                diag.push_note("First Menu defined here".into(), &*existing.borrow());
-            } else {
-                menu_elem = Some(x.clone());
-            }
-            false
-        } else {
-            true
-        }
-    });
-
-    let Some(menu_elem) = menu_elem else {
+    let Some(menu_elem) = find_root_menu(system_tray_elem, "SystemTrayIcon", diag) else {
         // No menu is a valid configuration; nothing to lower.
         return;
     };
@@ -645,6 +589,57 @@ fn process_window(
     component.init_code.borrow_mut().constructor_code.push(setup_menubar);
 
     true
+}
+
+/// The first Menu child of `owner`. The other ones are reported as errors.
+fn find_root_menu(
+    owner: &ElementRc,
+    owner_name: &str,
+    diag: &mut BuildDiagnostics,
+) -> Option<ElementRc> {
+    let menu_element_type: ElementType = owner
+        .borrow()
+        .base_type
+        .as_builtin()
+        .additional_accepted_child_types
+        .get("Menu")
+        .expect("owner should accept Menu")
+        .clone()
+        .into();
+    let mut menu_elem: Option<ElementRc> = None;
+    for x in &owner.borrow().children {
+        if x.borrow().base_type != menu_element_type {
+            continue;
+        }
+        if let Some(existing) = &menu_elem {
+            diag.push_error(format!("Only one Menu is allowed in a {owner_name}"), &*x.borrow());
+            diag.push_note("First Menu defined here".into(), &*existing.borrow());
+        } else {
+            menu_elem = Some(x.clone());
+        }
+    }
+    menu_elem
+}
+
+/// Move the root Menu of each ContextMenuArea and SystemTrayIcon out of the tree, into
+/// [`Component::optimized_elements`], which keeps its properties.
+pub fn remove_root_menus(component: &Rc<Component>) {
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+        let is_menu_owner = matches!(&elem.borrow().base_type,
+            ElementType::Builtin(b) if matches!(b.name.as_str(), "ContextMenuInternal" | "SystemTrayIcon"));
+        if is_menu_owner {
+            let menus: Vec<_> = elem
+                .borrow()
+                .children
+                .iter()
+                .filter(|c| matches!(&c.borrow().base_type, ElementType::Builtin(b) if b.name == "Menu"))
+                .cloned()
+                .collect();
+            for menu in menus {
+                move_to_optimized_elements(&menu, elem);
+            }
+        }
+    });
 }
 
 /// Lower the MenuItem's and Menu's to either
