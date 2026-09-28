@@ -7,6 +7,11 @@ component Wrapper inherits Rectangle {
     @children
 }
 
+component Field {
+    TextInput { }
+//  >        <warning{This element and the 'text-input' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+}
+
 export component Test inherits Window {
     // The input describes the text the Rectangle already describes
     Rectangle {
@@ -35,6 +40,13 @@ export component Test inherits Window {
 //  >      <note{The enclosing element is declared here}
         TextInput { }
 //      >        <warning{This element and the 'text-input' around it expose the same text to a screen reader; set 'accessible-role: none' here}
+    }
+
+    // The input is declared inside the component the role encloses
+    Rectangle {
+//  >        <note{The enclosing element is declared here}
+        accessible-role: text-input;
+        Field { }
     }
 
     // The role of a component's root, hidden where the component is used
