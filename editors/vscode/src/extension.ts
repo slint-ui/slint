@@ -192,6 +192,7 @@ function startClient(
     const devBuild = serverModule.includes("/target/debug/");
     if (devBuild) {
         options.env["RUST_BACKTRACE"] = "1";
+        options.env["RUST_LOG"] = "slint_lsp=trace";
     }
 
     options.env["SLINT_LSP_PANIC_LOG_DIR"] = lsp_panic_log_dir(context).fsPath;
