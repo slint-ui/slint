@@ -11,17 +11,13 @@ from gradient_interactions import (
     gesture,
     gradient_document,
     open_gradient,
-    picker_field,
     shifted,
 )
 from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
     screenshot,
-    select_outline_row,
 )
 
 
@@ -32,8 +28,7 @@ from ui_driver import (
     ids=["ramp", "canvas"],
 )
 def test_stop_marker_click_opens_color_picker_but_drag_does_not(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     tmp_path: Path,
     kind: str,
     role: str,
@@ -46,10 +41,10 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
     source_file = gradient_document(tmp_path, expression)
     original = SourceSnapshot.capture(tmp_path)
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
 
         marker = window.get_by_role(role, name="Gradient stop 2").resolve()
@@ -57,13 +52,13 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         assert marker.size.height == pytest.approx(40)
         start = center(marker)
         gesture(window, start, start)
-        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
+        expect(editor.gradient.field("Hex color")).to_have_value("#0000ff80")
         window.get_by_role("button", name="Close Stop color").activate()
 
-        before = float(picker_field(window, "Stop 2 position").value())
+        before = float(editor.gradient.field("Stop 2 position").value())
         start = center(window.get_by_role(role, name="Gradient stop 2").resolve())
         gesture(window, start, shifted(start, x=12))
-        after = float(picker_field(window, "Stop 2 position").value())
+        after = float(editor.gradient.field("Stop 2 position").value())
         assert after != pytest.approx(before)
         window.get_by_accessible_name("Hex color").wait_for(state="hidden")
 
@@ -72,8 +67,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
 
 
 def test_ramp_marker_accessible_action_opens_existing_color_picker(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     tmp_path: Path,
 ) -> None:
     source_file = gradient_document(
@@ -81,32 +75,31 @@ def test_ramp_marker_accessible_action_opens_existing_color_picker(
     )
     original = SourceSnapshot.capture(tmp_path)
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
 
         window.get_by_role("slider", name="Gradient stop 2").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#abcdef80")
+        expect(editor.gradient.field("Hex color")).to_have_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
 def test_ramp_marker_shows_opaque_and_alpha_halves(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     tmp_path: Path,
 ) -> None:
     source_file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, #0000ff80 50%, white 100%)"
     )
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
 
         marker = window.get_by_role("slider", name="Gradient stop 2").resolve()

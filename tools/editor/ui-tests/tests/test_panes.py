@@ -8,7 +8,7 @@ import pytest
 import slint_testing
 from canvas_interactions import center
 from slint_test import Window
-from ui_driver import first_window, launch_editor, wait_until
+from ui_driver import wait_until
 
 
 def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
@@ -55,7 +55,7 @@ def double_click(window: Window, element: slint_testing.Element) -> None:
 
 
 def test_pane_sizes_persist_across_relaunch(
-    editor_binary: Path,
+    editor_factory,
     editor_environment: dict[str, str],
     fixture_project: Path,
     tmp_path: Path,
@@ -64,8 +64,8 @@ def test_pane_sizes_persist_across_relaunch(
     editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     source_file = fixture_project / "Main.slint"
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         elements_divider = window.get_by_accessible_name(
             "Elements pane resize"
         ).resolve()
@@ -115,8 +115,8 @@ def test_pane_sizes_persist_across_relaunch(
             },
         )
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         elements_divider = window.get_by_accessible_name(
             "Elements pane resize"
         ).resolve()
@@ -130,17 +130,15 @@ def test_pane_sizes_persist_across_relaunch(
 
 
 def test_pane_dividers_are_accessible_and_no_results_is_visible(
-    editor_binary: Path,
+    editor_factory,
     editor_environment: dict[str, str],
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
     editor_environment["HOME"] = str(tmp_path / "home")
     editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
         elements = window.get_by_accessible_name("Elements pane resize").resolve()
         outline = window.get_by_accessible_name("Outline pane resize").resolve()
 
@@ -217,10 +215,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         assert float(elements.accessible_value.split()[0]) == default_elements
         wait_for_pane_settings(tmp_path, {"elements_pane_height": None})
 
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
         assert (
             float(
                 window.get_by_accessible_name("Elements pane resize")

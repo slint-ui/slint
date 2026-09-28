@@ -16,8 +16,6 @@ from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
     select_outline_row,
 )
 
@@ -81,17 +79,15 @@ def action(window, label):
     ],
 )
 def test_rotation_numeric_exact_source_and_undo(
-    editor_binary, editor_environment, fixture_project, value, display
+    editor_factory, fixture_project, value, display
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
     expected = baseline.replace(
         b"transform-rotation: 32deg", f"transform-rotation: {value}deg".encode()
     )
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         edit_field(window, "Rotation", value)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
@@ -104,18 +100,14 @@ def test_rotation_numeric_exact_source_and_undo(
         wait_for_field(window, "Rotation", display)
 
 
-def test_rotation_prefix_scrubs_with_transient_preview(
-    editor_binary, editor_environment, fixture_project
-):
+def test_rotation_prefix_scrubs_with_transient_preview(editor_factory, fixture_project):
     baseline = prepare(fixture_project)
     expected = baseline.replace(
         b"transform-rotation: 32deg", b"transform-rotation: 44deg"
     )
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         scrubber = window.get_by_role("slider", name="Rotation scrubber").resolve()
         start = center(scrubber)
@@ -135,19 +127,15 @@ def test_rotation_prefix_scrubs_with_transient_preview(
 
 
 @pytest.mark.parametrize("index", range(4))
-def test_corner_edit_changes_only_one_property(
-    editor_binary, editor_environment, fixture_project, index
-):
+def test_corner_edit_changes_only_one_property(editor_factory, fixture_project, index):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
     expected = baseline.replace(
         f"{PROPERTIES[index]}: 12px".encode(),
         f"{PROPERTIES[index]}: 30.5px".encode(),
     )
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         action(window, "Separate corners")
         snapshot.assert_unchanged()
@@ -157,7 +145,7 @@ def test_corner_edit_changes_only_one_property(
 
 
 def test_link_uses_top_left_and_one_undo_restores_expressions(
-    editor_binary, editor_environment, fixture_project
+    editor_factory, fixture_project
 ):
     baseline = prepare(fixture_project, (8, 16, 24, 32))
     baseline = baseline.replace(
@@ -170,10 +158,8 @@ def test_link_uses_top_left_and_one_undo_restores_expressions(
         expected = expected.replace(
             f"{name}: {value}".encode(), f"{name}: 8px".encode()
         )
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         wait_for_field(window, LABELS[0], "8")
         action(window, "All corners")
@@ -188,7 +174,7 @@ def test_link_uses_top_left_and_one_undo_restores_expressions(
 
 @pytest.mark.parametrize("value", ["0", "30.5", "120"])
 def test_shared_corner_value_is_atomic_and_not_clamped(
-    editor_binary, editor_environment, fixture_project, value
+    editor_factory, fixture_project, value
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -197,10 +183,8 @@ def test_shared_corner_value_is_atomic_and_not_clamped(
         expected = expected.replace(
             f"{name}: 12px".encode(), f"{name}: {value}px".encode()
         )
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         edit_field(window, "All corner radii", value)
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
@@ -219,14 +203,12 @@ def test_shared_corner_value_is_atomic_and_not_clamped(
     ],
 )
 def test_invalid_transform_input_preserves_source(
-    editor_binary, editor_environment, fixture_project, label, value
+    editor_factory, fixture_project, label, value
 ):
     prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         edit_field(window, label, value)
         snapshot.assert_unchanged()
@@ -243,14 +225,12 @@ def point(knob, angle):
 @pytest.mark.parametrize("cancel", ["release", "escape", "pointer"])
 @pytest.mark.parametrize("initial", [350, 1070, -10])
 def test_knob_crosses_zero_with_transient_preview(
-    editor_binary, editor_environment, fixture_project, cancel, initial
+    editor_factory, fixture_project, cancel, initial
 ):
     baseline = prepare(fixture_project, rotation=f"{initial}deg")
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
         assert knob.size.width == 32 and knob.size.height == 32
@@ -283,7 +263,7 @@ def test_knob_crosses_zero_with_transient_preview(
 
 
 def test_rotation_under_rotated_parent_is_parent_relative(
-    editor_binary, editor_environment, fixture_project
+    editor_factory, fixture_project
 ):
     baseline = prepare(fixture_project, rotation="20deg")
     baseline = baseline.replace(
@@ -295,10 +275,8 @@ def test_rotation_under_rotated_parent_is_parent_relative(
     )
     (fixture_project / SOURCE).write_bytes(baseline)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         wait_for_field(window, "Rotation", "20")
         edit_field(window, "Rotation", "22.5")
@@ -308,15 +286,11 @@ def test_rotation_under_rotated_parent_is_parent_relative(
 
 
 @pytest.mark.parametrize("shift,expected", [(False, "33"), (True, "47")])
-def test_knob_keyboard_step(
-    editor_binary, editor_environment, fixture_project, shift, expected
-):
+def test_knob_keyboard_step(editor_factory, fixture_project, shift, expected):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
         start = point(knob, 32)
@@ -333,15 +307,11 @@ def test_knob_keyboard_step(
         )
 
 
-def test_selection_change_cancels_knob_drag(
-    editor_binary, editor_environment, fixture_project
-):
+def test_selection_change_cancels_knob_drag(editor_factory, fixture_project):
     prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
         start, end = point(knob, 32), point(knob, 62)
@@ -357,14 +327,12 @@ def test_selection_change_cancels_knob_drag(
 
 @pytest.mark.parametrize("cancel", [False, True])
 def test_corner_slider_previews_then_commits_once(
-    editor_binary, editor_environment, fixture_project, cancel
+    editor_factory, fixture_project, cancel
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         start = slider_position(window, "All corner radii slider", 0.25)
         end = slider_position(window, "All corner radii slider", 1)
@@ -395,16 +363,12 @@ def test_corner_slider_previews_then_commits_once(
     ("key", "value"),
     [(keys.Home, 0), (keys.End, 48), (keys.RightArrow, 13), (keys.LeftArrow, 11)],
 )
-def test_corner_slider_keyboard_and_undo(
-    editor_binary, editor_environment, fixture_project, key, value
-):
+def test_corner_slider_keyboard_and_undo(editor_factory, fixture_project, key, value):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
+    with editor_factory(fixture_project / SOURCE) as app:
         wait_for_source(fixture_project / SOURCE, baseline)
-        window = first_window(app)
+        window = app.window
         select_element(window, "Rectangle")
         position = slider_position(window, "All corner radii slider", 0.25)
         window.pointer.move_to(position)
@@ -425,7 +389,7 @@ def test_corner_slider_keyboard_and_undo(
 
 @pytest.mark.parametrize("radius", ["0", "30.5"])
 def test_shared_radius_reads_effective_shorthand(
-    editor_binary, editor_environment, fixture_project, radius
+    editor_factory, fixture_project, radius
 ):
     baseline = prepare(fixture_project)
     for name in PROPERTIES:
@@ -435,16 +399,14 @@ def test_shared_radius_reads_effective_shorthand(
         f"        background: #2563eb;\n        border-radius: {radius}px;".encode(),
     )
     (fixture_project / SOURCE).write_bytes(baseline)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         wait_for_field(window, "All corner radii", radius)
 
 
 def test_corner_slider_preserves_fractional_value_and_clamps_endpoint(
-    editor_binary, editor_environment, fixture_project
+    editor_factory, fixture_project
 ):
     source = fixture_project / SOURCE
     baseline = prepare(fixture_project, values=(30.5,) * 4).replace(
@@ -452,9 +414,9 @@ def test_corner_slider_preserves_fractional_value_and_clamps_endpoint(
     )
     source.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as app:
+    with editor_factory(source) as app:
         wait_for_source(source, baseline)
-        window = first_window(app)
+        window = app.window
         select_element(window, "Rectangle")
         start = slider_position(window, "All corner radii slider", 30.5 / 48.5)
         end = slider_position(window, "All corner radii slider", 1)
@@ -477,14 +439,12 @@ def test_corner_slider_preserves_fractional_value_and_clamps_endpoint(
 
 
 def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
-    editor_binary, editor_environment, fixture_project
+    editor_factory, fixture_project
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
         start, end = point(knob, 90), point(knob, 108)
@@ -513,15 +473,11 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
         snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
-def test_source_reload_cancels_knob_gesture(
-    editor_binary, editor_environment, fixture_project
-):
+def test_source_reload_cancels_knob_gesture(editor_factory, fixture_project):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
@@ -542,15 +498,13 @@ def test_source_reload_cancels_knob_gesture(
     "label,text", [("Search elements", "Text"), ("Rotation", "99")]
 )
 def test_text_input_undo_does_not_revert_document(
-    editor_binary, editor_environment, fixture_project, label, text
+    editor_factory, fixture_project, label, text
 ):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
     expected = baseline.replace(b"32deg", b"40deg")
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         edit_field(window, "Rotation", "40")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
@@ -568,15 +522,11 @@ def test_text_input_undo_does_not_revert_document(
 
 
 @pytest.mark.parametrize("history", [False, True])
-def test_undo_while_dragging_cancels_release(
-    editor_binary, editor_environment, fixture_project, history
-):
+def test_undo_while_dragging_cancels_release(editor_factory, fixture_project, history):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
         if history:
@@ -597,15 +547,11 @@ def test_undo_while_dragging_cancels_release(
         wait_for_field(window, "Rotation", "32")
 
 
-def test_separate_corners_survive_rotation_edit(
-    editor_binary, editor_environment, fixture_project
-):
+def test_separate_corners_survive_rotation_edit(editor_factory, fixture_project):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         action(window, "Separate corners")
         wait_for_field(window, LABELS[0], "12")
@@ -616,12 +562,10 @@ def test_separate_corners_survive_rotation_edit(
             wait_for_field(window, label, "12")
 
 
-def test_deleted_selected_element_clears_inspector(
-    editor_binary, editor_environment, fixture_project
-):
+def test_deleted_selected_element_clears_inspector(editor_factory, fixture_project):
     source = fixture_project / SOURCE
-    with launch_editor(editor_binary, editor_environment, source) as app:
-        window = first_window(app)
+    with editor_factory(source) as app:
+        window = app.window
         select_element(window, "Image")
         window.get_by_role("region", name="Selected Image").wait_for()
         original = source.read_text()
@@ -630,15 +574,11 @@ def test_deleted_selected_element_clears_inspector(
         window.get_by_accessible_name("Image fit").wait_for(state="hidden")
 
 
-def test_rotation_release_keeps_preview_until_reload(
-    editor_binary, editor_environment, fixture_project
-):
+def test_rotation_release_keeps_preview_until_reload(editor_factory, fixture_project):
     baseline = prepare(fixture_project)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / SOURCE
-    ) as app:
-        window = first_window(app)
+    with editor_factory(fixture_project / SOURCE) as app:
+        window = app.window
         select_element(window, "Rectangle")
         knob = window.get_by_accessible_name("Rotation knob").resolve()
         start, end = point(knob, 90), point(knob, 108)

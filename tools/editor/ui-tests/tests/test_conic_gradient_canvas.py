@@ -13,8 +13,6 @@ from slint_test import expect, step
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
     select_outline_row,
 )
 
@@ -90,13 +88,13 @@ def test_conic_escape_restores_gesture(editor_factory, conic_scene, tmp_path, ki
 
 @pytest.mark.parametrize("percent", [50, 100, 200])
 def test_conic_keyboard_and_seam_neighbor(
-    editor_binary, editor_environment, conic_scene, tmp_path, percent
+    editor_factory, conic_scene, tmp_path, percent
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_conic(window)
@@ -152,12 +150,12 @@ def test_conic_keyboard_and_seam_neighbor(
 
 
 def test_conic_swatch_delete_keeps_canvas_element(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_factory, conic_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         window.get_by_role("button", name="Remove stop 3").activate()
         expect(window.get_by_accessible_name("Gradient stop 3")).to_be_hidden()
@@ -172,14 +170,12 @@ def test_conic_swatch_delete_keeps_canvas_element(
         original.assert_unchanged()
 
 
-def test_external_edit_invalidates_conic_session(
-    editor_binary, editor_environment, conic_scene
-):
+def test_external_edit_invalidates_conic_session(editor_factory, conic_scene):
 
     original = conic_scene.read_text()
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
@@ -192,9 +188,7 @@ def test_external_edit_invalidates_conic_session(
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
-def test_conic_center_translation(
-    editor_binary, editor_environment, conic_scene, tmp_path, rotation
-):
+def test_conic_center_translation(editor_factory, conic_scene, tmp_path, rotation):
     conic_scene.write_text(
         conic_scene.read_text().replace(
             "        width: 200px;",
@@ -202,9 +196,9 @@ def test_conic_center_translation(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(),
@@ -233,12 +227,12 @@ def test_conic_center_translation(
 
 
 def test_conic_noop_and_collapsed_rotation_do_not_write_source(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_factory, conic_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
@@ -259,13 +253,11 @@ def test_conic_noop_and_collapsed_rotation_do_not_write_source(
         original.assert_unchanged()
 
 
-def test_conic_seam_handles_and_stop_crossing(
-    editor_binary, editor_environment, conic_scene, tmp_path
-):
+def test_conic_seam_handles_and_stop_crossing(editor_factory, conic_scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
@@ -310,11 +302,11 @@ def test_conic_seam_handles_and_stop_crossing(
         original.assert_unchanged()
 
 
-def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tmp_path):
+def test_conic_ring_insertion(editor_factory, conic_scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
@@ -334,9 +326,7 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
         original.assert_unchanged()
 
 
-def test_conic_insertion_samples_straight_alpha(
-    editor_binary, editor_environment, conic_scene, tmp_path
-):
+def test_conic_insertion_samples_straight_alpha(editor_factory, conic_scene, tmp_path):
     conic_scene.write_text(
         conic_scene.read_text().replace(
             "#7e3b66 0deg, #264052 198deg, #568fb8 360deg",
@@ -344,9 +334,9 @@ def test_conic_insertion_samples_straight_alpha(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
@@ -366,15 +356,15 @@ def test_conic_insertion_samples_straight_alpha(
 
 
 def test_conic_coincident_stops_keep_keyboard_focus(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_factory, conic_scene, tmp_path
 ):
     conic_scene.write_text(
         conic_scene.read_text().replace("#264052 198deg", "#264052 0deg")
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         window.get_by_role("button", name="Gradient stop 1").activate()
         window.keyboard.press(keys.Tab)
@@ -401,12 +391,12 @@ def test_conic_coincident_stops_keep_keyboard_focus(
 
 
 def test_conic_picker_and_canvas_share_selection_and_color(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_factory, conic_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_conic(window)
         (tmp_path / "conic-picker-and-canvas.png").write_bytes(window.screenshot())
         window.get_by_role("slider", name="Gradient stop 2").wait_for()
@@ -442,17 +432,15 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         original.assert_unchanged()
 
 
-def test_conic_activation_from_solid(
-    editor_binary, editor_environment, conic_scene, tmp_path
-):
+def test_conic_activation_from_solid(editor_factory, conic_scene, tmp_path):
     conic_scene.write_text(
         re.sub(r"@conic-gradient\([^;]+\)", "#7e3b66", conic_scene.read_text())
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+    with editor_factory(conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         window.get_by_role(
             "button", name="Rectangle background color picker"
         ).activate()

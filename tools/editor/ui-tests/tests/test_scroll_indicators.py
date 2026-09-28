@@ -7,12 +7,12 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
-from ui_driver import first_window, launch_editor, wait_until
+from ui_driver import wait_until
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])
 def test_tree_indicators_scroll_without_losing_virtualization(
-    editor_binary, editor_environment, tmp_path, panel
+    editor_factory, tmp_path, panel
 ):
     file = tmp_path / "Main.slint"
     rows = "\n".join(
@@ -30,9 +30,9 @@ def test_tree_indicators_scroll_without_losing_virtualization(
                 "export component Example inherits Rectangle {}"
             )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         tree = window.get_by_role(
             "tree" if panel == "files" else "list",
             name="Files" if panel == "files" else "Current file outline",

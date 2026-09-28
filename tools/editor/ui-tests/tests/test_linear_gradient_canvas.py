@@ -14,8 +14,6 @@ from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
-    first_window,
-    launch_editor,
     select_outline_row,
     wait_until,
 )
@@ -46,7 +44,7 @@ def open_linear(window):
 @pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(
-    editor_binary, editor_environment, scene, tmp_path, rotation, percent
+    editor_factory, scene, tmp_path, rotation, percent
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -55,10 +53,10 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_linear(window)
@@ -94,14 +92,12 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         original.assert_unchanged()
 
 
-def test_linear_canvas_activation_and_colour(
-    editor_binary, editor_environment, scene, tmp_path
-):
+def test_linear_canvas_activation_and_colour(editor_factory, scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         window.get_by_accessible_name("Gradient start").wait_for(state="hidden")
         window.get_by_role(
             "button", name="Rectangle background color picker"
@@ -149,13 +145,11 @@ def test_linear_canvas_activation_and_colour(
         original.assert_unchanged()
 
 
-def test_linear_endpoint_drag_and_session_history(
-    editor_binary, editor_environment, scene, tmp_path
-):
+def test_linear_endpoint_drag_and_session_history(editor_factory, scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         start = center(window.get_by_role("button", name="Gradient start").resolve())
         gesture(window, start, shifted(start, x=40))
@@ -181,13 +175,11 @@ def test_linear_endpoint_drag_and_session_history(
         ).x == pytest.approx(start.x + 40)
 
 
-def test_linear_double_click_and_delete(
-    editor_binary, editor_environment, scene, tmp_path
-):
+def test_linear_double_click_and_delete(editor_factory, scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         window.get_by_role("button", name="Gradient axis").dblclick()
         window.get_by_role("button", name="Gradient stop 4").wait_for()
@@ -205,13 +197,11 @@ def test_linear_double_click_and_delete(
 
 
 @pytest.mark.parametrize("handle", ["Gradient end", "Gradient stop 2"])
-def test_linear_drag_escape_restores_gesture(
-    editor_binary, editor_environment, scene, tmp_path, handle
-):
+def test_linear_drag_escape_restores_gesture(editor_factory, scene, tmp_path, handle):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         start = center(window.get_by_role("button", name=handle).resolve())
         end = shifted(start, x=-130, y=-50)
@@ -228,7 +218,7 @@ def test_linear_drag_escape_restores_gesture(
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
 def test_linear_axis_translation_tracks_rotated_rectangles(
-    editor_binary, editor_environment, scene, tmp_path, rotation
+    editor_factory, scene, tmp_path, rotation
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -237,9 +227,9 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         start = center(
             window.get_by_role("button", name="Gradient start").resolve(), rotation
@@ -266,9 +256,7 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
         original.assert_unchanged()
 
 
-def test_linear_layout_size_and_keyboard(
-    editor_binary, editor_environment, scene, tmp_path
-):
+def test_linear_layout_size_and_keyboard(editor_factory, scene, tmp_path):
     scene.write_text("""export component LinearGradientScene inherits Window {
     width: 400px;
     height: 400px;
@@ -279,9 +267,9 @@ def test_linear_layout_size_and_keyboard(
 }
 """)
     baseline = scene.read_bytes()
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         start = center(window.get_by_role("button", name="Gradient start").resolve())
         end = center(window.get_by_role("button", name="Gradient end").resolve())
@@ -315,7 +303,7 @@ def test_linear_layout_size_and_keyboard(
 
 @pytest.mark.parametrize("other_y", [10, 60, 300])
 def test_linear_outside_click_accepts_before_selecting_another_rectangle(
-    editor_binary, editor_environment, scene, tmp_path, other_y
+    editor_factory, scene, tmp_path, other_y
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -324,9 +312,9 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         window.get_by_role("button", name="Edit stop 1 color").activate()
         window.get_by_role("text-input", name="Hex color").set_accessible_value(
@@ -342,14 +330,12 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         window.get_by_accessible_name("Close Custom").wait_for(state="hidden")
 
 
-def test_linear_external_edit_cancels_stale_draft(
-    editor_binary, editor_environment, scene
-):
+def test_linear_external_edit_cancels_stale_draft(editor_factory, scene):
 
     original = scene.read_text()
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         window.get_by_role("button", name="Edit stop 1 color").activate()
         window.get_by_role("text-input", name="Hex color").set_accessible_value(
@@ -371,13 +357,11 @@ def test_linear_external_edit_cancels_stale_draft(
         )
 
 
-def test_linear_extended_axis_round_trip(
-    editor_binary, editor_environment, scene, tmp_path
-):
+def test_linear_extended_axis_round_trip(editor_factory, scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, scene) as editor:
+    with editor_factory(scene) as editor:
         wait_for_source(scene, scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_linear(window)
         start = center(window.get_by_role("button", name="Gradient start").resolve())
         gesture(window, start, shifted(start, x=-50))

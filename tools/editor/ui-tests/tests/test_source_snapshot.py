@@ -66,16 +66,15 @@ def test_replace_once_rejects_non_unique_target(source: bytes) -> None:
     "incomplete", [b"", b"export component Main inherits Window {"]
 )
 def test_source_change_waits_for_applied_revision(
-    editor_binary, editor_environment, tmp_path: Path, incomplete: bytes
+    editor_factory, tmp_path: Path, incomplete: bytes
 ) -> None:
     from editor_sync import wait_for_source
-    from ui_driver import launch_editor
 
     source = tmp_path / "Main.slint"
     baseline = b"export component Main inherits Window { width: 40px; }\n"
     updated = baseline.replace(b"40px", b"80px")
     source.write_bytes(baseline)
-    with launch_editor(editor_binary, editor_environment, source):
+    with editor_factory(source):
         wait_for_source(source, baseline)
         source.write_bytes(incomplete)
         completed_write = threading.Timer(0.2, source.write_bytes, args=(updated,))

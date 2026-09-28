@@ -8,32 +8,24 @@ from gradient_interactions import (
     gesture,
     gradient_document,
     open_gradient,
-    picker_field,
     shifted,
 )
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import (
-    first_window,
-    launch_editor,
-    select_outline_row,
-)
 
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
-def test_fixed_picker_controls_keep_their_width(
-    editor_binary, editor_environment, tmp_path, kind
-):
+def test_fixed_picker_controls_keep_their_width(editor_factory, tmp_path, kind):
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     stops = (
         "red 0deg, lime 180deg, blue 360deg" if kind == "conic" else "red, lime, blue"
     )
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         assert (
             window.get_by_role("button", name="Add gradient stop").resolve().size.width
@@ -63,7 +55,7 @@ def test_fixed_picker_controls_keep_their_width(
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 @pytest.mark.parametrize("count", [2, 32])
 def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
-    editor_binary, editor_environment, tmp_path, kind, count
+    editor_factory, tmp_path, kind, count
 ):
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     units, suffix = (360, "deg") if kind == "conic" else (100, "%")
@@ -73,16 +65,16 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
     )
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
-        first = picker_field(window, "Stop 1 position")
+        first = editor.gradient.field("Stop 1 position")
         top = first.bounds().y
         scroll_point = first.center()
         window.pointer.scroll(0, -10000, at=scroll_point)
-        last = picker_field(window, f"Stop {count} position")
+        last = editor.gradient.field(f"Stop {count} position")
         last_bounds = last.bounds()
         assert last_bounds.y >= top
         bottom = window.get_by_role("text", name="No recent fills").resolve()

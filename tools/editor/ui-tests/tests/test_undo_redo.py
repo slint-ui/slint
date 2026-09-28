@@ -22,9 +22,6 @@ from slint_test import Window
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
-    select_fixture_element,
     wait_until,
 )
 from ui_reporting import replay_stage
@@ -160,8 +157,7 @@ def edit(
     ids=[case for case, _ in CASES],
 )
 def test_rectangle_undo_redo(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     case: str,
     changes: dict[str, int],
@@ -190,11 +186,11 @@ def test_rectangle_undo_redo(
         assert expected.count(old) == 1
         expected = expected.replace(old, f"        {prop}: {value}{unit};".encode())
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
         with replay_stage("initial"):
-            select_fixture_element(window, "Rectangle")
+            editor.canvas.select("Rectangle")
             cx, cy, *_ = wait_until(
                 lambda: oriented_selection_frame(window, "Rectangle")
             )
@@ -214,7 +210,7 @@ def test_rectangle_undo_redo(
         ]:
             with replay_stage(name):
                 if case.startswith("inspector-"):
-                    select_fixture_element(window, "Rectangle")
+                    editor.canvas.select("Rectangle")
                 shortcut(window, redo=name == "redo")
                 snapshot.wait_for_applied(content, SOURCE)
                 assert_visual(window, values, origin, case.endswith("radius"))
@@ -222,8 +218,7 @@ def test_rectangle_undo_redo(
 
 @pytest.mark.parametrize("wait_for_reload", [False, True])
 def test_redo_after_external_edit_preserves_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     wait_for_reload: bool,
 ) -> None:
@@ -232,9 +227,9 @@ def test_redo_after_external_edit_preserves_source(
     edited = baseline.replace(b"x: 80px;", b"x: 104px;", 1)
     external = baseline.replace(b"x: 80px;", b"x: 900px;", 1)
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
+    with editor_factory(source) as editor:
+        window = editor.window
+        editor.canvas.select("Rectangle")
         cx, cy, *_ = wait_until(lambda: oriented_selection_frame(window, "Rectangle"))
         origin = (
             cx - INITIAL["x"] - INITIAL["width"] / 2,
@@ -243,11 +238,11 @@ def test_redo_after_external_edit_preserves_source(
         edit_field(window, FIELDS["x"], "104", "text-input")
         snapshot.wait_for_applied(edited, SOURCE)
         assert_visual(window, INITIAL | {"x": 104}, origin, False)
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         shortcut(window, redo=False)
         snapshot.wait_for_applied(baseline, SOURCE)
         wait_for_field(window, FIELDS["x"], "80", "text-input")
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         source.write_bytes(external)
         snapshot_after_external = SourceSnapshot.capture(fixture_project)
         if wait_for_reload:

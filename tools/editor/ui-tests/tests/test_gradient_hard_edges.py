@@ -15,20 +15,17 @@ from gradient_interactions import (
 )
 from PIL import Image
 from source_snapshot import SourceSnapshot, wait_for_source_change
-from ui_driver import first_window, launch_editor, select_outline_row
 
 
-def test_coincident_canvas_insertion_preserves_rendering(
-    editor_binary, editor_environment, tmp_path
-):
+def test_coincident_canvas_insertion_preserves_rendering(editor_factory, tmp_path):
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, red 50%, blue 50%, blue 100%)"
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         start = center(window.get_by_role("button", name="Gradient start").resolve())
         end = center(window.get_by_role("button", name="Gradient end").resolve())

@@ -8,22 +8,16 @@ from editor_sync import wait_for_source
 from gradient_interactions import center, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import (
-    first_window,
-    launch_editor,
-)
 
 
 @pytest.mark.parametrize(
     "label", ["Gradient center handle", "Gradient radius handle", "Gradient stop 2"]
 )
-def test_escape_restores_radial_gesture(
-    editor_binary, editor_environment, radial_scene, tmp_path, label
-):
+def test_escape_restores_radial_gesture(editor_factory, radial_scene, tmp_path, label):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         start = center(window.get_by_role("button", name=label).resolve(), 35)
         end = shifted(start, x=25, y=-15)
@@ -39,13 +33,11 @@ def test_escape_restores_radial_gesture(
         original.assert_unchanged()
 
 
-def test_radial_keyboard_and_collapsed_radius(
-    editor_binary, editor_environment, radial_scene, tmp_path
-):
+def test_radial_keyboard_and_collapsed_radius(editor_factory, radial_scene, tmp_path):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 35
@@ -89,14 +81,12 @@ def test_radial_keyboard_and_collapsed_radius(
         original.assert_unchanged()
 
 
-def test_external_edit_invalidates_radial_session(
-    editor_binary, editor_environment, radial_scene
-):
+def test_external_edit_invalidates_radial_session(editor_factory, radial_scene):
 
     original = radial_scene.read_text()
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 35

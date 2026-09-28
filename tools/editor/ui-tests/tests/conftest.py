@@ -99,7 +99,12 @@ def ui_test_report(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[N
 def editor_factory(editor_binary: Path, editor_environment: dict[str, str]):
     from visual_editor_testing import open_editor
 
-    def launch(source: Path):
-        return open_editor(editor_binary, editor_environment, source)
+    def launch(source: Path, *, wait_for_preview: bool = True):
+        return open_editor(
+            editor_binary,
+            editor_environment,
+            source,
+            wait_for_preview=wait_for_preview,
+        )
 
     return launch

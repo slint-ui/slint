@@ -10,12 +10,6 @@ from inspector_interactions import FIELDS
 from slint_test import Window, expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
-from ui_driver import (
-    file_row,
-    first_window,
-    launch_editor,
-    select_outline_row,
-)
 
 
 def stage_field_text(window: Window, label: str, value: str) -> None:
@@ -25,14 +19,13 @@ def stage_field_text(window: Window, label: str, value: str) -> None:
 
 
 def test_broken_source_preserves_last_valid_preview(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Fixture text").wait_for()
         handle, size = window.handle, window.size
         broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
@@ -48,15 +41,14 @@ def test_broken_source_preserves_last_valid_preview(
 
 
 def test_repaired_source_recovers_preview(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
     baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Fixture text").wait_for()
         source_file.write_bytes(baseline + b"\ninvalid source\n")
         time.sleep(0.25)
@@ -68,8 +60,7 @@ def test_repaired_source_recovers_preview(
 
 
 def test_imported_file_edit_targets_only_nested_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     main_file = fixture_project / "Main.slint"
@@ -77,13 +68,13 @@ def test_imported_file_edit_targets_only_nested_source(
     nested_baseline = nested_file.read_bytes()
     snapshot = SourceSnapshot.capture(fixture_project)
 
-    with launch_editor(editor_binary, editor_environment, main_file) as editor:
+    with editor_factory(main_file) as editor:
         wait_for_source(main_file, main_file.read_bytes())
-        window = first_window(editor)
-        expect(file_row(window, main_file)).to_be_selected(timeout=15_000)
+        window = editor.window
+        expect(editor.files.row(main_file)).to_be_selected(timeout=15_000)
         components = fixture_project / "components"
-        file_row(window, components).activate()
-        file_row(window, nested_file).activate()
+        editor.files.row(components).activate()
+        editor.files.row(nested_file).activate()
         window.get_by_role("list-item", name="nested-text").activate()
         window.get_by_role("region", name="Selected Text").wait_for(timeout=(15) * 1000)
         field = window.get_by_role("text-input", name="Text content")
@@ -98,19 +89,18 @@ def test_imported_file_edit_targets_only_nested_source(
 
 
 def test_stale_selection_commit_is_rejected(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "InspectorCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "inspect-rectangle")
+    with editor_factory(source_file) as editor:
+        window = editor.window
+        editor.outline.select("inspect-rectangle")
         stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
-        select_outline_row(window, "inspect-text")
+        editor.outline.select("inspect-text")
         field = window.get_by_role("text-input", name=FIELDS["x"])
         expect(field).to_have_value("224", timeout=15_000)
         window.keyboard.press(keys.Return)
@@ -118,15 +108,14 @@ def test_stale_selection_commit_is_rejected(
 
 
 def test_deleted_root_file_recovers_without_relaunch(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     baseline = source_file.read_bytes()
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         wait_for_source(source_file, baseline)
         window.get_by_role("text", name="Fixture text").wait_for()
         source_file.unlink()
@@ -141,15 +130,14 @@ def test_deleted_root_file_recovers_without_relaunch(
 
 
 def test_deleted_import_recovers_without_relaunch(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     imported_file = fixture_project / "components" / "Nested.slint"
     baseline = imported_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Imported component").wait_for()
         imported_file.unlink()
         time.sleep(0.25)
@@ -162,8 +150,7 @@ def test_deleted_import_recovers_without_relaunch(
 
 
 def test_initial_broken_source_recovers_without_relaunch(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "InitiallyBroken.slint"
@@ -177,8 +164,8 @@ def test_initial_broken_source_recovers_without_relaunch(
         b'    Text { text: "Initial source recovered"; }\n'
         b"}\n"
     )
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file, wait_for_preview=False) as editor:
+        window = editor.window
         assert editor.process.poll() is None
         source_file.write_bytes(repaired)
         window.get_by_role("text", name="Initial source recovered").wait_for()

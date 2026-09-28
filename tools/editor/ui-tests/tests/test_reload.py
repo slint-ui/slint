@@ -8,10 +8,6 @@ import pytest
 import slint_testing
 from slint_test import Window
 from source_snapshot import SourceSnapshot
-from ui_driver import (
-    first_window,
-    launch_editor,
-)
 
 
 def assert_editor_stable(
@@ -27,8 +23,7 @@ def assert_editor_stable(
 
 @pytest.mark.parametrize("continuous_messages", [False, True])
 def test_external_root_source_reload(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     continuous_messages: bool,
 ) -> None:
@@ -42,8 +37,8 @@ def test_external_root_source_reload(
             + original[closing_brace:]
         )
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Fixture text").wait_for()
         handle, size = window.handle, window.size
         expected = source_file.read_bytes().replace(
@@ -57,14 +52,13 @@ def test_external_root_source_reload(
 
 
 def test_rapid_root_writes_show_newest_revision(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Fixture text").wait_for()
         handle, size = window.handle, window.size
         original = source_file.read_bytes()
@@ -84,15 +78,14 @@ def test_rapid_root_writes_show_newest_revision(
 
 
 def test_imported_dependency_reload(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     imported_file = fixture_project / "components" / "Nested.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         window.get_by_role("text", name="Imported component").wait_for()
         handle, size = window.handle, window.size
         expected = imported_file.read_bytes().replace(

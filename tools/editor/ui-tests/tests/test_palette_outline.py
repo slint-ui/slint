@@ -13,8 +13,6 @@ from test_palette import begin_palette_drag, canvas_drop_position, release_palet
 from test_undo_redo import shortcut
 from ui_driver import (
     PALETTE_KINDS,
-    first_window,
-    launch_editor,
     wait_until,
 )
 
@@ -64,8 +62,7 @@ ELEMENTS = {
     ],
 )
 def test_palette_outline_insertion(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
     target: str,
@@ -88,11 +85,11 @@ def test_palette_outline_insertion(
         expected = baseline[:-2] + indent(ELEMENTS[kind], "    ") + "}\n"
         level = "Hierarchy level 2"
 
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline.encode())
         if target == "container":
-            outline_row(window, target).invoke_accessible_expand_action()
+            outline_row(window, target).resolve().invoke_accessible_expand_action()
         position = drop_position(window, target, location)
         begin_palette_drag(window, kind, position)
         window.get_by_accessible_name("Outline drag preview").wait_for()
@@ -120,15 +117,14 @@ def test_palette_outline_insertion(
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_palette_preview_switches_between_canvas_and_outline_and_cancels(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, source.read_bytes())
         canvas = canvas_drop_position(window)
         outline = drop_position(window, "container", "onto")
@@ -150,8 +146,7 @@ def test_palette_preview_switches_between_canvas_and_outline_and_cancels(
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_palette_outline_layout_controls_geometry(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
 ) -> None:
@@ -172,8 +167,8 @@ def test_palette_outline_layout_controls_geometry(
         indent(element, "        ") + "    }\n\n    HorizontalLayout",
     )
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline.encode())
         target = drop_position(window, "prohibited-layout", "onto")
         begin_palette_drag(window, kind, target)
@@ -183,15 +178,14 @@ def test_palette_outline_layout_controls_geometry(
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_palette_outline_rejects_insertion_before_component_root(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, source.read_bytes())
         target = drop_position(window, "<component-root>", "before")
         begin_palette_drag(window, kind, target)

@@ -10,9 +10,6 @@ from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
-    select_fixture_element,
     wait_until,
 )
 
@@ -35,16 +32,13 @@ def deletion_golden(element_type: str) -> bytes:
 
 
 def test_outline_selection_synchronizes_canvas_and_inspector(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
+        editor.canvas.select("Rectangle")
         assert (
             window.get_by_role("text-input", name=FIELDS["x"])
             .resolve()
@@ -61,15 +55,12 @@ def test_outline_selection_synchronizes_canvas_and_inspector(
 
 
 def test_canvas_selection_synchronizes_outline_and_inspector(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
         text = window.get_by_id("Main::root-text").resolve()
         target = slint_testing.LogicalPosition(
             x=text.absolute_position.x + text.size.width / 2,
@@ -85,16 +76,13 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
 
 
 def test_clear_canvas_selection_does_not_edit_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
+        editor.canvas.select("Rectangle")
         artboard = window.get_by_role("region", name="Artboard").resolve()
         target = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + artboard.size.width - 12,
@@ -125,16 +113,13 @@ def test_clear_canvas_selection_does_not_edit_source(
     "key", [keys.Delete, keys.Backspace], ids=["delete", "backspace"]
 )
 def test_delete_without_element_selection_does_not_edit_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     key: str,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
         window.get_by_role("main", name="Editor canvas").wait_for()
         window.keyboard.press(key)
         snapshot.assert_unchanged()
@@ -144,17 +129,14 @@ def test_delete_without_element_selection_does_not_edit_source(
     "key", [keys.Backspace, keys.Delete], ids=["backspace", "delete"]
 )
 def test_focused_inspector_field_consumes_delete_key(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     key: str,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
+        editor.canvas.select("Rectangle")
         field = window.get_by_role("text-input", name=FIELDS["x"]).resolve()
         target = slint_testing.LogicalPosition(
             x=field.absolute_position.x + field.size.width / 2,
@@ -172,17 +154,16 @@ def test_focused_inspector_field_consumes_delete_key(
 )
 @pytest.mark.parametrize("element_type", ["Rectangle", "Text", "Image"])
 def test_delete_selected_element_writes_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     key: str,
     element_type: str,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, element_type)
+    with editor_factory(source_file) as editor:
+        window = editor.window
+        editor.canvas.select(element_type)
         window.keyboard.press(key)
         expected = deletion_golden(element_type)
         snapshot.wait_for_exact(expected)

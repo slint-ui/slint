@@ -12,9 +12,6 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     PALETTE_KINDS,
-    first_window,
-    launch_editor,
-    select_fixture_element,
     wait_until,
 )
 
@@ -40,17 +37,16 @@ def canvas_drop_position(
 @pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_insert_palette_element_writes_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
     percent: int,
 ) -> None:
     source_file = fixture_project / "Palette.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         zoom_canvas(window, percent)
         target = canvas_drop_position(window, percent / 100)
         snapshot.assert_unchanged_now()
@@ -77,16 +73,15 @@ def test_insert_palette_element_writes_exact_source(
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_palette_drop_outside_canvas_does_not_edit_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
 ) -> None:
     source_file = fixture_project / "Palette.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         outside = center(
             window.get_by_role("navigation", name="Project and elements").resolve()
         )
@@ -98,16 +93,15 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_escape_cancels_palette_drag_without_source_edit(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     kind: str,
 ) -> None:
     source_file = fixture_project / "Palette.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         target = canvas_drop_position(window)
         begin_palette_drag(window, kind, target)
         window.get_by_role("region", name=f"{kind} drag preview").wait_for()
@@ -141,15 +135,14 @@ def expect_library(window: Window, labels: list[str]) -> None:
 
 
 def test_library_search_filters_elements(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         expect_library(window, list(PALETTE_KINDS))
         search = window.get_by_accessible_name("Search elements")
         for query, expected in [
@@ -173,15 +166,14 @@ def test_library_search_filters_elements(
 
 
 def test_library_search_restores_independent_collapse_states(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         search = window.get_by_accessible_name("Search elements")
         for label, collapsed_labels in [
             ("Visual", ["TouchArea"]),
@@ -206,14 +198,13 @@ def test_library_search_restores_independent_collapse_states(
 
 
 def test_library_layout_stays_anchored_during_search_and_collapse(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         expect_library(window, list(PALETTE_KINDS))
         heading = window.get_by_accessible_name("ELEMENTS").resolve()
         search = window.get_by_accessible_name("Search elements")
@@ -245,16 +236,15 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
 
 
 def test_library_search_keyboard_does_not_delete_selection(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
+        window = editor.window
+        editor.canvas.select("Rectangle")
         search = window.get_by_accessible_name("Search elements")
         search.click()
         window.keyboard.press_sequentially("Text")
@@ -267,15 +257,14 @@ def test_library_search_keyboard_does_not_delete_selection(
 
 
 def test_toucharea_drag_preview(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         target = canvas_drop_position(window)
         begin_palette_drag(window, "TouchArea", target)
         preview = window.get_by_role("region", name="TouchArea drag preview").resolve()
@@ -301,8 +290,7 @@ def test_toucharea_drag_preview(
     ],
 )
 def test_group_header_keyboard_activation(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     activation_key: str,
     group_label: str,
@@ -311,9 +299,9 @@ def test_group_header_keyboard_activation(
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         search = window.get_by_accessible_name("Search elements")
         search.click()
         for _ in range(tab_count):

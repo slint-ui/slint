@@ -12,8 +12,6 @@ from editor_sync import wait_for_source
 from PIL import Image
 from slint_test import expect
 from ui_driver import (
-    first_window,
-    launch_editor,
     outline_row,
     outline_rows,
     wait_until,
@@ -21,7 +19,7 @@ from ui_driver import (
 
 
 def row_background(window, label):
-    row = outline_row(window, label)
+    row = outline_row(window, label).resolve()
     image = Image.open(BytesIO(window.screenshot()))
     scale = image.width / window.root_element.size.width
     return image.getpixel(
@@ -35,14 +33,12 @@ def row_background(window, label):
 @pytest.mark.parametrize(
     "origin", ["canvas", "tree", "canvas-to-tree", "tree-to-canvas"]
 )
-def test_hover_links_canvas_and_outline(
-    editor_binary, editor_environment, fixture_project, origin
-):
+def test_hover_links_canvas_and_outline(editor_factory, fixture_project, origin):
     source = fixture_project / "Main.slint"
     original = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, original)
-        window = first_window(editor)
+        window = editor.window
         artboard = window.get_by_accessible_name("Artboard").resolve()
         away = slint_testing.LogicalPosition(x=1, y=1)
         window.pointer.move_to(away)
@@ -54,7 +50,7 @@ def test_hover_links_canvas_and_outline(
             ("root-text", "Text", 180, 56),
         ]:
             target = (
-                center(outline_row(window, label))
+                center(outline_row(window, label).resolve())
                 if origin == "tree"
                 or (origin == "canvas-to-tree" and kind == "Text")
                 or (origin == "tree-to-canvas" and kind == "Rectangle")
@@ -90,15 +86,13 @@ def test_hover_links_canvas_and_outline(
         assert source.read_bytes() == original
 
 
-def test_tree_hover_geometry_updates_after_reload(
-    editor_binary, editor_environment, fixture_project
-):
+def test_tree_hover_geometry_updates_after_reload(editor_factory, fixture_project):
     source = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         artboard = window.get_by_accessible_name("Artboard").resolve()
-        window.pointer.move_to(center(outline_row(window, "root-rectangle")))
+        window.pointer.move_to(center(outline_row(window, "root-rectangle").resolve()))
         window.get_by_accessible_name("Hovered Rectangle").wait_for()
         updated = source.read_bytes().replace(b"x: 40px;", b"x: 70px;", 1)
         source.write_bytes(updated)

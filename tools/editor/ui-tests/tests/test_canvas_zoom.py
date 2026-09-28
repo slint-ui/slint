@@ -23,11 +23,7 @@ from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
-    file_row,
-    first_window,
-    launch_editor,
     screenshot,
-    select_outline_row,
     wait_until,
 )
 
@@ -43,14 +39,14 @@ def expected_fit_zoom(
 
 @pytest.mark.parametrize("percent", [25, 50, 75, 100, 125, 150, 200, 300, 400])
 def test_zoom_scales_content_and_preserves_controls(
-    editor_binary, editor_environment, fixture_project, percent, tmp_path
+    editor_factory, fixture_project, percent, tmp_path
 ):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         initial_center = center(
             window.get_by_accessible_name("Selected Rectangle").resolve()
@@ -97,8 +93,7 @@ def test_zoom_scales_content_and_preserves_controls(
     ],
 )
 def test_zoom_to_selection_uses_largest_fitting_level(
-    editor_binary,
-    editor_environment,
+    editor_factory,
     fixture_project,
     file_name,
     row,
@@ -108,10 +103,10 @@ def test_zoom_to_selection_uses_largest_fitting_level(
 ):
     source = fixture_project / file_name
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, row)
+        window = editor.window
+        editor.outline.select(row)
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         angle = math.radians(angle_degrees)
         bounds_width = width * abs(math.cos(angle)) + height * abs(math.sin(angle))
@@ -128,14 +123,14 @@ def test_zoom_to_selection_uses_largest_fitting_level(
 
 
 def test_zoom_to_selection_centers_canvas_when_unselected(
-    editor_binary, editor_environment, fixture_project
+    editor_factory, fixture_project
 ):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         window.get_by_accessible_name("Selected Rectangle").wait_for()
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         clear_point = slint_testing.LogicalPosition(
@@ -169,15 +164,15 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
 @pytest.mark.parametrize("percent", [50, 125, 200])
 @pytest.mark.parametrize("operation", ["move", "resize"])
 def test_zoomed_drag_writes_document_units(
-    editor_binary, editor_environment, fixture_project, percent, operation
+    editor_factory, fixture_project, percent, operation
 ):
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
         label = (
@@ -204,15 +199,13 @@ def test_zoomed_drag_writes_document_units(
 
 
 @pytest.mark.parametrize("percent", [50, 200])
-def test_canvas_scroll_and_space_pan(
-    editor_binary, editor_environment, fixture_project, percent
-):
+def test_canvas_scroll_and_space_pan(editor_factory, fixture_project, percent):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
@@ -246,16 +239,14 @@ def test_canvas_scroll_and_space_pan(
         original.assert_unchanged()
 
 
-def test_zoom_during_inline_edit_preserves_text(
-    editor_binary, editor_environment, fixture_project
-):
+def test_zoom_during_inline_edit_preserves_text(editor_factory, fixture_project):
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_outline_row(window, "root-text")
+        window = editor.window
+        editor.outline.select("root-text")
         window.get_by_accessible_name("Text move handle").dblclick()
         text = window.get_by_accessible_name("Inline text editor").resolve()
         window.keyboard.press_sequentially("Hello ")
@@ -271,15 +262,15 @@ def test_zoom_during_inline_edit_preserves_text(
 @pytest.mark.parametrize("percent", [50, 125, 200])
 @pytest.mark.parametrize("operation", ["radius", "rotation"])
 def test_zoomed_radius_and_rotation(
-    editor_binary, editor_environment, fixture_project, percent, operation
+    editor_factory, fixture_project, percent, operation
 ):
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
         if operation == "radius":
@@ -322,15 +313,13 @@ def test_zoomed_radius_and_rotation(
         original.wait_for_applied(baseline)
 
 
-def test_zoom_is_blocked_during_resize(
-    editor_binary, editor_environment, fixture_project
-):
+def test_zoom_is_blocked_during_resize(editor_factory, fixture_project):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         handle = window.get_by_accessible_name(
             "Rectangle resize bottom-right"
         ).resolve()
@@ -347,16 +336,14 @@ def test_zoom_is_blocked_during_resize(
         original.assert_unchanged()
 
 
-def test_view_survives_reload_and_document_switch(
-    editor_binary, editor_environment, fixture_project
-):
+def test_view_survives_reload_and_document_switch(editor_factory, fixture_project):
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, baseline)
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, 200)
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
@@ -364,19 +351,19 @@ def test_view_survives_reload_and_document_switch(
         expected = replace_once(baseline, b'"Fixture text"', b'"Reloaded"')
         source.write_bytes(expected)
         original.wait_for_applied(expected)
-        select_outline_row(window, "root-rectangle")
+        editor.outline.select("root-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         assert frame.absolute_position.x == pytest.approx(before.x)
         assert frame.absolute_position.y == pytest.approx(before.y)
         assert frame.size.width == pytest.approx(360)
-        file_row(window, fixture_project / "Sibling.slint").activate()
+        editor.files.row(fixture_project / "Sibling.slint").activate()
         window.get_by_role("list-item", name="sibling-rectangle").wait_for()
         assert (
             window.get_by_accessible_name("Editor canvas").resolve().accessible_value
             == "200%"
         )
-        file_row(window, source).activate()
-        select_outline_row(window, "root-rectangle")
+        editor.files.row(source).activate()
+        editor.outline.select("root-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         assert frame.absolute_position.x == pytest.approx(before.x)
         assert frame.absolute_position.y == pytest.approx(before.y)
@@ -384,12 +371,12 @@ def test_view_survives_reload_and_document_switch(
 
 
 @pytest.mark.parametrize("percent,key", [(25, "-"), (400, "+")])
-def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent, key):
+def test_zoom_limits(editor_factory, fixture_project, percent, key):
     source = fixture_project / "Main.slint"
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         zoom_canvas(window, percent)
         for _ in range(3):
             window.keyboard.shortcut(keys.Control, key)
@@ -405,7 +392,7 @@ def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent
 
 @pytest.mark.parametrize("percent", [50, 200])
 def test_navigation_keeps_gradient_picker_open(
-    editor_binary, editor_environment, fixture_project, percent
+    editor_factory, fixture_project, percent
 ):
     from gradient_interactions import gesture, shifted
 
@@ -416,10 +403,10 @@ def test_navigation_keeps_gradient_picker_open(
         )
     )
     original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         center_canvas_selection(window)
         window.get_by_role(
             "button", name="Rectangle background color picker"

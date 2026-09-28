@@ -20,17 +20,11 @@ from gradient_interactions import (
 from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
-from ui_driver import (
-    first_window,
-    launch_editor,
-    select_outline_row,
-)
 
 
 @pytest.mark.parametrize("kind", ["radial", "conic"])
 def test_custom_gradient_geometry_uses_layout_size(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     tmp_path: Path,
     kind: str,
 ) -> None:
@@ -51,10 +45,10 @@ def test_custom_gradient_geometry_uses_layout_size(
 }}
 """
     source_file.write_text(source)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+    with editor_factory(source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         rectangle = window.get_by_id("LayoutGradient::fill").resolve()
         assert rectangle.size.width == pytest.approx(400)
         assert rectangle.size.height == pytest.approx(400)
@@ -78,7 +72,7 @@ def test_custom_gradient_geometry_uses_layout_size(
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 @pytest.mark.parametrize("target", ["text", "root"])
 def test_non_canvas_gradient_keeps_numeric_geometry(
-    editor_binary, editor_environment, tmp_path, kind, target
+    editor_factory, tmp_path, kind, target
 ):
 
     prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
@@ -97,11 +91,11 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
 }}
 """)
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         if target == "text":
-            select_outline_row(window, "label")
+            editor.outline.select("label")
         else:
             window.get_by_role("list", name="Current file outline").get_by_role(
                 "list-item"
@@ -115,14 +109,14 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
         window.get_by_accessible_name("Gradient start").wait_for(state="hidden")
         if kind != "radial":
-            picker_field(window, "Gradient angle degrees").set_accessible_value("36")
+            editor.gradient.field("Gradient angle degrees").set_accessible_value("36")
         if kind != "linear":
             set_picker_mode(window, "Gradient center", "Custom")
-            picker_field(window, "Gradient center X").set_accessible_value("37")
-            picker_field(window, "Gradient center Y").set_accessible_value("61")
+            editor.gradient.field("Gradient center X").set_accessible_value("37")
+            editor.gradient.field("Gradient center Y").set_accessible_value("61")
         if kind == "radial":
             set_picker_mode(window, "Gradient radius mode", "Custom")
-            picker_field(window, "Gradient radius").set_accessible_value("95")
+            editor.gradient.field("Gradient radius").set_accessible_value("95")
         labels = [
             text.accessible_label
             for text in window.root_element.query_descendants()
@@ -160,29 +154,25 @@ def set_picker_mode(window, label, value):
 
 
 @pytest.mark.parametrize("kind", ["radial", "conic"])
-def test_picker_uses_live_preview_stop_markers(
-    editor_binary, editor_environment, tmp_path, kind
-):
+def test_picker_uses_live_preview_stop_markers(editor_factory, tmp_path, kind):
     expression = (
         "@radial-gradient(circle, red, blue)"
         if kind == "radial"
         else "@conic-gradient(from 0deg, red 0deg, blue 360deg)"
     )
     file = gradient_document(tmp_path, expression)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
-        stop = picker_field(window, "Gradient stop 1", "slider")
+        stop = editor.gradient.field("Gradient stop 1", "slider")
         expect(stop).to_have_geometry(width=40, height=40)
         (tmp_path / "picker-stop-markers.png").write_bytes(window.screenshot())
 
 
 @pytest.mark.parametrize("loaded_custom", [False, True])
-def test_custom_geometry_survives_mode_changes(
-    editor_binary, editor_environment, tmp_path, loaded_custom
-):
+def test_custom_geometry_survives_mode_changes(editor_factory, tmp_path, loaded_custom):
 
     expression = (
         "@radial-gradient(circle 95px at 37px 61px, red 0%, blue 100%)"
@@ -191,10 +181,10 @@ def test_custom_geometry_survives_mode_changes(
     )
     file = gradient_document(tmp_path, expression)
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         if not loaded_custom:
             set_radial_geometry(window, 37, 61, 95)
@@ -209,19 +199,17 @@ def test_custom_geometry_survives_mode_changes(
 
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
-def test_stop_precision_survives_save_and_reopen(
-    editor_binary, editor_environment, tmp_path, kind
-):
+def test_stop_precision_survives_save_and_reopen(editor_factory, tmp_path, kind):
 
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     unit = "deg" if kind == "conic" else "%"
     expression = f"@{kind}-gradient({prefix}, #ff0000 0{unit} - 12.345678{unit}, #00ff0080 33.333333{unit}, blue 33.333333{unit}, white 123.456789{unit})"
     file = gradient_document(tmp_path, expression)
     snapshot = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
 
         def save():
             window.get_by_role("button", name="Close Custom").activate()
@@ -231,10 +219,10 @@ def test_stop_precision_survives_save_and_reopen(
 
         open_gradient(window)
         if kind != "linear":
-            picker_field(window, "Stop 2 position").set_accessible_value("33.333333")
+            editor.gradient.field("Stop 2 position").set_accessible_value("33.333333")
         if kind == "linear":
             window.get_by_role("button", name="Edit stop 1 color").activate()
-            picker_field(window, "Hex color").set_accessible_value("#ff0100")
+            editor.gradient.field("Hex color").set_accessible_value("#ff0100")
         elif kind == "radial":
             window.get_by_role("button", name="Gradient center handle").activate()
 
@@ -244,11 +232,11 @@ def test_stop_precision_survives_save_and_reopen(
         first = save()
         assert b"33.33%" not in first
         assert b"33.3333" in first
-        select_outline_row(window, "fill")
+        editor.outline.select("fill")
         open_gradient(window)
         if kind == "linear":
             window.get_by_role("button", name="Edit stop 1 color").activate()
-            picker_field(window, "Hex color").set_accessible_value("#ff0200")
+            editor.gradient.field("Hex color").set_accessible_value("#ff0200")
         elif kind == "radial":
             window.get_by_role("button", name="Gradient center handle").activate()
             window.keyboard.press(keys.RightArrow)
@@ -265,7 +253,7 @@ def test_stop_precision_survives_save_and_reopen(
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
-    editor_binary, editor_environment, tmp_path, kind
+    editor_factory, tmp_path, kind
 ):
 
     units = 360 if kind == "conic" else 100
@@ -276,10 +264,10 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         f"@{kind}-gradient({prefix}, red 0{suffix}, #0000ff80 {units * 0.4}{suffix}, lime {units * 0.6}{suffix}, white {units}{suffix})",
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         role = "slider"
         left = center(window.get_by_role(role, name="Gradient stop 1").resolve())
@@ -290,41 +278,39 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
             point = shifted(left, x=(right.x - left.x) * position)
             window.pointer.move_to(point)
             assert float(
-                picker_field(window, "Stop 2 position").value()
+                editor.gradient.field("Stop 2 position").value()
             ) == pytest.approx(position * units, abs=0.01)
         window.pointer.release_at(point)
         assert (
-            picker_field(window, "Stop 3 position").bounds().y
-            < picker_field(window, "Stop 2 position").bounds().y
+            editor.gradient.field("Stop 3 position").bounds().y
+            < editor.gradient.field("Stop 2 position").bounds().y
         )
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
+        expect(editor.gradient.field("Hex color")).to_have_value("#0000ff80")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Gradient stop 2").activate()
         window.keyboard.press(keys.RightArrow)
-        assert float(picker_field(window, "Stop 2 position").value()) == pytest.approx(
+        assert float(editor.gradient.field("Stop 2 position").value()) == pytest.approx(
             units * 0.75 + 1, abs=0.01
         )
         window.get_by_role("button", name="Remove stop 1").activate()
         window.get_by_role("button", name="Edit stop 1 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
+        expect(editor.gradient.field("Hex color")).to_have_value("#0000ff80")
         window.keyboard.press(keys.Escape)
         original.assert_unchanged()
 
 
 @pytest.mark.parametrize("insert", [False, True])
-def test_picker_pointer_cancel_restores_stops(
-    editor_binary, editor_environment, tmp_path, insert
-):
+def test_picker_pointer_cancel_restores_stops(editor_factory, tmp_path, insert):
 
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         role = "slider"
         left = center(window.get_by_role(role, name="Gradient stop 1").resolve())
@@ -335,25 +321,23 @@ def test_picker_pointer_cancel_restores_stops(
         window.pointer.exit()
         for index, position in enumerate([0, 50, 100], 1):
             assert (
-                float(picker_field(window, f"Stop {index} position").value())
+                float(editor.gradient.field(f"Stop {index} position").value())
                 == position
             )
         window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()
 
 
-def test_stop_interactions_preserve_color_identity(
-    editor_binary, editor_environment, tmp_path
-):
+def test_stop_interactions_preserve_color_identity(editor_factory, tmp_path):
 
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, #0000ff80 50%, white 100%)"
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         left = center(window.get_by_role("button", name="Gradient start").resolve())
         right = center(window.get_by_role("button", name="Gradient end").resolve())
@@ -362,14 +346,14 @@ def test_stop_interactions_preserve_color_identity(
             gesture(window, insertion, insertion)
         window.get_by_role("button", name="Gradient stop 4").wait_for()
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#aa0055c0")
-        picker_field(window, "Hex color").set_accessible_value("#00ff00b0")
+        expect(editor.gradient.field("Hex color")).to_have_value("#aa0055c0")
+        editor.gradient.field("Hex color").set_accessible_value("#00ff00b0")
         window.get_by_role("button", name="Close Stop color").activate()
         original.assert_unchanged_now()
         start = center(window.get_by_role("button", name="Gradient stop 2").resolve())
         gesture(window, start, shifted(start, x=(right.x - left.x) * 0.5))
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#00ff00b0")
+        expect(editor.gradient.field("Hex color")).to_have_value("#00ff00b0")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Gradient stop 1").activate()
         window.keyboard.press(keys.Delete)
@@ -380,15 +364,13 @@ def test_stop_interactions_preserve_color_identity(
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved
-        select_outline_row(window, "fill")
+        editor.outline.select("fill")
         open_gradient(window)
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#00ff00b0")
+        expect(editor.gradient.field("Hex color")).to_have_value("#00ff00b0")
 
 
-def test_gradient_session_cancel_undo_redo_and_reopen(
-    editor_binary, editor_environment, tmp_path
-):
+def test_gradient_session_cancel_undo_redo_and_reopen(editor_factory, tmp_path):
 
     file = gradient_document(tmp_path, "root.paint")
     source = file.read_text().replace(
@@ -397,16 +379,16 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
     )
     file.write_text(source)
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         for cancel in [True, False]:
             open_gradient(window)
-            picker_field(window, "No recent fills", "text")
+            editor.gradient.field("No recent fills", "text")
             window.get_by_role("button", name="Add gradient stop").activate()
             window.get_by_role("button", name="Edit stop 2 color").activate()
-            color = picker_field(window, "Hex color")
+            color = editor.gradient.field("Hex color")
             color.set_accessible_value("#12345680")
             expect(color).to_have_value("#12345680")
             window.get_by_role("button", name="Close Stop color").activate()
@@ -414,7 +396,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             rotate_conic(window, 0, 37)
             set_picker_mode(window, "Gradient type", "Linear")
             window.get_by_role("button", name="Solid").activate()
-            expect(picker_field(window, "Hex color")).to_have_value("#12345680")
+            expect(editor.gradient.field("Hex color")).to_have_value("#12345680")
             window.get_by_role("button", name="Gradient").activate()
             set_picker_mode(window, "Gradient type", "Radial")
             assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
@@ -431,29 +413,29 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         original.wait_for_applied(source.encode(), file.name)
         window.keyboard.shortcut(keys.Control, keys.Shift, "z")
         original.wait_for_applied(saved, file.name)
-        select_outline_row(window, "fill")
+        editor.outline.select("fill")
         open_gradient(window)
         assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
         window.get_by_role("button", name="Edit stop 2 color").activate()
-        expect(picker_field(window, "Hex color")).to_have_value("#12345680")
+        expect(editor.gradient.field("Hex color")).to_have_value("#12345680")
 
 
 def test_recent_gradient_resets_custom_geometry_initialization(
-    editor_binary, editor_environment, tmp_path
+    editor_factory, tmp_path
 ):
 
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
+    with editor_factory(file) as editor:
         wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         open_gradient(window)
         window.get_by_role("button", name="Add gradient stop").activate()
         window.get_by_role("button", name="Close Custom").activate()
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
-        select_outline_row(window, "fill")
+        editor.outline.select("fill")
         open_gradient(window)
         set_radial_geometry(window, 37, 200, 95)
         recent = window.get_by_role(

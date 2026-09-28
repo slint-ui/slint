@@ -13,10 +13,7 @@ from editor_sync import wait_for_source
 from PIL import Image
 from slint_test import Window
 from ui_driver import (
-    first_window,
-    launch_editor,
     screenshot,
-    select_outline_row,
 )
 
 
@@ -36,17 +33,16 @@ def protected_regions(window: Window, image: Image.Image):
 
 @pytest.mark.parametrize("edge", ["left", "right", "top", "bottom"])
 def test_selection_overlays_are_clipped_to_canvas(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     edge: str,
 ) -> None:
     source = fixture_project / "BoundsCases.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         artboard = window.get_by_accessible_name("Artboard").resolve()
-        select_outline_row(window, "bounds-rectangle")
+        editor.outline.select("bounds-rectangle")
         initial_frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         before = screenshot(window)
         scale = before.width / window.root_element.size.width
@@ -72,7 +68,7 @@ def test_selection_overlays_are_clipped_to_canvas(
         )
         source.write_text(expected)
         wait_for_source(source, expected.encode())
-        select_outline_row(window, "bounds-rectangle")
+        editor.outline.select("bounds-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         assert frame.absolute_position.x == pytest.approx(x)
         assert frame.absolute_position.y == pytest.approx(y)
@@ -93,14 +89,13 @@ def test_selection_overlays_are_clipped_to_canvas(
 
 @pytest.mark.parametrize("edge", ["left", "top"])
 def test_gradient_overlays_are_clipped_to_canvas(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     edge: str,
 ) -> None:
     source = fixture_project / "BoundsCases.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         artboard = window.get_by_accessible_name("Artboard").resolve()
         x = (
@@ -125,7 +120,7 @@ def test_gradient_overlays_are_clipped_to_canvas(
         source.write_text(expected)
         wait_for_source(source, expected.encode())
         before = screenshot(window)
-        select_outline_row(window, "bounds-rectangle")
+        editor.outline.select("bounds-rectangle")
         window.get_by_accessible_name("Selected Rectangle").wait_for()
         window.get_by_accessible_name("Rectangle background color picker").activate()
         window.get_by_accessible_name("Gradient end").wait_for()
@@ -139,15 +134,12 @@ def test_gradient_overlays_are_clipped_to_canvas(
 
 @pytest.mark.parametrize("edge", ["left", "right", "top"])
 def test_drag_previews_are_clipped_to_canvas(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     edge: str,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Palette.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "Palette.slint") as editor:
+        window = editor.window
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
         target = center(canvas)
         begin_palette_drag(window, "Rectangle", target)

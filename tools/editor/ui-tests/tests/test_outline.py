@@ -14,12 +14,9 @@ from slint_test import Window, expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
     outline_row,
     outline_rows,
     screenshot,
-    select_outline_row,
     wait_until,
 )
 
@@ -63,7 +60,7 @@ def drop_position(
     row = (
         outline_rows(window)[0]
         if target == "<component-root>"
-        else outline_row(window, target)
+        else outline_row(window, target).resolve()
     )
     fraction = {"before": 1 / 6, "onto": 1 / 2, "after": 5 / 6}[location]
     return slint_testing.LogicalPosition(
@@ -79,7 +76,9 @@ def drag_row(
     location: str,
 ) -> None:
     source_row = (
-        outline_rows(window)[0] if source == "<root>" else outline_row(window, source)
+        outline_rows(window)[0]
+        if source == "<root>"
+        else outline_row(window, source).resolve()
     )
     window.drag_and_drop(center(source_row), drop_position(window, target, location))
 
@@ -103,8 +102,7 @@ def drag_row(
     ids=["before", "after"],
 )
 def test_outline_reorders_siblings_with_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     source: str,
     target: str,
@@ -113,8 +111,8 @@ def test_outline_reorders_siblings_with_exact_source(
 ) -> None:
     source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         drag_row(window, source, target, location)
         snapshot.wait_for_exact((GOLDENS / golden).read_bytes(), "OutlineCases.slint")
         wait_for_outline_state(
@@ -146,8 +144,7 @@ def test_outline_reorders_siblings_with_exact_source(
     ids=["child", "root"],
 )
 def test_outline_changes_element_parent_with_exact_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     source: str,
     target: str,
@@ -155,8 +152,8 @@ def test_outline_changes_element_parent_with_exact_source(
 ) -> None:
     source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         drag_row(window, source, target, "onto")
         snapshot.wait_for_exact((GOLDENS / golden).read_bytes(), "OutlineCases.slint")
         expected = (
@@ -180,19 +177,16 @@ def test_outline_changes_element_parent_with_exact_source(
 
 
 def test_outline_disclosure_collapses_and_expands_without_source_edit(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
-        window = first_window(editor)
-        outline_row(window, "container").invoke_accessible_expand_action()
+    with editor_factory(fixture_project / "OutlineCases.slint") as editor:
+        window = editor.window
+        outline_row(window, "container").resolve().invoke_accessible_expand_action()
         expect(window.get_by_accessible_name("child-a")).to_be_hidden()
-        outline_row(window, "container").invoke_accessible_expand_action()
-        outline_row(window, "child-a")
+        outline_row(window, "container").resolve().invoke_accessible_expand_action()
+        outline_row(window, "child-a").wait_for()
         snapshot.assert_unchanged()
 
 
@@ -205,8 +199,7 @@ def test_outline_disclosure_collapses_and_expands_without_source_edit(
     ids=["return", "space"],
 )
 def test_outline_keyboard_selection_synchronizes_editor(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     key: str,
     initial: str,
@@ -215,11 +208,11 @@ def test_outline_keyboard_selection_synchronizes_editor(
 ) -> None:
     source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         wait_for_source(source_file, source_file.read_bytes())
-        select_outline_row(window, initial)
-        row = outline_row(window, target)
+        editor.outline.select(initial)
+        row = outline_row(window, target).resolve()
         assert not row.accessible_item_selected
         target_locator = window.get_by_role("list-item", name=target)
         window.keyboard.press(keys.Tab)
@@ -243,34 +236,30 @@ def test_outline_keyboard_selection_synchronizes_editor(
     ids=["self", "cycle", "root"],
 )
 def test_illegal_outline_drops_do_not_change_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     source: str,
     target: str,
 ) -> None:
     source_file = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         wait_for_source(source_file, source_file.read_bytes())
         drag_row(window, source, target, "onto")
         snapshot.assert_unchanged()
 
 
 def test_escape_cancels_outline_drag_without_source_edit(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "OutlineCases.slint") as editor:
+        window = editor.window
         source = fixture_project / "OutlineCases.slint"
         wait_for_source(source, source.read_bytes())
-        start = center(outline_row(window, "sibling-a"))
+        start = center(outline_row(window, "sibling-a").resolve())
         end = drop_position(window, "container", "onto")
         window.pointer.press_at(start)
         window.pointer.move_to(end)
@@ -286,34 +275,30 @@ def test_escape_cancels_outline_drag_without_source_edit(
 
 
 def test_prohibited_layout_outline_drop_does_not_change_source(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
     canvas_file = fixture_project / "CanvasCases.slint"
-    with launch_editor(editor_binary, editor_environment, canvas_file) as editor:
-        window = first_window(editor)
+    with editor_factory(canvas_file) as editor:
+        window = editor.window
         drag_row(window, "prohibited-layout", "<component-root>", "before")
         snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize("grab_fraction", [0.25, 0.75])
 def test_outline_ghost_follows_pointer_in_tree(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     tmp_path: Path,
     grab_fraction: float,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
-        window = first_window(editor)
+    with editor_factory(fixture_project / "OutlineCases.slint") as editor:
+        window = editor.window
         source = fixture_project / "OutlineCases.slint"
         wait_for_source(source, source.read_bytes())
-        row = outline_row(window, "sibling-a")
+        row = outline_row(window, "sibling-a").resolve()
         row_width, row_height = row.size.width, row.size.height
         grab = slint_testing.LogicalPosition(
             x=row.size.width * grab_fraction, y=row.size.height * grab_fraction
@@ -335,41 +320,42 @@ def test_outline_ghost_follows_pointer_in_tree(
         (tmp_path / "outline-ghost.png").write_bytes(window.screenshot())
         window.keyboard.press(keys.Escape)
         window.pointer.release_at(moved)
-        assert outline_row(window, "sibling-a").size.height == pytest.approx(row_height)
+        assert outline_row(window, "sibling-a").resolve().size.height == pytest.approx(
+            row_height
+        )
         snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize("location", ["before", "onto", "after"])
 def test_outline_gap_matches_drop_destination(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     tmp_path: Path,
     location: str,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, source.read_bytes())
-        source_row = outline_row(window, "sibling-b")
+        source_row = outline_row(window, "sibling-b").resolve()
         window.pointer.move_to(center(source_row))
         original = outline_image(window, source_row)
         start = slint_testing.LogicalPosition(
             x=source_row.absolute_position.x + source_row.size.width - 8,
             y=center(source_row).y,
         )
-        window.pointer.move_to(center(outline_row(window, "sibling-a")))
-        hover = outline_image(window, outline_row(window, "sibling-a"))
+        window.pointer.move_to(center(outline_row(window, "sibling-a").resolve()))
+        hover = outline_image(window, outline_row(window, "sibling-a").resolve())
         sample = (original.width - 40, original.height // 2)
         hover_background = hover.getpixel(sample)
         blank = outline_image(window, source_row).getpixel(sample)
         assert isinstance(hover_background, tuple)
         assert isinstance(blank, tuple)
         assert hover_background != blank
-        target = outline_row(window, "container")
+        target = outline_row(window, "container").resolve()
         target_y = target.absolute_position.y
-        last_child_y = outline_row(window, "child-b").absolute_position.y
+        last_child_y = outline_row(window, "child-b").resolve().absolute_position.y
         end = drop_position(window, "container", location)
         end = slint_testing.LogicalPosition(x=target.absolute_position.x + 24, y=end.y)
         window.pointer.press_at(start)
@@ -381,12 +367,14 @@ def test_outline_gap_matches_drop_destination(
         gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         if location == "before":
             assert target_y <= gap.absolute_position.y < target_y + gap.size.height
-            assert outline_row(window, "container").size.height > gap.size.height
+            assert (
+                outline_row(window, "container").resolve().size.height > gap.size.height
+            )
         else:
             assert gap.absolute_position.y > last_child_y
             assert (
                 gap.absolute_position.y
-                < outline_row(window, "sibling-a").absolute_position.y
+                < outline_row(window, "sibling-a").resolve().absolute_position.y
             )
         assert gap.size.width == pytest.approx(target.size.width)
         position = slint_testing.LogicalPosition(
@@ -398,7 +386,7 @@ def test_outline_gap_matches_drop_destination(
         window.pointer.move_to(position)
         gap = window.get_by_accessible_name("Outline insertion preview").resolve()
         assert gap.absolute_position.y == pytest.approx(stable.y)
-        hidden = outline_image(window, outline_row(window, "sibling-b"))
+        hidden = outline_image(window, outline_row(window, "sibling-b").resolve())
         assert hidden.crop(
             (24, 6, hidden.width - 8, hidden.height - 8)
         ).getextrema() == tuple((channel, channel) for channel in blank)
@@ -433,7 +421,7 @@ def test_outline_gap_matches_drop_destination(
                 else None
             )
         )
-        moved = outline_row(window, "sibling-b")
+        moved = outline_row(window, "sibling-b").resolve()
         assert moved.accessible_description == (
             "Hierarchy level 3" if location == "onto" else "Hierarchy level 2"
         )
@@ -483,24 +471,25 @@ def outline_image(
 
 @pytest.mark.parametrize("selected", [False, True], ids=["hovered", "selected"])
 def test_outline_ghost_preserves_row_highlight_and_fades(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     selected: bool,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, source.read_bytes())
-        row = outline_row(window, "sibling-b")
+        row = outline_row(window, "sibling-b").resolve()
         if selected:
-            select_outline_row(window, "sibling-b")
+            editor.outline.select("sibling-b")
         start = center(row)
         window.pointer.move_to(start)
         original = outline_image(window, row)
         sample = (original.width - 40, original.height // 2)
         highlight = original.getpixel(sample)
-        blank = outline_image(window, outline_row(window, "sibling-a")).getpixel(sample)
+        blank = outline_image(
+            window, outline_row(window, "sibling-a").resolve()
+        ).getpixel(sample)
         assert isinstance(highlight, tuple)
         assert isinstance(blank, tuple)
         assert highlight != blank
@@ -529,21 +518,20 @@ def test_outline_ghost_preserves_row_highlight_and_fades(
         window.pointer.release_at(end)
         window.pointer.move_to(start)
         assert (
-            outline_image(window, outline_row(window, "sibling-b")).tobytes()
+            outline_image(window, outline_row(window, "sibling-b").resolve()).tobytes()
             == original.tobytes()
         )
 
 
 def test_outline_click_does_not_draw_focus_ring(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "OutlineCases.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, source.read_bytes())
-        row = outline_row(window, "sibling-b")
+        row = outline_row(window, "sibling-b").resolve()
         position = center(row)
         window.pointer.press_at(position)
         window.pointer.release_at(position)

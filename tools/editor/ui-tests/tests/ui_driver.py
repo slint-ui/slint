@@ -80,11 +80,9 @@ ELEMENT_ROWS = {
 }
 
 
-def outline_row(window: Window, label: str) -> slint_testing.Element:
-    return (
-        window.get_by_role("list", name="Current file outline")
-        .get_by_role("list-item", name=label)
-        .resolve()
+def outline_row(window: Window, label: str) -> Locator:
+    return window.get_by_role("list", name="Current file outline").get_by_role(
+        "list-item", name=label
     )
 
 

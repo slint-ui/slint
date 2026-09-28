@@ -12,24 +12,19 @@ from gradient_interactions import center, gesture, open_radial, shifted
 from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
-from ui_driver import (
-    first_window,
-    launch_editor,
-    select_outline_row,
-)
 
 
 def test_radial_activation_preserves_the_actual_picker(
-    editor_binary, editor_environment, radial_scene, tmp_path
+    editor_factory, radial_scene, tmp_path
 ):
     radial_scene.write_text(
         re.sub(r"@radial-gradient\([^;]+\)", "#7e3b66", radial_scene.read_text())
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         window.get_by_accessible_name("Gradient center handle").wait_for(state="hidden")
         window.get_by_role(
             "button", name="Rectangle background color picker"
@@ -56,9 +51,7 @@ def test_radial_activation_preserves_the_actual_picker(
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
 @pytest.mark.parametrize("handle", ["Gradient center handle", "Gradient axis"])
-def test_radial_translation(
-    editor_binary, editor_environment, radial_scene, tmp_path, rotation, handle
-):
+def test_radial_translation(editor_factory, radial_scene, tmp_path, rotation, handle):
     radial_scene.write_text(
         radial_scene.read_text().replace(
             "        width: 200px;",
@@ -66,9 +59,9 @@ def test_radial_translation(
         )
     )
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(),
@@ -103,13 +96,13 @@ def test_radial_translation(
 
 @pytest.mark.parametrize("percent", [50, 100, 200])
 def test_radial_radius_save_reopen_and_history(
-    editor_binary, editor_environment, radial_scene, tmp_path, percent
+    editor_factory, radial_scene, tmp_path, percent
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
+        window = editor.window
+        editor.outline.select("fill")
         zoom_canvas(window, percent)
         center_canvas_selection(window)
         open_radial(window)
@@ -146,12 +139,12 @@ def test_radial_radius_save_reopen_and_history(
 
 
 def test_radial_guide_rotation_and_noop_do_not_write_source(
-    editor_binary, editor_environment, radial_scene, tmp_path
+    editor_factory, radial_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 35
@@ -168,12 +161,12 @@ def test_radial_guide_rotation_and_noop_do_not_write_source(
 
 
 def test_radial_stops_cross_insert_delete_and_color(
-    editor_binary, editor_environment, radial_scene, tmp_path
+    editor_factory, radial_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+    with editor_factory(radial_scene) as editor:
         wait_for_source(radial_scene, radial_scene.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         open_radial(window)
         start = center(
             window.get_by_role("button", name="Gradient stop 2").resolve(), 35

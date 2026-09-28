@@ -10,8 +10,6 @@ from slint_test import Window
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
     select_fixture_element,
 )
 
@@ -35,8 +33,7 @@ def edited_source(source_file: Path, text: str) -> bytes:
 
 @pytest.mark.parametrize("commit_key", [keys.Return, keys.Escape])
 def test_inline_text_key_commit(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     commit_key: str,
 ) -> None:
@@ -44,8 +41,8 @@ def test_inline_text_key_commit(
     snapshot = SourceSnapshot.capture(fixture_project)
     expected = edited_source(source_file, "Edited")
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         begin_inline_edit(window)
         window.keyboard.press_sequentially("Edited")
         window.keyboard.press(commit_key)
@@ -55,16 +52,15 @@ def test_inline_text_key_commit(
 
 
 def test_inline_text_focus_commit_selects_clicked_item(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
     expected = edited_source(source_file, "Changed")
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         begin_inline_edit(window)
         window.keyboard.press_sequentially("Changed")
         position = center(fixture_element(window, "Rectangle"))
@@ -76,14 +72,13 @@ def test_inline_text_focus_commit_selects_clicked_item(
 
 
 def test_inline_text_focus_loss_without_change_restores_text(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
+    with editor_factory(source_file) as editor:
+        window = editor.window
         begin_inline_edit(window)
         position = center(fixture_element(window, "Rectangle"))
         window.pointer.press_at(position)
@@ -100,8 +95,7 @@ def test_inline_text_focus_loss_without_change_restores_text(
     ],
 )
 def test_inline_text_rejects_unsupported_layouts(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     text_declaration: bytes,
 ) -> None:
@@ -111,8 +105,8 @@ def test_inline_text_rejects_unsupported_layouts(
         source.replace(b'        text: "Fixture text";', text_declaration)
     )
 
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Text")
+    with editor_factory(source_file) as editor:
+        window = editor.window
+        editor.canvas.select("Text")
         window.get_by_accessible_name("Text move handle").dblclick()
         window.get_by_accessible_name("Inline text editor").wait_for(state="hidden")

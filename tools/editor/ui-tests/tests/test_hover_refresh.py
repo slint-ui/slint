@@ -12,11 +12,6 @@ from inspector_interactions import FIELDS, edit_field
 from slint_test import Window, expect
 from slint_testing import keys
 from source_snapshot import wait_for_source_change
-from ui_driver import (
-    first_window,
-    launch_editor,
-    select_fixture_element,
-)
 
 
 def hover_rectangle(window: Window) -> None:
@@ -34,17 +29,16 @@ def wait_for_no_rectangle_hover(window: Window) -> None:
 
 @pytest.mark.parametrize("operation", ["delete", "backspace", "source-removal"])
 def test_removing_hovered_element_without_pointer_motion(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     operation: str,
 ) -> None:
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         hover_rectangle(window)
 
         if operation == "source-removal":
@@ -65,8 +59,7 @@ def test_removing_hovered_element_without_pointer_motion(
 
 
 def test_undo_moves_hovered_element_away_from_stationary_pointer(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
@@ -83,10 +76,10 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
 }
 """
     source.write_bytes(baseline)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         edit_field(window, FIELDS["x"], "220", "text-input")
         moved = wait_for_source_change(source, baseline)
         assert b"x: 220px;" in moved
@@ -106,14 +99,13 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
 
 
 def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
         hover_rectangle(window)
         expected = baseline.replace(b"width: 180px;", b"width: 100px;", 1)
@@ -126,16 +118,15 @@ def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
 
 
 def test_pointer_motion_clears_hover_after_removal(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         hover_rectangle(window)
         window.keyboard.press(keys.Delete)
         expected = wait_for_source_change(source, baseline)
@@ -147,14 +138,13 @@ def test_pointer_motion_clears_hover_after_removal(
 
 
 def test_preview_reload_updates_hover_target_without_pointer_motion(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
         hover_rectangle(window)
         expected = baseline.replace(b"x: 180px;", b"x: 40px;").replace(
@@ -171,17 +161,16 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
     ["outside", "resize top-left", "rotate top-left", "radius top-left", "pressed"],
 )
 def test_preview_reload_preserves_hover_suppression(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     state: str,
 ) -> None:
     source = fixture_project / "Main.slint"
     baseline = source.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
+    with editor_factory(source) as editor:
+        window = editor.window
         wait_for_source(source, baseline)
-        select_fixture_element(window, "Rectangle")
+        editor.canvas.select("Rectangle")
         hover_rectangle(window)
         if state == "outside":
             artboard = window.get_by_accessible_name("Artboard").resolve()

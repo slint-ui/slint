@@ -15,7 +15,51 @@ from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, inspector_field
 from slint_test import Drag, Locator, Point, Window, expect, inspection_sources, step
 from source_snapshot import SourceSnapshot, wait_for_source_change
-from ui_driver import launch_editor
+from ui_driver import ELEMENT_ROWS, launch_editor, palette_row
+
+
+class Outline:
+    def __init__(self, editor: Editor):
+        self.editor = editor
+
+    def row(self, name: str) -> Locator:
+        return self.editor.window.get_by_role(
+            "list", name="Current file outline"
+        ).get_by_role("list-item", name=name)
+
+    def select(self, name: str) -> Locator:
+        with step("Select outline row", layer="adapter", name=name):
+            row = self.row(name)
+            row.activate()
+            expect(row).to_be_selected()
+            return row
+
+
+class Palette:
+    def __init__(self, editor: Editor):
+        self.editor = editor
+
+    def row(self, kind: str) -> Locator:
+        return palette_row(self.editor.window, kind)
+
+
+class Gradient:
+    def __init__(self, editor: Editor):
+        self.editor = editor
+
+    def field(self, label: str, role: str = "text-input") -> Locator:
+        return self.editor.window.get_by_role(role, name=label)
+
+
+class SourceDocument:
+    def __init__(self, path: Path):
+        self.path = path
+
+    def read_bytes(self) -> bytes:
+        return self.path.read_bytes()
+
+    def snapshot(self) -> SourceSnapshot:
+        return SourceSnapshot.capture(self.path.parent)
 
 
 class Inspector:
@@ -76,9 +120,7 @@ class CanvasElement:
 
     def select(self) -> None:
         with step("Select canvas element", layer="adapter", identifier=self.identifier):
-            row = self.editor.outline_row(self.identifier)
-            row.activate()
-            expect(row).to_be_selected()
+            self.editor.outline.select(self.identifier)
             expect(self.selection).to_have_count(1)
             self.editor.selected_identifier = self.identifier
 
@@ -121,6 +163,11 @@ class Canvas:
     def element(self, identifier: str, *, kind: str = "Rectangle") -> CanvasElement:
         return CanvasElement(self.editor, identifier, kind)
 
+    def select(self, kind: str) -> CanvasElement:
+        element = self.element(ELEMENT_ROWS[kind], kind=kind)
+        element.select()
+        return element
+
     def zoom_to(self, percent: int) -> None:
         with step(
             "Zoom canvas",
@@ -143,9 +190,12 @@ class Files:
     def __init__(self, editor: Editor):
         self.editor = editor
 
-    def row(self, name: str) -> Locator:
+    def row(self, name: str | Path) -> Locator:
+        path = Path(name)
+        if not path.is_absolute():
+            path = self.editor.source.parent / path
         return self.editor.window.get_by_role("tree", name="Files").get_by_role(
-            "list-item", name=str(self.editor.source.parent / name)
+            "list-item", name=str(path)
         )
 
     def rename(self, name: str, basename: str) -> None:
@@ -163,6 +213,8 @@ class Files:
 
 class Editor:
     def __init__(self, raw: slint_testing.Application, source: Path):
+        self.raw = raw
+        self.process = raw.process
         self.source = source
         window = raw.first_window
         if window is None:
@@ -170,16 +222,25 @@ class Editor:
         self.raw_window: slint_testing.Window = window
         self.window = Window(window)
         self.selected_identifier = ""
-        self.inspector, self.canvas, self.files = (
+        self.document = SourceDocument(source)
+        (
+            self.inspector,
+            self.canvas,
+            self.files,
+            self.outline,
+            self.palette,
+            self.gradient,
+        ) = (
             Inspector(self),
             Canvas(self),
             Files(self),
+            Outline(self),
+            Palette(self),
+            Gradient(self),
         )
 
     def outline_row(self, name: str) -> Locator:
-        return self.window.get_by_role("list", name="Current file outline").get_by_role(
-            "list-item", name=name
-        )
+        return self.outline.row(name)
 
     def snapshot(self) -> SourceSnapshot:
         return SourceSnapshot.capture(self.source.parent)
@@ -201,10 +262,15 @@ class Editor:
 
 @contextlib.contextmanager
 def open_editor(
-    binary: Path, environment: dict[str, str], source: Path
+    binary: Path,
+    environment: dict[str, str],
+    source: Path,
+    *,
+    wait_for_preview: bool = True,
 ) -> Iterator[Editor]:
     with launch_editor(binary, environment, source) as raw, inspection_sources(source):
-        wait_for_source(source, source.read_bytes())
+        if wait_for_preview:
+            wait_for_source(source, source.read_bytes())
         editor = Editor(raw, source)
         try:
             yield editor

@@ -9,9 +9,6 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    first_window,
-    launch_editor,
-    select_outline_row,
     wait_until,
 )
 
@@ -20,16 +17,13 @@ from ui_driver import (
     "tool", ["resize top-left", "rotate top-left", "radius top-left", "move handle"]
 )
 def test_selected_hover_hides_for_manipulation(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
     tool: str,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
+        editor.outline.select("root-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         inside = slint_testing.LogicalPosition(
             x=frame.absolute_position.x + 40,
@@ -58,14 +52,13 @@ def test_selected_hover_hides_for_manipulation(
 
 
 def test_click_selection_keeps_visible_hover_outline(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
+        window = editor.window
         artboard = window.get_by_accessible_name("Artboard").resolve()
         target = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 80,
@@ -80,15 +73,14 @@ def test_click_selection_keeps_visible_hover_outline(
 
 
 def test_click_outside_artboard_clears_selection(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source) as editor:
+    with editor_factory(source) as editor:
         wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+        window = editor.window
+        editor.outline.select("root-rectangle")
         window.get_by_accessible_name("Selected Rectangle").wait_for()
         window.get_by_accessible_name("Rectangle background").wait_for()
         canvas = window.get_by_accessible_name("Editor canvas").resolve()
@@ -118,7 +110,7 @@ def test_click_outside_artboard_clears_selection(
             )
 
         wait_until(selection_cleared)
-        select_outline_row(window, "root-rectangle")
+        editor.outline.select("root-rectangle")
         window.get_by_accessible_name("Selected Rectangle").wait_for()
         window.get_by_role("list", name="Current file outline").get_by_role(
             "list-item"
@@ -127,15 +119,12 @@ def test_click_outside_artboard_clears_selection(
 
 
 def test_resize_handle_touch_area_is_centered(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+    with editor_factory(fixture_project / "Main.slint") as editor:
+        window = editor.window
+        editor.outline.select("root-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         handle = window.get_by_accessible_name("Rectangle resize top-left").resolve()
         assert handle.size.width == pytest.approx(12)
@@ -149,15 +138,14 @@ def test_resize_handle_touch_area_is_centered(
 
 
 def test_resize_starts_outside_visible_handle(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
+    editor_factory,
     fixture_project: Path,
 ) -> None:
     source = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "root-rectangle")
+    with editor_factory(source) as editor:
+        window = editor.window
+        editor.outline.select("root-rectangle")
         frame = window.get_by_accessible_name("Selected Rectangle").resolve()
         initial_width, initial_height = frame.size.width, frame.size.height
         handle = window.get_by_accessible_name(

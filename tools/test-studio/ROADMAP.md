@@ -65,6 +65,10 @@ The migration removed direct event construction and raw element actions from tes
 Against the pre-migration tree, the suite removes 368 direct event-construction sites, 604 legacy lookup/input-helper sites, and 59 direct raw-element action sites; the corresponding static scan is now empty in tests and shared interaction helpers.
 A readability follow-up replaces 205 enum-valued locator roles with plain role names, 145 discarded `resolve()` calls with `wait_for()`, and 69 raw empty-list assertions with hidden-state waits.
 The remaining `resolve()`, `all()`, and custom polling calls read geometry or combine state from multiple elements where the raw values are part of the test contract.
+The Visual Editor adapter is now the standard launch surface for all 223 application-backed tests outside the three startup contracts.
+The other six tests exercise source snapshots and editor synchronization without launching an application.
+Adapter-backed tests use `editor.outline`, `editor.canvas`, `editor.inspector`, `editor.files`, `editor.palette`, and `editor.gradient` for editor concepts, while the generic locators remain available for ordinary controls and exact geometry.
+Canvas and inspector cases are divided into behavior-focused modules; collection wrappers preserve their original pytest node IDs and order.
 Tests whose behavior is an exact gesture retain explicit named pointer and keyboard steps; geometry tests retain raw geometry reads because those values are the contract under test.
 Native left-click targeting and automatic scrolling are available for supported built-in input policies, with an explicit forced click for controls whose accessible element delegates input to a covering touch area.
 The reporting bridge alone retains raw screenshot access because it receives the harness's underlying window before the readable wrapper is created.
