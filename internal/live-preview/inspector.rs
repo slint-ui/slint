@@ -54,6 +54,7 @@ impl InspectorOverlay {
         user_instance: Option<&slint_interpreter::ComponentInstance>,
         highlight: Option<&(lsp_types::Url, u32)>,
     ) {
+        tracing::debug!("Updating highlight: {highlight:?}");
         let highlight = user_instance.zip(highlight).and_then(|(instance, (url, offset))| {
             url.to_file_path().ok().map(|path| (instance.as_weak(), path, *offset))
         });

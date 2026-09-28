@@ -240,7 +240,14 @@ async fn run_async(
             Event::Compiled { compilation, generation: g } => {
                 // A pairing code on screen has to stay legible
                 if g == generation && !prompt_on_screen {
-                    apply_compiled(compilation, &mut placeholder, &mut user_instance, &chrome)?;
+                    apply_compiled(
+                        compilation,
+                        &mut placeholder,
+                        &mut user_instance,
+                        &inspector,
+                        current_highlight.as_ref(),
+                        &chrome,
+                    )?;
                 }
             }
             Event::Resumed => {
@@ -484,22 +491,36 @@ fn apply_compiled(
         PreviewCompilation::Ready(compiled) => compiled.component_definition(),
         PreviewCompilation::ComponentNotFound => None,
         PreviewCompilation::CompilationError { message } => {
-            return show_error(placeholder, user_instance, chrome, &message);
+            return show_error(placeholder, user_instance, inspector, chrome, &message);
         }
         // No build happened at all, so nothing else takes the spinner down
         PreviewCompilation::Unavailable => {
             return match user_instance {
                 Some(_) => Ok(()),
-                None => {
-                    show_error(placeholder, user_instance, chrome, "Could not load the preview")
-                }
+                None => show_error(
+                    placeholder,
+                    user_instance,
+                    inspector,
+                    chrome,
+                    "Could not load the preview",
+                ),
             };
         }
     };
     let Some(component) = component else {
-        return show_error(placeholder, user_instance, chrome, "Component not found");
+        return show_error(placeholder, user_instance, inspector, chrome, "Component not found");
     };
 
+    show_compiled_component(component, placeholder, user_instance, inspector, current_highlight)
+}
+
+fn show_compiled_component(
+    component: slint_interpreter::ComponentDefinition,
+    placeholder: &mut RemoteViewerWindow,
+    user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &InspectorOverlay,
+    current_highlight: Option<&(lsp_types::Url, u32)>,
+) -> anyhow::Result<()> {
     let new_instance = component
         .create_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;
@@ -517,12 +538,14 @@ fn apply_compiled(
 fn show_error(
     placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &InspectorOverlay,
     chrome: &Chrome,
     message: &str,
 ) -> anyhow::Result<()> {
     swap_to_placeholder(
         placeholder,
         user_instance,
+        inspector,
         chrome,
         message,
         RemoteViewerState::PreviewError,
@@ -600,6 +623,7 @@ pub(crate) static ANDROID_DEVICE_NAME: std::sync::Mutex<Option<String>> =
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_core::window::WindowInner;
     use i_slint_renderer_software::{
         MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
     };
@@ -664,20 +688,28 @@ mod tests {
                 .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
         );
         assert!(!compilation_result.has_errors());
-        let preview = compilation_result.component("TestPreview").unwrap().create().unwrap();
-        preview.show().unwrap();
-        let preview_item_tree = WindowInner::from_pub(preview.window()).component();
-        let inspector = crate::poll_ready(InspectorOverlay::new(preview.window())).unwrap();
-        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
-            &preview_item_tree,
-            &WindowInner::from_pub(preview.window()).component(),
-        ));
+        let component = compilation_result.component("TestPreview").unwrap();
+        let mut placeholder = RemoteViewerWindow::new().unwrap();
+        let inspector = crate::poll_ready(InspectorOverlay::new(placeholder.window())).unwrap();
         let highlight = (
             lsp_types::Url::from_file_path(&preview_path).unwrap(),
             TEST_PREVIEW_SOURCE.find("Rectangle").unwrap() as u32,
         );
-        inspector.update(Some(&preview), Some(&highlight));
-        inspector.attach().unwrap();
+        let mut user_instance = None;
+        show_compiled_component(
+            component,
+            &mut placeholder,
+            &mut user_instance,
+            &inspector,
+            Some(&highlight),
+        )
+        .unwrap();
+        let preview = user_instance.as_ref().unwrap();
+        let preview_item_tree = preview.as_item_tree(i_slint_core::InternalToken);
+        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &preview_item_tree,
+            &WindowInner::from_pub(preview.window()).component(),
+        ));
 
         let mut pixels = vec![RgbPixel::default(); (WIDTH * HEIGHT) as usize];
         preview.window().request_redraw();
