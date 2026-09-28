@@ -5,14 +5,11 @@ description: Populating your UI with placeholder data while designing, without s
 
 While designing a UI, it's useful to see it filled with realistic-looking data before any business
 logic exists to provide it. Slint offers two building blocks for this:
-[`Platform.uses-mock-data`](#platformuses-mock-data) tells you whether the `.slint` file is running
-on its own, and `@from-json(...)` loads values from
-a JSON file at compile time. Combined, they let you preview a fully populated UI while keeping the
-compiled application free of placeholder data.
+[`Platform.uses-mock-data`](#platformuses-mock-data) and `@from-json(...).
 
 ## `Platform.uses-mock-data`
 
-`Platform.uses-mock-data` is `true` when the `.slint` file is being previewed on its own — for
+[`Platform.uses-mock-data`](#platformuses-mock-data) is `true` when the `.slint` file is being previewed on its own — for
 example with `slint-viewer` or an editor's live preview — and `false` once it's driven by a host
 application written in Rust, C++, JavaScript, or Python. It's a compile-time constant, so any
 branch that depends on it is optimized away once the value is known, meaning mock data never ends
