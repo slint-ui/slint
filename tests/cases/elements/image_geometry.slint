@@ -8,6 +8,13 @@ component FixedWidthImage inherits Image {
     width: 500phx;
 }
 
+component InheritedWidthImage inherits FixedWidthImage { }
+
+component ClippedWidthImage inherits InheritedWidthImage {
+    source-clip-width: 20;
+    source-clip-height: 20;
+}
+
 export component TestCase inherits Rectangle {
     fixed_image := Image {
         x:0;y:0;
@@ -29,9 +36,14 @@ export component TestCase inherits Rectangle {
         }
     }
 
-    image_with_missing_height := FixedWidthImage {
+    image_with_missing_height := InheritedWidthImage {
         x:0;y:0;
         property <bool> expected_height_ok: self.height == 750phx;
+    }
+
+    image_with_inherited_clip := ClippedWidthImage {
+        x:0;y:0;
+        property <bool> expected_height_ok: self.height == 500phx;
     }
 
     image_with_missing_width := Image {
@@ -55,10 +67,11 @@ export component TestCase inherits Rectangle {
     in-out property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
     in-out property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
     in-out property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
+    in-out property <bool> image_with_inherited_clip_ok <=> image_with_inherited_clip.expected_height_ok;
     in-out property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
     in-out property <bool> image_with_missing_width_clipped_ok <=> image_with_missing_width.expected_width_ok;
 
-    in-out property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
+    in-out property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_inherited_clip_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
 }
 
 /*
@@ -71,6 +84,7 @@ assert(instance.get_fixed_image_image_fit_override_ok());
 assert(instance.get_image_in_layout_fit_ok());
 assert(instance.get_image_in_layout_custom_fit_ok());
 assert(instance.get_image_with_missing_height_ok());
+assert(instance.get_image_with_inherited_clip_ok());
 assert(instance.get_image_with_missing_width_ok());
 assert(instance.get_image_with_missing_width_clipped_ok());
 ```
@@ -83,6 +97,7 @@ assert!(instance.get_fixed_image_image_fit_override_ok());
 assert!(instance.get_image_in_layout_fit_ok());
 assert!(instance.get_image_in_layout_custom_fit_ok());
 assert!(instance.get_image_with_missing_height_ok());
+assert!(instance.get_image_with_inherited_clip_ok());
 assert!(instance.get_image_with_missing_width_ok());
 assert!(instance.get_image_with_missing_width_clipped_ok());
 ```
@@ -94,6 +109,7 @@ assert(instance.fixed_image_image_fit_override_ok);
 assert(instance.image_in_layout_fit_ok);
 assert(instance.image_in_layout_custom_fit_ok);
 assert(instance.image_with_missing_height_ok);
+assert(instance.image_with_inherited_clip_ok);
 assert(instance.image_with_missing_width_ok);
 assert(instance.image_with_missing_width_clipped_ok);
 ```

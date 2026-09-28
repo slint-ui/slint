@@ -716,10 +716,25 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
             op: '-',
         };
 
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
+        for (dimension, offset) in [("width", x), ("height", y)] {
+            let property = format_smolstr!("source-clip-{dimension}");
+            let has_synthetic_hook = elem
+                .borrow()
+                .binding_cell_including_synthetic(&property)
+                .is_some_and(|binding| binding.borrow().expression.is_synthetic_debug_hook());
+            let has_inherited_default =
+                crate::layout::find_binding(elem, &property, |binding, _, depth| {
+                    depth > 0 && !binding.from_source
+                }) == Some(true);
+            if has_synthetic_hook && has_inherited_default {
+                let mut binding: crate::expression_tree::BindingExpression =
+                    make_expr(dimension, offset).into();
+                binding.priority = i32::MAX;
+                elem.borrow_mut().set_binding(property, binding);
+            } else {
+                elem.borrow_mut().set_binding_if_not_set(property, || make_expr(dimension, offset));
+            }
+        }
     }
 }
 
