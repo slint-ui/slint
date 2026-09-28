@@ -349,20 +349,11 @@ pub(crate) enum WindowVisibility {
     Shown,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum DisplayServerProtocol {
-    #[cfg(feature = "x11")]
-    X11,
-    #[cfg(feature = "wayland")]
-    Wayland,
-}
-
 #[derive(Copy, Clone, Debug, Default)]
 struct EventLoopProperties {
     /// Specifies if the current platform supports native popup
     /// with winit or not
     support_native_popup: bool,
-    display_server_protocol: Option<DisplayServerProtocol>,
 }
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
@@ -465,12 +456,13 @@ impl WinitWindowAdapter {
         parent: Weak<Self>,
     ) -> Rc<Self> {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let event_loop_properties =
-            EventLoopProperties { support_native_popup: true, ..Default::default() };
+        let event_loop_properties = EventLoopProperties { support_native_popup: true };
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-        let event_loop_properties =
-            EventLoopProperties { support_native_popup: false, ..Default::default() }; // We don't know it yet
+        let event_loop_properties = EventLoopProperties {
+            // We don't know it yet if we have native support because X11 does not, while Wayland has
+            support_native_popup: false,
+        };
 
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
@@ -593,7 +585,6 @@ impl WinitWindowAdapter {
                     ));
                 }
                 let mut p = self.event_loop_properties.get();
-                p.display_server_protocol = Some(DisplayServerProtocol::Wayland);
                 p.support_native_popup = true;
                 self.event_loop_properties.set(p);
             }
@@ -608,7 +599,6 @@ impl WinitWindowAdapter {
                 }
                 // Currently x11 does not support native popups
                 let mut p = self.event_loop_properties.get();
-                p.display_server_protocol = Some(DisplayServerProtocol::X11);
                 p.support_native_popup = false;
                 self.event_loop_properties.set(p);
             }
