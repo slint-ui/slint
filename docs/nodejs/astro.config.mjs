@@ -95,6 +95,7 @@ export default defineConfig({
             // expands to its window event types.
             sidebar: [
                 { label: "Overview", slug: "index" },
+                { label: "Packaging", slug: "packaging" },
                 {
                     label: "API",
                     items: [
