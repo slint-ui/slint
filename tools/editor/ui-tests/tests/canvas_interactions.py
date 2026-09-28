@@ -8,18 +8,17 @@ import slint_testing
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     palette_row,
     press_shortcut,
     wait_until,
-    window_element_with_label,
 )
+from ui_locators import Window
 
 Frame = tuple[float, float, float, float]
 
 
 def begin_palette_drag(
-    window: slint_testing.Window,
+    window: Window,
     kind: str,
     target: slint_testing.LogicalPosition,
 ) -> None:
@@ -79,15 +78,15 @@ def element_frame(element: slint_testing.Element) -> Frame:
     return (position.x, position.y, size.width, size.height)
 
 
-def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
+def selection_frame(window: Window, kind: str) -> Frame:
     return element_frame(
-        window_element_with_label(
-            window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
+        ).resolve()
     )
 
 
-def frame_rotation(window: slint_testing.Window, kind: str) -> float:
+def frame_rotation(window: Window, kind: str) -> float:
     """The rotation of the selection frame of `kind`, in radians.
 
     The move handle covers the whole frame, so its reported origin is the frame's top-left
@@ -95,29 +94,27 @@ def frame_rotation(window: slint_testing.Window, kind: str) -> float:
     the rotation.
     """
     x, y, width, height = selection_frame(window, kind)
-    origin = window_element_with_label(window, f"{kind} move handle").absolute_position
+    origin = (
+        window.get_by_accessible_name(f"{kind} move handle").resolve().absolute_position
+    )
     return math.atan2(
         origin.y - (y + height / 2), origin.x - (x + width / 2)
     ) - math.atan2(-height / 2, -width / 2)
 
 
-def fixture_element(window: slint_testing.Window, kind: str) -> slint_testing.Element:
+def fixture_element(window: Window, kind: str) -> slint_testing.Element:
     return wait_until(
-        lambda: next(
-            iter(window.find_elements_by_id(f"Main::root-{kind.lower()}")), None
-        )
+        lambda: next(iter(window.get_by_id(f"Main::root-{kind.lower()}").all()), None)
     )
 
 
-def hover_fixture_element(
-    window: slint_testing.Window, kind: str
-) -> slint_testing.Element:
+def hover_fixture_element(window: Window, kind: str) -> slint_testing.Element:
     window.dispatch_event(
         slint_testing.PointerMoveEvent(center(fixture_element(window, kind)))
     )
-    return window_element_with_label(
-        window, f"Hovered {kind}", slint_testing.AccessibleRole.Region
-    )
+    return window.get_by_role(
+        slint_testing.AccessibleRole.Region, name=f"Hovered {kind}"
+    ).resolve()
 
 
 def same_state(left: Frame, right: Frame) -> bool:
@@ -125,7 +122,7 @@ def same_state(left: Frame, right: Frame) -> bool:
 
 
 def manual_drag(
-    window: slint_testing.Window,
+    window: Window,
     handle: slint_testing.Element,
     dx: float,
     dy: float,
@@ -139,12 +136,12 @@ def manual_drag(
     rotation = frame_rotation(window, kind)
     start = center(handle, rotation)
     end = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
-    selected = window_element_with_label(
-        window, f"Selected {kind}", slint_testing.AccessibleRole.Region
-    )
+    selected = window.get_by_role(
+        slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
+    ).resolve()
     initial_frame = element_frame(selected)
     fixed_handle_center = (
-        center(window_element_with_label(window, fixed_handle_label), rotation)
+        center(window.get_by_accessible_name(fixed_handle_label).resolve(), rotation)
         if fixed_handle_label is not None
         else None
     )
@@ -171,7 +168,9 @@ def manual_drag(
             assert (
                 position_distance(
                     center(
-                        window_element_with_label(window, handle.accessible_label),
+                        window.get_by_accessible_name(
+                            handle.accessible_label
+                        ).resolve(),
                         rotation,
                     ),
                     end,
@@ -180,7 +179,10 @@ def manual_drag(
             )
         assert (
             position_distance(
-                center(window_element_with_label(window, fixed_handle_label), rotation),
+                center(
+                    window.get_by_accessible_name(fixed_handle_label).resolve(),
+                    rotation,
+                ),
                 fixed_handle_center,
             )
             < 1.5
@@ -193,10 +195,10 @@ def manual_drag(
     return fixed_handle_center
 
 
-def _rotation_tooltip_value(window: slint_testing.Window) -> int:
-    tooltip = window_element_with_label(
-        window, "Rotation angle", slint_testing.AccessibleRole.Text
-    )
+def _rotation_tooltip_value(window: Window) -> int:
+    tooltip = window.get_by_role(
+        slint_testing.AccessibleRole.Text, name="Rotation angle"
+    ).resolve()
     return int(tooltip.accessible_value)
 
 
@@ -210,7 +212,7 @@ def rotation_start(handle: slint_testing.Element) -> slint_testing.LogicalPositi
 
 
 def manual_rotation_drag(
-    window: slint_testing.Window,
+    window: Window,
     handle: slint_testing.Element,
     dx: float,
     dy: float,
@@ -252,7 +254,7 @@ def manual_rotation_drag(
 
 
 def rotation_delta(
-    window: slint_testing.Window,
+    window: Window,
     handle: slint_testing.Element,
     degrees: float,
     kind: str = "Text",
@@ -274,12 +276,12 @@ def rotation_delta(
 
 
 def live_modifier_resize(
-    window: slint_testing.Window,
+    window: Window,
     snapshot: SourceSnapshot,
     *,
     press_shift_during_drag: bool,
 ) -> None:
-    handle = window_element_with_label(window, "Rectangle resize bottom-right")
+    handle = window.get_by_accessible_name("Rectangle resize bottom-right").resolve()
     start = center(handle)
     end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
     button = slint_testing.PointerEventButton.Left
@@ -315,7 +317,7 @@ def live_modifier_resize(
 
 
 def manual_radius_drag(
-    window: slint_testing.Window,
+    window: Window,
     handle: slint_testing.Element,
     dx: float,
     dy: float,
@@ -330,9 +332,9 @@ def manual_radius_drag(
     if shift:
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    tooltip = window_element_with_label(
-        window, "Radius value", slint_testing.AccessibleRole.Text
-    )
+    tooltip = window.get_by_role(
+        slint_testing.AccessibleRole.Text, name="Radius value"
+    ).resolve()
     initial_value = float(tooltip.accessible_value)
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
     assert tooltip.is_valid
@@ -351,17 +353,17 @@ def manual_radius_drag(
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
 
 
-def radius_handle(window: slint_testing.Window, corner: str) -> slint_testing.Element:
-    selection = window_element_with_label(
-        window, "Selected Rectangle", slint_testing.AccessibleRole.Region
-    )
+def radius_handle(window: Window, corner: str) -> slint_testing.Element:
+    selection = window.get_by_role(
+        slint_testing.AccessibleRole.Region, name="Selected Rectangle"
+    ).resolve()
     # A live reload can replace the frame while the pointer remains at the same logical
     # position. Move away first so the real frame receives a fresh hover transition.
     window.dispatch_event(
         slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
     )
     window.dispatch_event(slint_testing.PointerMoveEvent(center(selection)))
-    return window_element_with_label(window, f"Rectangle radius {corner}")
+    return window.get_by_accessible_name(f"Rectangle radius {corner}").resolve()
 
 
 OrientedFrame = tuple[float, float, float, float, float]
@@ -374,12 +376,10 @@ def rotated_handle_center(
     return (midpoint.x, midpoint.y)
 
 
-def oriented_selection_frame(
-    window: slint_testing.Window, kind: str
-) -> OrientedFrame | None:
+def oriented_selection_frame(window: Window, kind: str) -> OrientedFrame | None:
     handles = []
     for corner in ("top-left", "top-right", "bottom-right"):
-        matches = elements_with_label(window.root_element, f"{kind} resize {corner}")
+        matches = window.get_by_accessible_name(f"{kind} resize {corner}").all()
         if len(matches) != 1:
             return None
         handles.append(matches[0])
@@ -396,10 +396,10 @@ def oriented_selection_frame(
     )
 
 
-def zoom_canvas(window: slint_testing.Window, percent: int) -> None:
+def zoom_canvas(window: Window, percent: int) -> None:
     levels = [25, 50, 75, 100, 125, 150, 200, 300, 400]
     modifier = keys.Control
-    canvas = window_element_with_label(window, "Editor canvas")
+    canvas = window.get_by_accessible_name("Editor canvas").resolve()
     current = levels.index(int(canvas.accessible_value.removesuffix("%")))
     target = levels.index(percent)
     direction = 1 if target > current else -1
@@ -412,11 +412,9 @@ def zoom_canvas(window: slint_testing.Window, percent: int) -> None:
         )
 
 
-def center_canvas_selection(
-    window: slint_testing.Window, kind: str = "Rectangle"
-) -> None:
-    canvas = window_element_with_label(window, "Editor canvas")
-    frame = window_element_with_label(window, f"Selected {kind}")
+def center_canvas_selection(window: Window, kind: str = "Rectangle") -> None:
+    canvas = window.get_by_accessible_name("Editor canvas").resolve()
+    frame = window.get_by_accessible_name(f"Selected {kind}").resolve()
     target = center(canvas)
     window.dispatch_event(
         slint_testing.PointerScrolledEvent(
@@ -435,17 +433,17 @@ def center_canvas_selection(
     )
 
 
-def hover_rectangle(window: slint_testing.Window) -> None:
+def hover_rectangle(window: Window) -> None:
     rectangle = fixture_element(window, "Rectangle")
     window.dispatch_event(slint_testing.PointerMoveEvent(center(rectangle)))
-    window_element_with_label(window, "Hovered Rectangle")
+    window.get_by_accessible_name("Hovered Rectangle").resolve()
 
 
-def wait_for_no_rectangle_hover(window: slint_testing.Window) -> None:
+def wait_for_no_rectangle_hover(window: Window) -> None:
     wait_until(
         lambda: (
             True
-            if not elements_with_label(window.root_element, "Hovered Rectangle")
+            if not window.get_by_accessible_name("Hovered Rectangle").all()
             else None
         )
     )

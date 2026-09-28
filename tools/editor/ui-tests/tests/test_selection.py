@@ -16,13 +16,11 @@ from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
     first_window,
     launch_editor,
     press_key,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
@@ -58,7 +56,7 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
                 element
                 if (
                     element := next(
-                        iter(window.find_elements_by_id("Main::root-text")), None
+                        iter(window.get_by_id("Main::root-text").all()), None
                     )
                 )
                 else None
@@ -71,17 +69,17 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-        row = window_element_with_label(
-            window, "root-text", slint_testing.AccessibleRole.ListItem
-        )
+        row = window.get_by_role(
+            slint_testing.AccessibleRole.ListItem, name="root-text"
+        ).resolve()
         wait_until(lambda: row if row.accessible_item_selected else None)
-        window_element_with_label(
-            window, "Selected Text", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name="Selected Text"
+        ).resolve()
         assert (
-            window_element_with_label(
-                window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
-            ).accessible_value
+            window.get_by_role(slint_testing.AccessibleRole.TextInput, name=FIELDS["x"])
+            .resolve()
+            .accessible_value
             == "180"
         )
         snapshot.assert_unchanged()
@@ -102,23 +100,25 @@ def test_clear_canvas_selection_does_not_edit_source(
             select_fixture_element(window, "Rectangle")
             for label, value in ((FIELDS["x"], "40"), (FIELDS["width"], "180")):
                 assert (
-                    window_element_with_label(
-                        window, label, slint_testing.AccessibleRole.TextInput
-                    ).accessible_value
+                    window.get_by_role(
+                        slint_testing.AccessibleRole.TextInput, name=label
+                    )
+                    .resolve()
+                    .accessible_value
                     == value
                 )
             snapshot.assert_unchanged()
             if outside:
-                window_element_with_label(window, "Rectangle background")
-                canvas = window_element_with_label(window, "Editor canvas")
+                window.get_by_accessible_name("Rectangle background").resolve()
+                canvas = window.get_by_accessible_name("Editor canvas").resolve()
                 target = slint_testing.LogicalPosition(
                     x=canvas.absolute_position.x + 10, y=canvas.absolute_position.y + 10
                 )
                 window.dispatch_event(slint_testing.PointerMoveEvent(target))
             else:
-                artboard = window_element_with_label(
-                    window, "Artboard", slint_testing.AccessibleRole.Region
-                )
+                artboard = window.get_by_role(
+                    slint_testing.AccessibleRole.Region, name="Artboard"
+                ).resolve()
                 target = slint_testing.LogicalPosition(
                     x=artboard.absolute_position.x + artboard.size.width - 12,
                     y=artboard.absolute_position.y + artboard.size.height - 12,
@@ -127,9 +127,9 @@ def test_clear_canvas_selection_does_not_edit_source(
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
             def selection_cleared() -> bool | None:
-                outline = window_element_with_label(
-                    window, "Current file outline", slint_testing.AccessibleRole.List
-                )
+                outline = window.get_by_role(
+                    slint_testing.AccessibleRole.List, name="Current file outline"
+                ).resolve()
                 rows = (
                     outline.query_descendants()
                     .match_accessible_role(slint_testing.AccessibleRole.ListItem)
@@ -140,7 +140,7 @@ def test_clear_canvas_selection_does_not_edit_source(
                     if rows
                     and not any(row.accessible_item_selected for row in rows)
                     and not any(
-                        elements_with_label(window.root_element, label)
+                        window.get_by_accessible_name(label).all()
                         for label in (
                             "Selected Rectangle",
                             "Rectangle background",
@@ -153,14 +153,14 @@ def test_clear_canvas_selection_does_not_edit_source(
             wait_until(selection_cleared, timeout=15)
             snapshot.assert_unchanged()
         select_fixture_element(window, "Rectangle")
-        outline = window_element_with_label(window, "Current file outline")
+        outline = window.get_by_accessible_name("Current file outline").resolve()
         root_row = (
             outline.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.ListItem)
             .find_all()[0]
         )
         root_row.invoke_accessible_default_action()
-        window_element_with_label(window, "Root background")
+        window.get_by_accessible_name("Root background").resolve()
         snapshot.assert_unchanged()
 
 
@@ -178,9 +178,9 @@ def test_delete_without_element_selection_does_not_edit_source(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Main, name="Editor canvas"
+        ).resolve()
         press_key(window, key)
         snapshot.assert_unchanged()
 
@@ -200,9 +200,9 @@ def test_focused_inspector_field_consumes_delete_key(
     ) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
-        field = window_element_with_label(
-            window, FIELDS["x"], slint_testing.AccessibleRole.TextInput
-        )
+        field = window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
+        ).resolve()
         target = slint_testing.LogicalPosition(
             x=field.absolute_position.x + field.size.width / 2,
             y=field.absolute_position.y + field.size.height / 2,
@@ -211,9 +211,9 @@ def test_focused_inspector_field_consumes_delete_key(
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         press_key(window, key)
-        window_element_with_label(
-            window, "Selected Rectangle", slint_testing.AccessibleRole.Region
-        )
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
+        ).resolve()
         snapshot.assert_unchanged()
 
 
@@ -242,20 +242,17 @@ def test_delete_selected_element_writes_exact_source(
         wait_until(
             lambda: (
                 True
-                if not elements_with_label(
-                    window.root_element,
-                    f"root-{element_type.lower()}",
+                if not window.get_by_role(
                     slint_testing.AccessibleRole.ListItem,
-                )
+                    name=f"root-{element_type.lower()}",
+                ).all()
                 else None
             ),
             timeout=15,
         )
-        assert not elements_with_label(
-            window.root_element,
-            f"Selected {element_type}",
-            slint_testing.AccessibleRole.Region,
-        )
+        assert not window.get_by_role(
+            slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
+        ).all()
         if element_type == "Rectangle":
             assert not window.find_elements_by_id("Main::root-rectangle")
             wait_for_no_rectangle_hover(window)
@@ -265,5 +262,5 @@ def test_delete_selected_element_writes_exact_source(
                         center(fixture_element(window, "Image"))
                     )
                 )
-                window_element_with_label(window, "Hovered Image")
+                window.get_by_accessible_name("Hovered Image").resolve()
                 wait_for_no_rectangle_hover(window)
