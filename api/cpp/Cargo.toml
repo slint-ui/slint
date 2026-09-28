@@ -48,6 +48,7 @@ renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software"]
 renderer-vello = ["i-slint-backend-selector/renderer-vello"]
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 software-renderer-path = ["i-slint-renderer-software/path"]
+occlusion-culling = ["i-slint-core/occlusion-culling"]
 gettext = ["i-slint-core/gettext-rs"]
 image-pixel-format-rgb565 = [
   "i-slint-core/image-pixel-format-rgb565",
