@@ -1250,9 +1250,14 @@ fn format_slot_declaration(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
-    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?
-        && whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    if node.child_node(SyntaxKind::QualifiedName).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::LAngle, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
+        whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
+    }
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    whitespace_to(&mut sub, SyntaxKind::Semicolon, writer, state, "")?;
     finish_node(sub, writer, state)?;
     state.new_line();
     Ok(())
