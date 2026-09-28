@@ -435,7 +435,7 @@ pub(crate) fn show_popup_menu(ctx: &mut EvalContext, arguments: &[Expression]) -
     let popup_id = window_inner.show_popup(
         &popup_dyn,
         Box::new(move || position),
-        Box::new(|| i_slint_core::items::PopupAnchor::default()),
+        Box::new(i_slint_core::items::PopupAnchor::default),
         i_slint_core::items::PopupClosePolicy::CloseOnClickOutside,
         &context_item_rc,
         i_slint_core::window::WindowKind::Menu,
