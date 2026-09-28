@@ -586,13 +586,14 @@ fn interpolate_color(
     }
 }
 
-pub(super) fn draw_linear_gradient(
+pub(super) fn draw_linear_gradient<P: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::LinearGradientCommand,
-    mut buffer: &mut [impl TargetPixel],
+    mut buffer: &mut [P],
     extra_left_clip: i16,
 ) {
+    let noise = GradientNoise::new(rect.min_x() as i32 + extra_left_clip as i32, line.get() as i32);
     let fill_col1 = g.flags & 0b010 != 0;
     let fill_col2 = g.flags & 0b100 != 0;
     let invert_slope = g.flags & 0b1 != 0;
@@ -611,7 +612,7 @@ pub(super) fn draw_linear_gradient(
         };
         if (fill_col1 || p >= 0) && (fill_col2 || p < 255) {
             let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
-            TargetPixel::blend_slice(buffer, col);
+            blend_gradient_slice(buffer, col, noise);
         }
         return;
     }
@@ -627,16 +628,18 @@ pub(super) fn draw_linear_gradient(
 
     let len = ((255 * size_x) / start) as usize;
 
+    let mut offset = 0;
     if x < 0 {
         let l = (-x as usize).min(buffer.len());
         if invert_slope {
             if fill_col1 {
-                TargetPixel::blend_slice(&mut buffer[..l], g.color1);
+                blend_gradient_slice(&mut buffer[..l], g.color1, noise);
             }
         } else if fill_col2 {
-            TargetPixel::blend_slice(&mut buffer[..l], g.color2);
+            blend_gradient_slice(&mut buffer[..l], g.color2, noise);
         }
         buffer = &mut buffer[l..];
+        offset += l;
         x = 0;
     }
 
@@ -644,10 +647,10 @@ pub(super) fn draw_linear_gradient(
         let l = len.saturating_sub(x as usize);
         if invert_slope {
             if fill_col2 {
-                TargetPixel::blend_slice(&mut buffer[l..], g.color2);
+                blend_gradient_slice(&mut buffer[l..], g.color2, noise.skip(offset + l));
             }
         } else if fill_col1 {
-            TargetPixel::blend_slice(&mut buffer[l..], g.color1);
+            blend_gradient_slice(&mut buffer[l..], g.color1, noise.skip(offset + l));
         }
         buffer = &mut buffer[..l];
     }
@@ -670,9 +673,10 @@ pub(super) fn draw_linear_gradient(
     let mut b = ((color1.blue as u32) << 15).wrapping_add((x * db) as _);
     let mut a = ((color1.alpha as u32) << 15).wrapping_add((x * da) as _);
 
+    let mut noise = noise.skip(offset);
     if color1.alpha == 255 && color2.alpha == 255 {
         buffer.fill_with(|| {
-            let pix = TargetPixel::from_rgb((r >> 15) as u8, (g >> 15) as u8, (b >> 15) as u8);
+            let pix = noise.dither_opaque((r >> 15) as u8, (g >> 15) as u8, (b >> 15) as u8);
             r = r.wrapping_add(dr as _);
             g = g.wrapping_add(dg as _);
             b = b.wrapping_add(db as _);
@@ -680,12 +684,12 @@ pub(super) fn draw_linear_gradient(
         })
     } else {
         for pix in buffer {
-            pix.blend(PremultipliedRgbaColor {
+            pix.blend(noise.dither::<P>(PremultipliedRgbaColor {
                 red: (r >> 15) as u8,
                 green: (g >> 15) as u8,
                 blue: (b >> 15) as u8,
                 alpha: (a >> 15) as u8,
-            });
+            }));
             r = r.wrapping_add(dr as _);
             g = g.wrapping_add(dg as _);
             b = b.wrapping_add(db as _);
@@ -695,11 +699,11 @@ pub(super) fn draw_linear_gradient(
 }
 
 /// Draw a radial gradient on a line
-pub(super) fn draw_radial_gradient(
+pub(super) fn draw_radial_gradient<P: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::RadialGradientCommand,
-    buffer: &mut [impl TargetPixel],
+    buffer: &mut [P],
     extra_left_clip: i16,
     _extra_right_clip: i16,
 ) {
@@ -719,6 +723,7 @@ pub(super) fn draw_radial_gradient(
     let start_x = rect.min_x() + extra_left_clip;
     let dy = line.get() as f32 - center_y;
     let dy_squared = dy * dy;
+    let mut noise = GradientNoise::new(start_x as i32, line.get() as i32);
 
     for (i, pixel) in buffer.iter_mut().enumerate() {
         let x = start_x + i as i16;
@@ -753,16 +758,16 @@ pub(super) fn draw_radial_gradient(
             }
         }
 
-        pixel.blend(super::PremultipliedRgbaColor::from(color));
+        pixel.blend(noise.dither::<P>(PremultipliedRgbaColor::from(color)));
     }
 }
 
 /// Draw a conic gradient on a line
-pub(super) fn draw_conic_gradient(
+pub(super) fn draw_conic_gradient<P: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::ConicGradientCommand,
-    buffer: &mut [impl TargetPixel],
+    buffer: &mut [P],
     extra_left_clip: i16,
     _extra_right_clip: i16,
 ) {
@@ -775,6 +780,7 @@ pub(super) fn draw_conic_gradient(
 
     let start_x = rect.min_x() + extra_left_clip;
     let y = line.get() as f32;
+    let mut noise = GradientNoise::new(start_x as i32, line.get() as i32);
 
     for (i, pixel) in buffer.iter_mut().enumerate() {
         let x = (start_x + i as i16) as f32;
@@ -825,7 +831,79 @@ pub(super) fn draw_conic_gradient(
             }
         }
 
-        pixel.blend(super::PremultipliedRgbaColor::from(color));
+        pixel.blend(noise.dither::<P>(PremultipliedRgbaColor::from(color)));
+    }
+}
+
+/// Interleaved gradient noise (Jimenez 2014) in fixed point, with the same formula as femtovg's `ditherNoise`.
+#[derive(Clone, Copy)]
+struct GradientNoise(u32);
+
+impl GradientNoise {
+    const X: u32 = (0.06711056 * 4294967296.0) as u32;
+    const Y: u32 = (0.00583715 * 4294967296.0) as u32;
+    // Q6.10, so its product with the top 16 bits of the phase fits in a u32
+    const SCALE: u32 = (52.9829189 * 1024.0) as u32;
+
+    /// Noise for the pixels going right from `(x, y)` in screen coordinates.
+    fn new(x: i32, y: i32) -> Self {
+        Self((x as u32).wrapping_mul(Self::X).wrapping_add((y as u32).wrapping_mul(Self::Y)))
+    }
+
+    fn skip(self, n: usize) -> Self {
+        Self(self.0.wrapping_add(Self::X.wrapping_mul(n as u32)))
+    }
+
+    fn next(&mut self) -> u8 {
+        let noise = (((self.0 >> 16) * Self::SCALE) >> 18) as u8;
+        self.0 = self.0.wrapping_add(Self::X);
+        noise
+    }
+
+    fn dither<P: TargetPixel>(&mut self, color: PremultipliedRgbaColor) -> PremultipliedRgbaColor {
+        if is_dithered::<P>() { dither_color(color, self.next()) } else { color }
+    }
+
+    fn dither_opaque<P: TargetPixel>(&mut self, red: u8, green: u8, blue: u8) -> P {
+        let c = self.dither::<P>(PremultipliedRgbaColor { red, green, blue, alpha: u8::MAX });
+        P::from_rgb(c.red, c.green, c.blue)
+    }
+}
+
+fn is_dithered<P: TargetPixel>() -> bool {
+    // 2 byte pixels are assumed to be RGB565 that truncates in `from_rgb` and `blend`.
+    core::mem::size_of::<P>() == 2
+}
+
+/// Whether `color` is already exact in RGB565, so dithering can't change it.
+fn is_quantized(color: PremultipliedRgbaColor) -> bool {
+    (color.red & 0b111) | (color.green & 0b11) | (color.blue & 0b111) == 0
+}
+
+/// `noise` is a fraction of one quantization step of RGB565, in 256ths.
+fn dither_color(color: PremultipliedRgbaColor, noise: u8) -> PremultipliedRgbaColor {
+    let dither = |v: u8, bits: u8| v.saturating_add(noise >> bits).min(color.alpha);
+    PremultipliedRgbaColor {
+        red: dither(color.red, 5),
+        green: dither(color.green, 6),
+        blue: dither(color.blue, 5),
+        alpha: color.alpha,
+    }
+}
+
+fn blend_gradient_slice<P: TargetPixel>(
+    slice: &mut [P],
+    color: PremultipliedRgbaColor,
+    mut noise: GradientNoise,
+) {
+    if !is_dithered::<P>() || is_quantized(color) {
+        P::blend_slice(slice, color);
+    } else if color.alpha == u8::MAX {
+        slice.fill_with(|| noise.dither_opaque(color.red, color.green, color.blue));
+    } else {
+        for pix in slice {
+            pix.blend(noise.dither::<P>(color));
+        }
     }
 }
 
@@ -1126,4 +1204,121 @@ fn rgb565_be_blend() {
     let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
     be.blend(color);
     assert_eq!(le.0.swap_bytes(), be.0);
+}
+
+#[test]
+fn gradient_noise_matches_formula() {
+    let fract = |v: f64| v - v.floor();
+    for y in -40..40 {
+        let mut noise = GradientNoise::new(-40, y);
+        for x in -40..40 {
+            let expected =
+                fract(52.9829189 * fract(0.06711056 * x as f64 + 0.00583715 * y as f64)) * 256.;
+            let diff = (noise.next() as f64 - expected).abs();
+            assert!(diff.min(256. - diff) <= 2., "({x}, {y}): diff {diff}");
+        }
+    }
+}
+
+#[test]
+fn rgb565_dither_keeps_representable_colors() {
+    for noise in 0..=255 {
+        for (r, g, b) in [(0, 0, 0), (0xf8, 0xfc, 0xf8), (0xff, 0xff, 0xff), (0x40, 0x84, 0x10)] {
+            let c = PremultipliedRgbaColor { red: r, green: g, blue: b, alpha: 255 };
+            let d = dither_color(c, noise);
+            assert_eq!(
+                Rgb565Pixel::from_rgb(d.red, d.green, d.blue),
+                Rgb565Pixel::from_rgb(r, g, b)
+            );
+        }
+    }
+}
+
+#[test]
+fn rgb565_dither_stays_premultiplied() {
+    let c = PremultipliedRgbaColor { red: 20, green: 18, blue: 19, alpha: 20 };
+    let d = dither_color(c, 255);
+    assert!(d.red <= d.alpha && d.green <= d.alpha && d.blue <= d.alpha);
+}
+
+#[test]
+fn rgb565_gradient_is_dithered() {
+    let rect = PhysicalRect::from_size(super::PhysicalSize::new(256, 64));
+    let black = PremultipliedRgbaColor { red: 0, green: 0, blue: 0, alpha: 255 };
+    let gray = PremultipliedRgbaColor { red: 8, green: 8, blue: 8, alpha: 255 };
+    let g = super::LinearGradientCommand {
+        color1: black,
+        color2: gray,
+        start: 0,
+        flags: 0b110,
+        left_clip: PhysicalLength::new(0),
+        right_clip: PhysicalLength::new(0),
+        top_clip: PhysicalLength::new(0),
+        bottom_clip: PhysicalLength::new(0),
+    };
+    // Halfway down, the color is about 3/8 of the way to the first non-black 565 red level.
+    let line = PhysicalLength::new(32);
+
+    let mut rgb565 = [Rgb565Pixel(0); 256];
+    draw_linear_gradient(&rect, line, &g, &mut rgb565, 0);
+    let lit = rgb565.iter().filter(|p| p.red() != 0).count();
+    assert!((64..=128).contains(&lit), "{lit} of 256 pixels above black");
+
+    let mut rgb8 = [Rgb8Pixel::new(0, 0, 0); 256];
+    draw_linear_gradient(&rect, line, &g, &mut rgb8, 0);
+    assert!(rgb8.iter().all(|p| *p == rgb8[0]));
+}
+
+#[test]
+fn rgb565_linear_gradient_noise_follows_screen_position() {
+    // Negative side clips make the ramp narrower than the rect,
+    // so every line has a flat fill on both ends around the ramp.
+    let rect = PhysicalRect::new(super::PhysicalPoint::new(5, 0), super::PhysicalSize::new(64, 64));
+    let background = Rgb565Pixel(0x5aeb);
+    let opaque = (
+        PremultipliedRgbaColor { red: 0x13, green: 0x27, blue: 0x4a, alpha: 0xff },
+        PremultipliedRgbaColor { red: 0xc5, green: 0x31, blue: 0x8e, alpha: 0xff },
+    );
+    let translucent = (
+        PremultipliedRgbaColor { red: 0x13, green: 0x27, blue: 0x3a, alpha: 0x80 },
+        PremultipliedRgbaColor { red: 0x45, green: 0x31, blue: 0x0e, alpha: 0x60 },
+    );
+    let expected_fill = |color: PremultipliedRgbaColor, x: i32, y: i32| {
+        let c = dither_color(color, GradientNoise::new(x, y).next());
+        let mut pix = background;
+        pix.blend(c);
+        pix
+    };
+
+    for (color1, color2) in [opaque, translucent] {
+        for invert_slope in [0, 1] {
+            let g = super::LinearGradientCommand {
+                color1,
+                color2,
+                start: 200,
+                flags: 0b110 | invert_slope,
+                left_clip: PhysicalLength::new(-16),
+                right_clip: PhysicalLength::new(-16),
+                top_clip: PhysicalLength::new(0),
+                bottom_clip: PhysicalLength::new(0),
+            };
+            let (left_fill, right_fill) =
+                if invert_slope == 1 { (color1, color2) } else { (color2, color1) };
+            for y in 0..64 {
+                let line = PhysicalLength::new(y as i16);
+                let mut whole = [background; 64];
+                draw_linear_gradient(&rect, line, &g, &mut whole, 0);
+                assert_eq!(whole[0], expected_fill(left_fill, 5, y));
+                assert_eq!(whole[63], expected_fill(right_fill, 5 + 63, y));
+
+                for split in 1..64 {
+                    let mut parts = [background; 64];
+                    let (left, right) = parts.split_at_mut(split);
+                    draw_linear_gradient(&rect, line, &g, left, 0);
+                    draw_linear_gradient(&rect, line, &g, right, split as i16);
+                    assert_eq!(parts, whole, "line {y}, split at {split}, invert {invert_slope}");
+                }
+            }
+        }
+    }
 }
