@@ -249,7 +249,8 @@ fn classify_event(event: notify::Event) -> Vec<(PathBuf, FileChangeKind)> {
     match event.kind {
         EventKind::Create(_) => map_event(event, FileChangeKind::Created),
         EventKind::Remove(_) => map_event(event, FileChangeKind::Deleted),
-        EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+        // kqueue reports a watched file renamed away as `Any`, on its old path
+        EventKind::Modify(ModifyKind::Name(RenameMode::From | RenameMode::Any)) => {
             map_event(event, FileChangeKind::Deleted)
         }
         EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
@@ -355,13 +356,23 @@ impl WorkerState {
             return Ok(());
         }
 
+        // kqueue drops the watch of a file deleted or renamed away, even when another took its
+        // place, while inotify keeps following a directory renamed away. Unwatch either way, so
+        // that reconcile watches whatever is at the path now.
+        for (path, kind) in &events {
+            if *kind == FileChangeKind::Deleted && self.registered_watches.remove(path) {
+                match watcher.unwatch(path) {
+                    Ok(()) => {}
+                    Err(err) if Impl::is_transient_watch_error(&err) => {}
+                    Err(err) => return Err(err),
+                }
+            }
+        }
+
         let previous_states = self.target_states.clone();
         let changed_paths = events
             .into_iter()
-            .filter_map(|(path, kind)| {
-                (kind == FileChangeKind::Changed && self.watched_files.contains(&path))
-                    .then_some(path)
-            })
+            .filter_map(|(path, _kind)| self.watched_files.contains(&path).then_some(path))
             .collect::<HashSet<_>>();
 
         self.reconcile(watcher, previous_states, changed_paths, on_event)
@@ -858,6 +869,59 @@ mod tests {
         ctx.rename("ui/temp.slint", "ui/main.slint");
 
         ctx.expect_event(&watched, FileChangeKind::Created);
+    }
+
+    #[test]
+    fn reports_changed_when_watched_file_is_replaced_by_rename() {
+        let mut ctx = TestContext::new();
+        let watched = ctx.write("ui/main.slint", "first");
+
+        ctx.watch(&["ui/main.slint"]);
+        for contents in ["second", "third"] {
+            ctx.write("ui/main.slint.tmp", contents);
+            ctx.rename("ui/main.slint.tmp", "ui/main.slint");
+            ctx.expect_event(&watched, FileChangeKind::Changed);
+            ctx.settle();
+            ctx.drain_events();
+        }
+
+        ctx.write("ui/main.slint", "in place");
+        ctx.expect_event(&watched, FileChangeKind::Changed);
+    }
+
+    #[test]
+    fn keeps_watching_after_watched_file_is_renamed_away_and_rewritten() {
+        let mut ctx = TestContext::new();
+        let watched = ctx.write("ui/main.slint", "first");
+
+        ctx.watch(&["ui/main.slint"]);
+        ctx.rename("ui/main.slint", "ui/main.slint~");
+        ctx.write("ui/main.slint", "second");
+        ctx.settle();
+        ctx.drain_events();
+
+        ctx.write("ui/main.slint", "in place");
+        ctx.expect_event(&watched, FileChangeKind::Changed);
+    }
+
+    // ReadDirectoryChangesW doesn't report the rename of the watched directory itself
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn stops_following_directory_renamed_away() {
+        let mut ctx = TestContext::new();
+        let watched = ctx.write("ui/main.slint", "first");
+
+        ctx.watch(&["ui/main.slint"]);
+        ctx.rename("ui", "ui-old");
+        ctx.expect_event(&watched, FileChangeKind::Deleted);
+
+        ctx.write("ui/main.slint", "second");
+        ctx.expect_event(&watched, FileChangeKind::Created);
+        ctx.settle();
+        ctx.drain_events();
+
+        ctx.write("ui-old/main.slint", "moved");
+        ctx.expect_quiet();
     }
 
     #[test]
