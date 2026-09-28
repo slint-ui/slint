@@ -40,7 +40,7 @@ def test_hover_links_canvas_and_outline(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, original)
         window = first_window(editor)
-        artboard = window.get_by_accessible_name("Artboard").resolve()
+        artboard = window.get_by_accessible_name("Artboard")
         away = slint_testing.LogicalPosition(x=1, y=1)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
         labels = ["root-rectangle", "root-text"]
@@ -64,7 +64,7 @@ def test_hover_links_canvas_and_outline(
                 )
             )
             window.dispatch_event(slint_testing.PointerMoveEvent(target))
-            frame = window.get_by_accessible_name("Hovered " + kind).resolve()
+            frame = window.get_by_accessible_name("Hovered " + kind)
             assert frame.absolute_position.x == pytest.approx(
                 artboard.absolute_position.x + x
             )
@@ -99,19 +99,19 @@ def test_tree_hover_geometry_updates_after_reload(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        artboard = window.get_by_accessible_name("Artboard").resolve()
+        artboard = window.get_by_accessible_name("Artboard")
         window.dispatch_event(
             slint_testing.PointerMoveEvent(
                 center(outline_row(window, "root-rectangle"))
             )
         )
-        window.get_by_accessible_name("Hovered Rectangle").resolve()
+        window.get_by_accessible_name("Hovered Rectangle").wait_for()
         updated = source.read_bytes().replace(b"x: 40px;", b"x: 70px;", 1)
         source.write_bytes(updated)
         wait_for_source(source, updated)
 
         def moved():
-            frame = window.get_by_accessible_name("Hovered Rectangle").resolve()
+            frame = window.get_by_accessible_name("Hovered Rectangle")
             return (
                 frame.absolute_position.x
                 == pytest.approx(artboard.absolute_position.x + 70)

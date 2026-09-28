@@ -19,6 +19,7 @@ class Element:
     children: list[Element] = field(default_factory=list)
     is_valid: bool = True
     actions: int = 0
+    accessible_value: str = ""
 
     def query_descendants(self):
         return Query(self)
@@ -77,7 +78,14 @@ def test_locator_resolves_replaced_ancestor():
     first = Element(
         "Panel",
         slint_testing.AccessibleRole.Groupbox,
-        children=[button("Save", identifier="first")],
+        children=[
+            Element(
+                "Save",
+                slint_testing.AccessibleRole.Button,
+                identifier="first",
+                accessible_value="first",
+            )
+        ],
     )
     raw = RawWindow(
         Element("root", slint_testing.AccessibleRole.Unknown, children=[first])
@@ -87,16 +95,24 @@ def test_locator_resolves_replaced_ancestor():
         .get_by_role(slint_testing.AccessibleRole.Groupbox, name="Panel")
         .get_by_role(slint_testing.AccessibleRole.Button, name="Save")
     )
-    assert cast(Any, save.resolve()).identifier == "first"
+    assert save.accessible_value == "first"
 
     first.is_valid = False
     raw.root_element.children = [
         Element(
             "Panel",
             slint_testing.AccessibleRole.Groupbox,
-            children=[button("Save", identifier="second")],
+            children=[
+                Element(
+                    "Save",
+                    slint_testing.AccessibleRole.Button,
+                    identifier="second",
+                    accessible_value="second",
+                )
+            ],
         )
     ]
+    assert save.accessible_value == "second"
     save.invoke_accessible_default_action()
     assert raw.root_element.children[0].children[0].actions == 1
 

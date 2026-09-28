@@ -46,7 +46,7 @@ def test_external_root_source_reload(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         handle, size = window.handle, window.size
         expected = source_file.read_bytes().replace(
             b"Fixture text", b"Reloaded root", 1
@@ -55,7 +55,7 @@ def test_external_root_source_reload(
         snapshot.wait_for_exact(expected)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Reloaded root"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
         assert not window.get_by_accessible_name("Fixture text").all()
         assert_editor_stable(editor, window, handle, size)
 
@@ -71,7 +71,7 @@ def test_rapid_root_writes_show_newest_revision(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         handle, size = window.handle, window.size
         original = source_file.read_bytes()
         source_file.write_bytes(original.replace(b"Fixture text", b"Revision one"))
@@ -81,7 +81,7 @@ def test_rapid_root_writes_show_newest_revision(
         snapshot.wait_for_exact(expected)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Newest revision"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
         deadline = time.monotonic() + 0.25
         while time.monotonic() < deadline:
             assert source_file.read_bytes() == expected
@@ -103,7 +103,7 @@ def test_imported_dependency_reload(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Imported component"
-        ).resolve()
+        ).wait_for()
         handle, size = window.handle, window.size
         expected = imported_file.read_bytes().replace(
             b"Imported component", b"Reloaded import", 1
@@ -112,5 +112,5 @@ def test_imported_dependency_reload(
         snapshot.wait_for_exact(expected, "components/Nested.slint")
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Reloaded import"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
         assert_editor_stable(editor, window, handle, size)

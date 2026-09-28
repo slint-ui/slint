@@ -71,15 +71,15 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         row = window.get_by_role(
             slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).resolve()
+        )
         wait_until(lambda: row if row.accessible_item_selected else None)
         window.get_by_role(
             slint_testing.AccessibleRole.Region, name="Selected Text"
-        ).resolve()
+        ).wait_for()
         assert (
-            window.get_by_role(slint_testing.AccessibleRole.TextInput, name=FIELDS["x"])
-            .resolve()
-            .accessible_value
+            window.get_by_role(
+                slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
+            ).accessible_value
             == "180"
         )
         snapshot.assert_unchanged()
@@ -102,15 +102,13 @@ def test_clear_canvas_selection_does_not_edit_source(
                 assert (
                     window.get_by_role(
                         slint_testing.AccessibleRole.TextInput, name=label
-                    )
-                    .resolve()
-                    .accessible_value
+                    ).accessible_value
                     == value
                 )
             snapshot.assert_unchanged()
             if outside:
-                window.get_by_accessible_name("Rectangle background").resolve()
-                canvas = window.get_by_accessible_name("Editor canvas").resolve()
+                window.get_by_accessible_name("Rectangle background").wait_for()
+                canvas = window.get_by_accessible_name("Editor canvas")
                 target = slint_testing.LogicalPosition(
                     x=canvas.absolute_position.x + 10, y=canvas.absolute_position.y + 10
                 )
@@ -118,7 +116,7 @@ def test_clear_canvas_selection_does_not_edit_source(
             else:
                 artboard = window.get_by_role(
                     slint_testing.AccessibleRole.Region, name="Artboard"
-                ).resolve()
+                )
                 target = slint_testing.LogicalPosition(
                     x=artboard.absolute_position.x + artboard.size.width - 12,
                     y=artboard.absolute_position.y + artboard.size.height - 12,
@@ -160,7 +158,7 @@ def test_clear_canvas_selection_does_not_edit_source(
             .find_all()[0]
         )
         root_row.invoke_accessible_default_action()
-        window.get_by_accessible_name("Root background").resolve()
+        window.get_by_accessible_name("Root background").wait_for()
         snapshot.assert_unchanged()
 
 
@@ -180,7 +178,7 @@ def test_delete_without_element_selection_does_not_edit_source(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).resolve()
+        ).wait_for()
         press_key(window, key)
         snapshot.assert_unchanged()
 
@@ -202,7 +200,7 @@ def test_focused_inspector_field_consumes_delete_key(
         select_fixture_element(window, "Rectangle")
         field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
-        ).resolve()
+        )
         target = slint_testing.LogicalPosition(
             x=field.absolute_position.x + field.size.width / 2,
             y=field.absolute_position.y + field.size.height / 2,
@@ -213,7 +211,7 @@ def test_focused_inspector_field_consumes_delete_key(
         press_key(window, key)
         window.get_by_role(
             slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-        ).resolve()
+        ).wait_for()
         snapshot.assert_unchanged()
 
 
@@ -262,5 +260,5 @@ def test_delete_selected_element_writes_exact_source(
                         center(fixture_element(window, "Image"))
                     )
                 )
-                window.get_by_accessible_name("Hovered Image").resolve()
+                window.get_by_accessible_name("Hovered Image").wait_for()
                 wait_for_no_rectangle_hover(window)

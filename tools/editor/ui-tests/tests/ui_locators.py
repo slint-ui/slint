@@ -165,8 +165,10 @@ class Locator(Scope):
             index=index,
         )
 
-    def read(self, getter: Callable[[slint_testing.Element], T]) -> T:
-        deadline = time.monotonic() + 5
+    def read(
+        self, getter: Callable[[slint_testing.Element], T], *, timeout: float = 5
+    ) -> T:
+        deadline = time.monotonic() + timeout
         while True:
             element = self._resolve(deadline)
             value = getter(element)
@@ -175,8 +177,80 @@ class Locator(Scope):
             if time.monotonic() >= deadline:
                 raise AssertionError(f"element for {self!r} remained stale")
 
+    def wait_for(self, *, timeout: float = 5) -> None:
+        self.resolve(timeout=timeout)
+
+    @property
+    def accessible_label(self) -> str:
+        return self.read(lambda element: element.accessible_label)
+
+    @property
+    def accessible_value(self) -> str:
+        return self.read(lambda element: element.accessible_value)
+
+    @accessible_value.setter
+    def accessible_value(self, value: str) -> None:
+        self.resolve().accessible_value = value
+
+    @property
+    def accessible_description(self) -> str:
+        return self.read(lambda element: element.accessible_description)
+
+    @property
+    def accessible_enabled(self) -> bool:
+        return self.read(lambda element: element.accessible_enabled)
+
+    @property
+    def accessible_item_selected(self) -> bool:
+        return self.read(lambda element: element.accessible_item_selected)
+
+    @property
+    def accessible_checked(self) -> bool:
+        return self.read(lambda element: element.accessible_checked)
+
+    @property
+    def accessible_read_only(self) -> bool:
+        return self.read(lambda element: element.accessible_read_only)
+
+    @property
+    def accessible_role(self) -> slint_testing.AccessibleRole:
+        return self.read(lambda element: element.accessible_role)
+
+    @property
+    def absolute_position(self) -> slint_testing.LogicalPosition:
+        return self.read(lambda element: element.absolute_position)
+
+    @property
+    def size(self) -> slint_testing.LogicalSize:
+        return self.read(lambda element: element.size)
+
+    @property
+    def computed_opacity(self) -> float:
+        return self.read(lambda element: element.computed_opacity)
+
+    @property
+    def accessible_value_minimum(self) -> float:
+        return self.read(lambda element: element.accessible_value_minimum)
+
+    @property
+    def accessible_value_maximum(self) -> float:
+        return self.read(lambda element: element.accessible_value_maximum)
+
+    @property
+    def accessible_value_step(self) -> float:
+        return self.read(lambda element: element.accessible_value_step)
+
     def invoke_accessible_default_action(self, *, timeout: float = 5) -> None:
         self.resolve(timeout=timeout).invoke_accessible_default_action()
+
+    def invoke_accessible_increment_action(self, *, timeout: float = 5) -> None:
+        self.resolve(timeout=timeout).invoke_accessible_increment_action()
+
+    def invoke_accessible_decrement_action(self, *, timeout: float = 5) -> None:
+        self.resolve(timeout=timeout).invoke_accessible_decrement_action()
+
+    def invoke_accessible_expand_action(self, *, timeout: float = 5) -> None:
+        self.resolve(timeout=timeout).invoke_accessible_expand_action()
 
     def single_click(
         self,
@@ -193,3 +267,6 @@ class Locator(Scope):
         timeout: float = 5,
     ) -> None:
         self.resolve(timeout=timeout).double_click(button)
+
+
+Element = slint_testing.Element | Locator

@@ -10,7 +10,7 @@ from ui_driver import select_outline_row
 
 
 def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window.get_by_role(role, name=label).resolve()
+    return window.get_by_role(role, name=label)
 
 
 def click(window, label):

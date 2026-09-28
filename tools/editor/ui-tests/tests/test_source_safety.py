@@ -17,13 +17,11 @@ from ui_driver import (
     select_outline_row,
     wait_until,
 )
-from ui_locators import Window
+from ui_locators import Locator, Window
 
 
-def stage_field_text(window: Window, label: str, value: str) -> slint_testing.Element:
-    field = window.get_by_role(
-        slint_testing.AccessibleRole.TextInput, name=label
-    ).resolve()
+def stage_field_text(window: Window, label: str, value: str) -> Locator:
+    field = window.get_by_role(slint_testing.AccessibleRole.TextInput, name=label)
     current_value = field.accessible_value
     field.invoke_accessible_default_action()
     for _ in current_value:
@@ -45,7 +43,7 @@ def test_broken_source_preserves_preview_and_recovers(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         handle, size = window.handle, window.size
         broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
         source_file.write_bytes(broken)
@@ -53,10 +51,10 @@ def test_broken_source_preserves_preview_and_recovers(
         time.sleep(0.25)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).resolve()
+        ).wait_for()
         assert editor.process.poll() is None
         assert window.handle == handle
         assert window.size == size
@@ -66,7 +64,7 @@ def test_broken_source_preserves_preview_and_recovers(
         snapshot.wait_for_exact(repaired)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Recovered source"
-        ).resolve()
+        ).wait_for()
         assert editor.process.poll() is None
 
 
@@ -99,10 +97,10 @@ def test_imported_file_edit_targets_only_nested_source(
         ).invoke_accessible_default_action(timeout=15)
         window.get_by_role(
             slint_testing.AccessibleRole.Region, name="Selected Text"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
         field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Text content"
-        ).resolve()
+        )
         field.accessible_value = '"Edited import"'
         expected = nested_baseline.replace(
             b'        text: "Imported component";',
@@ -112,7 +110,7 @@ def test_imported_file_edit_targets_only_nested_source(
         snapshot.wait_for_exact(expected, relative_path="components/Nested.slint")
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Edited import"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
 
 
 def test_stale_selection_commit_is_rejected(
@@ -135,7 +133,7 @@ def test_stale_selection_commit_is_rejected(
                 if (
                     field := window.get_by_role(
                         slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
-                    ).resolve()
+                    )
                 ).accessible_value
                 == "224"
                 else None
@@ -176,7 +174,7 @@ def test_stale_revision_commit_is_rejected(
                 if (
                     field := window.get_by_role(
                         slint_testing.AccessibleRole.TextInput, name=label
-                    ).resolve()
+                    )
                 ).accessible_value
                 == updated
                 else None
@@ -200,19 +198,19 @@ def test_deleted_root_file_recovers_without_relaunch(
         wait_for_source(source_file, baseline)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         source_file.unlink()
         SourceSnapshot.capture(fixture_project).assert_unchanged()
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         assert not source_file.exists()
         restored = baseline.replace(b"Fixture text", b"Restored root", 1)
         source_file.write_bytes(restored)
         snapshot.wait_for_applied(restored)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Restored root"
-        ).resolve()
+        ).wait_for()
         assert editor.process.poll() is None
 
 
@@ -228,17 +226,17 @@ def test_deleted_import_recovers_without_relaunch(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Imported component"
-        ).resolve()
+        ).wait_for()
         imported_file.unlink()
         time.sleep(0.25)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Imported component"
-        ).resolve()
+        ).wait_for()
         restored = baseline.replace(b"Imported component", b"Restored import", 1)
         imported_file.write_bytes(restored)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Restored import"
-        ).resolve(timeout=15)
+        ).wait_for(timeout=15)
         assert imported_file.read_bytes() == restored
         assert editor.process.poll() is None
 
@@ -265,6 +263,6 @@ def test_initial_broken_source_recovers_without_relaunch(
         source_file.write_bytes(repaired)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Initial source recovered"
-        ).resolve()
+        ).wait_for()
         assert source_file.read_bytes() == repaired
         assert editor.process.poll() is None

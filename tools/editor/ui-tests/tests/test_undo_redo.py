@@ -91,11 +91,11 @@ def assert_visual(
 
     def radius_matches() -> bool | None:
         a = rotated_handle_center(
-            window.get_by_accessible_name("Rectangle resize top-left").resolve(),
+            window.get_by_accessible_name("Rectangle resize top-left"),
             values["rotation"],
         )
         r = rotated_handle_center(
-            window.get_by_accessible_name("Rectangle radius top-left").resolve(),
+            window.get_by_accessible_name("Rectangle radius top-left"),
             values["rotation"],
         )
         angle = math.radians(values["rotation"])
@@ -144,11 +144,9 @@ def edit(
             if case == "handle-move"
             else "Rectangle resize bottom-right"
         )
-        manual_drag(
-            window, window.get_by_accessible_name(label).resolve(), 24, 16, snapshot
-        )
+        manual_drag(window, window.get_by_accessible_name(label), 24, 16, snapshot)
         return
-    handle = window.get_by_accessible_name("Rectangle rotate top-left").resolve()
+    handle = window.get_by_accessible_name("Rectangle rotate top-left")
     target_angle = changes["rotation"]
     dx, dy = rotation_delta(window, handle, target_angle, kind="Rectangle")
     manual_rotation_drag(
