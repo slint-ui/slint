@@ -4556,6 +4556,28 @@ fn visit_all_named_references_in_element_dyn(
     }
 }
 
+/// Returns the component of `elem`.
+pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+    let component = elem.borrow().enclosing_component.upgrade().unwrap();
+    let index = parent
+        .borrow()
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, elem))
+        .expect("elem must be a child of parent");
+    parent.borrow_mut().children.remove(index);
+    for cip in component.child_insertion_points.borrow_mut().values_mut() {
+        if Rc::ptr_eq(&cip.parent, parent) && cip.insertion_index > index {
+            cip.insertion_index -= 1;
+        }
+    }
+    component
+}
+
+pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
+    remove_child_element(elem, parent).optimized_elements.borrow_mut().push(elem.clone());
+}
+
 /// Visit all named reference in this component and sub component
 pub fn visit_all_named_references(
     component: &Component,
