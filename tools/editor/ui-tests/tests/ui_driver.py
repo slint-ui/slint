@@ -14,7 +14,7 @@ from typing import TypeVar
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
-from ui_locators import Window
+from ui_locators import Locator, Window
 from ui_reporting import capture_failure, current_report, replay_stage
 
 
@@ -82,10 +82,8 @@ ELEMENT_ROWS = {
 }
 
 
-def outline_row(window: Window, label: str) -> slint_testing.Element:
-    return window.get_by_role(
-        slint_testing.AccessibleRole.ListItem, name=label
-    ).resolve()
+def outline_row(window: Window, label: str) -> Locator:
+    return window.get_by_role(slint_testing.AccessibleRole.ListItem, name=label)
 
 
 def outline_rows(window: Window) -> list[slint_testing.Element]:
@@ -98,7 +96,7 @@ def outline_rows(window: Window) -> list[slint_testing.Element]:
     )
 
 
-def select_outline_row(window: Window, row_label: str) -> slint_testing.Element:
+def select_outline_row(window: Window, row_label: str) -> Locator:
     row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
     return wait_until(lambda: row if row.accessible_item_selected else None)
@@ -108,7 +106,7 @@ def select_fixture_element(window: Window, element_type: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[element_type])
     window.get_by_role(
         slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
-    ).resolve()
+    ).wait_for()
 
 
 @contextlib.contextmanager
@@ -143,11 +141,11 @@ def launch_editor(
             current_editor_sync.reset(token)
 
 
-def file_row(window: Window, path: Path) -> slint_testing.Element:
+def file_row(window: Window, path: Path) -> Locator:
     from canvas_interactions import center
 
     tree_locator = window.get_by_role(slint_testing.AccessibleRole.Tree, name="Files")
-    tree = tree_locator.resolve()
+    tree = tree_locator
     row = tree_locator.get_by_role(
         slint_testing.AccessibleRole.ListItem, name=str(path)
     )
@@ -161,15 +159,15 @@ def file_row(window: Window, path: Path) -> slint_testing.Element:
             )
         rows = row.all()
         if rows:
-            return rows[0]
-    return row.resolve()
+            return row
+    return row
 
 
-def palette_row(window: Window, kind: str) -> slint_testing.Element:
+def palette_row(window: Window, kind: str) -> Locator:
     from canvas_interactions import center
 
     pane_locator = window.get_by_accessible_name("Element library")
-    pane = pane_locator.resolve()
+    pane = pane_locator
     row = pane_locator.get_by_role(slint_testing.AccessibleRole.ListItem, name=kind)
     top = pane.absolute_position.y
     bottom = top + pane.size.height
@@ -182,7 +180,7 @@ def palette_row(window: Window, kind: str) -> slint_testing.Element:
             )
         rows = row.all()
         if len(rows) == 1 and top < center(rows[0]).y < bottom:
-            return rows[0]
+            return row
     raise AssertionError(f"No visible palette row for {kind!r}")
 
 

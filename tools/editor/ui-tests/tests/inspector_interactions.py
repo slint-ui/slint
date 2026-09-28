@@ -3,7 +3,7 @@
 
 import slint_testing
 from ui_driver import wait_until
-from ui_locators import Window
+from ui_locators import Locator, Window
 
 FIELDS = {
     "x": "Position X",
@@ -23,13 +23,14 @@ def slider_position(
 
 
 def slider_track_position(
-    slider: slint_testing.Element, progress: float
+    slider: Locator, progress: float
 ) -> slint_testing.LogicalPosition:
-    track = slider.query_descendants().match_id("InspectorSlider::track").find_all()
-    assert len(track) == 1
-    position, size = track[0].absolute_position, track[0].size
-    return slint_testing.LogicalPosition(
-        x=position.x + size.width * progress, y=position.y + size.height / 2
+    track = slider.get_by_id("InspectorSlider::track")
+    return track.read(
+        lambda element: slint_testing.LogicalPosition(
+            x=element.absolute_position.x + element.size.width * progress,
+            y=element.absolute_position.y + element.size.height / 2,
+        )
     )
 
 
@@ -37,18 +38,18 @@ def inspector_field(
     window: Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
-) -> slint_testing.Element:
+) -> Locator:
     pane_locator = window.get_by_role(
         slint_testing.AccessibleRole.Complementary, name="Inspector and outline"
     )
-    pane = pane_locator.resolve()
+    pane = pane_locator
     position = slint_testing.LogicalPosition(
         x=pane.absolute_position.x + pane.size.width / 2,
         y=pane.absolute_position.y + pane.size.height / 4,
     )
     divider = window.get_by_role(
         slint_testing.AccessibleRole.Slider, name="Outline pane resize"
-    ).resolve()
+    )
     for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
         if delta:
             window.dispatch_event(
@@ -65,12 +66,12 @@ def inspector_field(
             <= fields[0].absolute_position.y + fields[0].size.height / 2
             <= divider.absolute_position.y
         ):
-            return fields[0]
+            return field_locator
     return (
         window.get_by_accessible_name(label)
         if role is None
         else window.get_by_role(role, name=label)
-    ).resolve()
+    )
 
 
 def edit_field(

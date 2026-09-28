@@ -35,7 +35,7 @@ def test_file_tree_renames_file_inline(
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Rename Main.slint"
-        ).resolve()
+        ).wait_for()
 
         press_key(window, keys.Backspace)
         press_keys(window, "Renamed")
@@ -60,7 +60,7 @@ def test_file_tree_saves_rename_when_focus_moves(
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Rename Main.slint"
-        ).resolve()
+        ).wait_for()
 
         press_key(window, keys.Backspace)
         press_keys(window, "Renamed")
@@ -92,7 +92,7 @@ def test_file_tree_limits_rename_error_to_edited_row(
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Rename Main.slint"
-        ).resolve()
+        ).wait_for()
 
         press_key(window, keys.Backspace)
         press_keys(window, "Sibling")
@@ -127,7 +127,7 @@ def test_file_tree_opens_sibling_component(
         ).invoke_accessible_default_action()
         window.get_by_role(
             slint_testing.AccessibleRole.ListItem, name="sibling-rectangle"
-        ).resolve()
+        ).wait_for()
         assert not window.get_by_accessible_name("root-text").all()
         snapshot.assert_unchanged()
 
@@ -146,7 +146,7 @@ def test_file_tree_switches_image_and_component_surfaces(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).resolve()
+        ).wait_for()
         assert not window.get_by_accessible_name(str(image)).all()
         file_row(window, assets).invoke_accessible_default_action()
         file_row(window, image).invoke_accessible_default_action()
@@ -159,7 +159,7 @@ def test_file_tree_switches_image_and_component_surfaces(
         )
         window.get_by_role(
             slint_testing.AccessibleRole.Button, name="Preview"
-        ).resolve()
+        ).wait_for()
         file_fields = image_editor.get_by_role(
             slint_testing.AccessibleRole.Text, name="File"
         ).all()
@@ -179,10 +179,10 @@ def test_file_tree_switches_image_and_component_surfaces(
         file_row(window, source_file).invoke_accessible_default_action()
         window.get_by_role(
             slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         file_row(window, assets).invoke_accessible_default_action()
         wait_until(
             lambda: (

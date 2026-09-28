@@ -38,9 +38,10 @@ def test_tree_indicators_scroll_without_losing_virtualization(
             if panel == "files"
             else slint_testing.AccessibleRole.List,
             name="Files" if panel == "files" else "Current file outline",
-        ).resolve()
+        )
         vertical = (
-            tree.query_descendants()
+            tree.resolve()
+            .query_descendants()
             .match_id("EditorScrollIndicators::vertical")
             .match_descendants()
             .match_id("EditorScrollBar::thumb")
@@ -51,7 +52,8 @@ def test_tree_indicators_scroll_without_losing_virtualization(
         def row_labels():
             return [
                 row.accessible_label
-                for row in tree.query_descendants()
+                for row in tree.resolve()
+                .query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.ListItem)
                 .find_all()
             ]

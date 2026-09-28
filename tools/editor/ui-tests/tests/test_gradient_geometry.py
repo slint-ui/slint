@@ -63,7 +63,7 @@ def test_custom_gradient_geometry_uses_layout_size(
         assert rectangle.size.height == pytest.approx(400)
 
         def field(label, role):
-            return window.get_by_role(role, name=label).resolve()
+            return window.get_by_role(role, name=label)
 
         field(
             "Rectangle background color picker", slint_testing.AccessibleRole.Button
@@ -109,9 +109,10 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if target == "text":
             select_outline_row(window, "label")
         else:
-            outline = window.get_by_accessible_name("Current file outline").resolve()
+            outline = window.get_by_accessible_name("Current file outline")
             root_row = (
-                outline.query_descendants()
+                outline.resolve()
+                .query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.ListItem)
                 .find_all()[0]
             )

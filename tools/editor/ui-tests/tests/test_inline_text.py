@@ -16,17 +16,17 @@ from ui_driver import (
     select_fixture_element,
     wait_until,
 )
-from ui_locators import Window
+from ui_locators import Locator, Window
 
 
-def begin_inline_edit(window: Window) -> slint_testing.Element:
+def begin_inline_edit(window: Window) -> Locator:
     select_fixture_element(window, "Text")
     window.get_by_accessible_name("Text move handle").double_click(
         slint_testing.PointerEventButton.Left
     )
     editor = window.get_by_role(
         slint_testing.AccessibleRole.TextInput, name="Inline text editor"
-    ).resolve()
+    )
     assert not window.get_by_role(
         slint_testing.AccessibleRole.Text, name="Fixture text"
     ).all()
@@ -60,7 +60,7 @@ def test_inline_text_key_commit(
         press_key(window, commit_key)
         snapshot.wait_for_applied(expected)
         assert not window.get_by_accessible_name("Inline text editor").all()
-        window.get_by_role(slint_testing.AccessibleRole.Text, name="Edited").resolve()
+        window.get_by_role(slint_testing.AccessibleRole.Text, name="Edited").wait_for()
 
 
 def test_inline_text_focus_commit_selects_clicked_item(
@@ -81,7 +81,7 @@ def test_inline_text_focus_commit_selects_clicked_item(
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         snapshot.wait_for_applied(expected)
-        window.get_by_role(slint_testing.AccessibleRole.Text, name="Changed").resolve()
+        window.get_by_role(slint_testing.AccessibleRole.Text, name="Changed").wait_for()
         wait_until(
             lambda: next(
                 iter(window.get_by_accessible_name("Selected Rectangle").all()),
@@ -106,7 +106,7 @@ def test_inline_text_focus_loss_without_change_restores_text(
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
 
 
 @pytest.mark.parametrize(

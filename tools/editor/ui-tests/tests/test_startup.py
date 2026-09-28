@@ -19,18 +19,18 @@ def test_startup_page_shows_project_actions_without_editor_panes(
         window = first_window(editor)
         window.get_by_role(
             slint_testing.AccessibleRole.Region, name="Startup wizard"
-        ).resolve()
+        ).wait_for()
         assert not window.get_by_accessible_name("Editor canvas").all()
         assert not window.get_by_accessible_name("Project and elements").all()
         assert not window.get_by_accessible_name("Inspector and outline").all()
 
         create = window.get_by_role(
             slint_testing.AccessibleRole.Button, name="Create New Project..."
-        ).resolve()
+        )
         assert create.accessible_enabled
         open_existing = window.get_by_role(
             slint_testing.AccessibleRole.Button, name="Open Existing Project..."
-        ).resolve()
+        )
         assert open_existing.accessible_enabled
 
 
@@ -52,19 +52,19 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         assert window.size.height > 0
         window.get_by_role(
             slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.Navigation, name="Project and elements"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.Complementary, name="Inspector and outline"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
         window.get_by_role(
             slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).resolve()
+        ).wait_for()
         assert not window.get_by_accessible_name("Startup wizard").all()
 
         def recent_project_was_saved() -> Path | None:
@@ -80,13 +80,13 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         window = first_window(editor)
         recent_row = window.get_by_role(
             slint_testing.AccessibleRole.ListItem, name=fixture_project.name
-        ).resolve()
+        )
         assert recent_row.accessible_description == str(fixture_project)
 
         window.get_by_accessible_name("File").single_click(
             slint_testing.PointerEventButton.Left
         )
-        open_recent = window.get_by_accessible_name("Open Recent").resolve()
+        open_recent = window.get_by_accessible_name("Open Recent")
         open_recent.single_click(slint_testing.PointerEventButton.Left)
 
         def recent_menu_item() -> slint_testing.Element | None:
@@ -105,4 +105,4 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         recent_item.single_click(slint_testing.PointerEventButton.Left)
         window.get_by_role(
             slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).resolve()
+        ).wait_for()
