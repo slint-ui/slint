@@ -112,7 +112,7 @@ pub struct TestFunction<'a> {
 /// Extract the test functions from
 pub fn extract_test_functions(source: &str) -> impl Iterator<Item = TestFunction<'_>> {
     static RX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?sU)\r?\n```([a-z]+)\r?\n(.+)\r?\n```\r?\n").unwrap());
+        LazyLock::new(|| Regex::new(r"(?sU)\r?\n```([a-z][a-z.]*)\r?\n(.+)\r?\n```\r?\n").unwrap());
     RX.captures_iter(source).map(|mat| TestFunction {
         language_id: mat.get(1).unwrap().as_str(),
         source: mat.get(2).unwrap().as_str(),

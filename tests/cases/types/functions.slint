@@ -33,6 +33,31 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_fn1(Foo2{ Foo1{ 123 } }).b, 124);
 ```
 
+```d.ts
+export interface Foo1 {
+    member: number;
+}
+
+export interface Foo2 {
+    a: Foo1;
+}
+
+export interface Foo3 {
+    b: number;
+}
+
+export interface TestCase {
+    fn1: (arg_0: Foo2) => Foo3;
+    fn2: () => void;
+    unused_arg: (arg_0: string, arg_1: number) => void;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare function Foo1(properties?: Partial<Foo1>): Foo1;
+export declare function Foo2(properties?: Partial<Foo2>): Foo2;
+export declare function Foo3(properties?: Partial<Foo3>): Foo3;
+```
+
 ```js
 var instance = new slint.TestCase({});
 assert.equal(instance.fn1({ a: { member: 123 } }).b, 124);

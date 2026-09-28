@@ -39,6 +39,22 @@ assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
 
 ```
 
+```d.ts
+export interface GlobalAlias {
+    hello: number;
+}
+
+export type MyGlobal = GlobalAlias;
+
+export interface TestCase {
+    test_global_prop_value: boolean;
+    readonly GlobalAlias: GlobalAlias;
+    readonly MyGlobal: GlobalAlias;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+```
+
 ```js
 let instance = new slint.TestCase({});
 assert(!instance.test_global_prop_value);
