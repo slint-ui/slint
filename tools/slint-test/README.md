@@ -70,6 +70,7 @@ first_row = window.get_by_role("list-item").nth(0)
 Queries and assertions never focus, scroll, select, or modify controls.
 `all()` returns the currently visible matches for direct inspection, while `count()` includes instantiated clipped matches so tests can verify off-screen content before scrolling it into view.
 Use `expect(locator).to_be_visible()` and `to_be_hidden()` for UI presence instead of polling `all()`.
+Use `locator.wait_for()` when visibility is synchronization rather than the behavior under test.
 `filter(has=...)` accepts a window-rooted locator and evaluates it relative to each candidate.
 `nth(index)` makes an intentional positional choice explicit and rejects negative indexes.
 

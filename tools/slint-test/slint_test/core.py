@@ -475,6 +475,32 @@ class Locator(Scope):
     def visible_count(self) -> int:
         return len(self._find(include_clipped=False))
 
+    def wait_for(self, *, state: str = "visible", timeout: float | None = None) -> None:
+        if state not in ("visible", "hidden"):
+            raise ValueError("state must be 'visible' or 'hidden'")
+        with (
+            self.window.session.operation(timeout),
+            step(
+                f"Wait for {state}",
+                layer="generic",
+                locator=repr(self),
+            ),
+        ):
+            if state == "visible":
+                self.window.session.wait(
+                    lambda: self._unique(include_clipped=False),
+                    lambda _: True,
+                    timeout=timeout,
+                    description=f"Wait for {self!r} to be visible",
+                )
+            else:
+                self.window.session.wait(
+                    self.visible_count,
+                    lambda count: count == 0,
+                    timeout=timeout,
+                    description=f"Wait for {self!r} to be hidden",
+                )
+
     def all(self) -> list[low.Element]:
         return self._find(include_clipped=False)
 

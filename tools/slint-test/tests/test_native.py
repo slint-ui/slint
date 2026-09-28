@@ -60,10 +60,14 @@ def test_ambiguity_and_absence(window):
         duplicate.click()
     expect(duplicate.nth(0)).to_have_count(1)
     expect(duplicate.nth(0)).to_be_visible()
+    duplicate.nth(0).wait_for()
     with pytest.raises(ValueError, match="nonnegative"):
         duplicate.nth(-1)
     expect(window.get_by_accessible_name("Missing")).to_have_count(0)
     expect(window.get_by_accessible_name("Missing")).to_be_hidden()
+    window.get_by_accessible_name("Missing").wait_for(state="hidden")
+    with pytest.raises(ValueError, match="state"):
+        duplicate.wait_for(state="detached")
     with pytest.raises(AssertionError, match="last observed"):
         expect(window.get_by_accessible_name("Missing")).to_have_value(
             "anything", timeout=30
@@ -157,9 +161,7 @@ def test_popup_scoping(window):
     popup = window.get_by_role("region", name="Popup content")
     expect(popup).to_be_hidden()
     window.get_by_role("button", name="Popup").click()
-    expect(
-        popup.get_by_accessible_name("Popup message")
-    ).to_be_visible()
+    expect(popup.get_by_accessible_name("Popup message")).to_be_visible()
 
 
 @pytest.mark.parametrize("duration", [float("inf"), float("nan"), -1])
