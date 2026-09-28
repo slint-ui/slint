@@ -93,7 +93,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let shape_size = shadow_options.shape_size();
         if shape_size.is_empty() {
@@ -189,7 +189,7 @@ impl<'a> SkiaItemRenderer<'a> {
 
     fn render_inset_shadow_image(
         canvas: &skia_safe::Canvas,
-        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+        shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     ) -> Option<skia_safe::Image> {
         let width = shadow_options.width.get();
         let height = shadow_options.height.get();
