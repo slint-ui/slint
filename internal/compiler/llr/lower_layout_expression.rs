@@ -2022,11 +2022,7 @@ pub fn get_fixed_size_root_layout_info(
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> Option<llr_Expression> {
-    let c = constraints.for_orientation(orientation);
-    let size = c
-        .min
-        .as_ref()
-        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)?;
+    let size = fixed_size(constraints, orientation)?;
     let own_info = super::lower_expression::lower_expression(
         &crate::layout::implicit_layout_info_call(
             elem,
@@ -2038,6 +2034,16 @@ pub fn get_fixed_size_root_layout_info(
         ctx,
     );
     Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))
+}
+
+pub fn fixed_size(
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+) -> Option<&NamedReference> {
+    let c = constraints.for_orientation(orientation);
+    c.min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
 }
 
 /// `layout_info` with each field that `constraints` restricts read from that constraint,
