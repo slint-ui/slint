@@ -1082,8 +1082,8 @@ class Repeater
         }
         void row_changed(size_t index) override
         {
-            const auto local = layout_state.item_index.instance_index
-                    + (index - layout_state.item_index.row);
+            const auto local =
+                    layout_state.item_index.instance_index + (index - layout_state.item_index.row);
             if (local >= data.size())
                 return;
             auto &c = data[local];
@@ -1350,8 +1350,8 @@ public:
         track_model_changes();
         if (!inner)
             return;
-        const auto offset = inner->layout_state.item_index.row
-                - inner->layout_state.item_index.instance_index;
+        const auto offset =
+                inner->layout_state.item_index.row - inner->layout_state.item_index.instance_index;
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
         }
@@ -1379,8 +1379,7 @@ public:
         const auto num_before_index_row = inner->layout_state.item_index.instance_index;
         const auto num_after_index_row = inner->data.size() - num_before_index_row;
         return private_api::IndexRange { inner->layout_state.item_index.row - num_before_index_row,
-                                         inner->layout_state.item_index.row
-                                                 + num_after_index_row };
+                                         inner->layout_state.item_index.row + num_after_index_row };
     }
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }
