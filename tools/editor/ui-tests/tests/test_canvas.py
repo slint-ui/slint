@@ -1631,7 +1631,7 @@ def radius_source(baseline: bytes, radii: dict[str, int]) -> bytes:
     return replace_once(baseline, original, changed)
 
 
-def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
+def test_zero_radius_handles_stay_visible_and_drag_back_to_zero(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -1671,6 +1671,14 @@ def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
                 )
                 < 1.5
             )
+        rendered = screenshot(window)
+        scale = rendered.width / window.root_element.size.width
+        sample = (
+            round((corner_position.x + 3) * scale),
+            round(corner_position.y * scale),
+        )
+        assert rendered.getpixel(sample) == pytest.approx((255, 255, 255), abs=20)
+
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(corner_position, button)
         )
@@ -1678,33 +1686,6 @@ def test_zero_radius_handles_stay_inside_and_drag_back_to_zero(
         radius_handle(window, "top-left")
         for corner, position in radius_handle_positions(window).items():
             assert position_distance(position, initial_positions[corner]) < 1.5
-
-
-def test_radius_handles_render_above_resize_handles_while_dragging_to_zero(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_fixture_element(window, "Rectangle")
-        radius = radius_handle(window, "top-left")
-        corner = center(window_element_with_label(window, "Rectangle resize top-left"))
-        button = slint_testing.PointerEventButton.Left
-        window.dispatch_event(slint_testing.PointerPressEvent(center(radius), button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(corner))
-
-        wait_for_radius_tooltip(window, 0)
-        rendered = screenshot(window)
-        scale = rendered.width / window.root_element.size.width
-        sample = (
-            round((corner.x + 3) * scale),
-            round(corner.y * scale),
-        )
-        assert rendered.getpixel(sample) == pytest.approx((255, 255, 255), abs=20)
-
-        window.dispatch_event(slint_testing.PointerReleaseEvent(corner, button))
 
 
 @pytest.mark.parametrize("single", (False, True))
