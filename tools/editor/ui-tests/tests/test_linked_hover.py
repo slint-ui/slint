@@ -3,8 +3,6 @@
 
 # cspell:ignore getpixel
 
-from io import BytesIO
-
 import pytest
 import slint_testing
 from canvas_interactions import center
@@ -16,14 +14,14 @@ from ui_driver import (
     launch_editor,
     outline_row,
     outline_rows,
+    screenshot,
     wait_until,
     window_element_with_label,
 )
 
 
-def row_background(window, label):
+def row_background(window, label, image: Image.Image):
     row = outline_row(window, label)
-    image = Image.open(BytesIO(window.grab_window_as_png()))
     scale = image.width / window.root_element.size.width
     return image.getpixel(
         (
@@ -48,7 +46,10 @@ def test_hover_links_canvas_and_outline(
         away = slint_testing.LogicalPosition(x=1, y=1)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
         labels = ["root-rectangle", "root-text"]
-        backgrounds = {label: row_background(window, label) for label in labels}
+        baseline_image = screenshot(window)
+        backgrounds = {
+            label: row_background(window, label, baseline_image) for label in labels
+        }
         selected = [row.accessible_item_selected for row in outline_rows(window)]
         for label, kind, x, y in [
             ("root-rectangle", "Rectangle", 40, 40),
@@ -70,23 +71,23 @@ def test_hover_links_canvas_and_outline(
                 artboard.absolute_position.x + x
             )
             assert frame.size.width == pytest.approx(180)
-            wait_until(
-                lambda label=label: (
-                    row_background(window, label) != backgrounds[label] or None
-                )
-            )
             other = next(value for value in labels if value != label)
-            wait_until(
-                lambda other=other: (
-                    row_background(window, other) == backgrounds[other] or None
-                )
-            )
+
+            def hover_matches(label=label, other=other):
+                image = screenshot(window)
+                return (
+                    row_background(window, label, image) != backgrounds[label]
+                    and row_background(window, other, image) == backgrounds[other]
+                ) or None
+
+            wait_until(hover_matches)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
         wait_until(
             lambda: not elements_with_label(window.root_element, "Hovered Text") or None
         )
+        restored_image = screenshot(window)
         for label in labels:
-            assert row_background(window, label) == backgrounds[label]
+            assert row_background(window, label, restored_image) == backgrounds[label]
         assert [
             row.accessible_item_selected for row in outline_rows(window)
         ] == selected

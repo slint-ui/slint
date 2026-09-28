@@ -22,7 +22,9 @@ def screenshot(window: slint_testing.Window) -> Image.Image:
 
     def settled() -> Image.Image | None:
         nonlocal previous
-        image = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
+        image = Image.open(
+            BytesIO(window.grab_window_with_mime_type("image/bmp"))
+        ).convert("RGB")
         data = image.tobytes()
         stable = data == previous
         previous = data
