@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Like issue_12139_image_window_autosize.slint, with the unsized Images in
+// repeated and conditional cells: the window auto-sizes to 128px wide and
+// stacks three 128px high images.
+export component TestCase inherits Window {
+    property <image> img: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+
+    VerticalLayout {
+        for i in 1: Image { source: img; }
+        if true: VerticalLayout {
+            Image { source: img; }
+        }
+        for i in 1: Rectangle {
+            VerticalLayout {
+                Image { source: img; }
+            }
+        }
+    }
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+handle->show();
+auto size = handle->window().size();
+assert(size == slint::PhysicalSize({128, 384}));
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let size = instance.window().size();
+assert_eq!(size, slint::PhysicalSize::new(128, 384));
+```
+
+
+```js
+let instance = new slint.TestCase({});
+instance.window.show();
+let size = instance.window.physicalSize;
+assert.equal(size.width, 128);
+assert.equal(size.height, 384);
+```
+
+*/

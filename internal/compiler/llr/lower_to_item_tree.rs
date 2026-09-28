@@ -790,27 +790,24 @@ fn lower_sub_component(
         None,
     )
     .into();
-    // Measure the root's height for its preferred width, not an unbounded one, so a
-    // height-for-width Image doesn't report infinite height (mirrors the interpreter).
-    let v_cross_constraint = component
-        .root_element
-        .borrow()
-        .layout_info_v_with_constraint
-        .is_some()
-        .then(|| {
-            super::lower_layout_expression::default_cross_axis_constraint(&component.root_element)
-        })
+    // A root no layout sizes measures at its preferred width,
+    // or an unsized Image gets an infinite height (#12139).
+    // A layout cell reads the width it's given, or a wrapping Text measures one line (#13655).
+    let root_elem = &component.root_element;
+    let measure_at_preferred_width = root_elem.borrow().layout_info_v_with_constraint.is_some()
+        && !root_elem.borrow().child_of_layout;
+    let v_cross_constraint = measure_at_preferred_width
+        .then(|| super::lower_layout_expression::default_cross_axis_constraint(root_elem))
         .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
-        &component.root_element,
+        root_elem,
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
         v_cross_constraint,
     )
     .into();
-    if component.root_element.borrow().child_of_flexbox {
-        let root_elem = &component.root_element;
+    if root_elem.borrow().child_of_flexbox {
         let has_flex_binding = ["cross-axis-self-alignment", "layout-order"]
             .iter()
             .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
