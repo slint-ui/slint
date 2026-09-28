@@ -49,6 +49,12 @@ set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
 
 </TabItem>
 
+<TabItem label="NodeJS" icon="node">
+Package the application with `slint-ui pack`, which sets the `WINDOWS` subsystem.
+Pass `--console` to keep the console, and the output, while you debug.
+See [Package Your Application](https://slint.dev/docs/node/packaging/).
+</TabItem>
+
 <TabItem label="Python" icon="seti:python">
 Change the extension of your Python script from `.py` to `.pyw`. The default Python interpreter associated with
 Python files then launches without a console window. Alternatively, use `pythonw.exe` instead of `python.exe` to launch
