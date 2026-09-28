@@ -10,6 +10,7 @@ import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, gesture, shifted
+from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
@@ -122,23 +123,17 @@ def test_linear_canvas_activation_and_colour(
         window.get_by_role("button", name="Close Stop color").resolve()
         hex_field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
-        assert hex_field.accessible_value == "#264052"
+        )
+        expect(hex_field).to_have_value("#264052")
         window.get_by_role("button", name="Gradient stop 1").activate()
-        wait_until(
-            lambda: hex_field if hex_field.accessible_value == "#568fb8" else None
-        )
-        assert hex_field.accessible_value == "#568fb8"
+        expect(hex_field).to_have_value("#568fb8")
         window.get_by_role("button", name="Gradient stop 2").activate()
-        wait_until(
-            lambda: hex_field if hex_field.accessible_value == "#264052" else None
-        )
-        assert hex_field.accessible_value == "#264052"
-        hex_field.accessible_value = "#12ab3480"
+        expect(hex_field).to_have_value("#264052")
+        hex_field.set_accessible_value("#12ab3480")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-        ).resolve().accessible_value = "70"
+        ).set_accessible_value("70")
         assert center(
             window.get_by_role("button", name="Gradient stop 2").resolve()
         ).x == pytest.approx(start.x + 140)
@@ -344,7 +339,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
         window.get_by_role("button", name="Edit stop 1 color").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve().accessible_value = "#123456"
+        ).set_accessible_value("#123456")
         other = wait_until(
             lambda: next(
                 iter(window.get_by_id("LinearGradientScene::other").all()), None
@@ -371,7 +366,7 @@ def test_linear_external_edit_cancels_stale_draft(
         window.get_by_role("button", name="Edit stop 1 color").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve().accessible_value = "#123456"
+        ).set_accessible_value("#123456")
         external = original.replace("#568fb8", "#abcdef")
         scene.write_text(external)
         wait_for_source(scene, external.encode())

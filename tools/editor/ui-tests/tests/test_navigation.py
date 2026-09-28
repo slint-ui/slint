@@ -6,6 +6,7 @@ from pathlib import Path
 
 import slint_testing
 from editor_sync import wait_for_source
+from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -15,7 +16,6 @@ from ui_driver import (
     first_window,
     launch_editor,
     palette_row,
-    wait_until,
 )
 
 
@@ -40,14 +40,12 @@ def test_file_tree_saves_rename_when_focus_moves(
         window.keyboard.press_sequentially("Renamed")
         file_row(window, fixture_project / "Sibling.slint").activate()
 
-        wait_until(lambda: True if target.is_file() and not source.exists() else None)
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Rename Main.slint").all()
-                else None
-            )
-        )
+        expect.poll(
+            lambda: target.is_file() and not source.exists(),
+            session=window.session,
+            message="renamed file exists and original is gone",
+        ).to_equal(True)
+        expect(window.get_by_accessible_name("Rename Main.slint")).to_be_hidden()
         assert target.read_text() == expected
 
 
@@ -70,18 +68,9 @@ def test_file_tree_limits_rename_error_to_edited_row(
         window.keyboard.press_sequentially("Sibling")
         window.keyboard.press(keys.Return)
 
-        wait_until(
-            lambda: (
-                True
-                if len(
-                    window.get_by_accessible_name(
-                        "A file with that name already exists"
-                    ).all()
-                )
-                == 1
-                else None
-            )
-        )
+        expect(
+            window.get_by_accessible_name("A file with that name already exists")
+        ).to_be_visible()
 
 
 def test_file_tree_opens_sibling_component(
@@ -119,11 +108,7 @@ def test_file_tree_folder_expand_and_collapse(
         folder.activate()
         file_row(window, image)
         file_row(window, assets).activate()
-        wait_until(
-            lambda: (
-                True if not window.get_by_accessible_name(str(image)).all() else None
-            )
-        )
+        expect(window.get_by_accessible_name(str(image))).to_be_hidden()
         snapshot.assert_unchanged()
 
 
@@ -158,13 +143,7 @@ def test_file_tree_switches_image_and_component_surfaces(
         assert {
             field.accessible_value for field in file_fields if field.accessible_value
         } == {"assets/checker.svg"}
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Editor canvas").all()
-                else None
-            )
-        )
+        expect(window.get_by_accessible_name("Editor canvas")).to_be_hidden()
         for kind in PALETTE_KINDS:
             assert not palette_row(window, kind).read(
                 lambda element: element.accessible_enabled
@@ -180,8 +159,6 @@ def test_file_tree_switches_image_and_component_surfaces(
 
 
 def test_file_tree_renames_file_inline(editor_factory, fixture_project):
-    from slint_test import expect
-
     source = fixture_project / "Main.slint"
     target = fixture_project / "Renamed.slint"
     expected = source.read_text()

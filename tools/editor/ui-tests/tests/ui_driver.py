@@ -96,20 +96,22 @@ def outline_rows(window: Window) -> list[slint_testing.Element]:
     )
 
 
-def select_outline_row(window: Window, row_label: str) -> slint_testing.Element:
+def select_outline_row(window: Window, row_label: str) -> Locator:
     row = window.get_by_role("list", name="Current file outline").get_by_role(
         "list-item", name=row_label
     )
     row.activate()
     expect(row).to_be_selected()
-    return row.resolve()
+    return row
 
 
 def select_fixture_element(window: Window, element_type: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[element_type])
-    window.get_by_role(
-        slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
-    ).resolve()
+    expect(
+        window.get_by_role(
+            slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
+        )
+    ).to_be_visible()
 
 
 @contextlib.contextmanager

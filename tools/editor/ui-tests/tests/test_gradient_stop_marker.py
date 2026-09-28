@@ -15,6 +15,7 @@ from gradient_interactions import (
     picker_field,
     shifted,
 )
+from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -57,13 +58,13 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         assert marker.size.height == pytest.approx(40)
         start = center(marker)
         gesture(window, start, start)
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
         window.get_by_role("button", name="Close Stop color").activate()
 
-        before = float(picker_field(window, "Stop 2 position").accessible_value)
+        before = float(picker_field(window, "Stop 2 position").value())
         start = center(window.get_by_role(role, name="Gradient stop 2").resolve())
         gesture(window, start, shifted(start, x=12))
-        after = float(picker_field(window, "Stop 2 position").accessible_value)
+        after = float(picker_field(window, "Stop 2 position").value())
         assert after != pytest.approx(before)
         assert not window.get_by_accessible_name("Hex color").all()
 
@@ -90,7 +91,7 @@ def test_ramp_marker_accessible_action_opens_existing_color_picker(
         window.get_by_role(
             slint_testing.AccessibleRole.Slider, name="Gradient stop 2"
         ).activate()
-        assert picker_field(window, "Hex color").accessible_value == "#abcdef80"
+        expect(picker_field(window, "Hex color")).to_have_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role("button", name="Close Custom").activate()
         original.assert_unchanged()

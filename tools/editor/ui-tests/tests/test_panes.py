@@ -191,10 +191,12 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         assert float(outline.accessible_value.split()[0]) == default_outline
 
         search = window.get_by_accessible_name("Search elements").resolve()
-        elements.accessible_value = "120"
+        window.get_by_accessible_name("Elements pane resize").set_accessible_value(
+            "120"
+        )
         assert float(elements.accessible_value.split()[0]) == 120
         wait_for_pane_settings(tmp_path, {"elements_pane_height": 120})
-        search.accessible_value = "missing"
+        window.get_by_accessible_name("Search elements").set_accessible_value("missing")
         no_results = window.get_by_accessible_name("No Results").resolve()
         assert no_results.size.height >= 24
         assert (

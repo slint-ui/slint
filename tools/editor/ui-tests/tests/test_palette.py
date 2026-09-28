@@ -163,7 +163,7 @@ def test_library_search_filters_elements(
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         expect_library(window, list(PALETTE_KINDS))
-        search = window.get_by_accessible_name("Search elements").resolve()
+        search = window.get_by_accessible_name("Search elements")
         for query, expected in [
             ("  aG  ", ["Image"]),
             ("T", ["Rectangle", "Text", "TouchArea"]),
@@ -171,7 +171,7 @@ def test_library_search_filters_elements(
             ("AREA", ["TouchArea"]),
             ("missing", []),
         ]:
-            search.accessible_value = query
+            search.set_accessible_value(query)
             expect_library(window, expected)
             for label in ("Visual", "Input & interaction"):
                 for header in window.get_by_role(
@@ -183,7 +183,7 @@ def test_library_search_filters_elements(
             assert not window.get_by_role(
                 slint_testing.AccessibleRole.Button, name=label
             ).all()
-        search.accessible_value = ""
+        search.set_accessible_value("")
         expect_library(window, list(PALETTE_KINDS))
         snapshot.assert_unchanged()
 
@@ -198,7 +198,7 @@ def test_library_search_restores_independent_collapse_states(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
-        search = window.get_by_accessible_name("Search elements").resolve()
+        search = window.get_by_accessible_name("Search elements")
         for label, collapsed_labels in [
             ("Visual", ["TouchArea"]),
             ("Input & interaction", []),
@@ -207,22 +207,22 @@ def test_library_search_restores_independent_collapse_states(
                 slint_testing.AccessibleRole.Button, name=label
             ).activate()
             expect_library(window, collapsed_labels)
-            search.accessible_value = "t"
+            search.set_accessible_value("t")
             expect_library(window, ["Rectangle", "Text", "TouchArea"])
-            search.accessible_value = "missing"
+            search.set_accessible_value("missing")
             expect_library(window, [])
-            search.accessible_value = ""
+            search.set_accessible_value("")
             expect_library(window, collapsed_labels)
         window.get_by_role(
             slint_testing.AccessibleRole.Button, name="Visual"
         ).activate()
         expect_library(window, ["Image", "Rectangle", "Text"])
-        search.accessible_value = "touch"
+        search.set_accessible_value("touch")
         expect_library(window, ["TouchArea"])
         assert not window.get_by_role(
             slint_testing.AccessibleRole.Button, name="Visual"
         ).all()
-        search.accessible_value = ""
+        search.set_accessible_value("")
         expect_library(window, ["Image", "Rectangle", "Text"])
         snapshot.assert_unchanged()
 
@@ -238,7 +238,7 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         window = first_window(editor)
         expect_library(window, list(PALETTE_KINDS))
         heading = window.get_by_accessible_name("ELEMENTS").resolve()
-        search = window.get_by_accessible_name("Search elements").resolve()
+        search = window.get_by_accessible_name("Search elements")
         library = window.get_by_role(
             slint_testing.AccessibleRole.List, name="Element library"
         ).resolve()
@@ -249,7 +249,7 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
             pane.absolute_position.y + pane.size.height, abs=1
         )
         heading_y = heading.absolute_position.y
-        search_y = search.absolute_position.y
+        search_y = search.bounds().y
         rows = library_rows(window)
         assert rows[0].absolute_position.y == rows[1].absolute_position.y
         assert rows[0].absolute_position.x < rows[1].absolute_position.x
@@ -264,12 +264,12 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
             ).activate()
             expect_library(window, remaining)
             assert heading.absolute_position.y == heading_y
-            assert search.absolute_position.y == search_y
+            assert search.bounds().y == search_y
         for query, expected in [("image", ["Image"]), ("missing", []), ("", [])]:
-            search.accessible_value = query
+            search.set_accessible_value(query)
             expect_library(window, expected)
             assert heading.absolute_position.y == heading_y
-            assert search.absolute_position.y == search_y
+            assert search.bounds().y == search_y
 
 
 def test_library_search_keyboard_does_not_delete_selection(

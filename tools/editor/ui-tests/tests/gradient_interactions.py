@@ -6,6 +6,7 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
+from slint_test import Locator
 from ui_driver import select_outline_row
 
 
@@ -29,8 +30,10 @@ def gesture(window, start, end):
     window.pointer.release_at(end)
 
 
-def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
-    return window.get_by_role(role, name=label).resolve()
+def picker_field(
+    window, label, role=slint_testing.AccessibleRole.TextInput
+) -> Locator:
+    return window.get_by_role(role, name=label)
 
 
 def open_gradient(window):

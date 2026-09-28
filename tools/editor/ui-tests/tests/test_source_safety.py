@@ -16,7 +16,6 @@ from ui_driver import (
     first_window,
     launch_editor,
     select_outline_row,
-    wait_until,
 )
 
 
@@ -104,8 +103,8 @@ def test_imported_file_edit_targets_only_nested_source(
         ).resolve(timeout=(15) * 1000)
         field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Text content"
-        ).resolve()
-        field.accessible_value = '"Edited import"'
+        )
+        field.set_accessible_value('"Edited import"')
         expected = nested_baseline.replace(
             b'        text: "Imported component";',
             b'        text: "Edited import";',
@@ -131,19 +130,10 @@ def test_stale_selection_commit_is_rejected(
         stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := window.get_by_role(
-                        slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
-                    ).resolve()
-                ).accessible_value
-                == "224"
-                else None
-            ),
-            timeout=15,
+        field = window.get_by_role(
+            slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
         )
+        expect(field).to_have_value("224", timeout=15_000)
         window.keyboard.press(keys.Return)
         snapshot.assert_unchanged()
 

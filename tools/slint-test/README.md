@@ -69,6 +69,7 @@ first_row = window.get_by_role("list-item").nth(0)
 `get_by_id` uses an existing Slint element ID, not a separate test-ID facility.
 Queries and assertions never focus, scroll, select, or modify controls.
 `all()` returns the currently visible matches for direct inspection, while `count()` includes instantiated clipped matches so tests can verify off-screen content before scrolling it into view.
+Use `expect(locator).to_be_visible()` and `to_be_hidden()` for UI presence instead of polling `all()`.
 `filter(has=...)` accepts a window-rooted locator and evaluates it relative to each candidate.
 `nth(index)` makes an intentional positional choice explicit and rejects negative indexes.
 

@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from slint_test import Window
-from ui_driver import wait_until
+from slint_test import Locator, Window, expect
 
 FIELDS = {
     "x": "Position X",
@@ -56,13 +55,28 @@ def inspector_field(
     return field.resolve()
 
 
+def inspector_field_locator(
+    window: Window,
+    label: str,
+    role: slint_testing.AccessibleRole | None = None,
+) -> Locator:
+    pane = window.get_by_role("complementary", name="Inspector and outline")
+    return (
+        pane.get_by_accessible_name(label)
+        if role is None
+        else pane.get_by_role(role, name=label)
+    )
+
+
 def edit_field(
     window: Window,
     label: str,
     value: str,
     role: slint_testing.AccessibleRole | None = None,
 ) -> None:
-    inspector_field(window, label, role).accessible_value = value
+    field = inspector_field_locator(window, label, role)
+    field.scroll_into_view()
+    field.set_accessible_value(value)
 
 
 def wait_for_field(
@@ -72,11 +86,6 @@ def wait_for_field(
     role: slint_testing.AccessibleRole | None = None,
     timeout: float = 5,
 ) -> None:
-    wait_until(
-        lambda: (
-            field
-            if (field := inspector_field(window, label, role)).accessible_value == value
-            else None
-        ),
-        timeout=timeout,
-    )
+    field = inspector_field_locator(window, label, role)
+    field.scroll_into_view()
+    expect(field).to_have_value(value, timeout=timeout * 1000)

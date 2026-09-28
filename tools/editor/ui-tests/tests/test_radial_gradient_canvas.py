@@ -10,6 +10,7 @@ import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import center, gesture, open_radial, shifted
+from slint_test import expect
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_driver import (
@@ -38,7 +39,7 @@ def test_radial_activation_preserves_the_actual_picker(
         window.get_by_role("button", name="Gradient").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.Combobox, name="Gradient type"
-        ).resolve().accessible_value = "Radial"
+        ).set_accessible_value("Radial")
         window.get_by_role("button", name="Gradient center handle").resolve()
         window.get_by_role("button", name="Gradient radius handle").resolve()
         window.get_by_role(
@@ -199,9 +200,9 @@ def test_radial_stops_cross_insert_delete_and_color(
         window.get_by_role("button", name="Edit stop 2 color").activate()
         field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
-        assert field.accessible_value == "#264052"
-        field.accessible_value = "#abcdef80"
+        )
+        expect(field).to_have_value("#264052")
+        field.set_accessible_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 35

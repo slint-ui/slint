@@ -54,12 +54,16 @@ def test_recreated_ancestor_and_regex(window):
 def test_ambiguity_and_absence(window):
     duplicate = window.get_by_role("button", name="Duplicate")
     expect(duplicate).to_have_count(2)
+    with pytest.raises(AssertionError, match="expected 1"):
+        expect(duplicate).to_be_visible(timeout=30)
     with pytest.raises(StrictMatchError, match="matched 2"):
         duplicate.click()
     expect(duplicate.nth(0)).to_have_count(1)
+    expect(duplicate.nth(0)).to_be_visible()
     with pytest.raises(ValueError, match="nonnegative"):
         duplicate.nth(-1)
     expect(window.get_by_accessible_name("Missing")).to_have_count(0)
+    expect(window.get_by_accessible_name("Missing")).to_be_hidden()
     with pytest.raises(AssertionError, match="last observed"):
         expect(window.get_by_accessible_name("Missing")).to_have_value(
             "anything", timeout=30
@@ -150,12 +154,12 @@ def test_covered_pointer_does_not_fall_back_to_accessibility(window):
 
 
 def test_popup_scoping(window):
+    popup = window.get_by_role("region", name="Popup content")
+    expect(popup).to_be_hidden()
     window.get_by_role("button", name="Popup").click()
     expect(
-        window.get_by_role("region", name="Popup content").get_by_accessible_name(
-            "Popup message"
-        )
-    ).to_have_count(1)
+        popup.get_by_accessible_name("Popup message")
+    ).to_be_visible()
 
 
 @pytest.mark.parametrize("duration", [float("inf"), float("nan"), -1])

@@ -10,14 +10,13 @@ import slint_testing
 from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, gesture, shifted
-from slint_test import step
+from slint_test import expect, step
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
     first_window,
     launch_editor,
     select_outline_row,
-    wait_until,
 )
 
 
@@ -139,9 +138,7 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         window.keyboard.press(keys.Delete)
-        wait_until(
-            lambda: not window.get_by_accessible_name("Gradient stop 3").all() or None
-        )
+        expect(window.get_by_accessible_name("Gradient stop 3")).to_be_hidden()
         window.get_by_role("button", name="Gradient stop 2").resolve()
         window.keyboard.press(keys.LeftArrow)
         assert float(
@@ -168,9 +165,7 @@ def test_conic_swatch_delete_keeps_canvas_element(
         window = first_window(editor)
         open_conic(window)
         window.get_by_role("button", name="Remove stop 3").activate()
-        wait_until(
-            lambda: not window.get_by_accessible_name("Gradient stop 3").all() or None
-        )
+        expect(window.get_by_accessible_name("Gradient stop 3")).to_be_hidden()
         position = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
         ).resolve()
@@ -444,18 +439,18 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         window.get_by_role("button", name="Edit stop 2 color").activate()
         field = window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Hex color"
-        ).resolve()
-        assert field.accessible_value == "#264052"
+        )
+        expect(field).to_have_value("#264052")
         window.get_by_role("button", name="Gradient stop 1").activate()
-        wait_until(lambda: field if field.accessible_value == "#7e3b66" else None)
+        expect(field).to_have_value("#7e3b66")
         window.get_by_role("button", name="Gradient stop 2").activate()
-        wait_until(lambda: field if field.accessible_value == "#264052" else None)
-        field.accessible_value = "#abcdef80"
-        wait_until(lambda: field if field.accessible_value == "#abcdef80" else None)
+        expect(field).to_have_value("#264052")
+        field.set_accessible_value("#abcdef80")
+        expect(field).to_have_value("#abcdef80")
         window.get_by_role("button", name="Close Stop color").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.TextInput, name="Stop 2 position"
-        ).resolve().accessible_value = "162"
+        ).set_accessible_value("162")
         c = center(
             window.get_by_role("button", name="Gradient center handle").resolve(), 130
         )
@@ -492,7 +487,7 @@ def test_conic_activation_from_solid(
         window.get_by_role("button", name="Gradient").activate()
         window.get_by_role(
             slint_testing.AccessibleRole.Combobox, name="Gradient type"
-        ).resolve().accessible_value = "Conic"
+        ).set_accessible_value("Conic")
         window.get_by_role("button", name="Gradient rotation handle").resolve()
         assert not window.get_by_accessible_name("Gradient angle degrees").all()
         window.get_by_role("button", name="Edit stop 1 color").resolve()

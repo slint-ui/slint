@@ -9,14 +9,13 @@ import slint_testing
 from canvas_interactions import center, fixture_element
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field
-from slint_test import Window
+from slint_test import Window, expect
 from slint_testing import keys
 from source_snapshot import wait_for_source_change
 from ui_driver import (
     first_window,
     launch_editor,
     select_fixture_element,
-    wait_until,
 )
 
 
@@ -30,13 +29,7 @@ def hover_rectangle(window: Window) -> None:
 
 
 def wait_for_no_rectangle_hover(window: Window) -> None:
-    wait_until(
-        lambda: (
-            True
-            if not window.get_by_accessible_name("Hovered Rectangle").all()
-            else None
-        )
-    )
+    expect(window.get_by_accessible_name("Hovered Rectangle")).to_be_hidden()
 
 
 @pytest.mark.parametrize("operation", ["delete", "backspace", "source-removal"])
@@ -127,15 +120,8 @@ def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
         source.write_bytes(expected)
         wait_for_source(source, expected)
         assert fixture_element(window, "Rectangle").size.width == pytest.approx(100)
-        wait_until(
-            lambda: (
-                True
-                if window.get_by_accessible_name("Hovered Rectangle")
-                .resolve()
-                .size.width
-                == pytest.approx(100)
-                else None
-            )
+        expect(window.get_by_accessible_name("Hovered Rectangle")).to_have_geometry(
+            width=pytest.approx(100)
         )
 
 
@@ -176,14 +162,8 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
         )
         source.write_bytes(expected)
         wait_for_source(source, expected)
-        wait_until(
-            lambda: (
-                True
-                if window.get_by_accessible_name("Hovered Text").all()
-                and not window.get_by_accessible_name("Hovered Rectangle").all()
-                else None
-            )
-        )
+        expect(window.get_by_accessible_name("Hovered Text")).to_be_visible()
+        expect(window.get_by_accessible_name("Hovered Rectangle")).to_be_hidden()
 
 
 @pytest.mark.parametrize(

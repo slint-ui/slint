@@ -80,18 +80,19 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         select_outline_row(window, "fill")
         open_gradient(window)
         first = picker_field(window, "Stop 1 position")
-        top = first.absolute_position.y
-        scroll_point = center(first)
+        top = first.bounds().y
+        scroll_point = first.center()
         window.pointer.scroll(0, -10000, at=scroll_point)
         last = picker_field(window, f"Stop {count} position")
-        assert last.absolute_position.y >= top
+        last_bounds = last.bounds()
+        assert last_bounds.y >= top
         bottom = window.get_by_role(
             slint_testing.AccessibleRole.Text, name="No recent fills"
         ).resolve()
-        assert last.absolute_position.y + last.size.height < bottom.absolute_position.y
+        assert last_bounds.y + last_bounds.height < bottom.absolute_position.y
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
-            assert first.absolute_position.y == top
+            assert first.bounds().y == top
         (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(window.screenshot())
         window.get_by_role("button", name="Add gradient stop").activate()
         window.get_by_role(

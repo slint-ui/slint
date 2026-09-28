@@ -472,6 +472,9 @@ class Locator(Scope):
     def count(self) -> int:
         return len(self._find(include_clipped=True))
 
+    def visible_count(self) -> int:
+        return len(self._find(include_clipped=False))
+
     def all(self) -> list[low.Element]:
         return self._find(include_clipped=False)
 
@@ -481,6 +484,18 @@ class Locator(Scope):
             return Bounds(pos.x, pos.y, size.width, size.height)
 
         return self.read(read)
+
+    def value(self) -> str:
+        return self.read(lambda element: element.accessible_value)
+
+    def accessible_description(self) -> str:
+        return self.read(lambda element: element.accessible_description)
+
+    def is_enabled(self) -> bool:
+        return self.read(lambda element: element.accessible_enabled)
+
+    def is_selected(self) -> bool:
+        return self.read(lambda element: element.accessible_item_selected)
 
     def center(self, *, rotation_degrees: float = 0) -> Point:
         bounds = self.bounds()

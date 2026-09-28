@@ -68,7 +68,9 @@ def open_combo_and_accept(
         return labels if labels == expected_options else None
 
     wait_until(menu_labels)
-    combo.accessible_value = value
+    window.get_by_role(
+        slint_testing.AccessibleRole.Combobox, name=label
+    ).set_accessible_value(value)
 
 
 def assert_rendered_element(window: Window, element_id: str) -> None:

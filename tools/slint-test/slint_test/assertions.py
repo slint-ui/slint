@@ -157,6 +157,11 @@ class LocatorAssertion:
     ) -> None:
         self._property("accessible_label", name, timeout)
 
+    def to_have_description(
+        self, description: str, *, timeout: float | None = None
+    ) -> None:
+        self._property("accessible_description", description, timeout)
+
     def to_be_enabled(
         self, enabled: bool = True, *, timeout: float | None = None
     ) -> None:
@@ -179,6 +184,22 @@ class LocatorAssertion:
             repr(self.locator) + " count",
             target=self._target("count"),
         ).to_equal(count, timeout=timeout)
+
+    def to_be_visible(self, *, timeout: float | None = None) -> None:
+        Assertion(
+            self.locator.visible_count,
+            self.locator.window.session,
+            repr(self.locator) + " visible count",
+            target=self._target("visibility"),
+        ).to_equal(1, timeout=timeout)
+
+    def to_be_hidden(self, *, timeout: float | None = None) -> None:
+        Assertion(
+            self.locator.visible_count,
+            self.locator.window.session,
+            repr(self.locator) + " visible count",
+            target=self._target("visibility"),
+        ).to_equal(0, timeout=timeout)
 
     def to_have_geometry(
         self,
