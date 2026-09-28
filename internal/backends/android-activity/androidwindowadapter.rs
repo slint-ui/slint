@@ -308,6 +308,9 @@ impl AndroidWindowAdapter {
                     };
                     let touch_pos_pointer =
                         |p: &android_activity::input::Pointer<'_>| touch_pos(p.x(), p.y());
+                    // android-activity 0.5's native-activity backend has no API for coalesced
+                    // touch samples, so there's nothing to map for `aa-05`.
+                    #[cfg(feature = "aa-06")]
                     let touch_pos_hist_pointer =
                         |p: &android_activity::input::HistoricalPointer<'_>| {
                             touch_pos(p.x(), p.y())
@@ -407,6 +410,7 @@ impl AndroidWindowAdapter {
                                 let event_pos = touch_pos_pointer(&p);
                                 let event_time =
                                     self.java_helper.input_timestamp(now_event_time, &self.window);
+                                #[cfg(feature = "aa-06")]
                                 let history = TouchHistory {
                                     history: p
                                         .history()
@@ -421,6 +425,8 @@ impl AndroidWindowAdapter {
                                         })
                                         .collect(),
                                 };
+                                #[cfg(not(feature = "aa-06"))]
+                                let history = TouchHistory::default();
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id,
