@@ -182,7 +182,11 @@ impl<T: FormatArgs + ?Sized> FormatArgs for WithPlural<'_, T> {
     }
 }
 
-/// Do the translation and formatting
+/// Do the translation and formatting with the thread's context.
+///
+/// For callers that have no component to get a context from.
+/// Without any context, the string isn't translated, only formatted.
+/// See [`crate::SlintContext::translate`].
 pub fn translate(
     original: &str,
     contextid: &str,
@@ -191,46 +195,25 @@ pub fn translate(
     n: i32,
     plural: &str,
 ) -> SharedString {
-    #![allow(unused)]
+    match crate::SlintContext::current() {
+        Some(ctx) => ctx.translate(original, contextid, domain, arguments, n, plural),
+        None => format_translation(untranslated(original, n, plural), arguments, n),
+    }
+}
+
+/// The source string to show when there's no translation.
+fn untranslated<'a>(original: &'a str, n: i32, plural: &'a str) -> &'a str {
+    if plural.is_empty() || n == 1 { original } else { plural }
+}
+
+fn format_translation(
+    translated: &str,
+    arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+) -> SharedString {
     let mut output = SharedString::default();
-
-    // Register a dependency so that language changes trigger a re-evaluation of all relevant bindings
-    // and this function is called again.
-    #[cfg(any(feature = "tr", all(target_family = "unix", feature = "gettext-rs")))]
-    global_translation_property();
-
-    let mut translated: Option<alloc::borrow::Cow<'_, str>> = None;
-
-    #[cfg(feature = "tr")]
-    {
-        translated = crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            let ctx = ctx.get()?;
-            let external_translator = ctx.external_translator()?;
-            let context = if !contextid.is_empty() { Some(contextid) } else { None };
-            Some(
-                if plural.is_empty() {
-                    external_translator.translate(original, context)
-                } else {
-                    external_translator.ntranslate(n.try_into().ok()?, original, plural, context)
-                }
-                .into_owned()
-                .into(),
-            )
-        });
-    }
-
-    #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
-    if translated.is_none() {
-        translated = Some(alloc::borrow::Cow::Owned(translate_gettext(
-            original, contextid, domain, n, plural,
-        )));
-    }
-
-    let translated = translated
-        .unwrap_or_else(|| if plural.is_empty() || n == 1 { original } else { plural }.into());
-
     use core::fmt::Write;
-    write!(output, "{}", formatter::format(&translated, &WithPlural(arguments, n))).unwrap();
+    write!(output, "{}", formatter::format(translated, &WithPlural(arguments, n))).unwrap();
     output
 }
 
@@ -271,15 +254,25 @@ fn translate_gettext(
     }
 }
 
-/// Returns the language index and make sure to register a dependency
-fn global_translation_property() -> usize {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return 0 };
-        ctx.0.as_ref().project_ref().translations_dirty.get()
-    })
+/// The language index of the thread's context, or 0 without one.
+/// Registers a dependency, see [`crate::SlintContext::language_index`].
+fn current_language_index() -> usize {
+    crate::SlintContext::current().map_or(0, |ctx| ctx.language_index())
 }
 
+/// Mark the translations of the thread's context dirty, so they're translated again.
+///
+/// For callers that have no component to get a context from.
+/// See [`crate::SlintContext::mark_translations_dirty`].
 pub fn mark_all_translations_dirty() {
+    match crate::SlintContext::current() {
+        Some(ctx) => ctx.mark_translations_dirty(),
+        None => invalidate_gettext_cache(),
+    }
+}
+
+/// gettext's cache is process-wide, so this affects every context.
+fn invalidate_gettext_cache() {
     // _nl_msg_cat_cntr is defined by glibc and the standalone GNU libintl, but not by musl,
     // which provides its own gettext implementation without that cache counter.
     #[cfg(all(feature = "gettext-rs", target_family = "unix", not(target_env = "musl")))]
@@ -295,20 +288,6 @@ pub fn mark_all_translations_dirty() {
             _nl_msg_cat_cntr += 1;
         }
     }
-
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
-        let pinned = ctx.0.as_ref().project_ref();
-        pinned.translations_dirty.mark_dirty();
-
-        // Update the decimal separator
-        #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
-        if let Some(locale) = sys_locale::get_locale() {
-            pinned
-                .locale_decimal_separator
-                .set(i_slint_common::decimal_separator_for_locale(&locale))
-        }
-    })
 }
 
 #[cfg(feature = "gettext-rs")]
@@ -327,15 +306,20 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
     Ok(())
 }
 
-/// Translate the strings bundled into the applications. If the desired language is not available, use the default
-///
-/// `strs` - the string which should be translated. The slice contains the string in multiple languages
-/// `arguments` - arguments for the translation
+/// Translate the strings bundled into the applications, in the language selected in the
+/// thread's context. See [`crate::SlintContext::translate_from_bundle`].
 pub fn translate_from_bundle<S: AsRef<str>>(
     strs: &[Option<S>],
     arguments: &(impl FormatArgs + ?Sized),
 ) -> SharedString {
-    let idx = global_translation_property();
+    translate_from_bundle_impl(current_language_index(), strs, arguments)
+}
+
+fn translate_from_bundle_impl<S: AsRef<str>>(
+    idx: usize,
+    strs: &[Option<S>],
+    arguments: &(impl FormatArgs + ?Sized),
+) -> SharedString {
     let mut output = SharedString::default();
     let Some(translated) =
         strs.get(idx).and_then(|x| x.as_ref()).or_else(|| strs.first().and_then(|x| x.as_ref()))
@@ -347,11 +331,8 @@ pub fn translate_from_bundle<S: AsRef<str>>(
     output
 }
 
-/// Translate the strings bundled into the applications with plurals. If the desired language is not available, use the default
-///
-/// `strs` - the string which should be translated
-/// `plural_rules` - the rules to create the plurals
-/// `arguments` - arguments for the translation
+/// Translate a string with plural forms bundled into the application, in the language selected
+/// in the thread's context. See [`crate::SlintContext::translate_from_bundle_with_plural`].
 pub fn translate_from_bundle_with_plural(
     strs: &[Option<&[&str]>],
     plural_rules: &[Option<fn(i32) -> usize>],
@@ -366,16 +347,31 @@ pub fn translate_from_bundle_with_plural(
     )
 }
 
-/// Same as [`translate_from_bundle_with_plural`], but the plural form is computed by the given
-/// function from the index of the language, instead of being looked up in an array of rules.
-/// It returns `None` if the language has no rule, in which case the English rule is used.
+/// Same as [`translate_from_bundle_with_plural`], but `plural_form` computes the form from the
+/// language index.
+/// See [`crate::SlintContext::translate_from_bundle_with_plural_form`].
 pub fn translate_from_bundle_with_plural_form<S: AsRef<str>>(
     strs: &[Option<&[S]>],
     plural_form: impl FnOnce(usize) -> Option<usize>,
     arguments: &(impl FormatArgs + ?Sized),
     n: i32,
 ) -> SharedString {
-    let idx = global_translation_property();
+    translate_from_bundle_with_plural_form_impl(
+        current_language_index(),
+        strs,
+        plural_form,
+        arguments,
+        n,
+    )
+}
+
+fn translate_from_bundle_with_plural_form_impl<S: AsRef<str>>(
+    idx: usize,
+    strs: &[Option<&[S]>],
+    plural_form: impl FnOnce(usize) -> Option<usize>,
+    arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+) -> SharedString {
     let mut output = SharedString::default();
     let en = |n| (n != 1) as usize;
     let (translations, form) = match strs.get(idx) {
@@ -439,23 +435,12 @@ impl BundledLanguages {
     }
 }
 
-/// This function is called by the generated code to assign the list of bundled languages
-/// and decimal separators.
-/// Do nothing if the list is already assigned.
-/// It selects also the language based on the system locale as default
+/// Assign the bundled languages to the thread's context.
+/// See [`crate::SlintContext::set_static_bundled_languages`].
 pub fn set_bundled_languages(translations: &'static [TranslationsBundled]) {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else { return };
-        set_bundled_languages_impl(ctx, || BundledLanguages::Static(translations));
-    });
-}
-
-/// Implementation of [`crate::SlintContext::set_bundled_languages`]
-pub(crate) fn set_bundled_languages_for_context(
-    ctx: &crate::SlintContext,
-    languages: impl IntoIterator<Item = (alloc::string::String, char)>,
-) {
-    set_bundled_languages_impl(ctx, || BundledLanguages::Dynamic(languages.into_iter().collect()));
+    if let Some(ctx) = crate::SlintContext::current() {
+        ctx.set_static_bundled_languages(translations);
+    }
 }
 
 /// Assign the languages to the given context, unless it already has some.
@@ -503,20 +488,147 @@ fn language_index_from_sys_locale(languages: &BundledLanguages) -> Option<usize>
 ///
 /// See also the [Translation documentation](slint:translations).
 pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTranslationError> {
-    crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        let Some(ctx) = ctx.get() else {
-            return Err(SelectBundledTranslationError::NoTranslationsBundled);
-        };
-        let translations = ctx.0.translations_bundle.borrow();
+    crate::SlintContext::current()
+        .ok_or(SelectBundledTranslationError::NoTranslationsBundled)?
+        .select_bundled_translation(language)
+}
+
+impl crate::SlintContext {
+    /// The index of the selected bundled language.
+    /// Registers a dependency, so a binding that reads it is evaluated again when the language
+    /// changes or the translations are marked dirty.
+    fn language_index(&self) -> usize {
+        self.0.as_ref().project_ref().translations_dirty.get()
+    }
+
+    /// Translate and format a string with this context's translator and language.
+    pub fn translate(
+        &self,
+        original: &str,
+        contextid: &str,
+        domain: &str,
+        arguments: &(impl FormatArgs + ?Sized),
+        n: i32,
+        plural: &str,
+    ) -> SharedString {
+        #![allow(unused)]
+        // Register a dependency so that language changes trigger a re-evaluation of all relevant bindings
+        // and this function is called again.
+        #[cfg(any(feature = "tr", all(target_family = "unix", feature = "gettext-rs")))]
+        self.language_index();
+
+        let mut translated: Option<alloc::borrow::Cow<'_, str>> = None;
+
+        #[cfg(feature = "tr")]
+        if let Some(external_translator) = self.external_translator() {
+            let context = if !contextid.is_empty() { Some(contextid) } else { None };
+            translated = if plural.is_empty() {
+                Some(external_translator.translate(original, context).into_owned().into())
+            } else {
+                n.try_into().ok().map(|n| {
+                    external_translator.ntranslate(n, original, plural, context).into_owned().into()
+                })
+            };
+        }
+
+        #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
+        if translated.is_none() {
+            translated = Some(alloc::borrow::Cow::Owned(translate_gettext(
+                original, contextid, domain, n, plural,
+            )));
+        }
+
+        let translated = translated.unwrap_or_else(|| untranslated(original, n, plural).into());
+        format_translation(&translated, arguments, n)
+    }
+
+    /// Translate a string bundled into the application, in this context's language.
+    /// Falls back to the default language if the selected one has no translation.
+    ///
+    /// `strs` holds the string in each bundled language.
+    pub fn translate_from_bundle<S: AsRef<str>>(
+        &self,
+        strs: &[Option<S>],
+        arguments: &(impl FormatArgs + ?Sized),
+    ) -> SharedString {
+        translate_from_bundle_impl(self.language_index(), strs, arguments)
+    }
+
+    /// Translate a string with plural forms bundled into the application, in this context's
+    /// language.
+    ///
+    /// `strs` holds the plural forms in each bundled language,
+    /// and `plural_rules` the rule that picks the form for each language.
+    pub fn translate_from_bundle_with_plural(
+        &self,
+        strs: &[Option<&[&str]>],
+        plural_rules: &[Option<fn(i32) -> usize>],
+        arguments: &(impl FormatArgs + ?Sized),
+        n: i32,
+    ) -> SharedString {
+        self.translate_from_bundle_with_plural_form(
+            strs,
+            |language_index| plural_rules.get(language_index).and_then(|x| *x).map(|rule| rule(n)),
+            arguments,
+            n,
+        )
+    }
+
+    /// Same as [`Self::translate_from_bundle_with_plural`], but `plural_form` computes the form
+    /// from the language index.
+    /// It returns `None` if the language has no rule, in which case the English rule is used.
+    pub fn translate_from_bundle_with_plural_form<S: AsRef<str>>(
+        &self,
+        strs: &[Option<&[S]>],
+        plural_form: impl FnOnce(usize) -> Option<usize>,
+        arguments: &(impl FormatArgs + ?Sized),
+        n: i32,
+    ) -> SharedString {
+        translate_from_bundle_with_plural_form_impl(
+            self.language_index(),
+            strs,
+            plural_form,
+            arguments,
+            n,
+        )
+    }
+
+    /// Assign the list of bundled languages and their decimal separator to this context,
+    /// and select the one that matches the system locale.
+    ///
+    /// Does nothing if this context already has a list, so that a language selected with
+    /// [`Self::select_bundled_translation`] survives a re-instantiation.
+    pub fn set_bundled_languages(
+        &self,
+        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
+    ) {
+        set_bundled_languages_impl(self, || {
+            BundledLanguages::Dynamic(languages.into_iter().collect())
+        });
+    }
+
+    /// Assign the languages the compiler bundled into the application, unless this context
+    /// already has some. See [`Self::set_bundled_languages`].
+    #[doc(hidden)]
+    pub fn set_static_bundled_languages(&self, translations: &'static [TranslationsBundled]) {
+        set_bundled_languages_impl(self, || BundledLanguages::Static(translations));
+    }
+
+    /// Select this context's language when using bundled translations.
+    /// See [`select_bundled_translation`].
+    pub fn select_bundled_translation(
+        &self,
+        language: &str,
+    ) -> Result<(), SelectBundledTranslationError> {
+        let translations = self.0.translations_bundle.borrow();
         let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let pinned = ctx.0.as_ref().project_ref();
+        let pinned = self.0.as_ref().project_ref();
         if let Some((idx, (_, decimal_separator))) =
             translations.iter().enumerate().find(|(_, (l, _))| *l == language)
         {
             pinned.translations_dirty.as_ref().set(idx);
-            // Update the decimal separator
             pinned.locale_decimal_separator.as_ref().set(decimal_separator);
             Ok(())
         } else if language.is_empty() || language == "en" {
@@ -528,7 +640,21 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
                 available_languages: translations.iter().map(|(l, _)| l.into()).collect(),
             })
         }
-    })
+    }
+
+    /// Translate this context's strings again, for example after the translation files changed.
+    pub fn mark_translations_dirty(&self) {
+        invalidate_gettext_cache();
+        let pinned = self.0.as_ref().project_ref();
+        pinned.translations_dirty.mark_dirty();
+
+        #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+        if let Some(locale) = sys_locale::get_locale() {
+            pinned
+                .locale_decimal_separator
+                .set(i_slint_common::decimal_separator_for_locale(&locale))
+        }
+    }
 }
 
 /// Error type returned from the [`select_bundled_translation`] function.
@@ -572,14 +698,7 @@ mod ffi {
     /// return the current decimal-separator for the `Platform.decimal-separator` property
     #[unsafe(no_mangle)]
     pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
-        crate::context::GLOBAL_CONTEXT.with(|ctx| {
-            let separator = if let Some(ctx) = ctx.get() {
-                ctx.0.as_ref().project_ref().locale_decimal_separator.get()
-            } else {
-                i_slint_common::DEFAULT_DECIMAL_SEPARATOR
-            };
-            *out = crate::SharedString::from(separator)
-        })
+        *out = crate::SharedString::from(crate::string::current_decimal_separator())
     }
 
     /// Perform the translation and formatting.
@@ -610,7 +729,7 @@ mod ffi {
         output: &mut SharedString,
     ) {
         *output = SharedString::default();
-        let idx = global_translation_property();
+        let idx = current_language_index();
         let Some(translated) = strs
             .get(idx)
             .filter(|x| !x.is_null())
@@ -638,7 +757,7 @@ mod ffi {
         output: &mut SharedString,
     ) {
         *output = SharedString::default();
-        let idx = global_translation_property();
+        let idx = current_language_index();
         let en = |n| (n != 1) as usize;
         let begin = *indices.get(idx.wrapping_sub(1)).unwrap_or(&0);
         let (translations, rule) = match indices.get(idx) {
@@ -675,4 +794,38 @@ mod ffi {
         let language = core::str::from_utf8(&language).unwrap();
         select_bundled_translation(language).is_ok()
     }
+}
+
+#[test]
+#[cfg(feature = "std")]
+fn test_bundled_translations_per_context() {
+    use crate::testing::NoWindowPlatform as TestPlatform;
+    let languages = || [("".into(), '.'), ("fr".into(), ',')];
+    let strs = [Some("Hello"), Some("Bonjour")];
+    let no_args: &[SharedString] = &[];
+
+    // The first context created becomes the thread's.
+    let thread_ctx = crate::SlintContext::new(alloc::boxed::Box::new(TestPlatform));
+    thread_ctx.set_bundled_languages(languages());
+    let other = crate::SlintContext::new(alloc::boxed::Box::new(TestPlatform));
+    other.set_bundled_languages(languages());
+    thread_ctx.select_bundled_translation("").unwrap();
+    other.select_bundled_translation("").unwrap();
+
+    other.select_bundled_translation("fr").unwrap();
+    assert_eq!(other.translate_from_bundle(&strs, no_args), "Bonjour");
+    assert_eq!(other.locale_decimal_separator(), ',');
+    assert_eq!(thread_ctx.translate_from_bundle(&strs, no_args), "Hello");
+    assert_eq!(thread_ctx.locale_decimal_separator(), '.');
+    assert_eq!(translate_from_bundle(&strs, no_args), "Hello");
+
+    select_bundled_translation("fr").unwrap();
+    assert_eq!(thread_ctx.translate_from_bundle(&strs, no_args), "Bonjour");
+    other.select_bundled_translation("en").unwrap();
+    assert_eq!(other.translate_from_bundle(&strs, no_args), "Hello");
+
+    assert!(matches!(
+        other.select_bundled_translation("de"),
+        Err(SelectBundledTranslationError::LanguageNotFound { .. })
+    ));
 }

@@ -391,18 +391,6 @@ impl SlintContext {
             .set(i_slint_common::decimal_separator_for_locale(locale));
     }
 
-    /// Assign the list of bundled languages and their decimal separator to this context,
-    /// and select the one that matches the system locale.
-    ///
-    /// Does nothing if this context already has a list, so that a language selected with
-    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
-    pub fn set_bundled_languages(
-        &self,
-        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
-    ) {
-        crate::translations::set_bundled_languages_for_context(self, languages);
-    }
-
     #[cfg(feature = "tr")]
     pub fn set_external_translator(&self, translator: Option<Box<dyn tr::Translator>>) {
         *self.0.external_translator.borrow_mut() = translator;

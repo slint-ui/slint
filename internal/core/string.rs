@@ -445,15 +445,7 @@ pub fn parse_number(sep: char, string: &str) -> Option<f32> {
 #[test]
 #[cfg(feature = "std")]
 fn test_number_formatting_per_context() {
-    struct TestPlatform;
-    impl crate::platform::Platform for TestPlatform {
-        fn create_window_adapter(
-            &self,
-        ) -> Result<alloc::rc::Rc<dyn crate::window::WindowAdapter>, crate::platform::PlatformError>
-        {
-            Err(crate::platform::PlatformError::Other("this test needs no window".into()))
-        }
-    }
+    use crate::testing::NoWindowPlatform as TestPlatform;
 
     // The first context created becomes the thread's.
     let thread_ctx = crate::SlintContext::new(alloc::boxed::Box::new(TestPlatform));
