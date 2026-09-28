@@ -14,6 +14,9 @@ use crate::animations::simulations::spring::{
 };
 use crate::animations::simulations::{PositionSimulation, Simulation};
 
+#[cfg(test)]
+use crate::animations::simulations::test_limit_property;
+
 const DEFAULT_MASS: f32 = 0.5;
 const DEFAULT_STIFFNESS: f32 = 100.;
 const DEFAULT_RATIO: f32 = 1.1;
@@ -69,6 +72,47 @@ impl PositionSimulation for SpringSimulation {
     }
 
     fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32 {
-        self.data.current_velocity(time_elapsed.as_secs_f32())
+        -self.data.current_velocity(time_elapsed.as_secs_f32())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::animations::simulations::assert_approx_eq;
+
+    #[test]
+    fn remaining_distance_and_velocity_settle_to_zero() {
+        let simulation =
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+        assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
+        assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
+    }
+
+    /// `remaining_velocity` reports the velocity of the content position that `step` moves,
+    /// not of the spring's internal, target-relative coordinate. Overscrolled past a lower
+    /// limit (`start_value > limit`), the content must move down toward the limit, so its
+    /// velocity is negative.
+    #[test]
+    fn remaining_velocity_points_toward_the_limit_from_above() {
+        let simulation =
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+        for millis in [50, 100, 300] {
+            let t = core::time::Duration::from_millis(millis);
+            assert!(simulation.remaining_velocity(t) < 0., "{millis}ms");
+        }
+    }
+
+    /// Mirrors [`remaining_velocity_points_toward_the_limit_from_above`]: overscrolled past an
+    /// upper limit (`start_value < limit`), the content must move up toward the limit, so its
+    /// velocity is positive.
+    #[test]
+    fn remaining_velocity_points_toward_the_limit_from_below() {
+        let simulation =
+            SpringSimulation::new_with_default_parameters(10., test_limit_property(20.));
+        for millis in [50, 100, 300] {
+            let t = core::time::Duration::from_millis(millis);
+            assert!(simulation.remaining_velocity(t) > 0., "{millis}ms");
+        }
     }
 }

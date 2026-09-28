@@ -265,8 +265,7 @@ mod tests {
     }
 
     /// Five real (residual velocity, required carry boost) pairs decomposed from repeated
-    /// same-direction flicks measured on a live iOS UIScrollView (see
-    /// /home/martin/Downloads/iosFlick, uniform-flick-events-t1.csv, releases 4-8), using the
+    /// same-direction flicks measured on a live iOS UIScrollView, using the
     /// DRAG constant in `simulations::ios` to turn each release's total measured travel back
     /// into an effective launch velocity. `CARRY_SCALE`/`CARRY_EXPONENT` are fit to this data
     /// (and 107 further points from other real flick sequences) by log-log least squares.

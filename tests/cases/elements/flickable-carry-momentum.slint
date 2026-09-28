@@ -230,7 +230,7 @@ let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!(velocity.abs() > (2_f32 * FLICK_DISTANCE / 10e-3).abs(), "Received: {velocity}. There is a large velocity increase because the previous velocity is added to the newly estimated one");
 
 // Real repeated same-strength, same-direction flicks (measured on a live iOS
-// UIScrollView, see /home/martin/Downloads/iosFlick) keep compounding release over
+// UIScrollView) keep compounding release over
 // release; they don't alternate between a boosted and an un-boosted repeat.
 let mut previous_velocity = velocity;
 for i in 0..4 {
@@ -247,8 +247,7 @@ for i in 0..4 {
 // A same-direction touch flick that starts while the previous one is still gliding must
 // still carry momentum, even with an unremarkable ~25ms gap between two tracked move
 // samples (slower than an idealized 60Hz, but a plausible real cadence once dispatch and
-// processing delay are accounted for). Real device timings for the flick shape used here:
-// /home/martin/Downloads/iosFlick, uniform-flick-events-t1.csv.
+// processing delay are accounted for)..
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 use slint_testing::AutoBool;
