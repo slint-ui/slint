@@ -103,7 +103,6 @@ i-slint-renderer-skia = { version = "=1.19.0", path = "internal/renderers/skia",
 i-slint-renderer-software = { version = "=1.19.0", path = "internal/renderers/software", default-features = false }
 slint = { version = "=1.19.0", path = "api/rs/slint", default-features = false }
 slint-build = { version = "=1.19.0", path = "api/rs/build", default-features = false, features = ["compat-1-18"] }
-slint-cpp = { version = "=1.19.0", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.19.0", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.19.0", path = "api/rs/macros", default-features = false }
 

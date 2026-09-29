@@ -153,11 +153,10 @@ cargo build --manifest-path examples/Cargo.toml --workspace --release \
 ### C++ Tests
 
 The C++ tests are contained in the `test-driver-cpp` crate of the `tests/`
-workspace. It requires the Slint C++ library to be built, which isn't done by
-default. Build it explicitly before running the tests:
+workspace.
+The driver builds the Slint C++ library itself, with the features of the driver:
 
 ```sh
-cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp
 ```
 
