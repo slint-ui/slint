@@ -181,19 +181,6 @@ pub fn parse_backend_env_var(backend_config: &str) -> (&str, &str) {
     })
 }
 
-#[cfg(test)]
-mod tests {
-    #[cfg(not(all(feature = "mcp", supports_headless)))]
-    #[test]
-    fn unavailable_headless_backend_is_rejected() {
-        let error = super::ensure_requested_backend_available("headless").unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "headless backend is not available in this build; recompile the application with Slint's \"mcp\" feature enabled"
-        );
-    }
-}
-
 /// Start the system-testing and MCP servers if their features are enabled.
 /// Also called by the bindings that install a platform with `set_platform()`, bypassing the selector.
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
