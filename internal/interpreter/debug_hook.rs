@@ -32,6 +32,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};
     use i_slint_compiler::object_tree::Element;
+    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
     use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
 
@@ -79,7 +80,7 @@ pub(crate) mod tests {
     ) -> (Rc<RefCell<Element>>, u64) {
         let offset = code.find(search_term).unwrap() as u32;
         let (element, debug_index) = instance
-            .element_node_at_source_code_position(&test_path(), offset)
+            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset)
             .first()
             .cloned()
             .expect("element resolved");
@@ -335,7 +336,10 @@ export component Win inherits Window {
                 .into_iter()
                 .map(|off| {
                     let (elem, _) = instance
-                        .element_node_at_source_code_position(&test_path(), off as u32)
+                        .element_node_at_source_code_position(
+                            &SourcePath::new(test_path()),
+                            off as u32,
+                        )
                         .first()
                         .cloned()
                         .expect("element");

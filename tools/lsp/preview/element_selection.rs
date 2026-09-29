@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::source_path::SourcePath;
 use std::{path::PathBuf, rc::Rc};
 
 use i_slint_compiler::{
@@ -21,11 +22,15 @@ pub struct ElementSelection {
 }
 
 impl ElementSelection {
+    fn source_path(&self) -> SourcePath {
+        SourcePath::new(&self.path)
+    }
+
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements =
-            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
+        let elements = component_instance
+            .element_node_at_source_code_position(&self.source_path(), self.offset.into());
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -35,7 +40,8 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|d| {
-                d.node.source_file.path() == self.path && d.node.text_range().start() == self.offset
+                d.node.source_file.path_buf() == self.path
+                    && d.node.text_range().start() == self.offset
             })
         };
 
@@ -118,7 +124,7 @@ fn select_element_at_source_code_position_impl(
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&path, offset.into());
+    let positions = component_instance.component_positions(&SourcePath::new(&path), offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -165,7 +171,7 @@ fn select_element_node(
 
     select_element_at_source_code_position_impl(
         component_instance,
-        path,
+        path.to_path_buf(),
         offset,
         position,
         SelectionNotification::Never, // We update directly;-)
@@ -235,7 +241,7 @@ fn collect_all_element_nodes_covering_impl(
     if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !editor_preview::is_element_node_ignored(&d.node)
-                && !d.node.source_file.path().starts_with("builtin:/")
+                && !matches!(d.node.source_file.path(), SourcePath::Builtin(_))
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {
@@ -346,6 +352,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 .as_element_node()
                 .map(|en| {
                     let (path, offset) = en.path_and_offset();
+                    let path = path.to_path_buf();
                     let offset: u32 = offset.into();
 
                     let is_selected = if selected.is_none() {
@@ -592,7 +599,7 @@ pub fn reselect_element() {
 mod tests {
     use crate::editor_preview::test;
 
-    use std::path::PathBuf;
+    use i_slint_compiler::source_path::SourcePath;
 
     use i_slint_core::lengths::LogicalPoint;
     use slint_interpreter::ComponentInstance;
@@ -636,7 +643,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Remove the "button" implementation details. They must be at the start:
-        let button_path = PathBuf::from("builtin:/fluent/button.slint");
+        let button_path = SourcePath::new("builtin:/fluent/button.slint");
         let first_non_button = covers_center
             .iter()
             .position(|sc| {
@@ -652,7 +659,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
-            assert_eq!(&path, &test_file);
+            assert_eq!(path, SourcePath::new(&test_file));
             assert_eq!(offset, (*expected_offset).into());
         }
 
@@ -931,7 +938,8 @@ export component MyInput {
 
         let (path, _offset) = selected.path_and_offset();
         assert_eq!(
-            path, main_path,
+            path,
+            SourcePath::new(&main_path),
             "selection without `enter_component` should land on the MyInput use site \
              in the main file, not on a node inside the imported component"
         );

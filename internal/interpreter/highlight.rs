@@ -11,11 +11,11 @@
 use crate::instance::{Instance, SubComponentInstance};
 use i_slint_compiler::llr::{ItemInstanceIdx, SubComponentIdx, SubComponentInstanceIdx};
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
-use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
 use vtable::VRc;
@@ -126,7 +126,7 @@ pub fn element_positions(
         instance,
         &target_loc.0,
         target_loc.1,
-        use_site.as_ref().map(|(p, o)| (p.as_path(), *o)),
+        use_site.as_ref().map(|(p, o)| (p, *o)),
         filter,
     )
 }
@@ -134,10 +134,10 @@ pub fn element_positions(
 /// The `(path, offset)` key under which the LLR debug info records
 /// `element` — `Spanned::to_source_location` semantics (the qualified
 /// name's start).
-fn source_location_of(element: &ElementRc) -> Option<(std::path::PathBuf, u32)> {
+fn source_location_of(element: &ElementRc) -> Option<(SourcePath, u32)> {
     use i_slint_compiler::diagnostics::Spanned;
     let e = element.borrow();
-    let path = e.source_file()?.path().to_path_buf();
+    let path = e.source_file()?.path().clone();
     Some((path, e.span().offset as u32))
 }
 
@@ -167,7 +167,7 @@ fn walk_to_native_root(element: &ElementRc) -> ElementRc {
 /// the given `(path, offset)` pair.
 pub(crate) fn component_positions(
     instance: &VRc<ItemTreeVTable, Instance>,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<HighlightedRect> {
     element_node_at_source_code_position(instance, path, offset)
@@ -183,7 +183,7 @@ pub(crate) fn component_positions(
 /// (if available) to walk the original object-tree `Document`.
 pub(crate) fn element_node_at_source_code_position(
     instance: &VRc<ItemTreeVTable, Instance>,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<(ElementRc, usize)> {
     let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
@@ -203,7 +203,7 @@ pub(crate) fn element_node_at_source_code_position(
 
 fn visit_element_for_position(
     element: &ElementRc,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
     result: &mut Vec<(ElementRc, usize)>,
 ) {
@@ -252,7 +252,7 @@ fn find_flat_indices_for_item(
     instance: &VRc<ItemTreeVTable, Instance>,
     target_sc_idx: SubComponentIdx,
     target_local: ItemInstanceIdx,
-    use_site: Option<(&Path, u32)>,
+    use_site: Option<(&SourcePath, u32)>,
 ) -> Vec<usize> {
     let cu = &instance.root_sub_component.compilation_unit;
     let root_ty = instance.root_sub_component.sub_component_idx;
@@ -281,7 +281,7 @@ fn path_passes_use_site(
     cu: &i_slint_compiler::llr::CompilationUnit,
     mut current: SubComponentIdx,
     path: &[SubComponentInstanceIdx],
-    us_path: &Path,
+    us_path: &SourcePath,
     us_offset: u32,
 ) -> bool {
     for &instance_idx in path {
@@ -434,9 +434,9 @@ fn are_perpendicular(x: LogicalVector, y: LogicalVector) -> bool {
 
 fn positions_by_source(
     root: &VRc<ItemTreeVTable, Instance>,
-    target_path: &Path,
+    target_path: &SourcePath,
     target_offset: u32,
-    use_site: Option<(&Path, u32)>,
+    use_site: Option<(&SourcePath, u32)>,
     filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
     items_by_source(root, target_path, target_offset, use_site)
@@ -477,9 +477,9 @@ fn item_corner_radii(item: Pin<i_slint_core::items::ItemRef<'_>>) -> CornerRadii
 
 fn items_by_source(
     root: &VRc<ItemTreeVTable, Instance>,
-    target_path: &Path,
+    target_path: &SourcePath,
     target_offset: u32,
-    use_site: Option<(&Path, u32)>,
+    use_site: Option<(&SourcePath, u32)>,
 ) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
     let cu = root.root_sub_component.compilation_unit.clone();
     let mut results = Vec::new();
@@ -516,6 +516,7 @@ mod tests {
         ComponentInstance,
         debug_hook::tests::{compile_with_debug_hooks, test_path},
     };
+    use i_slint_compiler::source_path::SourcePath;
 
     fn geometry_of(
         instance: &ComponentInstance,
@@ -525,7 +526,7 @@ mod tests {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
         let (element, _) = instance
-            .element_node_at_source_code_position(&test_path(), offset as u32)
+            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset as u32)
             .first()
             .cloned()
             .unwrap_or_else(|| panic!("element {id} not resolved"));
@@ -737,7 +738,7 @@ export component Win inherits Window {
             )
             .unwrap();
         let (element, _) = instance
-            .element_node_at_source_code_position(&test_path(), offset as u32)
+            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset as u32)
             .first()
             .cloned()
             .unwrap();

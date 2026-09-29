@@ -14,6 +14,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
+use crate::source_path::SourcePath;
 use smol_str::SmolStr;
 use std::fmt::Display;
 
@@ -1121,12 +1122,12 @@ fn test_is_identifier_normalized() {
 // Actual parser
 pub fn parse(
     source: String,
-    path: Option<&std::path::Path>,
+    path: Option<SourcePath>,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
-        path.map(crate::pathutils::clean_path).unwrap_or_default(),
+        path.unwrap_or_default(),
         source,
     ));
     document::parse_document(&mut p);
@@ -1144,7 +1145,7 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
-    Some(parse(source, Some(path.as_ref()), build_diagnostics))
+    Some(parse(source, Some(SourcePath::File(path)), build_diagnostics))
 }
 
 pub fn parse_tokens(

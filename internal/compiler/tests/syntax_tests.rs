@@ -479,8 +479,11 @@ fn process_file_source(
     update: bool,
 ) -> std::io::Result<bool> {
     let mut parse_diagnostics = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+    let syntax_node = i_slint_compiler::parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut parse_diagnostics,
+    );
 
     let has_parse_error = parse_diagnostics.has_errors();
     // Only the tests in the `slint-sc` directory are Slint SC tests; don't

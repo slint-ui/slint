@@ -12,6 +12,7 @@
 
 use crate::preview::element_selection::ElementSelection;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
@@ -600,12 +601,9 @@ fn set_contents(url: &VersionedUrl, content: String) {
         );
         let changed = old.as_ref().is_none_or(|old| old.code != content);
         let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
-        let selected_document = preview_state
-            .selected
-            .as_ref()
-            .and_then(|selected| Url::from_file_path(&selected.path).ok())
-            .as_ref()
-            == Some(url.url());
+        let selected_document =
+            preview_state.selected.as_ref().and_then(|selected| selected.path.to_url()).as_ref()
+                == Some(url.url());
         let dependency = preview_state.dependencies.contains(url.url());
         let invalidate =
             (selected_document && (changed || version_changed)) || (dependency && changed);
@@ -1230,7 +1228,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Ok(url) = Url::from_file_path(&selected.path) else {
+    let Some(url) = selected.path.to_url() else {
         return;
     };
 
@@ -1313,7 +1311,7 @@ fn rotate_selected_element_impl(
     let rotation = override_selected_element_rotation_impl(element_node, instance_index, angle)?;
 
     let (path, offset) = element_node.path_and_offset();
-    let url = Url::from_file_path(&path).ok()?;
+    let url = path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -1673,7 +1671,7 @@ fn persist_selected_element_border_radius() {
         return;
     }
 
-    let Some(url) = Url::from_file_path(&path).ok() else {
+    let Some(url) = path.to_url() else {
         return;
     };
     let Some(document_cache) = document_cache() else {
@@ -1766,7 +1764,7 @@ fn persist_selected_element_geometry_impl(
         return None;
     }
 
-    let url = Url::from_file_path(&path).ok()?;
+    let url = path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -1916,9 +1914,7 @@ fn extract_resources(
     let mut result: HashSet<Url> = Default::default();
 
     for dependency in dependencies {
-        let Ok(path) = dependency.to_file_path() else {
-            continue;
-        };
+        let path = SourcePath::from_url(dependency.clone());
         let Some(doc) = type_loader.get_document(&path) else {
             continue;
         };
@@ -2194,7 +2190,7 @@ async fn reload_timer_function() {
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
             lsp.ask_editor_to_show_document(
-                &path.to_string_lossy(),
+                &path.to_string(),
                 lsp_types::Range::new(pos, pos),
                 false,
             )
@@ -2298,7 +2294,7 @@ async fn parse_source(
             cc,
             Some(Rc::new(file_loader_fallback)),
             i_slint_editor_preview::document_cache::SourceFileVersionMap::from([(
-                path.clone(),
+                SourcePath::new(&path),
                 version,
             )]),
         );
@@ -2512,7 +2508,7 @@ pub fn set_remote_connection_state(
 }
 
 pub fn highlight(url: Option<Url>, offset: TextSize) {
-    let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
+    let Some(path) = url.as_ref().map(|u| SourcePath::from_url(u.clone())) else {
         element_selection::unselect_element();
         return;
     };
@@ -2561,21 +2557,16 @@ fn convert_diagnostics(
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
 
-    fn path_to_url(path: &Path) -> Url {
-        Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap())
-    }
-
     // Pre-fill version info and an empty diagnostics to reset the state for the url
     for (path, version) in file_versions.iter() {
-        result.insert(path_to_url(path), (*version, Vec::new()));
+        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
     }
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
-            if d.source_file().is_none_or(|f| !i_slint_compiler::pathutils::is_absolute(f)) {
+            let Some(uri) = d.source_file().and_then(|f| SourcePath::new(f).to_url()) else {
                 continue;
-            }
-            let uri = path_to_url(d.source_file().unwrap());
+            };
             let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
             if let Some(data) = result.get_mut(&uri) {
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
@@ -2673,7 +2664,7 @@ fn set_selected_element(
 
             if let Some(document_cache) = document_cache_from(preview_state)
                 && let Some((uri, version, selection)) = selection.as_ref().and_then(|selection| {
-                    let url = Url::from_file_path(&selection.path).ok()?;
+                    let url = selection.path.to_url()?;
                     let version = document_cache.document_version(&url);
                     Some((
                         url.clone(),
@@ -2732,12 +2723,8 @@ fn set_selected_element(
                 util::text_size_to_lsp_position(sf, node.text_range().start(), format),
             )
         });
-        lsp.ask_editor_to_show_document(
-            &path.to_string_lossy(),
-            lsp_types::Range::new(pos, pos),
-            false,
-        )
-        .ok();
+        lsp.ask_editor_to_show_document(&path.to_string(), lsp_types::Range::new(pos, pos), false)
+            .ok();
     }
 }
 
@@ -3151,7 +3138,11 @@ export component Main inherits Rectangle {
         let url = Url::from_file_path(&path).unwrap();
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
-            state.selected = Some(ElementSelection { path, offset: 0.into(), instance_index: 0 });
+            state.selected = Some(ElementSelection {
+                path: SourcePath::new(path),
+                offset: 0.into(),
+                instance_index: 0,
+            });
             state.dependencies.insert(url.clone());
             state
                 .source_code
@@ -3237,12 +3228,12 @@ export component Main {
         instance: &ComponentInstance,
         id: &str,
     ) -> slint_interpreter::highlight::HighlightedRect {
-        let path = i_slint_editor_preview::test::main_test_file_name();
+        let path = SourcePath::new(i_slint_editor_preview::test::main_test_file_name());
         *instance.component_positions(&path, element_offset(id)).first().expect("geometry")
     }
 
     fn element_node_of(instance: &ComponentInstance, id: &str) -> ElementRcNode {
-        let path = i_slint_editor_preview::test::main_test_file_name();
+        let path = SourcePath::new(i_slint_editor_preview::test::main_test_file_name());
         let (element, debug_index) = instance
             .element_node_at_source_code_position(&path, element_offset(id))
             .first()

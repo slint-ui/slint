@@ -35,6 +35,7 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
@@ -44,6 +45,7 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
+use source_path::SourcePath;
 use std::path::Path;
 
 /// Specify how the resources are embedded by the compiler
@@ -412,11 +414,12 @@ pub async fn load_root_file(
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (SourcePath, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
+    let (path, source_path) = (SourcePath::new(path), SourcePath::new(source_path));
     let (path, _) =
-        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
+        loader.load_root_file(&path, &source_path, source_code, false, &mut diagnostics).await;
 
     (path, diagnostics, loader)
 }
@@ -434,15 +437,16 @@ pub async fn load_root_file_with_raw_type_loader(
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (
-    std::path::PathBuf,
+    SourcePath,
     diagnostics::BuildDiagnostics,
     typeloader::TypeLoader,
     Option<typeloader::TypeLoader>,
 ) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
 
+    let (path, source_path) = (SourcePath::new(path), SourcePath::new(source_path));
     let (path, raw_type_loader) =
-        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
+        loader.load_root_file(&path, &source_path, source_code, true, &mut diagnostics).await;
 
     (path, diagnostics, loader, raw_type_loader)
 }

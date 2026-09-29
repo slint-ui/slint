@@ -8,8 +8,6 @@ use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_
 use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
@@ -86,7 +84,7 @@ pub(crate) fn completion_at(
     if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
-                token.source_file()?.path(),
+                token.source_file()?.path().as_native_path()?,
                 token.text(),
                 offset.checked_sub(token.text_range().start())?,
             )
@@ -1288,8 +1286,7 @@ pub fn build_component_import_statements_edits(
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let exported_types = {
         let mut tmp = Vec::new();
@@ -1351,8 +1348,7 @@ pub fn build_type_import_statements_edits(
         TextEdit,
     ),
 ) -> Option<()> {
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let mut exported_types = Vec::new();
     all_exported_types(document_cache, filter, &mut exported_types);

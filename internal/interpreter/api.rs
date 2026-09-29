@@ -3,6 +3,8 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
+#[cfg(any(feature = "internal", feature = "internal-highlight"))]
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -1036,7 +1038,7 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    watch_paths: vec![SourcePath::new(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                 };
@@ -1138,7 +1140,7 @@ pub struct CompilationResultSend {
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    watch_paths: Vec<PathBuf>,
+    watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     structs_and_enums: Vec<LangType>,
 }
@@ -1211,7 +1213,7 @@ pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    pub(crate) watch_paths: Vec<PathBuf>,
+    pub(crate) watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
@@ -1309,7 +1311,7 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[SourcePath] {
         &self.watch_paths
     }
 
@@ -1837,7 +1839,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
@@ -1864,7 +1866,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
@@ -2534,7 +2536,7 @@ export component Foo2 inherits Window  {
     let (handle, path) = compile(code);
 
     for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&path, i);
+        let elements = handle.element_node_at_source_code_position(&SourcePath::new(&path), i);
         eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
         match i {
             16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
@@ -2577,7 +2579,7 @@ export component Foo3 inherits Window {
 
     let element_at = |pattern: &str| {
         let offset = code.find(pattern).unwrap() as u32;
-        let elements = handle.element_node_at_source_code_position(&path, offset);
+        let elements = handle.element_node_at_source_code_position(&SourcePath::new(&path), offset);
         assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
         elements.into_iter().next().unwrap().0
     };
@@ -2608,6 +2610,6 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&path, offset).len(), 3);
-    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+    assert_eq!(handle.component_positions(&SourcePath::new(&path), offset).len(), 3);
+    assert!(handle.component_positions(&SourcePath::new(&path), code.len() as u32 - 1).is_empty());
 }

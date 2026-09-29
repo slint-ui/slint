@@ -406,7 +406,7 @@ fn source_path(source_uri: &str) -> Option<PathBuf> {
     if uri.scheme() != "file" {
         return None;
     }
-    i_slint_editor_preview::uri_to_file(&uri)
+    i_slint_editor_preview::uri_to_file(&uri)?.into_native_path()
 }
 
 fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {

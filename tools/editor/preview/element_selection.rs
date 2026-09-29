@@ -1,14 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::{path::PathBuf, rc::Rc};
 
 use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, TextSize},
+    source_path::SourcePath,
 };
 use i_slint_core::{lengths::LogicalPoint, properties::ChangeTracker};
 use slint::{Model, ModelTracker, VecModel};
@@ -18,7 +16,7 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
 }
@@ -38,7 +36,8 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|d| {
-                d.node.source_file.path() == self.path && d.node.text_range().start() == self.offset
+                d.node.source_file.path() == &self.path
+                    && d.node.text_range().start() == self.offset
             })
         };
 
@@ -98,7 +97,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
@@ -117,7 +116,7 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
@@ -157,7 +156,7 @@ struct HighlightPositionsModel {
 }
 
 impl HighlightPositionsModel {
-    fn new(component_instance: ComponentInstance, path: PathBuf, offset: u32) -> Rc<Self> {
+    fn new(component_instance: ComponentInstance, path: SourcePath, offset: u32) -> Rc<Self> {
         let rows = i_slint_core::properties::evaluate_no_tracking(|| {
             selection_rectangles(&component_instance, &path, offset)
         });
@@ -216,7 +215,7 @@ impl Model for HighlightPositionsModel {
 
 fn selection_rectangles(
     component_instance: &ComponentInstance,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<ui::SelectionRectangle> {
     component_instance
@@ -345,7 +344,7 @@ fn collect_all_element_nodes_covering_impl(
     {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !i_slint_editor_preview::is_element_node_ignored(&d.node)
-                && !d.node.source_file.path().starts_with("builtin:/")
+                && !matches!(d.node.source_file.path(), SourcePath::Builtin(_))
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {
@@ -487,10 +486,8 @@ fn hovered_element_at_impl(
         valid: true,
         is_selected,
         is_over_selected_element,
-        source_uri: i_slint_editor_preview::file_to_uri(&path)
-            .map(|uri| uri.to_string().into())
-            .unwrap_or_default(),
-        element_path: path.to_string_lossy().to_string().into(),
+        source_uri: path.to_url().map(|uri| uri.to_string().into()).unwrap_or_default(),
+        element_path: path.to_string().into(),
         element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
         type_name: type_name(&element_node).into(),
         geometry: Rc::new(VecModel::from(selection_rectangles(
@@ -549,6 +546,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 .as_element_node()
                 .map(|en| {
                     let (path, offset) = en.path_and_offset();
+                    let path = path.to_path_buf();
                     let offset: u32 = offset.into();
 
                     let is_selected = if selected.is_none() {
@@ -795,9 +793,8 @@ pub fn reselect_element() {
 mod tests {
     use i_slint_editor_preview::test;
 
-    use std::path::PathBuf;
-
     use i_slint_compiler::parser::TextSize;
+    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::lengths::LogicalPoint;
     use slint::Model;
     use slint_interpreter::ComponentInstance;
@@ -841,7 +838,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Remove the "button" implementation details. They must be at the start:
-        let button_path = PathBuf::from("builtin:/fluent/button.slint");
+        let button_path = SourcePath::new("builtin:/fluent/button.slint");
         let first_non_button = covers_center
             .iter()
             .position(|sc| {
@@ -857,7 +854,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
-            assert_eq!(&path, &test_file);
+            assert_eq!(path, SourcePath::new(&test_file));
             assert_eq!(offset, (*expected_offset).into());
         }
 
@@ -1136,7 +1133,8 @@ export component MyInput {
 
         let (path, _offset) = selected.path_and_offset();
         assert_eq!(
-            path, main_path,
+            path,
+            SourcePath::new(&main_path),
             "selection without `enter_component` should land on the MyInput use site \
              in the main file, not on a node inside the imported component"
         );
@@ -1155,7 +1153,7 @@ export component MyInput {
         let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
 
         assert!(hovered.valid);
-        assert_eq!(hovered.element_path, expected_path_and_offset.0.to_string_lossy());
+        assert_eq!(hovered.element_path, expected_path_and_offset.0.to_string());
         assert_eq!(
             hovered.element_offset,
             i32::try_from(u32::from(expected_path_and_offset.1)).unwrap()
@@ -1220,7 +1218,7 @@ export component Demo inherits Window {{
         let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
 
         assert!(hovered.valid);
-        assert_eq!(PathBuf::from(hovered.element_path.to_string()), main_path);
+        assert_eq!(SourcePath::new(hovered.element_path.as_str()), SourcePath::new(&main_path));
     }
 
     #[test]
@@ -1260,7 +1258,7 @@ export component Demo inherits Window {{
         assert_ne!(first.geometry.row_data(0).unwrap().x, first.geometry.row_data(1).unwrap().x);
 
         let selection = super::ElementSelection {
-            path: PathBuf::from(first.element_path.to_string()),
+            path: SourcePath::new(first.element_path.as_str()),
             offset: TextSize::from(first.element_offset as u32),
             instance_index: 1,
         };

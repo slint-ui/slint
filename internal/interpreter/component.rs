@@ -402,7 +402,7 @@ pub struct BuildResult {
     pub diagnostics: Vec<i_slint_compiler::diagnostics::Diagnostic>,
     pub components: std::collections::HashMap<String, ComponentDefinitionInner>,
     #[cfg(feature = "internal")]
-    pub watch_paths: Vec<std::path::PathBuf>,
+    pub watch_paths: Vec<i_slint_compiler::source_path::SourcePath>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
 }

@@ -14,8 +14,8 @@ use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
+use i_slint_compiler::source_path::SourcePath;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub enum CodeBlockOrExpression {
@@ -59,7 +59,7 @@ pub struct DefinitionInformation {
 
 #[derive(Clone, Debug)]
 pub struct DeclarationInformation {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub start_position: TextSize,
 }
 
@@ -157,7 +157,7 @@ fn add_element_properties(
                 decl.as_ref().and_then(|d| d.Type()).map(|t| t.into()).unwrap_or(n.clone());
 
             DeclarationInformation {
-                path: n.source_file.path().to_path_buf(),
+                path: n.source_file.path().clone(),
                 start_position: ty_node.text_range().start(),
             }
         });
@@ -1573,7 +1573,7 @@ component MainWindow inherits Window {
         let declaration = foo_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
         // `property<int> foo = 42`, not to the `<`
@@ -1689,7 +1689,7 @@ component SomeRect inherits Rectangle {
         let declaration = glob_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
         assert!(find_property(&result, "width").is_none());
@@ -1700,7 +1700,7 @@ component SomeRect inherits Rectangle {
         let declaration = abcd_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
 

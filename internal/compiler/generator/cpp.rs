@@ -1137,7 +1137,7 @@ fn embed_resource(
             unreachable!("slint-sc resources in the C++ generator")
         }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file = crate::fileaccess::load_file(std::path::Path::new(
+            let resource_file = crate::fileaccess::load_file(&crate::source_path::SourcePath::new(
                 resource.path.as_deref().unwrap(),
             ))
             .unwrap(); // embedding pass ensured that the file exists
