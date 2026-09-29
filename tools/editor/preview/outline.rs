@@ -393,7 +393,7 @@ fn drop_edit(
                     .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
             })?;
             let mut properties = Vec::new();
-            if kind != ui::ElementKind::Text
+            if !preview::drop_location::has_intrinsic_size(&component)
                 && !i_slint_compiler::layout::is_layout(
                     &drop_info.target_element_node.as_element().borrow().base_type,
                 )

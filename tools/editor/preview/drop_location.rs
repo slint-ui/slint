@@ -1001,7 +1001,7 @@ fn geometry_properties_for_drop(
             format!("{}px", (geometry.origin.y - target_origin.y).round()),
         ),
     ];
-    if component.name != "Text" {
+    if !has_intrinsic_size(component) {
         properties.extend([
             i_slint_editor_preview::editing::PropertyChange::new(
                 "width",
@@ -1014,6 +1014,12 @@ fn geometry_properties_for_drop(
         ]);
     }
     Some(properties)
+}
+
+pub(super) fn has_intrinsic_size(
+    component: &i_slint_editor_preview::component_catalog::ComponentInformation,
+) -> bool {
+    component.name == "Text"
 }
 
 pub(super) fn visual_properties_for_drop(
