@@ -7,6 +7,7 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import element, first_window, launch_editor, wait_until
 
 
@@ -64,18 +65,31 @@ def test_tree_indicators_scroll_without_losing_virtualization(
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(center(tree), delta_x=0, delta_y=-300)
         )
-        wait_until(lambda: True if vertical.computed_opacity > 0.99 else None)
-        wait_until(lambda: True if row_labels() != before else None)
+        expect.poll(
+            lambda: vertical.computed_opacity > 0.99,
+            message="vertical scroll indicator is opaque",
+        ).to_equal(True)
+        expect.poll(
+            row_labels, message="visible tree rows after scrolling"
+        ).not_to_equal(before)
         assert tree.size == tree_size
 
-        wait_until(lambda: True if 0 < vertical.computed_opacity < 1 else None)
+        expect.poll(
+            lambda: 0 < vertical.computed_opacity < 1,
+            message="vertical scroll indicator is fading",
+        ).to_equal(True)
         before_drag = row_labels()
         start = center(vertical)
         end = slint_testing.LogicalPosition(x=start.x, y=start.y + 30)
         gesture(window, start, end)
-        wait_until(lambda: True if row_labels() != before_drag else None)
+        expect.poll(
+            row_labels, message="visible tree rows after dragging"
+        ).not_to_equal(before_drag)
         window.dispatch_event(slint_testing.PointerExitedEvent())
         assert 0 < len(row_labels()) < 150
-        wait_until(lambda: True if vertical.computed_opacity == 0 else None)
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="vertical scroll indicator opacity",
+        ).to_equal(0)
         assert tree.size == tree_size
         original.assert_unchanged()

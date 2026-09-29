@@ -12,6 +12,7 @@ from source_snapshot import SourceSnapshot
 from test_outline import drop_position, outline_row, outline_rows
 from test_palette import begin_palette_drag, canvas_drop_position, release_palette_drag
 from test_undo_redo import shortcut
+from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
     element,
@@ -119,7 +120,10 @@ def test_palette_outline_insertion(
             )
         )
         assert inserted.accessible_description == level
-        wait_until(lambda: True if inserted.accessible_item_selected else None)
+        expect.poll(
+            lambda: inserted.accessible_item_selected,
+            message=f"inserted {kind} outline row is selected",
+        ).to_equal(True)
         shortcut(window, redo=False)
         snapshot.wait_for_applied(baseline.encode(), source.name)
         shortcut(window, redo=True)
