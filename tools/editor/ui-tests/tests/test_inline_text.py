@@ -1,12 +1,18 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import time
 from pathlib import Path
 from textwrap import indent
 
 import pytest
 import slint_testing
-from canvas_interactions import begin_palette_drag, center, fixture_element
+from canvas_interactions import (
+    begin_palette_drag,
+    center,
+    fixture_element,
+    hover_fixture_element,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from test_palette import canvas_drop_position, release_palette_drag
@@ -52,6 +58,31 @@ def begin_inline_edit(window: slint_testing.Window) -> slint_testing.Element:
     )
     assert not elements(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
     return editor
+
+
+def test_unselected_text_double_click_begins_inline_edit(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        target = center(hover_fixture_element(window, "Text"))
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        time.sleep(0.05)
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+        inline_editor = window_element_with_label(
+            window, "Inline text editor", slint_testing.AccessibleRole.TextInput
+        )
+        assert inline_editor.accessible_value == "Fixture text"
+        press_key(window, keys.Escape)
+        snapshot.assert_unchanged()
 
 
 def edited_source(source_file: Path, text: str) -> bytes:

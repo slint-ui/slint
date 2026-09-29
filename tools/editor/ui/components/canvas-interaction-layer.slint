@@ -226,6 +226,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     callback gesture-ended();
     callback pointer-hovered(Point);
     callback real-element-selected();
+    callback text-press-started(string, int, SelectionRectangle);
 
     private property <Point> geometry-drag-position;
 
@@ -276,6 +277,13 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
     move-press-started(position) => {
         if !root.gesture-active {
+            if Hover.element.type-name == "Text" {
+                root.text-press-started(
+                    Hover.element.source-uri,
+                    Hover.element.element-offset,
+                    root.geometry,
+                );
+            }
             root.gesture-started();
             Api.select-element(
                 Hover.element.element-path,
@@ -322,6 +330,11 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
+    private property <bool> unselected-text-click-pending;
+    private property <bool> unselected-text-second-press;
+    private property <string> unselected-text-source-uri;
+    private property <int> unselected-text-offset: -1;
+    private property <SelectionRectangle> unselected-text-geometry;
     private property <bool> text-editing;
     private property <bool> text-edit-had-focus;
     private property <string> text-edit-value;
@@ -362,6 +375,13 @@ export component CanvasInteractionLayer inherits TouchArea {
             self.stop();
             root.handled-inline-text-edit-request-generation = root.inline-text-edit-request-generation;
             root.begin-text-edit();
+        }
+    }
+    unselected-text-click-timeout := Timer {
+        interval: 500ms;
+        triggered => {
+            self.stop();
+            root.unselected-text-click-pending = false;
         }
     }
     private property <[SelectionRectangle]> selections:
@@ -577,6 +597,42 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
         real-element-selected => {
             root.real-element-selected();
+        }
+        text-press-started(source-uri, offset, geometry) => {
+            root.unselected-text-source-uri = source-uri;
+            root.unselected-text-offset = offset;
+            root.unselected-text-geometry = geometry;
+            root.unselected-text-click-pending = true;
+            root.unselected-text-second-press = false;
+            unselected-text-click-timeout.start();
+        }
+    }
+
+    // Selecting an element replaces its hover frame before a second click can reach it.
+    // Keep the original Text geometry as the hit target for the remaining double-click interval.
+    if (root.unselected-text-click-pending || root.unselected-text-second-press)
+        && Api.current-element.source-uri == root.unselected-text-source-uri
+        && Api.current-element.offset == root.unselected-text-offset: TouchArea
+    {
+        x: root.unselected-text-geometry.x * CanvasView.zoom;
+        y: root.unselected-text-geometry.y * CanvasView.zoom;
+        width: root.unselected-text-geometry.width * CanvasView.zoom;
+        height: root.unselected-text-geometry.height * CanvasView.zoom;
+        changed pressed => {
+            if self.pressed {
+                root.unselected-text-second-press = root.unselected-text-click-pending
+                    && Api.current-element.type-name == "Text";
+                root.unselected-text-click-pending = false;
+                unselected-text-click-timeout.stop();
+            } else if root.unselected-text-second-press {
+                root.unselected-text-second-press = false;
+            }
+        }
+        clicked => {
+            if root.unselected-text-second-press {
+                root.unselected-text-second-press = false;
+                root.begin-text-edit();
+            }
         }
     }
 
