@@ -1256,14 +1256,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
-                let scaled_logical_size =
-                    item_rc.scale_size_to_item_tree(item.target_size(), item_rc.item_tree());
 
                 let target_size_for_scalable_source = if image_inner.is_svg() {
                     Some(i_slint_core::graphics::scalable_render_size(
                         image.size(),
                         item.image_fit(),
-                        scaled_logical_size * self.scale_factor,
+                        item_rc.scale_size_to_item_tree(item.target_size(), item_rc.item_tree())
+                            * self.scale_factor,
                         self.scale_factor,
                         tiling,
                     )?)

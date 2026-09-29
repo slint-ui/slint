@@ -219,11 +219,9 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         // be resolved inside the closure to be tracked: SVGs rasterize at
         // the fitted size.
         let image_data = self.item_image_cache.get_or_update_cache_entry(item_rc, || {
-            let scaled_logical_size =
-                item_rc.scale_size_to_item_tree(image.target_size(), item_rc.item_tree());
             load_image(
                 image.source(),
-                &|| scaled_logical_size,
+                &|| item_rc.scale_size_to_item_tree(image.target_size(), item_rc.item_tree()),
                 resolve_image_fit(),
                 self.scale_factor,
                 self.image_cache,

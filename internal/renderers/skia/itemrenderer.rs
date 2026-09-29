@@ -348,11 +348,9 @@ impl<'a> SkiaItemRenderer<'a> {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let image = item.source();
-            let scaled_logical_size =
-                item_rc.scale_size_to_item_tree(item.target_size(), item_rc.item_tree());
             super::cached_image::as_skia_image(
                 image,
-                &|| scaled_logical_size,
+                &|| item_rc.scale_size_to_item_tree(item.target_size(), item_rc.item_tree()),
                 if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
                 self.scale_factor,
                 self.canvas,
