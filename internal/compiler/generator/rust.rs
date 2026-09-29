@@ -430,18 +430,13 @@ fn generate_public_component(
     };
 
     #[cfg(feature = "bundle-translations")]
-    let init_bundle_translations = |context: TokenStream| {
-        unit.translations.as_ref().map(|_| {
-            quote!(
-                #context.set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
-            )
-        })
-    };
+    let init_bundle_translations = unit.translations.as_ref().map(|_| {
+        quote!(
+            inner.globals.get().unwrap().context_or_global().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+        )
+    });
     #[cfg(not(feature = "bundle-translations"))]
-    let init_bundle_translations = |_: TokenStream| quote!();
-    let init_bundle_translations_global =
-        init_bundle_translations(quote!(inner.globals.get().unwrap().context_or_global()));
-    let init_bundle_translations_with_context = init_bundle_translations(quote!(ctx));
+    let init_bundle_translations = quote!();
 
     let experimental = compiler_config.enable_experimental;
 
@@ -452,7 +447,8 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
-                #init_bundle_translations_global
+                inner.globals.get().unwrap().set_context(sp::WindowInner::from_pub(window).context());
+                #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -550,7 +546,7 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
                 #eager_create_window
-                #init_bundle_translations_global
+                #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -559,7 +555,8 @@ fn generate_public_component(
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations_with_context
+                inner.globals.get().unwrap().set_context(&ctx);
+                #init_bundle_translations
 
                 #init_with_context
 
@@ -700,6 +697,7 @@ fn generate_shared_globals(
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
+            context : sp::OnceCell<sp::SlintContext>,
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
             #(#[allow(dead_code)]
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
@@ -711,6 +709,7 @@ fn generate_shared_globals(
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
+                    context : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
                 })
@@ -732,6 +731,7 @@ fn generate_shared_globals(
                     #(#global_names : self.#global_names.clone(),)*
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
+                    context: self.context.clone(),
                     // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
                     root_item_tree_weak: ::core::default::Default::default(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
@@ -742,13 +742,18 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
-            // The window's context, or the thread's before the window exists.
-            // Doesn't use `window_adapter_ref`: evaluating a binding must not create the window.
+            #[allow(dead_code)]
+            #pub_token fn set_context(&self, ctx: &sp::SlintContext) {
+                let _ = self.context.set(ctx.clone());
+                #(self.#library_shared_globals_names.set_context(ctx);)*
+            }
+
+            // The context the component was created with, or the thread's.
             #[allow(dead_code)]
             fn context_or_global(&self) -> sp::SlintContext {
-                self.window_adapter
+                self.context
                     .get()
-                    .and_then(|adapter| sp::WindowInner::from_pub(adapter.window()).try_context().cloned())
+                    .cloned()
                     .or_else(sp::SlintContext::current)
                     .expect("a component exists, so a platform and its context do too")
             }
