@@ -8,7 +8,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
     InspectorCornerEditor, InspectorEditableField, InspectorEffectDial, InspectorEffectSlider,
-    InspectorImageAlignment, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
+    InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
     InspectorValueField,
 } from "inspector/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
@@ -403,6 +403,13 @@ export component InspectorPane inherits Rectangle {
 
     function image-source-value() -> string {
         return Api.current-property-value("source", "");
+    }
+
+    function choose-image-source() {
+        let expression = Api.choose-image-file(root.element-information.source-uri);
+        if expression != "" {
+            root.commit-code("source", expression);
+        }
     }
 
     function rectangle-background-code() -> string {
@@ -848,13 +855,19 @@ export component InspectorPane inherits Rectangle {
                         padding-right: root.style.padding;
                         spacing: Metrics.space-compact;
 
-                        InspectorCodeField {
-                            accessible-name: "Image source";
-                            prefix: "Source";
-                            value: root.image-source-value();
-                            commit-key: root.field-key("source");
-                            accepted(text) => {
-                                return root.commit-code("source", text);
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
+
+                            Text {
+                                text: "Source";
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                            }
+
+                            InspectorImageSourceField {
+                                value: Api.image-source-file-name(root.image-source-value());
+                                browse => { root.choose-image-source(); }
                             }
                         }
 

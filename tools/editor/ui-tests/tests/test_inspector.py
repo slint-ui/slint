@@ -947,29 +947,22 @@ def test_image_alignment_grid_replaces_custom_expression(
         assert image_alignment_button(window, "top", "left").accessible_checked
 
 
-def test_image_source_writes_exact_source(
+def test_image_source_shows_filename_and_file_browser(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
-    value = '@image-url("assets/alternate.svg")'
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        edit_field(
-            window, "Image source", value, slint_testing.AccessibleRole.TextInput
+        source = window_element_with_label(
+            window, "Image source", slint_testing.AccessibleRole.Text
         )
-        snapshot.wait_for_exact(
-            replace_once(
-                baseline,
-                b'        source: @image-url("assets/checker.svg");',
-                b'        source: @image-url("assets/alternate.svg");',
-            ),
-            relative_path=INSPECTOR_SOURCE,
+        assert source.accessible_value == "checker.svg"
+        window_element_with_label(
+            window, "Choose image file", slint_testing.AccessibleRole.Button
         )
         assert_rendered_element(window, "InspectorCases::inspect-image")
 

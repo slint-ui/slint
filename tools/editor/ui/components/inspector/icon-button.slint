@@ -91,6 +91,15 @@ export component InspectorIconButton inherits Rectangle {
         Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
     }
 
+    if root.kind == "folder": Image {
+        x: 3px;
+        y: 3px;
+        width: 13px;
+        height: 13px;
+        source: @image-url("../../assets/primer-folder-open.svg");
+        colorize: root.paint.foreground;
+    }
+
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {

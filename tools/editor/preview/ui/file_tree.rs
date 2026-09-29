@@ -345,6 +345,103 @@ fn is_image_file(path: &Path) -> bool {
     })
 }
 
+pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
+    let source = source.trim();
+    if source.is_empty() {
+        return tr::tr!("No image selected").into();
+    }
+
+    image_url_path(source)
+        .and_then(|path| path.rsplit(|ch| ch == '/' || ch == '\\').next().map(str::to_owned))
+        .filter(|name| !name.is_empty())
+        .map(SharedString::from)
+        .unwrap_or_else(|| tr::tr!("Custom expression").into())
+}
+
+fn image_url_path(source: &str) -> Option<String> {
+    let mut chars = source.strip_prefix("@image-url(")?.trim_start().chars();
+    if chars.next()? != '"' {
+        return None;
+    }
+
+    let mut path = String::new();
+    let mut escaped = false;
+    let mut consumed = 1;
+    for ch in chars {
+        consumed += ch.len_utf8();
+        if escaped {
+            path.push(match ch {
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                other => other,
+            });
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else if ch == '"' {
+            let rest = source.strip_prefix("@image-url(")?.trim_start().get(consumed..)?.trim();
+            if rest == ")" || rest.starts_with(',') && rest.ends_with(')') {
+                return Some(path);
+            }
+            return None;
+        } else {
+            path.push(ch);
+        }
+    }
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn choose_image_file(
+    source_uri: &str,
+    window: Option<slint::WindowHandle>,
+) -> SharedString {
+    let Some(source_path) = source_path(source_uri) else {
+        return Default::default();
+    };
+    let Some(source_directory) = source_path.parent() else {
+        return Default::default();
+    };
+
+    let dialog = rfd::FileDialog::new()
+        .set_title("Choose Image")
+        .set_directory(source_directory)
+        .add_filter("Images", &["png", "jpg", "jpeg", "svg"]);
+    let dialog = match window {
+        Some(window) => dialog.set_parent(&window),
+        None => dialog,
+    };
+    let Some(image_path) = dialog.pick_file() else {
+        return Default::default();
+    };
+
+    image_url_expression(&source_path, &image_path).unwrap_or_default().into()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(super) fn choose_image_file(
+    _source_uri: &str,
+    _window: Option<slint::WindowHandle>,
+) -> SharedString {
+    Default::default()
+}
+
+fn source_path(source_uri: &str) -> Option<PathBuf> {
+    Url::parse(source_uri)
+        .ok()
+        .and_then(|url| url.to_file_path().ok())
+        .or_else(|| (!source_uri.is_empty()).then(|| PathBuf::from(source_uri)))
+}
+
+fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {
+    let source_directory = source_path.parent()?;
+    let relative_path = pathdiff::diff_paths(image_path, source_directory)
+        .unwrap_or_else(|| image_path.to_path_buf());
+    let path = relative_path.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+    Some(format!("@image-url(\"{}\")", escape_slint_string(&path)))
+}
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum FileSurfaceKind {
     Component,
@@ -756,6 +853,37 @@ mod tests {
         assert_eq!(
             rows.iter().find(|row| row.label == "source.slint").unwrap().kind,
             FileTreeNodeKind::File
+        );
+    }
+
+    #[test]
+    fn image_source_field_shows_only_the_file_name() {
+        assert_eq!(
+            image_source_file_name(r#"@image-url("assets/icons/checker.svg")"#.into()),
+            "checker.svg"
+        );
+        assert_eq!(
+            image_source_file_name(r#"@image-url("assets/panel.png", nine-slice(1 2 3 4))"#.into()),
+            "panel.png"
+        );
+        assert_eq!(
+            image_source_file_name(
+                r#"enabled ? @image-url("on.svg") : @image-url("off.svg")"#.into()
+            ),
+            "Custom expression"
+        );
+        assert_eq!(image_source_file_name(SharedString::default()), "No image selected");
+    }
+
+    #[test]
+    fn chosen_image_is_relative_to_the_edited_slint_file() {
+        let tree = TempTree::new();
+        let source = tree.file("ui/pages/main.slint");
+        let image = tree.file("ui/assets/panel.png");
+
+        assert_eq!(
+            image_url_expression(&source, &image).as_deref(),
+            Some(r#"@image-url("../assets/panel.png")"#)
         );
     }
 

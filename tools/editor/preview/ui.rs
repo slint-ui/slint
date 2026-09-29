@@ -294,6 +294,12 @@ pub fn initialize_editor(
 
         current_property_value(&api, property_name, fallback)
     });
+    api.on_image_source_file_name(file_tree::image_source_file_name);
+    let editor_weak = editor_ui.as_weak();
+    api.on_choose_image_file(move |source_uri| {
+        let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
+        file_tree::choose_image_file(source_uri.as_str(), window)
+    });
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);

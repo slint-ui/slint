@@ -685,6 +685,8 @@ export global Api {
     pure callback current-property-value-data(property-name: string) -> PropertyValue;
     pure callback current-property-value(property-name: string, fallback: string) -> string;
     pure callback current-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback image-source-file-name(source: string) -> string;
+    callback choose-image-file(source-uri: string) -> string;
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
