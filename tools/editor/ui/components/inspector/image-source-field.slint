@@ -17,6 +17,14 @@ export component InspectorImageSourceField inherits Rectangle {
     HorizontalLayout {
         spacing: Metrics.space-small;
 
+        InspectorIconButton {
+            kind: "folder";
+            label: "Choose image file";
+            focus-on-click: false;
+            show-focus-ring: false;
+            clicked => { root.browse(); }
+        }
+
         source-field := Rectangle {
             horizontal-stretch: 1;
             border-radius: root.style.radius;
@@ -43,12 +51,6 @@ export component InspectorImageSourceField inherits Rectangle {
                 mouse-cursor: pointer;
                 clicked => { root.browse(); }
             }
-        }
-
-        InspectorIconButton {
-            kind: "folder";
-            label: "Choose image file";
-            clicked => { root.browse(); }
         }
     }
 }
