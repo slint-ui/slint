@@ -49,6 +49,8 @@ mod lower_tooltips;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
+#[cfg(test)]
+pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
 mod remove_constant_conditions;

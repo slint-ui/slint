@@ -343,22 +343,6 @@ fn sub_component_idx_at_path(
     current
 }
 
-/// Whether the item's LLR debug info marks it as an injected geometry
-/// wrapper (`Element::is_injected_wrapper_element`).
-fn is_injected_wrapper_element(instance: &VRc<ItemTreeVTable, Instance>, flat_idx: usize) -> bool {
-    let cu = &instance.root_sub_component.compilation_unit;
-    let root_ty = instance.root_sub_component.sub_component_idx;
-    let Some(Some((path, local_idx))) = instance.item_table.get(flat_idx) else {
-        return false;
-    };
-    let sc_idx = sub_component_idx_at_path(cu, root_ty, path);
-    cu.sub_components[sc_idx]
-        .debug_info
-        .as_ref()
-        .and_then(|debug| debug.items.get(*local_idx))
-        .is_some_and(|item_debug| item_debug.is_injected_wrapper_element)
-}
-
 fn item_flat_index_to_rect(
     instance: &VRc<ItemTreeVTable, Instance>,
     root: &VRc<ItemTreeVTable, Instance>,
@@ -383,7 +367,7 @@ fn item_flat_index_to_rect(
         if !VRc::ptr_eq(parent.item_tree(), &vrc) {
             break; // crossed into another component instance's item tree
         }
-        if !is_injected_wrapper_element(instance, parent.index() as usize) {
+        if !parent.is_injected_wrapper() {
             break;
         }
         if let Some(transform) = i_slint_core::items::ItemRef::downcast_pin::<
@@ -491,18 +475,23 @@ fn items_by_source(
             let sc_idx: SubComponentIdx = sc_idx.into();
             let sc = &cu.sub_components[sc_idx];
             let Some(debug) = sc.debug_info.as_ref() else { continue };
-            for (local_idx, item_dbg) in debug.items.iter_enumerated() {
-                let Some(source_file) = item_dbg.source_location.source_file.as_ref() else {
-                    continue;
-                };
-                if source_file.path() != target_path {
-                    continue;
-                }
-                if item_dbg.source_location.span.offset as u32 != target_offset {
-                    continue;
-                }
-                for flat_idx in find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site) {
-                    results.push((instance.clone(), flat_idx));
+            for (local_idx, item_debug_entries) in debug.items.iter_enumerated() {
+                for item_debug_info in item_debug_entries {
+                    let Some(source_file) = item_debug_info.source_location.source_file.as_ref()
+                    else {
+                        continue;
+                    };
+                    if source_file.path() != target_path {
+                        continue;
+                    }
+                    if item_debug_info.source_location.span.offset as u32 != target_offset {
+                        continue;
+                    }
+                    for flat_idx in
+                        find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site)
+                    {
+                        results.push((instance.clone(), flat_idx));
+                    }
                 }
             }
         }
@@ -516,6 +505,9 @@ mod tests {
         ComponentInstance,
         debug_hook::tests::{compile_with_debug_hooks, test_path},
     };
+    use i_slint_core::item_tree::ParentItemTraversalMode;
+    use i_slint_core::items::{BoxShadow, Clip, ItemRc, Layer, Opacity, Transform};
+    use vtable::VRc;
 
     fn geometry_of(
         instance: &ComponentInstance,
@@ -530,6 +522,81 @@ mod tests {
             .cloned()
             .unwrap_or_else(|| panic!("element {id} not resolved"));
         *instance.element_positions(&element).first().expect("geometry")
+    }
+
+    fn runtime_item_of(instance: &ComponentInstance, source: &str, element_id: &str) -> ItemRc {
+        let element_id_position =
+            source.find(element_id).unwrap_or_else(|| panic!("{element_id} not found"));
+        let offset = element_id_position + source[element_id_position..].find("Rectangle").unwrap();
+        let (runtime_instance, flat_index) =
+            super::items_by_source(instance.inner.vrc(), &test_path(), offset as u32, None)
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| panic!("runtime item for {element_id}"));
+        ItemRc::new(VRc::into_dyn(runtime_instance), flat_index as u32)
+    }
+
+    #[test]
+    fn injected_wrapper_classification() {
+        let code = r#"
+export component Win inherits Window {
+    wrapped := Rectangle {
+        opacity: 0.5;
+        visible: true;
+        transform-rotation: 45deg;
+        cache-rendering-hint: true;
+        drop-shadow-blur: 2px;
+        drop-shadow-color: black;
+    }
+    ordinary-clip := Rectangle { clip: true; }
+}
+"#;
+        let instance = compile_with_debug_hooks(code);
+        let mut ancestors = Vec::new();
+        let mut current = Some(runtime_item_of(&instance, code, "wrapped"));
+        while let Some(item) = current {
+            current = item.parent_item(ParentItemTraversalMode::StopAtPopups);
+            ancestors.push(item);
+        }
+
+        for wrapper_classification in [
+            ancestors
+                .iter()
+                .find(|item| item.downcast::<Transform>().is_some())
+                .map(ItemRc::is_injected_wrapper),
+            ancestors
+                .iter()
+                .find(|item| item.downcast::<Opacity>().is_some())
+                .map(ItemRc::is_injected_wrapper),
+            ancestors
+                .iter()
+                .find(|item| item.downcast::<Layer>().is_some())
+                .map(ItemRc::is_injected_wrapper),
+            ancestors
+                .iter()
+                .find(|item| {
+                    item.downcast::<Clip>()
+                        .is_some_and(|clip| clip.as_pin_ref().is_visibility_clip())
+                })
+                .map(ItemRc::is_injected_wrapper),
+        ] {
+            assert_eq!(wrapper_classification, Some(true));
+        }
+
+        let root_item_tree = VRc::into_dyn(instance.inner.vrc().clone());
+        let box_shadow = (0..instance.inner.vrc().item_table.len())
+            .map(|flat_index| ItemRc::new(root_item_tree.clone(), flat_index as u32))
+            .find(|item| item.downcast::<BoxShadow>().is_some())
+            .expect("box shadow");
+        assert!(!box_shadow.is_injected_wrapper());
+
+        let ordinary_clip = (0..instance.inner.vrc().item_table.len())
+            .map(|flat_index| ItemRc::new(root_item_tree.clone(), flat_index as u32))
+            .find(|item| {
+                item.downcast::<Clip>().is_some_and(|clip| !clip.as_pin_ref().is_visibility_clip())
+            })
+            .expect("ordinary clip");
+        assert!(!ordinary_clip.is_injected_wrapper());
     }
 
     // With debug_hooks enabled every element is wrapped in injected geometry wrappers

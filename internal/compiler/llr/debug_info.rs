@@ -11,9 +11,10 @@ use crate::diagnostics::SourceLocation;
 use smol_str::SmolStr;
 use typed_index_collections::TiVec;
 
-use super::item_tree::{ItemInstanceIdx, SubComponentInstanceIdx};
+use super::item_tree::{ItemInstanceIdx, RepeatedElementIdx, SubComponentInstanceIdx};
 
-/// Debug info for a single item within a [`SubComponent`](super::SubComponent).
+/// Debug info for one source element associated with an item in a
+/// [`SubComponent`](super::SubComponent).
 #[derive(Debug, Clone)]
 pub struct ItemDebugInfo {
     /// Source range of the element in the `.slint` source.
@@ -23,9 +24,6 @@ pub struct ItemDebugInfo {
     /// Stable hash identifying the source element across builds.
     /// See [`crate::object_tree::ElementDebugInfo::element_hash`].
     pub element_hash: u64,
-    /// Whether the item is an injected wrapper taking over its child's
-    /// geometry. See [`crate::object_tree::Element::is_injected_wrapper_element`].
-    pub is_injected_wrapper_element: bool,
 }
 
 /// Debug info for a [`SubComponent`](super::SubComponent).
@@ -33,8 +31,9 @@ pub struct ItemDebugInfo {
 pub struct SubComponentDebugInfo {
     /// Source location of the sub-component's root element.
     pub source_location: SourceLocation,
-    /// One entry per [`ItemInstanceIdx`].
-    pub items: TiVec<ItemInstanceIdx, ItemDebugInfo>,
+    /// Source entries for each [`ItemInstanceIdx`].
+    pub items: TiVec<ItemInstanceIdx, Vec<ItemDebugInfo>>,
+    pub repeated_elements: TiVec<RepeatedElementIdx, SourceLocation>,
     /// Source location of each child sub-component's use-site element,
     /// one entry per [`SubComponent::sub_components`](super::SubComponent::sub_components).
     /// Distinguishes the instantiations of a shared sub-component type.

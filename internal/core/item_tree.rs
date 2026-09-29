@@ -381,6 +381,15 @@ impl ItemRc {
         }))
     }
 
+    pub fn is_injected_wrapper(&self) -> bool {
+        let item = self.borrow();
+        ItemRef::downcast_pin::<crate::items::Transform>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Opacity>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Layer>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Clip>(item)
+                .is_some_and(|clip| clip.is_visibility_clip())
+    }
+
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { item_tree: VRc::downgrade(&self.item_tree), index: self.index }
     }
