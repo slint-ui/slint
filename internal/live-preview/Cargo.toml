@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore miniz
+
 [package]
 name = "i-slint-live-preview"
 description.workspace = true
@@ -39,6 +41,10 @@ tokio-tungstenite = { version = "0.30.0", optional = true }
 tokio = { version = "1.48.0", features = ["rt", "sync", "macros", "time"], optional = true }
 futures-util = { version = "0.3.31", features = ["sink"], optional = true }
 postcard = { version = "1.1.3", default-features = false, features = ["alloc"], optional = true }
+# serial
+cobs = { version = "0.3", default-features = false, features = ["alloc"], optional = true }
+crc32fast = { version = "1.5", default-features = false, optional = true }
+miniz_oxide = { version = "0.8.9", default-features = false, features = ["with-alloc"], optional = true }
 base64 = { version = "0.23", optional = true }
 scopeguard = { version = "1.1.0", default-features = false, optional = true }
 hostname = { version = "0.4.1", optional = true }
@@ -114,6 +120,9 @@ remote = [
   "dep:mdns-sd",
   "dep:if-addrs",
 ]
+# The protocol for showing a design on a microcontroller over a serial port, see `serial`.
+# It builds without std.
+serial = ["dep:cobs", "dep:crc32fast", "dep:miniz_oxide", "dep:postcard", "dep:serde", "serde/alloc"]
 
 [package.metadata.docs.rs]
 all-features = true

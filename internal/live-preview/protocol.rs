@@ -47,9 +47,7 @@ pub const PROTOCOL_SUBPROTOCOL: &str = concat!(
     ".overrides-1",
 );
 
-/// Full Slint version of this build, shown in the discovery picker and in
-/// version-mismatch error messages.
-pub const SLINT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub use crate::SLINT_VERSION;
 
 /// HTTP header set on every WebSocket handshake response (success or
 /// failure) so the LSP can report the viewer's actual version even when
