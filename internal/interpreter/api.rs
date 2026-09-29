@@ -1350,16 +1350,19 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
-        // Skip the eager window creation and tree instantiation for them.
-        if !instance.is_system_tray_rooted() {
-            // Make sure the window adapter is created so call to `window()` do not panic later.
-            instance.inner.window_adapter_ref()?;
-            // Eagerly instantiate repeaters and conditionals so that layout
-            // bindings can see all instances without calling ensure_updated.
-            i_slint_core::window::WindowInner::from_pub(instance.window())
-                .ensure_tree_instantiated();
-        }
+        instance.finish_creation()?;
+        Ok(instance)
+    }
+
+    /// Creates a new instance of the component that uses `context` instead of the thread's.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn create_with_context(
+        &self,
+        context: i_slint_core::SlintContext,
+    ) -> Result<ComponentInstance, PlatformError> {
+        let instance = self.create_with_options(WindowOptions::WithContext(context))?;
+        instance.finish_creation()?;
         Ok(instance)
     }
 
@@ -1398,6 +1401,7 @@ impl ComponentDefinition {
             WindowOptions::Embed { parent_item_tree, parent_item_tree_index } => {
                 self.inner.create_embedded(parent_item_tree, parent_item_tree_index)
             }
+            WindowOptions::WithContext(context) => self.inner.create_with_context(context),
         };
         Ok(ComponentInstance { inner: instance })
     }
@@ -1417,6 +1421,7 @@ pub(crate) enum WindowOptions {
         parent_item_tree: i_slint_core::item_tree::ItemTreeWeak,
         parent_item_tree_index: u32,
     },
+    WithContext(i_slint_core::SlintContext),
 }
 
 impl ComponentDefinition {
@@ -1615,6 +1620,20 @@ impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
         ComponentDefinition { inner: std::rc::Rc::new(self.inner.definition()) }
+    }
+
+    /// Create the window and the whole item tree up front, like the generated `new()` does.
+    fn finish_creation(&self) -> Result<(), PlatformError> {
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !self.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            self.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(self.window()).ensure_tree_instantiated();
+        }
+        Ok(())
     }
 
     fn is_system_tray_rooted(&self) -> bool {
