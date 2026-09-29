@@ -17,14 +17,12 @@ publish = false
 path = "main.rs"
 name = "test-driver-cpp"
 
-[dependencies]
-slint-cpp = { workspace = true, features = ["testing", "std", "experimental"] }
-
 [dev-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "cpp", "display-diagnostics", "bundle-translations"] }
 
 cc = "1.0.54"
 scopeguard = "1.1.0"
+serde_json = "1"
 spin_on = { workspace = true }
 tempfile = "3"
 test_driver_lib = { path = "../driverlib" }
@@ -34,5 +32,6 @@ test_driver_lib = { path = "../driverlib" }
 
 [features]
 default = ["backend-qt"]
-backend-qt = ["slint-cpp/backend-qt"]
-live-preview = ["slint-cpp/live-preview"]
+# Passed on to slint-cpp.
+backend-qt = []
+live-preview = []
