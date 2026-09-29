@@ -9,14 +9,15 @@ from editor_sync import wait_for_source
 from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     element,
     file_row,
     first_window,
     launch_editor,
     press_key,
+    query,
     select_outline_row,
-    wait_until,
 )
 
 
@@ -30,7 +31,8 @@ def stage_field_text(
         press_key(window, keys.Delete)
     for character in value:
         press_key(window, character)
-    return wait_until(lambda: field if field.accessible_value == value else None)
+    expect(field).to_have_value(value)
+    return field
 
 
 def test_broken_source_preserves_preview_and_recovers(
@@ -75,14 +77,7 @@ def test_imported_file_edit_targets_only_nested_source(
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
         wait_for_source(main_file, main_file.read_bytes())
         window = first_window(editor)
-        wait_until(
-            lambda: (
-                current
-                if (current := file_row(window, main_file)).accessible_item_selected
-                else None
-            ),
-            timeout=15,
-        )
+        expect(file_row(window, main_file)).to_be_selected(timeout=15)
         components = fixture_project / "components"
         file_row(window, components).invoke_accessible_default_action()
         file_row(window, nested_file).invoke_accessible_default_action()
@@ -127,19 +122,9 @@ def test_stale_selection_commit_is_rejected(
         stage_field_text(window, FIELDS["x"], "99")
         snapshot.assert_unchanged_now()
         select_outline_row(window, "inspect-text")
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := element(
-                        window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput
-                    )
-                ).accessible_value
-                == "224"
-                else None
-            ),
-            timeout=15,
-        )
+        expect(
+            query(window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("224", timeout=15)
         press_key(window, keys.Return)
         snapshot.assert_unchanged()
 
@@ -168,19 +153,9 @@ def test_stale_revision_commit_is_rejected(
         source_file.write_bytes(external)
         snapshot.wait_for_exact(external, relative_path="InspectorCases.slint")
         snapshot = SourceSnapshot.capture(fixture_project)
-        wait_until(
-            lambda: (
-                field
-                if (
-                    field := element(
-                        window, label, role=slint_testing.AccessibleRole.TextInput
-                    )
-                ).accessible_value
-                == updated
-                else None
-            ),
-            timeout=15,
-        )
+        expect(
+            query(window, label, role=slint_testing.AccessibleRole.TextInput)
+        ).to_have_value(updated, timeout=15)
         press_key(window, keys.Return)
         snapshot.assert_unchanged()
 

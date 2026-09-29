@@ -21,15 +21,16 @@ from canvas_interactions import (
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
+from ui_assertions import expect
 from ui_driver import (
     element,
-    elements,
     file_row,
     first_window,
     launch_editor,
     press_key,
     press_keys,
     press_shortcut,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -92,7 +93,7 @@ def test_zoom_scales_content_and_preserves_controls(
             assert canvas.accessible_value == f"{percent}%"
             zoom_canvas(window, 400 if percent == 25 else 25)
         press_shortcut(window, keys.Control, "0")
-        wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
+        expect(frame).to_have_geometry(width=pytest.approx(180))
         original.assert_unchanged()
 
 
@@ -125,7 +126,7 @@ def test_zoom_to_selection_uses_largest_fitting_level(
         bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
         expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
         press_shortcut(window, keys.Shift, "2")
-        wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
+        expect(canvas).to_have_value(f"{expected}%")
         frame = element(window, "Selected Rectangle")
         assert center(frame).x == pytest.approx(center(canvas).x)
         assert center(frame).y == pytest.approx(center(canvas).y)
@@ -150,7 +151,7 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(clear_point, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(clear_point, button))
-        wait_until(lambda: True if not elements(window, "Selected Rectangle") else None)
+        expect(query(window, "Selected Rectangle")).to_be_hidden()
         target = center(canvas)
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(target, delta_x=80, delta_y=-120)

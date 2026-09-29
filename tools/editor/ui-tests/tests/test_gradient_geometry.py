@@ -20,6 +20,7 @@ from gradient_interactions import (
 from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
@@ -418,17 +419,13 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             click_picker_button(window, "Edit stop 2 color")
             color = picker_field(window, "Hex color")
             color.accessible_value = "#12345680"
-            wait_until(
-                lambda color=color: (
-                    color if color.accessible_value == "#12345680" else None
-                )
-            )
+            expect(color).to_have_value("#12345680")
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
             rotate_conic(window, 0, 37)
             set_picker_mode(window, "Gradient type", "Linear")
             click_picker_button(window, "Solid")
-            assert picker_field(window, "Hex color").accessible_value == "#12345680"
+            expect(picker_field(window, "Hex color")).to_have_value("#12345680")
             click_picker_button(window, "Gradient")
             set_picker_mode(window, "Gradient type", "Radial")
             assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)

@@ -15,12 +15,14 @@ from editor_sync import wait_for_source
 from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
     first_window,
     launch_editor,
     press_key,
+    query,
     select_fixture_element,
     wait_until,
 )
@@ -68,14 +70,11 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         row = element(window, "root-text", role=slint_testing.AccessibleRole.ListItem)
-        wait_until(lambda: row if row.accessible_item_selected else None)
+        expect(row).to_be_selected()
         element(window, "Selected Text", role=slint_testing.AccessibleRole.Region)
-        assert (
-            element(
-                window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "180"
-        )
+        expect(
+            query(window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput)
+        ).to_have_value("180")
         snapshot.assert_unchanged()
 
 

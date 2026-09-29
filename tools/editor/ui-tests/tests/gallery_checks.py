@@ -15,11 +15,12 @@ from canvas_interactions import center
 from gradient_interactions import gesture
 from inspector_interactions import slider_track_position
 from slint_testing import keys
+from ui_assertions import expect
 from ui_driver import (
     element,
-    elements,
     first_window,
     press_key,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -138,18 +139,18 @@ def test_gallery_outline_selection_expansion_and_reset(
 ):
     with gallery(gallery_binary, editor_environment, "outline") as window:
         title = select_outline_row(window, "title")
-        assert title.accessible_item_selected
+        expect(title).to_be_selected()
         main = element(window, "Main", role=slint_testing.AccessibleRole.ListItem)
         main.invoke_accessible_expand_action()
-        wait_until(lambda: True if not elements(window, "title") else None)
+        expect(query(window, "title")).to_be_hidden()
         element(
             window, "Main", role=slint_testing.AccessibleRole.ListItem
         ).invoke_accessible_expand_action()
         element(window, "title", role=slint_testing.AccessibleRole.ListItem)
         element(window, "Reset example").invoke_accessible_default_action()
-        assert element(
-            window, "Main", role=slint_testing.AccessibleRole.ListItem
-        ).accessible_item_selected
+        expect(
+            query(window, "Main", role=slint_testing.AccessibleRole.ListItem)
+        ).to_be_selected()
 
 
 def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
@@ -172,8 +173,8 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#ff0000"
         press_key(window, keys.Escape)
-        wait_until(lambda: True if not elements(window, "Close Custom") else None)
-        assert open_picker().accessible_value == original
+        expect(query(window, "Close Custom")).to_be_hidden()
+        expect(open_picker()).to_have_value(original)
         element(
             window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#00ff00"
@@ -290,7 +291,7 @@ def test_gallery_properties_edit_component_values(gallery_binary, editor_environ
         wait_until(lambda: True if float(slider.accessible_value) == 42 else None)
         target = slider_track_position(slider, 0.6)
         gesture(window, target, target)
-        wait_until(lambda: True if float(value.accessible_value) == 60 else None)
+        expect(value).to_have_value("60")
         assert (
             element(
                 window,
@@ -303,28 +304,13 @@ def test_gallery_properties_edit_component_values(gallery_binary, editor_environ
             window, "Property sample text", role=slint_testing.AccessibleRole.TextInput
         )
         text.accessible_value = "From the sidebar"
-        wait_until(
-            lambda: (
-                True
-                if element(
-                    window,
-                    "Sample editable field",
-                    role=slint_testing.AccessibleRole.TextInput,
-                ).accessible_value
-                == "From the sidebar"
-                else None
-            )
+        sample = element(
+            window, "Sample editable field", role=slint_testing.AccessibleRole.TextInput
         )
+        expect(sample).to_have_value("From the sidebar")
         element(window, "Reset example").invoke_accessible_default_action()
         wait_until(lambda: True if float(slider.accessible_value) == 24 else None)
-        assert (
-            element(
-                window,
-                "Sample editable field",
-                role=slint_testing.AccessibleRole.TextInput,
-            ).accessible_value
-            == "Hello Slint"
-        )
+        expect(sample).to_have_value("Hello Slint")
 
 
 def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
@@ -335,13 +321,7 @@ def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
             element(
                 window, label, role=slint_testing.AccessibleRole.TextInput
             ).accessible_value = value
-        wait_until(
-            lambda: (
-                True
-                if preview.size.width == 680 and preview.size.height == 400
-                else None
-            )
-        )
+        expect(preview).to_have_geometry(width=680, height=400)
         sidebar = element(window, "Gallery properties")
         assert (
             sidebar.absolute_position.x + sidebar.size.width
@@ -349,4 +329,6 @@ def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
         )
         assert preview.absolute_position.y < 200
         element(window, "Reset example").invoke_accessible_default_action()
-        wait_until(lambda: True if preview.size == original_size else None)
+        expect(preview).to_have_geometry(
+            width=original_size.width, height=original_size.height
+        )

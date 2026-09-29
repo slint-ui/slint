@@ -12,6 +12,7 @@ from editor_sync import wait_for_source
 from PIL import Image, ImageChops
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
@@ -21,6 +22,7 @@ from ui_driver import (
     outline_rows,
     press_key,
     press_shortcut,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -219,13 +221,11 @@ def test_outline_keyboard_selection_synchronizes_editor(
         assert not row.accessible_item_selected
         press_key(window, keys.Tab)
         press_key(window, key)
-        wait_until(lambda: row if row.accessible_item_selected else None)
+        expect(row).to_be_selected()
         element(window, selection, role=slint_testing.AccessibleRole.Region)
         press_shortcut(window, keys.Shift, keys.Tab)
         press_key(window, key)
-        wait_until(
-            lambda: outline_row(window, initial).accessible_item_selected or None
-        )
+        expect(outline_row(window, initial)).to_be_selected()
         element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
         snapshot.assert_unchanged()
 
@@ -278,9 +278,7 @@ def test_escape_cancels_outline_drag_without_source_edit(
         window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Escape))
         window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Escape))
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        wait_until(
-            lambda: True if not elements(window, "Outline drag preview") else None
-        )
+        expect(query(window, "Outline drag preview")).to_be_hidden()
         assert not elements(window, "Outline insertion preview")
         snapshot.assert_unchanged()
 
@@ -548,7 +546,7 @@ def test_outline_click_does_not_draw_focus_ring(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
-        wait_until(lambda: row.accessible_item_selected or None)
+        expect(row).to_be_selected()
         rendered = outline_image(window, row)
         background = rendered.getpixel((rendered.width - 40, rendered.height // 2))
         for y in range(6, rendered.height - 10):
