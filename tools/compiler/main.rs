@@ -6,6 +6,7 @@
 
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::Cursor;
@@ -277,6 +278,7 @@ fn main() -> std::io::Result<()> {
         };
     }
 
+    compiler_config.debug_info |= format == OutputFormat::Llr;
     compiler_config.include_paths = args.include_paths;
     compiler_config.library_paths = args
         .library_paths
