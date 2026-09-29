@@ -15,6 +15,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod box_shadow;
 mod draw_functions;
 mod fixed;
 mod fonts;
@@ -23,6 +24,7 @@ mod minimal_software_window;
 mod path;
 mod scene;
 
+use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
 use self::fonts::GlyphRenderer;
 pub use self::minimal_software_window::MinimalSoftwareWindow;
 use self::scene::*;
@@ -36,6 +38,7 @@ use fixed::Fixed;
 use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
@@ -1755,6 +1758,16 @@ fn render_window_frame_by_line(
                                     extra_right_clip,
                                 );
                             }
+                            SceneCommand::BoxShadow { box_shadow_index } => {
+                                let shadow = &scene.vectors.box_shadows[box_shadow_index as usize];
+                                box_shadow::draw_box_shadow_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    shadow,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
                         }
                     }
                 },
@@ -1853,6 +1866,7 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand);
     #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
@@ -2302,6 +2316,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
+            box_shadow::draw_box_shadow_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &shadow,
+                buffer,
+                extra_left_clip,
+            );
+        });
+    }
 
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -2470,6 +2495,19 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::ConicGradient { conic_gradient_index },
+            });
+        }
+    }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let box_shadow_index = self.vectors.box_shadows.len() as u16;
+            self.vectors.box_shadows.push(shadow);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::BoxShadow { box_shadow_index },
             });
         }
     }
@@ -3392,11 +3430,40 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
     fn draw_box_shadow(
         &mut self,
-        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
-        _: &ItemRc,
-        _size: LogicalSize,
+        box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) {
-        // TODO
+        if box_shadow.inset() {
+            return;
+        }
+        let offset = LogicalVector::from_lengths(box_shadow.offset_x(), box_shadow.offset_y());
+        if !self.should_draw(&drop_shadow_bounding_rect(
+            size.into(),
+            offset,
+            box_shadow.blur(),
+            box_shadow.spread(),
+        )) {
+            return;
+        }
+        let Some(options) = BoxShadowOptions::new(self_rc, box_shadow, self.scale_factor) else {
+            return;
+        };
+        let color = self.alpha_color(options.color);
+        let clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+        process_drop_shadow(
+            &mut self.processor,
+            &options,
+            (self.current_state.offset + offset).cast() * self.scale_factor,
+            color,
+            &clip,
+            self.rotation,
+        );
     }
 
     fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
@@ -3762,6 +3829,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
 fn render_region(
     screen_size: PhysicalSize,
     region: &[PhysicalRect],
+    scale_factor: ScaleFactor,
     draw: impl FnOnce(&mut dyn ProcessScene),
 ) -> Vec<PremultipliedRgbaColor> {
     let pixel_count = screen_size.width as usize * screen_size.height as usize;
@@ -3775,14 +3843,14 @@ fn render_region(
         buffer: &mut buffer,
         dirty_range_cache: Vec::new(),
         dirty_region: PhysicalRegion { rectangles, count: region.len() },
-        scale_factor: ScaleFactor::new(1.),
+        scale_factor,
     };
     draw(&mut processor);
     data
 }
 
-/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region` as it does
-/// unclipped on the whole screen.
+/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region`
+/// as it does unclipped on the whole screen.
 #[cfg(test)]
 fn assert_partial_render_is_identical(
     screen_size: PhysicalSize,
@@ -3791,8 +3859,11 @@ fn assert_partial_render_is_identical(
     draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
 ) {
     let screen = PhysicalRect::from_size(screen_size);
-    let full = render_region(screen_size, &[screen], |processor| draw(processor, &screen));
-    let partial = render_region(screen_size, region, |processor| draw(processor, &clip));
+    let scale_factor = ScaleFactor::new(1.);
+    let full =
+        render_region(screen_size, &[screen], scale_factor, |processor| draw(processor, &screen));
+    let partial =
+        render_region(screen_size, region, scale_factor, |processor| draw(processor, &clip));
     let mut drawn = false;
     for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
         let p = PhysicalPoint::new(

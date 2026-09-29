@@ -670,7 +670,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! Supported by the Skia, FemtoVG, Vello, and software renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
