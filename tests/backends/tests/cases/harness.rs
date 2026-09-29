@@ -46,7 +46,10 @@ fn qualified_name(test: &TestCase) -> String {
 }
 
 // Run all tests, but fork a subprocess for each test.
-pub fn fork_tests(args: Arguments) {
+pub fn fork_tests(mut args: Arguments) {
+    // One test at a time unless `--test-threads` says otherwise: the tests' windows open at the
+    // same spot, and on macOS a window covered by another test's window isn't rendered.
+    args.test_threads.get_or_insert(1);
     let tests = satchel::get_tests!()
         .map(|test| {
             let name = qualified_name(&test);
