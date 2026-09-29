@@ -16,6 +16,14 @@ publish = false
 [lib]
 path = "lib.rs"
 
+[features]
+# The fork harness for test binaries whose tests must run on the process main thread.
+fork-harness = ["dep:libtest-mimic", "dep:satchel"]
+
 [dependencies]
 regex = "1.4"
 walkdir = "2"
+
+# cSpell: ignore libtest
+libtest-mimic = { version = "0.8", optional = true }
+satchel = { version = "0.3", optional = true }

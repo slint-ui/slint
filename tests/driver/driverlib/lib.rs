@@ -3,6 +3,9 @@
 
 use std::sync::LazyLock;
 
+#[cfg(feature = "fork-harness")]
+pub mod fork_harness;
+
 use regex::Regex;
 
 pub struct TestCase {

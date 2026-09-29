@@ -5095,10 +5095,10 @@ dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-winit",
  "i-slint-core",
- "libtest-mimic",
  "linkme",
  "satchel",
  "slint",
+ "test_driver_lib",
 ]
 
 [[package]]
@@ -5154,8 +5154,9 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
- "libtest-mimic",
+ "linkme",
  "rayon",
+ "satchel",
  "slint",
  "slint-interpreter",
  "spin_on",
@@ -5200,7 +5201,9 @@ dependencies = [
 name = "test_driver_lib"
 version = "1.19.0"
 dependencies = [
+ "libtest-mimic",
  "regex",
+ "satchel",
  "walkdir",
 ]
 
