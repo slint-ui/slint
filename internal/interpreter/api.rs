@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 #[cfg(test)]
 use std::sync::Arc;
+use std::time::Duration;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -386,14 +387,14 @@ i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {
-        Value::Number(value.0 as _)
+        Value::Number(value.as_millis() as f64)
     }
 }
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
         match v {
-            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
+            Value::Number(x) => Ok(Duration::from_millis(x as u64).into()),
             _ => Err(()),
         }
     }
