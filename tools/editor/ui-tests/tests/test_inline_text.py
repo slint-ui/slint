@@ -1,7 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import time
 from pathlib import Path
 from textwrap import indent
 
@@ -56,7 +55,7 @@ def begin_inline_edit(window: slint_testing.Window) -> slint_testing.Element:
     editor = element(
         window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
     )
-    assert not elements(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+    element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
     return editor
 
 
@@ -74,7 +73,6 @@ def test_unselected_text_double_click_begins_inline_edit(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-        time.sleep(0.05)
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         inline_editor = window_element_with_label(
@@ -83,6 +81,34 @@ def test_unselected_text_double_click_begins_inline_edit(
         assert inline_editor.accessible_value == "Fixture text"
         press_key(window, keys.Escape)
         snapshot.assert_unchanged()
+
+
+def test_unselected_text_click_then_drag_moves_instead_of_editing(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    expected = source_file.read_bytes().replace(
+        b"        x: 180px;", b"        x: 210px;", 1
+    )
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        target = center(hover_fixture_element(window, "Text"))
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(target, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
+
+        start = center(window_element_with_label(window, "Text move handle"))
+        end = slint_testing.LogicalPosition(x=start.x + 30, y=start.y)
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+
+        assert not elements_with_label(window.root_element, "Inline text editor")
+        snapshot.wait_for_applied(expected)
 
 
 def edited_source(source_file: Path, text: str) -> bytes:

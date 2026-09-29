@@ -1684,6 +1684,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
         let api = editor.global::<super::Api>();
+        let target_has_geometry = std::rc::Rc::new(std::cell::Cell::new(false));
         api.on_current_property_value_data(|name| {
             if name == "text" {
                 super::PropertyValue {
@@ -1699,8 +1700,9 @@ mod tests {
         });
         api.on_override_element_text(|_, _| "override".into());
         api.on_string_is_single_line(|_| true);
-        api.on_highlight_positions(|_, offset| {
-            if offset == 1 {
+        let target_has_geometry_for_callback = target_has_geometry.clone();
+        api.on_highlight_positions(move |_, offset| {
+            if offset != 1 || !target_has_geometry_for_callback.get() {
                 return Default::default();
             }
             std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
@@ -1736,6 +1738,23 @@ mod tests {
             type_name: "Text".into(),
             source_uri: "file:///scene.slint".into(),
             offset: 2,
+            ..Default::default()
+        });
+        slint::platform::update_timers_and_animations();
+        assert!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Inline text editor"
+            )
+            .next()
+            .is_none()
+        );
+
+        target_has_geometry.set(true);
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            source_uri: "file:///scene.slint".into(),
+            offset: 1,
             ..Default::default()
         });
         slint::platform::update_timers_and_animations();

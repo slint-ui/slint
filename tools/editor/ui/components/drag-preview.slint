@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Typography, TreeRowStyle, DragPreviewStyle } from "../style.slint";
-import { ElementKind } from "../api.slint";
+import { Api, ElementKind } from "../api.slint";
 import { AppState } from "index.slint";
 import { ElementPresentation, ElementVisuals } from "element-presentation.slint";
 
@@ -44,6 +44,9 @@ component PalettePlaceholderDragPreview inherits Rectangle {
 
 component PaletteTextDragPreview inherits Text {
     text: "Text";
+    font-family: Api.preview-default-font-family;
+    font-size: Api.preview-default-font-size * 1px;
+    font-weight: Api.preview-default-font-weight;
     width: self.preferred-width;
     height: self.preferred-height;
 }
@@ -169,7 +172,7 @@ export component DragPreview inherits Rectangle {
         border-color: root.style.border;
     }
 
-    if root.show-palette && !root.row-preview && AppState.palette-drag-kind == ElementKind.text: PaletteTextDragPreview { }
+    if !root.row-preview && AppState.palette-drag-kind == ElementKind.text: PaletteTextDragPreview { }
 
     if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area): PalettePlaceholderDragPreview {
             style: root.style;
