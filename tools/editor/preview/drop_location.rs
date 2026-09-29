@@ -594,7 +594,7 @@ fn drop_target_element_nodes(
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
-        let Some(en) = sc.as_element_node() else {
+        let Some(en) = sc.as_element_node(component_instance) else {
             continue;
         };
 

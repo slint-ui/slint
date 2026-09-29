@@ -47,7 +47,8 @@ impl ElementRcNodeExt for i_slint_editor_preview::ElementRcNode {
     }
 
     fn geometries(&self, component_instance: &ComponentInstance) -> Vec<HighlightedRect> {
-        component_instance.element_positions(self.as_element())
+        let (path, offset) = self.path_and_offset();
+        component_instance.component_positions(&path, offset.into())
     }
 
     fn geometry_at(

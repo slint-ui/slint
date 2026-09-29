@@ -8,7 +8,7 @@ use i_slint_compiler::{
     parser::{SyntaxKind, TextSize},
 };
 use i_slint_core::lengths::LogicalPoint;
-use slint_interpreter::{ComponentHandle, ComponentInstance, highlight::HighlightedRect};
+use slint_interpreter::{ComponentInstance, highlight::HighlightedRect};
 
 use crate::editor_preview;
 use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
@@ -79,14 +79,47 @@ fn element_covers_point(
     component_instance: &ComponentInstance,
     selected_element: &ElementRc,
 ) -> Option<HighlightedRect> {
-    slint_interpreter::highlight::element_positions(
-        &component_instance.clone_strong().into(),
-        selected_element,
-        slint_interpreter::highlight::ElementPositionFilter::ExcludeClipped,
+    use i_slint_compiler::diagnostics::Spanned;
+
+    let source_locations = selected_element
+        .borrow()
+        .debug
+        .iter()
+        .map(|debug_info| {
+            debug_info
+                .node
+                .QualifiedName()
+                .map(|qualified_name| qualified_name.to_source_location())
+                .unwrap_or_else(|| debug_info.node.to_source_location())
+        })
+        .collect::<Vec<_>>();
+    component_instance
+        .element_candidates_at(position)
+        .into_iter()
+        .find(|candidate| {
+            let Some(candidate_source_file) = candidate.source_location.source_file.as_ref() else {
+                return false;
+            };
+            source_locations.iter().any(|source_location| {
+                source_location.span.offset == candidate.source_location.span.offset
+                    && source_location.source_file.as_ref().is_some_and(|source_file| {
+                        source_file.path() == candidate_source_file.path()
+                    })
+            })
+        })
+        .map(|candidate| candidate.geometry)
+}
+
+fn element_geometries(
+    component_instance: &ComponentInstance,
+    element: &ElementRc,
+) -> Vec<HighlightedRect> {
+    let element = element.borrow();
+    let Some(debug_info) = element.debug.first() else { return Vec::new() };
+    component_instance.component_positions(
+        debug_info.node.source_file.path(),
+        debug_info.node.text_range().start().into(),
     )
-    .iter()
-    .find(|p| p.contains(position))
-    .copied()
 }
 
 pub fn unselect_element() {
@@ -317,7 +350,8 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
         return Default::default();
     };
     let root_element = root_element(component_instance);
-    let Some(root_geometry) = component_instance.element_positions(&root_element).first().cloned()
+    let Some(root_geometry) =
+        element_geometries(component_instance, &root_element).first().cloned()
     else {
         return Default::default();
     };

@@ -14,7 +14,7 @@ use i_slint_compiler::llr::{
 };
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::graphics::euclid;
-use i_slint_core::item_tree::ItemTreeVTable;
+use i_slint_core::item_tree::{ItemTreeRc, ItemTreeVTable, TraversalOrder, VisitChildrenResult};
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
 use std::path::Path;
@@ -94,46 +94,22 @@ impl HighlightedRect {
 
 /// Argument to filter the elements returned by the highlight helpers.
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum ElementPositionFilter {
+enum ElementPositionFilter {
     /// Include all elements.
     IncludeClipped,
     /// Exclude elements clipped by an ancestor `Clip` / `Flickable`.
     ExcludeClipped,
 }
 
-/// Return the screen rectangles of every runtime item matching the
-/// given `ElementRc`, optionally filtering out those clipped by an
-/// ancestor. Public for downstream tooling such as the LSP element
-/// selection, whose hit-testing needs the `ExcludeClipped` filter.
-pub fn element_positions(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    element: &ElementRc,
-    filter: ElementPositionFilter,
-) -> Vec<HighlightedRect> {
-    let source_locations = source_locations_of(element);
-    positions_by_sources(
-        instance,
-        source_locations.iter().map(|(path, offset)| (path.as_path(), *offset, SourceMatch::Start)),
-        filter,
-    )
-}
-
-fn source_locations_of(element: &ElementRc) -> Vec<(std::path::PathBuf, u32)> {
-    use i_slint_compiler::diagnostics::Spanned;
-    let element = element.borrow();
-    element
-        .debug
-        .iter()
-        .filter_map(|debug_info| {
-            let source_location = debug_info
-                .node
-                .QualifiedName()
-                .map(|qualified_name| qualified_name.to_source_location())
-                .unwrap_or_else(|| debug_info.node.to_source_location());
-            Some((source_location.source_file?.path().to_path_buf(), source_location.span.offset))
-        })
-        .filter_map(|(path, offset)| u32::try_from(offset).ok().map(|offset| (path, offset)))
-        .collect()
+/// A rendered item under a point and one source element that represents it.
+#[derive(Clone, Debug)]
+pub struct ElementCandidate {
+    /// Source element represented by the runtime item.
+    pub source_location: i_slint_compiler::diagnostics::SourceLocation,
+    /// Runtime geometry of the source element.
+    pub geometry: HighlightedRect,
+    /// Position of this runtime item among the instances of the source element.
+    pub instance_index: usize,
 }
 
 /// Return the geometry of every runtime item whose source location covers
@@ -143,11 +119,117 @@ pub(crate) fn component_positions(
     path: &Path,
     offset: u32,
 ) -> Vec<HighlightedRect> {
-    positions_by_sources(
-        instance,
-        [(path, offset, SourceMatch::Contains)],
-        ElementPositionFilter::IncludeClipped,
-    )
+    component_positions_with_filter(instance, path, offset, ElementPositionFilter::IncludeClipped)
+}
+
+fn component_positions_with_filter(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    path: &Path,
+    offset: u32,
+    filter: ElementPositionFilter,
+) -> Vec<HighlightedRect> {
+    positions_by_sources(instance, [(path, offset, SourceMatch::Contains)], filter)
+}
+
+pub(crate) fn element_candidates_at(
+    root: &VRc<ItemTreeVTable, Instance>,
+    position: LogicalPoint,
+) -> Vec<ElementCandidate> {
+    let root_item_tree = VRc::into_dyn(root.clone());
+    i_slint_core::item_tree::ensure_item_tree_instantiated(&root_item_tree);
+    let instances = all_instances(root);
+    let mut runtime_items = Vec::new();
+    collect_runtime_items_front_to_back(&root_item_tree, -1, &instances, &mut runtime_items);
+
+    let mut candidates = Vec::new();
+    for (instance, flat_index) in runtime_items {
+        let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
+        if !item.is_visible() {
+            continue;
+        }
+        let Some(geometry) = item_flat_index_to_rect(&instance, root, flat_index) else {
+            continue;
+        };
+        if !geometry.contains(position) {
+            continue;
+        }
+
+        let compilation_unit = &instance.root_sub_component.compilation_unit;
+        let Some((sub_component_path, local_item_index)) =
+            instance.item_table.get(flat_index).and_then(Option::as_ref)
+        else {
+            continue;
+        };
+        let sub_component_index = sub_component_index_at_path(
+            compilation_unit,
+            instance.root_sub_component.sub_component_idx,
+            sub_component_path,
+        );
+        if let Some(debug_info) =
+            compilation_unit.sub_components[sub_component_index].debug_info.as_ref()
+        {
+            if let Some(item_debug_entries) = debug_info.items.get(*local_item_index) {
+                for item_debug_info in item_debug_entries.iter().rev() {
+                    push_runtime_item_candidate(
+                        root,
+                        &instance,
+                        flat_index,
+                        geometry,
+                        &item_debug_info.source_location,
+                        &mut candidates,
+                    );
+                }
+            }
+        }
+
+        let mut current_sub_component_index = instance.root_sub_component.sub_component_idx;
+        for sub_component_instance_index in sub_component_path.iter().copied() {
+            let sub_component = &compilation_unit.sub_components[current_sub_component_index];
+            if let Some(source_location) =
+                sub_component.debug_info.as_ref().and_then(|debug_info| {
+                    debug_info.sub_component_use_sites.get(sub_component_instance_index)
+                })
+            {
+                push_source_candidates_at(
+                    root,
+                    source_location,
+                    position,
+                    ElementPositionFilter::ExcludeClipped,
+                    &mut candidates,
+                );
+            }
+            current_sub_component_index =
+                sub_component.sub_components[sub_component_instance_index].ty;
+        }
+
+        let mut repeated_instance = Some(instance);
+        while let Some(instance) = repeated_instance {
+            let Some((parent_sub_component, repeated_element_index)) =
+                instance.root_sub_component.repeated_in.get()
+            else {
+                break;
+            };
+            let Some(parent_sub_component) = parent_sub_component.upgrade() else {
+                break;
+            };
+            if let Some(source_location) = parent_sub_component.compilation_unit.sub_components
+                [parent_sub_component.sub_component_idx]
+                .debug_info
+                .as_ref()
+                .and_then(|debug_info| debug_info.repeated_elements.get(*repeated_element_index))
+            {
+                push_source_candidates_at(
+                    root,
+                    source_location,
+                    position,
+                    ElementPositionFilter::ExcludeClipped,
+                    &mut candidates,
+                );
+            }
+            repeated_instance = parent_sub_component.root.get().and_then(|root| root.upgrade());
+        }
+    }
+    candidates
 }
 
 /// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
@@ -304,6 +386,48 @@ fn collect_row_instances(
     }
 }
 
+fn collect_runtime_items_front_to_back(
+    item_tree: &ItemTreeRc,
+    index: isize,
+    instances: &[VRc<ItemTreeVTable, Instance>],
+    runtime_items: &mut Vec<(VRc<ItemTreeVTable, Instance>, usize)>,
+) {
+    let mut children = Vec::new();
+    let mut collect_child = |child_item_tree: &ItemTreeRc,
+                             child_index: u32,
+                             _: Pin<i_slint_core::items::ItemRef<'_>>|
+     -> VisitChildrenResult {
+        children.push((child_item_tree.clone(), child_index));
+        VisitChildrenResult::CONTINUE
+    };
+    vtable::new_vref!(
+        let mut collect_child: VRefMut<i_slint_core::item_tree::ItemVisitorVTable>
+            for i_slint_core::item_tree::ItemVisitor = &mut collect_child
+    );
+    VRc::borrow_pin(item_tree).as_ref().visit_children_item(
+        index,
+        TraversalOrder::FrontToBack,
+        collect_child,
+    );
+    for (child_item_tree, child_index) in children {
+        collect_runtime_items_front_to_back(
+            &child_item_tree,
+            child_index as isize,
+            instances,
+            runtime_items,
+        );
+    }
+    if index < 0 {
+        return;
+    }
+    if let Some(instance) = instances
+        .iter()
+        .find(|instance| VRc::ptr_eq(&VRc::into_dyn((*instance).clone()), item_tree))
+    {
+        runtime_items.push((instance.clone(), index as usize));
+    }
+}
+
 /// Walk the LLR sub_components tree to resolve `path` into its concrete
 /// [`SubComponentIdx`].
 fn sub_component_index_at_path(
@@ -318,6 +442,80 @@ fn sub_component_index_at_path(
         current_sub_component_index = nested_sub_component.ty;
     }
     current_sub_component_index
+}
+
+fn push_runtime_item_candidate(
+    root: &VRc<ItemTreeVTable, Instance>,
+    instance: &VRc<ItemTreeVTable, Instance>,
+    flat_index: usize,
+    geometry: HighlightedRect,
+    source_location: &i_slint_compiler::diagnostics::SourceLocation,
+    candidates: &mut Vec<ElementCandidate>,
+) {
+    let Some(source_file) = source_location.source_file.as_ref() else { return };
+    let Ok(source_offset) = u32::try_from(source_location.span.offset) else { return };
+    let Some(instance_index) =
+        items_by_source(root, source_file.path(), source_offset, SourceMatch::Start)
+            .iter()
+            .position(|(source_instance, source_flat_index)| {
+                VRc::ptr_eq(source_instance, instance) && *source_flat_index == flat_index
+            })
+    else {
+        return;
+    };
+    push_candidate(source_location, geometry, instance_index, candidates);
+}
+
+fn push_source_candidates_at(
+    root: &VRc<ItemTreeVTable, Instance>,
+    source_location: &i_slint_compiler::diagnostics::SourceLocation,
+    position: LogicalPoint,
+    filter: ElementPositionFilter,
+    candidates: &mut Vec<ElementCandidate>,
+) {
+    let Some(source_file) = source_location.source_file.as_ref() else { return };
+    let Ok(source_offset) = u32::try_from(source_location.span.offset) else { return };
+    for (instance_index, (instance, flat_index)) in
+        items_by_source(root, source_file.path(), source_offset, SourceMatch::Start)
+            .into_iter()
+            .enumerate()
+    {
+        if filter == ElementPositionFilter::ExcludeClipped {
+            let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
+            if !item.is_visible() {
+                continue;
+            }
+        }
+        let Some(geometry) = item_flat_index_to_rect(&instance, root, flat_index) else {
+            continue;
+        };
+        if geometry.contains(position) {
+            push_candidate(source_location, geometry, instance_index, candidates);
+        }
+    }
+}
+
+fn push_candidate(
+    source_location: &i_slint_compiler::diagnostics::SourceLocation,
+    geometry: HighlightedRect,
+    instance_index: usize,
+    candidates: &mut Vec<ElementCandidate>,
+) {
+    let Some(source_file) = source_location.source_file.as_ref() else { return };
+    if candidates.iter().any(|candidate| {
+        candidate.instance_index == instance_index
+            && candidate.source_location.span.offset == source_location.span.offset
+            && candidate.source_location.source_file.as_ref().is_some_and(|candidate_source_file| {
+                candidate_source_file.path() == source_file.path()
+            })
+    }) {
+        return;
+    }
+    candidates.push(ElementCandidate {
+        source_location: source_location.clone(),
+        geometry,
+        instance_index,
+    });
 }
 
 fn item_flat_index_to_rect(
@@ -708,12 +906,7 @@ mod tests {
     ) -> crate::highlight::HighlightedRect {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
-        let (element, _) = instance
-            .element_node_at_source_code_position(&test_path(), offset as u32)
-            .first()
-            .cloned()
-            .unwrap_or_else(|| panic!("element {id} not resolved"));
-        *instance.element_positions(&element).first().expect("geometry")
+        *instance.component_positions(&test_path(), offset as u32).first().expect("geometry")
     }
 
     fn runtime_item_of(instance: &ComponentInstance, source: &str, element_id: &str) -> ItemRc {
@@ -1007,12 +1200,7 @@ export component Win inherits Window {
             width",
             )
             .unwrap();
-        let (element, _) = instance
-            .element_node_at_source_code_position(&test_path(), offset as u32)
-            .first()
-            .cloned()
-            .unwrap();
-        let geometries = instance.element_positions(&element);
+        let geometries = instance.component_positions(&test_path(), offset as u32);
         assert_eq!(geometries.len(), 2);
         for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
             assert_eq!(geometry.transform_rotation, expected);
