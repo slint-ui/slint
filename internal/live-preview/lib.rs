@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![doc = include_str!("README.md")]
+#![cfg_attr(not(any(feature = "protocol", feature = "file-watcher")), no_std)]
+
+extern crate alloc;
 
 /// Window over which a burst of keystrokes from the editor is coalesced into a single
 /// preview rebuild. Used by both the in-process LSP preview and the remote viewer so a
 /// single value governs how reactive the preview feels.
-pub const REBUILD_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(50);
+pub const REBUILD_DEBOUNCE: core::time::Duration = core::time::Duration::from_millis(50);
 
 #[cfg(feature = "protocol")]
 pub mod protocol;
@@ -25,3 +28,6 @@ pub mod inspector;
 
 #[cfg(feature = "remote")]
 pub mod remote;
+
+#[cfg(feature = "serial")]
+pub mod serial;

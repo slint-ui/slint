@@ -3524,6 +3524,7 @@ dependencies = [
  "anyhow",
  "base64 0.23.1",
  "chacha20poly1305",
+ "cobs",
  "derive_more",
  "futures-util",
  "getrandom 0.2.17",
