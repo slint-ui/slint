@@ -745,50 +745,45 @@ export component InspectorPane inherits Rectangle {
                             }
                         }
 
-                        if root.rectangle-effect-index() != 0: HorizontalLayout {
-                            spacing: root.style.column-gap;
-                            cross-axis-alignment: center;
+                        if root.rectangle-effect-index() != 0: VerticalLayout {
+                            spacing: Metrics.space-small;
 
-                            InspectorEffectDial {
-                                accessible-name: "Shadow angle";
-                                commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
-                                value: root.shadow-angle();
-                                preview(angle) => {
-                                    return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
-                                }
-                                accepted(angle) => {
-                                    return root.commit-shadow-offsets(angle, root.shadow-distance());
-                                }
-                                canceled => { Api.inspector-cancel(); }
+                            Text {
+                                height: Metrics.icon-small;
+                                text: "Color";
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
                             }
 
-                            VerticalLayout {
-                                horizontal-stretch: 1;
-                                spacing: Metrics.space-small;
-
-                                Text {
-                                    height: Metrics.icon-small;
-                                    text: "Color";
-                                    color: Colors.foreground;
-                                    font-size: Typography.caption.size;
-                                    font-weight: FontWeight.semi-bold;
-                                    vertical-alignment: center;
-                                }
-
-                                InspectorColorField {
-                                    accessible-name: "Shadow color";
-                                    target-size: { width: root.selected-width(), height: root.selected-height() };
-                                    value: root.shadow-color-code();
-                                    swatch: root.shadow-color-swatch();
-                                    commit-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    preview-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
-                                    property-name: root.current-shadow-prefix() + "color";
-                                    accepted(text) => {
-                                        return root.commit-code(root.current-shadow-prefix() + "color", text);
-                                    }
+                            InspectorColorField {
+                                accessible-name: "Shadow color";
+                                target-size: { width: root.selected-width(), height: root.selected-height() };
+                                value: root.shadow-color-code();
+                                swatch: root.shadow-color-swatch();
+                                wide: true;
+                                commit-key: root.field-key(root.current-shadow-prefix() + "color");
+                                preview-key: root.field-key(root.current-shadow-prefix() + "color");
+                                session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
+                                property-name: root.current-shadow-prefix() + "color";
+                                accepted(text) => {
+                                    return root.commit-code(root.current-shadow-prefix() + "color", text);
                                 }
                             }
+                        }
+
+                        if root.rectangle-effect-index() != 0: InspectorEffectDial {
+                            accessible-name: "Shadow angle";
+                            commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
+                            value: root.shadow-angle();
+                            preview(angle) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
+                            }
+                            accepted(angle) => {
+                                return root.commit-shadow-offsets(angle, root.shadow-distance());
+                            }
+                            canceled => { Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {

@@ -751,6 +751,31 @@ def test_shared_color_fields_expose_opacity_editor(
             "25",
             slint_testing.AccessibleRole.TextInput,
         )
+        shadow_color = inspector_field(
+            window,
+            "Shadow color",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        shadow_opacity = inspector_field(
+            window,
+            "Shadow color opacity",
+            slint_testing.AccessibleRole.TextInput,
+        )
+        shadow_angle = inspector_field(
+            window,
+            "Shadow angle",
+            slint_testing.AccessibleRole.Slider,
+        )
+        assert (
+            shadow_opacity.absolute_position.x
+            + shadow_opacity.size.width
+            - shadow_color.absolute_position.x
+            > 190
+        )
+        assert (
+            shadow_color.absolute_position.y + shadow_color.size.height
+            <= shadow_angle.absolute_position.y
+        )
 
         select_element(window, "Text")
         wait_for_field(
