@@ -428,11 +428,7 @@ impl BackendBuilder {
 fn dispatch_mouse_move(window: &Weak<WinitWindowAdapter>, position: LogicalPoint) {
     if let Some(window) = window.upgrade() {
         window.window().dispatch_event(i_slint_core::platform::WindowEvent::internal(
-            i_slint_core::input::BackendMouseEvent::Moved {
-                position,
-                touch_finger_id: 0,
-                history: Default::default(),
-            },
+            i_slint_core::input::BackendMouseEvent::Moved { position, touch_finger_id: 0 },
         ));
     }
 }
