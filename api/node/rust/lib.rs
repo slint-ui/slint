@@ -122,7 +122,10 @@ pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi:
 #[napi]
 pub fn init_testing() {
     #[cfg(feature = "testing")]
-    i_slint_backend_testing::init_integration_test_with_mock_time();
+    {
+        i_slint_backend_testing::init_integration_test_with_mock_time();
+        i_slint_backend_testing::configure_test_fonts();
+    }
 }
 
 /// Returns the list of optional capabilities that were compiled into the loaded
