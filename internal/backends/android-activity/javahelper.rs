@@ -390,9 +390,9 @@ impl JavaHelper {
                 .with_jni_env(|env, _| JavaSystem::nano_time(env))
                 .unwrap_or_else(|e| print_jni_error(&self.1, e));
             let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
-            i_slint_core::animations::Instant::now(&ctx).0.as_nanos() as i64 - now_nanos
+            i_slint_core::animations::Instant::now(&ctx).as_nanos() as i64 - now_nanos
         });
-        Instant(Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64))
+        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
     }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
         Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
