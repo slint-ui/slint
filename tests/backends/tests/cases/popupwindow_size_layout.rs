@@ -172,7 +172,6 @@ fn popupwindow_size_layout() {
             // This is not constant depending on the system text font used
             let text_height = app.get_reference_text_size();
 
-            // assert_eq!(app.global::<Properties>().get_popup_width(), 126.);
             assert_eq!(app.global::<Properties>().get_text_height(), text_height);
             assert_eq!(app.global::<Properties>().get_button_height(), BUTTON_HEIGHT);
             assert_eq!(
