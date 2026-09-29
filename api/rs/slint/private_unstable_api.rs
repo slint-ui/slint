@@ -96,8 +96,8 @@ pub fn set_callback_handler<
     })
 }
 
-pub fn debug(s: SharedString) {
-    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+pub fn debug(ctx: &i_slint_core::SlintContext, s: SharedString) {
+    ctx.dispatch_log_message(i_slint_core::debug_log::LogMessage::new(
         i_slint_core::debug_log::LogMessageSource::SlintCode,
         None,
         format_args!("{s}"),
