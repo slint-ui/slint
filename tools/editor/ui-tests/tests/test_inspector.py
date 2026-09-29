@@ -947,53 +947,22 @@ def test_image_alignment_grid_replaces_custom_expression(
         assert image_alignment_button(window, "top", "left").accessible_checked
 
 
-def test_image_source_is_editable_and_shows_filename_when_unfocused(
+def test_image_source_shows_filename_and_file_browser(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
         source = window_element_with_label(
-            window, "Image source", slint_testing.AccessibleRole.TextInput
+            window, "Image source", slint_testing.AccessibleRole.Text
         )
         assert source.accessible_value == "checker.svg"
         window_element_with_label(
             window, "Choose image file", slint_testing.AccessibleRole.Button
-        )
-
-        source.accessible_value = "assets/alternate.svg"
-        expected = replace_once(
-            baseline,
-            b'source: @image-url("assets/checker.svg");',
-            b'source: @image-url("assets/alternate.svg");',
-        )
-        snapshot.wait_for_exact(expected, relative_path=INSPECTOR_SOURCE)
-        wait_for_field(
-            window,
-            "Image source",
-            "alternate.svg",
-            slint_testing.AccessibleRole.TextInput,
-        )
-
-        source.invoke_accessible_default_action()
-        wait_for_field(
-            window,
-            "Image source",
-            "assets/alternate.svg",
-            slint_testing.AccessibleRole.TextInput,
-        )
-        press_keys(window, keys.Return)
-        wait_for_field(
-            window,
-            "Image source",
-            "alternate.svg",
-            slint_testing.AccessibleRole.TextInput,
         )
         assert_rendered_element(window, "InspectorCases::inspect-image")
 

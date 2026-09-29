@@ -295,8 +295,6 @@ pub fn initialize_editor(
         current_property_value(&api, property_name, fallback)
     });
     api.on_image_source_file_name(file_tree::image_source_file_name);
-    api.on_image_source_edit_value(file_tree::image_source_edit_value);
-    api.on_image_source_expression(file_tree::image_source_expression);
     let editor_weak = editor_ui.as_weak();
     api.on_choose_image_file(move |source_uri| {
         let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
