@@ -616,6 +616,16 @@ fn lower_sub_component(
                                 .map(|qualified_name| {
                                     crate::diagnostics::Spanned::to_source_location(&qualified_name)
                                 })
+                                .or_else(|| {
+                                    element_debug_info
+                                        .node
+                                        .child_token(crate::parser::SyntaxKind::LBrace)
+                                        .map(|left_brace| {
+                                            crate::diagnostics::Spanned::to_source_location(
+                                                &left_brace,
+                                            )
+                                        })
+                                })
                                 .unwrap_or_else(|| {
                                     crate::diagnostics::Spanned::to_source_location(
                                         &element_debug_info.node,

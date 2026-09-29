@@ -1865,19 +1865,15 @@ impl ComponentInstance {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
-    /// Find the position of the `element`.
+    /// Find source elements rendered under `position`, in selection order.
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
-    pub fn element_positions(
+    pub fn element_candidates_at(
         &self,
-        element: &i_slint_compiler::object_tree::ElementRc,
-    ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::element_positions(
-            self.inner.vrc(),
-            element,
-            crate::highlight::ElementPositionFilter::IncludeClipped,
-        )
+        position: i_slint_core::lengths::LogicalPoint,
+    ) -> Vec<crate::highlight::ElementCandidate> {
+        crate::highlight::element_candidates_at(self.inner.vrc(), position)
     }
 
     /// Find the `element` that was defined at the text position.
@@ -2569,12 +2565,12 @@ export component Foo2 inherits Window  {
     }
 }
 
-/// `element_positions` must return one rect per *instantiation*: a component
+/// `component_positions` must return one rect per *instantiation*: a component
 /// used twice yields only the queried use site's rect, and elements inside a
 /// `for` yield one rect per row.
 #[cfg(feature = "internal-highlight")]
 #[test]
-fn test_element_positions_instances_and_repeaters() {
+fn test_component_positions_instances_and_repeaters() {
     use i_slint_core::graphics::euclid;
     let code = r#"
 component MyBox inherits Rectangle {
@@ -2597,29 +2593,24 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let element_at = |pattern: &str| {
-        let offset = code.find(pattern).unwrap() as u32;
-        let elements = handle.element_node_at_source_code_position(&path, offset);
-        assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
-        elements.into_iter().next().unwrap().0
-    };
+    let positions_at =
+        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
 
     // Each MyBox use highlights only its own instance.
-    let b1_rects = handle.element_positions(&element_at("MyBox { x: 0px"));
+    let b1_rects = positions_at("MyBox { x: 0px");
     assert_eq!(b1_rects.len(), 1, "{b1_rects:?}");
     assert_eq!(b1_rects[0].rect.origin, euclid::point2(0., 0.));
 
-    let b2_rects = handle.element_positions(&element_at("MyBox { x: 200px"));
+    let b2_rects = positions_at("MyBox { x: 200px");
     assert_eq!(b2_rects.len(), 1, "{b2_rects:?}");
     assert_eq!(b2_rects[0].rect.origin, euclid::point2(200., 200.));
 
     // An element inside the component's definition maps to both uses.
-    let def_rects = handle.element_positions(&element_at("Rectangle {\n    width: 50px"));
+    let def_rects = positions_at("Rectangle {\n    width: 50px");
     assert_eq!(def_rects.len(), 2, "{def_rects:?}");
 
     // A repeated element yields one rect per row, in root coordinates.
-    let repeated = element_at("Rectangle {\n        x: xo");
-    let mut row_rects = handle.element_positions(&repeated);
+    let mut row_rects = positions_at("Rectangle {\n        x: xo");
     row_rects.sort_by(|a, b| a.rect.origin.x.total_cmp(&b.rect.origin.x));
     assert_eq!(row_rects.len(), 3, "{row_rects:?}");
     for (i, r) in row_rects.iter().enumerate() {
@@ -2681,18 +2672,6 @@ export component App inherits Window {
     let path = PathBuf::from("/virtual/round-trip.slint");
     let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-    let original_instance = result.component("App").unwrap().create().unwrap();
-    let element_at = |pattern: &str| {
-        let offset = code.find(pattern).unwrap() as u32;
-        original_instance
-            .element_node_at_source_code_position(&path, offset)
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| panic!("element at {pattern:?}"))
-            .0
-    };
-    let first_element = element_at("Derived { x: 10px");
-    let repeated_element = element_at("Derived {\n        x: column");
     let result = CompilationResult::from(result.into_send());
     let instance = result.component("App").unwrap().create().unwrap();
 
@@ -2704,10 +2683,6 @@ export component App inherits Window {
     let first = positions_at("Derived { x: 10px", 2);
     assert_eq!(first.len(), 1, "{first:?}");
     assert_eq!(first[0].rect.origin, euclid::point2(10., 20.));
-    let first_from_element = instance.element_positions(&first_element);
-    assert_eq!(first_from_element.len(), 1, "{first_from_element:?}");
-    assert_eq!(first_from_element[0].rect.origin, euclid::point2(10., 20.));
-
     let second = positions_at("Derived { x: 200px", 2);
     assert_eq!(second.len(), 1, "{second:?}");
     assert_eq!(second[0].rect.origin, euclid::point2(200., 100.));
@@ -2739,7 +2714,6 @@ export component App inherits Window {
     {
         assert_repeated_positions(positions_at(pattern, 2), expected_x_positions);
     }
-    assert_repeated_positions(instance.element_positions(&repeated_element), [0., 60.]);
 }
 
 #[cfg(feature = "internal-highlight")]
