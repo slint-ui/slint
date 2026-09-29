@@ -718,10 +718,17 @@ impl ItemRc {
         let transform = self.transform_to_item_tree(item_tree);
         let scale_w = transform.m11;
         let scale_h = transform.m22;
-        LogicalSize::new(
-            original_size.width as f32 * scale_w,
-            original_size.height as f32 * scale_h,
-        )
+        #[cfg(slint_int_coord)]
+        {
+            LogicalSize::new(
+                original_size.width * scale_w as i32,
+                original_size.height * scale_h as i32,
+            )
+        }
+        #[cfg(not(slint_int_coord))]
+        {
+            LogicalSize::new(original_size.width * scale_w, original_size.height * scale_h)
+        }
     }
 
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
