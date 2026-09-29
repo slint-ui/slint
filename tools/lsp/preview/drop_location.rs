@@ -594,20 +594,22 @@ fn drop_target_element_nodes(
 ) -> Vec<editor_preview::ElementRcNode> {
     let mut result = Vec::with_capacity(3);
 
-    for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
-        let Some(en) = sc.as_element_node() else {
+    for candidate in
+        &element_selection::collect_all_element_nodes_covering(position, component_instance)
+    {
+        let Some(element) = candidate.as_element_node(component_instance) else {
             continue;
         };
 
-        if en.with_element_node(editor_preview::is_element_node_ignored) {
+        if element.with_element_node(editor_preview::is_element_node_ignored) {
             continue;
         }
 
-        if (filter)(&en) {
+        if (filter)(&element) {
             continue;
         }
 
-        result.push(en);
+        result.push(element);
     }
 
     result
