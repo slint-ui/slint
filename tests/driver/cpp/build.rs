@@ -20,13 +20,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
     println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
 
-    // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    target_dir.pop();
-    target_dir.pop();
-    target_dir.pop();
-
-    println!("cargo:rustc-env=CPP_LIB_PATH={}/deps", target_dir.display());
+    // Cargo doesn't tell a build script where a dependency's artifacts end up,
+    // so the driver asks Cargo for slint-cpp's cdylib at run time. It repeats
+    // this build's features, profile, and target so that the query is a no-op.
+    let features = std::env::vars()
+        .filter_map(|(var, _)| {
+            var.strip_prefix("CARGO_FEATURE_").map(|f| f.to_lowercase().replace('_', "-"))
+        })
+        .collect::<Vec<_>>();
+    let mut cargo_args =
+        vec!["--no-default-features".to_string(), format!("--features={}", features.join(","))];
+    if std::env::var("PROFILE").unwrap() == "release" {
+        cargo_args.push("--release".into());
+    }
+    // An explicit `--target` puts the output in a per-target directory.
+    let target = std::env::var("TARGET").unwrap();
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    if out_dir.components().any(|c| c.as_os_str() == target.as_str()) {
+        cargo_args.push(format!("--target={target}"));
+    }
+    println!("cargo:rustc-env=CPP_LIB_CARGO_ARGS={}", cargo_args.join(" "));
+    println!(
+        "cargo:rustc-env=SLINT_CPP_OUT_DIR={}",
+        std::env::var("DEP_SLINT_CPP_OUT_DIR").unwrap()
+    );
 
     let generated_include_dir = std::env::var_os("DEP_SLINT_CPP_GENERATED_INCLUDE_DIR")
         .expect("the slint-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
@@ -37,8 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root_dir = root_dir();
     println!("cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/cpp/include", root_dir.display());
 
-    let tests_file_path =
-        std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
+    let tests_file_path = out_dir.join("test_functions.rs");
 
     let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 

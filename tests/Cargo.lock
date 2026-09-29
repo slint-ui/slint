@@ -5649,6 +5649,7 @@ dependencies = [
  "cc",
  "i-slint-compiler",
  "scopeguard",
+ "serde_json",
  "slint-cpp",
  "spin_on",
  "tempfile",

@@ -20,6 +20,8 @@ fn main() -> Result<(), anyhow::Error> {
     let output_dir = Path::new(&output_dir);
 
     println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
+    // Lets the C++ test driver check that it links the library built with these headers.
+    println!("cargo:OUT_DIR={}", std::env::var("OUT_DIR").unwrap());
 
     let enabled_features = EnabledFeatures::from_env();
 

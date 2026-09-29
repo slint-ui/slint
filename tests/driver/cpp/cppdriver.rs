@@ -147,7 +147,7 @@ namespace slint_testing = slint::private_api::testing;
             // header.
             compiler_command.arg("-Wno-invalid-offsetof");
         }
-        compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
+        compiler_command.arg("-L").arg(cpp_lib_dir());
         compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
 
@@ -171,7 +171,7 @@ namespace slint_testing = slint::private_api::testing;
             // definitions and must be linked into every user.
             compiler_command.arg(dir.join("prelude.obj"));
         }
-        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
+        compiler_command.arg("/link").arg(cpp_lib_dir().join("slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);
@@ -204,7 +204,7 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     let output = cmd
-        .envs(library_search_path_env_with(env!("CPP_LIB_PATH")))
+        .envs(library_search_path_env_with(cpp_lib_dir()))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -249,13 +249,7 @@ fn precompiled_header(compiler: &cc::Tool) -> Option<&'static std::path::Path> {
         if !compiler.is_like_gnu() && !compiler.is_like_clang() && !compiler.is_like_msvc() {
             return None;
         }
-        Some(build_precompiled_header(compiler).unwrap_or_else(|message| {
-            // Write to the real stderr: the test harness's output capture
-            // would swallow the message when the process exits.
-            let _ = std::io::stderr().write_all(message.as_bytes());
-            let _ = std::io::stderr().write_all(b"\nCould not build the precompiled header\n");
-            std::process::exit(1);
-        }))
+        Some(or_exit(build_precompiled_header(compiler), "Could not build the precompiled header"))
     })
     .as_deref()
 }
@@ -296,8 +290,68 @@ fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, S
     Ok(prelude)
 }
 
+/// Return the directory that holds the slint-cpp dynamic library, see
+/// `CPP_LIB_CARGO_ARGS` in build.rs. When the lookup fails, abort the process,
+/// since every test would fail with the same error.
+fn cpp_lib_dir() -> &'static std::path::Path {
+    static DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| or_exit(find_cpp_lib_dir(), "Could not locate the slint-cpp library"))
+}
+
+fn or_exit<T>(result: Result<T, String>, context: &str) -> T {
+    result.unwrap_or_else(|message| {
+        // Write to the real stderr: the test harness's output capture
+        // would swallow the message when the process exits.
+        let _ = writeln!(std::io::stderr(), "{message}\n{context}");
+        std::process::exit(1);
+    })
+}
+
+fn find_cpp_lib_dir() -> Result<std::path::PathBuf, String> {
+    let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let output = std::process::Command::new(cargo)
+        .args(["test", "--no-run", "--quiet", "--message-format=json", "--manifest-path"])
+        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml"))
+        .args(env!("CPP_LIB_CARGO_ARGS").split(' '))
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .map_err(|e| format!("Error running cargo: {e}"))?;
+    if !output.status.success() {
+        return Err("cargo failed to report the build artifacts".into());
+    }
+    let (mut out_dir, mut lib_dir) = (None, None);
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let Ok(message) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        match message["reason"].as_str() {
+            Some("build-script-executed")
+                if message["package_id"].as_str().is_some_and(|id| id.contains("#slint-cpp@")) =>
+            {
+                out_dir = message["out_dir"].as_str().map(std::path::PathBuf::from);
+            }
+            Some("compiler-artifact") if message["target"]["name"] == "slint_cpp" => {
+                lib_dir = message["filenames"][0]
+                    .as_str()
+                    .and_then(|file| std::path::Path::new(file).parent())
+                    .map(std::path::Path::to_path_buf);
+            }
+            _ => {}
+        }
+    }
+    // Builds of slint-cpp with other settings live side by side, so check that
+    // the query resolved to the build that generated this driver's headers.
+    let out_dir = out_dir.ok_or("cargo didn't report the slint-cpp build script")?;
+    if out_dir != std::path::Path::new(env!("SLINT_CPP_OUT_DIR")) {
+        return Err(format!(
+            "cargo resolved slint-cpp with different settings than this build ({}); \
+             pass only these flags to cargo test",
+            env!("CPP_LIB_CARGO_ARGS")
+        ));
+    }
+    lib_dir.ok_or_else(|| "cargo didn't report the slint-cpp artifacts".into())
+}
+
 fn library_search_path_env_with(
-    value_to_prepend: &str,
+    value_to_prepend: &std::path::Path,
 ) -> impl IntoIterator<Item = (&'static str, String)> {
     let (var, separator) = if cfg!(target_os = "windows") {
         ("PATH", ';')
@@ -309,6 +363,6 @@ fn library_search_path_env_with(
 
     std::iter::once((
         var,
-        format!("{}{}{}", value_to_prepend, separator, std::env::var(var).unwrap_or_default()),
+        format!("{}{separator}{}", value_to_prepend.display(), std::env::var(var).unwrap_or_default()),
     ))
 }
