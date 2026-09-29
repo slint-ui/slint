@@ -2633,3 +2633,237 @@ export component Foo3 inherits Window {
     assert_eq!(handle.component_positions(&path, offset).len(), 3);
     assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
 }
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_survive_compilation_result_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component Base inherits Rectangle {
+    width: 50px;
+    height: 40px;
+}
+
+component Derived inherits Base { }
+
+export component App inherits Window {
+    width: 400px;
+    height: 300px;
+    in property <bool> show-conditional: true;
+    first := Derived { x: 10px; y: 20px; }
+    second := Derived { x: 200px; y: 100px; }
+    if root.show-conditional: conditional := Rectangle {
+        x: 100px;
+        y: 200px;
+        width: 20px;
+        height: 30px;
+    }
+    optimized := Rectangle {
+        x: 300px;
+        y: 10px;
+        width: 30px;
+        height: 20px;
+        background: red;
+        redundant := Rectangle { }
+    }
+    for column in [0, 1]: Derived {
+        x: column * 60px;
+        y: 250px;
+    }
+    for column in [0, 1]: Derived {
+        x: 150px + column * 60px;
+        y: 250px;
+    }
+}
+"#;
+    let path = PathBuf::from("/virtual/round-trip.slint");
+    let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let original_instance = result.component("App").unwrap().create().unwrap();
+    let element_at = |pattern: &str| {
+        let offset = code.find(pattern).unwrap() as u32;
+        original_instance
+            .element_node_at_source_code_position(&path, offset)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("element at {pattern:?}"))
+            .0
+    };
+    let first_element = element_at("Derived { x: 10px");
+    let repeated_element = element_at("Derived {\n        x: column");
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    let positions_at = |pattern: &str, inside_pattern: usize| {
+        let offset = code.find(pattern).unwrap() + inside_pattern;
+        instance.component_positions(&path, offset as u32)
+    };
+
+    let first = positions_at("Derived { x: 10px", 2);
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert_eq!(first[0].rect.origin, euclid::point2(10., 20.));
+    let first_from_element = instance.element_positions(&first_element);
+    assert_eq!(first_from_element.len(), 1, "{first_from_element:?}");
+    assert_eq!(first_from_element[0].rect.origin, euclid::point2(10., 20.));
+
+    let second = positions_at("Derived { x: 200px", 2);
+    assert_eq!(second.len(), 1, "{second:?}");
+    assert_eq!(second[0].rect.origin, euclid::point2(200., 100.));
+
+    let definition = positions_at("Rectangle {\n    width: 50px", 3);
+    assert_eq!(definition.len(), 6, "{definition:?}");
+
+    let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
+    let conditional = instance.component_positions(&path, conditional_offset);
+    assert_eq!(conditional.len(), 1, "{conditional:?}");
+    assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
+
+    let optimized = positions_at("Rectangle {\n        x: 300px", 3);
+    let redundant = positions_at("Rectangle { }", 3);
+    assert_eq!(optimized.len(), 1, "{optimized:?}");
+    assert_eq!(redundant.len(), 1, "{redundant:?}");
+    assert_eq!(redundant[0].rect, optimized[0].rect);
+
+    let assert_repeated_positions = |mut positions: Vec<crate::highlight::HighlightedRect>,
+                                     expected_x_positions| {
+        positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+        assert_eq!(positions.len(), 2, "{positions:?}");
+        for (geometry, expected_x) in positions.iter().zip(expected_x_positions) {
+            assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 250.));
+        }
+    };
+    for (pattern, expected_x_positions) in
+        [("Derived {\n        x: column", [0., 60.]), ("Derived {\n        x: 150px", [150., 210.])]
+    {
+        assert_repeated_positions(positions_at(pattern, 2), expected_x_positions);
+    }
+    assert_repeated_positions(instance.element_positions(&repeated_element), [0., 60.]);
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_resolve_imported_sources_after_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let imported_code = r#"
+export component Imported inherits Rectangle {
+    width: 40px;
+    height: 30px;
+}
+"#;
+    let main_code = r#"
+import { Imported } from "lib.slint";
+
+export component App inherits Window {
+    width: 200px;
+    height: 200px;
+    Imported { x: 25px; y: 35px; }
+}
+"#;
+    let main_path = PathBuf::from("/virtual/main.slint");
+    let imported_path = PathBuf::from("/virtual/lib.slint");
+    let mut compiler = Compiler::default();
+    compiler.set_file_loader({
+        let imported_path = imported_path.clone();
+        move |path| {
+            let source = (path == imported_path).then(|| Ok(imported_code.to_owned()));
+            Box::pin(std::future::ready(source))
+        }
+    });
+    let result = spin_on::spin_on(compiler.build_from_source(main_code.into(), main_path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    for (path, code, pattern) in [
+        (&main_path, main_code, "Imported { x: 25px"),
+        (&imported_path, imported_code, "Rectangle"),
+    ] {
+        let offset = code.find(pattern).unwrap() as u32;
+        let positions = instance.component_positions(path, offset);
+        assert_eq!(positions.len(), 1, "{positions:?}");
+        assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
+        assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
+    }
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn inlined_repeated_source_resolves_each_repeater_once() {
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::generator::OutputFormat;
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component RepeatedBox inherits Rectangle {
+    width: 60px;
+    height: 20px;
+    for value in [0, 1]: Rectangle {
+        x: value * 20px;
+        y: 0px;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+export component App inherits Window {
+    width: 200px;
+    height: 100px;
+    first := RepeatedBox { x: 10px; y: 20px; }
+    second := RepeatedBox { x: 100px; y: 20px; }
+}
+"#;
+    let path = PathBuf::from("/virtual/inlined-repeaters.slint");
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = i_slint_compiler::parser::parse(code.into(), Some(&path), &mut diagnostics);
+    let mut compiler_configuration =
+        i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
+    compiler_configuration.debug_info = true;
+    compiler_configuration.inline_all_elements = true;
+    let (document, diagnostics, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diagnostics,
+        compiler_configuration.clone(),
+    ));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let definition = crate::component::build_from_document(
+        &document,
+        &compiler_configuration,
+        Default::default(),
+        AnimationMode::Running,
+    )
+    .into_iter()
+    .next()
+    .expect("component definition");
+    let definition = ComponentDefinition { inner: std::rc::Rc::new(definition) };
+
+    let repeated_offset = code.find("Rectangle {\n        x: value").unwrap();
+    let matching_repeated_elements = definition
+        .inner
+        .compilation_unit
+        .sub_components
+        .iter()
+        .flat_map(|sub_component| sub_component.debug_info.iter())
+        .flat_map(|debug_info| debug_info.repeated_elements.iter())
+        .filter(|source_location| {
+            source_location
+                .source_file
+                .as_ref()
+                .is_some_and(|source_file| source_file.path() == path)
+                && source_location.span.offset == repeated_offset
+        })
+        .count();
+    assert_eq!(matching_repeated_elements, 2);
+
+    let instance = definition.create().unwrap();
+    let mut positions = instance.component_positions(&path, repeated_offset as u32 + 3);
+    positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+    assert_eq!(positions.len(), 4, "{positions:?}");
+    for (geometry, expected_x) in positions.iter().zip([10., 30., 100., 120.]) {
+        assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 20.));
+    }
+}

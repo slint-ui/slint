@@ -688,6 +688,8 @@ mod tests {
                 .build_from_source(TEST_PREVIEW_SOURCE.into(), preview_path.clone()),
         );
         assert!(!compilation_result.has_errors());
+        let compilation_result =
+            slint_interpreter::CompilationResult::from(compilation_result.into_send());
         let component = compilation_result.component("TestPreview").unwrap();
         let mut placeholder = RemoteViewerWindow::new().unwrap();
         let inspector = crate::poll_ready(InspectorOverlay::new(placeholder.window())).unwrap();
@@ -705,6 +707,7 @@ mod tests {
         )
         .unwrap();
         let preview = user_instance.as_ref().unwrap();
+        assert!(!preview.component_positions(&preview_path, highlight.1).is_empty());
         let preview_item_tree = preview.as_item_tree(i_slint_core::InternalToken);
         assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
             &preview_item_tree,

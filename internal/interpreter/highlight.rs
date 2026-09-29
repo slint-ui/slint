@@ -9,7 +9,9 @@
 //! `map_to_item_tree`.
 
 use crate::instance::{Instance, SubComponentInstance};
-use i_slint_compiler::llr::{ItemInstanceIdx, SubComponentIdx, SubComponentInstanceIdx};
+use i_slint_compiler::llr::{
+    ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
+};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::ItemTreeVTable;
@@ -108,59 +110,30 @@ pub fn element_positions(
     element: &ElementRc,
     filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
-    // Match by source location: the LLR copies the element's
-    // `source_location` onto every item it lowers, and the object-tree
-    // element keeps the original node. `element_hash` would be more
-    // compact, but passes that run after `inject_debug_hooks` (layout
-    // lowering, property hoisting) create elements without a hash.
-    let target = walk_to_native_root(element);
-    let Some(target_loc) = source_location_of(&target) else {
-        return Vec::new();
-    };
-    // A component use (`Button { }`) resolves to the definition's root
-    // element, whose location matches every instantiation of the component.
-    // Constrain the matches to item-table paths that descend through this
-    // specific use site.
-    let use_site = if Rc::ptr_eq(&target, element) { None } else { source_location_of(element) };
-    positions_by_source(
+    let source_locations = source_locations_of(element);
+    positions_by_sources(
         instance,
-        &target_loc.0,
-        target_loc.1,
-        use_site.as_ref().map(|(p, o)| (p.as_path(), *o)),
+        source_locations.iter().map(|(path, offset)| (path.as_path(), *offset, SourceMatch::Start)),
         filter,
     )
 }
 
-/// The `(path, offset)` key under which the LLR debug info records
-/// `element` — `Spanned::to_source_location` semantics (the qualified
-/// name's start).
-fn source_location_of(element: &ElementRc) -> Option<(std::path::PathBuf, u32)> {
+fn source_locations_of(element: &ElementRc) -> Vec<(std::path::PathBuf, u32)> {
     use i_slint_compiler::diagnostics::Spanned;
-    let e = element.borrow();
-    let path = e.source_file()?.path().to_path_buf();
-    Some((path, e.span().offset as u32))
-}
-
-/// Descend into `base_type = Component(_)` wrappers until the element
-/// has its own native item. For a component use like `Button { }`, the
-/// runtime items belong to the wrapped component's root element, not to
-/// the use-site element itself.
-fn walk_to_native_root(element: &ElementRc) -> ElementRc {
-    let mut current = element.clone();
-    loop {
-        let next = {
-            let b = current.borrow();
-            if let i_slint_compiler::langtype::ElementType::Component(c) = &b.base_type {
-                Some(c.root_element.clone())
-            } else {
-                None
-            }
-        };
-        match next {
-            Some(n) => current = n,
-            None => return current,
-        }
-    }
+    let element = element.borrow();
+    element
+        .debug
+        .iter()
+        .filter_map(|debug_info| {
+            let source_location = debug_info
+                .node
+                .QualifiedName()
+                .map(|qualified_name| qualified_name.to_source_location())
+                .unwrap_or_else(|| debug_info.node.to_source_location());
+            Some((source_location.source_file?.path().to_path_buf(), source_location.span.offset))
+        })
+        .filter_map(|(path, offset)| u32::try_from(offset).ok().map(|offset| (path, offset)))
+        .collect()
 }
 
 /// Return the geometry of every runtime item whose source location covers
@@ -170,12 +143,11 @@ pub(crate) fn component_positions(
     path: &Path,
     offset: u32,
 ) -> Vec<HighlightedRect> {
-    element_node_at_source_code_position(instance, path, offset)
-        .into_iter()
-        .flat_map(|(element, _)| {
-            element_positions(instance, &element, ElementPositionFilter::IncludeClipped)
-        })
-        .collect()
+    positions_by_sources(
+        instance,
+        [(path, offset, SourceMatch::Contains)],
+        ElementPositionFilter::IncludeClipped,
+    )
 }
 
 /// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
@@ -221,19 +193,22 @@ fn visit_element_for_position(
         }
         return;
     }
-    for (index, node_path, node_range) in element.borrow().debug.iter().enumerate().map(|(i, n)| {
-        let text_range = n
-            .node
-            .QualifiedName()
-            .map(|n| n.text_range())
-            .or_else(|| {
-                n.node
-                    .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
-                    .map(|n| n.text_range())
-            })
-            .expect("An Element must contain a LBrace somewhere");
-        (i, n.node.source_file.path(), text_range)
-    }) {
+    for (index, node_path, node_range) in
+        element.borrow().debug.iter().enumerate().map(|(index, debug_info)| {
+            let text_range = debug_info
+                .node
+                .QualifiedName()
+                .map(|qualified_name| qualified_name.text_range())
+                .or_else(|| {
+                    debug_info
+                        .node
+                        .child_token(i_slint_compiler::parser::SyntaxKind::LBrace)
+                        .map(|left_brace| left_brace.text_range())
+                })
+                .expect("An Element must contain a LBrace somewhere");
+            (index, debug_info.node.source_file.path(), text_range)
+        })
+    {
         if node_path == path && node_range.contains(offset.into()) {
             result.push((element.clone(), index));
         }
@@ -244,55 +219,56 @@ fn visit_element_for_position(
     }
 }
 
-/// Scan the instance's flat `item_table` and return every flat index
-/// whose entry points at `(sub_component_path → target_sc_idx, target_local)`.
-/// With `use_site` set, only paths descending through a sub-component
-/// instance whose use-site element sits at that `(path, offset)` match.
 fn find_flat_indices_for_item(
     instance: &VRc<ItemTreeVTable, Instance>,
-    target_sc_idx: SubComponentIdx,
-    target_local: ItemInstanceIdx,
-    use_site: Option<(&Path, u32)>,
+    target: &ItemTarget,
 ) -> Vec<usize> {
-    let cu = &instance.root_sub_component.compilation_unit;
-    let root_ty = instance.root_sub_component.sub_component_idx;
-    let mut out = Vec::new();
-    for (flat, entry) in instance.item_table.iter().enumerate() {
-        let Some((path, local_idx)) = entry.as_ref() else { continue };
-        if *local_idx != target_local {
+    let compilation_unit = &instance.root_sub_component.compilation_unit;
+    let root_sub_component_index = instance.root_sub_component.sub_component_idx;
+    let mut flat_indices = Vec::new();
+    for (flat_index, entry) in instance.item_table.iter().enumerate() {
+        let Some((sub_component_path, local_index)) = entry.as_ref() else { continue };
+        if *local_index != target.local_item_index {
             continue;
         }
-        if sub_component_idx_at_path(cu, root_ty, path) != target_sc_idx {
-            continue;
-        }
-        if let Some((us_path, us_offset)) = use_site
-            && !path_passes_use_site(cu, root_ty, path, us_path, us_offset)
+        if sub_component_index_at_path(
+            compilation_unit,
+            root_sub_component_index,
+            sub_component_path,
+        ) != target.sub_component_index
         {
             continue;
         }
-        out.push(flat);
+        if !target.use_sites.iter().all(|use_site| {
+            path_passes_use_site(
+                compilation_unit,
+                root_sub_component_index,
+                sub_component_path,
+                *use_site,
+            )
+        }) {
+            continue;
+        }
+        flat_indices.push(flat_index);
     }
-    out
+    flat_indices
 }
 
-/// Whether any step of `path` descends through a sub-component instance
-/// whose use-site element is recorded at `(us_path, us_offset)`.
 fn path_passes_use_site(
-    cu: &i_slint_compiler::llr::CompilationUnit,
-    mut current: SubComponentIdx,
+    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
+    mut current_sub_component_index: SubComponentIdx,
     path: &[SubComponentInstanceIdx],
-    us_path: &Path,
-    us_offset: u32,
+    use_site: UseSite,
 ) -> bool {
-    for &instance_idx in path {
-        if let Some(debug) = cu.sub_components[current].debug_info.as_ref()
-            && let Some(loc) = debug.sub_component_use_sites.get(instance_idx)
-            && loc.source_file.as_ref().is_some_and(|f| f.path() == us_path)
-            && loc.span.offset as u32 == us_offset
+    for &sub_component_instance_index in path {
+        if current_sub_component_index == use_site.parent_sub_component
+            && sub_component_instance_index == use_site.sub_component_instance_index
         {
             return true;
         }
-        current = cu.sub_components[current].sub_components[instance_idx].ty;
+        current_sub_component_index = compilation_unit.sub_components[current_sub_component_index]
+            .sub_components[sub_component_instance_index]
+            .ty;
     }
     false
 }
@@ -300,47 +276,48 @@ fn path_passes_use_site(
 /// `root` plus every instantiated repeated / conditional row instance
 /// below it, recursively.
 fn all_instances(root: &VRc<ItemTreeVTable, Instance>) -> Vec<VRc<ItemTreeVTable, Instance>> {
-    let mut out = Vec::new();
-    collect_instances(root, &mut out);
-    out
+    let mut instances = Vec::new();
+    collect_instances(root, &mut instances);
+    instances
 }
 
 fn collect_instances(
-    inst: &VRc<ItemTreeVTable, Instance>,
-    out: &mut Vec<VRc<ItemTreeVTable, Instance>>,
+    instance: &VRc<ItemTreeVTable, Instance>,
+    instances: &mut Vec<VRc<ItemTreeVTable, Instance>>,
 ) {
-    out.push(inst.clone());
-    collect_row_instances(&inst.root_sub_component, out);
+    instances.push(instance.clone());
+    collect_row_instances(&instance.root_sub_component, instances);
 }
 
 fn collect_row_instances(
-    sub: &Pin<Rc<SubComponentInstance>>,
-    out: &mut Vec<VRc<ItemTreeVTable, Instance>>,
+    sub_component: &Pin<Rc<SubComponentInstance>>,
+    instances: &mut Vec<VRc<ItemTreeVTable, Instance>>,
 ) {
-    for repeater in sub.repeaters.iter() {
+    for repeater in sub_component.repeaters.iter() {
         repeater.track_instance_changes();
         for row in repeater.instances_vec() {
-            collect_instances(&row, out);
+            collect_instances(&row, instances);
         }
     }
-    for nested in sub.sub_components.iter() {
-        collect_row_instances(nested, out);
+    for nested_sub_component in sub_component.sub_components.iter() {
+        collect_row_instances(nested_sub_component, instances);
     }
 }
 
 /// Walk the LLR sub_components tree to resolve `path` into its concrete
 /// [`SubComponentIdx`].
-fn sub_component_idx_at_path(
-    cu: &i_slint_compiler::llr::CompilationUnit,
-    root_idx: SubComponentIdx,
+fn sub_component_index_at_path(
+    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
+    root_sub_component_index: SubComponentIdx,
     path: &[SubComponentInstanceIdx],
 ) -> SubComponentIdx {
-    let mut current = root_idx;
-    for &instance_idx in path {
-        let nested = &cu.sub_components[current].sub_components[instance_idx];
-        current = nested.ty;
+    let mut current_sub_component_index = root_sub_component_index;
+    for &sub_component_instance_index in path {
+        let nested_sub_component = &compilation_unit.sub_components[current_sub_component_index]
+            .sub_components[sub_component_instance_index];
+        current_sub_component_index = nested_sub_component.ty;
     }
-    current
+    current_sub_component_index
 }
 
 fn item_flat_index_to_rect(
@@ -416,23 +393,33 @@ fn are_perpendicular(x: LogicalVector, y: LogicalVector) -> bool {
     squared_lengths == 0. || dot * dot < 1.0e-6 * squared_lengths
 }
 
-fn positions_by_source(
+fn positions_by_sources<'a>(
     root: &VRc<ItemTreeVTable, Instance>,
-    target_path: &Path,
-    target_offset: u32,
-    use_site: Option<(&Path, u32)>,
+    sources: impl IntoIterator<Item = (&'a Path, u32, SourceMatch)>,
     filter: ElementPositionFilter,
 ) -> Vec<HighlightedRect> {
-    items_by_source(root, target_path, target_offset, use_site)
+    let mut matching_items = Vec::new();
+    for (target_path, target_offset, source_match) in sources {
+        for (instance, flat_index) in
+            items_by_source(root, target_path, target_offset, source_match)
+        {
+            if !matching_items.iter().any(|(existing_instance, existing_index)| {
+                VRc::ptr_eq(existing_instance, &instance) && *existing_index == flat_index
+            }) {
+                matching_items.push((instance, flat_index));
+            }
+        }
+    }
+    matching_items
         .into_iter()
-        .filter_map(|(instance, flat_idx)| {
+        .filter_map(|(instance, flat_index)| {
             if filter == ElementPositionFilter::ExcludeClipped {
-                let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_idx as u32);
+                let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
                 if !item.is_visible() {
                     return None;
                 }
             }
-            item_flat_index_to_rect(&instance, root, flat_idx)
+            item_flat_index_to_rect(&instance, root, flat_index)
         })
         .collect()
 }
@@ -463,40 +450,245 @@ fn items_by_source(
     root: &VRc<ItemTreeVTable, Instance>,
     target_path: &Path,
     target_offset: u32,
-    use_site: Option<(&Path, u32)>,
+    source_match: SourceMatch,
 ) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
-    let cu = root.root_sub_component.compilation_unit.clone();
+    let compilation_unit = root.root_sub_component.compilation_unit.clone();
+    let mut targets = Vec::new();
+    collect_item_targets(
+        &compilation_unit,
+        target_path,
+        target_offset,
+        source_match,
+        &[],
+        None,
+        &[],
+        &mut targets,
+    );
     let mut results = Vec::new();
-    // Repeated / conditional rows are separate instances with their own
-    // item tables, so search all of them, mapping geometry back into the
-    // root instance's coordinates.
     for instance in all_instances(root) {
-        for sc_idx in 0..cu.sub_components.len() {
-            let sc_idx: SubComponentIdx = sc_idx.into();
-            let sc = &cu.sub_components[sc_idx];
-            let Some(debug) = sc.debug_info.as_ref() else { continue };
-            for (local_idx, item_debug_entries) in debug.items.iter_enumerated() {
-                for item_debug_info in item_debug_entries {
-                    let Some(source_file) = item_debug_info.source_location.source_file.as_ref()
-                    else {
-                        continue;
-                    };
-                    if source_file.path() != target_path {
-                        continue;
-                    }
-                    if item_debug_info.source_location.span.offset as u32 != target_offset {
-                        continue;
-                    }
-                    for flat_idx in
-                        find_flat_indices_for_item(&instance, sc_idx, local_idx, use_site)
-                    {
-                        results.push((instance.clone(), flat_idx));
-                    }
+        for target in &targets {
+            if target.repeated_element_use.is_some_and(|repeated_element_use| {
+                !instance_belongs_to_repeated_element(&instance, repeated_element_use)
+            }) {
+                continue;
+            }
+            for flat_index in find_flat_indices_for_item(&instance, target) {
+                if !results.iter().any(|(existing_instance, existing_index)| {
+                    VRc::ptr_eq(existing_instance, &instance) && *existing_index == flat_index
+                }) {
+                    results.push((instance.clone(), flat_index));
                 }
             }
         }
     }
     results
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum SourceMatch {
+    Contains,
+    Start,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct UseSite {
+    parent_sub_component: SubComponentIdx,
+    sub_component_instance_index: SubComponentInstanceIdx,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct RepeatedElementUse {
+    parent_sub_component: SubComponentIdx,
+    repeated_element_index: RepeatedElementIdx,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct ItemTarget {
+    sub_component_index: SubComponentIdx,
+    local_item_index: ItemInstanceIdx,
+    use_sites: Vec<UseSite>,
+    repeated_element_use: Option<RepeatedElementUse>,
+}
+
+fn collect_item_targets(
+    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
+    target_path: &Path,
+    target_offset: u32,
+    source_match: SourceMatch,
+    use_sites: &[UseSite],
+    repeated_element_use: Option<RepeatedElementUse>,
+    ignored_repeated_elements: &[RepeatedElementUse],
+    targets: &mut Vec<ItemTarget>,
+) {
+    let matching_repeated_elements = compilation_unit
+        .sub_components
+        .iter_enumerated()
+        .flat_map(|(sub_component_index, sub_component)| {
+            sub_component.debug_info.iter().flat_map(move |debug_info| {
+                debug_info.repeated_elements.iter_enumerated().filter_map(
+                    move |(repeated_element_index, source_location)| {
+                        source_location_matches(
+                            source_location,
+                            target_path,
+                            target_offset,
+                            source_match,
+                        )
+                        .then_some(RepeatedElementUse {
+                            parent_sub_component: sub_component_index,
+                            repeated_element_index,
+                        })
+                        .filter(|matching_repeated_element| {
+                            !ignored_repeated_elements.contains(matching_repeated_element)
+                        })
+                    },
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if !matching_repeated_elements.is_empty() {
+        for child_repeated_element_use in matching_repeated_elements.iter().copied() {
+            collect_item_targets(
+                compilation_unit,
+                target_path,
+                target_offset,
+                source_match,
+                use_sites,
+                Some(child_repeated_element_use),
+                &matching_repeated_elements,
+                targets,
+            );
+        }
+        return;
+    }
+
+    let matching_use_sites = compilation_unit
+        .sub_components
+        .iter_enumerated()
+        .flat_map(|(sub_component_index, sub_component)| {
+            sub_component.debug_info.iter().flat_map(move |debug_info| {
+                debug_info.sub_component_use_sites.iter_enumerated().filter_map(
+                    move |(sub_component_instance_index, source_location)| {
+                        source_location_matches(
+                            source_location,
+                            target_path,
+                            target_offset,
+                            source_match,
+                        )
+                        .then_some((sub_component_index, sub_component_instance_index))
+                    },
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
+    if !matching_use_sites.is_empty() {
+        for (sub_component_index, sub_component_instance_index) in matching_use_sites {
+            let sub_component = &compilation_unit.sub_components[sub_component_index];
+            let child_sub_component_index =
+                sub_component.sub_components[sub_component_instance_index].ty;
+            let Some(child_debug_info) =
+                compilation_unit.sub_components[child_sub_component_index].debug_info.as_ref()
+            else {
+                continue;
+            };
+            let Some(child_source_file) = child_debug_info.source_location.source_file.as_ref()
+            else {
+                continue;
+            };
+            let Ok(child_source_offset) =
+                u32::try_from(child_debug_info.source_location.span.offset)
+            else {
+                continue;
+            };
+            let child_ignored_repeated_elements = if child_source_file.path() == target_path
+                && child_source_offset == target_offset
+            {
+                ignored_repeated_elements
+            } else {
+                &[]
+            };
+            let mut child_use_sites = use_sites.to_vec();
+            let child_use_site =
+                UseSite { parent_sub_component: sub_component_index, sub_component_instance_index };
+            if child_use_sites.contains(&child_use_site) {
+                continue;
+            }
+            child_use_sites.push(child_use_site);
+            collect_item_targets(
+                compilation_unit,
+                child_source_file.path(),
+                child_source_offset,
+                SourceMatch::Start,
+                &child_use_sites,
+                repeated_element_use,
+                child_ignored_repeated_elements,
+                targets,
+            );
+        }
+        return;
+    }
+
+    for (sub_component_index, sub_component) in compilation_unit.sub_components.iter_enumerated() {
+        let Some(debug_info) = sub_component.debug_info.as_ref() else { continue };
+
+        for (local_item_index, item_debug_entries) in debug_info.items.iter_enumerated() {
+            if item_debug_entries.iter().any(|item_debug_info| {
+                source_location_matches(
+                    &item_debug_info.source_location,
+                    target_path,
+                    target_offset,
+                    source_match,
+                )
+            }) {
+                let target = ItemTarget {
+                    sub_component_index,
+                    local_item_index,
+                    use_sites: use_sites.to_vec(),
+                    repeated_element_use,
+                };
+                if !targets.contains(&target) {
+                    targets.push(target);
+                }
+            }
+        }
+    }
+}
+
+fn instance_belongs_to_repeated_element(
+    instance: &VRc<ItemTreeVTable, Instance>,
+    repeated_element_use: RepeatedElementUse,
+) -> bool {
+    let Some((parent_sub_component, repeated_element_index)) =
+        instance.root_sub_component.repeated_in.get()
+    else {
+        return false;
+    };
+    *repeated_element_index == repeated_element_use.repeated_element_index
+        && parent_sub_component.upgrade().is_some_and(|parent_sub_component| {
+            parent_sub_component.sub_component_idx == repeated_element_use.parent_sub_component
+        })
+}
+
+fn source_location_matches(
+    source_location: &i_slint_compiler::diagnostics::SourceLocation,
+    target_path: &Path,
+    target_offset: u32,
+    source_match: SourceMatch,
+) -> bool {
+    let Some(source_file) = source_location.source_file.as_ref() else { return false };
+    if source_file.path() != target_path {
+        return false;
+    }
+    let target_offset = target_offset as usize;
+    match source_match {
+        SourceMatch::Contains => {
+            source_location.span.offset <= target_offset
+                && target_offset
+                    < source_location.span.offset.saturating_add(source_location.span.length)
+        }
+        SourceMatch::Start => source_location.span.offset == target_offset,
+    }
 }
 
 #[cfg(all(test, feature = "internal"))]
@@ -528,11 +720,15 @@ mod tests {
         let element_id_position =
             source.find(element_id).unwrap_or_else(|| panic!("{element_id} not found"));
         let offset = element_id_position + source[element_id_position..].find("Rectangle").unwrap();
-        let (runtime_instance, flat_index) =
-            super::items_by_source(instance.inner.vrc(), &test_path(), offset as u32, None)
-                .into_iter()
-                .next()
-                .unwrap_or_else(|| panic!("runtime item for {element_id}"));
+        let (runtime_instance, flat_index) = super::items_by_source(
+            instance.inner.vrc(),
+            &test_path(),
+            offset as u32,
+            super::SourceMatch::Start,
+        )
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("runtime item for {element_id}"));
         ItemRc::new(VRc::into_dyn(runtime_instance), flat_index as u32)
     }
 
@@ -626,6 +822,13 @@ export component Win inherits Window {
         width: 40px;
         height: 30px;
     }
+    clipped := Rectangle {
+        clip: true;
+        x: 90px;
+        y: 15px;
+        width: 30px;
+        height: 25px;
+    }
     outer := Rectangle {
         x: 10px;
         y: 20px;
@@ -653,6 +856,7 @@ export component Win inherits Window {
 
         check("plain", (30.0, 40.0));
         check("faded", (70.0, 80.0));
+        check("clipped", (90.0, 15.0));
         check("nested", (5.0, 7.0));
     }
 
