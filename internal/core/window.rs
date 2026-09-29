@@ -173,7 +173,7 @@ pub trait WindowAdapter {
     }
 
     /// Re-implement this to apply the popup's anchor/gravity/constraint-adjustment
-    /// positioner data to the native window (currently only Wayland acts on this).
+    /// positioner data to the native window
     fn set_position_anchor(&self, _anchor: &crate::items::PopupAnchor) {}
 }
 
@@ -543,7 +543,7 @@ pub struct PopupWindow {
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
     /// Callback that returns the current anchor/gravity/constraint-adjustment positioner data,
-    /// re-evaluated alongside `position_access` so that native backends (currently Wayland) can
+    /// re-evaluated alongside `position_access` so that native backends can
     /// re-apply it when a dependency of the `anchor` property changes.
     anchor_access: Box<dyn Fn() -> PopupAnchor>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
@@ -2050,7 +2050,7 @@ impl WindowInner {
     /// for popups (such as menus) that do not expose `is-open`.
     ///
     /// `popup_access_anchor` provides the positioner data (anchor rect, gravity, constraint
-    /// adjustment) that native backends supporting it (currently Wayland) use to place the popup.
+    /// adjustment) that native backends supporting it use to place the popup.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,

@@ -106,7 +106,7 @@ pub(crate) fn show_popup_window(ctx: &mut EvalContext, arguments: &[Expression])
             eval_expression(&mut popup_ctx, &pos_expr).try_into().unwrap_or_default()
         })
     };
-    // The anchor is read lazily too, so a change to the anchor property after
+    // The anchor is read lazily, so a change to the anchor property after
     // `show()` is reflected the next time the backend queries the placement.
     let access_anchor: Box<dyn Fn() -> i_slint_core::items::PopupAnchor> = {
         let anchor_ref = popup.anchor.clone();
