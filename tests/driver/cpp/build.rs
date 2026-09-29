@@ -21,12 +21,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
 
     // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    target_dir.pop();
-    target_dir.pop();
-    target_dir.pop();
-
-    println!("cargo:rustc-env=CPP_LIB_PATH={}/deps", target_dir.display());
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let profile_dir = out_dir
+        .ancestors()
+        .find(|dir| dir.file_name().is_some_and(|name| name == "build"))
+        .and_then(Path::parent)
+        .expect("OUT_DIR is in the build directory of a profile");
+    println!("cargo:rustc-env=CPP_PROFILE_DIR={}", profile_dir.display());
 
     let generated_include_dir = std::env::var_os("DEP_SLINT_CPP_GENERATED_INCLUDE_DIR")
         .expect("the slint-cpp crate needs to provide the meta-data that points to the directory with the generated includes");

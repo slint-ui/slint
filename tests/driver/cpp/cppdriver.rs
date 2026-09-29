@@ -147,7 +147,7 @@ namespace slint_testing = slint::private_api::testing;
             // header.
             compiler_command.arg("-Wno-invalid-offsetof");
         }
-        compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
+        compiler_command.arg(format!("-L{}", cpp_lib_dir().display()));
         compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
 
@@ -171,7 +171,7 @@ namespace slint_testing = slint::private_api::testing;
             // definitions and must be linked into every user.
             compiler_command.arg(dir.join("prelude.obj"));
         }
-        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
+        compiler_command.arg("/link").arg(cpp_lib_dir().join("slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);
@@ -204,7 +204,7 @@ namespace slint_testing = slint::private_api::testing;
     }
 
     let output = cmd
-        .envs(library_search_path_env_with(env!("CPP_LIB_PATH")))
+        .envs(library_search_path_env_with(&cpp_lib_dir().to_string_lossy()))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -294,6 +294,32 @@ fn build_precompiled_header(compiler: &cc::Tool) -> Result<std::path::PathBuf, S
         ));
     }
     Ok(prelude)
+}
+
+/// The directory with the slint-cpp shared library.
+///
+/// The lib is in an unknown subfolder with a hash as name. Search all subfolders of slint-cpp
+/// to find the library
+fn cpp_lib_dir() -> &'static std::path::Path {
+    static DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        let profile_dir = std::path::Path::new(env!("CPP_PROFILE_DIR"));
+        let lib_name =
+            format!("{}slint_cpp{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
+        let unit_dirs = std::fs::read_dir(profile_dir.join("build").join("slint-cpp"))
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| Some(entry.ok()?.path().join("out")));
+        std::iter::once(profile_dir.join("deps"))
+            .chain(unit_dirs)
+            .filter_map(|dir| {
+                let modified = dir.join(&lib_name).metadata().ok()?.modified().ok()?;
+                Some((modified, dir))
+            })
+            .max()
+            .map(|(_, dir)| dir)
+            .unwrap_or_else(|| panic!("{lib_name} not found below {}", profile_dir.display()))
+    })
 }
 
 fn library_search_path_env_with(
