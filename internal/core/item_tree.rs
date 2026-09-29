@@ -11,7 +11,7 @@ use crate::accessibility::{
 };
 use crate::items::{AccessibleRole, ItemRef, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalSize};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
@@ -707,6 +707,21 @@ impl ItemRc {
     /// each of those walks the ancestor chain to build this transform and then drops it.
     pub fn transform_to_item_tree(&self, item_tree: &vtable::VRc<ItemTreeVTable>) -> ItemTransform {
         self.transform_to_ancestor_impl(|current| current.is_root_item_of(item_tree))
+    }
+
+    /// Returns the scaled size given the logical size using transform from [Self::transform_to_item_tree]
+    pub fn scale_size_to_item_tree(
+        &self,
+        original_size: LogicalSize,
+        item_tree: &vtable::VRc<ItemTreeVTable>,
+    ) -> LogicalSize {
+        let transform = self.transform_to_item_tree(item_tree);
+        let scale_w = transform.m11;
+        let scale_h = transform.m22;
+        LogicalSize::new(
+            original_size.width as f32 * scale_w,
+            original_size.height as f32 * scale_h,
+        )
     }
 
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
