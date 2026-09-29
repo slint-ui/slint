@@ -227,6 +227,7 @@ component ModalNavigationDrawerPopup inherits ModalDrawer {
 }
 
 export component ModalNavigationDrawer {
+    out property <bool> is-open: popup.is-open;
     callback selected(group-index: int, item-index: int);
     callback item_pointer_event(group_index: int, item_index: int, event: PointerEvent, position: Point);
     in property <bool> position_right;

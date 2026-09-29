@@ -7,6 +7,7 @@ export component TestCase inherits Window {
     width: 300px;
     height: 200px;
 
+    out property <bool> is-open: drawer.is-open;
     out property <int> current-group: drawer.current_group;
     out property <int> current-index: drawer.current_index;
 
@@ -41,13 +42,17 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 
 instance.invoke_open_drawer();
+assert!(instance.get_is_open());
 instance.invoke_select_entry(1, 1);
 slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1);
+assert!(!instance.get_is_open());
 
 assert_eq!(instance.get_current_group(), 1);
 assert_eq!(instance.get_current_index(), 1);
 
 instance.invoke_open_drawer();
+assert!(instance.get_is_open());
 assert_eq!(instance.get_current_group(), 1);
 assert_eq!(instance.get_current_index(), 1);
 ```
@@ -57,13 +62,17 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 instance.invoke_open_drawer();
+assert(instance.get_is_open());
 instance.invoke_select_entry(1, 1);
 slint_testing::mock_elapsed_time(1);
+slint_testing::mock_elapsed_time(1);
+assert(!instance.get_is_open());
 
 assert_eq(instance.get_current_group(), 1);
 assert_eq(instance.get_current_index(), 1);
 
 instance.invoke_open_drawer();
+assert(instance.get_is_open());
 assert_eq(instance.get_current_group(), 1);
 assert_eq(instance.get_current_index(), 1);
 ```
@@ -72,13 +81,17 @@ assert_eq(instance.get_current_index(), 1);
 var instance = new slint.TestCase();
 
 instance.open_drawer();
+assert.equal(instance.is_open, true);
 instance.select_entry(1, 1);
 slintlib.private_api.mock_elapsed_time(1);
+slintlib.private_api.mock_elapsed_time(1);
+assert.equal(instance.is_open, false);
 
 assert.equal(instance.current_group, 1);
 assert.equal(instance.current_index, 1);
 
 instance.open_drawer();
+assert.equal(instance.is_open, true);
 assert.equal(instance.current_group, 1);
 assert.equal(instance.current_index, 1);
 ```
