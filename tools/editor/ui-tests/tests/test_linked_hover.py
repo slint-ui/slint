@@ -8,13 +8,14 @@ import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image
+from ui_assertions import expect
 from ui_driver import (
     element,
-    elements,
     first_window,
     launch_editor,
     outline_row,
     outline_rows,
+    query,
     screenshot,
     wait_until,
 )
@@ -82,7 +83,7 @@ def test_hover_links_canvas_and_outline(
 
             wait_until(hover_matches)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
-        wait_until(lambda: not elements(window, "Hovered Text") or None)
+        expect(query(window, "Hovered Text")).to_be_hidden()
         restored_image = screenshot(window)
         for label in labels:
             assert row_background(window, label, restored_image) == backgrounds[label]

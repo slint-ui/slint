@@ -12,12 +12,14 @@ from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     elements,
     first_window,
     launch_editor,
     press_key,
     press_shortcut,
+    query,
     select_outline_row,
     wait_until,
 )
@@ -130,7 +132,7 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         press_key(window, keys.Delete)
-        wait_until(lambda: not elements(window, "Gradient stop 3") or None)
+        expect(query(window, "Gradient stop 3")).to_be_hidden()
         control(window, "Gradient stop 2")
         press_key(window, keys.LeftArrow)
         assert float(
@@ -155,7 +157,7 @@ def test_conic_swatch_delete_keeps_canvas_element(
         window = first_window(editor)
         open_conic(window)
         click(window, "Remove stop 3")
-        wait_until(lambda: not elements(window, "Gradient stop 3") or None)
+        expect(query(window, "Gradient stop 3")).to_be_hidden()
         position = control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
         )
@@ -444,13 +446,13 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         assert not elements(window, "Hex color")
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert field.accessible_value == "#264052"
+        expect(field).to_have_value("#264052")
         click(window, "Gradient stop 1")
-        wait_until(lambda: field if field.accessible_value == "#7e3b66" else None)
+        expect(field).to_have_value("#7e3b66")
         click(window, "Gradient stop 2")
-        wait_until(lambda: field if field.accessible_value == "#264052" else None)
+        expect(field).to_have_value("#264052")
         field.accessible_value = "#abcdef80"
-        wait_until(lambda: field if field.accessible_value == "#abcdef80" else None)
+        expect(field).to_have_value("#abcdef80")
         click(window, "Close Stop color")
         control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput

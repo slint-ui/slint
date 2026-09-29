@@ -8,6 +8,7 @@ import slint_testing
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
     element,
@@ -18,6 +19,7 @@ from ui_driver import (
     palette_row,
     press_key,
     press_keys,
+    query,
     wait_until,
 )
 
@@ -71,7 +73,7 @@ def test_file_tree_saves_rename_when_focus_moves(
         ).invoke_accessible_default_action()
 
         wait_until(lambda: True if target.is_file() and not source.exists() else None)
-        wait_until(lambda: True if not elements(window, "Rename Main.slint") else None)
+        expect(query(window, "Rename Main.slint")).to_be_hidden()
         assert target.read_text() == expected
 
 
@@ -94,13 +96,7 @@ def test_file_tree_limits_rename_error_to_edited_row(
         press_keys(window, "Sibling")
         press_key(window, keys.Return)
 
-        wait_until(
-            lambda: (
-                True
-                if len(elements(window, "A file with that name already exists")) == 1
-                else None
-            )
-        )
+        expect(query(window, "A file with that name already exists")).to_be_visible()
 
 
 def test_file_tree_opens_sibling_component(

@@ -14,6 +14,7 @@ from typing import TypeVar
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
+from ui_assertions import expect
 from ui_reporting import capture_failure, current_report, replay_stage
 
 
@@ -74,12 +75,14 @@ def first_window(
     return window
 
 
-def _query(
+def query(
     scope: slint_testing.Window | slint_testing.Element,
-    name: str | None,
-    role: slint_testing.AccessibleRole | None,
-    id: str | None,
+    name: str | None = None,
+    *,
+    role: slint_testing.AccessibleRole | None = None,
+    id: str | None = None,
 ) -> slint_testing.ElementQuery:
+    """The query that element() and elements() run, for assertions on its matches."""
     query = scope.query_descendants()
     if id is not None:
         query = query.match_id(id)
@@ -106,10 +109,10 @@ def element(
     `tracking=False` for a handle to the instance that matches now, to keep reading it while the
     element is hidden from queries.
     """
-    query = _query(scope, name, role, id)
+    lookup = query(scope, name, role=role, id=id)
     if tracking:
-        return query.tracking(timeout).find_one()
-    return wait_until(query.find_one, timeout=timeout)
+        return lookup.tracking(timeout).find_one()
+    return wait_until(lookup.find_one, timeout=timeout)
 
 
 def elements(
@@ -120,7 +123,7 @@ def elements(
     id: str | None = None,
 ) -> list[slint_testing.Element]:
     """The elements below `scope` that match right now, without waiting."""
-    return _query(scope, name, role, id).find_all()
+    return query(scope, name, role=role, id=id).find_all()
 
 
 ELEMENT_ROWS = {
@@ -146,7 +149,8 @@ def select_outline_row(
 ) -> slint_testing.Element:
     row = outline_row(window, row_label)
     row.invoke_accessible_default_action()
-    return wait_until(lambda: row if row.accessible_item_selected else None)
+    expect(row).to_be_selected()
+    return row
 
 
 def select_fixture_element(window: slint_testing.Window, element_type: str) -> None:

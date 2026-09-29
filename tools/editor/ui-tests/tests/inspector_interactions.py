@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from ui_driver import element, elements, wait_until
+from ui_assertions import expect
+from ui_driver import element, elements
 
 FIELDS = {
     "x": "Position X",
@@ -78,11 +79,4 @@ def wait_for_field(
     role: slint_testing.AccessibleRole | None = None,
     timeout: float = 5,
 ) -> None:
-    wait_until(
-        lambda: (
-            field
-            if (field := inspector_field(window, label, role)).accessible_value == value
-            else None
-        ),
-        timeout=timeout,
-    )
+    expect(inspector_field(window, label, role)).to_have_value(value, timeout=timeout)

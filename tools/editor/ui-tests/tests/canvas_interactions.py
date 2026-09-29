@@ -7,11 +7,13 @@ from collections.abc import Callable
 import slint_testing
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
     palette_row,
     press_shortcut,
+    query,
     wait_until,
 )
 
@@ -23,13 +25,8 @@ def begin_palette_drag(
     kind: str,
     target: slint_testing.LogicalPosition,
 ) -> None:
-    row = wait_until(
-        lambda: (
-            candidate
-            if (candidate := palette_row(window, kind)).accessible_enabled
-            else None
-        )
-    )
+    row = palette_row(window, kind)
+    expect(row).to_be_enabled()
     start = center(row)
     button = slint_testing.PointerEventButton.Left
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
@@ -399,11 +396,7 @@ def zoom_canvas(window: slint_testing.Window, percent: int) -> None:
     direction = 1 if target > current else -1
     for index in range(current + direction, target + direction, direction):
         press_shortcut(window, modifier, "+" if direction > 0 else "-")
-        wait_until(
-            lambda index=index: (
-                True if canvas.accessible_value == f"{levels[index]}%" else None
-            )
-        )
+        expect(canvas).to_have_value(f"{levels[index]}%")
 
 
 def center_canvas_selection(
@@ -436,4 +429,4 @@ def hover_rectangle(window: slint_testing.Window) -> None:
 
 
 def wait_for_no_rectangle_hover(window: slint_testing.Window) -> None:
-    wait_until(lambda: True if not elements(window, "Hovered Rectangle") else None)
+    expect(query(window, "Hovered Rectangle")).to_be_hidden()

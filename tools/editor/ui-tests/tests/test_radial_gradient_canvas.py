@@ -12,6 +12,7 @@ from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
     elements,
     first_window,
@@ -167,7 +168,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert field.accessible_value == "#264052"
+        expect(field).to_have_value("#264052")
         field.accessible_value = "#abcdef80"
         click(window, "Close Stop color")
         c = center(control(window, "Gradient center handle"), 35)

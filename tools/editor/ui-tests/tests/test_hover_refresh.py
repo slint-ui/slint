@@ -16,12 +16,14 @@ from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field
 from slint_testing import keys
 from source_snapshot import wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
     first_window,
     launch_editor,
     press_shortcut,
+    query,
     select_fixture_element,
     wait_until,
 )
@@ -106,12 +108,8 @@ def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
         source.write_bytes(expected)
         wait_for_source(source, expected)
         assert fixture_element(window, "Rectangle").size.width == pytest.approx(100)
-        wait_until(
-            lambda: (
-                True
-                if element(window, "Hovered Rectangle").size.width == pytest.approx(100)
-                else None
-            )
+        expect(query(window, "Hovered Rectangle")).to_have_geometry(
+            width=pytest.approx(100)
         )
 
 
