@@ -231,14 +231,10 @@ def test_canvas_scroll_and_space_pan(
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(start, delta_x=24, delta_y=32)
         )
-        wait_until(
-            lambda: (
-                True
-                if frame.absolute_position.x == pytest.approx(before.x + 24)
-                else None
-            )
-        )
-        assert frame.absolute_position.y == pytest.approx(before.y + 32)
+        expect.poll(
+            lambda: (frame.absolute_position.x, frame.absolute_position.y),
+            message="selection position after canvas scroll",
+        ).to_equal((pytest.approx(before.x + 24), pytest.approx(before.y + 32)))
         # Clicking the canvas frame gives the editor keyboard focus.
         handle = element(window, "Rectangle move handle")
         point = center(handle)
@@ -274,7 +270,7 @@ def test_zoom_during_inline_edit_preserves_text(
         text = element(window, "Inline text editor")
         press_keys(window, "Hello ")
         press_shortcut(window, keys.Control, "=")
-        wait_until(lambda: True if text.size.width == pytest.approx(225) else None)
+        expect(text).to_have_geometry(width=pytest.approx(225))
         press_keys(window, "world")
         press_key(window, keys.Return)
         original.wait_for_applied(

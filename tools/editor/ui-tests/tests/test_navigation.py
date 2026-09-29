@@ -20,7 +20,6 @@ from ui_driver import (
     press_key,
     press_keys,
     query,
-    wait_until,
 )
 
 
@@ -45,7 +44,10 @@ def test_file_tree_renames_file_inline(
         press_keys(window, "Renamed")
         press_key(window, keys.Return)
 
-        wait_until(lambda: True if target.is_file() and not source.exists() else None)
+        expect.poll(
+            lambda: target.is_file() and not source.exists(),
+            message="renamed file exists and original is gone",
+        ).to_equal(True)
         assert target.read_text() == expected
 
 
@@ -72,7 +74,10 @@ def test_file_tree_saves_rename_when_focus_moves(
             window, fixture_project / "Sibling.slint"
         ).invoke_accessible_default_action()
 
-        wait_until(lambda: True if target.is_file() and not source.exists() else None)
+        expect.poll(
+            lambda: target.is_file() and not source.exists(),
+            message="renamed file exists and original is gone",
+        ).to_equal(True)
         expect(query(window, "Rename Main.slint")).to_be_hidden()
         assert target.read_text() == expected
 
@@ -145,12 +150,12 @@ def test_file_tree_switches_image_and_component_surfaces(
         assert {
             field.accessible_value for field in file_fields if field.accessible_value
         } == {"assets/checker.svg"}
-        wait_until(lambda: True if not elements(window, "Editor canvas") else None)
+        expect(query(window, "Editor canvas")).to_be_hidden()
         for kind in PALETTE_KINDS:
             assert not palette_row(window, kind).accessible_enabled
         file_row(window, source_file).invoke_accessible_default_action()
         element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
         element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
         file_row(window, assets).invoke_accessible_default_action()
-        wait_until(lambda: True if not elements(window, str(image)) else None)
+        expect(query(window, str(image))).to_be_hidden()
         snapshot.assert_unchanged()

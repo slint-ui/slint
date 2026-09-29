@@ -191,7 +191,9 @@ def test_gallery_slider_drag_cancel_and_reset(
         original = float(slider.accessible_value)
         target = slider_track_position(slider, 0.75)
         gesture(window, target, target)
-        wait_until(lambda: True if float(slider.accessible_value) == 75 else None)
+        expect.poll(
+            lambda: float(slider.accessible_value), message=f"{label} value"
+        ).to_equal(75)
         other = element(
             window, "Rotation knob", role=slint_testing.AccessibleRole.Slider
         )
@@ -204,7 +206,9 @@ def test_gallery_slider_drag_cancel_and_reset(
                 cancel_target, slint_testing.PointerEventButton.Left
             )
         )
-        wait_until(lambda: True if float(slider.accessible_value) == 40 else None)
+        expect.poll(
+            lambda: float(slider.accessible_value), message=f"{label} drag value"
+        ).to_equal(40)
         press_key(window, keys.Escape)
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
@@ -213,18 +217,14 @@ def test_gallery_slider_drag_cancel_and_reset(
         )
         assert float(slider.accessible_value) == 76
         element(window, "Reset example").invoke_accessible_default_action()
-        wait_until(
-            lambda: (
-                True
-                if float(
-                    element(
-                        window, label, role=slint_testing.AccessibleRole.Slider
-                    ).accessible_value
-                )
-                == original
-                else None
-            )
-        )
+        expect.poll(
+            lambda: float(
+                element(
+                    window, label, role=slint_testing.AccessibleRole.Slider
+                ).accessible_value
+            ),
+            message=f"reset {label} value",
+        ).to_equal(original)
 
 
 def test_gallery_shadow_angle_drag(gallery_binary, editor_environment):
@@ -238,7 +238,9 @@ def test_gallery_shadow_angle_drag(gallery_binary, editor_environment):
         start = slint_testing.LogicalPosition(middle.x, middle.y + radius)
         end = slint_testing.LogicalPosition(middle.x + radius, middle.y)
         gesture(window, start, end)
-        wait_until(lambda: True if float(dial.accessible_value) == 0 else None)
+        expect.poll(
+            lambda: float(dial.accessible_value), message="shadow angle"
+        ).to_equal(0)
 
 
 def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environment):

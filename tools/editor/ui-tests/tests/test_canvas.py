@@ -27,6 +27,7 @@ from canvas_interactions import (
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
@@ -818,18 +819,10 @@ def assert_radius_handle_positions(
 
 
 def wait_for_radius_tooltip(window: slint_testing.Window, radius: float) -> None:
-    wait_until(
-        lambda: (
-            True
-            if float(
-                element(
-                    window, "Radius value", role=slint_testing.AccessibleRole.Text
-                ).accessible_value
-            )
-            == radius
-            else None
-        )
-    )
+    value = element(window, "Radius value", role=slint_testing.AccessibleRole.Text)
+    expect.poll(
+        lambda: float(value.accessible_value), message="radius tooltip value"
+    ).to_equal(radius)
 
 
 @pytest.mark.parametrize("kind", MOVE_KINDS)

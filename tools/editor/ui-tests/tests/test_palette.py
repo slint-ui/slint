@@ -9,6 +9,7 @@ from canvas_interactions import begin_palette_drag, center, zoom_canvas
 from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
     element,
@@ -81,7 +82,10 @@ def test_insert_palette_element_writes_exact_source(
                 None,
             )
         )
-        wait_until(lambda: True if inserted.accessible_item_selected else None)
+        expect.poll(
+            lambda: inserted.accessible_item_selected,
+            message=f"inserted {kind} outline row is selected",
+        ).to_equal(True)
 
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
@@ -148,13 +152,10 @@ def library_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
 
 
 def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
-    wait_until(
-        lambda: (
-            True
-            if [row.accessible_label for row in library_rows(window)] == labels
-            else None
-        )
-    )
+    expect.poll(
+        lambda: [row.accessible_label for row in library_rows(window)],
+        message="visible element library rows",
+    ).to_equal(labels)
 
 
 def test_library_search_restores_independent_collapse_states(
