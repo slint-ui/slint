@@ -215,7 +215,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents the possible adjustments made to a popup if the popup
             /// does not fit into the window
             #[non_exhaustive]
-            struct ConstraintAdjustment {
+            pub struct ConstraintAdjustment {
                 /// The popup can be slid along the respective axis to fit
                 /// fully on screen
                 slide: bool,
@@ -229,7 +229,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents additional properties to specify the location of a popup and
             /// its behavior when not fitting into screen
             #[non_exhaustive]
-            struct PopupAnchor {
+            pub struct PopupAnchor {
                 /// The popups anchor point location on the anchor rect
                 location: PopupAnchorLocation,
                 /// The position of the popup relative to the anchor point in x direction
