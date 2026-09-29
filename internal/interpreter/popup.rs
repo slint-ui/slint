@@ -7,8 +7,8 @@
 
 use crate::Value;
 use crate::eval::{
-    EvalContext, eval_expression, find_window_adapter, resolve_item_rc_from_ref, store_property,
-    try_walk_to,
+    EvalContext, eval_expression, find_window_adapter, load_property, resolve_item_rc_from_ref,
+    store_property, try_walk_to,
 };
 use crate::instance::SubComponentInstance;
 use i_slint_compiler::llr::{Expression, LocalMemberIndex, MemberReference};
