@@ -620,7 +620,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::BackendMouseEvent::Moved({ pos.x, pos.y }, 0));
+                slint::cbindgen_private::BackendMouseEvent::Moved({ pos.x, pos.y }, 0, {}));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.

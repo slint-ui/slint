@@ -572,6 +572,8 @@ fn gen_corelib(
         "LogicalPoint",
         "LogicalPosition",
         "LogicalLength",
+        // C++ only handles it by pointer, and cbindgen can't lay out its `Option<Instant>` fields.
+        "MouseEvent",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -742,7 +744,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["MouseEvent", "BackendMouseEvent", "TouchPhase"],
+            vec!["BackendMouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
@@ -751,6 +753,16 @@ fn gen_corelib(
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;
                 using LogicalLength = float;
+                // Rust's TouchHistory owns a Vec, which cbindgen can't lay out in C++, so
+                // BackendMouseEvent::Moved carries it as this instead: an EventTouchHistory
+                struct EventTouchHistory {
+                    const void *opaque_history = nullptr;
+
+                    bool operator==(const EventTouchHistory &o) const {
+                        return opaque_history == o.opaque_history;
+                    }
+                    bool operator!=(const EventTouchHistory &o) const { return !(*this == o); }
+                };
             }",
         ),
         (
@@ -826,6 +838,7 @@ fn gen_corelib(
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
             "PHYSICAL_REGION_MAX_SIZE",
+            "EventTouchHistory",
         ]
         .into_iter()
         .chain(config.export.exclude.iter().map(|s| s.as_str()))
@@ -1066,6 +1079,7 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;
+        namespace types { struct MouseEvent; }
         using types::MouseEvent;
 
         template<typename T> struct Option;
