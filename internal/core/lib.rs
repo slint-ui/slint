@@ -39,6 +39,8 @@ pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
+#[doc(hidden)]
+pub mod font_collection;
 pub mod future;
 pub mod graphics;
 pub mod input;
