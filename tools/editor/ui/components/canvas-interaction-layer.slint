@@ -49,6 +49,7 @@ component SelectedCanvasFrame inherits Rectangle {
     in property <bool> show-outline-while-moving;
     callback pointer-hovered(Point);
     callback hover-suppressed();
+    callback clicked(Point);
     callback double-clicked();
     callback focus-requested();
 
@@ -152,6 +153,7 @@ component SelectedCanvasFrame inherits Rectangle {
                 Api.select-at(preview.x, preview.y, false);
                 root.focus-requested();
                 root.pointer-hovered(position);
+                root.clicked(position);
             }
         }
         interaction-started => {
@@ -226,9 +228,13 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     callback gesture-ended();
     callback pointer-hovered(Point);
     callback real-element-selected();
-    callback text-press-started(string, int, SelectionRectangle);
+    callback text-clicked(string, int, Point);
 
     private property <Point> geometry-drag-position;
+    private property <bool> text-click-candidate;
+    private property <string> text-click-source-uri;
+    private property <int> text-click-offset: -1;
+    private property <Point> text-click-position;
 
     visible: Hover.element.valid;
     enabled: root.visible
@@ -277,13 +283,10 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
     move-press-started(position) => {
         if !root.gesture-active {
-            if Hover.element.type-name == "Text" {
-                root.text-press-started(
-                    Hover.element.source-uri,
-                    Hover.element.element-offset,
-                    root.geometry,
-                );
-            }
+            root.text-click-candidate = Hover.element.type-name == "Text";
+            root.text-click-source-uri = Hover.element.source-uri;
+            root.text-click-offset = Hover.element.element-offset;
+            root.text-click-position = position;
             root.gesture-started();
             Api.select-element(
                 Hover.element.element-path,
@@ -299,8 +302,16 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
     move-released(position) => {
         if root.gesture-active {
+            let text-click-candidate = root.text-click-candidate && !root.move-dragging;
+            let text-click-source-uri = root.text-click-source-uri;
+            let text-click-offset = root.text-click-offset;
+            let text-click-position = root.text-click-position;
             root.finish-interaction(position);
+            if text-click-candidate {
+                root.text-clicked(text-click-source-uri, text-click-offset, text-click-position);
+            }
         }
+        root.text-click-candidate = false;
     }
     pointer-moved(position) => {
         if !root.gesture-active {
@@ -331,12 +342,12 @@ export component CanvasInteractionLayer inherits TouchArea {
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
     private property <bool> unselected-text-click-pending;
-    private property <bool> unselected-text-second-press;
     private property <string> unselected-text-source-uri;
     private property <int> unselected-text-offset: -1;
-    private property <SelectionRectangle> unselected-text-geometry;
+    private property <Point> unselected-text-click-position;
     private property <bool> text-editing;
     private property <bool> text-edit-had-focus;
+    private property <bool> text-edit-typed;
     private property <string> text-edit-value;
     private property <string> text-edit-original;
     private property <string> text-edit-url;
@@ -458,7 +469,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             width: root.primary-selection.width,
             height: root.primary-selection.height,
         };
-        root.text-edit-override-id = Api.override-element-text("", "");
+        root.text-edit-override-id = Api.override-element-text("", text.value-string);
         if root.text-edit-override-id == "" {
             return;
         }
@@ -470,6 +481,7 @@ export component CanvasInteractionLayer inherits TouchArea {
         root.text-edit-scale-x = scale-x;
         root.text-edit-scale-y = scale-y;
         root.text-edit-had-focus = false;
+        root.text-edit-typed = false;
         root.text-editing = true;
     }
 
@@ -574,6 +586,20 @@ export component CanvasInteractionLayer inherits TouchArea {
         }
         hover-suppressed => { root.suppress-hover(); }
         focus-requested => { root.real-element-selected(); }
+        clicked(position) => {
+            let delta-x = (position.x - root.unselected-text-click-position.x) / 1px;
+            let delta-y = (position.y - root.unselected-text-click-position.y) / 1px;
+            let target-matches = root.unselected-text-click-pending
+                && Api.current-element.type-name == "Text"
+                && Api.current-element.source-uri == root.unselected-text-source-uri
+                && Api.current-element.offset == root.unselected-text-offset
+                && delta-x * delta-x + delta-y * delta-y < 100;
+            root.unselected-text-click-pending = false;
+            unselected-text-click-timeout.stop();
+            if target-matches {
+                root.begin-text-edit();
+            }
+        }
         double-clicked => {
             root.begin-text-edit();
         }
@@ -598,41 +624,12 @@ export component CanvasInteractionLayer inherits TouchArea {
         real-element-selected => {
             root.real-element-selected();
         }
-        text-press-started(source-uri, offset, geometry) => {
+        text-clicked(source-uri, offset, position) => {
             root.unselected-text-source-uri = source-uri;
             root.unselected-text-offset = offset;
-            root.unselected-text-geometry = geometry;
+            root.unselected-text-click-position = position;
             root.unselected-text-click-pending = true;
-            root.unselected-text-second-press = false;
             unselected-text-click-timeout.start();
-        }
-    }
-
-    // Selecting an element replaces its hover frame before a second click can reach it.
-    // Keep the original Text geometry as the hit target for the remaining double-click interval.
-    if (root.unselected-text-click-pending || root.unselected-text-second-press)
-        && Api.current-element.source-uri == root.unselected-text-source-uri
-        && Api.current-element.offset == root.unselected-text-offset: TouchArea
-    {
-        x: root.unselected-text-geometry.x * CanvasView.zoom;
-        y: root.unselected-text-geometry.y * CanvasView.zoom;
-        width: root.unselected-text-geometry.width * CanvasView.zoom;
-        height: root.unselected-text-geometry.height * CanvasView.zoom;
-        changed pressed => {
-            if self.pressed {
-                root.unselected-text-second-press = root.unselected-text-click-pending
-                    && Api.current-element.type-name == "Text";
-                root.unselected-text-click-pending = false;
-                unselected-text-click-timeout.stop();
-            } else if root.unselected-text-second-press {
-                root.unselected-text-second-press = false;
-            }
-        }
-        clicked => {
-            if root.unselected-text-second-press {
-                root.unselected-text-second-press = false;
-                root.begin-text-edit();
-            }
         }
     }
 
@@ -648,8 +645,12 @@ export component CanvasInteractionLayer inherits TouchArea {
             triggered => {
                 self.stop();
                 input.focus();
-                input.select-all();
-                root.text-edit-had-focus = input.has-focus;
+                if input.has-focus {
+                    input.select-all();
+                    root.text-edit-had-focus = true;
+                } else {
+                    root.commit-text-edit();
+                }
             }
         }
 
@@ -665,11 +666,19 @@ export component CanvasInteractionLayer inherits TouchArea {
             width: parent.width;
             height: parent.height;
             text <=> root.text-edit-value;
-            color: Api.current-property-value-data("color").value-brush;
-            font-family: Api.current-property-value-data("font-family").value-string;
-            font-size: Api.current-property-value-data("font-size").value-float
+            color: root.text-edit-typed ? transparent : Style.field.appearance.focus.foreground;
+            selection-background-color: Style.field.appearance.selection;
+            selection-foreground-color: Style.field.appearance.focus.foreground;
+            font-family: Api.current-property-value-data("font-family").value-string != ""
+                ? Api.current-property-value-data("font-family").value-string
+                : Api.preview-default-font-family;
+            font-size: (Api.current-property-value-data("font-size").value-float > 0
+                ? Api.current-property-value-data("font-size").value-float
+                : Api.preview-default-font-size)
                 * root.text-edit-scale-y * CanvasView.zoom * 1px;
-            font-weight: Api.current-property-value-data("font-weight").value-int;
+            font-weight: Api.current-property-value-data("font-weight").value-int != 0
+                ? Api.current-property-value-data("font-weight").value-int
+                : Api.preview-default-font-weight;
             font-italic: Api.current-property-value-data("font-italic").value-bool;
             horizontal-alignment: root.horizontal-text-alignment(
                 Api.current-property-value-data("horizontal-alignment").value-int,
@@ -683,6 +692,13 @@ export component CanvasInteractionLayer inherits TouchArea {
             single-line: true;
             wrap: no-wrap;
             accessible-label: "Inline text editor";
+
+            changed text => {
+                if root.text-editing {
+                    Api.override-element-text(root.text-edit-override-id, self.text);
+                }
+            }
+            edited => { root.text-edit-typed = true; }
 
             accepted => { root.commit-text-edit(); }
             changed has-focus => {

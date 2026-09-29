@@ -61,6 +61,7 @@ def test_insert_palette_element_writes_exact_source(
         window = first_window(editor)
         zoom_canvas(window, percent)
         target = canvas_drop_position(window, percent / 100)
+        text_preview_size = None
         snapshot.assert_unchanged_now()
         begin_palette_drag(window, kind, target)
         if kind == "Text":
@@ -76,6 +77,7 @@ def test_insert_palette_element_writes_exact_source(
             assert preview.absolute_position.y + preview.size.height * scale / 2 == (
                 pytest.approx(target.y, abs=1)
             )
+            text_preview_size = preview.size
         release_palette_drag(window, target)
         expected = (GOLDENS / f"Palette.insert-{kind.lower()}.slint").read_bytes()
         snapshot.wait_for_exact(expected, "Palette.slint")
@@ -84,9 +86,17 @@ def test_insert_palette_element_writes_exact_source(
                 window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
             )
             assert inline_editor.accessible_value == "Text"
-        element(
+            press_key(window, keys.Escape)
+        selected = element(
             window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region
         )
+        if text_preview_size is not None:
+            assert selected.size.width == pytest.approx(
+                text_preview_size.width * scale, abs=1
+            )
+            assert selected.size.height == pytest.approx(
+                text_preview_size.height * scale, abs=1
+            )
         outline = element(
             window, "Current file outline", role=slint_testing.AccessibleRole.List
         )
@@ -106,6 +116,40 @@ def test_insert_palette_element_writes_exact_source(
             lambda: inserted.accessible_item_selected,
             message=f"inserted {kind} outline row is selected",
         ).to_equal(True)
+
+
+def test_text_drag_preview_uses_preview_default_font_size(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Palette.slint"
+    source = source_file.read_bytes().replace(
+        b"    background: #f8fafc;",
+        b"    background: #f8fafc;\n    default-font-size: 24px;",
+    )
+    source_file.write_bytes(source)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source)
+        window = first_window(editor)
+        target = canvas_drop_position(window)
+        begin_palette_drag(window, "Text", target)
+        preview = window_element_with_label(
+            window, "Text drag preview", slint_testing.AccessibleRole.Region
+        )
+        preview_size = preview.size
+        assert preview_size.height >= 24
+        release_palette_drag(window, target)
+        window_element_with_label(
+            window, "Inline text editor", slint_testing.AccessibleRole.TextInput
+        )
+        press_key(window, keys.Escape)
+        selected = window_element_with_label(
+            window, "Selected Text", slint_testing.AccessibleRole.Region
+        )
+        assert selected.size.width == pytest.approx(preview_size.width, abs=1)
+        assert selected.size.height == pytest.approx(preview_size.height, abs=1)
 
 
 @pytest.mark.parametrize("kind", PALETTE_KINDS)

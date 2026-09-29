@@ -81,17 +81,6 @@ pub fn unselect_element(editor_notification: SelectionNotification) {
     super::set_selected_element(None, editor_notification);
 }
 
-pub fn unselect_element_from_editor() {
-    super::PREVIEW_STATE.with_borrow_mut(|state| {
-        // The editor clears its highlight while an accepted workspace edit reloads. Keep the
-        // pending request through that transient clear, but cancel it after a real deselection.
-        if state.pending_inline_text_edit.is_some() && state.selected.is_none() {
-            state.pending_inline_text_edit = None;
-        }
-    });
-    super::set_selected_element(None, SelectionNotification::Never);
-}
-
 pub fn select_element_at_source_code_position(
     path: SourcePath,
     offset: TextSize,
