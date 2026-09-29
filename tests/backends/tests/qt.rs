@@ -9,5 +9,5 @@ fn init() {
 }
 
 fn main() {
-    cases::harness::test_main();
+    test_driver_lib::fork_harness::test_main(satchel::get_tests!(), init);
 }
