@@ -803,7 +803,7 @@ async fn read_http_request(
 }
 
 fn find_header_end(buf: &[u8]) -> Option<usize> {
-    buf.windows(4).position(|w| w == b"\r\n\r\n")
+    buf.array_windows().position(|w| w == b"\r\n\r\n")
 }
 
 async fn write_http_response(

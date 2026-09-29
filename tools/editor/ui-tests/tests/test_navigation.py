@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import slint_testing
+from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
@@ -30,6 +31,7 @@ def test_file_tree_renames_file_inline(
     target = fixture_project / "Renamed.slint"
     expected = source.read_text()
     with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         file_row(window, source).invoke_accessible_default_action()
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
@@ -54,6 +56,7 @@ def test_file_tree_saves_rename_when_focus_moves(
     target = fixture_project / "Renamed.slint"
     expected = source.read_text()
     with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         file_row(window, source).invoke_accessible_default_action()
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
@@ -85,6 +88,7 @@ def test_file_tree_limits_rename_error_to_edited_row(
 ) -> None:
     source = fixture_project / "Main.slint"
     with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         file_row(window, source).invoke_accessible_default_action()
         press_key(window, keys.Return if sys.platform == "darwin" else keys.F2)
@@ -117,9 +121,9 @@ def test_file_tree_opens_sibling_component(
     fixture_project: Path,
 ) -> None:
     snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         file_row(
             window, fixture_project / "Sibling.slint"
@@ -139,9 +143,9 @@ def test_file_tree_folder_expand_and_collapse(
     snapshot = SourceSnapshot.capture(fixture_project)
     assets = fixture_project / "assets"
     image = assets / "checker.svg"
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         folder = file_row(window, assets)
         assert not elements_with_label(window.root_element, str(image))
@@ -168,6 +172,7 @@ def test_file_tree_switches_image_and_component_surfaces(
     assets = fixture_project / "assets"
     image = assets / "checker.svg"
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         window_element_with_label(
             window, "Editor canvas", slint_testing.AccessibleRole.Main

@@ -737,6 +737,17 @@ fn generate_shared_globals(
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
 
+            // The window's context, or the thread's before the window exists.
+            // Doesn't use `window_adapter_ref`: evaluating a binding must not create the window.
+            #[allow(dead_code)]
+            fn context_or_global(&self) -> sp::SlintContext {
+                self.window_adapter
+                    .get()
+                    .and_then(|adapter| sp::WindowInner::from_pub(adapter.window()).try_context().cloned())
+                    .or_else(sp::SlintContext::current)
+                    .expect("a component exists, so a platform and its context do too")
+            }
+
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
@@ -3692,7 +3703,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
-            quote!(let #name = #value;)
+            quote!(#[allow(unused_variables)] let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
@@ -3894,7 +3905,15 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
             #ignore_alt))
 }
 
-#[inline(never)]
+/// The context to format or parse numbers with.
+///
+/// Struct field defaults have no globals to reach it through,
+/// but they never format numbers at run time.
+fn access_context(ctx: &EvaluationContext) -> TokenStream {
+    let global_access = &ctx.generator_state.global_access;
+    quote!(#global_access.context_or_global())
+}
+
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Cast { from, to } = expr else { unreachable!() };
     let f = compile_expression(from, ctx);
@@ -3903,7 +3922,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             quote!(((#f) as i32))
         }
         (from, Type::String) if from.as_unit_product().is_some() => {
-            quote!(sp::shared_string_from_number((#f) as f64))
+            let context = access_context(ctx);
+            quote!(#context.format_number((#f) as f64))
         }
         (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
             quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
@@ -4091,7 +4111,7 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
     let value = compile_expression(value, ctx);
-    let mut path = quote!(_self);
+    let mut owner = MemberAccess::Direct(quote!(_self));
     let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
     let mut repeater_index = None;
     for _ in 0..=*level {
@@ -4099,7 +4119,13 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
         par = x.parent;
         repeater_index = x.repeater_index;
         sc = x.sub_component;
-        path = quote!(#path.parent.upgrade().unwrap());
+        owner = match owner {
+            MemberAccess::Direct(t) => MemberAccess::Option(quote!(#t.parent.upgrade())),
+            MemberAccess::Option(t) => {
+                MemberAccess::Option(quote!(#t.and_then(|a| a.as_pin_ref().parent.upgrade())))
+            }
+            MemberAccess::OptionFn(..) => unreachable!(),
+        };
     }
     let repeater_index = repeater_index.unwrap();
     let sub_component = &ctx.compilation_unit.sub_components[sc];
@@ -4110,7 +4136,9 @@ fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> 
         &inner_component_id(sub_component),
         &format_ident!("repeater{}", usize::from(repeater_index)),
     );
-    quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
+    owner.then_named("model_owner", |path| {
+        quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access as _, #value as _))
+    })
 }
 
 #[inline(never)]
@@ -5001,20 +5029,26 @@ fn compile_builtin_function_call(
         BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
         BuiltinFunction::ToFixed => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToPrecision => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let a1 = a.next().unwrap();
             quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
         }
         BuiltinFunction::StringToFloat => {
-            quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
+            let context = access_context(ctx);
+            quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
+        BuiltinFunction::StringIsFloat => {
+            let context = access_context(ctx);
+            quote!(#context.parse_number(#(#a)*.as_str()).is_some())
+        }
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
@@ -6295,7 +6329,7 @@ fn generate_translations(
         let lang = lang.as_str();
         quote!(
             sp::TranslationsBundled {
-                language: #lang,
+                language: sp::Slice::from_slice(#lang.as_bytes()),
                 decimal_separator: #separator
             }
         )

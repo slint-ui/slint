@@ -36,7 +36,7 @@ pub(crate) fn install_font_size_observer(
     view: &UIView,
     adapter: Weak<WinitWindowAdapter>,
 ) -> Option<TraitChangeObserver> {
-    install_trait_change_observer(view, UITraitPreferredContentSizeCategory::class(), move |env| {
+    install_trait_change_observer(view, UITraitPreferredContentSizeCategory::class, move |env| {
         let Some(adapter) = adapter.upgrade() else { return };
         adapter.set_platform_default_font_size(body_font_size(&env.traitCollection()));
     })

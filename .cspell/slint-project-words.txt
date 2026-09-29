@@ -66,6 +66,7 @@ brushval
 bugtracker
 buildcode
 builtinfunctions
+bunfig
 bytemuck
 calloop
 caplog
@@ -185,6 +186,7 @@ ELCDIF
 elems
 elevatedbutton
 elit
+emcmake
 emscripten
 endforeach
 endfunction
@@ -217,6 +219,7 @@ fdroiddata
 FEFF
 FELGO
 fetchpriority
+fexceptions
 figsize
 fileaccess
 filledbutton
@@ -250,6 +253,7 @@ Fsvg
 fullsize
 Fullwidth
 fvar
+fwasm
 Fwww
 genhtml
 getattr
@@ -567,6 +571,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanout
 sclk
 scopeguard
 sdkconfig

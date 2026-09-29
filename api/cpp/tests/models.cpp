@@ -601,6 +601,38 @@ SCENARIO("Sorted Model Reset")
     REQUIRE(observer->model_reset);
 }
 
+SCENARIO("Sorted Model set_row_data before row_data")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 1, 2 });
+    auto sorted_model = std::make_shared<slint::SortModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    sorted_model->set_row_data(0, 10);
+
+    REQUIRE(vec_model->row_data(1) == 10);
+}
+
+SCENARIO("Sorted Model set_row_data after reset")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3 });
+
+    bool ascending = true;
+
+    auto sorted_model =
+            std::make_shared<slint::SortModel<int>>(vec_model, [&ascending](auto lhs, auto rhs) {
+                return ascending ? lhs < rhs : rhs < lhs;
+            });
+    REQUIRE(sorted_model->row_data(0) == 1);
+
+    ascending = false;
+    sorted_model->reset();
+    sorted_model->set_row_data(0, 30);
+
+    REQUIRE(vec_model->row_data(0) == 1);
+    REQUIRE(vec_model->row_data(1) == 2);
+    REQUIRE(vec_model->row_data(2) == 30);
+}
+
 template<typename ModelData>
 class TestDeferredSortModel : public slint::SortModel<ModelData>
 {

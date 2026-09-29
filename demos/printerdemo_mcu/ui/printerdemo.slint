@@ -33,7 +33,10 @@ export component MainWindow inherits Window {
 
                 if PrinterState.active-page == Pages.home: HomePage { }
 
-                if PrinterState.active-page == Pages.ink: InkPage { }
+                // Positioned by hand, so the page doesn't contribute to the view's
+                // size -- it must not, since it sizes its own content from the
+                // width the view gives it.
+                if PrinterState.active-page == Pages.ink: InkPage { x: 0; y: 0; }
 
                 if PrinterState.active-page == Pages.settings: SettingsPage { }
             }

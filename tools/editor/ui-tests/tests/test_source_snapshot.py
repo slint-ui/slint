@@ -62,12 +62,26 @@ def test_replace_once_rejects_non_unique_target(source: bytes) -> None:
         replace_once(source, b"target", b"replacement")
 
 
-def test_source_change_ignores_truncated_write(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize(
+    "incomplete", [b"", b"export component Main inherits Window {"]
+)
+def test_source_change_waits_for_applied_revision(
+    editor_binary, editor_environment, tmp_path: Path, incomplete: bytes
 ) -> None:
-    baseline = b"component Main inherits Window {}\n"
-    updated = b"component Main inherits Window { width: 40px; }\n"
-    readings = iter([baseline, b"", updated])
-    monkeypatch.setattr(Path, "read_bytes", lambda _: next(readings))
-    monkeypatch.setattr("ui_driver.time.sleep", lambda _: None)
-    assert wait_for_source_change(tmp_path / "Main.slint", baseline) == updated
+    from editor_sync import wait_for_source
+    from ui_driver import launch_editor
+
+    source = tmp_path / "Main.slint"
+    baseline = b"export component Main inherits Window { width: 40px; }\n"
+    updated = baseline.replace(b"40px", b"80px")
+    source.write_bytes(baseline)
+    with launch_editor(editor_binary, editor_environment, source):
+        wait_for_source(source, baseline)
+        source.write_bytes(incomplete)
+        completed_write = threading.Timer(0.2, source.write_bytes, args=(updated,))
+        completed_write.start()
+        try:
+            assert wait_for_source_change(source, baseline) == updated
+        finally:
+            completed_write.cancel()
+            completed_write.join()

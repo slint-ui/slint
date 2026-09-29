@@ -33,6 +33,7 @@ renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]
+renderer-skia-software = ["slint-interpreter/renderer-skia-software", "dep:i-slint-renderer-skia"]
 renderer-vello = ["slint-interpreter/renderer-vello"]
 renderer-software = ["slint-interpreter/renderer-software"]
 
@@ -150,3 +151,6 @@ label = "Slint Viewer"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
+
+[build-dependencies]
+cfg_aliases = { workspace = true }

@@ -46,7 +46,6 @@ def test_fixed_picker_controls_keep_their_width(
         assert control(window, "Close Custom").size.width == 48
         click_picker_button(window, "Edit stop 2 color")
         assert control(window, "Close Stop color").size.width == 48
-        (tmp_path / f"picker-{kind}.png").write_bytes(window.grab_window_as_png())
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Close Custom")
         original.assert_unchanged()
@@ -83,9 +82,6 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
             assert first.absolute_position.y == top
-        (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(
-            window.grab_window_as_png()
-        )
         click_picker_button(window, "Add gradient stop")
         control(
             window, f"Gradient stop {count + 1}", slint_testing.AccessibleRole.Slider

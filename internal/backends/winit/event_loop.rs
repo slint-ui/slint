@@ -160,11 +160,15 @@ impl winit::application::ApplicationHandler for EventLoopState {
             return;
         }
 
-        let result = window.dispatch_winit_window_event(event_loop, &*winit_window, event);
+        let result = window.dispatch_winit_window_event(event_loop, &*winit_window, &event);
 
         // A `DragArea` may have requested a native drag above; start it now while the
         // `ActiveEventLoop` is in hand.
         self.start_drag_if_pending(event_loop);
+
+        // A window hidden during the dispatch looks kept alive until this reference is gone.
+        drop(winit_window);
+        self.shared_backend_data.warn_about_windows_kept_alive();
 
         if let Err(err) = result {
             self.loop_error = Some(err);
@@ -249,6 +253,8 @@ impl winit::application::ApplicationHandler for EventLoopState {
 
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         self.shared_backend_data.flush_pending_mouse_move();
+        // For the windows hidden outside of a window event, from a timer for example.
+        self.shared_backend_data.warn_about_windows_kept_alive();
 
         if matches!(
             self.custom_application_handler
@@ -331,8 +337,8 @@ impl EventLoopState {
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
         let mut winit_loop = not_running_loop_instance;
 
-        cfg_if::cfg_if! {
-            if #[cfg(any(target_arch = "wasm32", ios_and_friends))] {
+        core::cfg_select! {
+            any(target_arch = "wasm32", ios_and_friends) => {
                 let shared_backend_data = self.shared_backend_data.clone();
                 winit_loop
                     .run_app(self)
@@ -340,7 +346,8 @@ impl EventLoopState {
                 // On wasm, run_app registers the app and returns immediately.
                 // On iOS, run_app blocks until the app exits.
                 Ok(Self::new(shared_backend_data, None))
-            } else {
+            }
+            _ => {
                 winit::event_loop::run_on_demand::EventLoopExtRunOnDemand::run_app_on_demand(&mut winit_loop, &mut self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
 

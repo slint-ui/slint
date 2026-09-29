@@ -355,6 +355,11 @@ export component RemotePreviewView inherits Rectangle {
                         text: @tr("Connecting to {}…", Api.remote-connection-target);
                         color: Palette.foreground;
                     }
+                    if Api.remote-connection-state == RemoteConnectionState.Reconnecting: Text {
+                        text: @tr("Lost the connection to {}. Reconnecting…", Api.remote-connection-target);
+                        color: Palette.foreground;
+                        wrap: word-wrap;
+                    }
                     if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
                         text: Api.remote-connection-error != ""
                             ? Api.remote-connection-error

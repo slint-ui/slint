@@ -14,6 +14,7 @@ fn main() {
     cfg_aliases! {
         enable_skia: { any(
             feature = "renderer-skia-opengl",
+            feature = "renderer-skia-software",
             feature = "renderer-skia-vulkan",
             feature = "unstable-wgpu-29",
             feature = "unstable-wgpu-30"

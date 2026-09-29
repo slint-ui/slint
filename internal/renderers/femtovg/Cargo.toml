@@ -16,6 +16,8 @@ version.workspace = true
 path = "lib.rs"
 
 [features]
+image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 default = []
 opengl = []
 # wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
@@ -31,7 +33,6 @@ i-slint-common = { workspace = true, features = ["default", "shared-fontique"] }
 
 const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 
-cfg-if = "1"
 lyon_path = { workspace = true }
 pin-weak = "1"
 femtovg = { version = "0.27", default-features = false, features = ["swash"] }
@@ -42,7 +43,7 @@ glow = { workspace = true }
 
 wgpu-30 = { workspace = true, optional = true, default-features = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
 # Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
@@ -51,7 +52,7 @@ wasm-bindgen = { version = "0.2" }
 wgpu-30 = { workspace = true, optional = true, features = ["webgl"] }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))'.dependencies]
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [lints.rust]

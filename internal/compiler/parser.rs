@@ -650,6 +650,9 @@ mod parser_trait {
 #[doc(inline)]
 pub use parser_trait::*;
 
+/// Nesting level at which the parser gives up (#6494). Real files stay well below that.
+const MAX_DEPTH: usize = 128;
+
 pub struct DefaultParser<'a> {
     builder: rowan::GreenNodeBuilder<'static>,
     /// tokens from the lexer
@@ -658,6 +661,9 @@ pub struct DefaultParser<'a> {
     cursor: usize,
     diags: &'a mut BuildDiagnostics,
     source_file: SourceFile,
+    depth: usize,
+    /// Set once MAX_DEPTH was reached, to silence the errors reported while unwinding
+    too_deep: bool,
 }
 
 impl<'a> DefaultParser<'a> {
@@ -668,6 +674,8 @@ impl<'a> DefaultParser<'a> {
             cursor: 0,
             diags,
             source_file: Default::default(),
+            depth: 0,
+            too_deep: false,
         }
     }
 
@@ -708,13 +716,25 @@ impl Parser for DefaultParser<'_> {
         if kind != SyntaxKind::Document {
             self.consume_ws();
         }
+        self.depth += 1;
         match checkpoint {
             None => self.builder.start_node(kind.into()),
             Some(cp) => self.builder.start_node_at(cp, kind.into()),
         }
+        if self.depth >= MAX_DEPTH && !self.too_deep {
+            self.error(format!(
+                "Maximum nesting level of {MAX_DEPTH} reached: split this code into smaller parts"
+            ));
+            self.too_deep = true;
+            // Consume the rest of the document so the recursion unwinds at the end of the file
+            while self.current_token().kind != SyntaxKind::Eof {
+                self.consume();
+            }
+        }
     }
 
     fn finish_node_impl(&mut self, _: NodeToken) {
+        self.depth -= 1;
         self.builder.finish_node();
     }
 
@@ -745,6 +765,9 @@ impl Parser for DefaultParser<'_> {
 
     /// Reports an error at the current token location
     fn error(&mut self, e: impl Into<String>) {
+        if self.too_deep {
+            return;
+        }
         let location = self.current_token_location();
         self.diags.push_error_with_span(e.into(), location);
     }

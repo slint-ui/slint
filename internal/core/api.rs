@@ -17,8 +17,8 @@ pub use crate::data_transfer::DataTransfer;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
-    Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
-    SharedPixelBuffer,
+    Brush, Color, Gray8Pixel, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgb565Pixel,
+    Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
@@ -1370,7 +1370,7 @@ pub enum PlatformError {
     OtherError(Box<dyn core::error::Error + Send + Sync>),
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 impl From<PlatformError> for wasm_bindgen::JsValue {
     fn from(err: PlatformError) -> wasm_bindgen::JsValue {
         wasm_bindgen::JsError::from(err).into()

@@ -1065,7 +1065,7 @@ fn sanitize_color_stops(
     // common case. A NaN position fails these comparisons: slow path.
     if stops.first().is_none_or(|first| first.position >= 0.)
         && stops.last().is_none_or(|last| last.position <= 1.)
-        && stops.windows(2).all(|pair| pair[0].position < pair[1].position)
+        && stops.array_windows().all(|[a, b]| a.position < b.position)
     {
         return (Cow::Borrowed(stops), 1.0);
     }
@@ -1190,7 +1190,7 @@ fn test_resolve_makes_stops_strictly_increasing() {
         panic!("expected a resolved linear gradient");
     };
     // Sorted and strictly increasing: the duplicate hard step is separated minimally.
-    assert!(gradient.stops.windows(2).all(|pair| pair[0].position < pair[1].position));
+    assert!(gradient.stops.array_windows().all(|[a, b]| a.position < b.position));
     assert_eq!(gradient.stops[0].color, Color::from_rgb_u8(0, 0, 255));
 }
 

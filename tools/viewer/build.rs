@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use cfg_aliases::cfg_aliases;
 use std::path::PathBuf;
 
 /// Mirror the `/STACK` setting from `.cargo/config.toml`, which is not shipped
@@ -12,6 +13,14 @@ fn bump_windows_stack_size() {
 }
 
 fn main() {
+    cfg_aliases! {
+        enable_skia: { any(
+            feature = "renderer-skia",
+            feature = "renderer-skia-opengl",
+            feature = "renderer-skia-software",
+            feature = "renderer-skia-vulkan"
+        ) },
+    }
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
     bump_windows_stack_size();

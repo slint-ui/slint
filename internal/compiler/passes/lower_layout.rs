@@ -96,12 +96,15 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                     };
                     return;
                 }
-                // Builtin height-for-width: replace the default -1 with
-                // the cross-axis size. The second arg is the
+                // Builtin height-for-width: replace the unconstrained argument
+                // with the cross-axis size. The second arg is the
                 // `cross_axis_constraint` of `ImplicitLayoutInfo`.
                 if target.borrow().is_builtin_height_for_width() {
                     debug_assert!(arguments.len() >= 2);
                     if let Some(second) = arguments.get_mut(1) {
+                        // The binding analysis reads the same argument to tell
+                        // whether the item reads its own width.
+                        debug_assert!(is_unconstrained_layout_info_arg(second));
                         *second = width_param.clone();
                     }
                 }
@@ -111,13 +114,6 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
             // PropertyReference to an element's vertical layout-info prop
             // whose target has the parametrized function: swap for the function call.
             let target = nr.element();
-            let is_vertical_layout_info = target
-                .borrow()
-                .effective_layout_info_prop(Orientation::Vertical)
-                .map(|prop_nr| {
-                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
-                })
-                .unwrap_or(false);
             // A forwarded scalar constraint (`min-height: inner.min-height`) reads
             // the target's implicit min/preferred/max-height, which is its
             // layoutinfo-v at the *unconstrained* width. Thread the cross-axis
@@ -130,6 +126,17 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 _ => None,
             };
             if let Some(field) = constraint_field {
+                // A bare forward is what the replacement below handles; only a constraint
+                // wrapping one has to be rewritten through its binding (#13523).
+                let own_binding = target.borrow().binding(nr.name()).and_then(|b| {
+                    (!matches!(b.expression, Expression::PropertyReference(..)))
+                        .then(|| b.expression.clone())
+                });
+                if let Some(mut own_binding) = own_binding {
+                    rewrite_layoutinfo_v_for_constraint(&mut own_binding, width_param);
+                    *sub = own_binding;
+                    return;
+                }
                 if let Some(constrained_nr) =
                     target.borrow().inherited_layout_info_v_with_constraint()
                 {
@@ -150,6 +157,13 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 }
                 return;
             }
+            let is_vertical_layout_info = target
+                .borrow()
+                .effective_layout_info_prop(Orientation::Vertical)
+                .map(|prop_nr| {
+                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
+                })
+                .unwrap_or(false);
             if !is_vertical_layout_info {
                 return;
             }
@@ -1551,6 +1565,7 @@ fn lower_box_layout(
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
+        is_synthesized_repeated_merge: false,
     };
 
     let layout_info_prop_v = create_new_prop(

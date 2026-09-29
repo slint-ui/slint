@@ -149,8 +149,10 @@ pub trait PropertyInfo<Item, Value> {
 
     /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
     ///
-    /// Every call for the same property must hand out a property backed by that one
-    /// common property, otherwise a later call detaches what an earlier one linked.
+    /// Every call for the same property must return the same property, otherwise a later
+    /// call detaches what an earlier one linked.
+    /// The item property links to the returned one, not the other way around,
+    /// so a binding set on the item property still reaches every link.
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
 
     /// Link another property to this property with a mapping function
@@ -286,12 +288,21 @@ where
             return common_property(self_.apply_pin(item));
         }
 
-        let shared_property = Rc::pin(Property::<Value>::default());
-        Property::link_two_way_with_map(
-            self.apply_pin(item),
-            shared_property.as_ref(),
+        let p1 = self.apply_pin(item);
+        if let Some(shared_property) = p1.check_mapped_common_property::<Value>().or_else(|| {
+            p1.check_common_property().and_then(|c| c.as_ref().check_mapped_common_property())
+        }) {
+            return shared_property;
+        }
+
+        let value: Value = p1.get_internal().try_into().unwrap_or_default();
+        let shared_property = Rc::pin(Property::new(value));
+        Property::link_two_way_with_map_to_common_property(
+            shared_property.clone(),
+            p1,
             |v| v.clone().try_into().unwrap_or_default(),
             |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
+            true,
         );
         shared_property
     }

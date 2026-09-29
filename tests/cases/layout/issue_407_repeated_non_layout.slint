@@ -1,0 +1,194 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A repeated (`if`/`for`) body must contribute its constraints like a static child
+// does (#407) -- but a body that takes its size from its parent must not, or the
+// parent's layout info would depend on the size the parent is given.
+
+component ScrollView {
+    out property <length> visible-width: 100px;
+    out property <length> visible-height: 100px;
+    in-out property <length> content-width;
+    in-out property <length> content-height;
+    in-out property <length> content-x;
+    in-out property <length> content-y;
+    Rectangle { @children }
+}
+// The type must be named `ListView` for the compiler to treat it as one.
+component ListView inherits ScrollView { }
+
+component Tab inherits Rectangle {
+    in property <bool> selected;
+    min-width: 32px;
+    min-height: max(20px, t.min-height);
+    if selected: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #eeeeee;
+    }
+    HorizontalLayout {
+        t := Text { text: "tab"; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 100px;
+    Flickable {
+        HorizontalLayout {
+            padding: 1px;
+            a := Tab { selected: true; }
+            b := Tab { }
+        }
+    }
+
+    // A repeated body that isn't a layout contributes like a static one does:
+    // `plain` picks up the Text's implicit min-height, same as `ref-text`.
+    plain := Rectangle {
+        for blah in 1: Text { text: "foo"; }
+    }
+    ref-text := Text { text: "foo"; }
+
+    // The same self-sizing rule without the Flickable/Tab machinery.
+    self-sized := Rectangle {
+        HorizontalLayout { Rectangle { height: 15px; } }
+        for blah in 1: Rectangle { width: 100%; height: 100%; }
+    }
+
+    // The stretch factor propagates too, so a container whose only content is a
+    // `Text` stops filling its layout cell, exactly as it does with a static one.
+    VerticalLayout {
+        repeated-container := Rectangle { if true: Text { text: "foo"; } }
+        sibling := Rectangle { }
+    }
+    VerticalLayout {
+        static-container := Rectangle { Text { text: "foo"; } }
+        static-sibling := Rectangle { }
+    }
+
+    // Explicit constraints set on the repeated body's own root apply too.
+    explicit := Rectangle {
+        if true: Rectangle {
+            min-width: 200px;
+            preferred-height: 77px;
+            max-height: 90px;
+        }
+    }
+
+    // A repeater with no instance contributes nothing, and leaves no `max` behind.
+    empty := Rectangle {
+        if false: Rectangle { min-width: 200px; max-height: 90px; }
+    }
+    unconstrained := Rectangle { }
+
+    // The merge folds every instance: the largest min wins, as for static siblings.
+    several := Rectangle {
+        for h in [10px, 30px, 20px]: Rectangle { min-height: h; min-width: h * 2; }
+    }
+
+    // ... and it follows the model and the condition, not just their initial value.
+    in property <bool> cond: false;
+    in property <[length]> heights: [30px];
+    dynamic := Rectangle {
+        if root.cond: Rectangle { min-height: 77px; }
+        for h in root.heights: Rectangle { min-width: h; }
+    }
+
+    // Setting `x`/`y` keeps a repeated child out of its parent's layout info, as it
+    // does for a static one. `demos/printerdemo_mcu` relies on it.
+    opted-out := Rectangle {
+        if true: Rectangle { x: 0; y: 0; min-width: 123px; }
+        for i in 1: Rectangle { x: 0; y: 0; min-height: 123px; }
+    }
+
+    // A ListView materializes only the visible rows, so its repeater must not
+    // constrain it: the constraint would change as the user scrolls. The rows of
+    // the builtin ListView are viewport content, which is excluded anyway; this
+    // one isn't backed by a Flickable (see issues/issue_11127_listview-no-flickable).
+    lv := ListView {
+        for entry in 100: Rectangle { height: 40px; min-width: entry * 3px; }
+    }
+
+    out property <bool> test: t-tabs && t-plain && t-self-sized && t-stretch && t-explicit
+        && t-empty && t-listview && t-several && t-dynamic-start && t-opted-out;
+    out property <bool> t-several: several.min-height == 30px && several.min-width == 60px;
+    // The starting point of the click sequences below, which change `cond` and
+    // `heights` and lay the window out again.
+    out property <bool> t-dynamic-start: dynamic-min-height == 0px && dynamic-min-width == 30px;
+    out property <length> dynamic-min-height: dynamic.min-height;
+    out property <length> dynamic-min-width: dynamic.min-width;
+    out property <bool> t-tabs: a.min-height == b.min-height && a.min-height > 1px;
+    out property <bool> t-plain: plain.min-height == ref-text.min-height && plain.min-height > 1px;
+    out property <bool> t-self-sized: self-sized.preferred-height == 15px;
+    out property <bool> t-explicit: explicit.min-width == 200px && explicit.preferred-height == 77px
+        && explicit.max-height == 90px;
+    // `max-height` is the unbounded sentinel, ~3.4e38. Two of those are only equal to
+    // within a rounding step, so compare its magnitude rather than the value.
+    out property <bool> t-empty: empty.min-width == unconstrained.min-width
+        && empty.max-height > 100000px;
+    out property <bool> t-listview: lv.min-width == 0px;
+    out property <bool> t-opted-out: opted-out.min-width == unconstrained.min-width
+        && opted-out.min-height == unconstrained.min-height;
+    out property <bool> t-stretch: repeated-container.height == static-container.height
+        && repeated-container.height == ref-text.min-height
+        && sibling.height == static-sibling.height
+        && sibling.height > repeated-container.height;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_t_tabs());
+assert(instance.get_t_plain());
+assert(instance.get_t_self_sized());
+assert(instance.get_t_stretch());
+assert(instance.get_t_explicit());
+assert(instance.get_t_empty());
+assert(instance.get_t_listview());
+assert(instance.get_t_several());
+assert(instance.get_t_dynamic_start());
+assert(instance.get_t_opted_out());
+assert(instance.get_test());
+// The merge follows the condition and the model; a click lays the window out again.
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_dynamic_min_height(), 0.);
+assert_eq(instance.get_dynamic_min_width(), 30.);
+instance.set_cond(true);
+instance.set_heights(std::make_shared<slint::VectorModel<float>>(std::vector<float>{99.}));
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_dynamic_min_height(), 77.);
+assert_eq(instance.get_dynamic_min_width(), 99.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_t_tabs());
+assert!(instance.get_t_plain());
+assert!(instance.get_t_self_sized());
+assert!(instance.get_t_stretch());
+assert!(instance.get_t_explicit());
+assert!(instance.get_t_empty());
+assert!(instance.get_t_listview());
+assert!(instance.get_t_several());
+assert!(instance.get_t_dynamic_start());
+assert!(instance.get_t_opted_out());
+assert!(instance.get_test());
+// The merge follows the condition and the model; a click lays the window out again.
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_dynamic_min_height(), 0.);
+assert_eq!(instance.get_dynamic_min_width(), 30.);
+instance.set_cond(true);
+instance.set_heights(slint::ModelRc::new(slint::VecModel::from(vec![99.])));
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_dynamic_min_height(), 77.);
+assert_eq!(instance.get_dynamic_min_width(), 99.);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

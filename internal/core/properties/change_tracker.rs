@@ -171,6 +171,7 @@ impl ChangeTracker {
                 intercept_set: |_, _| false,
                 intercept_set_binding: |_, _| false,
                 velocity: |_| None,
+                common_property: |_| None,
             };
         }
         let holder = BindingHolder {
@@ -178,7 +179,6 @@ impl ChangeTracker {
             dep_nodes: Default::default(),
             vtable: <ChangeTrackerInner<T, EF, NF, Data> as HasBindingVTable>::VT,
             dirty: Cell::new(false),
-            is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: inner,
             #[cfg(slint_debug_property)]
@@ -210,7 +210,7 @@ impl ChangeTracker {
     }
 
     /// Test helper: the number of dependency nodes the bound holder currently owns.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "ffi"))]
     pub(crate) fn test_dep_node_count(&self) -> usize {
         let inner = self.inner.get();
         if inner.is_null() {

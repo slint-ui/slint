@@ -21,8 +21,8 @@ pub type WindowEventHook =
     Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
 crate::thread_local! {
-    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = const { once_cell::unsync::OnceCell::new() }
+    pub(crate) static GLOBAL_CONTEXT : core::cell::OnceCell<SlintContext>
+        = const { core::cell::OnceCell::new() }
 }
 
 #[pin_project::pin_project]
@@ -35,8 +35,9 @@ pub(crate) struct SlintContextInner {
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
+    /// The bundled languages. `translations_dirty` holds the index of the selected one.
     pub(crate) translations_bundle:
-        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
+        core::cell::RefCell<Option<crate::translations::BundledLanguages>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[pin]
@@ -149,6 +150,13 @@ impl SlintContext {
         // a backend driving a context needs to be able to find it.
         this.platform().bind_context(this.downgrade(), crate::InternalToken);
         this
+    }
+
+    /// This thread's context, or `None` if none was created yet.
+    ///
+    /// Setting a platform creates the context, and creating a component needs a platform.
+    pub fn current() -> Option<Self> {
+        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
     }
 
     /// Return a reference to the platform abstraction
@@ -352,6 +360,27 @@ impl SlintContext {
         self.0.as_ref().project_ref().locale_decimal_separator.get()
     }
 
+    /// Format a number using this context's decimal separator.
+    pub fn format_number(&self, n: f64) -> crate::SharedString {
+        crate::string::format_number(self.locale_decimal_separator(), n)
+    }
+
+    /// Format a number with a fixed number of digits after the decimal point,
+    /// using this context's decimal separator.
+    pub fn format_number_fixed(&self, n: f64, digits: usize) -> crate::SharedString {
+        crate::string::format_number_fixed(self.locale_decimal_separator(), n, digits)
+    }
+
+    /// Format a number with the given precision, using this context's decimal separator.
+    pub fn format_number_precision(&self, n: f64, precision: usize) -> crate::SharedString {
+        crate::string::format_number_precision(self.locale_decimal_separator(), n, precision)
+    }
+
+    /// Parse a number written with this context's decimal separator.
+    pub fn parse_number(&self, string: &str) -> Option<f32> {
+        crate::string::parse_number(self.locale_decimal_separator(), string)
+    }
+
     /// Override the locale used for decimal separator detection (testing only).
     #[cfg(feature = "std")]
     pub fn set_locale(&self, locale: &str) {
@@ -360,6 +389,18 @@ impl SlintContext {
             .project_ref()
             .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
+    }
+
+    /// Assign the list of bundled languages and their decimal separator to this context,
+    /// and select the one that matches the system locale.
+    ///
+    /// Does nothing if this context already has a list, so that a language selected with
+    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
+    pub fn set_bundled_languages(
+        &self,
+        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
+    ) {
+        crate::translations::set_bundled_languages_for_context(self, languages);
     }
 
     #[cfg(feature = "tr")]

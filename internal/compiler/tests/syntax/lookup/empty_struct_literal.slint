@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// '{};' is the struct literal that lists no field, so every field takes its default.
+// It is an error wherever the expected type isn't a struct, and without the ';' the
+// braces are still a code block, which has no value.
+
+struct Data { a: int, b: int }
+
+component Inner {
+    in property <Data> foo;
+    in property <int> bar;
+}
+
+export component Test inherits Rectangle {
+    property <Data> ok: {};
+    property <{x: int}> ok_anonymous: {};
+    property <[Data]> ok_element: [{}];
+
+    pure function with-struct(d: Data) -> int { d.a }
+    pure function with-int(i: int) -> int { i }
+    property <int> ok_argument: with-struct({});
+
+    property <int> not_a_struct: {};
+//                               > <error{Cannot convert { } to int}
+    property <[Data]> not_an_array: {};
+//                                  > <error{Cannot convert { } to [Data]}
+    property <int> wrong_argument: with-int({});
+//                                          ><error{Cannot convert { } to int}
+    property <int> in_expression: 1 + {};
+//                                    ><error{Cannot convert { } to float}
+
+    // without the ';' these are code blocks, and an empty one has no value
+    property <Data> missing_semicolon: {}
+//                                     >error{Cannot convert void to Data}
+    Inner {
+// <error{Cannot convert void to Data}
+        foo: {}
+//           >error{Cannot convert void to Data}
+        bar: 42;
+//     <error{Cannot convert void to Data}
+    }
+
+    // an empty body is still not a value: a function must return one
+    pure function nothing() -> Data { }
+//  >                                 <error{Cannot convert void to Data}
+}

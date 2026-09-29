@@ -487,6 +487,9 @@ fn hovered_element_at_impl(
         valid: true,
         is_selected,
         is_over_selected_element,
+        source_uri: i_slint_editor_preview::file_to_uri(&path)
+            .map(|uri| uri.to_string().into())
+            .unwrap_or_default(),
         element_path: path.to_string_lossy().to_string().into(),
         element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
         type_name: type_name(&element_node).into(),

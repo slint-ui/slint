@@ -3,7 +3,7 @@
 
 import { Style, Metrics, Colors, RadiusHandleStyle } from "../style.slint";
 import { CanvasCorner } from "../api.slint";
-import { EditorCursors } from "common.slint";
+import { EditorCursors } from "index.slint";
 
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
@@ -18,21 +18,23 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     callback radius-changed(CanvasCorner, length, bool);
 
     out property <bool> radius-tooltip-visible;
-    out property <Point> radius-tooltip-position;
+    out property <Point> radius-tooltip-position: root.radius-handle-center(root.radius-edit-corner);
     out property <length> radius-tooltip-value;
     private property <bool> radius-handle-active;
-    private property <CanvasCorner> radius-edit-corner;
+    out property <CanvasCorner> radius-edit-corner;
     private property <bool> radius-single-corner;
     private property <bool> radius-dragging;
 
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
         let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
-        return (min(from-left, from-top) - root.radius-style.inset).clamp(0px, root.max-corner-radius());
+        // Figma keeps zero-radius handles inset but measures their drags from the actual corner.
+        return (((from-left + from-top) / (2px * root.geometry-scale)).round() * 1px)
+            .clamp(0px, root.max-corner-radius());
     }
 
     function max-corner-radius() -> length {
-        return min(root.width, root.height) / 2;
+        return min(root.width, root.height) / (2 * root.geometry-scale);
     }
 
     function corner-radius(corner: CanvasCorner) -> length {
@@ -48,11 +50,20 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         return root.bottom-left-radius;
     }
 
-    function preview-radius(corner: CanvasCorner) -> length {
-        return root.radius-dragging
-            && (!root.radius-single-corner || corner == root.radius-edit-corner)
+    function radius-handle-center(corner: CanvasCorner) -> Point {
+        let follows-drag-preview = root.radius-dragging
+            && (!root.radius-single-corner || corner == root.radius-edit-corner);
+        let radius = follows-drag-preview
             ? root.radius-tooltip-value
             : root.corner-radius(corner);
+        let scaled-radius = radius * root.geometry-scale;
+        let offset = follows-drag-preview
+            ? scaled-radius
+            : max(root.radius-style.inset, scaled-radius);
+        return {
+            x: root.corner-on-left(corner) ? offset : root.width - offset,
+            y: root.corner-on-top(corner) ? offset : root.height - offset,
+        };
     }
 
     for corner in [
@@ -61,21 +72,15 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
         CanvasCorner.bottom-right,
         CanvasCorner.bottom-left,
     ]: Rectangle {
-        property <length> radius: root.preview-radius(corner);
-        property <length> handle-center-x: root.corner-on-left(corner)
-            ? root.radius-style.inset + radius
-            : root.width - root.radius-style.inset - radius;
-        property <length> handle-center-y: root.corner-on-top(corner)
-            ? root.radius-style.inset + radius
-            : root.height - root.radius-style.inset - radius;
+        property <Point> handle-center: root.radius-handle-center(corner);
 
         visible: root.enable-border-radius-edits
             && root.active
             && !root.move-pressed
             && !root.rotating
             && (root.frame-hover || root.radius-handle-active);
-        x: handle-center-x - root.radius-style.size / 2;
-        y: handle-center-y - root.radius-style.size / 2;
+        x: handle-center.x - root.radius-style.size / 2;
+        y: handle-center.y - root.radius-style.size / 2;
         width: root.radius-style.size;
         height: root.radius-style.size;
         border-radius: root.radius-style.size / 2;
@@ -103,8 +108,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 root.radius-handle-active = self.has-hover || self.pressed;
                 if self.pressed {
                     self.press-position = { x: self.mouse-x, y: self.mouse-y };
-                    let pointer-x = parent.x + self.mouse-x;
-                    let pointer-y = parent.y + self.mouse-y;
                     root.radius-edit-corner = corner;
                     root.radius-single-corner = root.independent-corner-radii
                         || root.shift-pressed
@@ -112,7 +115,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                     root.radius-dragging = false;
                     root.interaction-started();
                     root.radius-tooltip-visible = true;
-                    root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                     root.radius-tooltip-value = root.corner-radius(corner);
                 } else {
                     root.interaction-ended();
@@ -135,7 +137,6 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
                 let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
                 root.radius-edit-corner = corner;
                 root.radius-dragging = true;
-                root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                 root.radius-tooltip-value = radius;
                 root.radius-changed(corner, radius, root.radius-single-corner);
             }

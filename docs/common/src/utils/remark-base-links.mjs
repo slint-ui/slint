@@ -4,7 +4,7 @@
 // Prefix the site base to the internal links of a page. Astro doesn't apply
 // `base` to markdown links, so a site served under a path would need every
 // link to spell that path out. Sources instead write links from the site root
-// -- `/language/properties/` -- and this adds the base, in one place, at build
+// -- `/reference/language/properties/` -- and this adds the base, in one place, at build
 // time. That keeps the sources free of the deployment layout, which the
 // release job rewrites per version.
 //

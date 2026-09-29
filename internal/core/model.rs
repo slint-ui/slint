@@ -11,12 +11,12 @@ pub use adapters::{FilterModel, MapModel, ReverseModel, SortModel};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
+use core::cell::OnceCell;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::{Ceil, Floor};
 pub use model_peer::*;
-use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
 
 mod adapters;

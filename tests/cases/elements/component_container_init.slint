@@ -48,6 +48,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
 
 let instance = TestCase::new().unwrap();
 instance.set_component_factory(factory.clone());
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_pref_height(), 42.);
 let cursor = inner_instance.borrow().as_ref().expect("should have been created").get_property("cursor").unwrap();
 assert_eq!(cursor, slint_interpreter::Value::from(2.));

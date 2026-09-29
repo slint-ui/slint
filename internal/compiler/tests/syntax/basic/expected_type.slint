@@ -52,4 +52,17 @@ export component Test inherits Rectangle {
     // `length` is a property, not a method
     property<int> len: arr.length();
 //                     >          <error{The expression is not a function}
+
+    // the value of a statement that isn't the last one is discarded, so it has no expected type
+    property<color> discarded: { red; blue };
+//                               > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+
+    // a `let` without a declared type takes the type of its value
+    property<color> untyped_let: { let c = red; c };
+//                                         > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+
+    // the base of an index expression isn't the value of the enclosing position
+    property<[color]> indexed: [[red]][0];
+//                               > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                             >         <^error{Cannot convert [<error>] to [color]}
 }

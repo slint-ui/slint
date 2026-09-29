@@ -61,7 +61,11 @@ macro_rules! declare_enums {
         }
         impl BuiltinEnums {
             fn new() -> Self {
-                Self { $($Name: enumeration(stringify!($Name), &[$(stringify!($Value)),*])),* }
+                Self { $($Name: enumeration(
+                    stringify!($Name),
+                    &[$(stringify!($Value)),*],
+                    stringify!($vis) == "pub",
+                )),* }
             }
             fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
                 [$(&self.$Name),*].into_iter()
@@ -79,9 +83,10 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
-fn enumeration(name: &str, values: &[&str]) -> Arc<Enumeration> {
+fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
     Arc::new(Enumeration {
         name: name.into(),
+        public,
         values: values
             .iter()
             .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())

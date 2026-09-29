@@ -234,7 +234,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
+        let (horizontal, vertical) = text.alignment();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            horizontal,
+            vertical,
+        );
+        let restore = Self::pixel_align_origin(&mut self.canvas.borrow_mut(), anchor);
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
+        if restore {
+            self.canvas.borrow_mut().restore();
+        }
     }
 
     fn draw_text_input(
@@ -243,7 +253,16 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         self_rc: &ItemRc,
         size: LogicalSize,
     ) {
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
+        );
+        let restore = Self::pixel_align_origin(&mut self.canvas.borrow_mut(), anchor);
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
+        if restore {
+            self.canvas.borrow_mut().restore();
+        }
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
@@ -866,6 +885,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         }
     }
 
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        let [a, b, c, d, origin, _y] = self.canvas.borrow().transform().0;
+        if !(a.approx_eq(&1.) && b.approx_eq(&0.) && c.approx_eq(&0.) && d.approx_eq(&1.)) {
+            return x;
+        }
+        (origin + x).round() - origin
+    }
+
     fn draw_glyph_run(
         &mut self,
         font: &parley::FontData,
@@ -886,8 +913,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
 
         let mut canvas = self.canvas.borrow_mut();
 
-        // When rendering text, the canvas needs to be aligned to the pixel grid.
-        Self::align_canvas_during(&mut *canvas, |canvas| match &mut brush {
+        match &mut brush {
             GlyphBrush::Fill(paint) => {
                 paint.set_font_size(font_size.get());
                 canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
@@ -896,7 +922,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                 paint.set_font_size(font_size.get());
                 canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
-        })
+        }
     }
 
     fn fill_rectangle(
@@ -941,14 +967,11 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
             })
         });
 
-        // When rendering text we align to the pixel grid, so do the same for underlines,
-        // selection, etc.
-        Self::align_canvas_during(&mut *self.canvas.borrow_mut(), |canvas| {
-            canvas.fill_path(&path, &fill_paint);
-            if let Some(sp) = stroke_paint.as_ref() {
-                canvas.stroke_path(&path, sp);
-            }
-        });
+        let mut canvas = self.canvas.borrow_mut();
+        canvas.fill_path(&path, &fill_paint);
+        if let Some(sp) = stroke_paint.as_ref() {
+            canvas.stroke_path(&path, sp);
+        }
     }
 }
 

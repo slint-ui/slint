@@ -57,6 +57,24 @@ fn visual_line_count(text: &str) -> usize {
 }
 
 #[test]
+fn styled_text_across_a_line_break_shapes() {
+    // The shaper slices the text with the spans it is given, so a span that starts inside a
+    // character panics there (#13548). The style opens at byte 5 of the first paragraph, which
+    // in the second one falls inside its third character.
+    let text = crate::styled_text::StyledText::from_markdown(
+        "\u{44f}\u{44f} **a\n\u{44f}\u{44f}\u{44f}**",
+    )
+    .unwrap();
+    let paragraphs = create_text_paragraphs(
+        &super::shaping::plain_builder_for_tests(),
+        &mut test_font_context(),
+        PlainOrStyledText::Styled(text),
+        Color::default(),
+    );
+    assert_eq!(paragraphs.len(), 2);
+}
+
+#[test]
 fn bidi_selection_spans_are_ascending_in_x() {
     // The segment walk in `draw_glyph_run_with_selection` steps through a line's spans left to
     // right, so they have to arrive ascending in x. A bidi line is where that could plausibly
@@ -73,10 +91,10 @@ fn bidi_selection_spans_are_ascending_in_x() {
             let spans = layout.selection_geometry(
                 start..end,
                 &(PhysicalLength::new(f32::NEG_INFINITY)..PhysicalLength::new(f32::INFINITY)),
+                f32::round,
             );
             saw_line_with_several_spans |= spans.0.len() > 1;
-            for pair in spans.0.windows(2) {
-                let (left, right) = (&pair[0], &pair[1]);
+            for [left, right] in spans.0.array_windows() {
                 if (left.paragraph, left.line) != (right.paragraph, right.line) {
                     continue;
                 }

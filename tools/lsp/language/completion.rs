@@ -695,10 +695,7 @@ fn resolve_element_scope(
             )
         }))
         .collect::<Vec<_>>();
-    let shadowing_names: std::collections::HashSet<SmolStr> = local_declarations
-        .iter()
-        .map(|c| i_slint_compiler::parser::normalize_identifier(&c.label))
-        .collect();
+    let shadowing_names = normalized_labels(&local_declarations);
     let mut result = element_type
         .property_list()
         .into_iter()
@@ -847,17 +844,12 @@ fn resolve_expression_scope(
             i_slint_compiler::parser::NodeOrToken::Token(t) => Some(t.clone()),
         })
     {
-        let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
+        let mut available_types = normalized_labels(&r);
         build_component_import_statements_edits(
             &token,
             document_cache,
-            &mut |ci: &editor_preview::component_catalog::ComponentInformation| {
-                if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
-                    false
-                } else {
-                    available_types.insert(ci.name.clone());
-                    true
-                }
+            &mut |ci| {
+                ci.is_global && ci.is_exported && available_types.insert(ci.name.as_str().into())
             },
             &mut |exported_name, file, the_import| {
                 r.push(CompletionItem {
@@ -1180,15 +1172,14 @@ fn add_interfaces_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> =
-        result.iter().map(|completion| completion.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
+        &mut |component| {
             component.is_interface
                 && component.is_exported
-                && !available_types.contains(&component.name)
+                && !available_types.contains(component.name.as_str())
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
@@ -1214,15 +1205,15 @@ fn add_components_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
+        &mut |component| {
             !component.is_global
                 && !component.is_interface
                 && component.is_exported
-                && !available_types.contains(&component.name)
+                && !available_types.contains(component.name.as_str())
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
@@ -1252,13 +1243,11 @@ fn add_types_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_type_import_statements_edits(
         token,
         document_cache,
-        &mut |type_info: &editor_preview::component_catalog::TypeInformation| {
-            !available_types.contains(&type_info.name)
-        },
+        &mut |type_info| !available_types.contains(type_info.name.as_str()),
         &mut |type_info, exported_name, file, the_import| {
             result.push(CompletionItem {
                 label: format!("{exported_name} (import from \"{file}\")"),
@@ -1271,6 +1260,20 @@ fn add_types_to_import(
             });
         },
     );
+}
+
+/// What `items` offer, normalized, to compare against the normalized names the catalog holds.
+///
+/// A completion carries whichever spelling of a separator its declaration used (#7492).
+fn normalized_labels(items: &[CompletionItem]) -> HashSet<SmolStr> {
+    items
+        .iter()
+        .map(|c| {
+            i_slint_compiler::parser::normalize_identifier(
+                c.filter_text.as_deref().unwrap_or(&c.label),
+            )
+        })
+        .collect()
 }
 
 /// Try to generate `import { XXX } from "foo.slint";` for every component
@@ -3165,5 +3168,25 @@ component Foo {{
             completion.insert_text.as_deref(),
             Some("export interface ${1:ExportedInterface} {\n    $0\n}")
         );
+    }
+
+    #[test]
+    fn global_in_scope_is_not_offered_for_import() {
+        // Regression test for #7492: an underscore in the name made the global be offered a
+        // second time, as an import of its normalized name.
+        let res = get_completions(
+            r#"
+export global The_Global { in property <int> hello; }
+export component Demo { property <int> foo: 🔺; }
+"#,
+        )
+        .unwrap();
+
+        let global = res.iter().find(|c| c.label == "The_Global").unwrap();
+        assert!(global.additional_text_edits.is_none());
+        assert!(!res.iter().any(|c| c.label.starts_with("The-Global")));
+
+        // A global that isn't in scope still comes with its import.
+        assert!(res.iter().any(|c| c.label == "Palette (import from \"std-widgets.slint\")"));
     }
 }

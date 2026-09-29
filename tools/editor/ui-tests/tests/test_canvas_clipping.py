@@ -4,7 +4,6 @@
 # cspell:ignore getcolors getpixel tobytes
 
 import math
-from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -15,25 +14,10 @@ from PIL import Image
 from ui_driver import (
     first_window,
     launch_editor,
+    screenshot,
     select_outline_row,
-    wait_until,
     window_element_with_label,
 )
-
-
-def screenshot(window: slint_testing.Window) -> Image.Image:
-    previous = b""
-    stable_frames = 0
-
-    def settled() -> Image.Image | None:
-        nonlocal previous, stable_frames
-        image = Image.open(BytesIO(window.grab_window_as_png())).convert("RGB")
-        data = image.tobytes()
-        stable_frames = stable_frames + 1 if data == previous else 0
-        previous = data
-        return image if stable_frames >= 1 else None
-
-    return wait_until(settled)
 
 
 def protected_regions(window: slint_testing.Window, image: Image.Image):

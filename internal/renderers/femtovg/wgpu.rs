@@ -461,6 +461,7 @@ impl WindowSurface<femtovg::renderer::WGPURenderer> for TextureWindowSurface {
 }
 
 struct WgpuTextureBackend {
+    #[cfg_attr(not(feature = "unstable-wgpu-30"), allow(dead_code))]
     instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
