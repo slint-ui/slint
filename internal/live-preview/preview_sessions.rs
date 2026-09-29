@@ -4,7 +4,7 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
 };
@@ -320,7 +320,7 @@ impl PreviewSession {
 
         let file_loader_session = Rc::downgrade(self);
         compiler.set_file_loader(move |path: &std::path::Path| {
-            let url = Url::from_file_path(path);
+            let url = path_to_url(path);
             let path_display = path.display().to_string();
             let session = file_loader_session.clone();
             Box::pin(async move {
@@ -330,7 +330,7 @@ impl PreviewSession {
                         "Preview session is no longer available",
                     )));
                 };
-                let Ok(url) = url else {
+                let Some(url) = url else {
                     return Some(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
                         format!("Not an absolute file path: {path_display}"),
@@ -379,7 +379,7 @@ impl PreviewSession {
     }
 
     pub async fn compile_component(&self, component: &PreviewComponent) -> PreviewCompilation {
-        let Ok(path) = component.url.to_file_path() else {
+        let Some(path) = url_to_path(&component.url) else {
             tracing::error!("Not a file URL: {}", component.url);
             return PreviewCompilation::Unavailable;
         };
@@ -405,7 +405,7 @@ impl PreviewSession {
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
-            .filter_map(|path| Url::from_file_path(path).ok())
+            .filter_map(|path| path_to_url(path))
             .collect();
 
         if compilation_result.has_errors() {
@@ -470,6 +470,23 @@ impl PreviewSession {
         };
         self.send_to_editor(&message).ok();
     }
+}
+
+/// Converts a `file:` URL from the editor into the path the compiler loads it under.
+///
+/// The editor may run on another OS than the viewer, so a URL that isn't a native path here,
+/// such as a POSIX path on Windows (#13674), stays a URL.
+/// The compiler resolves imports and images against such a path on any host.
+fn url_to_path(url: &Url) -> Option<PathBuf> {
+    if url.scheme() != "file" {
+        return None;
+    }
+    Some(url.to_file_path().unwrap_or_else(|()| url.as_str().into()))
+}
+
+/// The inverse of [`url_to_path`].
+fn path_to_url(path: &Path) -> Option<Url> {
+    Url::from_file_path(path).ok().or_else(|| Url::parse(path.to_str()?).ok())
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {

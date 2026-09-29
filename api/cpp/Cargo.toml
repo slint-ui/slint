@@ -14,12 +14,10 @@ rust-version.workspace = true
 version.workspace = true
 build = "build.rs"
 publish = false
-# prefix used to convey path to generated includes to the C++ test driver
-links = "slint_cpp"
 
 [lib]
 path = "lib.rs"
-crate-type = ["lib", "cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib"]
 name = "slint_cpp"
 
 # Note, these features need to be kept in sync (along with their defaults) in

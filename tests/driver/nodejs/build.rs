@@ -2,15 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::io::Write;
-use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    target_dir.pop();
-    target_dir.pop();
-    target_dir.pop();
-
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1",);
 
     let tests_file_path =

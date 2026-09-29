@@ -54,7 +54,7 @@ The integration tests live in the `tests/` workspace, so pass
 ```sh
 cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Fastest: interpreter-based
 cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
-cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (builds slint-cpp itself)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
 cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
 cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets

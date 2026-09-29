@@ -182,23 +182,36 @@ fn generate_public_component(
     let no_default_translation_context = (compiler_config.default_translation_context == crate::DefaultTranslationContext::None)
         .then(|| quote!(compiler.set_default_translation_context(sp::live_preview::DefaultTranslationContext::None);));
     let style = compiler_config.style.iter();
+    let experimental = compiler_config.enable_experimental;
+
+    let compiler_factory = quote!(
+        let compiler_factory = || {
+            let mut compiler = sp::live_preview::Compiler::default();
+            compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
+            compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
+            #(compiler.set_style(#style.to_string());)*
+            #(compiler.set_translation_domain(#translation_domain.to_string());)*
+            #bundled_translations
+            #no_default_translation_context
+            compiler
+        };
+    );
 
     quote!(
         pub struct #public_component_id(sp::Rc<::core::cell::RefCell<sp::live_preview::LiveReloadingComponent>>, sp::Rc<dyn sp::WindowAdapter>);
 
         impl #public_component_id {
             pub fn new() -> sp::Result<Self, slint::PlatformError> {
-                let compiler_factory = || {
-                    let mut compiler = sp::live_preview::Compiler::default();
-                    compiler.set_include_paths([#(#include_paths.into()),*].into_iter().collect());
-                    compiler.set_library_paths([#(#library_paths.into()),*].into_iter().collect());
-                    #(compiler.set_style(#style.to_string());)*
-                    #(compiler.set_translation_domain(#translation_domain.to_string());)*
-                    #bundled_translations
-                    #no_default_translation_context
-                    compiler
-                };
+                #compiler_factory
                 let instance = sp::live_preview::LiveReloadingComponent::new(compiler_factory, #main_file.into(), Some(#component_name.into()))?;
+                let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
+                sp::Ok(Self(instance, window_adapter))
+            }
+
+            #[cfg(#experimental)]
+            pub fn new_with_context(ctx: sp::SlintContext) -> sp::Result<Self, slint::PlatformError> {
+                #compiler_factory
+                let instance = sp::live_preview::LiveReloadingComponent::new_with_context(compiler_factory, #main_file.into(), Some(#component_name.into()), ctx)?;
                 let window_adapter = sp::WindowInner::from_pub(slint::ComponentHandle::window(instance.borrow().instance())).window_adapter();
                 sp::Ok(Self(instance, window_adapter))
             }
