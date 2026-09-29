@@ -17,7 +17,6 @@ pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventBut
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
-use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
@@ -2386,7 +2385,7 @@ impl TouchState {
                         position,
                         touch_finger_id: id + 1,
                         event_time: None,
-                        history: history.into(),
+                        history,
                     });
                 }
             }
