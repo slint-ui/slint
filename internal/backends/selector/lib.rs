@@ -23,7 +23,10 @@ use i_slint_core::platform::PlatformError;
 fn ensure_requested_backend_available(event_loop: &str) -> Result<(), PlatformError> {
     #[cfg(not(all(feature = "mcp", supports_headless)))]
     if event_loop == "headless" {
-        return Err("headless backend requested but it is not available".into());
+        return Err(
+            "headless backend is not available in this build; recompile the application with Slint's \"mcp\" feature enabled"
+                .into(),
+        );
     }
     Ok(())
 }
@@ -184,7 +187,10 @@ mod tests {
     #[test]
     fn unavailable_headless_backend_is_rejected() {
         let error = super::ensure_requested_backend_available("headless").unwrap_err();
-        assert_eq!(error.to_string(), "headless backend requested but it is not available");
+        assert_eq!(
+            error.to_string(),
+            "headless backend is not available in this build; recompile the application with Slint's \"mcp\" feature enabled"
+        );
     }
 }
 
