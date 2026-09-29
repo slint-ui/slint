@@ -11,7 +11,7 @@ fn popupwindow_size() {
             in-out property <length> popup-width: -1px;
             in-out property <length> popup-height: -1px;
 
-            callback popup-timer-triggered(int);
+            callback popup-timer-triggered(int) -> bool;
 
         }
         export component MainWindow inherits Window {
@@ -58,7 +58,7 @@ fn popupwindow_size() {
                         self.count += 1;
                         popup.width += 10px;
                         popup.height += 1px;
-                        Properties.popup-timer-triggered(count);
+                        self.running = Properties.popup-timer-triggered(count);
                     }
                 }
             }
@@ -70,9 +70,14 @@ fn popupwindow_size() {
     // app.invoke_show_popup(); // Opens the popup, but does not execute Winit backend update_window_properties()
     assert_eq!(app.global::<Properties>().get_popup_initialized(), false);
     app.global::<Properties>().on_popup_timer_triggered(|count| {
-        if count >= TIMER_TRIGGER_COUNTS {
-            slint::quit_event_loop().unwrap();
+        if count < TIMER_TRIGGER_COUNTS {
+            return true;
         }
+        // A native popup window applies a resize asynchronously, after the request returns.
+        slint::Timer::single_shot(std::time::Duration::from_millis(1000), || {
+            slint::quit_event_loop().unwrap();
+        });
+        false
     });
 
     app.run().unwrap();
