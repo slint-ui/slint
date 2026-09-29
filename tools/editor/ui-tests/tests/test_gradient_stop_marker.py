@@ -79,7 +79,8 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
             assert max(bottom_tick) < 48
             assert min(pointer) > 224
             marker.invoke_accessible_default_action()
-            expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
+            expect(picker_field(window, "Hex color")).to_have_value("0000FF")
+            expect(picker_field(window, "Hex color opacity")).to_have_value("50")
             click_picker_button(window, "Close Stop color")
             click_picker_button(window, "Close Custom")
             original.assert_unchanged()
@@ -87,7 +88,8 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
             marker = control(window, "Gradient stop 2", role)
         start = center(marker)
         gesture(window, start, start)
-        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
+        expect(picker_field(window, "Hex color")).to_have_value("0000FF")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("50")
         click_picker_button(window, "Close Stop color")
 
         before = float(picker_field(window, "Stop 2 position").accessible_value)

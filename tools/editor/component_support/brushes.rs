@@ -88,9 +88,14 @@ pub fn setup(api: &ui::Api<'_>) {
             slint::Color::default()
         }
     });
-    api.on_color_field_color_edit(color_field_color_edit);
-    api.on_color_field_opacity_edit(color_field_opacity_edit);
-    api.on_color_field_fill_with_opacity(color_field_fill_with_opacity);
+    api.on_color_value_data(color_value_data);
+    api.on_color_value_color_edit(color_value_color_edit);
+    api.on_color_value_opacity_edit(color_value_opacity_edit);
+    api.on_color_value_with_opacity(color_value_with_opacity);
+    api.on_fill_with_color(|mut fill, color| {
+        fill.color = color;
+        fill
+    });
 }
 
 pub fn color_to_string(color: slint::Color) -> slint::SharedString {
@@ -114,6 +119,13 @@ fn color_to_short_string(color: slint::Color) -> String {
     format!("{r:02x}{g:02x}{b:02x}")
 }
 
+fn color_value_data(color: slint::Color) -> ui::ColorValueData {
+    ui::ColorValueData {
+        color_text: color_to_short_string(color).to_uppercase().into(),
+        opacity: ((color.alpha() as f32 * 100. / 255.).round()) as i32,
+    }
+}
+
 pub fn color_field_data(property: ui::PropertyValue) -> ui::ColorFieldData {
     let explicit_resolved_value = !property.code.is_empty()
         && property.value_resolved
@@ -134,13 +146,9 @@ pub fn color_field_data(property: ui::PropertyValue) -> ui::ColorFieldData {
         ui::BrushKind::Conic => "Conic Gradient",
         ui::BrushKind::Solid => "",
     };
-    let color = property.fill.color;
-
     ui::ColorFieldData {
         mode,
         fill: property.fill,
-        color_text: color_to_short_string(color).to_uppercase().into(),
-        opacity: ((color.alpha() as f32 * 100. / 255.).round()) as i32,
         label: label.into(),
         unsupported: !property.value_resolved,
         allow_gradient,
@@ -165,31 +173,30 @@ fn color_field_input_has_alpha(expression: &str) -> bool {
 fn color_field_edit(color: slint::Color) -> ui::ColorFieldEdit {
     ui::ColorFieldEdit {
         valid: true,
+        color,
         expression: color_to_string(color),
         display: color_to_short_string(color).to_uppercase().into(),
     }
 }
 
-fn color_field_color_edit(fill: ui::FillData, text: slint::SharedString) -> ui::ColorFieldEdit {
+fn color_value_color_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
     let Some((expression, parsed)) = color_field_expression(text.as_str()) else {
         return Default::default();
     };
     let alpha =
-        if color_field_input_has_alpha(&expression) { parsed.alpha() } else { fill.color.alpha() };
+        if color_field_input_has_alpha(&expression) { parsed.alpha() } else { color.alpha() };
     color_field_edit(slint::Color::from_argb_u8(alpha, parsed.red(), parsed.green(), parsed.blue()))
 }
 
-fn color_field_fill_with_opacity(mut fill: ui::FillData, opacity: f32) -> ui::FillData {
+fn color_value_with_opacity(color: slint::Color, opacity: f32) -> slint::Color {
     if !opacity.is_finite() {
-        return fill;
+        return color;
     }
-    let color = fill.color;
     let alpha = (opacity.clamp(0., 100.) * 255. / 100.).round() as u8;
-    fill.color = slint::Color::from_argb_u8(alpha, color.red(), color.green(), color.blue());
-    fill
+    slint::Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
 }
 
-fn color_field_opacity_edit(fill: ui::FillData, text: slint::SharedString) -> ui::ColorFieldEdit {
+fn color_value_opacity_edit(color: slint::Color, text: slint::SharedString) -> ui::ColorFieldEdit {
     let Ok(opacity) = text.parse::<f32>() else {
         return Default::default();
     };
@@ -197,10 +204,10 @@ fn color_field_opacity_edit(fill: ui::FillData, text: slint::SharedString) -> ui
         return Default::default();
     }
     let opacity = opacity.clamp(0., 100.);
-    let fill = color_field_fill_with_opacity(fill, opacity);
-    let color = fill.color;
+    let color = color_value_with_opacity(color, opacity);
     ui::ColorFieldEdit {
         valid: true,
+        color,
         expression: color_to_string(color),
         display: format!("{opacity:.0}").into(),
     }
@@ -512,8 +519,6 @@ mod tests {
             77, 0x1a, 0x2d, 0xac,
         )));
         assert_eq!(solid.mode, ui::ColorFieldMode::Solid);
-        assert_eq!(solid.color_text, "1A2DAC");
-        assert_eq!(solid.opacity, 30);
         assert_eq!(solid.label, "");
         assert!(!solid.unsupported);
         assert!(!solid.allow_gradient);
@@ -553,17 +558,19 @@ mod tests {
             ..Default::default()
         };
         for input in ["1a2dac", "#1a2dac"] {
-            let edit = super::color_field_color_edit(fill.clone(), input.into());
+            let edit = super::color_value_color_edit(fill.color, input.into());
             assert!(edit.valid);
+            assert_eq!(edit.color, slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
             assert_eq!(edit.expression, "#1a2dac4d");
             assert_eq!(edit.display, "1A2DAC");
         }
 
-        let edit = super::color_field_color_edit(fill, "#1234".into());
+        let edit = super::color_value_color_edit(fill.color, "#1234".into());
         assert!(edit.valid);
+        assert_eq!(edit.color, slint::Color::from_argb_u8(0x44, 0x11, 0x22, 0x33));
         assert_eq!(edit.expression, "#11223344");
 
-        let invalid = super::color_field_color_edit(Default::default(), "not a color".into());
+        let invalid = super::color_value_color_edit(Default::default(), "not a color".into());
         assert!(!invalid.valid);
     }
 
@@ -578,15 +585,23 @@ mod tests {
             ("30", "#1a2dac4d", "30", 77),
             ("101", "#1a2dac", "100", 255),
         ] {
-            let edit = super::color_field_opacity_edit(fill.clone(), input.into());
+            let edit = super::color_value_opacity_edit(fill.color, input.into());
             assert!(edit.valid);
+            assert_eq!(edit.color.alpha(), alpha);
             assert_eq!(edit.expression, expression);
             assert_eq!(edit.display, display);
             assert_eq!(super::string_to_color(expression).unwrap().alpha(), alpha);
         }
 
-        let invalid = super::color_field_opacity_edit(fill, "opaque".into());
+        let invalid = super::color_value_opacity_edit(fill.color, "opaque".into());
         assert!(!invalid.valid);
+    }
+
+    #[test]
+    fn color_value_data_uses_separate_uppercase_rgb_and_opacity() {
+        let data = super::color_value_data(slint::Color::from_argb_u8(77, 0x1a, 0x2d, 0xac));
+        assert_eq!(data.color_text, "1A2DAC");
+        assert_eq!(data.opacity, 30);
     }
 
     fn make_empty_model() -> ModelRc<ui::GradientStop> {

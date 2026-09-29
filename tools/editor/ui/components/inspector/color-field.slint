@@ -4,10 +4,10 @@
 import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
+import { InspectorColorValueField } from "color-value-field.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
-import { InspectorValueField } from "value-field.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode, FillData } from "../../api.slint";
+import { Api, BrushKind, ColorFieldData, ColorFieldMode } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -27,113 +27,28 @@ export component InspectorColorField inherits Rectangle {
     in property <string> property-name: "";
     callback accepted(string) -> bool;
     private property <ColorFieldData> data: Api.current-color-field-data(root.property-name);
-    private property <ColorFieldEdit> color-edit;
-    private property <ColorFieldEdit> opacity-edit;
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
 
     width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     height: root.style.field.height;
 
-    function accept-color(text: string) -> bool {
-        root.color-edit = Api.color-field-color-edit(root.data.fill, text);
-        return root.color-edit.valid && root.accepted(root.color-edit.expression);
-    }
-
-    function accept-opacity(text: string) -> bool {
-        root.opacity-edit = Api.color-field-opacity-edit(root.data.fill, text);
-        return root.opacity-edit.valid && root.accepted(root.opacity-edit.expression);
-    }
-
-    function fill-with-opacity(value: float) -> FillData {
-        return Api.color-field-fill-with-opacity(root.data.fill, value);
-    }
-
-    if root.is-literal-color: segmented-field := Rectangle {
-        border-radius: root.style.field.radius;
-        background: root.style.field.appearance.normal.background;
-        clip: true;
-
-        HorizontalLayout {
-            spacing: 0px;
-
-            color-input := InspectorTextFieldBase {
-                style: root.style.field;
-                radius: 0px;
-                show-focus-border: false;
-                accessible-name: root.accessible-name;
-                width: parent.width - root.style.opacity-width;
-                value: root.data.color-text;
-                commit-key: root.commit-key;
-                normalize-accepted: true;
-                accepted(text) => { return root.accept-color(text); }
-                normalized(text) => { return root.color-edit.display; }
-
-                Rectangle { width: root.style.field.height; }
-            }
-
-            opacity-input := InspectorValueField {
-                style: root.style.field;
-                radius: 0px;
-                show-focus-border: false;
-                accessible-name: root.accessible-name + " opacity";
-                width: root.style.opacity-width;
-                horizontal-alignment: right;
-                suffix: "%";
-                suffix-width: Metrics.icon-small;
-                value: "\{root.data.opacity}";
-                commit-key: root.commit-key;
-                normalize-accepted: true;
-                scrubbable: true;
-                scrub-on-suffix: true;
-                scrub-value: root.data.opacity;
-                scrub-has-minimum: true;
-                scrub-minimum: 0;
-                scrub-has-maximum: true;
-                scrub-maximum: 100;
-                accepted(text) => { return root.accept-opacity(text); }
-                normalized(text) => { return root.opacity-edit.display; }
-                scrub-preview(value) => {
-                    return Api.inspector-fill-preview(root.preview-key, root.property-name, root.fill-with-opacity(value));
-                }
-                scrub-accepted(value) => {
-                    return Api.inspector-fill-commit(root.preview-key, root.property-name, root.fill-with-opacity(value));
-                }
-                scrub-canceled(value) => { Api.inspector-cancel(); }
-            }
+    solid-field := InspectorColorValueField {
+        visible: root.is-literal-color;
+        style: root.style;
+        accessible-name: root.accessible-name;
+        value: root.data.fill.color;
+        width: parent.width;
+        commit-key: root.commit-key;
+        accepted(color, expression) => { return root.accepted(expression); }
+        preview(color) => {
+            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
         }
-
-        Rectangle {
-            x: parent.width - root.style.opacity-width;
-            width: Metrics.border-width;
-            background: root.style.divider;
+        scrub-accepted(color) => {
+            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
         }
-
-        if color-input.input-focused || opacity-input.input-focused: Rectangle {
-            x: opacity-input.input-focused ? parent.width - root.style.opacity-width : 0px;
-            y: 0px;
-            width: opacity-input.input-focused ? root.style.opacity-width : parent.width - root.style.opacity-width;
-            height: parent.height;
-            clip: true;
-
-            Rectangle {
-                x: opacity-input.input-focused ? -(segmented-field.width - root.style.opacity-width) : 0px;
-                y: 0px;
-                width: segmented-field.width;
-                height: segmented-field.height;
-                border-radius: root.style.field.radius;
-                border-width: root.style.field.border-width;
-                border-color: root.style.field.appearance.focus.border;
-            }
-        }
-
-        if color-input.input-focused || opacity-input.input-focused: Rectangle {
-            x: parent.width - root.style.opacity-width;
-            y: 0px;
-            width: root.style.field.border-width;
-            height: parent.height;
-            background: root.style.field.appearance.focus.border;
-        }
+        scrub-canceled(color) => { Api.inspector-cancel(); }
+        swatch-activated => { root.show-picker(); }
     }
 
     if root.is-gradient: gradient-field := Rectangle {
@@ -182,6 +97,7 @@ export component InspectorColorField inherits Rectangle {
     }
 
     swatch-focus := FocusScope {
+        visible: !root.is-literal-color;
         x: root.style.field.padding-inline;
         width: root.style.field.height;
         height: parent.height;
@@ -252,12 +168,15 @@ export component InspectorColorField inherits Rectangle {
                 x: root.absolute-position.x + root.picker-anchor-x,
                 y: root.absolute-position.y + root.picker-anchor-y,
             },
-            anchor-width: swatch-focus.width,
+            anchor-width: root.style.field.height,
         });
     }
 
     private property <int> focus-generation: FillSession.focus-generation;
     changed focus-generation => {
-        if FillSession.request.target.key == root.preview-key { swatch-focus.focus(); }
+        if FillSession.request.target.key == root.preview-key {
+            if root.is-literal-color { solid-field.focus-swatch(); }
+            else { swatch-focus.focus(); }
+        }
     }
 }

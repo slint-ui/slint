@@ -46,6 +46,47 @@ def open_linear(window):
     control(window, "Gradient start")
 
 
+def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
+    editor_binary, editor_environment, scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        color = control(
+            window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
+        )
+        opacity = control(
+            window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
+        )
+        assert color.accessible_value == "264052"
+        assert opacity.accessible_value == "100"
+        assert not elements_with_label(window.root_element, "Close Stop color")
+
+        color.invoke_accessible_default_action()
+        press_key(window, keys.Delete)
+        control(window, "Gradient stop 3", slint_testing.AccessibleRole.Slider)
+        original.assert_unchanged_now()
+
+        color.accessible_value = "12AB34"
+        opacity.accessible_value = "50"
+        assert color.accessible_value == "12AB34"
+        assert opacity.accessible_value == "50"
+        assert not elements_with_label(window.root_element, "Close Stop color")
+        original.assert_unchanged_now()
+
+        click(window, "Close Custom")
+        expected = replace_once(
+            original.sources[Path(scene.name)],
+            b"#264052 55%",
+            b"#12ab3480 55%",
+        )
+        original.wait_for_applied(expected, scene.name)
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
+
+
 @pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(
@@ -117,11 +158,11 @@ def test_linear_canvas_activation_and_colour(
         click(window, "Edit stop 2 color")
         control(window, "Close Stop color")
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        expect(hex_field).to_have_value("#264052")
+        expect(hex_field).to_have_value("264052")
         click(window, "Gradient stop 1")
-        expect(hex_field).to_have_value("#568fb8")
+        expect(hex_field).to_have_value("568FB8")
         click(window, "Gradient stop 2")
-        expect(hex_field).to_have_value("#264052")
+        expect(hex_field).to_have_value("264052")
         hex_field.accessible_value = "#12ab3480"
         click(window, "Close Stop color")
         control(
@@ -360,7 +401,7 @@ def test_linear_external_edit_cancels_stale_draft(
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
             ).accessible_value
-            == "#abcdef"
+            == "ABCDEF"
         )
 
 

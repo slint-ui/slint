@@ -168,7 +168,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        expect(field).to_have_value("#264052")
+        expect(field).to_have_value("264052")
         field.accessible_value = "#abcdef80"
         click(window, "Close Stop color")
         c = center(control(window, "Gradient center handle"), 35)

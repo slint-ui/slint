@@ -303,7 +303,8 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
             < picker_field(window, "Stop 2 position").absolute_position.y
         )
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        assert picker_field(window, "Hex color").accessible_value == "0000FF"
+        assert picker_field(window, "Hex color opacity").accessible_value == "50"
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 2")
         press_key(window, keys.RightArrow)
@@ -312,7 +313,8 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         ) == pytest.approx(units * 0.75 + 1, abs=0.01)
         click_picker_button(window, "Remove stop 1")
         click_picker_button(window, "Edit stop 1 color")
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        assert picker_field(window, "Hex color").accessible_value == "0000FF"
+        assert picker_field(window, "Hex color opacity").accessible_value == "50"
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -372,14 +374,16 @@ def test_stop_interactions_preserve_color_identity(
             gesture(window, insertion, insertion)
         control(window, "Gradient stop 4")
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#aa0055c0"
+        assert picker_field(window, "Hex color").accessible_value == "AA0055"
+        assert picker_field(window, "Hex color opacity").accessible_value == "75"
         picker_field(window, "Hex color").accessible_value = "#00ff00b0"
         click_picker_button(window, "Close Stop color")
         original.assert_unchanged_now()
         start = center(control(window, "Gradient stop 2"))
         gesture(window, start, shifted(start, x=(right.x - left.x) * 0.5))
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
+        assert picker_field(window, "Hex color").accessible_value == "00FF00"
+        assert picker_field(window, "Hex color opacity").accessible_value == "69"
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 1")
         press_key(window, keys.Delete)
@@ -393,7 +397,8 @@ def test_stop_interactions_preserve_color_identity(
         select_outline_row(window, "fill")
         open_gradient(window)
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
+        assert picker_field(window, "Hex color").accessible_value == "00FF00"
+        assert picker_field(window, "Hex color opacity").accessible_value == "69"
 
 
 def test_gradient_session_cancel_undo_redo_and_reopen(
@@ -419,13 +424,14 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
             click_picker_button(window, "Edit stop 2 color")
             color = picker_field(window, "Hex color")
             color.accessible_value = "#12345680"
-            expect(color).to_have_value("#12345680")
+            expect(color).to_have_value("123456")
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
             rotate_conic(window, 0, 37)
             set_picker_mode(window, "Gradient type", "Linear")
             click_picker_button(window, "Solid")
-            expect(picker_field(window, "Hex color")).to_have_value("#12345680")
+            expect(picker_field(window, "Hex color")).to_have_value("123456")
+            expect(picker_field(window, "Hex color opacity")).to_have_value("50")
             click_picker_button(window, "Gradient")
             set_picker_mode(window, "Gradient type", "Radial")
             assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
@@ -446,7 +452,8 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         open_gradient(window)
         assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#12345680"
+        assert picker_field(window, "Hex color").accessible_value == "123456"
+        assert picker_field(window, "Hex color opacity").accessible_value == "50"
 
 
 def test_recent_gradient_resets_custom_geometry_initialization(
