@@ -67,7 +67,10 @@ pub struct LibraryInfo {
 pub struct ImportedTypes {
     pub import_uri_token: SyntaxToken,
     pub import_kind: ImportKind,
+    /// The path as written in the import.
     pub file: String,
+    /// Where the import was looked up, also when the file wasn't found there.
+    pub resolved: Option<SourcePath>,
 
     /// `import {Foo, Bar} from "@Foo"` where Foo is an external
     /// library located in another crate
@@ -1041,12 +1044,8 @@ impl TypeLoader {
     pub fn invalidate_document(&mut self, path: &SourcePath) -> HashSet<SourcePath> {
         if let Some((d, _)) = self.all_documents.docs.get_mut(path) {
             if let LoadedDocument::Document(doc) = d {
-                for import in &doc.imports {
-                    self.all_documents
-                        .dependencies
-                        .entry(SourcePath::new(&import.file))
-                        .or_default()
-                        .remove(path);
+                for import in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
+                    self.all_documents.dependencies.entry(import.clone()).or_default().remove(path);
                 }
                 match doc.node.take() {
                     None => {
@@ -1104,7 +1103,7 @@ impl TypeLoader {
             // The embedded files import each other by that path, so only a
             // document outside them is rejected.
             if import.file.starts_with("builtin:")
-                && !matches!(import.import_uri_token.source_file.path(), SourcePath::Builtin(_))
+                && !import.import_uri_token.source_file.path().is_builtin()
             {
                 state.borrow_mut().diag.push_error(
                     format!(
@@ -1141,7 +1140,7 @@ impl TypeLoader {
                     Some(&import.import_uri_token.clone().into()),
                     &import.file,
                 ) {
-                    import.file = path.to_string();
+                    import.resolved = Some(path);
                 } else if crate::pathutils::is_font_file(&import.file) {
                     let importing_file = import.import_uri_token.source_file.path();
                     // Slint ≤ 1.18 resolved also font files relative to the file itself by accident. Still support it with a warning.
@@ -1167,7 +1166,7 @@ impl TypeLoader {
                             .join(&import.file)
                             .unwrap_or_else(|| SourcePath::new(&import.file))
                     };
-                    import.file = path.to_string();
+                    import.resolved = Some(path);
                 }
                 imports.push(import);
                 continue;
@@ -1240,7 +1239,7 @@ impl TypeLoader {
                     Err(Some(doc_path)) => {
                         // Even if the import failed (e.g. the file doesn't exist), we need to add it to the document imports so that
                         // the dependency graph is correct and we can retry loading the document if the imported file changes or is created.
-                        import.file = doc_path.to_string();
+                        import.resolved = Some(doc_path);
                         imports.push(import);
 
                         return false;
@@ -1260,7 +1259,7 @@ impl TypeLoader {
                 // every mode. Their own imports reach this too, but the error
                 // is suppressed for a builtin referencing file.
                 #[cfg(feature = "slint-sc")]
-                if matches!(doc_path, SourcePath::Builtin(_)) {
+                if doc_path.is_builtin() {
                     state.diag.slint_sc_error(
                         &format!("Importing the builtin file '{}' is", import.file),
                         &import.import_uri_token,
@@ -1324,7 +1323,7 @@ impl TypeLoader {
                         unreachable!("FileImport should have been handled above")
                     }
                 }
-                import.file = doc_path.to_string();
+                import.resolved = Some(doc_path);
                 imports.push(import);
                 false
             });
@@ -1431,12 +1430,11 @@ impl TypeLoader {
                 } else {
                     // We will load using the `open_import_callback`
                     // Simplify the path to remove the ".."
-                    let base_path = import_token
+                    let base_dir = import_token
                         .as_ref()
                         .and_then(|tok| tok.source_file())
-                        .map(|f| f.path().clone())
-                        .unwrap_or_default();
-                    (base_path.parent().join(file_to_import).ok_or(None)?, None)
+                        .map_or_else(SourcePath::default, |f| f.path().parent());
+                    (base_dir.join(file_to_import).ok_or(None)?, None)
                 }
             }
         };
@@ -1495,15 +1493,13 @@ impl TypeLoader {
                         .expect("internal error: embedded file is not UTF-8 source code"),
                 ))
             } else {
-                let read_native = || match path_canon.as_native_path() {
-                    Some(path) => std::fs::read_to_string(path),
-                    None => Err(ErrorKind::NotFound.into()),
-                };
                 let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
                 if let Some(callback) = callback {
-                    callback(path_canon.to_string()).await.unwrap_or_else(read_native)
+                    callback(path_canon.clone())
+                        .await
+                        .unwrap_or_else(|| path_canon.read_to_string())
                 } else {
-                    read_native()
+                    path_canon.read_to_string()
                 }
             };
             match source_code_result {
@@ -1547,7 +1543,7 @@ impl TypeLoader {
         let ok = if let Some(doc_node) = doc_node {
             Self::load_file_impl(state, &path_canon, doc_node, builtin.is_some(), &import_stack)
                 .await;
-            state.borrow_mut().diag.all_loaded_files.insert(path_canon.to_path_buf());
+            state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
             true
         } else {
             false
@@ -1631,12 +1627,12 @@ impl TypeLoader {
         path: SourcePath,
         parse_errors: Vec<Diagnostic>,
     ) {
-        for dep in &doc.imports {
+        for dep in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
             state
                 .tl
                 .all_documents
                 .dependencies
-                .entry(SourcePath::new(&dep.file))
+                .entry(dep.clone())
                 .or_default()
                 .insert(path.clone());
         }
@@ -1651,13 +1647,8 @@ impl TypeLoader {
         is_builtin: bool,
         import_stack: &HashSet<SourcePath>,
     ) {
-        let parse_errors = state
-            .borrow()
-            .diag
-            .iter()
-            .filter(|e| e.span.source_file().is_some_and(|f| f.path() == path))
-            .cloned()
-            .collect();
+        let parse_errors =
+            state.borrow().diag.iter().filter(|e| e.source_path() == Some(path)).cloned().collect();
         let (path, doc) =
             Self::load_doc_no_pass(state, path, doc_node, is_builtin, import_stack).await;
 
@@ -1810,20 +1801,22 @@ impl TypeLoader {
         let builtin_style = (file_to_import == "std-widgets.slint"
             || (file_to_import == "style-base.slint" && referencing_file.is_none())
             || (file_to_import == "std-widgets-impl.slint" && referencing_file.is_none())
-            || matches!(referencing_file, Some(SourcePath::Builtin(_))))
+            || referencing_file.is_some_and(SourcePath::is_builtin))
         .then(|| SourcePath::Builtin(self.resolved_style.as_str().into()));
 
         // The directory of the current file is the first in the list of include directories.
         referencing_file
-            .and_then(|file| file.parent().join(file_to_import))
+            .map(SourcePath::parent)
             .into_iter()
             .chain(
                 referencing_file
                     .and_then(SourcePath::as_native_path)
                     .and_then(maybe_base_directory)
-                    .and_then(|dir| SourcePath::new(dir).join(file_to_import)),
+                    .map(SourcePath::File),
             )
-            .chain(include_dirs.chain(builtin_style).filter_map(|dir| dir.join(file_to_import)))
+            .chain(include_dirs)
+            .chain(builtin_style)
+            .filter_map(|dir| dir.join(file_to_import))
             .find_map(|candidate| {
                 crate::fileaccess::load_file(&candidate)
                     .map(|file| (file.canon_path, file.builtin_contents))
@@ -1878,6 +1871,7 @@ impl TypeLoader {
                     import_uri_token: import_uri,
                     import_kind: type_specifier,
                     file: path_to_import,
+                    resolved: None,
                     library_info: None,
                 })
             })
@@ -1913,9 +1907,7 @@ impl TypeLoader {
                     .embedded_file_resources
                     .borrow()
                     .iter()
-                    .flat_map(|resource| {
-                        resource.path.as_ref().map(|path| SourcePath::new(&**path))
-                    })
+                    .flat_map(|resource| resource.path.clone())
                     .collect(),
                 LoadedDocument::Invalidated(_document) => vec![],
             }
@@ -1955,7 +1947,7 @@ impl TypeLoader {
     }
 }
 
-fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) -> String {
+fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<SourcePath>) -> String {
     // Try to get the value written by the i-slint-backend-selector's build script
 
     // It is in the target/xxx/build directory
@@ -1987,7 +1979,7 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<PathBuf>) 
     if let Some(style) = target_path.and_then(|target_path| {
         std::fs::read_to_string(&target_path)
             .map(|style| {
-                all_loaded_files.insert(target_path);
+                all_loaded_files.insert(SourcePath::File(target_path));
                 style.trim().into()
             })
             .ok()
@@ -2149,7 +2141,7 @@ fn test_import_path_verbatim() {
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let requested_ = requested_.clone();
         Box::pin(async move {
-            requested_.borrow_mut().push(path);
+            requested_.borrow_mut().push(path.to_string());
             Some(Ok("export XX := Rectangle {} ".to_owned()))
         })
     }));
@@ -2196,7 +2188,7 @@ fn test_load_from_callback_ok() {
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
-            assert_eq!(path.replace('\\', "/"), "../FooBar.slint");
+            assert_eq!(path.to_string().replace('\\', "/"), "../FooBar.slint");
             assert!(!ok_.get());
             ok_.set(true);
             Some(Ok("export XX := Rectangle {} ".to_owned()))
@@ -2238,9 +2230,9 @@ fn test_load_from_callback_with_url_base() {
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
-        requested_.borrow_mut().push(path.clone());
+        requested_.borrow_mut().push(path.to_string());
         Box::pin(async move {
-            Some(Ok(match path.as_str() {
+            Some(Ok(match path.to_string().as_str() {
                 "https://slint.dev/ui/widgets/a%20b.slint" => {
                     "import { YY } from \"../y.slint\"; export component XX { YY {} }"
                 }
@@ -2588,7 +2580,7 @@ export component Test inherits Window {
     );
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
     let font = document.custom_fonts.first().expect("the font is imported");
-    let font_path = std::path::Path::new(font.0.as_str());
+    let font_path = font.0.as_native_path().unwrap();
     assert_eq!(font_path.file_name(), Some("Inter-VariableFont.ttf".as_ref()), "{}", font.0);
     assert_eq!(
         font_path.parent().and_then(std::path::Path::file_name),

@@ -197,7 +197,6 @@ impl EditorSession {
         // `custom_fonts` holds the resolved path of every font import that
         // passed the compiler's existence check, plus remote URLs.
         for (font_path, _) in &doc.custom_fonts {
-            let font_path = SourcePath::new(font_path.as_str());
             let Some(native_path) = font_path.as_native_path() else { continue };
             if !sent.insert(font_path.clone()) {
                 continue;
@@ -284,7 +283,7 @@ impl EditorSession {
                 let fonts_sent: HashSet<SourcePath> = self
                     .document_cache
                     .get_document(&url)
-                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| SourcePath::new(p)).collect())
+                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| p.clone()).collect())
                     .unwrap_or_default();
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
@@ -376,10 +375,7 @@ impl EditorSession {
                 tracing::debug!("Failed to locate file: {url}");
                 return Ok(Default::default());
             };
-            let content = path
-                .as_native_path()
-                .map_or(Err(std::io::ErrorKind::NotFound.into()), std::fs::read_to_string);
-            match content {
+            match path.read_to_string() {
                 Ok(content) => self.load_document(content, url, None).await,
                 // The file was likely deleted, log and move on
                 Err(err) => {
@@ -472,13 +468,13 @@ pub fn convert_diagnostics(
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
         .iter()
         .filter_map(SourcePath::to_url)
-        .chain(diag.all_loaded_files.iter().filter_map(|p| SourcePath::new(p).to_url()))
+        .chain(diag.all_loaded_files.iter().filter_map(SourcePath::to_url))
         .map(|uri| (uri, Default::default()))
         .collect();
 
     for d in diag.into_iter() {
         // A relative path, as in a test, has no URL.
-        let Some(uri) = SourcePath::new(d.source_file().unwrap()).to_url() else { continue };
+        let Some(uri) = d.source_path().and_then(SourcePath::to_url) else { continue };
         lsp_diags
             .entry(uri)
             .or_default()

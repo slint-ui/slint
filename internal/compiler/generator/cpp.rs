@@ -1137,10 +1137,8 @@ fn embed_resource(
             unreachable!("slint-sc resources in the C++ generator")
         }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file = crate::fileaccess::load_file(&crate::source_path::SourcePath::new(
-                resource.path.as_deref().unwrap(),
-            ))
-            .unwrap(); // embedding pass ensured that the file exists
+            let resource_file =
+                crate::fileaccess::load_file(resource.path.as_ref().unwrap()).unwrap(); // embedding pass ensured that the file exists
             let data = resource_file.read();
 
             declarations.push(Declaration::Var(Var {
@@ -4189,11 +4187,10 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
-            resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-            | crate::expression_tree::ImageReference::Url(_)) => write!(
+            crate::expression_tree::ImageReference::Source(path) => write!(
                 f,
                 r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                escape_string(resource_ref.source().unwrap())
+                escape_string(&path.to_string())
             ),
             crate::expression_tree::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")

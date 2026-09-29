@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview as editor_preview;
 use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
@@ -377,12 +378,12 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 
     let open_import_callback = {
         let to_previews = to_previews.clone();
-        Rc::new(move |path: String| {
+        Rc::new(move |path: SourcePath| {
             let to_previews = to_previews.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read();
+                if let Some(url) = path.as_native_path().and(path.to_url()) {
                     for to_preview in &to_previews {
                         if let Ok(contents) = &contents {
                             to_preview.send(&LspToPreviewMessage::SetContents {
@@ -459,11 +460,9 @@ fn sync_file_watcher_if_needed(
             .chain(
                 session
                     .document_cache
-                    .all_urls_to_watch()
+                    .all_paths_to_watch()
                     .into_iter()
-                    // filter out builtins
-                    .filter(|url| url.scheme() == "file")
-                    .filter_map(|url| editor_preview::uri_to_file(&url)?.into_native_path()),
+                    .filter_map(SourcePath::into_native_path),
             )
             .chain(session.previews.iter().filter_map(|preview| {
                 preview

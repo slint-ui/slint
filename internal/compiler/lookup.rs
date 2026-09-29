@@ -627,7 +627,7 @@ pub fn check_extra_deprecated(
             .debug
             .first()
             .and_then(|x| x.node.source_file())
-            .is_none_or(|x| matches!(x.path(), crate::source_path::SourcePath::Builtin(_)))
+            .is_none_or(|x| x.path().is_builtin())
         && !name.starts_with("layout-"))
     .then(|| format_smolstr!("Please use 'Palette.{name}' instead"))
 }

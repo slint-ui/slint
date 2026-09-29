@@ -31,7 +31,7 @@ pub use server_notifier::{OutgoingRequestQueue, ServerNotifier, complete_request
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, FileChangeType, InitializeParams, Url,
+    DidOpenTextDocumentParams, FileChangeType, InitializeParams,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
         DidOpenTextDocument, Notification,
@@ -452,9 +452,9 @@ async fn run_main_loop(
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read();
+                if let Some(url) = path.as_native_path().and(path.to_url()) {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),

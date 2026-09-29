@@ -9,12 +9,10 @@ use std::{
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_live_preview::protocol::{
     LspToPreview, LspToPreviewMessage, PreviewTarget, SourceFileVersion,
 };
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 async fn parse_source(
     include_paths: Vec<PathBuf>,
@@ -39,10 +37,8 @@ async fn parse_source(
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
         tmp.enable_experimental |= enable_experimental;
-        tmp.open_import_callback = Some(Rc::new(move |path| {
-            let path = PathBuf::from(&path);
-            file_loader_fallback(&path)
-        }));
+        tmp.open_import_callback =
+            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
         // The preview's resource URL mapper is installed by the wasm application at
         // runtime, so it was never set when this fixture ran.
         tmp.resource_url_mapper = None;
@@ -123,7 +119,7 @@ pub fn recompile_test_with_sources(
 ) -> crate::DocumentCache {
     let code = Rc::new(code);
 
-    let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
+    let url = SourcePath::new(main_test_file_name()).to_url().unwrap();
     let source_code = code.get(&url).unwrap().clone();
     let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
         Vec::new(),
@@ -134,10 +130,10 @@ pub fn recompile_test_with_sources(
         enable_experimental,
         move |path| {
             let code = code.clone();
-            let url = lsp_types::Url::from_file_path(path);
+            let url = SourcePath::new(path).to_url();
 
             Box::pin(async move {
-                if let Ok(url) = url {
+                if let Some(url) = url {
                     let Some(source) = code.get(&url) else {
                         return Some(Result::Err(std::io::Error::new(
                             std::io::ErrorKind::NotFound,
@@ -234,7 +230,7 @@ fn load_content_with_document_cache(
     } else {
         format!("/foo/{file_name}")
     };
-    let url = lsp_types::Url::from_file_path(dummy_absolute_path).unwrap();
+    let url = SourcePath::new(dummy_absolute_path).to_url().unwrap();
     let mut session = session_with(document_cache);
     let (extra_files, diag) =
         spin_on::spin_on(session.load_document_impl(content, url.clone(), Some(42)));
@@ -312,7 +308,7 @@ pub fn load(
     path: &Path,
     content: &str,
 ) -> (lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
-    let url = lsp_types::Url::from_file_path(path).unwrap();
+    let url = SourcePath::new(path).to_url().unwrap();
 
     let (main_file, diag) =
         spin_on::spin_on(session.load_document_impl(content.into(), url.clone(), Some(1)));

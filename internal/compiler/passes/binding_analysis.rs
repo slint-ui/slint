@@ -542,7 +542,7 @@ fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
         return None;
     }
     let file = elem.borrow().to_source_location().source_file?;
-    if is_builtin(file.path()) {
+    if file.path().is_builtin() {
         return None;
     }
     element_name(&elem.borrow())
@@ -551,10 +551,6 @@ fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
 /// Where a diagnostic would point, as a value two of them can be compared by.
 fn place(span: &SourceLocation) -> (Option<SourcePath>, usize, usize) {
     (span.source_file.as_ref().map(|f| f.path().clone()), span.span.offset, span.span.length)
-}
-
-fn is_builtin(path: &SourcePath) -> bool {
-    matches!(path, SourcePath::Builtin(_))
 }
 
 /// Report the cycle `current` closes: one diagnostic on the binding the user is most likely to
@@ -596,7 +592,7 @@ fn report_binding_loop(
         // How much a diagnostic here helps, best first: a binding of their own that the user can
         // change, one in a widget they only use, and the rest, which still points inside the
         // component that produced it.
-        let builtin = is_builtin(file.path());
+        let builtin = file.path().is_builtin();
         let rank = match (binding.from_source, builtin) {
             (true, false) => 0,
             (true, true) => 1,
@@ -615,7 +611,7 @@ fn report_binding_loop(
         .enumerate()
         .min_by_key(|(i, (_, span, rank))| {
             let file = span.source_file.as_ref().map(|f| f.path());
-            (*rank, file.is_some_and(is_builtin), file, span.span.offset, *i)
+            (*rank, file.is_some_and(SourcePath::is_builtin), file, span.span.offset, *i)
         })
         .map(|(i, _)| i)
     else {

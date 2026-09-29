@@ -55,8 +55,7 @@ impl PreviewFileAccess {
             .collect();
 
         // Deduplicated before canonicalizing: a project has many more files
-        // than directories, and each candidate costs a system call. `builtin:/…`
-        // paths aren't on disk at all.
+        // than directories, and each candidate costs a system call.
         let mut candidates: HashSet<PathBuf> =
             crate::host_language_search::resolve_workspace_folders(init_param)
                 .iter()

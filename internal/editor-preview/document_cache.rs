@@ -30,7 +30,7 @@ fn default_cc() -> i_slint_compiler::CompilerConfiguration {
 /// This is i_slint_compiler::OpenImportCallback with version information
 pub type OpenImportCallback = Rc<
     dyn Fn(
-        String,
+        SourcePath,
     )
         -> Pin<Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>>,
 >;
@@ -107,21 +107,18 @@ impl DocumentCache {
     ) -> (Option<OpenImportCallback>, Rc<RefCell<SourceFileVersionMap>>) {
         let source_versions = source_file_versions.clone();
         if let Some(open_import_callback) = open_import_callback.clone() {
-            compiler_config.open_import_callback = Some(Rc::new(move |file_name: String| {
-                let open_import = open_import_callback(file_name.clone());
+            compiler_config.open_import_callback = Some(Rc::new(move |path: SourcePath| {
+                let open_import = open_import_callback(path.clone());
                 let source_versions = source_versions.clone();
                 Box::pin(async move {
-                    open_import.await.map(|r| {
-                        let path = SourcePath::new(file_name);
-                        match r {
-                            Ok((v, c)) => {
-                                source_versions.borrow_mut().insert(path, v);
-                                Ok(c)
-                            }
-                            Err(e) => {
-                                source_versions.borrow_mut().remove(&path);
-                                Err(e)
-                            }
+                    open_import.await.map(|r| match r {
+                        Ok((v, c)) => {
+                            source_versions.borrow_mut().insert(path, v);
+                            Ok(c)
+                        }
+                        Err(e) => {
+                            source_versions.borrow_mut().remove(&path);
+                            Err(e)
                         }
                     })
                 })
@@ -214,7 +211,7 @@ impl DocumentCache {
 
         dedup.insert(doc_path);
 
-        for import in doc.imports.iter().map(|i| SourcePath::new(&i.file)) {
+        for import in doc.imports.iter().filter_map(|i| i.resolved.clone()) {
             if self.uses_widgets_impl(import, dedup) {
                 return true;
             }

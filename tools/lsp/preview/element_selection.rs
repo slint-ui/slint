@@ -16,19 +16,15 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
 }
 
 impl ElementSelection {
-    fn source_path(&self) -> SourcePath {
-        SourcePath::new(&self.path)
-    }
-
     fn as_element_in(&self, component_instance: &ComponentInstance) -> Option<ElementRc> {
-        let elements = component_instance
-            .element_node_at_source_code_position(&self.source_path(), self.offset.into());
+        let elements =
+            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
         elements
             .get(self.instance_index)
             .or_else(|| elements.first())
@@ -44,7 +40,7 @@ impl ElementSelection {
         let debug_index = {
             let element = element.borrow();
             element.debug.iter().position(|debug_info| {
-                debug_info.node.source_file.path_buf() == self.path
+                debug_info.node.source_file.path() == &self.path
                     && debug_info.node.text_range().start() == self.offset
             })
         };
@@ -61,7 +57,7 @@ impl ElementSelection {
 fn lsp_element_node_position(
     element: &editor_preview::ElementRcNode,
     format: editor_preview::ByteFormat,
-) -> Option<(String, lsp_types::Range)> {
+) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -74,7 +70,7 @@ fn lsp_element_node_position(
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-    Some((f, Range::new(start, end)))
+    Some((f.to_url()?, Range::new(start, end)))
 }
 
 fn element_geometries(
@@ -94,7 +90,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
@@ -113,12 +109,12 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&SourcePath::new(&path), offset.into());
+    let positions = component_instance.component_positions(&path, offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -138,7 +134,7 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = crate::Url::parse(source_uri.as_str())
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
         .ok()
         .and_then(|u| crate::editor_preview::uri_to_file(&u))
     else {
@@ -165,7 +161,7 @@ fn select_element_node(
 
     select_element_at_source_code_position_impl(
         component_instance,
-        path.to_path_buf(),
+        path,
         offset,
         position,
         SelectionNotification::Never, // We update directly;-)
@@ -175,7 +171,7 @@ fn select_element_node(
 
     if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        to_lsp.ask_editor_to_show_document(&document_position.0, document_position.1, false).ok();
+        to_lsp.ask_editor_to_show_document(document_position.0, document_position.1, false).ok();
     }
 }
 
@@ -229,14 +225,14 @@ fn assign_is_in_root_component(
     component_instance: &ComponentInstance,
     candidates: &mut [SelectionCandidate],
 ) {
-    let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
+    let mut root_anchor: Option<(SourcePath, i_slint_compiler::parser::TextRange)> = None;
     for candidate in candidates.iter_mut().rev() {
         let Some(element) = candidate.as_element_node(component_instance) else {
             continue;
         };
 
-        let (node_path, node_text_range) = element
-            .with_element_node(|node| (node.source_file.path().to_path_buf(), node.text_range()));
+        let (node_path, node_text_range) =
+            element.with_element_node(|node| (node.source_file.path().clone(), node.text_range()));
         if let Some((root_path, root_text_range)) = &root_anchor {
             candidate.is_in_root_component =
                 &node_path == root_path && root_text_range.contains_range(node_text_range);
@@ -256,12 +252,12 @@ pub fn collect_all_element_nodes_covering(
         .into_iter()
         .filter_map(|candidate| {
             let source_file = candidate.source_location.source_file.as_ref()?;
-            if matches!(source_file.path(), SourcePath::Builtin(_)) {
+            if source_file.path().is_builtin() {
                 return None;
             }
             let offset = u32::try_from(candidate.source_location.span.offset).ok()?.into();
             let selection = ElementSelection {
-                path: source_file.path().to_path_buf(),
+                path: source_file.path().clone(),
                 offset,
                 instance_index: candidate.instance_index,
             };
@@ -988,7 +984,7 @@ export component Main inherits Page {
 }
 "#;
         let component_instance = crate::preview::test::interpret_test("fluent", source);
-        let path = test::main_test_file_name();
+        let path = SourcePath::new(test::main_test_file_name());
         let first_offset =
             u32::try_from(source.find("GroupBox {\n        vertical-stretch").unwrap()).unwrap();
         let fourth_offset = u32::try_from(source.rfind("GroupBox {").unwrap()).unwrap();
@@ -997,7 +993,7 @@ export component Main inherits Page {
             [(first_offset, fourth_offset), (fourth_offset, first_offset)]
         {
             let geometry = component_instance
-                .component_positions(&SourcePath::new(&path), expected_offset)
+                .component_positions(&path, expected_offset)
                 .into_iter()
                 .next()
                 .expect("the GroupBox should have geometry");

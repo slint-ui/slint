@@ -23,25 +23,6 @@ pub type Error = Box<dyn std::error::Error>;
 /// so the traits' fallible methods can be written as `Result<()>`.
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[cfg(target_arch = "wasm32")]
-pub mod wasm_prelude {
-    use std::path::{Path, PathBuf};
-
-    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
-    pub trait UrlWasm {
-        fn to_file_path(&self) -> Result<PathBuf, ()>;
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
-    }
-    impl UrlWasm for lsp_types::Url {
-        fn to_file_path(&self) -> Result<PathBuf, ()> {
-            Ok(self.to_string().into())
-        }
-        fn from_file_path<P: AsRef<Path>>(path: P) -> Result<Self, ()> {
-            Self::parse(path.as_ref().to_str().ok_or(())?).map_err(|_| ())
-        }
-    }
-}
-
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
