@@ -114,8 +114,8 @@ impl Coverage {
         }
         let (start_line, start_column) = char_position(source_file, span.offset);
         let (end_line, end_column) = char_position(source_file, span.offset + span.length);
-        let path = source_file.path().to_path_buf();
-        let path = std::path::absolute(&path).unwrap_or(path);
+        let path = std::path::absolute(source_file.path_buf())
+            .unwrap_or_else(|_| source_file.path_buf().to_owned());
         let record = format!(
             "{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {}",
             path.display()

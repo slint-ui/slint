@@ -117,10 +117,9 @@ impl SourceFileInner {
         &self,
         size: TextSize,
         format: ByteFormat,
-    ) -> (String, usize, usize, usize, usize) {
-        let file_name = self.path().to_string();
+    ) -> (SourcePath, usize, usize, usize, usize) {
         let (start_line, start_column) = self.line_column(size.into(), format);
-        (file_name, start_line, start_column, start_line, start_column)
+        (self.path().clone(), start_line, start_column, start_line, start_column)
     }
 
     /// Returns the offset that corresponds to the line/column
@@ -258,7 +257,7 @@ pub enum DiagnosticLevel {
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
     message: String,
-    pub(crate) span: SourceLocation,
+    span: SourceLocation,
     level: DiagnosticLevel,
 }
 
@@ -300,6 +299,12 @@ impl Diagnostic {
     /// return the path of the source file where this error is attached
     pub fn source_file(&self) -> Option<&Path> {
         self.span.source_file().map(|sf| sf.path_buf.as_path())
+    }
+
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    pub fn source_path(&self) -> Option<&SourcePath> {
+        self.span.source_file().map(|sf| sf.path())
     }
 }
 
@@ -361,7 +366,7 @@ pub struct BuildDiagnostics {
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
-    pub all_loaded_files: BTreeSet<PathBuf>,
+    pub all_loaded_files: BTreeSet<SourcePath>,
 }
 
 impl IntoIterator for BuildDiagnostics {
@@ -439,9 +444,7 @@ impl BuildDiagnostics {
     /// since those are loaded automatically by the compiler and are not user code.
     #[cfg(feature = "slint-sc")]
     pub fn slint_sc_error(&mut self, feature: &str, source: &dyn Spanned) {
-        if self.slint_sc
-            && !source.source_file().is_some_and(|sf| matches!(sf.path(), SourcePath::Builtin(_)))
-        {
+        if self.slint_sc && !source.source_file().is_some_and(|sf| sf.path().is_builtin()) {
             self.push_error(format!("{feature} not supported in Slint SC"), source);
         }
     }

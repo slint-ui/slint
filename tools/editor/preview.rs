@@ -40,9 +40,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 
-#[cfg(target_arch = "wasm32")]
-use i_slint_editor_preview::wasm_prelude::*;
-
 mod drop_location;
 mod element_catalog;
 mod element_selection;
@@ -979,10 +976,6 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let Ok(file) = url.to_file_path() else {
-        return;
-    };
-
     let Some(document_cache) = document_cache() else {
         return;
     };
@@ -1003,12 +996,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         document_cache.format,
     );
     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-    lsp.ask_editor_to_show_document(
-        &file.to_string_lossy(),
-        lsp_types::Range::new(start, start),
-        false,
-    )
-    .ok();
+    lsp.ask_editor_to_show_document(url, lsp_types::Range::new(start, start), false).ok();
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -1016,9 +1004,8 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
         url: slint::SharedString,
         start: i32,
         end: i32,
-    ) -> Option<(PathBuf, lsp_types::Position, lsp_types::Position)> {
+    ) -> Option<(Url, lsp_types::Position, lsp_types::Position)> {
         let url = Url::parse(url.as_ref()).ok()?;
-        let file = url.to_file_path().ok()?;
 
         let start = u32::try_from(start).ok()?;
         let end = u32::try_from(end).ok()?;
@@ -1038,17 +1025,12 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
             document_cache.format,
         );
 
-        Some((file, start, end))
+        Some((url, start, end))
     }
 
     if let Some((f, s, e)) = internal(url, start, end) {
         let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        lsp.ask_editor_to_show_document(
-            &f.to_string_lossy(),
-            lsp_types::Range::new(s, e),
-            take_focus,
-        )
-        .ok();
+        lsp.ask_editor_to_show_document(f, lsp_types::Range::new(s, e), take_focus).ok();
     }
 }
 
@@ -1920,10 +1902,7 @@ fn extract_resources(
         };
 
         result.extend(
-            doc.embedded_file_resources
-                .borrow()
-                .iter()
-                .filter_map(|er| Url::from_file_path(er.path.as_deref()?).ok()),
+            doc.embedded_file_resources.borrow().iter().filter_map(|er| er.path.as_ref()?.to_url()),
         );
     }
 
@@ -2077,8 +2056,8 @@ fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)>
     })
 }
 
-fn get_path_from_cache(path: &Path) -> std::io::Result<(SourceFileVersion, String)> {
-    let url = Url::from_file_path(path).map_err(|()| {
+fn get_path_from_cache(path: &SourcePath) -> std::io::Result<(SourceFileVersion, String)> {
+    let url = path.to_url().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "Failed to convert path to URL")
     })?;
     get_url_from_cache(&url)
@@ -2183,18 +2162,12 @@ async fn reload_timer_function() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
-                (
-                    sf.path().to_owned(),
-                    util::text_size_to_lsp_position(sf, selection.offset, format),
-                )
+                (sf.path().to_url(), util::text_size_to_lsp_position(sf, selection.offset, format))
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-            lsp.ask_editor_to_show_document(
-                &path.to_string(),
-                lsp_types::Range::new(pos, pos),
-                false,
-            )
-            .ok();
+            if let Some(url) = path {
+                lsp.ask_editor_to_show_document(url, lsp_types::Range::new(pos, pos), false).ok();
+            }
         }
     }
 }
@@ -2254,7 +2227,7 @@ async fn parse_source(
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
-        String,
+        SourcePath,
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
@@ -2325,7 +2298,7 @@ async fn reload_preview_impl(
         set_current_live_data(live_preview_data);
     }
 
-    let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
+    let path = SourcePath::from_url(component.url.clone()).to_path_buf();
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
@@ -2345,9 +2318,7 @@ async fn reload_preview_impl(
         style,
         component.component.clone(),
         move |path| {
-            let path = path.to_owned();
             Box::pin(async move {
-                let path = PathBuf::from(&path);
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
                 Some(get_path_from_cache(&path))
@@ -2564,7 +2535,7 @@ fn convert_diagnostics(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
-            let Some(uri) = d.source_file().and_then(|f| SourcePath::new(f).to_url()) else {
+            let Some(uri) = d.source_path().and_then(SourcePath::to_url) else {
                 continue;
             };
             let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
@@ -2719,12 +2690,13 @@ fn set_selected_element(
         let (path, pos) = element_node.with_element_node(|node| {
             let sf = &node.source_file;
             (
-                sf.path().to_owned(),
+                sf.path().to_url(),
                 util::text_size_to_lsp_position(sf, node.text_range().start(), format),
             )
         });
-        lsp.ask_editor_to_show_document(&path.to_string(), lsp_types::Range::new(pos, pos), false)
-            .ok();
+        if let Some(url) = path {
+            lsp.ask_editor_to_show_document(url, lsp_types::Range::new(pos, pos), false).ok();
+        }
     }
 }
 
@@ -2904,7 +2876,7 @@ pub mod test {
             None,
             move |path| {
                 let code = code.clone();
-                let path = PathBuf::from(&path);
+                let path = path.to_path_buf();
 
                 Box::pin(async move {
                     let Some(source) = code.get(&path) else {

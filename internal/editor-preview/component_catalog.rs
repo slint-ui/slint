@@ -3,9 +3,6 @@
 
 // cSpell: ignore descr rfind unindented libraryize
 
-#[cfg(target_arch = "wasm32")]
-use i_slint_live_preview::protocol::wasm_prelude::*;
-
 use crate::{DocumentCache, editing::PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
@@ -87,7 +84,7 @@ fn import_file_name_for_url(
         } else if let Some(current_uri) = current_uri {
             lsp_types::Url::make_relative(current_uri, url)
         } else {
-            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
+            Some(i_slint_compiler::source_path::SourcePath::from_url(url.clone()).to_string())
         }
     }
 }
@@ -242,7 +239,7 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
 }
 
 fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_types::Url {
-    let url_path = i_slint_compiler::pathutils::clean_path(&url.to_file_path().unwrap_or_default());
+    let url_path = i_slint_compiler::source_path::SourcePath::from_url(url.clone()).to_path_buf();
     if let Some((library_name, library_path)) = document_cache
         .compiler_configuration()
         .library_paths

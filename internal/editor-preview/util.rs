@@ -43,8 +43,7 @@ pub fn node_to_url_and_lsp_range(
 ) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let path = node.source_file.path();
     // Desktop editors can't open a `builtin:` URL (#4126).
-    let is_builtin = matches!(path, i_slint_compiler::source_path::SourcePath::Builtin(_));
-    if is_builtin && !cfg!(target_arch = "wasm32") {
+    if path.is_builtin() && !cfg!(target_arch = "wasm32") {
         return None;
     }
     Some((path.to_url()?, node_to_lsp_range(node, format)))

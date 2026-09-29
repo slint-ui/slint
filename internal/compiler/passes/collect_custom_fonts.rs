@@ -4,11 +4,11 @@
 //! This pass extends the init code with font registration
 
 use crate::embedded_resources::EmbeddedResourcesIdx;
+use crate::source_path::SourcePath;
 use crate::{
     expression_tree::{BuiltinFunction, Expression, Unit},
     object_tree::*,
 };
-use smol_str::SmolStr;
 use std::collections::{BTreeSet, HashMap};
 
 pub fn collect_custom_fonts<'a>(
@@ -28,8 +28,8 @@ pub fn collect_custom_fonts<'a>(
         BuiltinFunction::RegisterCustomFontByPath
     };
 
-    let mut path_to_id = HashMap::<SmolStr, EmbeddedResourcesIdx>::new();
-    let mut prepare_font_registration_argument: Box<dyn FnMut(&SmolStr) -> Expression> =
+    let mut path_to_id = HashMap::<SourcePath, EmbeddedResourcesIdx>::new();
+    let mut prepare_font_registration_argument: Box<dyn FnMut(&SourcePath) -> Expression> =
         if embed_fonts {
             Box::new(|font_path| {
                 let resource_id = *path_to_id.entry(font_path.clone()).or_insert_with(|| {
@@ -43,7 +43,7 @@ pub fn collect_custom_fonts<'a>(
                 Expression::NumberLiteral(resource_id.0 as _, Unit::None)
             })
         } else {
-            Box::new(|font_path| Expression::StringLiteral(font_path.clone()))
+            Box::new(|font_path| Expression::StringLiteral(font_path.to_string().into()))
         };
 
     for c in doc.exported_roots() {

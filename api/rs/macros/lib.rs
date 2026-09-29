@@ -342,8 +342,9 @@ fn extract_compiler_config(
 fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
     diag.all_loaded_files
         .iter()
+        .filter_map(|path| path.as_native_path())
         .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
-        .cloned()
+        .map(std::path::Path::to_path_buf)
         .collect()
 }
 

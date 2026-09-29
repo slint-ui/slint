@@ -78,6 +78,16 @@ impl SourcePath {
         matches!(self, Self::Builtin(_))
     }
 
+    /// Reads a `File`; anything else is `NotFound`.
+    pub fn read(&self) -> std::io::Result<Vec<u8>> {
+        std::fs::read(self.as_native_path().ok_or(std::io::ErrorKind::NotFound)?)
+    }
+
+    /// See [`Self::read`].
+    pub fn read_to_string(&self) -> std::io::Result<String> {
+        std::fs::read_to_string(self.as_native_path().ok_or(std::io::ErrorKind::NotFound)?)
+    }
+
     pub fn as_native_path(&self) -> Option<&Path> {
         match self {
             Self::File(path) => Some(path),

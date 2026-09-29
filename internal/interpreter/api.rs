@@ -801,7 +801,7 @@ impl ComponentCompiler {
         > + 'static,
     ) {
         self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -1006,7 +1006,7 @@ impl Compiler {
         > + 'static,
     ) {
         self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
     }
 
     /// Compile a .slint file

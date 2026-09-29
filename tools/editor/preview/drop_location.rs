@@ -20,9 +20,6 @@ use i_slint_live_preview::protocol::VersionedUrl;
 
 use crate::preview::ext::ElementRcNodeExt;
 
-#[cfg(target_arch = "wasm32")]
-use i_slint_editor_preview::wasm_prelude::*;
-
 pub fn placeholder() -> String {
     format!(
         " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",

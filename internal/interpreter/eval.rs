@@ -14,6 +14,7 @@ use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
@@ -1779,12 +1780,11 @@ fn load_image_reference(
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
-        Ref::Url(url) if url.scheme() == "builtin" => {
+        Ref::Source(path @ SourcePath::Builtin(_)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
             // baked into the compiler's builtin library and need to be fetched
             // through `fileaccess::load_file` rather than the filesystem.
-            let path = i_slint_compiler::source_path::SourcePath::from_url(url.clone());
-            i_slint_compiler::fileaccess::load_file(&path)
+            i_slint_compiler::fileaccess::load_file(path)
                 .and_then(|virtual_file| virtual_file.builtin_contents)
                 .map(|contents| {
                     let extension = path.extension().unwrap();
@@ -1795,13 +1795,11 @@ fn load_image_reference(
                 })
                 .ok_or_else(Default::default)
         }
-        Ref::Path(path) => {
-            i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path.as_str()))
-        }
-        Ref::Url(url) => {
+        Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
-                i_slint_core::graphics::load_as_html_image(url.as_str())
+                i_slint_core::graphics::load_as_html_image(&url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
             #[cfg(not(target_arch = "wasm32"))]

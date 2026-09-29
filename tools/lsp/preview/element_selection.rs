@@ -16,21 +16,17 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
 }
 
 impl ElementSelection {
-    fn source_path(&self) -> SourcePath {
-        SourcePath::new(&self.path)
-    }
-
     pub fn as_element(&self) -> Option<ElementRc> {
         let component_instance = super::component_instance()?;
 
-        let elements = component_instance
-            .element_node_at_source_code_position(&self.source_path(), self.offset.into());
+        let elements =
+            component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
         elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
     }
 
@@ -40,7 +36,7 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|d| {
-                d.node.source_file.path_buf() == self.path
+                d.node.source_file.path() == &self.path
                     && d.node.text_range().start() == self.offset
             })
         };
@@ -64,7 +60,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 fn lsp_element_node_position(
     element: &editor_preview::ElementRcNode,
     format: editor_preview::ByteFormat,
-) -> Option<(String, lsp_types::Range)> {
+) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -77,7 +73,7 @@ fn lsp_element_node_position(
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-    Some((f, Range::new(start, end)))
+    Some((f.to_url()?, Range::new(start, end)))
 }
 
 fn element_covers_point(
@@ -100,7 +96,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
@@ -119,12 +115,12 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
 ) {
-    let positions = component_instance.component_positions(&SourcePath::new(&path), offset.into());
+    let positions = component_instance.component_positions(&path, offset.into());
 
     let instance_index = position
         .and_then(|p| positions.iter().enumerate().find_map(|(i, g)| g.contains(p).then_some(i)))
@@ -144,7 +140,7 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = crate::Url::parse(source_uri.as_str())
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
         .ok()
         .and_then(|u| crate::editor_preview::uri_to_file(&u))
     else {
@@ -171,7 +167,7 @@ fn select_element_node(
 
     select_element_at_source_code_position_impl(
         component_instance,
-        path.to_path_buf(),
+        path,
         offset,
         position,
         SelectionNotification::Never, // We update directly;-)
@@ -181,7 +177,7 @@ fn select_element_node(
 
     if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        to_lsp.ask_editor_to_show_document(&document_position.0, document_position.1, false).ok();
+        to_lsp.ask_editor_to_show_document(document_position.0, document_position.1, false).ok();
     }
 }
 
@@ -241,7 +237,7 @@ fn collect_all_element_nodes_covering_impl(
     if let Some(geometry) = element_covers_point(position, component_instance, current_element) {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !editor_preview::is_element_node_ignored(&d.node)
-                && !matches!(d.node.source_file.path(), SourcePath::Builtin(_))
+                && !d.node.source_file.path().is_builtin()
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {
@@ -256,14 +252,14 @@ fn collect_all_element_nodes_covering_impl(
 }
 
 fn assign_is_in_root_component(candidates: &mut [SelectionCandidate]) {
-    let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
+    let mut root_anchor: Option<(SourcePath, i_slint_compiler::parser::TextRange)> = None;
     for sc in candidates.iter_mut().rev() {
         let Some(en) = sc.as_element_node() else {
             continue;
         };
 
         let (node_path, node_text_range) =
-            en.with_element_node(|n| (n.source_file.path().to_path_buf(), n.text_range()));
+            en.with_element_node(|n| (n.source_file.path().clone(), n.text_range()));
         if let Some((rp, rtr)) = &root_anchor {
             sc.is_in_root_component = &node_path == rp && rtr.contains_range(node_text_range);
         } else {

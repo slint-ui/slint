@@ -8,6 +8,7 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 
 use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
@@ -18,9 +19,6 @@ use smol_str::SmolStr;
 
 use crate::editor_preview::{self, component_catalog::ComponentInformation};
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
-
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 
 fn fuzzy_filter_iter<Item: std::fmt::Debug>(
     input: &mut impl Iterator<Item = Item>,
@@ -242,7 +240,9 @@ pub fn create_ui(
     api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).ok();
+        if let Some(url) = SourcePath::new(file.as_str()).to_url() {
+            lsp.ask_editor_to_show_document(url, Range::new(pos, pos), false).ok();
+        }
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
@@ -257,7 +257,7 @@ pub fn create_ui(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            PathBuf::from(path.to_string()),
+            SourcePath::new(path.as_str()),
             preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
@@ -353,8 +353,7 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
         return (Default::default(), Default::default());
     };
 
-    let path = url.to_file_path().unwrap_or_default();
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let file_name = SourcePath::from_url(url.clone()).file_name().unwrap_or_default().to_string();
 
     (url.to_string().into(), file_name.into())
 }
@@ -427,9 +426,7 @@ pub fn ui_set_known_components(
             if let Some(library) = position.url().path().strip_prefix("/@") {
                 library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
-                let path = i_slint_compiler::pathutils::clean_path(
-                    &(position.url().to_file_path().unwrap_or_default()),
-                );
+                let path = SourcePath::from_url(position.url().clone()).to_path_buf();
                 if path != PathBuf::new() {
                     if longest_path_prefix == PathBuf::new() {
                         longest_path_prefix = path.clone();

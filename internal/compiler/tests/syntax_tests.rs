@@ -544,7 +544,7 @@ fn process_file_source(
     let mut success = true;
     success &= process_diagnostics(&compile_diagnostics, path, &source, silent, update)?;
 
-    for p in &compile_diagnostics.all_loaded_files {
+    for p in compile_diagnostics.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         let source = if p.is_absolute() {
             std::fs::read_to_string(p)?
         } else {

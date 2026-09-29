@@ -60,7 +60,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 fn lsp_element_node_position(
     element: &i_slint_editor_preview::ElementRcNode,
     format: i_slint_editor_preview::ByteFormat,
-) -> Option<(String, lsp_types::Range)> {
+) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -73,7 +73,7 @@ fn lsp_element_node_position(
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-    Some((f, Range::new(start, end)))
+    Some((f.to_url()?, Range::new(start, end)))
 }
 
 fn element_covers_point(
@@ -278,7 +278,7 @@ fn select_element_node(
 
     if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        to_lsp.ask_editor_to_show_document(&document_position.0, document_position.1, false).ok();
+        to_lsp.ask_editor_to_show_document(document_position.0, document_position.1, false).ok();
     }
 }
 
@@ -344,7 +344,7 @@ fn collect_all_element_nodes_covering_impl(
     {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !i_slint_editor_preview::is_element_node_ignored(&d.node)
-                && !matches!(d.node.source_file.path(), SourcePath::Builtin(_))
+                && !d.node.source_file.path().is_builtin()
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {

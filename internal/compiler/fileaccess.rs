@@ -13,10 +13,13 @@ pub struct VirtualFile {
 
 impl VirtualFile {
     pub fn read(&self) -> Cow<'static, [u8]> {
-        match (self.builtin_contents, &self.canon_path) {
-            (Some(static_data), _) => Cow::Borrowed(static_data),
-            (None, SourcePath::File(path)) => Cow::Owned(std::fs::read(path).unwrap()),
-            (None, _) => unreachable!("load_file only opens builtin files and native files"),
+        self.try_read().unwrap()
+    }
+
+    pub fn try_read(&self) -> std::io::Result<Cow<'static, [u8]>> {
+        match self.builtin_contents {
+            Some(static_data) => Ok(Cow::Borrowed(static_data)),
+            None => self.canon_path.read().map(Cow::Owned),
         }
     }
 
