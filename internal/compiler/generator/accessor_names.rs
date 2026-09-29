@@ -45,6 +45,15 @@ impl AccessorKind {
 }
 
 impl DeclarationKind {
+    /// The noun for this kind of declaration in messages shown to the user.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Property => "property",
+            Self::Callback => "callback",
+            Self::Function => "function",
+        }
+    }
+
     /// Accessor kinds emitted for this declaration, in the order both backends
     /// declare them.
     pub const fn accessor_kinds(self) -> &'static [AccessorKind] {
@@ -88,7 +97,7 @@ fn format_accessor_name(name: &str, accessor: AccessorKind) -> SmolStr {
 
 /// Same as [`rust_accessor_name`] but wrapped in a [`proc_macro2::Ident`] for
 /// direct use in `quote!` templates.
-#[cfg(feature = "rust")]
+#[cfg(any(feature = "rust", feature = "slint-sc"))]
 pub fn rust_accessor_ident(name: &str, accessor: AccessorKind) -> proc_macro2::Ident {
     quote::format_ident!("{}", rust_accessor_name(name, accessor).as_str())
 }

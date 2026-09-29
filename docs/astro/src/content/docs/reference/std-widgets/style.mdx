@@ -26,7 +26,7 @@ By default, the styles automatically adapt to the system's dark or light color s
 
 The widget style is determined at your project's compile time. The method to select a style depends on how you use Slint.
 
-If no style is selected, `native` is the default.
+If no style is selected, `fluent` is the default on all platforms.
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
@@ -82,7 +82,7 @@ main_window.run()
 
 ## Using Style Properties In Your Own Components
 
-The global <Link type="Palette" label="Palette"/> and <Link type="StyleMetrics" label="StyleMetrics"/> properties can be accessed and will be set to the appropriate values of the current style.
+The global <Link type="Palette"/> and <Link type="StyleMetrics"/> properties can be accessed and will be set to the appropriate values of the current style.
 
 ```slint playground
 import { Palette, StyleMetrics } from "std-widgets.slint";

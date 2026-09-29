@@ -1,0 +1,28 @@
+<svg width="310" height="150" viewBox="0 0 310 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    The backdrop of the wide Windows tile. Unlike the square tiles this one runs
+    to the edges and keeps its corners, because Windows draws it as a panel
+    rather than as an icon.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="15" y1="0" x2="300" y2="158" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#25C9EF"/>
+      <stop offset="0.48" stop-color="#168DF4"/>
+      <stop offset="1" stop-color="#1162EF"/>
+    </linearGradient>
+    <linearGradient id="gridFade" x1="155" y1="0" x2="155" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="white" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.13"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="310" height="150" fill="url(#bg)"/>
+  <g stroke="url(#gridFade)" stroke-width="1.7">
+    <path d="M62 0V150"/>
+    <path d="M124 0V150"/>
+    <path d="M186 0V150"/>
+    <path d="M248 0V150"/>
+    <path d="M0 50H310"/>
+    <path d="M0 100H310"/>
+  </g>
+</svg>

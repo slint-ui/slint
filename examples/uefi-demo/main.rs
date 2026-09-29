@@ -309,8 +309,8 @@ impl slint::platform::Platform for Platform {
             while let Some(key) = get_key_press() {
                 // EFI does not distinguish between pressed and released events.
                 let text = SharedString::from(key);
-                self.window.try_dispatch_event(WindowEvent::KeyPressed { text: text.clone() })?;
-                self.window.try_dispatch_event(WindowEvent::KeyReleased { text })?;
+                self.window.dispatch_event_with_result(WindowEvent::KeyPressed { text: text.clone() })?;
+                self.window.dispatch_event_with_result(WindowEvent::KeyReleased { text })?;
             }
             // mouse handle until no input
             while let Some(mut mouse) =
@@ -342,11 +342,11 @@ impl slint::platform::Platform for Platform {
                     mouse.relative_movement[1] = (info.resolution().1) as i32;
                 }
 
-                self.window.try_dispatch_event(WindowEvent::PointerMoved { position })?;
-                self.window.try_dispatch_event(WindowEvent::PointerExited {})?;
-                self.window.try_dispatch_event(WindowEvent::PointerPressed { position, button })?;
+                self.window.dispatch_event_with_result(WindowEvent::PointerMoved { position })?;
+                self.window.dispatch_event_with_result(WindowEvent::PointerExited {})?;
+                self.window.dispatch_event_with_result(WindowEvent::PointerPressed { position, button })?;
                 self.window
-                    .try_dispatch_event(WindowEvent::PointerReleased { position, button })?;
+                    .dispatch_event_with_result(WindowEvent::PointerReleased { position, button })?;
                 is_mouse_move = true;
             }
 

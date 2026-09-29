@@ -1,12 +1,13 @@
 
 # Changelog
 
-## [0.2.1]
+## [0.2.1] - 2026-08-18
 
  - Added `const fn compose_field_offsets` as an alternative to `Add`
    in `const` contexts.
+ - Updated `syn` to version 3.
 
-## [0.2.0]
+## [0.2.0] - 2026-04-16
 
  - Breaking change: `FIELD_OFFSETS` is now a zero-sized type with a `const fn`
    per field, instead of a struct with one `FieldOffset` field per struct field.

@@ -1,0 +1,29 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A word-wrapping Text must not be shrunk below its longest word. The window is
+// too narrow for both texts, so "iii" would otherwise be squeezed away entirely.
+
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    HorizontalLayout {
+        padding: 0px;
+        spacing: 0px;
+        Text {
+            text: "wwww wwww wwww";
+            wrap: word-wrap;
+            color: green;
+            font-size: 10px;
+        }
+        Text {
+            text: "iii";
+            wrap: word-wrap;
+            color: blue;
+            font-size: 10px;
+        }
+    }
+}

@@ -1,0 +1,187 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { Style, Motion, ScrollIndicatorStyle } from "../style.slint";
+
+component EditorScrollBar inherits Rectangle {
+    in property <ScrollIndicatorStyle> style: Style.scroll-indicator;
+    in property <bool> horizontal;
+    in property <bool> enabled: true;
+    in property <bool> active;
+    in property <ScrollBarPolicy> policy: ScrollBarPolicy.as-needed;
+    in property <length> content-size;
+    in property <length> visible-size;
+    in-out property <length> value;
+    out property <bool> engaged: touch.has-hover || touch.pressed;
+    out property <bool> needed: root.policy != ScrollBarPolicy.always-off && root.maximum > 0px;
+    callback scrolled();
+
+    private property <length> maximum: max(0px, root.content-size - root.visible-size);
+    private property <length> track-length: max(0px, (root.horizontal ? root.width : root.height) - 2 * root.style.inset);
+    private property <length> thumb-length: min(root.track-length, max(root.style.minimum-length,
+        root.track-length * root.visible-size / max(1px, root.content-size)));
+    private property <length> travel: root.track-length - root.thumb-length;
+    private property <length> thumb-position: root.style.inset
+        + root.travel * clamp(-root.value / max(1px, root.maximum), 0, 1);
+    private property <length> thickness: root.engaged ? root.style.active-thickness : root.style.thickness;
+    private property <float> alpha: root.needed && (root.active || root.policy == ScrollBarPolicy.always-on) ? 1 : 0;
+
+    animate alpha { duration: root.active ? root.style.reveal-duration : root.style.fade-duration; }
+    animate thickness { duration: Motion.fast; easing: ease-out; }
+
+    changed maximum => { if touch.pressed { touch.save-position(); } }
+    changed travel => { if touch.pressed { touch.save-position(); } }
+
+    thumb := Rectangle {
+        x: root.horizontal ? root.thumb-position : root.width - root.style.inset - root.thickness;
+        y: root.horizontal ? root.height - root.style.inset - root.thickness : root.thumb-position;
+        width: root.horizontal ? root.thumb-length : root.thickness;
+        height: root.horizontal ? root.thickness : root.thumb-length;
+        border-radius: root.thickness / 2;
+        background: root.engaged ? root.style.active-color : root.style.color;
+        opacity: root.alpha;
+    }
+
+    touch := TouchArea {
+        x: root.horizontal ? root.thumb-position : 0px;
+        y: root.horizontal ? 0px : root.thumb-position;
+        width: root.horizontal ? root.thumb-length : parent.width;
+        height: root.horizontal ? parent.height : root.thumb-length;
+        enabled: root.enabled && root.needed && root.alpha > 0 && root.travel > 0px;
+        private property <length> last-position;
+        private property <length> pressed-position;
+        private property <length> pressed-value;
+
+        pure function pointer-position() -> length {
+            return root.horizontal ? self.absolute-position.x + self.mouse-x - root.absolute-position.x
+                : self.absolute-position.y + self.mouse-y - root.absolute-position.y;
+        }
+
+        function save-position() {
+            self.pressed-position = self.last-position;
+            self.pressed-value = root.value;
+        }
+
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                self.last-position = self.pointer-position();
+                self.save-position();
+            }
+        }
+
+        moved => {
+            self.last-position = self.pointer-position();
+            if self.pressed && root.travel > 0px {
+                root.value = clamp(self.pressed-value - (self.last-position - self.pressed-position)
+                    * root.maximum / root.travel, -root.maximum, 0px);
+                root.scrolled();
+            }
+        }
+    }
+}
+
+export component EditorScrollIndicators inherits Rectangle {
+    in property <ScrollIndicatorStyle> style: Style.scroll-indicator;
+    in property <bool> enabled: true;
+    in property <length> content-width;
+    in property <length> content-height;
+    in property <length> visible-width;
+    in property <length> visible-height;
+    in-out property <length> content-x;
+    in-out property <length> content-y;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy: ScrollBarPolicy.as-needed;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+    callback scrolled();
+
+    private property <bool> active: idle.running || root.engaged;
+    private property <bool> engaged: horizontal.engaged || vertical.engaged;
+
+    function reveal() {
+        idle.running = !root.engaged;
+        if idle.running { idle.restart(); }
+    }
+
+    changed content-x => { root.reveal(); }
+    changed content-y => { root.reveal(); }
+    changed engaged => { root.reveal(); }
+
+    idle := Timer {
+        running: false;
+        interval: root.style.idle-duration;
+        triggered => {
+            self.running = false;
+        }
+    }
+
+    vertical := EditorScrollBar {
+        style: root.style;
+        enabled: root.enabled;
+        active: root.active;
+        policy: root.vertical-scrollbar-policy;
+        x: parent.width - self.width;
+        width: root.style.hit-width;
+        height: max(0px, parent.height - (horizontal.needed ? root.style.hit-width : 0px));
+        content-size: root.content-height;
+        visible-size: root.visible-height;
+        value <=> root.content-y;
+        scrolled => { root.scrolled(); }
+    }
+
+    horizontal := EditorScrollBar {
+        style: root.style;
+        enabled: root.enabled;
+        active: root.active;
+        policy: root.horizontal-scrollbar-policy;
+        horizontal: true;
+        y: parent.height - self.height;
+        height: root.style.hit-width;
+        width: max(0px, parent.width - (vertical.needed ? root.style.hit-width : 0px));
+        content-size: root.content-width;
+        visible-size: root.visible-width;
+        value <=> root.content-x;
+        scrolled => { root.scrolled(); }
+    }
+}
+
+export component EditorScrollView inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <bool> mouse-drag-pan-enabled <=> view.mouse-drag-pan-enabled;
+    in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> indicators.horizontal-scrollbar-policy;
+    in property <ScrollBarPolicy> vertical-scrollbar-policy <=> indicators.vertical-scrollbar-policy;
+    in-out property <length> content-width <=> view.content-width;
+    in-out property <length> content-height <=> view.content-height;
+    in-out property <length> content-x <=> view.content-x;
+    in-out property <length> content-y <=> view.content-y;
+    out property <length> visible-width <=> view.visible-width;
+    out property <length> visible-height <=> view.visible-height;
+    callback scrolled();
+
+    min-width: view.min-width;
+    min-height: view.min-height;
+    preferred-width: 100%;
+    preferred-height: 100%;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    view := ScrollView {
+        width: parent.width;
+        height: parent.height;
+        enabled: root.enabled;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        scrolled => { root.scrolled(); }
+        @children
+    }
+
+    indicators := EditorScrollIndicators {
+        enabled: root.enabled;
+        content-width: view.content-width;
+        content-height: view.content-height;
+        visible-width: view.visible-width;
+        visible-height: view.visible-height;
+        content-x <=> view.content-x;
+        content-y <=> view.content-y;
+        scrolled => { root.scrolled(); }
+    }
+}

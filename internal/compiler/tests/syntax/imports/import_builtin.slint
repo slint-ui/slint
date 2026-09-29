@@ -11,3 +11,12 @@ import { Button } from "std-widgets-impl.slint";
 //                     >                      <error{Cannot find requested import "std-widgets-impl.slint" in the include search path}
 import { NotAThing } from "std-widgets-impl.slint";
 //                        >                      <error{Cannot find requested import "std-widgets-impl.slint" in the include search path}
+
+// Naming the embedded path doesn't reach them either: not the implementation
+// files, and not a style other than the configured one.
+import { StyleMetrics } from "builtin:/fluent/std-widgets-impl.slint";
+//                           >                                      <error{Cannot import "builtin:/fluent/std-widgets-impl.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}
+import { Button } from "builtin:/fluent/button.slint";
+//                     >                            <error{Cannot import "builtin:/fluent/button.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}
+import { Button as C } from "builtin:/cupertino/std-widgets.slint";
+//                          >                                    <error{Cannot import "builtin:/cupertino/std-widgets.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}

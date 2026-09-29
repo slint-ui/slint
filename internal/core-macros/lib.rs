@@ -228,7 +228,7 @@ pub fn remove_extern(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         syn::Item::Struct(item_struct) => {
             for f in item_struct.fields.iter_mut() {
-                if let syn::Type::BareFn(f) = &mut f.ty {
+                if let syn::Type::FnPtr(f) = &mut f.ty {
                     f.abi.take();
                 }
             }

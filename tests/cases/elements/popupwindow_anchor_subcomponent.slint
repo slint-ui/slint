@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A popup declared in a component but anchored to a nested sub-component instance: the
+// popup is the instance's only child (so, once the popup is lowered out, the instance is
+// not inlined and stays a real sub-component). The popup's parent item then descends into
+// that instance, while its `popup_id` and scope belong to the declaring component -- the
+// two must be resolved separately. The popup's position also references the anchoring
+// instance through `parent`.
+
+component Slot inherits Rectangle {
+    callback clicked;
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Widget inherits Rectangle {
+    out property <bool> is-open <=> p.is-open;
+
+    slot := Slot {
+        x: 20px;
+        y: 30px;
+        width: 40px;
+        height: 10px;
+
+        clicked => {
+            p.show();
+        }
+
+        p := PopupWindow {
+            // `parent` is the `Slot` instance the popup is anchored to.
+            x: parent.width;
+            y: parent.height;
+            width: 15px;
+            height: 15px;
+            close-policy: PopupClosePolicy.no-auto-close;
+
+            TouchArea {
+                clicked => {
+                    p.close();
+                }
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    out property <bool> popup-open: w.is-open;
+
+    w := Widget {
+        width: 100px;
+        height: 100px;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_popup_open());
+// Click the Slot (at 20,30 with size 40x10) to open the popup through its callback.
+slint_testing::send_mouse_click(&instance, 40., 35.);
+assert!(instance.get_popup_open());
+// The popup is anchored to the Slot (at 20,30) and positioned at parent.width/parent.height (40,10),
+// so its own touch area sits around (60+, 40+). Click it to close.
+slint_testing::send_mouse_click(&instance, 67., 47.);
+assert!(!instance.get_popup_open());
+// And it can be opened again.
+slint_testing::send_mouse_click(&instance, 40., 35.);
+assert!(instance.get_popup_open());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 40., 35.);
+assert(instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 67., 47.);
+assert(!instance.get_popup_open());
+slint_testing::send_mouse_click(&instance, 40., 35.);
+assert(instance.get_popup_open());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.popup_open, false);
+slintlib.private_api.send_mouse_click(instance, 40., 35.);
+assert.equal(instance.popup_open, true);
+slintlib.private_api.send_mouse_click(instance, 67., 47.);
+assert.equal(instance.popup_open, false);
+slintlib.private_api.send_mouse_click(instance, 40., 35.);
+assert.equal(instance.popup_open, true);
+```
+*/

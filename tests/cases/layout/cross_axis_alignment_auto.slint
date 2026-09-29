@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `auto` cannot be set verbatim on `cross-axis-alignment`, but it can reach it
+// through a property at run-time, where it behaves like `stretch`.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 90px;
+
+    in-out property <bool> center-mode;
+    property <CrossAxisAlignment> indirect: center-mode ? CrossAxisAlignment.center : CrossAxisAlignment.auto;
+
+    VerticalLayout {
+        x: 0; y: 0; width: 100px; height: 90px;
+        cross-axis-alignment: indirect;
+        indirect-rect := Rectangle { preferred-width: 10px; }
+    }
+    VerticalLayout {
+        x: 100px; y: 0; width: 100px; height: 90px;
+        cross-axis-alignment: stretch;
+        stretch-rect := Rectangle { preferred-width: 10px; }
+    }
+    VerticalLayout {
+        x: 200px; y: 0; width: 100px; height: 90px;
+        default-rect := Rectangle { preferred-width: 10px; }
+    }
+
+    out property <int> indirect-rect-width: indirect-rect.width / 1px;
+    // `auto` through a property, an explicit `stretch`, and the unset default all stretch alike.
+    out property <bool> test: indirect-rect.width == 100px
+        && indirect-rect.width == stretch-rect.width
+        && indirect-rect.width == default-rect.width;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Switching the property away from `auto` and back re-solves the layout.
+instance.set_center_mode(true);
+assert_eq!(instance.get_indirect_rect_width(), 10);
+instance.set_center_mode(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+
+// Switching the property away from `auto` and back re-solves the layout.
+instance.set_center_mode(true);
+assert_eq(instance.get_indirect_rect_width(), 10);
+instance.set_center_mode(false);
+assert_eq(instance.get_test(), true);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+
+// Switching the property away from `auto` and back re-solves the layout.
+instance.center_mode = true;
+assert.equal(instance.indirect_rect_width, 10);
+instance.center_mode = false;
+assert(instance.test);
+```
+*/

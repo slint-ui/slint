@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Array literals of different lengths as the branches of a conditional expression must
+// produce a common type in the generated code (regression from 1.13: the C++ ternary
+// operator rejected `ArrayModel<3>` vs `ArrayModel<0>`).
+
+export component TestCase inherits Window {
+    in-out property <int> mode;
+    in-out property <[length]> vals: mode == 1 ? [10px, 20px, 30px]
+                                   : mode == 2 ? [40px, 50px]
+                                   : [];
+    out property <length> first: vals[0];
+    out property <int> count: vals.length;
+
+    out property <bool> test: count == 0 && first == 0px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+instance.set_mode(1);
+assert_eq(instance.get_count(), 3);
+assert_eq(instance.get_first(), 10.);
+
+instance.set_mode(2);
+assert_eq(instance.get_count(), 2);
+assert_eq(instance.get_first(), 40.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.set_mode(1);
+assert_eq!(instance.get_count(), 3);
+assert_eq!(instance.get_first(), 10.);
+
+instance.set_mode(2);
+assert_eq!(instance.get_count(), 2);
+assert_eq!(instance.get_first(), 40.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+
+instance.mode = 1;
+assert.equal(instance.count, 3);
+assert.equal(instance.first, 10.);
+
+instance.mode = 2;
+assert.equal(instance.count, 2);
+assert.equal(instance.first, 40.);
+```
+*/

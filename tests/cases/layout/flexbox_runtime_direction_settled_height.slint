@@ -1,0 +1,66 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A flex whose direction is only known at runtime, with a height settled by the
+// source. `layoutinfo-h-at-own-height` is generated for it (the direction is not
+// known to be the main axis), so the horizontal info becomes a condition: the
+// row arm reports the main-axis info, the column arm the one measured at the
+// flex's own height. Both arms must be run — the driver blocks below flip
+// `horizontal` — since only the column arm reads the at-own-height property.
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+    in property <bool> horizontal: false;
+
+    // 4 boxes of 40x30. As a column, 70px fits two per column, so the columns
+    // it counts are 2 and the preferred width is 80px. As a row, all four sit
+    // on one line: 160px wide, 30px tall.
+    fl := FlexboxLayout {
+        x: 0; y: 40px; width: 300px; height: 70px;
+        flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+        flex-wrap: wrap;
+        spacing: 0px; padding: 0px; cross-axis-line-alignment: start;
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+        Rectangle { width: 40px; height: 30px; background: #cce6ff; border-width: 1px; border-color: #5b8db8; }
+        fourth := Rectangle { width: 40px; height: 30px; background: #a6cbe8; border-width: 1px; border-color: #5b8db8; }
+    }
+
+    out property <length> pw: fl.preferred-width;
+    out property <length> fourth-x: fourth.x;
+    out property <length> fourth-y: fourth.y;
+
+    // Column: the settled 70px height fits two boxes per column, so the fourth
+    // is the second of the second column, and the preferred width counts both
+    // columns — that is the at-own-height info. Row: all four on one line.
+    // (A row's preferred width is its compact size, not the sum, so it is 80px
+    // in both arms for unrelated reasons; the positions are what tell them apart.)
+    out property <bool> test: horizontal
+        ? (fourth-x == 120px && fourth-y == 0px)
+        : (pw == 80px && fourth-x == 40px && fourth-y == 30px);
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "column arm: a settled height must count the columns");
+instance.set_horizontal(true);
+assert!(instance.get_test(), "row arm: one line of four boxes");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_horizontal(true);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.horizontal = true;
+assert(instance.test);
+```
+*/

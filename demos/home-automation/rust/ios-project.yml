@@ -9,12 +9,19 @@ targets:
   Home Automation:
     type: application
     platform: iOS
-    deploymentTarget: "12.0"
+    deploymentTarget: "13.0"
     info:
         path: Info.plist
         properties:
+            CADisableMinimumFrameDurationOnPhone: true
             UILaunchScreen:
                 - ImageRespectSafeAreaInsets: false
+            UIApplicationSceneManifest:
+              UIApplicationSupportsMultipleScenes: false
+              UISceneConfigurations:
+                UIWindowSceneSessionRoleApplication:
+                  - UISceneConfigurationName: Slint
+                    UISceneDelegateClassName: SlintWindowSceneDelegate
     sources: []
     postCompileScripts:
       - script: |

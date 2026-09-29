@@ -1,13 +1,12 @@
 ---
 title: Structs and Enums
-description: Structs and Enums
+description: Modeling your data with named structures and enumerations.
 ---
 
+When a single value isn't enough, model your data with structs and enums.
+Both can be exported and used from your business logic like any other type.
 
-
-## Structs
-
-Define named structures using the `struct` keyword:
+Define a named structure with the `struct` keyword:
 
 ```slint
 export struct Player  {
@@ -20,24 +19,8 @@ export component Example {
 }
 ```
 
-The default value of a struct, is initialized with all its fields set to their default value.
-
-### Anonymous Structures
-
-Declare anonymous structures using `{ identifier1: type1, identifier2: type2 }`
-syntax, and initialize them using
-`{ identifier1: expression1, identifier2: expression2  }`.
-
-You may have a trailing `,` after the last expression or type.
-
-```slint
-export component Example {
-    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
-    in-out property<{a: int, }> foo: { a: 3 };
-}
-```
-
-## Enums
+Fields can declare default values, and for one-off shapes you can use an anonymous
+struct type like `{name: string, score: int}` directly.
 
 Define an enumeration with the `enum` keyword:
 
@@ -50,10 +33,8 @@ export component Example {
 }
 ```
 
-Enum values can be referenced by using the name of the enum and the name of the value
-separated by a dot. (eg: `CardSuit.spade`)
+Refer to a value as `CardSuit.spade`, or drop the enum name wherever the type is
+already known — like in the binding above.
 
-The name of the enum can be omitted in bindings of the type of that enum, or if the
-return value of a callback is of that enum.
-
-The default value of each enum type is always the first value.
+For field defaults, name omission, and default values, see the
+[Structs and Enums](../../../../reference/language/structs-and-enums/) chapter of the language reference.

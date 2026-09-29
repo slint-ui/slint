@@ -4,22 +4,27 @@
 // Regression test for https://github.com/slint-ui/slint/issues/11936
 //
 // A column-direction FlexboxLayout nested in a HorizontalLayout. The window is
-// short enough to force the column to wrap into a *second* column. The flex must
-// report its full (two-column) width to the parent so the sibling flex is placed
-// to the right of the wrapped content. The bug: it reported only the first
-// column's width, so the parent placed the sibling over the wrapped second
-// column and the two collided.
+// too short for the column, and the flex has no height of its own, so it is
+// measured at an unbounded height and reports one column's width. The bug was
+// that the solve then wrapped into a second column anyway, past that width,
+// so the parent placed the sibling flex over the wrapped column and the two
+// collided. A column flex now never wraps into columns wider than its width:
+// the third item stacks below the second, past the flex's bottom, and the
+// sibling sits right after the one column. Binding the flex's `height` would
+// count the columns instead (see flexbox_column_wrap_width.slint).
 //
-// Fixed sizes (no font metrics) keep the wrap geometry deterministic on every
-// backend. The collision is between the *content* of the two flexes, so the
-// assertion compares content edges, not the (previously under-reported) flex
-// width.
+// Fixed sizes (no font metrics) keep the geometry deterministic on every
+// backend. The collision was between the *content* of the two flexes, so the
+// assertion compares content edges, not the flex width.
 
 export component TestCase inherits Window {
     width: 600px;
-    height: 120px;   // short on purpose: forces the column to wrap into 2 columns
+    // The row is short on purpose; the window is not, so the boxes that do
+    // not fit stay visible below it instead of being cut off.
+    height: 220px;
 
-    HorizontalLayout {
+    band := HorizontalLayout {
+        x: 0; y: 0; width: 600px; height: 120px;
         alignment: start;
         spacing: 24px;
         padding: 12px;
@@ -39,40 +44,47 @@ export component TestCase inherits Window {
         }
     }
 
+    // The bottom edge of the box the row gave f1: box 3 sits below it.
+    Rectangle { x: band.x + f1.x - 5px; y: band.y + f1.y + f1.height - 1px;
+        width: f1.width + 10px; height: 2px; background: #e08020; }
+
+    Text { x: 12px; y: 170px; width: 576px; font-size: 11px; color: #555555; wrap: word-wrap;
+        text: "The column flex has no height of its own, so it is measured as one column and does not wrap: box 3 spills below the orange line, the bottom of the box the row gave it, instead of into a second column that would collide with the R sibling."; }
+
     out property <length> f1_width: f1.width;
-    // rightmost edge of f1's actual content (the wrapped 2nd column)
+    // rightmost edge of f1's actual content
     out property <length> f1_content_right: f1.x + max(r1.x + r1.width, max(r2.x + r2.width, r3.x + r3.width));
     // leftmost edge of f2's content
     out property <length> f2_content_left: f2.x + m.x;
 
-    // r3 must have wrapped into a 2nd column for this test to exercise the bug.
-    out property <bool> wrapped: r3.x > 0px;
-    // The sibling flex must not overlap the wrapped column.
+    // One column, reported and laid out: r3 stacks below r2, past f1's bottom.
+    out property <bool> one_column: f1_width == 100px && r3.x == r1.x && r3.y + r3.height > f1.height;
+    // The sibling flex must not overlap f1's content.
     out property <bool> no_overlap: f2_content_left >= f1_content_right;
 
-    out property <bool> test: wrapped && no_overlap;
+    out property <bool> test: one_column && no_overlap;
 }
 
 /*
 ```cpp
 auto handle = TestCase::create();
-assert(handle->get_wrapped());
+assert(handle->get_one_column());
 assert(handle->get_no_overlap());
 assert(handle->get_test());
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
-assert!(instance.get_wrapped(), "r3 should wrap into a 2nd column");
+assert!(instance.get_one_column(), "f1 should be one column wide, with r3 stacked below r2");
 assert!(instance.get_no_overlap(),
-    "sibling flex overlaps the wrapped column: f2 content left = {}, f1 content right = {}",
+    "sibling flex overlaps f1's content: f2 content left = {}, f1 content right = {}",
     instance.get_f2_content_left(), instance.get_f1_content_right());
 assert!(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase();
-assert(instance.wrapped);
+assert(instance.one_column);
 assert(instance.no_overlap);
 assert(instance.test);
 ```

@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component OutlineCases inherits Window {
+    width: 640px;
+    height: 480px;
+    background: #f8fafc;
+
+    container := Rectangle {
+        x: 24px;
+        y: 24px;
+        width: 240px;
+        height: 180px;
+        background: #dbeafe;
+
+        child-a := Rectangle {
+            x: 16px;
+            y: 16px;
+            width: 72px;
+            height: 48px;
+            background: #2563eb;
+        }
+
+        child-b := Text {
+            x: 16px;
+            y: 88px;
+            text: "Child";
+            color: #111827;
+        }
+    }
+
+
+    sibling-b := Image {
+        x: 304px;
+        y: 136px;
+        width: 96px;
+        height: 64px;
+        source: @image-url("assets/checker.svg");
+    }
+    sibling-a := Rectangle {
+        width: 96px;
+        height: 64px;
+        background: #16a34a;
+    }
+}

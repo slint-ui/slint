@@ -57,10 +57,26 @@ pub mod boxshadowcache;
 pub mod border_radius;
 pub use border_radius::*;
 
-#[cfg(feature = "wgpu-28")]
-pub mod wgpu_28;
 #[cfg(feature = "wgpu-29")]
 pub mod wgpu_29;
+#[cfg(feature = "wgpu-30")]
+pub mod wgpu_30;
+
+/// Adjusts a rectangle and a border width for drawing the border entirely inside the
+/// rectangle's geometry: renderers stroke a border centered on the path, so the rectangle
+/// is inset by half the border width. If the border width exceeds half of the rectangle's
+/// width, it is clamped so that the border just fills the rectangle.
+pub fn adjust_rect_and_border_for_inner_drawing<U>(
+    rect: &mut euclid::Rect<f32, U>,
+    border_width: &mut euclid::Length<f32, U>,
+) {
+    use crate::lengths::RectLengths;
+    // If the border width exceeds the width, just fill the rectangle.
+    *border_width = border_width.min(rect.width_length() / 2.);
+    // adjust the size so that the border is drawn within the geometry
+    rect.origin += euclid::Size2D::from_lengths(*border_width / 2., *border_width / 2.);
+    rect.size -= euclid::Size2D::from_lengths(*border_width, *border_width);
+}
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
@@ -99,8 +115,19 @@ pub struct FontRequest {
     /// The additional spacing (or shrinking if negative) between glyphs. This is usually not submitted to
     /// the font-subsystem but collected here for API convenience
     pub letter_spacing: Option<LogicalLength>,
+    /// The line height as a factor applied to the font's natural line height.
+    /// `None` uses the natural line height unchanged (a factor of 1).
+    pub line_height_factor: Option<f32>,
     /// Whether to select an italic face of the font family.
     pub italic: bool,
+}
+
+impl FontRequest {
+    /// Returns the configured line height given the font's natural line height
+    /// (in any unit), or `None` when the natural line height applies unchanged.
+    pub fn line_height_for_natural_height(&self, natural_line_height: f32) -> Option<f32> {
+        self.line_height_factor.map(|factor| natural_line_height * factor)
+    }
 }
 
 #[cfg(feature = "shared-fontique")]
@@ -172,12 +199,12 @@ pub enum RequestedGraphicsAPI {
     Vulkan,
     /// Direct 3D
     Direct3D,
-    #[cfg(feature = "unstable-wgpu-28")]
-    /// WGPU 28.x
-    WGPU28(wgpu_28::api::WGPUConfiguration),
     #[cfg(feature = "unstable-wgpu-29")]
     /// WGPU 29.x
     WGPU29(wgpu_29::api::WGPUConfiguration),
+    #[cfg(feature = "unstable-wgpu-30")]
+    /// WGPU 30.x
+    WGPU30(wgpu_30::api::WGPUConfiguration),
 }
 
 impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
@@ -197,13 +224,13 @@ impl TryFrom<&RequestedGraphicsAPI> for RequestedOpenGLVersion {
             RequestedGraphicsAPI::Direct3D => {
                 Err("Direct3D rendering is not supported with an OpenGL renderer".into())
             }
-            #[cfg(feature = "unstable-wgpu-28")]
-            RequestedGraphicsAPI::WGPU28(..) => {
-                Err("WGPU 28.x rendering is not supported with an OpenGL renderer".into())
-            }
             #[cfg(feature = "unstable-wgpu-29")]
             RequestedGraphicsAPI::WGPU29(..) => {
                 Err("WGPU 29.x rendering is not supported with an OpenGL renderer".into())
+            }
+            #[cfg(feature = "unstable-wgpu-30")]
+            RequestedGraphicsAPI::WGPU30(..) => {
+                Err("WGPU 30.x rendering is not supported with an OpenGL renderer".into())
             }
         }
     }
@@ -217,17 +244,6 @@ impl From<RequestedOpenGLVersion> for RequestedGraphicsAPI {
 
 /// Private API exposed to just the renderers to create GraphicsAPI instance with
 /// non-exhaustive enum variant.
-#[cfg(feature = "unstable-wgpu-28")]
-pub fn create_graphics_api_wgpu_28(
-    instance: wgpu_28::wgpu::Instance,
-    device: wgpu_28::wgpu::Device,
-    queue: wgpu_28::wgpu::Queue,
-) -> crate::api::GraphicsAPI<'static> {
-    crate::api::GraphicsAPI::WGPU28 { instance, device, queue }
-}
-
-/// Private API exposed to just the renderers to create GraphicsAPI instance with
-/// non-exhaustive enum variant.
 #[cfg(feature = "unstable-wgpu-29")]
 pub fn create_graphics_api_wgpu_29(
     instance: wgpu_29::wgpu::Instance,
@@ -235,6 +251,17 @@ pub fn create_graphics_api_wgpu_29(
     queue: wgpu_29::wgpu::Queue,
 ) -> crate::api::GraphicsAPI<'static> {
     crate::api::GraphicsAPI::WGPU29 { instance, device, queue }
+}
+
+/// Private API exposed to just the renderers to create GraphicsAPI instance with
+/// non-exhaustive enum variant.
+#[cfg(feature = "unstable-wgpu-30")]
+pub fn create_graphics_api_wgpu_30(
+    instance: wgpu_30::wgpu::Instance,
+    device: wgpu_30::wgpu::Device,
+    queue: wgpu_30::wgpu::Queue,
+) -> crate::api::GraphicsAPI<'static> {
+    crate::api::GraphicsAPI::WGPU30 { instance, device, queue }
 }
 
 /// Internal module for use by cbindgen and the C++ platform API layer.

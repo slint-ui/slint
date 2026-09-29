@@ -15,7 +15,7 @@ use i_slint_compiler::{
 use slint::{Model as _, SharedString, VecModel};
 
 use crate::{
-    common,
+    editor_preview,
     preview::{properties, ui},
 };
 
@@ -48,7 +48,7 @@ fn is_complex(expression: Option<syntax_nodes::Expression>, ty: &langtype::Type)
 }
 
 fn map_property_to_ui(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     element: &object_tree::ElementRc,
     property_info: &properties::PropertyInformation,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
@@ -214,7 +214,7 @@ fn map_property_to_ui(
 }
 
 pub fn map_properties_to_ui(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     properties: Option<properties::QueryPropertyResponse>,
     window_adapter: &Rc<dyn slint::platform::WindowAdapter>,
 ) -> Option<(
@@ -333,7 +333,7 @@ pub fn map_properties_to_ui(
 }
 
 fn map_property_declaration(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     declared_at: &Option<properties::DeclarationInformation>,
     defined_at: ui::PropertyDefinition,
 ) -> Option<ui::PropertyDeclaration> {
@@ -383,7 +383,7 @@ mod tests {
     use slint::{Model, SharedString};
 
     use crate::{
-        common,
+        editor_preview,
         preview::{properties, ui},
         test::loaded_document_cache,
     };
@@ -393,9 +393,9 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<(
-        common::ElementRcNode,
+        editor_preview::ElementRcNode,
         Vec<properties::PropertyInformation>,
-        common::DocumentCache,
+        editor_preview::DocumentCache,
         lsp_types::Url,
     )> {
         let (dc, url, diag) = loaded_document_cache(source.to_string());

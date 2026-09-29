@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Keywords are contextual: outside the position where the grammar expects
+// their construct, they are ordinary identifiers, usable as component name,
+// property name, or element id.
+
+//#sls.lex.contextual-keywords
+
+export component component inherits Window {
+    property <length> property;
+    property <length> component;
+    property <color> callback;
+    property <length> inherits;
+    property <color> import;
+    property <length> if;
+    property <color> export;
+    property <length> global;
+    property <color> in;
+    property <length> out;
+    property <color> for;
+    property <length> states;
+    property <color> animate;
+    property <length> function;
+    property <color> struct;
+    property <length> enum;
+
+    if := Rectangle { }
+    for := Rectangle { }
+    states := Rectangle { }
+}

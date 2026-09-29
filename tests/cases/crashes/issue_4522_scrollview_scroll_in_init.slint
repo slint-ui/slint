@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Regression test for #4522: setting `viewport-y` from a Repeater item's
+// Regression test for #4522: setting `content-y` from a Repeater item's
 // init used to panic with "Recursion detected".
 
 import { ScrollView } from "std-widgets.slint";
@@ -14,7 +14,7 @@ export component TestCase inherits Window {
     Rectangle {
         scroll-view := ScrollView {
             protected function to-bottom() {
-                self.viewport-y = self.visible-height - self.viewport-height;
+                self.content-y = self.visible-height - self.content-height;
             }
             VerticalLayout {
                 alignment: start;

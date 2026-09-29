@@ -202,8 +202,8 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .cloned()
             .collect(),
         vis: Visibility::Public(Default::default()),
+        modifiers: Default::default(),
         unsafety: None,
-        auto_token: None,
         trait_token: Default::default(),
         ident: trait_name.clone(),
         generics: Generics::default(),
@@ -211,7 +211,6 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         supertraits: Default::default(),
         brace_token: Default::default(),
         items: Default::default(),
-        restriction: Default::default(),
     };
 
     let additional_doc =
@@ -233,15 +232,14 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let ident = field.ident.as_ref().unwrap();
         let mut some = None;
 
-        let func_ty = if let Type::BareFn(f) = &mut field.ty {
+        let func_ty = if let Type::FnPtr(f) = &mut field.ty {
             Some(f)
         } else if let Type::Path(pat) = &mut field.ty {
             pat.path.segments.last_mut().and_then(|seg| {
                 if seg.ident == "Option" {
                     some = Some(quote!(Some));
                     if let PathArguments::AngleBracketed(args) = &mut seg.arguments {
-                        if let Some(GenericArgument::Type(Type::BareFn(f))) = args.args.first_mut()
-                        {
+                        if let Some(GenericArgument::Type(Type::FnPtr(f))) = args.args.first_mut() {
                             Some(f)
                         } else {
                             None
@@ -261,7 +259,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let mut sig = Signature {
                 constness: None,
                 asyncness: None,
-                unsafety: f.unsafety,
+                safety: f.unsafety.map_or(Safety::Default, Safety::Unsafe),
                 abi: None,
                 fn_token: f.fn_token,
                 ident: ident.clone(),
@@ -297,13 +295,21 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 sig_extern.inputs.push(typed_arg.clone());
 
                 // check for the vtable
-                if let Type::Ptr(TypePtr { mutability, elem, .. })
-                | Type::Reference(TypeReference { mutability, elem, .. }) = &param.ty
+                let ptr_target = match &param.ty {
+                    Type::Ptr(TypePtr { mutability, elem, .. }) => {
+                        Some((matches!(mutability, PointerMutability::Mut(_)), elem))
+                    }
+                    Type::Reference(TypeReference { mutability, elem, .. }) => {
+                        Some((mutability.is_some(), elem))
+                    }
+                    _ => None,
+                };
+                if let Some((is_mut, elem)) = ptr_target
                     && let Type::Path(p) = &**elem
                     && let Some(pointer_to) = p.path.get_ident()
                     && pointer_to == &vtable_name
                 {
-                    if mutability.is_some() {
+                    if is_mut {
                         return Error::new(p.span(), "VTable cannot be mutable")
                             .to_compile_error()
                             .into();
@@ -341,11 +347,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if !is_pin {
                         sig.inputs.push(FnArg::Receiver(Receiver {
                             attrs: param.attrs.clone(),
-                            reference: Some(Default::default()),
-                            mutability,
+                            mutability: None,
                             self_token: Default::default(),
-                            colon_token: None,
-                            ty: Box::new(parse_quote!(& #mutability Self)),
+                            kind: ReceiverKind::Reference(Default::default(), None, mutability),
                         }));
                         call_code =
                             Some(quote!(#call_code <#self_ty>::from_raw(self.vtable, self.ptr),));
@@ -472,6 +476,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             generated_trait.items.push(TraitItem::Fn(TraitItemFn {
                 attrs: field.attrs.clone(),
+                modifiers: Default::default(),
                 sig: sig.clone(),
                 default: None,
                 semi_token: Some(Default::default()),
@@ -480,7 +485,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             generated_to_fn_trait.push(ImplItemFn {
                 attrs: field.attrs.clone(),
                 vis: Visibility::Public(Default::default()),
-                defaultness: None,
+                modifiers: Default::default(),
                 sig: sig.clone(),
                 block: if has_self {
                     parse_quote!({
@@ -506,18 +511,16 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     0,
                     FnArg::Receiver(Receiver {
                         attrs: Default::default(),
-                        reference: Some(Default::default()),
                         mutability: None,
                         self_token: Default::default(),
-                        colon_token: None,
-                        ty: Box::new(parse_quote!(&Self)),
+                        kind: ReceiverKind::Reference(Default::default(), None, None),
                     }),
                 );
                 sig.output = sig_extern.output.clone();
                 generated_type_assoc_fn.push(ImplItemFn {
                     attrs: field.attrs.clone(),
                     vis: generated_trait.vis.clone(),
-                    defaultness: None,
+                    modifiers: Default::default(),
                     sig,
                     block: parse_quote!({
                         let vtable = self;
@@ -634,6 +637,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             generated_trait_assoc_const.items.push(TraitItem::Const(TraitItemConst {
                 attrs: field.attrs.clone(),
+                modifiers: Default::default(),
                 const_token: Default::default(),
                 ident: ident.clone(),
                 colon_token: Default::default(),

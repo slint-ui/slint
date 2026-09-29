@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Arithmetic uses `+`, `-`, and `*` on numbers and lengths. Division and a unit
+// product (a length times a length) are not in the subset.
+
+export component Test inherits Window {
+    in property <length> w;
+    in property <int> a;
+
+    // `+`, `-`, and `*` combine two operands.
+    //#sls.op.form
+    out property <length> sum: w + w;
+    out property <length> diff: w - w;
+
+    // `+` and `-` require both operands to have the same type.
+    //#sls.op.additive
+    out property <int> total: a + a;
+
+    // `*` multiplies a value by a number.
+    //#sls.op.multiplicative
+    out property <length> scaled: w * a;
+
+    // Division is not in the subset.
+    out property <length> quotient: w / a;
+//                                  >   <error{Operator '/' not supported in Slint SC}
+
+    // A length times a length is a unit product, not a length.
+    out property <length> area: w * w;
+//                              >    <error{Cannot convert (px²) to length}
+}

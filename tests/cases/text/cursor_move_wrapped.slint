@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits TextInput {
+    width: 50phx;
+    height: 200phx;
+    wrap: word-wrap;
+    single-line: false;
+    in-out property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    in-out property<bool> input_focused: self.has_focus;
+}
+
+/*
+```rust
+use slint::platform::Key;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 30., 10.);
+assert!(instance.get_input_focused());
+
+let text = "a bbbbbbbbbb c dddddddddd e ffffffffff";
+slint_testing::send_keyboard_string_sequence(&instance, text);
+assert_eq!(instance.get_test_cursor_pos(), text.len() as i32);
+
+// Walk up to the top: every Up must move the caret strictly backwards until it reaches 0.
+let mut pos = instance.get_test_cursor_pos();
+let mut steps = 0;
+while pos != 0 {
+    slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+    let next = instance.get_test_cursor_pos();
+    assert!(next < pos, "Up did not move the caret backwards; stuck at {next}");
+    pos = next;
+    steps += 1;
+    assert!(steps < 50, "caret never reached the top");
+}
+// The text was expected to wrap into several lines, so it takes more than one Up.
+assert!(steps > 2, "expected the text to wrap into several lines, but reached the top in {steps}");
+```
+*/

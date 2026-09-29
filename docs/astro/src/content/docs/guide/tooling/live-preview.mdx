@@ -15,20 +15,19 @@ The **live preview** feature lets your running application watch `.slint` files 
 and reload them automatically when they change.
 Your business logic stays connected, so you can iterate on the UI without restarting.
 
-:::note
-This is different from the live preview in <Link type="VSCode" label="VS Code" />
-or the <Link type="SlintLSP" label="Slint LSP" />,
-which run standalone without your application's business logic.
-The native live preview described here runs inside your actual application with your real data and callbacks.
-:::
+It's the same live preview as the one in <Link type="VSCode" label="VS Code" />,
+the <Link type="SlintLSP" label="Slint LSP" />, and the <Link type="SlintViewer" label="Slint Viewer" />.
+The same interpreter loads and renders your `.slint` files, so the UI looks and behaves the same.
+What differs is the surroundings:
+here the preview runs inside your application, wired up to your business logic.
 
 ## How It Works
 
 When live preview is enabled,
-Slint replaces the ahead-of-time compiled UI with an interpreter-based component
-that reloads `.slint` files from disk whenever they change.
-The application keeps running during reloads —
-properties, callbacks, and models are preserved.
+The Slint compiler no longer compiles your components ahead-of-time, but generates an interface that uses the Slint interpreter at runtime.
+It reloads `.slint` files from disk whenever they change.
+The application keeps running during reloads,
+and properties, callbacks, and models are preserved.
 If a `.slint` file has a syntax error, the previous version stays on screen until the error is fixed.
 
 If you change the Slint API that the native code interacts with, for example renaming a property or callback used from Rust or C++, the application may terminate.

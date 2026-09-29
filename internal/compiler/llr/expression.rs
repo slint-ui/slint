@@ -12,13 +12,47 @@ use crate::layout::Orientation;
 use itertools::Either;
 use smol_str::SmolStr;
 use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum ArrayOutput {
     Slice,
     Model,
     Vector,
+}
+
+pub use crate::expression_tree::MouseCursorInner;
+
+/// One cell of a generated flexbox measure callback: how to re-measure it at a
+/// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum FlexboxMeasureCell {
+    /// A static height-for-width cell, with its vertical `LayoutInfo`-typed
+    /// expression reading the `measure_known_w` local as its width constraint.
+    Static { v_info: Expression },
+    /// A repeater: its instances are only known at run time, so the generated
+    /// callback queries the instance directly.
+    Repeated(LayoutRepeatedElement),
+    /// A cell whose height does not depend on its width: the sizes
+    /// pre-resolved from the cell arrays are already correct, so no measure
+    /// arm is generated.
+    Fixed,
+}
+
+/// One cell of a box layout's cross-axis measure pass. See
+/// [`Expression::BoxLayoutInfoOrthoWithMeasure`].
+#[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
+pub enum BoxMeasureCell {
+    /// A static cell: its vertical `LayoutInfo` expression. A height-for-width
+    /// cell reads the `measure_known_w` local as its width constraint; any
+    /// other cell just doesn't read it.
+    Static { info: Expression },
+    /// A repeater: its instances are only known at run time, so the generated
+    /// code queries each instance's `layout_item_info_at_cross_width` at its
+    /// solved width.
+    Repeated(LayoutRepeatedElement),
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +116,8 @@ pub enum Expression {
     BuiltinFunctionCall {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
+        /// The location of the call in the .slint source, for run-time diagnostics
+        source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
         callback: MemberReference,
@@ -160,11 +196,13 @@ pub enum Expression {
         output: ArrayOutput,
     },
     Struct {
-        ty: Rc<crate::langtype::Struct>,
+        ty: Arc<crate::langtype::Struct>,
         values: BTreeMap<SmolStr, Expression>,
     },
 
     EasingCurve(crate::expression_tree::EasingCurve),
+
+    MouseCursor(MouseCursorInner<Expression>),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -226,6 +264,14 @@ pub enum Expression {
         /// Either an expression of type LayoutItemInfo, or information about the repeater
         elements: Vec<Either<Expression, LayoutRepeatedElement>>,
         orientation: Orientation,
+        /// Content width of a vertical box layout on its main-axis pass:
+        /// passed to each repeated cell's `layout_item_info_at_cross_width` so
+        /// a height-for-width instance wraps to the real width instead of its
+        /// preferred width. `None` on a horizontal layout's main pass, on the
+        /// cross-axis pass, and for grids. Only the plain column-repeater code
+        /// path forwards it — box layout repeaters are always step-1 column
+        /// repeaters (no `row_child_templates`); the generators assert this.
+        repeated_cross_size: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
     /// Will call the sub_expression, with two cells variables (horizontal and vertical)
@@ -235,32 +281,65 @@ pub enum Expression {
         cells_h_variable: String,
         /// The local variable for vertical cells
         cells_v_variable: String,
+        /// The local variable for the per-item flex properties. `None` when the
+        /// sub-expression does not read them (e.g. `flexbox_layout_unwrapped_main`):
+        /// the flex-props expressions are then not evaluated, so the binding does
+        /// not depend on a static cell's flex properties. (A repeated cell still
+        /// computes its props inside the bundled item-info call, whose constraint
+        /// half is needed either way.)
+        flex_props_variable: Option<String>,
         /// The name for the local variable that contains the repeater indices
         repeater_indices_var_name: Option<SmolStr>,
-        /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
-        elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Either an expression triple of type (LayoutItemInfo, LayoutItemInfo,
+        /// FlexItemProps), or information about the repeater
+        elements: Vec<Either<(Expression, Expression, Expression), LayoutRepeatedElement>>,
+        /// Container (cross-axis) width for a column flex: passed to each
+        /// repeated cell's `flexbox_layout_item_info_at_cross_width` so a
+        /// height-for-width instance wraps to the real width instead of its
+        /// preferred width. `None` for a row flex (no cross-width to forward).
+        repeated_cross_width: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
     /// Calls `solve_flexbox_layout_with_measure` with a generated measure
-    /// callback so the cross-axis size of height-for-width cells is recomputed
-    /// at the width/height taffy actually assigns (rather than the cell's
-    /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
-    /// `measure_cells[i]` is `(h_info_given_known_h, v_info_given_known_w)`,
-    /// each a `LayoutInfo`-typed expression that reads
-    /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
-    /// as its cross-axis constraint. `default_cells[i]` is the cell's
-    /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
-    /// it provides the preferred size returned when taffy asks for a dimension
-    /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
-    /// measure). Repeater cells (the `Right` case) are not routed through the
-    /// callback yet.
+    /// callback so the height of height-for-width cells is recomputed at the
+    /// width taffy actually assigns (rather than the cell's preferred width).
+    /// `data` is the `FlexboxLayoutData`. For each static height-for-width
+    /// cell, `measure_cells[i]` carries its vertical `LayoutInfo`-typed
+    /// expression, which reads `ReadLocalVariable("measure_known_w")` (a
+    /// `Float32`) as its width constraint. A repeater cell is measured by
+    /// calling `flexbox_layout_item_info_at_cross_width` on the instance taffy
+    /// asks for; the callback maps taffy's flat cell index to it with a
+    /// runtime cursor, since a repeater expands to a runtime number of cells.
     SolveFlexboxLayoutWithMeasure {
         /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
         /// temporaries live for the duration of the solve call).
         data: Box<Expression>,
         repeater_indices: Box<Expression>,
-        measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
-        default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        measure_cells: Vec<FlexboxMeasureCell>,
+    },
+    /// Vertical info of a horizontal box layout at a known width: solves the
+    /// main axis at that width, then folds the cells' vertical infos with
+    /// `box_layout_info_ortho`, measuring each height-for-width cell at its
+    /// solved width — the box layout counterpart of
+    /// [`Self::FlexboxLayoutInfoCrossAxisWithMeasure`].
+    BoxLayoutInfoOrthoWithMeasure {
+        /// The `BoxLayoutData` for the main-axis solve; its `size` is the
+        /// known width of the info being computed.
+        solve_data: Box<Expression>,
+        /// The vertical `Padding` for the fold.
+        padding_ortho: Box<Expression>,
+        measure_cells: Vec<BoxMeasureCell>,
+    },
+    /// Calls `flexbox_layout_info_cross_axis_with_measure` with the same
+    /// generated measure callback as [`Self::SolveFlexboxLayoutWithMeasure`],
+    /// so height-for-width cells are measured at the main-axis size taffy
+    /// assigns them rather than at the container size the cells in `arguments`
+    /// were pre-measured at.
+    FlexboxLayoutInfoCrossAxisWithMeasure {
+        /// The arguments of `flexbox_layout_info_cross_axis` (without the
+        /// trailing measure callback).
+        arguments: Vec<Expression>,
+        measure_cells: Vec<FlexboxMeasureCell>,
     },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
@@ -295,6 +374,29 @@ pub enum Expression {
         /// The `n` value to use for the plural form if it is a plural form
         plural: Option<Box<Expression>>,
     },
+
+    Closure {
+        arg_name: SmolStr,
+        expression: Box<Expression>,
+    },
+
+    /// Wraps a binding so the live-preview can observe or override its value.
+    /// Only present when the `debug_hooks` compiler option is enabled.
+    DebugHook {
+        expression: Box<Expression>,
+        id: SmolStr,
+    },
+}
+
+/// The type of a binary expression with the given operator:
+/// comparison and logic operators produce a bool,
+/// while the arithmetic operators keep the type of the left operand
+pub fn binary_expression_ty(op: char, lhs_ty: impl FnOnce() -> Type) -> Type {
+    if crate::expression_tree::operator_class(op) != OperatorClass::ArithmeticOp {
+        Type::Bool
+    } else {
+        lhs_ty()
+    }
 }
 
 impl Expression {
@@ -308,7 +410,8 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
-            | Type::ArrayOfU16 => return None,
+            | Type::ArrayOfU16
+            | Type::Closure => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -339,10 +442,24 @@ impl Expression {
                 values: s
                     .fields
                     .iter()
-                    .map(|(k, v)| Some((k.clone(), Expression::default_value_for_type(v)?)))
+                    .map(|(k, v)| {
+                        let value = match s.field_defaults.get(k) {
+                            Some(default_value) => {
+                                super::lower_expression::lower_constant_expression(default_value)
+                            }
+                            None => Expression::default_value_for_type(v)?,
+                        };
+                        Some((k.clone(), value))
+                    })
                     .collect::<Option<_>>()?,
             },
             Type::Easing => Expression::EasingCurve(crate::expression_tree::EasingCurve::default()),
+            Type::MouseCursor => {
+                let e = crate::typeregister::BUILTIN.enums.BuiltInMouseCursor.clone();
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(Box::new(
+                    Expression::EnumerationValue(e.default_value()),
+                )))
+            }
             Type::Brush => Expression::Cast {
                 from: Box::new(Expression::default_value_for_type(&Type::Color)?),
                 to: Type::Brush,
@@ -354,6 +471,7 @@ impl Expression {
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
+                source_location: None,
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
             },
@@ -394,19 +512,14 @@ impl Expression {
             Self::ModelDataAssignment { .. } => Type::Void,
             Self::ArrayIndexAssignment { .. } => Type::Void,
             Self::SliceIndexAssignment { .. } => Type::Void,
-            Self::BinaryExpression { lhs, rhs: _, op } => {
-                if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
-                    Type::Bool
-                } else {
-                    lhs.ty(ctx)
-                }
-            }
+            Self::BinaryExpression { lhs, rhs: _, op } => binary_expression_ty(*op, || lhs.ty(ctx)),
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
             Self::Condition { false_expr, .. } => false_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
+            Self::MouseCursor(_) => Type::MouseCursor,
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::ConicGradient { .. } => Type::Brush,
@@ -417,11 +530,19 @@ impl Expression {
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::BoxLayoutInfoOrthoWithMeasure { .. } => {
+                crate::typeregister::layout_info_type().into()
+            }
+            Self::FlexboxLayoutInfoCrossAxisWithMeasure { .. } => {
+                crate::typeregister::layout_info_type().into()
+            }
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
+            Self::Closure { .. } => Type::Closure,
+            Self::DebugHook { expression, .. } => expression.ty(ctx),
         }
     }
 }
@@ -476,6 +597,16 @@ macro_rules! visit_impl {
             Expression::Array { values, .. } => values.$iter().for_each($visitor),
             Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
+            Expression::MouseCursor(cursor) => match cursor {
+                MouseCursorInner::CustomMouseCursor { image, hotspot_x, hotspot_y } => {
+                    $visitor(image);
+                    $visitor(hotspot_x);
+                    $visitor(hotspot_y);
+                }
+                MouseCursorInner::BuiltIn(e) => {
+                    $visitor(e);
+                }
+            },
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {
@@ -526,32 +657,86 @@ macro_rules! visit_impl {
                     $visitor(inner_repeater_index);
                 }
             }
-            Expression::WithLayoutItemInfo { elements, sub_expression, .. } => {
+            Expression::WithLayoutItemInfo {
+                elements,
+                repeated_cross_size,
+                sub_expression,
+                ..
+            } => {
                 $visitor(sub_expression);
-                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
-            }
-            Expression::WithFlexboxLayoutItemInfo { elements, sub_expression, .. } => {
-                $visitor(sub_expression);
-                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+                if let Some(s) = repeated_cross_size {
+                    $visitor(s);
+                }
+                elements.$iter().for_each(|x| match x.$as_ref() {
+                    Either::Left(e) => $visitor(e),
+                    Either::Right(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
                 });
             }
-            Expression::SolveFlexboxLayoutWithMeasure {
-                data,
-                repeater_indices,
-                measure_cells,
-                default_cells,
+            Expression::WithFlexboxLayoutItemInfo {
+                elements,
+                repeated_cross_width,
+                sub_expression,
+                ..
             } => {
+                $visitor(sub_expression);
+                if let Some(w) = repeated_cross_width {
+                    $visitor(w);
+                }
+                elements.$iter().for_each(|x| match x.$as_ref() {
+                    Either::Left((h, v, f)) => {
+                        $visitor(h);
+                        $visitor(v);
+                        // Visited even when `flex_props_variable` is `None` and the
+                        // generators skip `f`: this only over-counts property use,
+                        // and the layout's solve binding reads the same properties.
+                        $visitor(f);
+                    }
+                    Either::Right(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
+                });
+            }
+            Expression::SolveFlexboxLayoutWithMeasure { data, repeater_indices, measure_cells } => {
                 $visitor(data);
                 $visitor(repeater_indices);
-                measure_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+                measure_cells.$iter().for_each(|x| match x {
+                    FlexboxMeasureCell::Static { v_info } => $visitor(v_info),
+                    FlexboxMeasureCell::Repeated(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
+                    FlexboxMeasureCell::Fixed => {}
                 });
-                default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
-                    $visitor(h);
-                    $visitor(v);
+            }
+            Expression::BoxLayoutInfoOrthoWithMeasure {
+                solve_data,
+                padding_ortho,
+                measure_cells,
+            } => {
+                $visitor(solve_data);
+                $visitor(padding_ortho);
+                measure_cells.$iter().for_each(|x| match x {
+                    BoxMeasureCell::Static { info } => $visitor(info),
+                    BoxMeasureCell::Repeated(r) => {
+                        if let Some(w) = r.cross_width.$as_ref() {
+                            $visitor(w);
+                        }
+                    }
+                });
+            }
+            Expression::FlexboxLayoutInfoCrossAxisWithMeasure { arguments, measure_cells } => {
+                arguments.$iter().for_each(&mut $visitor);
+                measure_cells.$iter().for_each(|x| {
+                    if let FlexboxMeasureCell::Static { v_info } = x {
+                        $visitor(v_info);
+                    }
                 });
             }
             Expression::WithGridInputData { elements, sub_expression, .. } => {
@@ -570,6 +755,10 @@ macro_rules! visit_impl {
                     $visitor(plural);
                 }
             }
+            Expression::Closure { expression, .. } => {
+                $visitor(expression);
+            }
+            Expression::DebugHook { expression, id: _ } => $visitor(expression),
         }
     };
 }
@@ -606,6 +795,10 @@ impl Expression {
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
+                // The `function` of a call is also a member reference. `property_info`
+                // returns nothing for it, so callers that only care about properties
+                // ignore it, while callers that track function use can act on it.
+                Expression::FunctionCall { function, .. } => function,
                 Expression::PropertyAssignment { property, .. } => {
                     if let Some((a, map)) = &ctx.property_info(property).animation {
                         let ctx2 = map.map_context(ctx);
@@ -665,6 +858,9 @@ pub enum EvaluationScope<'a> {
     SubComponent(SubComponentIdx, Option<&'a ParentScope<'a>>),
     /// The evaluation context is in a global
     Global(GlobalIdx),
+    /// The evaluation context is a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    Const,
 }
 
 #[derive(Clone)]
@@ -700,6 +896,18 @@ impl<'a, T> EvaluationContext<'a, T> {
         Self {
             compilation_unit,
             current_scope: EvaluationScope::Global(global),
+            generator_state,
+            argument_types: &[],
+        }
+    }
+
+    /// A context for compiling a constant expression that cannot reference any
+    /// properties or elements, such as the default value of a struct field
+    /// (see [`crate::langtype::Struct::field_defaults`])
+    pub fn new_const(compilation_unit: &'a super::CompilationUnit, generator_state: T) -> Self {
+        Self {
+            compilation_unit,
+            current_scope: EvaluationScope::Const,
             generator_state,
             argument_types: &[],
         }
@@ -776,15 +984,14 @@ impl<'a, T> EvaluationContext<'a, T> {
             r: &'_ LocalMemberIndex,
             map: ContextMap,
         ) -> PropertyInfoResult<'a> {
-            let binding = g.init_values.get(r).map(|b| (b, map.clone()));
-            let animation = g.animations.get(r).map(|a| (a, map));
+            let binding = g.init_values.get(r).map(|b| (b, map));
             match r {
                 LocalMemberIndex::Property(index) => {
                     let property_decl = &g.properties[*index];
                     PropertyInfoResult {
                         analysis: Some(&g.prop_analysis[*index]),
                         binding,
-                        animation,
+                        animation: None,
                         ty: property_decl.ty.clone(),
                         use_count: Some(&property_decl.use_count),
                     }
@@ -810,18 +1017,21 @@ impl<'a, T> EvaluationContext<'a, T> {
                         let g = &self.compilation_unit.globals[g];
                         in_global(g, &local_reference.reference, ContextMap::Identity)
                     }
-                    EvaluationScope::SubComponent(mut sc, mut parent) => {
-                        for _ in 0..*parent_level {
-                            let p = parent.unwrap();
-                            sc = p.sub_component;
-                            parent = p.parent;
-                        }
+                    EvaluationScope::SubComponent(..) => {
+                        // A severed parent chain leaves the reference unresolvable,
+                        // like `function_info` also reports.
+                        let Some((sc, _)) = self.scope_at_parent_level(*parent_level) else {
+                            return PropertyInfoResult::default();
+                        };
                         match_in_sub_component(
                             self.compilation_unit,
                             &self.compilation_unit.sub_components[sc],
                             local_reference,
                             ContextMap::from_parent_level(*parent_level),
                         )
+                    }
+                    EvaluationScope::Const => {
+                        panic!("property reference in a constant expression")
                     }
                 }
             }
@@ -830,6 +1040,71 @@ impl<'a, T> EvaluationContext<'a, T> {
                 in_global(g, member, ContextMap::InGlobal(*global_index))
             }
         }
+    }
+
+    /// Resolve a reference to a user function, returning the function and the
+    /// [`ContextMap`] to evaluate its body in the current context.
+    pub(crate) fn function_info<'b>(
+        &'b self,
+        reference: &MemberReference,
+    ) -> Option<(&'b super::Function, ContextMap)> {
+        let cu = self.compilation_unit;
+        match reference {
+            MemberReference::Relative { parent_level, local_reference } => {
+                // Cheap check before walking the scope: most references are not functions.
+                let LocalMemberIndex::Function(idx) = local_reference.reference else {
+                    return None;
+                };
+                let (mut sc, _) = self.scope_at_parent_level(*parent_level)?;
+                for i in &local_reference.sub_component_path {
+                    sc = cu.sub_components[sc].sub_components[*i].ty;
+                }
+                Some((
+                    cu.sub_components[sc].functions.get(idx)?,
+                    ContextMap::from_parent_level(*parent_level)
+                        .deeper_by_path(&local_reference.sub_component_path),
+                ))
+            }
+            MemberReference::Global { global_index, member } => {
+                let LocalMemberIndex::Function(idx) = member else { return None };
+                Some((
+                    cu.globals[*global_index].functions.get(*idx)?,
+                    ContextMap::InGlobal(*global_index),
+                ))
+            }
+        }
+    }
+
+    /// Resolve the component that a [`MemberReference::Relative`]
+    /// with the given `parent_level` and `sub_component_path` refers to,
+    /// and call `f` with a [`ParentScope`] for it,
+    /// suitable as the parent scope of e.g. a popup declared there.
+    /// Continuation style because the parent chain of a descended sub-component
+    /// borrows from the stack.
+    pub fn with_reference_scope<R>(
+        &self,
+        parent_level: usize,
+        sub_component_path: &[SubComponentInstanceIdx],
+        f: impl FnOnce(ParentScope<'_>) -> R,
+    ) -> R {
+        fn descend<R>(
+            cu: &super::CompilationUnit,
+            sc: SubComponentIdx,
+            parent: Option<&ParentScope<'_>>,
+            path: &[SubComponentInstanceIdx],
+            f: impl FnOnce(ParentScope<'_>) -> R,
+        ) -> R {
+            if let [first, rest @ ..] = path {
+                let ps = ParentScope { sub_component: sc, repeater_index: None, parent };
+                let child = cu.sub_components[sc].sub_components[*first].ty;
+                descend(cu, child, Some(&ps), rest, f)
+            } else {
+                f(ParentScope { sub_component: sc, repeater_index: None, parent })
+            }
+        }
+        let (sc, parent) =
+            self.scope_at_parent_level(parent_level).expect("invalid parent reference");
+        descend(self.compilation_unit, sc, parent, sub_component_path, f)
     }
 
     pub fn current_sub_component(&self) -> Option<&super::SubComponent> {
@@ -842,16 +1117,25 @@ impl<'a, T> EvaluationContext<'a, T> {
         self.compilation_unit.globals.get(i)
     }
 
-    pub fn parent_sub_component_idx(&self, parent: usize) -> Option<SubComponentIdx> {
-        let EvaluationScope::SubComponent(mut sc, mut par) = self.current_scope else {
+    /// The sub-component `parent_level` frames up, with the chain left above it.
+    /// `None` if the scope is not a sub-component, or the chain is shorter than that.
+    pub fn scope_at_parent_level(
+        &self,
+        parent_level: usize,
+    ) -> Option<(SubComponentIdx, Option<&'a ParentScope<'a>>)> {
+        let EvaluationScope::SubComponent(mut sc, mut parent) = self.current_scope else {
             return None;
         };
-        for _ in 0..parent {
-            let p = par?;
+        for _ in 0..parent_level {
+            let p = parent?;
             sc = p.sub_component;
-            par = p.parent;
+            parent = p.parent;
         }
-        Some(sc)
+        Some((sc, parent))
+    }
+
+    pub fn parent_sub_component_idx(&self, parent: usize) -> Option<SubComponentIdx> {
+        self.scope_at_parent_level(parent).map(|(sc, _)| sc)
     }
 
     pub fn relative_property_ty(
@@ -864,7 +1148,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                 LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                 LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                 LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                LocalMemberIndex::Native { .. } => unreachable!(),
+                LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
             };
         }
 
@@ -877,7 +1161,8 @@ impl<'a, T> EvaluationContext<'a, T> {
             LocalMemberIndex::Property(property_index) => &sc.properties[*property_index].ty,
             LocalMemberIndex::Function(function_index) => &sc.functions[*function_index].ret_ty,
             LocalMemberIndex::Callback(callback_index) => &sc.callbacks[*callback_index].ty,
-            LocalMemberIndex::Native { item_index, prop_name } => {
+            LocalMemberIndex::Timer(_) => unreachable!("a timer reference has no type"),
+            LocalMemberIndex::Native { item_index, prop_name, .. } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
@@ -903,7 +1188,7 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
                     LocalMemberIndex::Property(property_idx) => &g.properties[*property_idx].ty,
                     LocalMemberIndex::Function(function_idx) => &g.functions[*function_idx].ret_ty,
                     LocalMemberIndex::Callback(callback_idx) => &g.callbacks[*callback_idx].ty,
-                    LocalMemberIndex::Native { .. } => unreachable!(),
+                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => unreachable!(),
                 }
             }
         }
@@ -953,6 +1238,10 @@ impl ContextMap {
         }
     }
 
+    fn deeper_by_path(self, path: &[SubComponentInstanceIdx]) -> Self {
+        path.iter().fold(self, |m, sub| m.deeper_in_sub_component(*sub))
+    }
+
     pub fn map_property_reference(&self, p: &MemberReference) -> MemberReference {
         match self {
             ContextMap::Identity => p.clone(),
@@ -990,6 +1279,8 @@ impl ContextMap {
         match e {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
+            | Expression::FunctionCall { function: p, .. }
+            | Expression::ItemMemberFunctionCall { function: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
             | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
@@ -1004,11 +1295,14 @@ impl ContextMap {
         match self {
             ContextMap::Identity => ctx.clone(),
             ContextMap::InSubElement { path, parent } => {
-                let mut sc = ctx.parent_sub_component_idx(*parent).unwrap();
+                // Keep the parent chain of the frame we land on: an expression there may
+                // itself have `parent_level > 0` references, and they resolve in that frame.
+                let (mut sc, parent_scope) =
+                    ctx.scope_at_parent_level(*parent).expect("invalid parent reference");
                 for i in path {
                     sc = ctx.compilation_unit.sub_components[sc].sub_components[*i].ty;
                 }
-                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), None)
+                EvaluationContext::new_sub_component(ctx.compilation_unit, sc, (), parent_scope)
             }
             ContextMap::InGlobal(g) => EvaluationContext::new_global(ctx.compilation_unit, *g, ()),
         }

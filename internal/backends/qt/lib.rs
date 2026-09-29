@@ -396,6 +396,13 @@ impl i_slint_core::platform::Platform for Backend {
 }
 
 #[cfg(not(no_qt))]
+/// `None` when unbound: Qt's timer entry points come from C++ statics whose lifetime is not
+/// tied to the context, so callers skip rather than assert.
+pub(crate) fn context() -> Option<i_slint_core::SlintContext> {
+    QT_CONTEXT.with(|cell| cell.get().and_then(|ctx| ctx.upgrade()))
+}
+
+#[cfg(not(no_qt))]
 fn update_palette_state() {
     use cpp::cpp;
     let dark = cpp! {unsafe [] -> bool as "bool" {

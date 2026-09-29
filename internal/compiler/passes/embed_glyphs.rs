@@ -178,51 +178,48 @@ pub fn embed_glyphs(
             let (family, source_location) = c
                 .root_element
                 .borrow()
-                .bindings
-                .get("default-font-family")
-                .and_then(|binding| match &binding.borrow().expression {
+                .binding("default-font-family")
+                .and_then(|binding| match binding.value_expression() {
                     Expression::StringLiteral(family) => {
-                        Some((Some(family.clone()), binding.borrow().span.clone()))
+                        Some((Some(family.clone()).filter(|f| !f.is_empty()), binding.span.clone()))
                     }
                     _ => None,
                 })
                 .unwrap_or_default();
+            // A family that comes from the style has no span of its own.
+            let source_location = source_location.or_else(|| generic_diag_location.clone());
 
-            let font = {
-                let mut query = collection.query();
-
-                query.set_families(
-                    family
-                        .as_ref()
-                        .map(|family| fontique::QueryFamily::from(family.as_str()))
-                        .into_iter()
-                        .chain(
-                            sharedfontique::FALLBACK_FAMILIES
-                                .into_iter()
-                                .map(fontique::QueryFamily::Generic),
-                        ),
-                );
-
-                let mut font = None;
-
-                query.matches_with(|queried_font| {
-                    font = Some(queried_font.clone());
-                    fontique::QueryStatus::Stop
+            // Query the requested family on its own, so that falling back to a generic one
+            // can be reported instead of silently embedding a different font.
+            let font = family
+                .as_ref()
+                .and_then(|family| {
+                    collection.first_match([fontique::QueryFamily::from(family.as_str())])
+                })
+                .or_else(|| {
+                    let fallback = collection.first_match(
+                        sharedfontique::FALLBACK_FAMILIES
+                            .into_iter()
+                            .map(fontique::QueryFamily::Generic),
+                    )?;
+                    if let Some(family) = &family {
+                        diag.push_warning(
+                            format!(
+                                r#"no font found for family '{family}', embedding the default font instead; add the font with 'import "my-font.ttf";'"#
+                            ),
+                            &source_location,
+                        );
+                    }
+                    Some(fallback)
                 });
-                font
-            };
 
             match font {
                 None => {
-                    if let Some(source_location) = source_location {
-                        diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
-                    } else {
-                        diag.push_error(
-                            "internal error: could not determine a default font for sans-serif"
-                                .to_string(),
-                            &generic_diag_location,
-                        );
-                    };
+                    diag.push_error(
+                        r#"no font found to embed: install a font, or add one with 'import "my-font.ttf";'"#
+                            .to_string(),
+                        &generic_diag_location,
+                    );
                 }
                 Some(query_font) => {
                     if let Some(font_info) = collection
@@ -672,15 +669,13 @@ fn try_extract_literal_from_element(
     property_name: &str,
     unit: Unit,
 ) -> Option<f64> {
-    elem.borrow().bindings.get(property_name).and_then(|expression| {
-        match &expression.borrow().expression {
+    elem.borrow().binding(property_name).and_then(|binding| match binding.value_expression() {
+        Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
+        Expression::Cast { from, .. } => match from.as_ref() {
             Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-            Expression::Cast { from, .. } => match from.as_ref() {
-                Expression::NumberLiteral(value, u) if *u == unit => Some(*value),
-                _ => None,
-            },
             _ => None,
-        }
+        },
+        _ => None,
     })
 }
 

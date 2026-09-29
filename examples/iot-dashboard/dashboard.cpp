@@ -3,7 +3,7 @@
 
 #include "dashboard.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 void Widget::set_property(std::string_view name, const slint::interpreter::Value &value)
 {

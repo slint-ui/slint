@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An `animate` declaration on `content-width`/`content-height` must not
+// suppress the default content-size bindings of the Flickable.
+
+export component TestCase inherits Window {
+    width: window-width;
+    height: 300phx;
+
+    in-out property <length> window-width: 300phx;
+
+    f := Flickable {
+        animate content-width { duration: 100ms; }
+        animate content-height { duration: 100ms; }
+
+        Rectangle {
+            background: red;
+        }
+    }
+
+    out property <length> flickable-content-width: f.content-width;
+    out property <bool> test: f.content-width == 300phx && f.content-height == 300phx;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+instance.set_window_width(600.);
+// the content-width is animated, so it should not have changed yet.
+assert!(instance.get_test());
+
+slint_testing::mock_elapsed_time(100);
+assert!(!instance.get_test());
+assert_eq!(instance.get_flickable_content_width(), 600.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+instance.set_window_width(600.);
+// the content-width is animated, so it should not have changed yet.
+assert(instance.get_test());
+
+slint_testing::mock_elapsed_time(100);
+assert(!instance.get_test());
+assert_eq(instance.get_flickable_content_width(), 600.);
+```
+*/
+

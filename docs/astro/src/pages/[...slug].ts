@@ -3,8 +3,8 @@
 
 // Serves a plain-markdown sibling for every doc page so AI agents can fetch
 // docs without paying the HTML/JS overhead. Example:
-//   /docs/guide/language/coding/properties/      -> rendered HTML page
-//   /docs/guide/language/coding/properties.md    -> this endpoint, raw markdown
+//   /docs/reference/language/properties/      -> rendered HTML page
+//   /docs/reference/language/properties.md    -> this endpoint, raw markdown
 
 import { fileURLToPath } from "node:url";
 import type { APIRoute, GetStaticPaths } from "astro";

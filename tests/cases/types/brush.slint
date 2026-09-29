@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore seethru
-component Test inherits Rectangle {
+export component Test inherits Rectangle {
     // allow declaring brush properties and assigning colors
     in-out property<brush> color_brush: blue;
     // allow to use brighter and darker on a brush
@@ -57,6 +57,20 @@ let green = slint::Color::from_rgb_u8(0, 0xff, 0);
 t.set_color_brush(green.into());
 assert_eq!(t.get_color_brush().color(), green);
 
+```
+
+```d.ts
+export interface Test {
+    color_brush: slint.Brush | string;
+    conditional: slint.Brush | string;
+    lighter: slint.Brush | string;
+    r2_col: slint.Brush | slint.RgbaColor | string;
+    seethru: slint.Brush | string;
+    readonly test: boolean;
+    readonly test_rgb: boolean;
+}
+
+export declare const Test: { new(properties?: Partial<Test>): Test & slint.ComponentHandle };
 ```
 
 ```js

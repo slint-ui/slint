@@ -1,7 +1,7 @@
 
 # WGPU Texture Import Example
 
-This example application demonstrates how import a WGPU texture into a Slint scene:
+This example application demonstrates how to import a WGPU texture into a Slint scene:
 
 1. First a graphical effect is rendered using WGPU, into a texture.
 2. The texture is imported into a `slint::Image` and set on an `Image` element.

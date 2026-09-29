@@ -29,7 +29,12 @@ pub async fn embed_images(
     font_collection: Option<&SharedFontCollection>,
     diag: &mut BuildDiagnostics,
 ) {
-    if embed_files == EmbedResourcesKind::Nothing && resource_url_mapper.is_none() {
+    // Slint SC always embeds: the images referenced by `@image-url()` are
+    // decoded into the generated code, whatever `embed_files` says.
+    if embed_files == EmbedResourcesKind::Nothing
+        && resource_url_mapper.is_none()
+        && !diag.is_slint_sc()
+    {
         return;
     }
 
@@ -135,10 +140,13 @@ fn embed_images_from_expression(
             ImageReference::DataUri(data) => {
                 // Data URIs have no external file to track, so skip for
                 // Nothing (interpreter) and ListAllResources (dependency tracking).
+                // Slint SC rejected the data URI when resolving @image-url(),
+                // so there is nothing left to embed.
                 if !matches!(
                     embed_files,
                     EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
-                ) {
+                ) && !diag.is_slint_sc()
+                {
                     let image_ref = embed_data_uri(
                         global_embedded_resources,
                         path_to_id,
@@ -157,8 +165,13 @@ fn embed_images_from_expression(
                     resource_ref,
                     ImageReference::Url(url) if url.scheme() == "builtin"
                 );
-                if embed_files != EmbedResourcesKind::Nothing
-                    && (embed_files != EmbedResourcesKind::OnlyBuiltinResources || is_builtin)
+                // Slint SC rejected URL references when resolving @image-url(),
+                // so only paths are left to embed there.
+                let embed_for_slint_sc =
+                    diag.is_slint_sc() && matches!(resource_ref, ImageReference::Path(_));
+                if embed_for_slint_sc
+                    || (embed_files != EmbedResourcesKind::Nothing
+                        && (embed_files != EmbedResourcesKind::OnlyBuiltinResources || is_builtin))
                 {
                     let path = resource_ref.source().expect("Path/Url have a source");
                     let image_ref = embed_image(
@@ -220,6 +233,10 @@ fn embed_image(
             EmbeddedResourcesKind::TextureData { .. } => {
                 ImageReference::EmbeddedTexture { resource_id }
             }
+            #[cfg(feature = "slint-sc")]
+            EmbeddedResourcesKind::StaticPixels { .. } => {
+                ImageReference::EmbeddedTexture { resource_id }
+            }
             _ => ImageReference::EmbeddedData { resource_id, extension: extension() },
         };
     }
@@ -240,6 +257,26 @@ fn embed_image(
         diag.push_error(format!("Cannot find image file {path}"), source_location);
         return ImageReference::None;
     };
+
+    #[cfg(feature = "slint-sc")]
+    if diag.slint_sc {
+        // The Slint SC runtime has no image decoder: decode now and embed the
+        // pixels into the generated code.
+        if matches!(extension().to_ascii_lowercase().as_str(), "svg" | "svgz") {
+            diag.slint_sc_error("SVG images are", source_location);
+            return ImageReference::None;
+        }
+        return match image::load_from_memory(&_file.read()) {
+            Ok(decoded) => {
+                let resource_id = push(EmbeddedResourcesKind::StaticPixels(decoded.into_rgba8()));
+                ImageReference::EmbeddedTexture { resource_id }
+            }
+            Err(err) => {
+                diag.push_error(format!("Cannot load image file {path}: {err}"), source_location);
+                ImageReference::None
+            }
+        };
+    }
 
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {

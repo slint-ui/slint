@@ -5,10 +5,10 @@
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{ElementType, PropertyLookupResult, Type};
-use crate::object_tree::{Component, ElementRc};
+use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
+use crate::object_tree::{Component, Element, ElementRc};
 
-use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use smol_str::{SmolStr, ToSmolStr};
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -64,7 +64,7 @@ pub enum Layout {
 
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
@@ -78,17 +78,12 @@ impl Layout {
 pub struct LayoutItem {
     pub element: ElementRc,
     pub constraints: LayoutConstraints,
-}
-
-/// A FlexboxLayout child item, wrapping a LayoutItem with flex-specific properties.
-#[derive(Debug, Clone)]
-pub struct FlexboxLayoutItem {
-    pub item: LayoutItem,
-    pub flex_grow: Option<NamedReference>,
-    pub flex_shrink: Option<NamedReference>,
-    pub flex_basis: Option<NamedReference>,
-    pub align_self: Option<NamedReference>,
-    pub order: Option<NamedReference>,
+    /// The `cross-axis-self-alignment` property, if set.
+    /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
+    pub cross_axis_self_alignment: Option<NamedReference>,
+    /// The `layout-order` property, if set.
+    /// Used by box layouts and FlexboxLayout; always `None` in a GridLayout.
+    pub layout_order: Option<NamedReference>,
 }
 
 /// A child within a repeated Row in a GridLayout.
@@ -133,8 +128,10 @@ impl RowChildTemplate {
 impl LayoutItem {
     pub fn rect(&self) -> LayoutRect {
         let p = |unresolved_name: &str| {
-            let PropertyLookupResult { resolved_name, property_type, .. } =
-                self.element.borrow().lookup_property(unresolved_name);
+            let PropertyLookupResult { resolved_name, property_type, .. } = self
+                .element
+                .borrow()
+                .lookup_property(unresolved_name, PropertyLookupMode::ComponentLocal);
             if property_type == Type::LogicalLength {
                 Some(NamedReference::new(&self.element, resolved_name.to_smolstr()))
             } else {
@@ -171,7 +168,7 @@ impl LayoutRect {
         }
     }
 
-    fn visit_named_references(&mut self, mut visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, mut visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.width_reference.as_mut().map(&mut visitor);
         self.height_reference.as_mut().map(&mut visitor);
         self.x_reference.as_mut().map(&mut visitor);
@@ -198,6 +195,37 @@ pub struct LayoutConstraints {
     pub vertical_stretch: Option<NamedReference>,
     pub fixed_width: bool,
     pub fixed_height: bool,
+    /// For each constraint, whether it is set directly on the element (an
+    /// override) rather than inherited from a base component. Inherited layout
+    /// constraints are already baked into an element's own `layoutinfo-*`, so a
+    /// parent layout that measured the cell through its layout-info must not
+    /// re-apply them (double-count / height-for-width loop); locally-set ones
+    /// must be applied. See [`Self::to_apply`].
+    pub local: LayoutConstraintLocality,
+}
+
+/// Which [`LayoutConstraints`] are set directly on the element (depth 0) rather
+/// than inherited from a base component.
+#[derive(Debug, Default, Clone)]
+pub struct LayoutConstraintLocality {
+    pub min_width: bool,
+    pub max_width: bool,
+    pub min_height: bool,
+    pub max_height: bool,
+    pub preferred_width: bool,
+    pub preferred_height: bool,
+    pub horizontal_stretch: bool,
+    pub vertical_stretch: bool,
+}
+
+/// The [`LayoutConstraints`] fields along one orientation.
+pub struct OrientationConstraints<'a> {
+    pub min: &'a Option<NamedReference>,
+    pub max: &'a Option<NamedReference>,
+    pub preferred: &'a Option<NamedReference>,
+    pub stretch: &'a Option<NamedReference>,
+    /// The size is set by an explicit `width`/`height` binding.
+    pub fixed: bool,
 }
 
 impl LayoutConstraints {
@@ -208,8 +236,25 @@ impl LayoutConstraints {
     /// when another pass owns that diagnostic).
     pub fn new(
         element: &ElementRc,
-        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+        diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
     ) -> Self {
+        Self::build(element, diag, MergedFixedSize::Constrains)
+    }
+
+    /// Builds the constraints, with `fixed_size` deciding whether a `width`/`height`
+    /// binding also becomes a min/max constraint.
+    ///
+    /// `diag` reports a redundant size constraint, as in [`Self::new`]; a caller that
+    /// builds the same element's constraints several times passes `None`, so that a
+    /// conflict isn't reported that many times.
+    pub(crate) fn build(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+        fixed_size: MergedFixedSize,
+    ) -> Self {
+        let fixed_size_is_constraint = fixed_size == MergedFixedSize::Constrains;
+        let width_constrains = fixed_size_is_constraint && is_local_binding(element, "width");
+        let height_constrains = fixed_size_is_constraint && is_local_binding(element, "height");
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -221,6 +266,19 @@ impl LayoutConstraints {
             vertical_stretch: binding_reference(element, "vertical-stretch"),
             fixed_width: false,
             fixed_height: false,
+            local: LayoutConstraintLocality {
+                // Under `MergedFixedSize::Constrains`, min/max-{width,height} may be
+                // derived from a local fixed `width`/`height` binding (see below),
+                // which is just as local an override as an explicit min/max constraint.
+                min_width: is_local_binding(element, "min-width") || width_constrains,
+                max_width: is_local_binding(element, "max-width") || width_constrains,
+                min_height: is_local_binding(element, "min-height") || height_constrains,
+                max_height: is_local_binding(element, "max-height") || height_constrains,
+                preferred_width: is_local_binding(element, "preferred-width"),
+                preferred_height: is_local_binding(element, "preferred-height"),
+                horizontal_stretch: is_local_binding(element, "horizontal-stretch"),
+                vertical_stretch: is_local_binding(element, "vertical-stretch"),
+            },
         };
         let mut apply_size_constraint =
             |prop: &'static str,
@@ -254,11 +312,16 @@ impl LayoutConstraints {
             };
         find_binding(element, "height", |s, enclosing, depth| {
             constraints.fixed_height = true;
-            apply_size_constraint("height", s, enclosing, depth, &mut constraints.min_height);
-            apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
+            if fixed_size_is_constraint {
+                apply_size_constraint("height", s, enclosing, depth, &mut constraints.min_height);
+                apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
+            }
         });
         find_binding(element, "width", |s, enclosing, depth| {
             constraints.fixed_width = true;
+            if !fixed_size_is_constraint {
+                return;
+            }
             if s.expression.ty() == Type::Percent {
                 apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
             } else {
@@ -287,39 +350,95 @@ impl LayoutConstraints {
         }
     }
 
+    /// The constraints a parent layout should apply on top of a cell's measured
+    /// layout-info for `orientation`. Native items (whose layout-info doesn't
+    /// merge their constraints) keep everything. For elements whose `layoutinfo-*`
+    /// already includes their intrinsic constraints, only locally-set overrides
+    /// are kept — inherited constraints are already in the measured value, and
+    /// re-reading them unconstrained can reintroduce a height-for-width loop.
+    pub fn to_apply(&self, element: &ElementRc, orientation: Orientation) -> Self {
+        if !element.borrow().layout_info_includes_own_constraints(orientation) {
+            return self.clone();
+        }
+        let mut c = self.clone();
+        match orientation {
+            Orientation::Horizontal => {
+                if !self.local.min_width {
+                    c.min_width = None;
+                }
+                if !self.local.max_width {
+                    c.max_width = None;
+                }
+                if !self.local.preferred_width {
+                    c.preferred_width = None;
+                }
+                if !self.local.horizontal_stretch {
+                    c.horizontal_stretch = None;
+                }
+            }
+            Orientation::Vertical => {
+                if !self.local.min_height {
+                    c.min_height = None;
+                }
+                if !self.local.max_height {
+                    c.max_height = None;
+                }
+                if !self.local.preferred_height {
+                    c.preferred_height = None;
+                }
+                if !self.local.vertical_stretch {
+                    c.vertical_stretch = None;
+                }
+            }
+        }
+        c
+    }
+
+    pub fn for_orientation(&self, orientation: Orientation) -> OrientationConstraints<'_> {
+        match orientation {
+            Orientation::Horizontal => OrientationConstraints {
+                min: &self.min_width,
+                max: &self.max_width,
+                preferred: &self.preferred_width,
+                stretch: &self.horizontal_stretch,
+                fixed: self.fixed_width,
+            },
+            Orientation::Vertical => OrientationConstraints {
+                min: &self.min_height,
+                max: &self.max_height,
+                preferred: &self.preferred_height,
+                stretch: &self.vertical_stretch,
+                fixed: self.fixed_height,
+            },
+        }
+    }
+
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
     pub fn for_each_restrictions(
         &self,
         orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
-        let (min, max, preferred, stretch) = match orientation {
-            Orientation::Horizontal => {
-                (&self.min_width, &self.max_width, &self.preferred_width, &self.horizontal_stretch)
-            }
-            Orientation::Vertical => {
-                (&self.min_height, &self.max_height, &self.preferred_height, &self.vertical_stretch)
-            }
-        };
+        let c = self.for_orientation(orientation);
         std::iter::empty()
-            .chain(min.as_ref().map(|x| {
+            .chain(c.min.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min")
                 } else {
                     (x, "min_percent")
                 }
             }))
-            .chain(max.as_ref().map(|x| {
+            .chain(c.max.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max")
                 } else {
                     (x, "max_percent")
                 }
             }))
-            .chain(preferred.as_ref().map(|x| (x, "preferred")))
-            .chain(stretch.as_ref().map(|x| (x, "stretch")))
+            .chain(c.preferred.as_ref().map(|x| (x, "preferred")))
+            .chain(c.stretch.as_ref().map(|x| (x, "stretch")))
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.max_width.as_mut() {
             visitor(&mut *e);
         }
@@ -365,7 +484,7 @@ pub struct GridLayoutCell {
 }
 
 impl GridLayoutCell {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let RowColExpr::Named(ref mut e) = self.col_expr {
             visitor(e);
         }
@@ -413,7 +532,7 @@ pub struct Padding {
 }
 
 impl Padding {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.left.as_mut() {
             visitor(&mut *e)
         }
@@ -444,7 +563,7 @@ pub struct Spacing {
 }
 
 impl Spacing {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         if let Some(e) = self.horizontal.as_mut() {
             visitor(&mut *e);
         }
@@ -470,7 +589,7 @@ pub struct LayoutGeometry {
 }
 
 impl LayoutGeometry {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
         if let Some(e) = self.alignment.as_mut() {
             visitor(&mut *e)
@@ -512,7 +631,7 @@ impl LayoutGeometry {
 
 /// If this element or any of the parent has a binding to the property, call the functor with that binding, and the depth.
 /// Return None if the binding does not exist in any of the sub component, or Some with the result of the functor otherwise
-fn find_binding<R>(
+pub(crate) fn find_binding<R>(
     element: &ElementRc,
     name: &str,
     f: impl FnOnce(&BindingExpression, &Weak<Component>, i32) -> R,
@@ -520,10 +639,10 @@ fn find_binding<R>(
     let mut element = element.clone();
     let mut depth = 0;
     loop {
-        if let Some(b) = element.borrow().bindings.get(name)
-            && b.borrow().has_binding()
+        if let Some(b) = element.borrow().binding(name)
+            && b.has_binding()
         {
-            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
+            return Some(f(&b, &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
             ElementType::Component(base) => base.root_element.clone(),
@@ -539,13 +658,20 @@ pub fn binding_reference(element: &ElementRc, name: &'static str) -> Option<Name
     find_binding(element, name, |_, _, _| NamedReference::new(element, SmolStr::new_static(name)))
 }
 
+/// Whether `name`'s binding is set directly on `element` (depth 0) rather than
+/// inherited from a base component. Must be evaluated while the binding is still
+/// present (i.e. when building [`LayoutConstraints`]); later passes may move it.
+fn is_local_binding(element: &ElementRc, name: &str) -> bool {
+    find_binding(element, name, |_, _, depth| depth == 0) == Some(true)
+}
+
 fn init_fake_property(
     grid_layout_element: &ElementRc,
     name: &str,
     lazy_default: impl Fn() -> Option<NamedReference>,
 ) {
     if grid_layout_element.borrow().property_declarations.contains_key(name)
-        && !grid_layout_element.borrow().bindings.contains_key(name)
+        && grid_layout_element.borrow().binding(name).is_none()
         && let Some(e) = lazy_default()
     {
         if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
@@ -554,8 +680,7 @@ fn init_fake_property(
         }
         grid_layout_element
             .borrow_mut()
-            .bindings
-            .insert(name.into(), RefCell::new(Expression::PropertyReference(e).into()));
+            .set_binding(name.into(), Expression::PropertyReference(e).into());
     }
 }
 
@@ -584,7 +709,7 @@ impl GridLayout {
         }
     }
 
-    pub fn visit_rowcol_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_rowcol_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for elem in &mut self.elems {
             let mut cell = elem.cell.borrow_mut();
             if let RowColExpr::Named(ref mut e) = cell.col_expr {
@@ -602,7 +727,7 @@ impl GridLayout {
         }
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         self.visit_rowcol_named_references(visitor);
         for layout_elem in &mut self.elems {
             layout_elem.item.constraints.visit_named_references(visitor);
@@ -625,12 +750,29 @@ pub struct BoxLayout {
     pub geometry: LayoutGeometry,
     /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
+    /// Whether this is the one-cell wrapper [`repeated_element_layout_info`]
+    /// synthesizes to merge a repeated element's constraints, rather than a real
+    /// layout solving positions and sizes.
+    ///
+    /// `binding_analysis` skips a repeated cell's *model* expression for it: the
+    /// merge's consumer tracks the repeater's instantiated row count
+    /// (`Repeater::track_instance_changes`) rather than the model property, so the
+    /// model doesn't need to be a static dependency to stay reactive. Counting it
+    /// reports a binding loop for a model that reads an enclosing size — a
+    /// breakpoint picking a UI variant, say.
+    pub is_synthesized_repeated_merge: bool,
 }
 
 impl BoxLayout {
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
             cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
+                visitor(&mut *e);
+            }
+            if let Some(e) = cell.layout_order.as_mut() {
+                visitor(&mut *e);
+            }
         }
         self.geometry.visit_named_references(visitor);
         if let Some(e) = self.cross_alignment.as_mut() {
@@ -642,10 +784,10 @@ impl BoxLayout {
 /// Internal representation of a FlexboxLayout (row or column direction with wrapping)
 #[derive(Debug, Clone)]
 pub struct FlexboxLayout {
-    pub elems: Vec<FlexboxLayoutItem>,
+    pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
-    pub align_content: Option<NamedReference>,
+    pub cross_axis_line_alignment: Option<NamedReference>,
     pub cross_axis_alignment: Option<NamedReference>,
     pub flex_wrap: Option<NamedReference>,
 }
@@ -661,14 +803,14 @@ impl FlexboxLayout {
         // layout when the element is a FlexboxLayout.
         let nr = {
             let eb = elem.borrow();
-            eb.layout_info_prop(Orientation::Vertical)
-                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+            eb.effective_layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.effective_layout_info_prop(Orientation::Horizontal))
                 .cloned()
         }?;
         let target = nr.element();
         let target = target.borrow();
-        let binding = target.bindings.get(nr.name())?;
-        match binding.borrow().expression.ignore_debug_hooks() {
+        let binding = target.binding(nr.name())?;
+        match binding.value_expression() {
             Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
             _ => None,
         }
@@ -679,9 +821,9 @@ impl FlexboxLayout {
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {
         match self.direction.as_ref() {
             None => Some(FlexboxLayoutDirection::Row),
-            Some(nr) => nr.element().borrow().bindings.get(nr.name()).and_then(|binding| {
+            Some(nr) => nr.element().borrow().binding(nr.name()).and_then(|binding| {
                 if let crate::expression_tree::Expression::EnumerationValue(ev) =
-                    &binding.borrow().expression
+                    binding.value_expression()
                 {
                     match ev.enumeration.values[ev.value].as_str() {
                         "row" => Some(FlexboxLayoutDirection::Row),
@@ -717,22 +859,13 @@ impl FlexboxLayout {
         }
     }
 
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut dyn FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.item.constraints.visit_named_references(visitor);
-            if let Some(e) = cell.flex_grow.as_mut() {
+            cell.constraints.visit_named_references(visitor);
+            if let Some(e) = cell.cross_axis_self_alignment.as_mut() {
                 visitor(&mut *e)
             }
-            if let Some(e) = cell.flex_shrink.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.flex_basis.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.align_self.as_mut() {
-                visitor(&mut *e)
-            }
-            if let Some(e) = cell.order.as_mut() {
+            if let Some(e) = cell.layout_order.as_mut() {
                 visitor(&mut *e)
             }
         }
@@ -740,7 +873,7 @@ impl FlexboxLayout {
         if let Some(e) = self.direction.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_content.as_mut() {
+        if let Some(e) = self.cross_axis_line_alignment.as_mut() {
             visitor(&mut *e)
         }
         if let Some(e) = self.cross_axis_alignment.as_mut() {
@@ -750,6 +883,23 @@ impl FlexboxLayout {
             visitor(&mut *e)
         }
     }
+}
+
+/// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
+/// its layout info is the static default, never height-for-width.
+fn has_no_intrinsic_size(base: &ElementType) -> bool {
+    let ElementType::Builtin(b) = base else { return false };
+    matches!(
+        b.name.as_str(),
+        "Rectangle"
+            | "Empty"
+            | "TouchArea"
+            | "FocusScope"
+            | "Opacity"
+            | "Layer"
+            | "BoxShadow"
+            | "Clip"
+    )
 }
 
 /// Controls whether `implicit_layout_info_call` returns layout info for builtins
@@ -762,6 +912,16 @@ pub enum BuiltinFilter {
     SkipNonImplicit,
 }
 
+/// The `cross_axis_constraint` argument of `ImplicitLayoutInfo` when the caller
+/// has none: the item then reads its own perpendicular size.
+pub(crate) fn unconstrained_layout_info_arg() -> Expression {
+    Expression::NumberLiteral(-1., Unit::None)
+}
+
+pub(crate) fn is_unconstrained_layout_info_arg(e: &Expression) -> bool {
+    matches!(e, Expression::NumberLiteral(v, Unit::None) if *v == -1.)
+}
+
 /// Get the implicit layout info of a particular element.
 /// When `constraint` is `Some`, it's passed as the `cross_axis_constraint`
 /// parameter to `Item::layout_info` for height-for-width support.
@@ -772,20 +932,19 @@ pub fn implicit_layout_info_call(
     constraint: Option<Expression>,
 ) -> Option<Expression> {
     let mut elem_it = elem.clone();
+    // The instance decides, not the base it walks down to: a base cannot see a
+    // height the instance sets. Loop-invariant, so read it once.
+    let height_settled = elem.borrow().height_is_literal;
     loop {
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
-                // Flexbox supplies a cross-axis constraint to break its
+                // Flexbox supplies a width constraint to break its
                 // h/v cache cycle; call the base component's parametrized
                 // layout-info function when present.
-                let parametrized_nr = constraint.as_ref().and_then(|_| match orientation {
-                    Orientation::Vertical => {
-                        base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
-                    }
-                    Orientation::Horizontal => {
-                        base_comp.root_element.borrow().layout_info_h_with_constraint.clone()
-                    }
-                });
+                let parametrized_nr =
+                    constraint.as_ref().filter(|_| orientation == Orientation::Vertical).and_then(
+                        |_| base_comp.root_element.borrow().layout_info_v_with_constraint.clone(),
+                    );
                 if let Some(nr) = parametrized_nr
                     && let Some(c) = &constraint
                 {
@@ -799,7 +958,8 @@ pub fn implicit_layout_info_call(
                         source_location: None,
                     });
                 }
-                match base_comp.root_element.borrow().layout_info_prop(orientation) {
+                let base_prop = elem_it.borrow().base_layout_info_prop(orientation, height_settled);
+                match base_prop {
                     Some(nr) => {
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
                         // use `elem` as an element for the PropertyReference, not `root` within the base of elem
@@ -815,19 +975,7 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            ElementType::Builtin(base_type)
-                if matches!(
-                    base_type.name.as_str(),
-                    "Rectangle"
-                        | "Empty"
-                        | "TouchArea"
-                        | "FocusScope"
-                        | "Opacity"
-                        | "Layer"
-                        | "BoxShadow"
-                        | "Clip"
-                ) =>
-            {
+            base @ ElementType::Builtin(_) if has_no_intrinsic_size(base) => {
                 if filter == BuiltinFilter::SkipNonImplicit {
                     return None;
                 }
@@ -864,7 +1012,7 @@ pub fn implicit_layout_info_call(
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
                 arguments: vec![
                     Expression::ElementReference(Rc::downgrade(elem)),
-                    constraint.unwrap_or(Expression::NumberLiteral(-1., Unit::None)),
+                    constraint.unwrap_or_else(unconstrained_layout_info_arg),
                 ],
                 source_location: None,
             }),
@@ -872,31 +1020,65 @@ pub fn implicit_layout_info_call(
     }
 }
 
-/// Create a new property based on the name. (it might get a different name if that property exist)
-pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
-    let mut e = elem.borrow_mut();
-    if !e.lookup_property(&tentative_name).is_valid() {
-        e.property_declarations.insert(tentative_name.clone(), ty.into());
-        drop(e);
-        NamedReference::new(elem, tentative_name)
-    } else {
-        let mut counter = 0;
-        loop {
-            counter += 1;
-            let name = format_smolstr!("{}{}", tentative_name, counter);
-            if !e.lookup_property(&name).is_valid() {
-                e.property_declarations.insert(name.clone(), ty.into());
-                drop(e);
-                return NamedReference::new(elem, name);
-            }
+/// Whether `elem`'s own builtin (not one inherited through a component)
+/// computes its vertical layout info from its width.
+///
+/// The binding analysis records that width read, and the box layout lowering
+/// only forwards the layout's width to a repeated cell when this holds: a read
+/// the analysis doesn't see can close a loop that panics at runtime.
+/// `Element::is_builtin_height_for_width` is the variant for synthesis,
+/// which runs before `property_analysis` is filled.
+pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
+    let ElementType::Builtin(b) = &elem.base_type else { return false };
+    match b.name.as_str() {
+        "Image" | "StyledText" => true,
+        "Text" | "TextInput" => {
+            elem.is_binding_set("wrap", false)
+                || elem
+                    .property_analysis
+                    .borrow()
+                    .get("wrap")
+                    .is_some_and(|a| a.is_set || a.is_set_externally)
         }
+        _ => false,
     }
 }
 
-/// Return true if this type is a layout that has constraints
+/// The stretch factor of elements based on text or image items, which never
+/// stretch: their `layout_info` always reports stretch 0, and a layoutinfo
+/// property synthesized later can only merge it with smaller values.
+pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
+    elem.borrow()
+        .builtin_type()
+        .filter(|b| matches!(b.name.as_str(), "Text" | "StyledText" | "TextInput" | "Image"))
+        .map(|_| Expression::NumberLiteral(0., Unit::None))
+}
+
+/// Create a new property based on the name. (it might get a different name if that property exist)
+pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> NamedReference {
+    let mut e = elem.borrow_mut();
+    let name = if e.lookup_property(&tentative_name, PropertyLookupMode::InternalName).is_valid() {
+        e.unique_member_name(&tentative_name)
+    } else {
+        tentative_name
+    };
+    e.property_declarations.insert(name.clone(), ty.into());
+    drop(e);
+    NamedReference::new(elem, name)
+}
+
+/// Return true if this type is a layout that has constraints,
+/// also for a component whose root layout was already lowered
 pub fn is_layout(base_type: &ElementType) -> bool {
     match base_type {
-        ElementType::Component(c) => is_layout(&c.root_element.borrow().base_type),
+        ElementType::Component(c) => {
+            let root = c.root_element.borrow();
+            // `lower_layouts` replaces a layout's base with `Empty`.
+            // A lowered `Dialog` keeps its base and isn't a layout here.
+            let is_lowered_layout = matches!(&root.base_type, ElementType::Builtin(b) if b.name == "Empty")
+                && root.debug.iter().any(|d| d.layout.is_some());
+            is_lowered_layout || is_layout(&root.base_type)
+        }
         ElementType::Builtin(be) => {
             matches!(
                 be.name.as_str(),
@@ -905,4 +1087,114 @@ pub fn is_layout(base_type: &ElementType) -> bool {
         }
         _ => false,
     }
+}
+
+/// Whether an element's own `width`/`height` binding is one of its layout constraints,
+/// in [`LayoutConstraints`] and the [`repeated_element_layout_info`] that derives a
+/// repeated body's from it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MergedFixedSize {
+    /// Turn the fixed size into a min and a max, as a layout cell needs.
+    /// The layout assigns the cell its size, and a Flickable's scroll extent covers a
+    /// body that sizes itself.
+    Constrains,
+    /// Leave the fixed size out, as `explicit_layout_info` does for a static child
+    /// without layout info of its own.
+    /// A non-layout parent then reads the same off a fixed-size child that has
+    /// layout info of its own, and off a merged repeated child.
+    /// Such a child keeps its own size, so folding that size into the parent's layout
+    /// info would feed the parent back into itself.
+    Ignored,
+}
+
+/// The merged `LayoutInfo` of every instance of a repeated (`if`/`for`) element,
+/// along `orientation`.
+///
+/// A repeated element has no single width/height: it exists as N runtime
+/// instances. This synthesizes a one-cell orthogonal `BoxLayout` over `elem`
+/// and computes its layout info, which reuses the existing box-layout-info
+/// runtime machinery (`WithLayoutItemInfo` + `box_layout_info_ortho`) to
+/// enumerate the repeater's instances and fold their `LayoutInfo` together —
+/// close to the merge two static siblings get. See issue #407.
+///
+/// Also populates the repeated body's `root_constraints` — the same thing
+/// `lower_layout.rs`'s `create_layout_item` does for a repeated cell of a
+/// *real* layout, and for the same reason: without it, the generated
+/// `layout_info`/`layout_item_info` never applies an explicit
+/// `min-height`/`preferred-width`/etc. set directly on the body's root, and
+/// silently drops it. For a [`MergedFixedSize::Constrains`] caller this must happen
+/// here, at the point of use, rather than in a later pass over the whole tree:
+/// `flickable.rs` runs *before* `default_geometry` visits this same
+/// element's own root and gives it a default-fill `height`/`width` binding
+/// (every lowered layout has `default_fill_parent = (true, true)`) — computed
+/// any later, that synthesized binding would look like an explicit `height`
+/// conflicting with the user's `min-height`, a false positive.
+///
+/// `fixed_size` says whether the body's own `width`/`height` binding is one of those
+/// constraints; see [`MergedFixedSize`]. It decides what every consumer of the body's
+/// `root_constraints` sees, the component's own `layout_info_h`/`layout_info_v` included,
+/// so each repeated element must be merged by one call site only: an element belongs to a
+/// single parent, and `gen_layout_info_prop` never descends into a Flickable's viewport.
+pub fn repeated_element_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    fixed_size: MergedFixedSize,
+) -> Expression {
+    debug_assert!(elem.borrow().repeated.is_some());
+    let ElementType::Component(base) = elem.borrow().base_type.clone() else {
+        unreachable!("a repeated element's base_type is always Component")
+    };
+    *base.root_constraints.borrow_mut() =
+        LayoutConstraints::build(&base.root_element, None, fixed_size);
+    let layout = BoxLayout {
+        // `ComputeBoxLayoutInfo` only folds cells via `box_layout_info_ortho` (the
+        // merge, not the sum) when queried for the axis orthogonal to the box's own
+        // orientation.
+        orientation: orientation.orthogonal(),
+        elems: vec![LayoutItem {
+            element: elem.clone(),
+            constraints: LayoutConstraints::default(),
+            cross_axis_self_alignment: None,
+            layout_order: None,
+        }],
+        geometry: LayoutGeometry {
+            rect: LayoutRect::default(),
+            spacing: Spacing { horizontal: None, vertical: None },
+            alignment: None,
+            padding: Padding { left: None, right: None, top: None, bottom: None },
+        },
+        cross_alignment: None,
+        is_synthesized_repeated_merge: true,
+    };
+    Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size: None }
+}
+
+/// Mark the inner root of every repeated cell of a `ComputeBoxLayoutInfo` as
+/// `child_of_layout`, which is what makes the Rust generator emit a
+/// `layout_item_info` override for it. Without one,
+/// `RepeatedItemTree::layout_item_info`'s default returns a zero `LayoutItemInfo`
+/// and the merge silently contributes nothing. The C++ generator emits it
+/// unconditionally and doesn't need this.
+///
+/// Cells of a real layout already have the flag from `create_layout_item`, so
+/// matching every `ComputeBoxLayoutInfo` rather than only the synthesized merges
+/// costs nothing.
+///
+/// Runs after `default_geometry`: a cell merged only to propagate constraints is
+/// still positioned normally, so `default_geometry`'s own `child_of_layout` checks
+/// (default sizing, centering) must see the pre-merge value.
+pub fn mark_repeated_cells_child_of_layout(component: &Rc<Component>) {
+    crate::object_tree::visit_all_expressions(component, |expr, _| {
+        expr.visit_recursive_mut(&mut |e| {
+            if let Expression::ComputeBoxLayoutInfo { layout, .. } = e {
+                for item in &layout.elems {
+                    if item.element.borrow().repeated.is_some()
+                        && let ElementType::Component(base) = &item.element.borrow().base_type
+                    {
+                        base.root_element.borrow_mut().child_of_layout = true;
+                    }
+                }
+            }
+        });
+    });
 }

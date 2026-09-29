@@ -62,11 +62,13 @@ export component AppWindow inherits Window {
 ```python
 import slint
 
+
 # slint.loader will look in `sys.path` for `app-window.slint`.
 class App(slint.loader.app_window.AppWindow):
     @slint.callback
     def request_increase_value(self):
         self.counter = self.counter + 1
+
 
 app = App()
 app.run()
@@ -102,6 +104,7 @@ The exported component is exposed as a Python class. To access this class, you h
 
    ```python
    import slint
+
    components = slint.load_file("app.slint")
    main_window = components.MainWindow()
    ```
@@ -110,6 +113,7 @@ The exported component is exposed as a Python class. To access this class, you h
 
    ```python
    import slint
+
    # Look for for `app.slint` in `sys.path`:
    main_window = slint.loader.app.MainWindow()
    ```
@@ -199,10 +203,12 @@ Another way to set callbacks is to sub-class and use the `@slint.callback` decor
 ```python
 import slint
 
+
 class Component(slint.loader.my_component.MyComponent):
     @slint.callback
     def clicked(self):
         print("hello")
+
 
 component = Component()
 ```
@@ -225,7 +231,7 @@ You can set [array properties](../slint/src/language/syntax/types#arrays-and-mod
 Use the `slint.ListModel` class to construct a model from an iterable:
 
 ```python
-component.model = slint.ListModel([1, 2, 3]);
+component.model = slint.ListModel([1, 2, 3])
 component.model.append(4)
 del component.model[0]
 ```
@@ -233,16 +239,18 @@ del component.model[0]
 When sub-classing `slint.Model`, provide the following methods:
 
 ```python
-    def row_count(self):
-        """Return the number of rows in your model"""
+def row_count(self):
+    """Return the number of rows in your model"""
 
-    def row_data(self, row):
-        """Return data at specified row"""
 
-    def set_row_data(self, row, data):
-        """For read-write models, store data in the given row. When done call set.notify_row_changed:"
-        ..."""
-        self.notify_row_changed(row)
+def row_data(self, row):
+    """Return data at specified row"""
+
+
+def set_row_data(self, row, data):
+    """For read-write models, store data in the given row. When done call set.notify_row_changed:"
+    ..."""
+    self.notify_row_changed(row)
 ```
 
 When adding or inserting rows, call `notify_row_added(row, count)` on the super class. Similarly, when removing rows, notify
@@ -272,10 +280,11 @@ The exported `MyData` struct can be constructed as follows:
 
 ```python
 import slint
+
 # Look for for `app.slint` in `sys.path`:
 main_window = slint.loader.app.MainWindow()
 
-data = slint.loader.app.MyData(name = "Simon")
+data = slint.loader.app.MyData(name="Simon")
 data.age = 10
 main_window.data = data
 ```
@@ -304,6 +313,7 @@ Variants of the exported `MyOption` enum can be constructed as follows:
 
 ```python
 import slint
+
 # Look for for `app.slint` in `sys.path`:
 main_window = slint.loader.app.MainWindow()
 
@@ -367,10 +377,12 @@ export component AppWindow inherits Window {
 import slint
 import app_window
 
+
 class App(app_window.AppWindow):
     @slint.callback
     def request_increase_value(self):
         self.counter = self.counter + 1
+
 
 app = App()
 app.run()

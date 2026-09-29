@@ -14,7 +14,7 @@ export component TestCase inherits Window {
     callback expand();
 
     Flickable {
-        viewport-height: items.length * 30px;
+        content-height: items.length * 30px;
         VerticalLayout {
             alignment: start;
             for item[index] in items: TouchArea {

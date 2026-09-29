@@ -40,9 +40,9 @@ pub unsafe trait OpenGLInterface {
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 struct WebGLNeedsNoCurrentContext;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
@@ -89,9 +89,20 @@ unsafe impl OpenGLInterface for SuspendedRenderer {
     }
 }
 
+/// Stops a panic in the snapshot's render pass from leaving every later frame redirected
+/// offscreen, which would stop the window ever presenting again.
+struct SnapshotTargetGuard<'a>(&'a RefCell<Option<femtovg::ImageId>>);
+
+impl Drop for SnapshotTargetGuard<'_> {
+    fn drop(&mut self) {
+        self.0.borrow_mut().take();
+    }
+}
+
 pub struct OpenGLBackend {
     opengl_context: RefCell<Box<dyn OpenGLInterface>>,
-    #[cfg(target_family = "wasm")]
+    snapshot_target: RefCell<Option<femtovg::ImageId>>,
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     html_canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
 }
 
@@ -99,14 +110,16 @@ impl OpenGLBackend {
     pub fn set_opengl_context(
         &self,
         renderer: &FemtoVGRenderer<Self>,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let opengl_context = WebGLNeedsNoCurrentContext {};
 
         let opengl_context = Box::new(opengl_context);
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function_cstr(|name| {
                 opengl_context.get_proc_address(name)
@@ -114,7 +127,7 @@ impl OpenGLBackend {
             .unwrap()
         };
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
@@ -144,7 +157,7 @@ impl OpenGLBackend {
         .unwrap();
 
         *self.opengl_context.borrow_mut() = opengl_context;
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             *self.html_canvas.borrow_mut() = Some(html_canvas);
         }
@@ -153,14 +166,72 @@ impl OpenGLBackend {
         renderer.reset_canvas(canvas);
         Ok(())
     }
+
+    /// Renders one frame into `image_id` and reads it back. The caller owns `image_id` and must
+    /// restore the canvas' render target and delete the texture afterwards, including on error.
+    fn render_snapshot(
+        &self,
+        canvas: &CanvasRc<femtovg::renderer::OpenGl>,
+        image_id: femtovg::ImageId,
+        width: u32,
+        height: u32,
+        render: &dyn Fn() -> Result<(), PlatformError>,
+    ) -> Result<
+        i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+        PlatformError,
+    > {
+        *self.snapshot_target.borrow_mut() = Some(image_id);
+        let guard = SnapshotTargetGuard(&self.snapshot_target);
+        let render_result = render();
+        drop(guard);
+        render_result?;
+
+        // `screenshot()` reads the bound framebuffer, which the `AfterRendering` notifier may
+        // rebind after the frame's last flush. Select the texture again and flush before reading
+        // back: the window back buffer has the same dimensions and would pass the check below.
+        let mut canvas = canvas.borrow_mut();
+        crate::select_render_target(&mut canvas, femtovg::RenderTarget::Image(image_id));
+        // The flush issues the GL calls itself; its `()` command buffer needs no submission.
+        canvas.flush_to_output(());
+
+        let screenshot = canvas
+            .screenshot()
+            .map_err(|e| format!("FemtoVG error reading back snapshot texture: {e}"))?;
+
+        if screenshot.width() as u32 != width || screenshot.height() as u32 != height {
+            return Err(format!(
+                "take_snapshot: read back {}x{} pixels instead of the requested {width}x{height}",
+                screenshot.width(),
+                screenshot.height()
+            )
+            .into());
+        }
+
+        use rgb::ComponentBytes;
+        Ok(i_slint_core::graphics::SharedPixelBuffer::clone_from_slice(
+            screenshot.buf().as_bytes(),
+            width,
+            height,
+        ))
+    }
 }
 
-pub struct GLWindowSurface {}
+pub enum GLWindowSurface {
+    Screen,
+    Snapshot(femtovg::ImageId),
+}
 
 impl WindowSurface<femtovg::renderer::OpenGl> for GLWindowSurface {
     fn render_output(
         &self,
     ) -> impl Into<<femtovg::renderer::OpenGl as femtovg::Renderer>::RenderOutput> {
+    }
+
+    fn initial_render_target(&self) -> femtovg::RenderTarget {
+        match self {
+            Self::Screen => femtovg::RenderTarget::Screen,
+            Self::Snapshot(image_id) => femtovg::RenderTarget::Image(*image_id),
+        }
     }
 }
 
@@ -172,7 +243,8 @@ impl GraphicsBackend for OpenGLBackend {
     fn new_suspended() -> Self {
         Self {
             opengl_context: RefCell::new(Box::new(SuspendedRenderer {})),
-            #[cfg(target_family = "wasm")]
+            snapshot_target: RefCell::new(None),
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas: RefCell::new(None),
         }
     }
@@ -186,7 +258,10 @@ impl GraphicsBackend for OpenGLBackend {
         &self,
     ) -> Result<BeginRendering<GLWindowSurface>, Box<dyn std::error::Error + Send + Sync>> {
         self.opengl_context.borrow().ensure_current()?;
-        Ok(BeginRendering::Acquired(GLWindowSurface {}))
+        Ok(BeginRendering::Acquired(match *self.snapshot_target.borrow() {
+            Some(image_id) => GLWindowSurface::Snapshot(image_id),
+            None => GLWindowSurface::Screen,
+        }))
     }
 
     fn submit_commands(&self, _commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {}
@@ -196,12 +271,17 @@ impl GraphicsBackend for OpenGLBackend {
     /// this to platform specific APIs such as eglSwapBuffers.
     fn present_surface(
         &self,
-        _surface: GLWindowSurface,
+        surface: GLWindowSurface,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.opengl_context.borrow().swap_buffers()
+        match surface {
+            GLWindowSurface::Screen => self.opengl_context.borrow().swap_buffers(),
+            // Rendered offscreen, and outside a draw request: presenting would push a frame
+            // to the window that nothing asked for.
+            GLWindowSurface::Snapshot(_) => Ok(()),
+        }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -215,15 +295,14 @@ impl GraphicsBackend for OpenGLBackend {
         Ok(callback(Some(api)))
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
         use i_slint_core::api::GraphicsAPI;
 
-        let id =
-            self.html_canvas.borrow().as_ref().map_or_else(|| String::new(), |canvas| canvas.id());
+        let id = self.html_canvas.borrow().as_ref().map_or_else(String::new, |canvas| canvas.id());
 
         let api = GraphicsAPI::WebGL { canvas_element_id: &id, context_type: "webgl2" };
         Ok(callback(Some(api)))
@@ -243,9 +322,9 @@ impl GraphicsBackend for OpenGLBackend {
     fn take_snapshot_pixels(
         &self,
         canvas: Option<CanvasRc<Self::Renderer>>,
-        _width: u32,
-        _height: u32,
-        _render: &dyn Fn() -> Result<(), PlatformError>,
+        width: u32,
+        height: u32,
+        render: &dyn Fn() -> Result<(), PlatformError>,
     ) -> Option<
         Result<
             i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
@@ -258,16 +337,32 @@ impl GraphicsBackend for OpenGLBackend {
                 .borrow()
                 .ensure_current()
                 .map_err(|e| PlatformError::Other(e.to_string()))?;
-            let screenshot = canvas
+
+            // Outside a draw request the back buffer's contents are undefined, and getting a
+            // defined result out of it would mean presenting. Render offscreen instead, so
+            // capturing a frame never puts one on screen.
+            //
+            // Omit `FLIP_Y`: `screenshot()` flips rows assuming a bottom-up framebuffer, so the
+            // offscreen target has to use that orientation too.
+            let image_id = canvas
                 .borrow_mut()
-                .screenshot()
-                .map_err(|e| format!("FemtoVG error reading current back buffer: {e}"))?;
-            use rgb::ComponentBytes;
-            Ok(i_slint_core::graphics::SharedPixelBuffer::clone_from_slice(
-                screenshot.buf().as_bytes(),
-                screenshot.width() as u32,
-                screenshot.height() as u32,
-            ))
+                .create_image_empty(
+                    width as usize,
+                    height as usize,
+                    femtovg::PixelFormat::Rgba8,
+                    femtovg::ImageFlags::empty(),
+                )
+                .map_err(|e| format!("FemtoVG error allocating snapshot texture: {e}"))?;
+
+            let snapshot = self.render_snapshot(&canvas, image_id, width, height, render);
+
+            // femtovg deletes the texture and its framebuffer immediately, so this has to come
+            // after the read back.
+            let mut canvas = canvas.borrow_mut();
+            canvas.set_render_target(femtovg::RenderTarget::Screen);
+            canvas.delete_image(image_id);
+
+            snapshot
         })())
     }
 }
@@ -276,16 +371,18 @@ impl FemtoVGRenderer<OpenGLBackend> {
     /// Creates a new renderer that renders using OpenGL. An implementation of the OpenGLInterface
     /// trait needs to supplied.
     pub fn new(
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
         use super::FemtoVGRendererExt;
         let this = Self::new_suspended();
         this.graphics_backend.set_opengl_context(
             &this,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             opengl_context,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas,
         )?;
         Ok(this)

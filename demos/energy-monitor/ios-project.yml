@@ -13,8 +13,15 @@ targets:
     info:
       path: Info.plist
       properties:
+        CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen:
           - ImageRespectSafeAreaInsets: false
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Slint
+                UISceneDelegateClassName: SlintWindowSceneDelegate
     sources: []
     postCompileScripts:
       - script: |

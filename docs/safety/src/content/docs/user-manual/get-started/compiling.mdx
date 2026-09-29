@@ -1,0 +1,87 @@
+---
+title: Compiling .slint Files
+description: Run the Slint SC compiler from the command line or from a Cargo build script.
+---
+
+The Slint SC compiler translates a `.slint` file into one Rust source file.
+It defines the component and the types the `.slint` file declares, and embeds the images it uses.
+It depends only on the `slint-sc` crate.
+
+The examples on this page compile `ui/indicator.slint`:
+
+```slint
+export component Indicator inherits Window {
+    in property <bool> alarm: false;
+    callback acknowledged;
+
+    background: #202020;
+
+    Rectangle {
+        x: 16px;
+        y: 16px;
+        width: 32px;
+        height: 32px;
+        background: root.alarm ? #c02020 : #20a020;
+
+        TouchArea {
+            clicked => { root.acknowledged(); }
+        }
+    }
+}
+```
+
+To learn what you can write in a `.slint` file, see the [Language Specification](/reference/language/).
+
+## From the Command Line
+
+Pass `--slint-sc` and the output file:
+
+```sh
+slint-compiler --slint-sc ui/indicator.slint -o indicator.rs
+```
+
+:::note
+Without `--slint-sc`, `slint-compiler` generates code for the full Slint runtime, which isn't part of Slint SC.
+:::
+
+## From a Build Script
+
+Run the compiler from your crate's `build.rs`, so that Cargo regenerates the code whenever a file in `ui/` changes:
+
+```rust
+// build.rs
+use std::path::PathBuf;
+use std::process::Command;
+
+fn main() {
+    let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+    let output = out_dir.join("indicator.rs");
+    let compiler = std::env::var_os("SLINT_COMPILER").unwrap_or("slint-compiler".into());
+
+    let status = Command::new(&compiler)
+        .arg("--slint-sc")
+        .arg("ui/indicator.slint")
+        .arg("-o")
+        .arg(&output)
+        .status()
+        .expect("failed to run slint-compiler");
+    assert!(status.success(), "slint-compiler failed on ui/indicator.slint");
+
+    println!("cargo:rerun-if-env-changed=SLINT_COMPILER");
+    println!("cargo:rerun-if-changed=ui");
+}
+```
+
+The script runs `slint-compiler` from your `PATH`.
+Set `SLINT_COMPILER` to the path of the binary to use a specific one instead.
+Keep the `.slint` files and the images they use in `ui/`, since Cargo only watches that directory.
+
+## Including the Generated Code
+
+Include the generated file in the module of your crate that uses the component:
+
+```rust
+include!(concat!(env!("OUT_DIR"), "/indicator.rs"));
+```
+
+This declares the `Indicator` struct and the `IndicatorCallbacks` trait in the current module.

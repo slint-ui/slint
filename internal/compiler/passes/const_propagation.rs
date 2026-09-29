@@ -14,6 +14,14 @@ use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
 
+/// Fold constants in an expression that stands on its own, outside of a component.
+///
+/// This is used for expressions that cannot reference any properties or elements,
+/// such as the default values of struct fields.
+pub(crate) fn fold_const_expression(expr: &mut Expression) {
+    simplify_expression(expr, &GlobalAnalysis::default(), &mut ConstPropCache::default());
+}
+
 pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
     let mut cache = ConstPropCache::new();
     visit_all_expressions(component, |expr, _ty| {
@@ -25,7 +33,7 @@ pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis
     // simplification folded the conversion away, the binding is constant after all:
     // promote it back.
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        for binding in elem.borrow().bindings.values() {
+        for (_, binding) in elem.borrow().real_bindings() {
             let Ok(mut binding) = binding.try_borrow_mut() else { continue };
             let Some(analysis) = binding.analysis.as_ref() else { continue };
             if analysis.is_const || matches!(binding.expression, Expression::Invalid) {
@@ -41,233 +49,31 @@ pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis
 }
 
 /// Returns false if the expression still contains a reference to an element
+///
+/// The body of every non-trivial match arm lives in its own `#[inline(never)]`
+/// helper function: this function recurses for nested expressions, and with all
+/// arm bodies inlined, its stack frame in unoptimized builds becomes so large
+/// that deeply nested expressions overflow the stack.
 fn simplify_expression(
     expr: &mut Expression,
     ga: &GlobalAnalysis,
     cache: &mut ConstPropCache,
 ) -> bool {
     match expr {
-        Expression::PropertyReference(nr) => {
-            if nr.is_constant()
-                && !match nr.ty() {
-                    Type::Struct(s) => {
-                        matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
-                    }
-                    _ => false,
-                }
-            {
-                // Inline the constant value
-                if let Some(result) = extract_constant_property_reference(nr, ga, cache) {
-                    *expr = result;
-                    return true;
-                }
-            }
-            false
-        }
-        Expression::BinaryExpression { lhs, op, rhs } => {
-            let mut can_inline = simplify_expression(lhs, ga, cache);
-            can_inline &= simplify_expression(rhs, ga, cache);
-
-            let new = match (*op, &mut **lhs, &mut **rhs) {
-                // constant folding
-                ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
-                    Some(Expression::StringLiteral(format_smolstr!("{}{}", a, b)))
-                }
-                ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
-                    Some(Expression::NumberLiteral(*a + *b, *un1))
-                }
-                ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
-                    Some(Expression::NumberLiteral(*a - *b, *un1))
-                }
-                ('*', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if *un1 == Unit::None || *un2 == Unit::None =>
-                {
-                    let preserved_unit = if *un1 == Unit::None { *un2 } else { *un1 };
-                    Some(Expression::NumberLiteral(*a * *b, preserved_unit))
-                }
-                (
-                    '/',
-                    Expression::NumberLiteral(a, un1),
-                    Expression::NumberLiteral(b, Unit::None),
-                ) => Some(Expression::NumberLiteral(*a / *b, *un1)),
-                ('/', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
-                    Some(Expression::NumberLiteral(*a / *b, Unit::None))
-                }
-                // TODO: fold * and / that produce a unit product
-
-                // arithmetic identities
-                ('+', e, Expression::NumberLiteral(n, _))
-                | ('+', Expression::NumberLiteral(n, _), e)
-                | ('-', e, Expression::NumberLiteral(n, _))
-                    if *n == 0. =>
-                {
-                    Some(std::mem::take(e))
-                }
-                ('*', e, Expression::NumberLiteral(n, Unit::None))
-                | ('*', Expression::NumberLiteral(n, Unit::None), e)
-                | ('/', e, Expression::NumberLiteral(n, Unit::None))
-                    if *n == 1. =>
-                {
-                    Some(std::mem::take(e))
-                }
-
-                // comparisons
-                (
-                    '=' | '!' | '<' | '>' | '≤' | '≥',
-                    Expression::NumberLiteral(a, _),
-                    Expression::NumberLiteral(b, _),
-                ) => Some(Expression::BoolLiteral(match op {
-                    '=' => a == b,
-                    '!' => a != b,
-                    '<' => a < b,
-                    '>' => a > b,
-                    '≤' => a <= b,
-                    _ => a >= b,
-                })),
-                ('=' | '!', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
-                    Some(Expression::BoolLiteral((a == b) == (*op == '=')))
-                }
-                ('=' | '!', Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => {
-                    Some(Expression::BoolLiteral((a == b) == (*op == '=')))
-                }
-                ('=' | '!', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
-                    Some(Expression::BoolLiteral((a == b) == (*op == '=')))
-                }
-                // TODO: more types and more comparison operators
-
-                // boolean logic
-                ('&', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
-                    Some(Expression::BoolLiteral(*a && *b))
-                }
-                ('|', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
-                    Some(Expression::BoolLiteral(*a || *b))
-                }
-                ('&', Expression::BoolLiteral(false), _) => {
-                    can_inline = true;
-                    Some(Expression::BoolLiteral(false))
-                }
-                ('|', Expression::BoolLiteral(true), _) => {
-                    can_inline = true;
-                    Some(Expression::BoolLiteral(true))
-                }
-                ('&', Expression::BoolLiteral(true), e)
-                | ('&', e, Expression::BoolLiteral(true))
-                | ('|', Expression::BoolLiteral(false), e)
-                | ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
-                _ => None,
-            };
-            if let Some(new) = new {
-                *expr = new;
-            }
-            can_inline
-        }
-        Expression::UnaryOp { sub, op } => {
-            let can_inline = simplify_expression(sub, ga, cache);
-            let new = match (*op, &mut **sub) {
-                ('!', Expression::BoolLiteral(b)) => Some(Expression::BoolLiteral(!*b)),
-                ('-', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(-*n, *u)),
-                ('+', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(*n, *u)),
-                _ => None,
-            };
-            if let Some(new) = new {
-                *expr = new;
-            }
-            can_inline
-        }
-        Expression::StructFieldAccess { base, name } => {
-            if let Expression::PropertyReference(nr) = &**base
-                && nr.is_constant()
-                && let Some(field_expr) = extract_struct_field_from_constant(nr, name, ga, cache)
-            {
-                *expr = field_expr;
-                return simplify_expression(expr, ga, cache);
-            }
-            let r = simplify_expression(base, ga, cache);
-            if let Expression::Struct { values, .. } = &mut **base
-                && let Some(e) = values.remove(name)
-            {
-                *expr = e;
-                return simplify_expression(expr, ga, cache);
-            }
-            r
-        }
-        Expression::Cast { from, to } => {
-            let can_inline = simplify_expression(from, ga, cache);
-            let new = if from.ty() == *to {
-                Some(std::mem::take(&mut **from))
-            } else {
-                match (&**from, to) {
-                    (Expression::NumberLiteral(x, Unit::None), Type::String) => {
-                        locale_independent_number_to_string(*x).map(Expression::StringLiteral)
-                    }
-                    (Expression::NumberLiteral(x, _), Type::Float32) => {
-                        Some(Expression::NumberLiteral(*x, Unit::None))
-                    }
-                    (Expression::Struct { values, .. }, Type::Struct(ty)) => {
-                        Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
-                    }
-                    _ => None,
-                }
-            };
-            if let Some(new) = new {
-                *expr = new;
-            }
-            can_inline
-        }
-        Expression::MinMax { op, lhs, rhs, ty: _ } => {
-            let can_inline =
-                simplify_expression(lhs, ga, cache) & simplify_expression(rhs, ga, cache);
-            if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) =
-                (&**lhs, &**rhs)
-            {
-                let v = match op {
-                    MinMaxOp::Min => lhs.min(*rhs),
-                    MinMaxOp::Max => lhs.max(*rhs),
-                };
-                *expr = Expression::NumberLiteral(v, *u);
-            }
-            can_inline
-        }
-        Expression::Condition { condition, true_expr, false_expr } => {
-            let mut can_inline = simplify_expression(condition, ga, cache);
-            can_inline &= match &**condition {
-                Expression::BoolLiteral(true) => {
-                    *expr = *true_expr.clone();
-                    simplify_expression(expr, ga, cache)
-                }
-                Expression::BoolLiteral(false) => {
-                    *expr = *false_expr.clone();
-                    simplify_expression(expr, ga, cache)
-                }
-                _ => {
-                    simplify_expression(true_expr, ga, cache)
-                        & simplify_expression(false_expr, ga, cache)
-                }
-            };
-            can_inline
-        }
+        Expression::PropertyReference(..) => simplify_property_reference(expr, ga, cache),
+        Expression::BinaryExpression { .. } => simplify_binary_expression(expr, ga, cache),
+        Expression::UnaryOp { .. } => simplify_unary_op(expr, ga, cache),
+        Expression::StructFieldAccess { .. } => simplify_struct_field_access(expr, ga, cache),
+        Expression::Cast { .. } => simplify_cast(expr, ga, cache),
+        Expression::MinMax { .. } => simplify_min_max(expr, ga, cache),
+        Expression::Condition { .. } => simplify_condition(expr, ga, cache),
         // disable this simplification for store local variable, as "let" is not an expression in rust
         Expression::CodeBlock(stmts)
             if stmts.len() == 1 && !matches!(stmts[0], Expression::StoreLocalVariable { .. }) =>
         {
-            *expr = stmts[0].clone();
-            simplify_expression(expr, ga, cache)
+            simplify_single_statement_code_block(expr, ga, cache)
         }
-        Expression::FunctionCall { function, arguments, .. } => {
-            let mut args_can_inline = true;
-            for arg in arguments.iter_mut() {
-                args_can_inline &= simplify_expression(arg, ga, cache);
-            }
-            if args_can_inline
-                && let Some(inlined) = try_inline_function(function, arguments, ga, cache)
-            {
-                *expr = inlined;
-                return true;
-            }
-            false
-        }
+        Expression::FunctionCall { .. } => simplify_function_call(expr, ga, cache),
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,
@@ -283,6 +89,313 @@ fn simplify_expression(
             result
         }
     }
+}
+
+#[inline(never)]
+fn simplify_property_reference(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::PropertyReference(nr) = expr else { unreachable!() };
+    if nr.is_constant()
+        && !match nr.ty() {
+            Type::Struct(s) => {
+                matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
+            }
+            _ => false,
+        }
+    {
+        // Inline the constant value
+        if let Some(result) = extract_constant_property_reference(nr, ga, cache) {
+            *expr = result;
+            return true;
+        }
+    }
+    false
+}
+
+#[inline(never)]
+fn simplify_binary_expression(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::BinaryExpression { lhs, op, rhs, .. } = expr else { unreachable!() };
+    let mut can_inline = simplify_expression(lhs, ga, cache);
+    can_inline &= simplify_expression(rhs, ga, cache);
+
+    // The folding lives in a separate function: in unoptimized builds its many
+    // `Expression` temporaries would otherwise be part of this function's stack
+    // frame, which is live during the recursion above.
+    let new = fold_binary_expression(*op, lhs, rhs, &mut can_inline);
+    if let Some(new) = new {
+        *expr = new;
+    }
+    can_inline
+}
+
+#[inline(never)]
+fn fold_binary_expression(
+    op: char,
+    lhs: &mut Expression,
+    rhs: &mut Expression,
+    can_inline: &mut bool,
+) -> Option<Expression> {
+    match (op, lhs, rhs) {
+        // constant folding
+        ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
+            Some(Expression::StringLiteral(format_smolstr!("{}{}", a, b)))
+        }
+        ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
+            Some(Expression::NumberLiteral(*a + *b, *un1))
+        }
+        // `LayoutInfo + LayoutInfo` merges layout constraints, mirroring
+        // `impl Add for LayoutInfo` in internal/core/layout.rs. Fold it when
+        // every field of both operands is a number literal; merging only
+        // selects one of the two literals, so the folded value is exactly
+        // what the runtime merge would produce.
+        ('+', Expression::Struct { ty, values: a }, Expression::Struct { values: b, .. })
+            if matches!(ty.name, StructName::Builtin(BuiltinStruct::LayoutInfo)) =>
+        {
+            let ty = ty.clone();
+            ty.fields
+                .keys()
+                .map(|name| {
+                    let Some(Expression::NumberLiteral(x, u)) = a.get(name) else { return None };
+                    let Some(Expression::NumberLiteral(y, _)) = b.get(name) else { return None };
+                    let v = match name.as_str() {
+                        "min" | "min_percent" | "preferred" => x.max(*y),
+                        "max" | "max_percent" | "stretch" => x.min(*y),
+                        _ => return None,
+                    };
+                    Some((name.clone(), Expression::NumberLiteral(v, *u)))
+                })
+                .collect::<Option<_>>()
+                .map(|values| Expression::Struct { ty, values })
+        }
+        ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
+            Some(Expression::NumberLiteral(*a - *b, *un1))
+        }
+        ('*', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+            if *un1 == Unit::None || *un2 == Unit::None =>
+        {
+            let preserved_unit = if *un1 == Unit::None { *un2 } else { *un1 };
+            Some(Expression::NumberLiteral(*a * *b, preserved_unit))
+        }
+        ('/', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, Unit::None)) => {
+            Some(Expression::NumberLiteral(*a / *b, *un1))
+        }
+        ('/', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+            if un1 == un2 =>
+        {
+            Some(Expression::NumberLiteral(*a / *b, Unit::None))
+        }
+        // TODO: fold * and / that produce a unit product
+
+        // arithmetic identities
+        ('+', e, Expression::NumberLiteral(n, _))
+        | ('+', Expression::NumberLiteral(n, _), e)
+        | ('-', e, Expression::NumberLiteral(n, _))
+            if *n == 0. =>
+        {
+            Some(std::mem::take(e))
+        }
+        ('*', e, Expression::NumberLiteral(n, Unit::None))
+        | ('*', Expression::NumberLiteral(n, Unit::None), e)
+        | ('/', e, Expression::NumberLiteral(n, Unit::None))
+            if *n == 1. =>
+        {
+            Some(std::mem::take(e))
+        }
+
+        // comparisons
+        (
+            '=' | '!' | '<' | '>' | '≤' | '≥',
+            Expression::NumberLiteral(a, _),
+            Expression::NumberLiteral(b, _),
+        ) => Some(Expression::BoolLiteral(match op {
+            '=' => a == b,
+            '!' => a != b,
+            '<' => a < b,
+            '>' => a > b,
+            '≤' => a <= b,
+            _ => a >= b,
+        })),
+        ('=' | '!', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
+            Some(Expression::BoolLiteral((a == b) == (op == '=')))
+        }
+        ('=' | '!', Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => {
+            Some(Expression::BoolLiteral((a == b) == (op == '=')))
+        }
+        ('=' | '!', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+            Some(Expression::BoolLiteral((a == b) == (op == '=')))
+        }
+        // TODO: more types and more comparison operators
+
+        // boolean logic
+        ('&', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+            Some(Expression::BoolLiteral(*a && *b))
+        }
+        ('|', Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => {
+            Some(Expression::BoolLiteral(*a || *b))
+        }
+        ('&', Expression::BoolLiteral(false), _) => {
+            *can_inline = true;
+            Some(Expression::BoolLiteral(false))
+        }
+        ('|', Expression::BoolLiteral(true), _) => {
+            *can_inline = true;
+            Some(Expression::BoolLiteral(true))
+        }
+        ('&', Expression::BoolLiteral(true), e)
+        | ('&', e, Expression::BoolLiteral(true))
+        | ('|', Expression::BoolLiteral(false), e)
+        | ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
+        _ => None,
+    }
+}
+
+#[inline(never)]
+fn simplify_unary_op(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::UnaryOp { sub, op } = expr else { unreachable!() };
+    let can_inline = simplify_expression(sub, ga, cache);
+    let new = match (*op, &mut **sub) {
+        ('!', Expression::BoolLiteral(b)) => Some(Expression::BoolLiteral(!*b)),
+        ('-', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(-*n, *u)),
+        ('+', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(*n, *u)),
+        _ => None,
+    };
+    if let Some(new) = new {
+        *expr = new;
+    }
+    can_inline
+}
+
+#[inline(never)]
+fn simplify_struct_field_access(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::StructFieldAccess { base, name } = expr else { unreachable!() };
+    if let Expression::PropertyReference(nr) = &**base
+        && nr.is_constant()
+        && let Some(field_expr) = extract_struct_field_from_constant(nr, name, ga, cache)
+    {
+        *expr = field_expr;
+        return simplify_expression(expr, ga, cache);
+    }
+    let r = simplify_expression(base, ga, cache);
+    if let Expression::Struct { values, .. } = &mut **base
+        && let Some(e) = values.remove(name)
+    {
+        *expr = e;
+        return simplify_expression(expr, ga, cache);
+    }
+    r
+}
+
+#[inline(never)]
+fn simplify_cast(expr: &mut Expression, ga: &GlobalAnalysis, cache: &mut ConstPropCache) -> bool {
+    let Expression::Cast { from, to } = expr else { unreachable!() };
+    let can_inline = simplify_expression(from, ga, cache);
+    let new = if from.ty() == *to {
+        Some(std::mem::take(&mut **from))
+    } else {
+        match (&**from, &*to) {
+            (Expression::NumberLiteral(x, Unit::None), Type::String) => {
+                locale_independent_number_to_string(*x).map(Expression::StringLiteral)
+            }
+            (Expression::NumberLiteral(x, _), Type::Float32) => {
+                Some(Expression::NumberLiteral(*x, Unit::None))
+            }
+            (Expression::Struct { values, .. }, Type::Struct(ty)) => {
+                Some(Expression::Struct { ty: ty.clone(), values: values.clone() })
+            }
+            _ => None,
+        }
+    };
+    if let Some(new) = new {
+        *expr = new;
+    }
+    can_inline
+}
+
+#[inline(never)]
+fn simplify_min_max(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::MinMax { op, lhs, rhs, ty: _ } = expr else { unreachable!() };
+    let can_inline = simplify_expression(lhs, ga, cache) & simplify_expression(rhs, ga, cache);
+    if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) = (&**lhs, &**rhs)
+    {
+        let v = match op {
+            MinMaxOp::Min => lhs.min(*rhs),
+            MinMaxOp::Max => lhs.max(*rhs),
+        };
+        *expr = Expression::NumberLiteral(v, *u);
+    }
+    can_inline
+}
+
+#[inline(never)]
+fn simplify_condition(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::Condition { condition, true_expr, false_expr, .. } = expr else {
+        unreachable!()
+    };
+    let mut can_inline = simplify_expression(condition, ga, cache);
+    can_inline &= match &**condition {
+        Expression::BoolLiteral(true) => {
+            *expr = *true_expr.clone();
+            simplify_expression(expr, ga, cache)
+        }
+        Expression::BoolLiteral(false) => {
+            *expr = *false_expr.clone();
+            simplify_expression(expr, ga, cache)
+        }
+        _ => simplify_expression(true_expr, ga, cache) & simplify_expression(false_expr, ga, cache),
+    };
+    can_inline
+}
+
+#[inline(never)]
+fn simplify_single_statement_code_block(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::CodeBlock(stmts) = expr else { unreachable!() };
+    *expr = stmts[0].clone();
+    simplify_expression(expr, ga, cache)
+}
+
+#[inline(never)]
+fn simplify_function_call(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::FunctionCall { function, arguments, .. } = expr else { unreachable!() };
+    let mut args_can_inline = true;
+    for arg in arguments.iter_mut() {
+        args_can_inline &= simplify_expression(arg, ga, cache);
+    }
+    if args_can_inline && let Some(inlined) = try_inline_function(function, arguments, ga, cache) {
+        *expr = inlined;
+        return true;
+    }
+    false
 }
 
 /// Will extract the property binding from the given named reference
@@ -327,14 +440,13 @@ fn extract_constant_property_reference_impl(
     // find the binding.
     let mut element = nr.element();
     let mut expression = loop {
-        if let Some(binding) = element.borrow().bindings.get(nr.name()) {
-            let binding = binding.borrow();
+        if let Some(binding) = element.borrow().binding(nr.name()) {
             if !binding.two_way_bindings.is_empty() {
                 // TODO: In practice, we should still find out what the real binding is
                 // and solve that.
                 return None;
             }
-            if !matches!(binding.expression, Expression::Invalid) {
+            if !matches!(binding.value_expression(), Expression::Invalid) {
                 break binding.expression.clone();
             }
         };
@@ -473,26 +585,27 @@ export component Foo {
 
     let expected_p = 3.0 * 2.0 + 15.0;
     let expected_w = -expected_p / 2.0;
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let out1_binding = bindings.get("out1").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let out1_binding = root_element.borrow().binding("out1").unwrap().expression.clone();
     match &out1_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_w),
         _ => panic!("not number {out1_binding:?}"),
     }
-    let out2_binding = bindings.get("out2").unwrap().borrow().expression.clone();
+    let out2_binding = root_element.borrow().binding("out2").unwrap().expression.clone();
     match &out2_binding {
         Expression::NumberLiteral(n, _) => assert_eq!(*n, expected_p),
         _ => panic!("not number {out2_binding:?}"),
     }
-    let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
+    let out3_binding = root_element.borrow().binding("out3").unwrap().expression.clone();
     match &out3_binding {
         // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
-            Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
-            {
-                Expression::BoolLiteral(b) => assert!(*b),
-                _ => panic!("false_expr not optimized in : {out3_binding:?}"),
-            },
+            Expression::Condition { condition: _, true_expr: _, false_expr, .. } => {
+                match &**false_expr {
+                    Expression::BoolLiteral(b) => assert!(*b),
+                    _ => panic!("false_expr not optimized in : {out3_binding:?}"),
+                }
+            }
             _ => panic!("not condition:  {out3_binding:?}"),
         },
         _ => panic!("not code block: {out3_binding:?}"),
@@ -524,10 +637,11 @@ export component Foo {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let binding = |name: &str| bindings.get(name).unwrap().borrow().clone();
-    let is_const =
-        |name: &str| bindings.get(name).unwrap().borrow().analysis.as_ref().unwrap().is_const;
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let binding = |name: &str| root_element.borrow().binding(name).unwrap().clone();
+    let is_const = |name: &str| {
+        root_element.borrow().binding(name).unwrap().analysis.as_ref().unwrap().is_const
+    };
 
     // Conversions whose result contains no decimal separator are folded and stay constant
     assert!(
@@ -569,7 +683,7 @@ fn test_propagate_font_size() {
     fn assert_expr_is_mul(e: &Expression, l: f64, r: f64) {
         assert!(
             matches!(e, Expression::Cast { from, .. }
-                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*'}
+                        if matches!(from.as_ref(), Expression::BinaryExpression { lhs, rhs, op: '*', ..}
                         if matches!((lhs.as_ref(), rhs.as_ref()), (Expression::NumberLiteral(lhs, _), Expression::NumberLiteral(rhs, _)) if *lhs == l && *rhs == r ))),
             "Expression {e:?} is not a {l} * {r} expected"
         );
@@ -660,8 +774,8 @@ export component Foo inherits Window {{
             spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
         assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-        let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-        let out1_binding = bindings.get("test").unwrap().borrow().expression.clone();
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        let out1_binding = root_element.borrow().binding("test").unwrap().expression.clone();
         check_expression(&out1_binding);
     }
 }
@@ -687,8 +801,8 @@ export component Foo inherits Window {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
     assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
 
-    let bindings = &doc.inner_components.last().unwrap().root_element.borrow().bindings;
-    let mut test_binding = bindings.get("test").unwrap().borrow().expression.clone();
+    let root_element = doc.inner_components.last().unwrap().root_element.clone();
+    let mut test_binding = root_element.borrow().binding("test").unwrap().expression.clone();
     if let Expression::Cast { from, to: _ } = test_binding {
         test_binding = *from;
     }
@@ -713,10 +827,8 @@ fn test_unit_normalization() {
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{expr}: {:#?}", diag.to_string_vec());
-        doc.inner_components.last().unwrap().root_element.borrow().bindings["a"]
-            .borrow()
-            .expression
-            .clone()
+        let root_element = doc.inner_components.last().unwrap().root_element.clone();
+        root_element.borrow().binding("a").unwrap().expression.clone()
     }
 
     // A literal is stored in its type's canonical unit, not the one it was written in.
@@ -761,4 +873,60 @@ fn test_unit_normalization() {
     // Equality folds for numbers (now via the ordering arm) and bools.
     assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
     assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
+}
+
+#[test]
+fn test_fold_layout_info_merge() {
+    use smol_str::SmolStr;
+    let ty = crate::typeregister::layout_info_type();
+    let info = |min: f64, max: f64, preferred: f64, stretch: f64| Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([
+            ("min", Expression::NumberLiteral(min, Unit::Px)),
+            ("max", Expression::NumberLiteral(max, Unit::Px)),
+            ("preferred", Expression::NumberLiteral(preferred, Unit::Px)),
+            ("min_percent", Expression::NumberLiteral(0., Unit::None)),
+            ("max_percent", Expression::NumberLiteral(100., Unit::None)),
+            ("stretch", Expression::NumberLiteral(stretch, Unit::None)),
+        ])
+        .map(|(k, v)| (SmolStr::new_static(k), v))
+        .collect(),
+    };
+
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(info(20., 100., 30., 0.)),
+        op: '+',
+        source_location: None,
+    };
+    fold_const_expression(&mut expr);
+    // The merge takes the max of the lower bounds and the preferred size,
+    // and the min of the upper bounds and the stretch.
+    let Expression::Struct { values, .. } = expr else { panic!("not folded: {expr:?}") };
+    let field = |name: &str| match values.get(name) {
+        Some(Expression::NumberLiteral(v, _)) => *v,
+        other => panic!("field {name} not a literal: {other:?}"),
+    };
+    assert_eq!(field("min"), 20.);
+    assert_eq!(field("max"), 100.);
+    assert_eq!(field("preferred"), 50.);
+    assert_eq!(field("stretch"), 0.);
+
+    // A non-literal field keeps the merge unfolded.
+    let non_literal = Expression::Struct {
+        ty: ty.clone(),
+        values: IntoIterator::into_iter([(
+            SmolStr::new_static("min"),
+            Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength },
+        )])
+        .collect(),
+    };
+    let mut expr = Expression::BinaryExpression {
+        lhs: Box::new(info(10., 200., 50., 1.)),
+        rhs: Box::new(non_literal),
+        op: '+',
+        source_location: None,
+    };
+    fold_const_expression(&mut expr);
+    assert!(matches!(expr, Expression::BinaryExpression { .. }), "{expr:?}");
 }

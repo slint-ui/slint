@@ -38,6 +38,8 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
 import android.os.Build;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 class InputHandle extends ImageView {
     private PopupWindow mPopupWindow;
@@ -203,8 +205,10 @@ class SlintInputView extends View {
 
     public void setText(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
             int inputType) {
-        boolean restart = mInputType != inputType || !mText.equals(text) || mCursorPosition != cursorPosition
-                || mAnchorPosition != anchorPosition;
+        boolean typeChanged = mInputType != inputType;
+        boolean textChanged = !mText.equals(text);
+        boolean selectionChanged = mCursorPosition != cursorPosition || mAnchorPosition != anchorPosition;
+
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
@@ -212,12 +216,29 @@ class SlintInputView extends View {
         mPreeditEnd = preeditEnd;
         mInputType = inputType;
 
-        if (restart) {
+        if (typeChanged) {
             mEditable = new SlintEditable();
             Selection.setSelection(mEditable, cursorPosition, anchorPosition);
             InputMethodManager imm = (InputMethodManager) this.getContext()
                     .getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.restartInput(this);
+        } else if (textChanged || selectionChanged) {
+            InputMethodManager imm = (InputMethodManager) this.getContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            mInBatch += 1;
+            try {
+                if (textChanged) {
+                    mEditable.replace(0, mEditable.length(), text);
+                }
+                if (Selection.getSelectionStart(mEditable) != cursorPosition
+                        || Selection.getSelectionEnd(mEditable) != anchorPosition) {
+                    Selection.setSelection(mEditable, cursorPosition, anchorPosition);
+                }
+            } finally {
+                mInBatch -= 1;
+                mPending = false;
+            }
+            imm.updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
         }
     }
 
@@ -244,11 +265,15 @@ class SlintInputView extends View {
             if (mRightHandle != null) {
                 mRightHandle.hide();
             }
-            if (mCursorHandle == null) {
-                mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+            if (left_x != -1) {
+                if (mCursorHandle == null) {
+                    mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
+                }
+                mCursorHandle.setPosition(left_x, left_y);
+                handleHeight = mCursorHandle.getHeight();
+            } else if (mCursorHandle != null) {
+                mCursorHandle.hide();
             }
-            mCursorHandle.setPosition(left_x, left_y);
-            handleHeight = mCursorHandle.getHeight();
         } else if (num_handles == 2) {
             if (left_x != -1) {
                 if (mLeftHandle == null) {
@@ -400,6 +425,7 @@ class SlintInputView extends View {
 public class SlintAndroidJavaHelper {
     Activity mActivity;
     SlintInputView mInputView;
+    private OnBackInvokedCallback mBackCallback;
 
     public SlintAndroidJavaHelper(Activity activity) {
         this.mActivity = activity;
@@ -426,6 +452,13 @@ public class SlintAndroidJavaHelper {
                                     return dispatchInsets(insets);
                                 }
                             });
+                }
+                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
+                // it into Slint's key-event pipeline.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
+                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
+                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
                 }
             }
         });
@@ -538,12 +571,26 @@ public class SlintAndroidJavaHelper {
         });
     }
 
+    // Called from Rust when an OnBackInvokedCallback fires and Slint's key
+    // dispatch reports the Back key as unhandled — preserves the legacy
+    // Back-closes-the-activity default.
+    public void finish_activity() {
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mActivity.finish();
+            }
+        });
+    }
+
     static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
             int preeditOffset);
 
     static public native void setNightMode(int nightMode);
 
     static public native void setFontScale(float fontScale);
+
+    static public native void onBackInvoked();
 
     static public native void moveCursorHandle(int id, int pos_x, int pos_y);
 

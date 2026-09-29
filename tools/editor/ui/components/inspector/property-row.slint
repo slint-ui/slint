@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Typography } from "../../style.slint";
+
+export component InspectorPropertyRow inherits HorizontalLayout {
+    in property <string> label;
+    spacing: Style.inspector-layout.row-gap;
+    padding-left: Style.inspector-layout.padding;
+    padding-right: Style.inspector-layout.padding;
+    cross-axis-alignment: center;
+    Text {
+        width: Style.inspector-layout.label-width;
+        text: root.label;
+        color: Colors.muted;
+        font-size: Typography.control.size;
+        vertical-alignment: center;
+    }
+    @children
+}

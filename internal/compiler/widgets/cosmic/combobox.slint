@@ -19,7 +19,7 @@ export component ComboBox {
     property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * CosmicSizeSettings.item-height;
     property <int> visible-items: min(6, model.length);
 
-    min-width: max(160px, layout.min-height);
+    min-width: max(160px, layout.min-width);
     min-height: max(32px, layout.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -111,7 +111,7 @@ export component ComboBox {
 
             MenuBorder {
                 ScrollView {
-                    viewport-y: root.popup-scroll-y;
+                    content-y: root.popup-scroll-y;
                     VerticalLayout {
                         alignment: start;
                         padding: root.popup-padding;

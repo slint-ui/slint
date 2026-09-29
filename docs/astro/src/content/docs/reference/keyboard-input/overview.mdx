@@ -5,7 +5,7 @@ description: Key Handling Overview
 {/* cSpell: ignore Backtab */}
 
 import Link from '@slint/common-files/src/components/Link.astro';
-import SpecialKeys from "/src/content/docs/reference/generated/enums/_keys.md"
+import SpecialKeys from "/src/content/docs/generated/reference/enums/_keys.md"
 
 To handle keyboard input in Slint, use the `FocusScope` with `KeyBinding` elements or individual `key-pressed` and `key-released` callbacks in various elements.
 Keyboard input is delivered via [`KeyEvent`](#keyevent) data structures.
@@ -14,7 +14,7 @@ encoded in a string.
 Use the [`Key` namespace](#key-namespace) to identify known named keys.
 
 See the [Key Bindings](#key-bindings) section for how to handle key bindings declaratively with
-Slint's <Link type="KeyBinding" label="KeyBinding"/> elements and the built-in <Link type="keys" label="keys" /> type, which is constructed from the `@keys` macro.
+Slint's <Link type="KeyBinding"/> elements and the built-in <Link type="keys" /> type, which is constructed from the `@keys` macro.
 
 ## KeyEvent
 

@@ -1,0 +1,180 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// The safety-domain scene in the Slint SC subset: an airlock screen made of
+// PNGs placed at their native size on a 320x240 display, and one TouchArea per
+// action. Rust owns the airlock state machine and the countdown; see src/lib.rs.
+//
+// The subset shapes how the scene is written: it has no 'visible', so an
+// element hides by selecting an empty source, and no 'enabled', so an action's
+// TouchArea sits off-screen until the state whose action it is brings it on.
+//
+// Every element is written as the view it is quietest in, and the 'states'
+// block says how each other view differs from it.
+
+import { DoorState, DoorImage } from "components.slint";
+import { ProgressText } from "progress-text.slint";
+import { SegmentedProgress } from "progress.slint";
+
+export enum TransitView { ready, securing, equalizing, ready-to-open, complete, fault }
+
+export component MainWindow inherits Window {
+    // The state the screen shows. The host decides it; the screen makes no
+    // door-control or safety decision of its own.
+    in property <TransitView> view: TransitView.ready;
+    // The countdown of the running phase, in seconds, shown while waiting.
+    in property <int> seconds-remaining: 0;
+    // How far pressure equalization has come, in percent.
+    in property <int> progress-percent: 0;
+
+    callback enter-requested;
+    callback exit-outer-requested;
+    callback exit-inner-requested;
+    // Demo gestures, so the fault screen can be reached without a real fault.
+    callback fault-requested;
+    callback reset-requested;
+
+    background: #000000;
+
+    backdrop := Image {
+        x: 0px;
+        y: 0px;
+        source: @image-url("assets/background-normal.png");
+    }
+
+    // The inner door, to the platform the occupant came from.
+    inner := DoorImage {
+        x: 9px;
+        y: 34px;
+        state: DoorState.sealed;
+    }
+
+    // The outer door, to the vehicle.
+    outer := DoorImage {
+        x: 225px;
+        y: 34px;
+        state: DoorState.sealed;
+    }
+
+    chamber := Image {
+        x: 110px;
+        y: 11px;
+        source: @image-url("assets/chamber-occupied.png");
+    }
+
+    // The pressure indicator, which the equalization ring replaces while it runs.
+    pressure := Image {
+        x: 135px;
+        y: 115px;
+        source: @image-url("assets/pressure-gauge.png");
+    }
+
+    ring := SegmentedProgress {
+        x: 105px;
+        y: 115px;
+        percent: root.progress-percent;
+        active: false;
+    }
+
+    // The action panel: what the occupant can do, or what to wait for.
+    action := Image {
+        x: 158px;
+        y: 199px;
+        source: @image-url("assets/action-enter.png");
+    }
+
+    // The countdown of the running phase, over the action panel.
+    countdown := ProgressText {
+        x: 267px;
+        y: 202px;
+        value: -1;
+    }
+
+    // One TouchArea per action, over the action panel.
+    enter-area := TouchArea {
+        x: -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.enter-requested(); }
+    }
+
+    exit-outer-area := TouchArea {
+        x: -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.exit-outer-requested(); }
+    }
+
+    exit-inner-area := TouchArea {
+        x: -action.width;
+        y: action.y;
+        width: action.width;
+        height: action.height;
+        clicked => { root.exit-inner-requested(); }
+    }
+
+    // Demo gestures: the occupant chamber injects a fault, and the emergency
+    // banner of the fault screen clears it.
+    fault-area := TouchArea {
+        x: chamber.x;
+        y: chamber.y;
+        width: chamber.width;
+        height: chamber.height;
+        clicked => { root.fault-requested(); }
+    }
+
+    reset-area := TouchArea {
+        x: -308px;
+        y: 181px;
+        width: 308px;
+        height: 56px;
+        clicked => { root.reset-requested(); }
+    }
+
+    states [
+        ready when root.view == TransitView.ready: {
+            enter-area.x: action.x;
+        }
+        securing when root.view == TransitView.securing: {
+            inner.state: DoorState.locking;
+            outer.state: DoorState.locking;
+            pressure.source: @image-url("assets/pressure-locked.png");
+            action.source: @image-url("assets/action-wait-orange.png");
+            countdown.value: root.seconds-remaining;
+        }
+        equalizing when root.view == TransitView.equalizing: {
+            inner.state: DoorState.locked;
+            outer.state: DoorState.locked;
+            pressure.source: @image-url("");
+            action.source: @image-url("assets/action-wait-blue.png");
+            countdown.value: root.seconds-remaining;
+            ring.active: true;
+        }
+        ready-to-open when root.view == TransitView.ready-to-open: {
+            inner.state: DoorState.locked;
+            outer.state: DoorState.ready;
+            pressure.source: @image-url("assets/pressure-equal.png");
+            action.source: @image-url("assets/action-exit-outer.png");
+            exit-outer-area.x: action.x;
+        }
+        complete when root.view == TransitView.complete: {
+            inner.state: DoorState.released;
+            outer.state: DoorState.locked;
+            chamber.source: @image-url("assets/chamber-empty.png");
+            pressure.source: @image-url("assets/pressure-equal.png");
+            action.source: @image-url("assets/action-exit-inner.png");
+            exit-inner-area.x: action.x;
+        }
+        fault when root.view == TransitView.fault: {
+            backdrop.source: @image-url("assets/background-fault.png");
+            inner.state: DoorState.locked;
+            outer.state: DoorState.locked;
+            pressure.source: @image-url("");
+            action.source: @image-url("");
+            fault-area.x: -chamber.width;
+            reset-area.x: 7px;
+        }
+    ]
+}

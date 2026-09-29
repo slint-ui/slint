@@ -182,3 +182,8 @@ pub extern "C" fn slint_testing_element_layout_kind(
         false
     }
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_set_system_accent_color(argb_encoded: u32) {
+    crate::set_system_accent_color(i_slint_core::Color::from_argb_encoded(argb_encoded));
+}

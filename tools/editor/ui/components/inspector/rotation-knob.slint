@@ -1,0 +1,114 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, RotationDialStyle } from "../../style.slint";
+
+export component InspectorRotationKnob inherits FocusScope {
+    in property <RotationDialStyle> style: Style.rotation-dial;
+    in property <float> value;
+    in property <string> accessible-name: "Rotation knob";
+    in property <angle> angle-offset: 0deg;
+    in property <string> commit-key;
+    out property <float> visual-value: root.dragging ? root.drag-value : root.value;
+    callback started();
+    callback preview(float) -> bool;
+    callback accepted(float) -> bool;
+    callback canceled();
+    private property <bool> dragging;
+    private property <float> drag-value;
+    private property <float> initial-value;
+    private property <float> accumulated;
+    private property <angle> last-angle;
+    private property <bool> shift-pressed;
+    width: root.style.size;
+    height: root.style.size;
+    accessible-role: AccessibleRole.slider;
+    accessible-label: root.accessible-name;
+    accessible-value: "\{root.visual-value}";
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.accepted(value.to-float()); }
+    }
+    changed commit-key => { root.cancel(); }
+    function cancel() {
+        if root.dragging {
+            root.dragging = false;
+            root.canceled();
+        }
+    }
+    function pointer-angle() -> angle {
+        return atan2((touch.mouse-x - root.style.size / 2) / 1px, (root.style.size / 2 - touch.mouse-y) / 1px) - root.angle-offset;
+    }
+    function update(shift: bool) {
+        let angle = root.pointer-angle();
+        let difference = (angle - root.last-angle + 540deg).mod(360deg) - 180deg;
+        root.accumulated += difference / 1deg;
+        root.last-angle = angle;
+        root.drag-value = shift ? (root.accumulated / 15).round() * 15 : root.accumulated.round();
+        if !root.preview(root.drag-value) { root.cancel(); }
+    }
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.dragging { root.cancel(); return accept; }
+        if event.text == Key.Shift || event.text == Key.ShiftR {
+            root.shift-pressed = true;
+            return accept;
+        }
+        if event.text == Key.UpArrow || event.text == Key.RightArrow {
+            root.accepted(root.value + (event.modifiers.shift ? 15 : 1));
+            return accept;
+        }
+        if event.text == Key.DownArrow || event.text == Key.LeftArrow {
+            root.accepted(root.value - (event.modifiers.shift ? 15 : 1));
+            return accept;
+        }
+        return reject;
+    }
+    key-released(event) => {
+        if event.text == Key.Shift || event.text == Key.ShiftR { root.shift-pressed = false; return accept; }
+        return reject;
+    }
+    Rectangle {
+        border-radius: root.style.size / 2;
+        background: root.style.ring;
+        border-width: Metrics.border-width;
+        border-color: root.has-focus ? root.style.focus-border : root.style.ring-border;
+        Rectangle {
+            x: root.style.inset; y: root.style.inset; width: root.style.face-size; height: root.style.face-size;
+            border-radius: root.style.face-size / 2;
+            background: root.style.face;
+            border-width: Metrics.hairline-width;
+            border-color: root.style.face-border;
+            drop-shadow-color: root.style.shadow.color;
+            drop-shadow-blur: root.style.shadow.blur;
+            drop-shadow-offset-y: root.style.shadow.offset-y;
+        }
+        Rectangle {
+            x: (root.style.size - root.style.dot-size) / 2 + (root.visual-value.mod(360) * 1deg + root.angle-offset).sin() * root.style.dot-distance;
+            y: (root.style.size - root.style.dot-size) / 2 - (root.visual-value.mod(360) * 1deg + root.angle-offset).cos() * root.style.dot-distance;
+            width: root.style.dot-size; height: root.style.dot-size; border-radius: root.style.dot-size / 2;
+            background: root.style.dot;
+            border-width: Metrics.hairline-width;
+            border-color: root.style.dot-border;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.focus();
+                root.started();
+                root.dragging = true;
+                root.drag-value = root.value;
+                root.initial-value = root.value;
+                root.accumulated = root.value;
+                root.last-angle = root.pointer-angle();
+                root.shift-pressed = event.modifiers.shift;
+            } else if event.kind == PointerEventKind.move && root.dragging {
+                root.update(root.shift-pressed || event.modifiers.shift);
+            } else if event.kind == PointerEventKind.up && root.dragging {
+                let value = root.drag-value;
+                root.dragging = false;
+                if value != root.initial-value { root.accepted(value); } else { root.canceled(); }
+            } else if event.kind == PointerEventKind.cancel { root.cancel(); }
+        }
+    }
+}

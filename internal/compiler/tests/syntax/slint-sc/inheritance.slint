@@ -1,11 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Inheriting from user-defined components is rejected in Slint SC mode.
+// A component may inherit from a component previously defined,
+// including through a chain reaching a built-in element.
 
-component Base inherits Window { }
-//        >  <error{Component declarations are not supported in Slint SC}
+component Base inherits Rectangle {
+    width: 8px;
+    height: 8px;
+    background: #112233;
+}
 
-export component Test inherits Base {
-//                             >   <error{Inheriting from user-defined components is not supported in Slint SC}
+component Mid inherits Base { }
+
+export component Test inherits Window {
+    Mid { }
 }

@@ -18,39 +18,11 @@ use pin_weak::rc::PinWeak;
 /// Type alias for the closure type installed via [`set_window_event_hook`].
 /// Exposed so callers (notably tests) can save and restore a previously-installed hook.
 pub type WindowEventHook =
-    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
-
-/// Result of dispatching a window event through Slint's runtime.
-///
-/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
-/// `PointerScrolled`), the mapping is:
-/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
-///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
-///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
-/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
-///   there was no component to dispatch to. Hover-only handling (e.g. a
-///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
-///   consuming) is reported as `Ignored`.
-///
-/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
-/// event: the runtime always acts on it, so it is reported as `Accepted` even
-/// when no item was under the cursor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WindowEventDispatchResult {
-    /// A receiver handled the event (e.g. a key handler consumed it, or the
-    /// runtime acted on a resize / scale / close).
-    Accepted,
-    /// A receiver actively refused the event (e.g. a `close-requested` callback
-    /// prevented the window from closing).
-    Rejected,
-    /// The event fell through without being handled (e.g. a key event with no
-    /// matching handler, or a pointer event that no item consumed).
-    Ignored,
-}
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::platform::WindowEventDispatchResult)>;
 
 crate::thread_local! {
-    pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
-        = const { once_cell::unsync::OnceCell::new() }
+    pub(crate) static GLOBAL_CONTEXT : core::cell::OnceCell<SlintContext>
+        = const { core::cell::OnceCell::new() }
 }
 
 #[pin_project::pin_project]
@@ -63,8 +35,9 @@ pub(crate) struct SlintContextInner {
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
+    /// The bundled languages. `translations_dirty` holds the index of the selected one.
     pub(crate) translations_bundle:
-        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
+        core::cell::RefCell<Option<crate::translations::BundledLanguages>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
     #[pin]
@@ -97,6 +70,10 @@ pub(crate) struct SlintContextInner {
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
+
+    /// The timers registered on this context. Shared, so that `Timer` handles can hold a
+    /// `Weak` to the list they registered in without knowing which context owns it.
+    pub(crate) timers: crate::timers::TimerListRc,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -106,12 +83,18 @@ pub(crate) struct SlintContextInner {
 pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
-    /// Create a new context with a given platform
+    /// Create a new context with a given platform.
+    ///
+    /// If this thread has no context yet, the new one becomes it — first come, first
+    /// served. That is what the ambient APIs resolve to: [`crate::timers::Timer`],
+    /// `spawn_local`, `quit_event_loop` and friends. Contexts created afterwards are
+    /// perfectly usable, but are not the thread's current one, so code holding such a
+    /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::pin(SlintContextInner {
+        let this = Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
 
@@ -148,7 +131,32 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             modifiers: Cell::new(Default::default()),
-        }))
+            // Timers started before this thread had a context registered in the pending
+            // list; take it over so those timers keep working. It is the very list they
+            // hold a `Weak` to, so nothing needs fixing up.
+            timers: crate::timers::take_pending_timers(),
+        }));
+        // The list's deadlines are measured on this context's clock from now on. Done after
+        // construction because it needs a handle to the context that owns it.
+        crate::timers::set_owning_context(&this.0.timers, &this);
+        // Claim this thread's context slot if it is still free, so that the ambient APIs
+        // resolve here rather than to a list nothing drives. Fails harmlessly when the
+        // thread already has a context: that one stays current.
+        GLOBAL_CONTEXT.with(|slot| {
+            let _ = slot.set(this.clone());
+        });
+        // Every context tells its platform which context it belongs to, not just the one
+        // that becomes this thread's global: a platform is owned by exactly one context, and
+        // a backend driving a context needs to be able to find it.
+        this.platform().bind_context(this.downgrade(), crate::InternalToken);
+        this
+    }
+
+    /// This thread's context, or `None` if none was created yet.
+    ///
+    /// Setting a platform creates the context, and creating a component needs a platform.
+    pub fn current() -> Option<Self> {
+        GLOBAL_CONTEXT.with(|slot| slot.get().cloned())
     }
 
     /// Return a reference to the platform abstraction
@@ -187,6 +195,60 @@ impl SlintContext {
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
+    }
+
+    /// Creates a [`Timer`](crate::timers::Timer) that registers on this context rather than
+    /// on whichever one is current when it is started.
+    ///
+    /// For the context that a thread runs its event loop on this is the same as
+    /// `Timer::default()`, and the event loop activates the timer as usual. A context that
+    /// isn't the current one has no event loop driving it, so its owner is responsible for
+    /// calling [`Self::maybe_activate_timers`].
+    pub fn new_timer(&self) -> crate::timers::Timer {
+        crate::timers::Timer::with_list(&self.0.timers)
+    }
+
+    /// Runs `callback` once, `duration` from now, on this context.
+    ///
+    /// The context-bound counterpart of [`Timer::single_shot`](crate::timers::Timer::single_shot),
+    /// which registers on whichever context is current instead.
+    pub fn single_shot(&self, duration: core::time::Duration, callback: impl FnOnce() + 'static) {
+        crate::timers::single_shot_on(&self.0.timers, duration, callback);
+    }
+
+    /// Advances this context's animations and timers to its own clock, and runs any change
+    /// handlers that fall out of it.
+    ///
+    /// This is what an event loop driving this context should call at the top of each
+    /// iteration. [`crate::platform::update_timers_and_animations`] is the same thing for
+    /// whichever context is this thread's global one.
+    pub fn update_timers_and_animations(&self) {
+        let now = crate::animations::Instant::now(self);
+        crate::animations::update_animations(now);
+        self.maybe_activate_timers(now);
+        crate::properties::ChangeTracker::run_change_handlers();
+    }
+
+    /// How long this context can go to sleep before its next timer is due, or `None` when it
+    /// has no active timer.
+    ///
+    /// The deadline and the clock it is measured against both come from this context, so
+    /// they cannot disagree.
+    pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
+        let timeout = self.next_timer_timeout()?;
+        let now = crate::animations::Instant::now(self);
+        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+    }
+
+    /// Fires the callbacks of this context's timers that have expired by `now`, and returns
+    /// whether any of them was activated.
+    pub fn maybe_activate_timers(&self, now: crate::animations::Instant) -> bool {
+        crate::timers::TimerList::activate_expired(&self.0.timers, now)
+    }
+
+    /// Returns when this context's next timer is due, or `None` if it has no active timer.
+    pub fn next_timer_timeout(&self) -> Option<crate::animations::Instant> {
+        self.0.timers.borrow().first_timeout()
     }
 
     /// Returns the effective color scheme for the given component root, or the
@@ -298,6 +360,27 @@ impl SlintContext {
         self.0.as_ref().project_ref().locale_decimal_separator.get()
     }
 
+    /// Format a number using this context's decimal separator.
+    pub fn format_number(&self, n: f64) -> crate::SharedString {
+        crate::string::format_number(self.locale_decimal_separator(), n)
+    }
+
+    /// Format a number with a fixed number of digits after the decimal point,
+    /// using this context's decimal separator.
+    pub fn format_number_fixed(&self, n: f64, digits: usize) -> crate::SharedString {
+        crate::string::format_number_fixed(self.locale_decimal_separator(), n, digits)
+    }
+
+    /// Format a number with the given precision, using this context's decimal separator.
+    pub fn format_number_precision(&self, n: f64, precision: usize) -> crate::SharedString {
+        crate::string::format_number_precision(self.locale_decimal_separator(), n, precision)
+    }
+
+    /// Parse a number written with this context's decimal separator.
+    pub fn parse_number(&self, string: &str) -> Option<f32> {
+        crate::string::parse_number(self.locale_decimal_separator(), string)
+    }
+
     /// Override the locale used for decimal separator detection (testing only).
     #[cfg(feature = "std")]
     pub fn set_locale(&self, locale: &str) {
@@ -306,6 +389,18 @@ impl SlintContext {
             .project_ref()
             .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
+    }
+
+    /// Assign the list of bundled languages and their decimal separator to this context,
+    /// and select the one that matches the system locale.
+    ///
+    /// Does nothing if this context already has a list, so that a language selected with
+    /// [`crate::translations::select_bundled_translation`] survives a re-instantiation.
+    pub fn set_bundled_languages(
+        &self,
+        languages: impl IntoIterator<Item = (alloc::string::String, char)>,
+    ) {
+        crate::translations::set_bundled_languages_for_context(self, languages);
     }
 
     #[cfg(feature = "tr")]

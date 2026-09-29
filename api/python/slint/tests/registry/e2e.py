@@ -227,8 +227,10 @@ def scenario_lean(work: Path, simple_url: str, version: str) -> None:
         [
             python,
             "-c",
-            "import importlib.util, sys;"
-            "sys.exit(1 if importlib.util.find_spec('slint_dev_native') else 0)",
+            (
+                "import importlib.util, sys;"
+                "sys.exit(1 if importlib.util.find_spec('slint_dev_native') else 0)"
+            ),
         ]
     )
 

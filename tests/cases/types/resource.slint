@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //include_path: ../../../demos/printerdemo/ui/images/
-component TestCase inherits Rectangle {
+export component TestCase inherits Rectangle {
     in-out property <image> empty_image: @image-url("");
     in-out property <image> cat: @image-url("cat.jpg");
 
@@ -32,6 +32,20 @@ assert_eq!(instance.get_empty_width(), 0);
 assert_eq!(instance.get_empty_height(), 0);
 assert_eq!(instance.get_cat_width(), 320);
 assert_eq!(instance.get_cat_height(), 480);
+```
+
+```d.ts
+export interface TestCase {
+    cat: slint.ImageData;
+    cat_height: number;
+    cat_width: number;
+    empty_height: number;
+    empty_image: slint.ImageData;
+    empty_width: number;
+    test: boolean;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
 ```
 
 ```js

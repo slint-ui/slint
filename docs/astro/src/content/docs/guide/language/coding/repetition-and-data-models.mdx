@@ -1,22 +1,9 @@
 ---
-title: Repetition
-description: Repetition
+title: Repetition and Data Models
+description: Creating elements from data with for and if.
 ---
 
-Use the `for`-`in` syntax to create an element multiple times.
-
-The syntax looks like this: `for name[index] in model : id := Element { ... }`
-
-The _model_ can be of the following type:
-
--   an integer, in which case the element will be repeated that amount of time
--   an [array type or a model](#arrays-and-models) declared natively, in which case the element will be instantiated for each element in the array or model.
-
-The _name_ will be available for lookup within the element and is going to be like a pseudo-property set to the
-value of the model. The _index_ is optional and will be set to the index of this element in the model.
-The _id_ is also optional.
-
-## Examples
+Use the `for`-`in` syntax to create an element multiple times, once per entry in a model:
 
 ```slint
 export component Example inherits Window {
@@ -30,6 +17,11 @@ export component Example inherits Window {
     }
 }
 ```
+
+The model can be an integer (repeat that many times), an array,
+or a model provided by your business logic.
+This is how you build lists and tables: the data lives in a model,
+and the UI declares what one entry looks like:
 
 ```slint
 export component Example inherits Window {
@@ -48,47 +40,19 @@ export component Example inherits Window {
 }
 ```
 
-## Arrays and Models
-
-Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.
-
-Array literals as well as properties holding arrays act as models in `for` expressions.
+Related to `for` is the `if` construct, which instantiates an element only while a condition holds:
 
 ```slint
-export component Example {
-    in-out property<[int]> list-of-int: [1,2,3];
-    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+export component Example inherits Window {
+    preferred-width: 50px;
+    preferred-height: 50px;
+    if area.pressed : foo := Rectangle { background: blue; }
+    if !area.pressed : Rectangle { background: red; }
+    area := TouchArea {}
 }
 ```
 
-Arrays define the following operations:
-
--   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
--   **`array[index]`**: The index operator retrieves individual elements of an array.
--   **`array.push(value)`**: One can add an element to an array and model using the `.push(value)` method.
--   **`array.remove(index)`**: One can remove an element from an array and model using the `.remove(index)` method. The accepted index range is `0 <= index < array.length`.
--   **`array.insert(index, value)`**: One can insert an element at a specified index to an array and model using the `.insert(index, value)` method. The accepted index range is `0 <= index <= array.length`.
-
-Out of bound access into an array will return default-constructed values.
-
-```slint
-export component Example {
-    in-out property<[int]> list-of-int: [1,2,3];
-
-    out property <int> list-len: list-of-int.length;
-    out property <int> first-int: list-of-int[0];
-}
-```
-
-Out of bound indexes in the remove and insert methods will result in the methods doing nothing.
-
-```slint
-export component Example {
-    in-out property<[int]> list-of-int: [1,2,3];
-	init => {
-		// Both operations will do nothing and the list-of-int property value will still be [1, 2, 3].
-		list-of-int.remove(4);
-		list-of-int.insert(4, 10);
-	}
-}
-```
+See [Repetition and Conditional Elements](../../../../reference/language/repetition-and-conditional-elements/)
+in the language reference for the exact syntax, and
+[Arrays and Models](../../../../reference/property-types/arrays-and-models/) for the array
+operations like `length`, indexing, `push`, `insert`, and `remove`.

@@ -288,11 +288,11 @@ impl<
                     let is_pointer_release_event =
                         matches!(event, WindowEvent::PointerReleased { .. });
 
-                    window.try_dispatch_event(event)?;
+                    window.dispatch_event_with_result(event)?;
 
                     // removes hover state on widgets
                     if is_pointer_release_event {
-                        window.try_dispatch_event(WindowEvent::PointerExited)?;
+                        window.dispatch_event_with_result(WindowEvent::PointerExited)?;
                     }
                     // Don't go to sleep after a touch event that forces a redraw
                     continue;

@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum Foo { bar }
+
+// The same value in several enums. `-` and `_` are the same identifier once
+// normalized, so mixing them in the declarations and in the references still
+// matches, and the suggestions always use the normalized (`-`) spelling.
+enum Ma { pair_value }
+enum Mb { pair-value }
+
+enum Na { trio-value }
+enum Nb { trio_value }
+enum Nc { trio-value }
+
+enum Oa { quad_value }
+enum Ob { quad-value }
+enum Oc { quad_value }
+enum Od { quad-value }
+
+enum Pa { many-value }
+enum Pb { many_value }
+enum Pc { many-value }
+enum Pd { many_value }
+enum Pe { many-value }
+
+// Each value below sits at a position whose expected type is not that color or enum, so
+// type-directed resolution does not resolve it and the suggestion is what tells the user how to
+// qualify it.
+export component TestCase {
+    // A named color where a string is expected: suggest `Colors.red`.
+    property <string> s: red;
+//                       > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+
+    // An enum value where an int is expected: suggest `Foo.bar`.
+    property <int> i: bar;
+//                    > <error{Unknown unqualified identifier 'bar'. Did you mean 'Foo.bar'?}
+
+    // Two matching enums.
+    property <int> p2: pair-value;
+//                     >        <error{Unknown unqualified identifier 'pair-value'. Did you mean 'Ma.pair-value' or 'Mb.pair-value'?}
+
+    // Three matching enums.
+    property <int> p3: trio_value;
+//                     >        <error{Unknown unqualified identifier 'trio_value'. Did you mean 'Na.trio-value', 'Nb.trio-value' or 'Nc.trio-value'?}
+
+    // Four matching enums.
+    property <int> p4: quad-value;
+//                     >        <error{Unknown unqualified identifier 'quad-value'. Did you mean 'Oa.quad-value', 'Ob.quad-value', 'Oc.quad-value' or 'Od.quad-value'?}
+
+    // Five matching enums.
+    property <int> p5: many_value;
+//                     >        <error{Unknown unqualified identifier 'many_value'. Did you mean 'Pa.many-value', 'Pb.many-value', 'Pc.many-value', 'Pd.many-value' or 'Pe.many-value'?}
+
+    // An identifier that is neither an enum value nor a color: no suggestion.
+    property <int> j: doesnotexist;
+//                    >          <error{Unknown unqualified identifier 'doesnotexist'}
+}

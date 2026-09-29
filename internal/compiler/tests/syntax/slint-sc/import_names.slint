@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// An imported name must be exported by the imported file, a renamed import
+// introduces the new name only, and no two imports introduce the same name.
+
+//#sls.import.left-must-exist
+import { Hidden } from "./imported/shapes.slint";
+//                     >                       <error{No exported type called 'Hidden' found in "./imported/shapes.slint"}
+
+import { Frame as Box } from "./imported/shapes.slint";
+
+//#sls.import.no-clash
+import { Frame as Box } from "./imported/shapes.slint";
+//                           >                       <error{Importing the name 'Box' more than once is not supported in Slint SC}
+
+export component Test inherits Window {
+    Box { }
+    // The rename introduced `Box` only.
+    //#sls.import.rename
+    Frame { }
+//  >    <error{Unknown element 'Frame'}
+}

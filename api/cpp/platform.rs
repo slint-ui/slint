@@ -313,6 +313,8 @@ pub unsafe extern "C" fn slint_platform_register(
         invoke_from_event_loop,
     };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
+    #[cfg(any(feature = "mcp", feature = "system-testing"))]
+    i_slint_backend_selector::init_testing_backends();
 }
 
 #[unsafe(no_mangle)]
@@ -360,7 +362,7 @@ mod software_renderer {
     use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_renderer_software::{
-        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        DirtyRegionAlignment, PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
     #[cfg(feature = "experimental")]
@@ -718,6 +720,16 @@ mod software_renderer {
             270 => RenderingRotation::Rotate270,
             _ => RenderingRotation::NoRotation,
         });
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_set_dirty_region_alignment(
+        r: SoftwareRendererOpaque,
+        horizontal: u16,
+        vertical: u16,
+    ) {
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(horizontal, vertical));
     }
 
     #[unsafe(no_mangle)]

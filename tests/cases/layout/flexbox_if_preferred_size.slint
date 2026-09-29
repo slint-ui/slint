@@ -1,0 +1,59 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression: items inside `if cond:` (a repeater body of 0 or 1 items)
+// were excluded from a FlexboxLayout's preferred-size aggregation. The
+// `WithFlexboxLayoutItemInfo` codegen iterated `repeater.instance_at(i)`
+// for `i in 0..repeater.len()`, but `len()` only counts already-created
+// instances and the layout-info path didn't first `ensure_updated` the
+// repeater, so the loop ran zero times.
+//
+// The same bug applied to `WithLayoutItemInfo` (BoxLayout/Grid).
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    flex := FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: no-wrap;
+        spacing: 6px;
+        padding: 8px;
+        Rectangle { width: 60px; height: 30px; background: red; }
+        if true: Rectangle { width: 60px; height: 40px; background: green; }
+        Rectangle { width: 60px; height: 50px; background: blue; }
+    }
+    box := VerticalLayout {
+        x: 200px;
+        spacing: 6px;
+        padding: 8px;
+        Rectangle { width: 60px; height: 30px; background: red; }
+        if true: Rectangle { width: 60px; height: 40px; background: green; }
+        Rectangle { width: 60px; height: 50px; background: blue; }
+    }
+
+    // Expected: 30 + 6 + 40 + 6 + 50 + 8*2 = 148px
+    out property <int> flex_pref: flex.preferred-height / 1px;
+    out property <int> box_pref: box.preferred-height / 1px;
+    out property <bool> flex_ok: flex.preferred-height == 148px;
+    out property <bool> box_ok: box.preferred-height == 148px;
+
+    out property <bool> test: flex_ok && box_ok;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

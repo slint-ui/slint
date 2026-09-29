@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A TabWidget subclass that already declares its own Tab can't also take extra
+// Tab elements at its instantiation site: nothing lowers them there without
+// risking silently dropping the subclass's own Tab (see issue #8394).
+
+import { TabWidget } from "std-widgets.slint";
+
+component Xyz inherits TabWidget {
+    Tab { title: "Tab 1"; }
+}
+
+export component Test inherits Window {
+    Xyz {
+//  >  <error{Cannot add Tab elements when instantiating a TabWidget subclass that already declares its own Tab; declare them on the subclass instead}
+        Tab { title: "Tab 2"; }
+    }
+}

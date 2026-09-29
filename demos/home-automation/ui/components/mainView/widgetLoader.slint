@@ -21,9 +21,14 @@ import { Animation } from "../../common.slint";
 export component WidgetLoader {
     in property <int> index;
     in property <ComponentData> data;
-    property <bool> show: data.visible;
-    property <bool> moveMode: false;
     in property <WidgetType> type;
+    property <bool> full-screen: AppState.full-screen-index == root.index;
+    property <ComponentData> effective-data: root.full-screen ? AppState.full-screen-data : root.data;
+    property <bool> show: effective-data.visible;
+    // Set for the whole full screen transition, including the shrink back into the grid.
+    in property <bool> elevated;
+    // The first run shortcut skips the animation, which a full screen transition needs.
+    property <bool> instant-layout: AppState.first-run && !root.elevated;
     property <length> targetX;
     property <length> targetY;
     property <length> targetWidth;
@@ -34,55 +39,55 @@ export component WidgetLoader {
     property <length> animTargetHeight;
 
     animate animTargetX, animTargetY, animTargetWidth, animTargetHeight {
-        duration: Animation.transition-duration;
+        duration: root.elevated ? Animation.full-screen-duration : Animation.transition-duration;
         easing: ease-in-out-sine;
     }
 
-    changed data => {
-        if root.show != self.data.visible {
+    changed effective-data => {
+        if root.show != root.effective-data.visible {
             // hiding then set the position so it fades in on the correct place
             if !root.show {
-                targetX = self.data.x * 1px;
-                targetY = self.data.y * 1px;
-                targetWidth = self.data.width * 1px;
-                targetHeight = self.data.height * 1px;
-                animTargetX = self.data.x * 1px;
-                animTargetY = self.data.y * 1px;
-                animTargetWidth = self.data.width * 1px;
-                animTargetHeight = self.data.height * 1px;
+                targetX = root.effective-data.x * 1px;
+                targetY = root.effective-data.y * 1px;
+                targetWidth = root.effective-data.width * 1px;
+                targetHeight = root.effective-data.height * 1px;
+                animTargetX = root.effective-data.x * 1px;
+                animTargetY = root.effective-data.y * 1px;
+                animTargetWidth = root.effective-data.width * 1px;
+                animTargetHeight = root.effective-data.height * 1px;
             } // but if visible don't change the pos so it just fades away.
 
-            root.show = self.data.visible == true;
+            root.show = root.effective-data.visible == true;
         } else {
-            targetX = self.data.x * 1px;
-            targetY = self.data.y * 1px;
-            targetWidth = self.data.width * 1px;
-            targetHeight = self.data.height * 1px;
-            animTargetX = self.data.x * 1px;
-            animTargetY = self.data.y * 1px;
-            animTargetWidth = self.data.width * 1px;
-            animTargetHeight = self.data.height * 1px;
+            targetX = root.effective-data.x * 1px;
+            targetY = root.effective-data.y * 1px;
+            targetWidth = root.effective-data.width * 1px;
+            targetHeight = root.effective-data.height * 1px;
+            animTargetX = root.effective-data.x * 1px;
+            animTargetY = root.effective-data.y * 1px;
+            animTargetWidth = root.effective-data.width * 1px;
+            animTargetHeight = root.effective-data.height * 1px;
         }
     }
 
     init => {
-        targetX = root.data.x * 1px;
-        targetY = root.data.y * 1px;
-        targetWidth = root.data.width * 1px;
-        targetHeight = root.data.height * 1px;
-        animTargetX = root.data.x * 1px;
-        animTargetY = root.data.y * 1px;
-        animTargetWidth = root.data.width * 1px;
-        animTargetHeight = root.data.height * 1px;
-        root.show = root.data.visible;
+        targetX = root.effective-data.x * 1px;
+        targetY = root.effective-data.y * 1px;
+        targetWidth = root.effective-data.width * 1px;
+        targetHeight = root.effective-data.height * 1px;
+        animTargetX = root.effective-data.x * 1px;
+        animTargetY = root.effective-data.y * 1px;
+        animTargetWidth = root.effective-data.width * 1px;
+        animTargetHeight = root.effective-data.height * 1px;
+        root.show = root.effective-data.visible;
     }
 
     opacity: 0;
-    x: AppState.first-run ? targetX * AppState.special-x-pos-scale : (root.opacity < 1 ? targetX : animTargetX) * AppState.special-x-pos-scale;
-    y: AppState.first-run ? targetY * AppState.special-y-pos-scale : (root.opacity < 1 ? targetY : animTargetY) * AppState.special-y-pos-scale;
-    width: AppState.first-run ? targetWidth * AppState.special-x-pos-scale : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.special-x-pos-scale;
-    height: AppState.first-run ? targetHeight * AppState.special-y-pos-scale : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.special-y-pos-scale;
-    visible: AppState.last-selected-index != self.index && root.opacity > 0;
+    x: root.instant-layout ? targetX * AppState.special-x-pos-scale : (root.opacity < 1 ? targetX : animTargetX) * AppState.special-x-pos-scale;
+    y: root.instant-layout ? targetY * AppState.special-y-pos-scale : (root.opacity < 1 ? targetY : animTargetY) * AppState.special-y-pos-scale;
+    width: root.instant-layout ? targetWidth * AppState.special-x-pos-scale : (root.opacity < 1 ? targetWidth : animTargetWidth) * AppState.special-x-pos-scale;
+    height: root.instant-layout ? targetHeight * AppState.special-y-pos-scale : (root.opacity < 1 ? targetHeight : animTargetHeight) * AppState.special-y-pos-scale;
+    visible: root.opacity > 0;
 
     states [
         instantVisible when root.show && AppState.first-run: {
@@ -170,6 +175,7 @@ export component WidgetLoader {
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
+        full-screen: root.full-screen;
     }
     if root.type == WidgetType.microwave: Microwave {
         index: root.index;
@@ -208,5 +214,6 @@ export component WidgetLoader {
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
+        full-screen: root.full-screen;
     }
 }

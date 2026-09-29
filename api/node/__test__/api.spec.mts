@@ -12,7 +12,10 @@ import {
     language,
     CompileError,
     StyledText,
+    private_api,
 } from "../dist/index.js";
+
+private_api.initTesting();
 
 const dirname = path.dirname(
     fileURLToPath(import.meta.url).replace("build", "__test__"),
@@ -32,27 +35,27 @@ test("loadFile", () => {
 
     const errorPath = path.join(dirname, "resources/error.slint");
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadFile(errorPath);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " +
             errorPath +
             `\nDiagnostics:\n${formattedDiagnostics}`,
     );
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 18,
             level: 0,
@@ -83,17 +86,26 @@ test("loadFile constructor parameters", () => {
         path.join(dirname, "resources/test-constructor.slint"),
     ) as any;
     let hello = "";
+    let goodbye = "";
     const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
+        // A name declared with a dash is settable under either spelling.
+        say_goodbye: function () {
+            goodbye = "goodbye";
+        },
         check: "test",
+        "check-again": "test again",
     });
 
     test.say_hello();
+    test.say_goodbye();
 
     expect(test.check).toBe("test");
+    expect(test.check_again).toBe("test again");
     expect(hello).toBe("hello");
+    expect(goodbye).toBe("goodbye");
 });
 
 test("loadFile component instances and modules are sealed", () => {
@@ -139,26 +151,26 @@ test("loadSource", () => {
         out property bool> check: "Test";
     }`;
 
-    let error: any;
+    let error: CompileError | undefined;
     try {
         loadSource(errorSource, path);
     } catch (e) {
-        error = e;
+        error = e as CompileError;
     }
     expect(error).toBeDefined();
     expect(error).toBeInstanceOf(CompileError);
 
-    const formattedDiagnostics = error.diagnostics
+    const formattedDiagnostics = error!.diagnostics
         .map(
             (d) =>
                 `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
         )
         .join("\n");
-    expect(error.message).toBe(
+    expect(error!.message).toBe(
         "Could not compile " + path + `\nDiagnostics:\n${formattedDiagnostics}`,
     );
     // console.log(error?.diagnostics)
-    expect(error.diagnostics).toStrictEqual([
+    expect(error!.diagnostics).toStrictEqual([
         {
             columnNumber: 22,
             level: 0,
@@ -205,22 +217,33 @@ test("accessing `window` on non-windowed components throws", () => {
 test("loadSource constructor parameters", () => {
     const source = `export component Test {
         callback say_hello();
+        callback say-goodbye();
         in-out property <string> check;
+        in-out property <string> check-again;
     }`;
     const path = "api.spec.ts";
     const demo = loadSource(source, path) as any;
     let hello = "";
+    let goodbye = "";
     const test = new demo.Test({
         say_hello: function () {
             hello = "hello";
         },
+        // A name declared with a dash is settable under either spelling.
+        "say-goodbye": function () {
+            goodbye = "goodbye";
+        },
         check: "test",
+        check_again: "test again",
     });
 
     test.say_hello();
+    test.say_goodbye();
 
     expect(test.check).toBe("test");
+    expect(test.check_again).toBe("test again");
     expect(hello).toBe("hello");
+    expect(goodbye).toBe("goodbye");
 });
 
 test("loadSource component instances and modules are sealed", () => {

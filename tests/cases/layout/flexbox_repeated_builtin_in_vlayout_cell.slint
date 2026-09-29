@@ -1,0 +1,107 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A box layout that is a cell of a flexbox is measured through its
+// `layoutinfo-v-with-constraint`: a main pass at a width the flexbox supplies,
+// not one the box layout has settled. A repeated cell inside it has to be
+// measured at that width as well. Reading its own width instead pulls on the
+// cache the flexbox is still filling, and the layout panics with "Recursion
+// detected".
+//
+// The repeated child is a bare word-wrapped Text, a builtin. It takes its
+// height from its width without carrying a synthesized
+// `layoutinfo-v-with-constraint`, so a check for "is this cell
+// height-for-width" that only looks for that function misses it.
+
+component StaticCell inherits VerticalLayout {
+    in property <string> label;
+    padding: 0px;
+    spacing: 0px;
+    Text { text: root.label; wrap: word-wrap; }
+}
+
+component RepeatedCell inherits VerticalLayout {
+    in property <string> label;
+    padding: 0px;
+    spacing: 0px;
+    for s in [root.label]: Text { text: s; wrap: word-wrap; }
+}
+
+export component TestCase inherits Window {
+    width: 470px;
+    height: 260px;
+
+    property <length> band-width: 120px;
+    property <string> long: "The quick brown fox jumps over the lazy dog and keeps on running";
+
+    FlexboxLayout {
+        width: band-width;
+        height: 170px;
+        flex-direction: column;
+        flex-wrap: no-wrap;
+        alignment: start;
+        cross-axis-alignment: stretch;
+        padding: 0px;
+        spacing: 0px;
+        StaticCell { label: root.long; }
+        static-bar := Rectangle { height: 5px; }
+    }
+
+    FlexboxLayout {
+        x: 150px;
+        width: band-width;
+        height: 170px;
+        flex-direction: column;
+        flex-wrap: no-wrap;
+        alignment: start;
+        cross-axis-alignment: stretch;
+        padding: 0px;
+        spacing: 0px;
+        RepeatedCell { label: root.long; }
+        repeated-bar := Rectangle { height: 5px; }
+    }
+
+    reference := Text {
+        x: 300px;
+        width: band-width;
+        text: root.long;
+        wrap: word-wrap;
+    }
+
+    out property <length> static-height: static-bar.y;
+    out property <length> repeated-height: repeated-bar.y;
+    out property <length> reference-height: reference.height;
+
+    // The text must wrap onto several lines to distinguish the measurements.
+    out property <bool> wrapped: reference-height > 2 * ref-line.height;
+    ref-line := Text { x: -3000px; text: "One line"; wrap: no-wrap; }
+
+    out property <bool> static-ok: abs(static-height - reference-height) < 1px;
+    out property <bool> repeated-ok: abs(repeated-height - reference-height) < 1px;
+    out property <bool> test: wrapped && static-ok && repeated-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrapped(), "the reference text did not wrap");
+assert!(instance.get_static_ok(), "static cell: {} vs reference {}",
+    instance.get_static_height(), instance.get_reference_height());
+assert!(instance.get_repeated_ok(), "repeated cell: {} vs reference {}",
+    instance.get_repeated_height(), instance.get_reference_height());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_wrapped());
+assert(handle->get_static_ok());
+assert(handle->get_repeated_ok());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.wrapped);
+assert(instance.static_ok);
+assert(instance.repeated_ok);
+```
+*/

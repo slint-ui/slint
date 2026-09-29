@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=30  - Zeno anti-aliasing is slightly different in different rotation
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    property <string> commands: "M 5 5 L 25 5 L 45 30 L 45 60";
+
+    thick := Path {
+        width: parent.width;
+        height: parent.height;
+        fit: preserve;
+        stroke-width: 6px;
+        stroke: red;
+        commands: root.commands;
+    }
+
+    thin := Path {
+        width: parent.width;
+        height: parent.height;
+        fit: preserve;
+        stroke-width: 4px;
+        stroke: black;
+        commands: root.commands;
+    }
+}

@@ -1,0 +1,49 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test layout-order on a height-for-width repeated cell of a VerticalLayout.
+//
+// Such a cell is measured through the generated `layout_item_info_at_cross_width`
+// accessor instead of the plain `layout_item_info`, so that accessor has to
+// report the order too.
+//
+// This case is deliberately bare, unlike the captioned scenarios in
+// boxlayout_order.slint: the layout must be the window's own for it to know its
+// cross size and take that measure path, and adding chrome (a border on a row,
+// a caption beside the layout, a fixed size on the wrapped row) makes the
+// layout take a different path, so the test would pass with the accessor
+// reporting no order at all. The static row must also stay without a
+// layout-order: losing the repeated row's order then leaves the two tied and
+// declaration order wins, which is what the assertion detects.
+export component TestCase inherits Window {
+    width: 200px;
+    height: 300px;
+    VerticalLayout {
+        st := Rectangle { height: 30px; background: #dcdcdc; }
+        for t in ["one two three four five six seven eight nine ten eleven"]: Rectangle {
+            background: #cce6ff;
+            layout-order: -1;
+            Text { width: 100%; text: t; wrap: word-wrap; }
+        }
+    }
+    // Font-independent: the static row is not first, so it starts below the
+    // wrapped one, whatever height that one measures.
+    out property <bool> test: st.y > 0px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

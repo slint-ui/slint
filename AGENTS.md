@@ -41,7 +41,7 @@ cmake --build .
 
 ### Node.js Build
 ```sh
-cd api/node && pnpm install
+cd api/node && pnpm install && pnpm build
 ```
 
 ## Testing
@@ -56,6 +56,7 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Faste
 cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p test-driver-python        # Python
 cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
@@ -72,14 +73,35 @@ Only drop the filter for a final full-suite run before committing.
 
 ### Writing Slint Test Cases
 
-The `test` property in `tests/cases/*.slint` must be declared `out property<bool> test: ...;`.
-Without `out`, the compiler treats it as private and the driver passes the test vacuously.
+The `test` property in `tests/cases/*.slint` must be declared `out` or `in-out`
+(e.g. `out property<bool> test: ...;`), otherwise the driver passes the test vacuously.
 
 ### Syntax Tests (Compiler Errors)
 ```sh
 cargo test -p i-slint-compiler --features display-diagnostics --test syntax_tests
 SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  # Update expected errors
 ```
+
+### Slint SC (`api/slint-sc`)
+
+The safety-critical runtime is held to complete coverage and full requirement
+traceability, both enforced in CI:
+
+- Every line, function, code region, and branch outcome of the crate must be
+  covered. No exceptions, no exclusion list, so code no test can reach has to
+  go.
+- Every requirement paragraph (a `{#sls.…}` anchor in an `SC: true` page,
+  inside its `<SC>` block) needs at least one test declaring it with a
+  `//#sls.…` comment. Add the test in the same change as the anchor.
+
+```sh
+scripts/slint_sc_test_suite.sh target/slint-sc-coverage   # Run the suites, measure coverage
+cargo llvm-cov report --branch --summary-only             # Read the coverage back
+scripts/build_safety_manual_coverage.sh                   # Full check: fails on any gap
+```
+
+The gap check is `slint-doc-generator --slint-sc --fail-on-gaps`, which names
+the source locations that never executed and the requirements without a test.
 
 ### Screenshot Tests
 ```sh
@@ -124,7 +146,7 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 
 ### Tools (`tools/`)
 
-`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/`, `tr-extractor/` (i18n), `updater/` (version migration).
+`lsp/` (LSP server), `compiler/` (CLI), `viewer/` (hot-reload `.slint` viewer), `slintpad/` (web playground), `figma_import/` (Figma-to-Slint conversion), `figma-inspector/` (Figma plugin: shows Slint markup for a selected design element), `tr-extractor/` (i18n).
 
 ### Editor Support (`editors/`)
 
@@ -146,7 +168,7 @@ Slint's `.slint` language intentionally stays close to CSS syntax for visual pro
 Examples already in place:
 - **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
 - **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
-- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate); property names map closely to their CSS counterparts.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate). Its property names follow CSS only where that doesn't clash with Slint's own naming: `gap` is `spacing`, `justify-content` is `alignment`, `align-content` is `cross-axis-line-alignment`.
 - **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
 
 When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.
@@ -155,6 +177,17 @@ When this principle applies: any time you design syntax for a new visual or layo
 
 - The default git branch is `master`.
 - Prefer linear history — rebase or squash on merge.
+- During review, prefer adding small follow-up commits over amending, so the reviewer can
+  track how feedback was incorporated; squash them once the review is complete. See
+  [`docs/development.md`](docs/development.md#commit-history--code-reviews) for the full
+  fixup-then-squash workflow, and for `mise`-based environment setup.
+- Don't edit `CHANGELOG.md`; it's written later from the git log.
+  Add a `ChangeLog:` trailer to the commit message for a noteworthy change.
+  See [`docs/development.md`](docs/development.md#changelog).
+- When responding to review feedback, put the explanation in the commit message and the
+  review reply, not in a new code comment.
+  Add a comment only where the code itself is unclear to someone who never saw the review.
+  See Code Comments rule 4 of the [Writing Style Guide](docs/internal/writing-style-guide.md).
 
 ## Code Style
 
@@ -187,5 +220,5 @@ Load the relevant file under `docs/development/` when working in the listed area
 - `text-layout.md` — `internal/core/textlayout/`, text rendering: shaping, line breaking, styled text.
 - `window-backend-integration.md` — `internal/core/window.rs`, `internal/backends/`: WindowAdapter, Platform, WindowEvent, popups.
 - `lsp-architecture.md` — `tools/lsp/`, IDE tooling: completion, hover, semantic tokens, live preview.
-- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection.rs`: shared introspection layer, handle/arena, HTTP transport, adding tools.
+- `mcp-server.md` — `internal/backends/testing/mcp_server.rs`, `introspection/`: shared introspection layer, handle/arena, HTTP transport, adding tools.
 - `ffi-language-bindings.md` — `api/`, internal FFI: cbindgen, FFI patterns, adding cross-language APIs.

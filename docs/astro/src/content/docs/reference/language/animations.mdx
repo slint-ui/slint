@@ -1,0 +1,190 @@
+---
+title: Animations
+description: Animating property changes with the animate keyword.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
+import SpringGraph from '@slint/common-files/src/components/SpringGraph.astro';
+
+An `animate` block attaches an animation to a property.
+Whenever that property's value changes, the value moves to its target over time rather than jumping to it at once:
+
+```slint
+export component Example inherits Window {
+    background: area.pressed ? blue : red;
+    animate background {
+        duration: 250ms;
+    }
+    area := TouchArea {}
+}
+```
+
+An `animate` block is a statement inside an element's body.
+It may appear on any element — the root, a child, or a sub-component's root.
+A [global](../globals/) may not contain an `animate` block; doing so is a compile error.
+
+## Shape
+
+The `animate` keyword is followed by one or more property names and a brace-delimited body of bindings:
+
+```slint no-test
+animate <property> {
+    // field: value;
+}
+```
+
+- Each name refers to a property of the element the `animate` block sits on.
+  A qualified name such as `other.property` is not allowed here; it is a compile error to refer to a property of another element.
+- The body may contain only bindings of the form `field: value;`.
+  Any other statement is a compile error.
+- The only fields are `delay`, `duration`, `easing`, `iteration-count`, `direction`, and `enabled`.
+  Binding any other name is a compile error.
+  Every field is optional.
+
+Attaching two `animate` blocks to the same property is a compile error.
+
+## Animatable properties
+
+A property can be animated only when its type is one of:
+`int`, `float`, `length`, `physical-length`, `color`, `brush`, or `angle`.
+Animating a property of any other type — for example a `string`, `bool`, `image`, or struct property — is a compile error.
+
+The property must also be settable on the element.
+Animating a property that cannot be assigned, such as a private property of another component, is a compile error.
+
+## Animating several properties
+
+Listing several comma-separated names applies the same animation to each:
+
+```slint
+animate x, y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+is equivalent to:
+
+```slint
+animate x { duration: 100ms; easing: ease-out-bounce; }
+animate y { duration: 100ms; easing: ease-out-bounce; }
+```
+
+Each named property must be animatable and settable, subject to the rules above.
+
+## Fields
+
+### delay
+<SlintProperty propName="delay" typeName="duration">
+The amount of time to wait before the animation starts.
+</SlintProperty>
+
+### duration
+
+<SlintProperty propName="duration" typeName="duration">
+The amount of time the animation takes to complete.
+</SlintProperty>
+
+### iteration-count
+
+<SlintProperty propName="iteration-count" typeName="float" defaultValue="1">
+The number of times the animation runs.
+A negative value runs it forever.
+Fractional values are allowed.
+For a continuously running value independent of property changes, see <Link type="AnimationTick" label="`animation-tick()`" />.
+</SlintProperty>
+
+### easing
+
+<SlintProperty propName="easing" typeName="easing">
+The <Link type="easing" label="easing curve" /> applied over the animation's duration.
+See [`easings.net`](https://easings.net/) for a visual reference.
+</SlintProperty>
+
+### direction
+<SlintProperty propName="direction" typeName="enum" enumName="AnimationDirection">
+The direction in which each iteration plays.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+Whether the animation runs.
+When `false`, a change sets the property to its target value at once, with no delay, easing, or iteration.
+</SlintProperty>
+
+## Transitions
+
+Inside a [transition](../states-and-transitions/) an `animate` block instead describes how the property moves when the state changes.
+There a name may be qualified, as in `animate root.background { ... }`, so a transition can animate properties of nested elements.
+The fields are the same as above.
+See [States and Transitions](../states-and-transitions/) for where transitions are written and how they select which animation applies.
+
+## Spring Animations
+
+The `spring` easing curve takes an optional bounce argument, for example `spring(0.4)`.
+The bounce must be a number literal between `-1` and `1`; any other argument is a compile error.
+Writing just `spring` is the same as `spring(0)`.
+
+Since `duration` helps define the spring’s [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency), the animation is not guaranteed to be done after `duration` elapses.
+If `bounce` is close to 0, the animation will be nearly done, however the further from 0 `bounce` is, the longer the animation will take.
+
+A spring with a finite `iteration-count` cannot oscillate forever. It is clamped to at most (`iteration-count` + 9) x `duration` in total.
+When `iteration-count` is set to -1, this clamp never applies.
+Every iteration up to `iteration-count` runs at `bounce`.
+If the spring hasn't settled by the end of the final iteration's `duration`, it's re-damped so it settles within a further 9x `duration` (10x `duration` in total from the start of the last iteration).
+
+An `iteration-count` of -1 makes the animation infinite, and a `bounce` of 1 makes the loop seamless.
+See <Link type="iterations-and-directions" label="Iterations and Directions" /> below for why.
+
+Unlike other easing curves, springs maintain velocity on retarget, so it keeps moving smoothly instead of jumping to a new curve.
+
+### Bounce values
+- `bounce` = 0: the value approaches the target as quickly as possible without overshooting it (critically damped).
+- `bounce` > 0: the value approaches the target quickly but overshoots it (underdamped) — the closer to 1, the longer it takes to settle.
+- `bounce` < 0: the value approaches the target slowly without overshooting it (overdamped).
+
+### Spring Example
+
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+
+    ball := Rectangle {
+        x: area.pressed ? 150px : 0px;
+        width: 50px;
+        height: 50px;
+        border-radius: 25px;
+        background: blue;
+        animate x {
+            duration: 500ms;
+            easing: spring(0.5);
+        }
+    }
+    area := TouchArea {}
+}
+```
+
+<SpringGraph />
+
+### Details
+The spring's animation relies on the [natural frequency](https://en.wikipedia.org/wiki/Natural_frequency)(ω₀ = 2π/duration) and the
+[damping ratio](https://en.wikipedia.org/wiki/Damping#Damping_ratio)(ζ = 1 - bounce) to feed the [mass-spring-damper model](https://en.wikipedia.org/wiki/Mass-spring-damper_model).
+
+### Iterations and Directions
+
+Because a spring is not guaranteed to settle by `duration`, a repeating spring animation
+(`iteration-count` greater than 1) moves on to its next iteration at exactly `duration`, rather than
+waiting for the spring to fully settle.
+
+The spring's velocity always carries over into the next iteration. What happens to its position
+depends on whether that iteration also flips direction:
+- A same-direction repeat resets the position to the start of the animation, the same way a
+  repeating easing-curve animation restarts from the top.
+- A direction flip (`alternate` or `alternate-reverse`) instead continues from wherever the spring
+  actually is, so the value keeps moving smoothly instead of snapping to the far end.
+
+#### Infinite continuous springs
+
+If `bounce` is set to 1, the period of the spring is exactly `duration`. If an object is animated from `x = 0px` to `x = 100px`,
+this results in `x == 0px` at exactly `duration`. Since the next iteration starts at exactly `duration`, as long as `direction`
+is not `alternate` or `alternate-reverse`, an `iteration-count` of -1 will be an infinite continuous spring. If `bounce` is set to values
+other than 1, the position will not quite be at either end of the animation and there will be a noticeable jump.

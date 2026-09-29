@@ -1,0 +1,126 @@
+---
+title: Statements
+description: The statements allowed in callback handlers and function bodies.
+---
+
+A *code block* is a sequence of statements enclosed in `{ ... }`.
+Code blocks form the body of a [function](../functions/), the handler of a [callback](../callbacks/) connection,
+and the block form of a [binding](../bindings/):
+
+```slint no-test
+clicked => {
+    let n = counter + 1;
+    counter = n;
+}
+```
+
+A binding may instead hold a single expression terminated by a semicolon; the two forms are interchangeable.
+Both forms are reactive: Slint tracks the properties read while evaluating them.
+
+The value of a code block is the value of its last statement, unless a `return` statement exits earlier.
+
+The statements below are the complete set the parser accepts inside a code block.
+Nothing else is a statement; anything that is not one of these forms is parsed as an expression statement, and unrecognized syntax is a parse error.
+
+## Expression statement
+
+Any [expression](../expressions/) followed by a semicolon is a statement, evaluated for its effect and its value discarded (except as the last statement of a block):
+
+```slint no-test
+clicked => {
+    debug("hello");
+    root.some-callback();
+}
+```
+
+This is the form used to call a [callback](../callbacks/) or [function](../functions/).
+
+## Assignment
+
+`=` assigns a new value to a property.
+The self-assignment operators `+=`, `-=`, `*=`, and `/=` combine the corresponding [operator](../operators/) with the assignment:
+
+```slint no-test
+clicked => {
+    counter = 42;
+    counter += 1;
+}
+```
+
+The left-hand side must be a writable place: a property reference, a field of a property of struct type, an element of a property of array type, or the model value inside a [`for` element](../repetition-and-conditional-elements/).
+Assigning to anything else — a local variable, a function call, or any other expression — is a compile error.
+
+The property must be writable from where the assignment appears.
+Assigning to a property whose visibility does not permit it is an error, and so is assigning to a property that is [linked](../two-way-bindings/) to a read-only property, or to a `constexpr` property that must be known at compile time.
+
+The right-hand side must have the property's type.
+`+=` also applies to `string` and to length-like types; `-=`, `*=`, and `/=` apply only to length-like types; using any of them on another type is an error.
+
+## Let statements
+
+`let` declares a local variable, visible from its declaration to the end of the enclosing code block:
+
+```slint no-test
+clicked => {
+    let greeting = "hello world"; // type inferred from the value
+    let count: int = 2;           // explicit type annotation
+    debug(greeting, count);
+}
+```
+
+The type annotation is optional; without it the type is inferred from the initializer, which is required.
+A local variable is immutable: it cannot be assigned to after declaration, since assignment targets must be properties.
+A name that is already in scope — a local variable or a callback/function parameter — cannot be redeclared by a `let`, even in a nested block; doing so is a compile error.
+
+`:=` is not an assignment operator in statements.
+Writing `name := <expression>;` is an error that suggests `let name = <expression>;` instead.
+
+## If statements
+
+`if`, together with optional `else if` and `else` branches, runs a code block conditionally:
+
+```slint no-test
+clicked => {
+    if condition {
+        foo = 42;
+    } else if other-condition {
+        bar = 28;
+    } else {
+        foo = 4;
+    }
+}
+```
+
+The condition is an expression; parentheses around it are optional.
+Each branch is a code block.
+An `else` branch is either another `if` or a final code block.
+
+An `if` at the start of a statement is only taken as an `if` statement when it is not immediately followed by `.`, `,`, `;`, `}`, `]`, or `)`; in those cases `if` is read as an ordinary identifier within an expression.
+
+There is no `for` or `while` statement.
+Repetition over a model is expressed with the [`for` element](../repetition-and-conditional-elements/) in the element tree, not inside a code block.
+
+## Return
+
+`return` ends the enclosing function, callback handler, or code-block binding and yields its value:
+
+```slint no-test
+clicked => {
+    if disabled {
+        return;
+    }
+    counter += 1;
+}
+```
+
+The returned expression is optional.
+If the surrounding function or callback declares a return type, `return` without a value is an error, and the value's type must match the declared return type.
+Without any `return`, the block yields the value of its last statement.
+
+## Empty statement
+
+A lone semicolon is an empty statement:
+
+```slint no-test
+clicked => { ; }
+```

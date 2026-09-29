@@ -1,0 +1,28 @@
+================================================================================
+struct with field default values
+================================================================================
+
+struct Player {
+    name: string = "unknown",
+    score: int = 42,
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (struct_definition
+    (user_type_identifier)
+    (struct_block
+      (struct_field_definition
+        (simple_identifier)
+        (type
+          (builtin_type_identifier))
+        (expression
+          (value
+            (string_value))))
+      (struct_field_definition
+        (simple_identifier)
+        (type
+          (builtin_type_identifier))
+        (expression
+          (value
+            (int_value)))))))

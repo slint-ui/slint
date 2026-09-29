@@ -15,15 +15,49 @@ export { TestCase as NamedTestCase }
 
 /*
 
+```d.ts
+export type NamedEnum = "Hello" | "Bonjour";
+export declare const NamedEnum: {
+    readonly Hello: "Hello";
+    readonly Bonjour: "Bonjour";
+};
+
+export interface NotExportedStruct0 {
+    a: number;
+}
+
+export interface NamedStruct {
+    d: number;
+    e: NotExportedStruct0;
+}
+
+export interface NamedTestCase {
+    en: NamedEnum;
+    st: NamedStruct;
+}
+
+export declare const NamedTestCase: { new(properties?: Partial<NamedTestCase>): NamedTestCase & slint.ComponentHandle };
+export declare function NotExportedStruct0(properties?: Partial<NotExportedStruct0>): NotExportedStruct0;
+export declare function NamedStruct(properties?: Partial<NamedStruct>): NamedStruct;
+```
+
 ```cpp
 auto handle = NamedTestCase::create();
-const TestCase &instance = *handle;
+const NamedTestCase &instance = *handle;
 assert(instance.get_en() == NamedEnum::Bonjour);
+NamedStruct value;
+instance.set_st(value);
 ```
 
 ```rust
 let instance = NamedTestCase::new().unwrap();
 assert_eq!(instance.get_en(), NamedEnum::Bonjour);
+instance.set_st(NamedStruct::default());
+// The old names before the `as` rename still resolve, but are deprecated.
+#[expect(deprecated)]
+let _: ExportedStruct = NamedStruct::default();
+#[expect(deprecated)]
+let _ = ExportEnum::Bonjour;
 ```
 
 */

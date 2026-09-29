@@ -1,0 +1,30 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component CaseAfterWildcard {
+    in-out property <int> foo: 0;
+    match foo {
+        *: Rectangle { }
+        5: Rectangle { }
+//      ^error{Cases after the '*' case are never hit}
+    }
+}
+
+export component DuplicateWildcard {
+    in-out property <int> foo: 0;
+    match foo {
+        *: Rectangle { }
+        *: Rectangle { }
+//      ^error{Cases after the '*' case are never hit}
+    }
+}
+
+export component WildcardInMiddle {
+    in-out property <int> foo: 0;
+    match foo {
+        0: Rectangle { }
+        *: Rectangle { }
+        1: Rectangle { }
+//      ^error{Cases after the '*' case are never hit}
+    }
+}

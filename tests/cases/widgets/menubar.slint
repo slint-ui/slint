@@ -82,7 +82,7 @@ export component TestCase inherits Window {
 
 /*
 ```rust
-use slint::{SharedString, platform::{Key}};
+use slint::{SharedString, platform::{Key, PointerEventButton}};
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 
@@ -131,6 +131,20 @@ slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key:
 slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from("\n"));
 // verify that the checked menu item is checked
 assert!(instance.get_checkable_menu_item_checked());
+
+instance.set_result("".into());
+let find_new = || slint_testing::ElementHandle::find_by_accessible_label(&instance, "New").next();
+let file_menu = slint_testing::ElementHandle::find_by_accessible_label(&instance, "File").next().unwrap();
+// click on the file menu to open it
+file_menu.mock_single_click(PointerEventButton::Left);
+assert!(find_new().is_some());
+// click on it again to close it
+file_menu.mock_single_click(PointerEventButton::Left);
+assert!(find_new().is_none());
+// the menu can be opened again
+file_menu.mock_single_click(PointerEventButton::Left);
+find_new().unwrap().mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_result(), "New");
 ```
 
 ```cpp
@@ -184,6 +198,19 @@ slint_testing::send_keyboard_string_sequence(&instance, "\n");
 // verify that the checked menu item is checked
 assert(instance.get_checkable_menu_item_checked());
 
+instance.set_result("");
+// click on the file menu to open it, and again to close it
+// (the element search API isn't used here, it doesn't work in live-preview mode)
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 10., 16.);
+// the menu is closed, so this click doesn't hit the first entry (new)
+slint_testing::send_mouse_click(&instance, 30., 49.);
+assert_eq(instance.get_result(), "");
+// the menu can be opened again
+slint_testing::send_mouse_click(&instance, 10., 16.);
+slint_testing::send_mouse_click(&instance, 30., 49.);
+assert_eq(instance.get_result(), "New");
+
 ```
 
 ```js
@@ -235,6 +262,18 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
 slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
 // verify that the checked menu item is checked
 assert(instance.checkable_menu_item_checked);
+
+instance.result = "";
+// click on the file menu to open it, and again to close it
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+// the menu is closed, so this click doesn't hit the first entry (new)
+slintlib.private_api.send_mouse_click(instance, 30., 49.);
+assert.equal(instance.result, "");
+// the menu can be opened again
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+slintlib.private_api.send_mouse_click(instance, 30., 49.);
+assert.equal(instance.result, "New");
 ```
 
 */

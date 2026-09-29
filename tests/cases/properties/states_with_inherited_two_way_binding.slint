@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base {
+    in-out property <int> a <=> b;
+    in-out property <int> b: 10;
+}
+
+export component TestCase {
+    in-out property <bool> condition;
+    in-out property <int> a <=> base.a;
+    in-out property <int> b <=> base.b;
+
+    base := Base { }
+
+    states [
+        active when condition: {
+            base.b: 20;
+        }
+    ]
+}
+
+/*
+```rust
+let before_state = TestCase::new().unwrap();
+assert_eq!(before_state.get_a(), 10);
+assert_eq!(before_state.get_b(), 10);
+
+before_state.set_a(11);
+assert_eq!(before_state.get_a(), 11);
+assert_eq!(before_state.get_b(), 11);
+
+before_state.set_b(12);
+assert_eq!(before_state.get_a(), 12);
+assert_eq!(before_state.get_b(), 12);
+
+let after_state = TestCase::new().unwrap();
+after_state.set_condition(true);
+assert_eq!(after_state.get_a(), 20);
+assert_eq!(after_state.get_b(), 20);
+
+after_state.set_condition(false);
+assert_eq!(after_state.get_a(), 10);
+assert_eq!(after_state.get_b(), 10);
+
+after_state.set_a(13);
+assert_eq!(after_state.get_a(), 13);
+assert_eq!(after_state.get_b(), 13);
+
+after_state.set_b(14);
+assert_eq!(after_state.get_a(), 14);
+assert_eq!(after_state.get_b(), 14);
+```
+*/

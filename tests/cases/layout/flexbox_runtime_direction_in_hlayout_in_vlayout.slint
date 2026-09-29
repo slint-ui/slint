@@ -1,0 +1,45 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// slint-ui/slint#13199 as reported by the maintainer: no constraint written
+// anywhere. The horizontal main pass used to hand the column-arm flex the
+// layout's own height, which the enclosing vertical layout was still solving,
+// and panic with "Recursion detected". The driver blocks run both arms.
+export component TestCase inherits Window {
+    in property <bool> horizontal: true;
+    width: 400px; height: 300px;
+    VerticalLayout {
+        Rectangle { height: 40px; }
+        HorizontalLayout {
+            Rectangle { width: 40px; }
+            fl := FlexboxLayout {
+                flex-direction: horizontal ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+                Rectangle { min-width: 60px; min-height: 20px; }
+            }
+        }
+    }
+    out property <bool> test: fl.width >= 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_horizontal(false);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_horizontal(false);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.horizontal = false;
+assert(instance.test);
+```
+*/

@@ -1,0 +1,139 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorSliderStyle } from "../../style.slint";
+
+export component InspectorSlider inherits FocusScope {
+    in property <InspectorSliderStyle> style: Style.inspector-slider;
+    in property <string> accessible-name;
+    in property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum;
+    in property <float> step: 1;
+    in property <string> commit-key;
+    callback started();
+    callback preview(float) -> bool;
+    callback accepted(float) -> bool;
+    callback canceled();
+    out property <float> visual-value: root.dragging ? root.drag-value : root.value;
+    private property <bool> dragging;
+    private property <float> drag-value;
+    private property <float> initial-value;
+    private property <length> grab-offset;
+    private property <float> progress: root.progress-for(root.visual-value);
+    private property <float> origin: root.progress-for(0);
+    height: root.style.height;
+    min-width: root.style.min-width;
+    horizontal-stretch: 1;
+    accessible-role: AccessibleRole.slider;
+    accessible-label: root.accessible-name;
+    accessible-value: "\{root.visual-value}";
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.accepted(root.clamped(value.to-float())); }
+    }
+    changed commit-key => { root.cancel(); }
+
+    pure function progress-for(value: float) -> float {
+        return root.maximum > root.minimum ? ((value - root.minimum) / (root.maximum - root.minimum)).clamp(0, 1) : 0;
+    }
+    pure function clamped(value: float) -> float {
+        return (root.minimum + ((value - root.minimum) / max(root.step, 0.001)).round() * max(root.step, 0.001)).clamp(root.minimum, max(root.minimum, root.maximum));
+    }
+    function cancel() {
+        if root.dragging { root.dragging = false; root.canceled(); }
+    }
+    function update() {
+        let progress = ((touch.mouse-x - root.grab-offset - track.x) / max(1px, track.width)).clamp(0, 1);
+        root.drag-value = root.clamped(root.minimum + progress * (root.maximum - root.minimum));
+        if !root.preview(root.drag-value) { root.cancel(); }
+    }
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.dragging { root.cancel(); return accept; }
+        if root.dragging { return reject; }
+        if event.text == Key.LeftArrow || event.text == Key.DownArrow { root.accepted(root.clamped(root.value - root.step)); return accept; }
+        if event.text == Key.RightArrow || event.text == Key.UpArrow { root.accepted(root.clamped(root.value + root.step)); return accept; }
+        if event.text == Key.Home { root.accepted(root.minimum); return accept; }
+        if event.text == Key.End { root.accepted(root.maximum); return accept; }
+        return reject;
+    }
+
+    track := Rectangle {
+        x: root.style.thumb-width / 2;
+        y: (root.height - self.height) / 2;
+        width: max(0px, root.width - root.style.thumb-width);
+        height: root.style.track-height;
+        border-radius: self.height / 2;
+        background: root.style.track;
+        border-width: Metrics.hairline-width;
+        border-color: root.style.track-border;
+        Rectangle {
+            x: parent.width * min(root.origin, root.progress);
+            y: (parent.height - self.height) / 2;
+            width: parent.width * abs(root.progress - root.origin);
+            height: root.style.fill-height;
+            border-radius: self.height / 2;
+            background: root.style.fill;
+        }
+        if root.minimum < 0 && root.maximum > 0: Rectangle {
+            x: parent.width * root.origin - self.width / 2;
+            y: (parent.height - self.height) / 2;
+            width: Metrics.border-width;
+            height: root.style.zero-height;
+            background: root.style.zero;
+        }
+    }
+    thumb := Rectangle {
+        x: track.x + track.width * root.progress - self.width / 2;
+        y: (root.height - self.height) / 2;
+        width: root.style.thumb-width;
+        height: root.style.thumb-height;
+        border-radius: self.height / 2;
+        border-width: Metrics.border-width;
+        border-color: root.has-focus || root.dragging ? root.style.dial.focus-border : touch.has-hover ? root.style.hover-border : root.style.dial.ring-border;
+        background: root.style.dial.ring;
+        drop-shadow-color: root.style.dial.shadow.color;
+        drop-shadow-blur: root.style.dial.shadow.blur;
+        drop-shadow-offset-y: root.style.dial.shadow.offset-y;
+        Rectangle {
+            x: Metrics.border-width; y: Metrics.border-width;
+            width: parent.width - 2 * Metrics.border-width;
+            height: parent.height - 2 * Metrics.border-width;
+            border-radius: self.height / 2;
+            border-width: Metrics.hairline-width;
+            border-color: root.style.dial.face-border;
+            background: root.style.dial.face;
+        }
+        Rectangle {
+            width: root.style.dot-size; height: self.width;
+            border-radius: self.width / 2;
+            background: root.style.dial.dot;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.focus();
+                root.started();
+                root.initial-value = root.value;
+                root.drag-value = root.value;
+                let grabbed-thumb = self.mouse-x >= thumb.x && self.mouse-x <= thumb.x + thumb.width;
+                root.grab-offset = grabbed-thumb ? self.mouse-x - (thumb.x + thumb.width / 2) : 0px;
+                root.dragging = true;
+                if grabbed-thumb {
+                    if !root.preview(root.drag-value) { root.cancel(); }
+                } else { root.update(); }
+            } else if event.kind == PointerEventKind.move && root.dragging { root.update();
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left && root.dragging {
+                let value = root.drag-value;
+                root.dragging = false;
+                if value != root.initial-value {
+                    if !root.accepted(value) { root.canceled(); }
+                } else { root.canceled(); }
+            } else if event.kind == PointerEventKind.cancel { root.cancel(); }
+        }
+    }
+}

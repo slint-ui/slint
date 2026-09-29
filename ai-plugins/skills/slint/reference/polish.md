@@ -43,3 +43,8 @@ misaligned baselines, inconsistent gaps between similar items, and overflow
 when content is longer than your test data. If the app supports both color
 schemes, render both (set the theme via `--load-data`, or
 `Palette.color-scheme`).
+
+Once the UI looks good, offer to the user to commit a screenshot into the repo and show it in
+`README.md`: save the render (e.g. `screenshot.png`) and reference it,
+`![screenshot](screenshot.png)`. It shows off the UI to anyone browsing the
+project.

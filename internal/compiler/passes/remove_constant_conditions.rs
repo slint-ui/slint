@@ -20,9 +20,13 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
         let e = elem.borrow();
         // Grid cells keep their per-child repeater; the ComponentContainer placeholder is a
         // permanent false repeater that must survive as the embed slot.
+        // For a repeated element, the grid_layout_cell sits on the repeater component's root.
+        let is_grid_cell = e.grid_layout_cell.is_some()
+            || matches!(&e.base_type, crate::langtype::ElementType::Component(c)
+                if c.root_element.borrow().grid_layout_cell.is_some());
         if e.repeated.as_ref().is_some_and(|r| {
             r.is_conditional_element && matches!(r.model, Expression::BoolLiteral(false))
-        }) && e.grid_layout_cell.is_none()
+        }) && !is_grid_cell
             && !e.is_component_placeholder
         {
             dead.push(elem.clone());
@@ -39,7 +43,7 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
             if let Expression::SolveFlexboxLayout(l)
             | Expression::ComputeFlexboxLayoutInfo { layout: l, .. } = e
             {
-                dead.retain(|c| !l.elems.iter().any(|it| Rc::ptr_eq(&it.item.element, c)));
+                dead.retain(|c| !l.elems.iter().any(|it| Rc::ptr_eq(&it.element, c)));
             }
         })
     });

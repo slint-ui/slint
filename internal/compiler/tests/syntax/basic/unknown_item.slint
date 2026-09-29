@@ -23,7 +23,7 @@ export SuperSimple := Rectangle {
             background: blue;
             foo_bar: blue;
 //          >     <error{Unknown property foo-bar in Rectangle}
-//                   >  <^error{Unknown unqualified identifier 'blue'}
+//                   >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
         }
     }
 
@@ -47,7 +47,7 @@ export SuperSimple := Rectangle {
     Rectangle {
         foo_bar: blue;
 //      >     <error{Unknown property foo-bar in Rectangle}
-//               >  <^error{Unknown unqualified identifier 'blue'}
+//               >  <^error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
     }
 
     NativeLineEdit { }

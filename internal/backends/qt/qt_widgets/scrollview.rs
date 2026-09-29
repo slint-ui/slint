@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore foac
+use i_slint_core::cursor::MouseCursorInner;
 use i_slint_core::input::{FocusEventResult, InternalKeyEvent};
 use i_slint_core::items::ScrollBarPolicy;
 
@@ -114,7 +115,7 @@ impl Item for NativeScrollView {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -124,7 +125,7 @@ impl Item for NativeScrollView {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self_rc);
         let mut data = self.data();

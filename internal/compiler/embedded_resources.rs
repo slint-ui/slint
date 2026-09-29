@@ -103,6 +103,10 @@ pub enum EmbeddedResourcesKind {
     /// A set of pre-rendered glyphs of a TrueType font
     #[cfg(feature = "renderer-software")]
     BitmapFontData(BitmapFont),
+    /// The image of a Slint SC `@image-url()`, decoded at compile time. The
+    /// Slint SC generator embeds its pixels in the generated code.
+    #[cfg(feature = "slint-sc")]
+    StaticPixels(image::RgbaImage),
 }
 
 #[derive(Debug, Clone)]

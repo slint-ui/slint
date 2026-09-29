@@ -221,7 +221,6 @@ export component HVAC inherits Control {
             TouchArea {
                 enabled: closeButton.opacity > 0.1;
                 clicked => {
-                    root.full-screen = false;
                     AppState.showFullScreen(-1);
                 }
             }

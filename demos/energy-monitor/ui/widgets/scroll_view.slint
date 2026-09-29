@@ -52,10 +52,10 @@ export component ScrollView {
     out property <length> visible-height <=>  i-flickable.height;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
-    in-out property <length> viewport-width <=> i-flickable.viewport-width;
-    in-out property <length> viewport-height <=> i-flickable.viewport-height;
-    in-out property <length> viewport-x <=> i-flickable.viewport-x;
-    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    in-out property <length> content-width <=> i-flickable.content-width;
+    in-out property <length> content-height <=> i-flickable.content-height;
+    in-out property <length> content-x <=> i-flickable.content-x;
+    in-out property <length> content-y <=> i-flickable.content-y;
 
     min-height: 50px;
     min-width: 50px;
@@ -65,8 +65,8 @@ export component ScrollView {
     i-flickable := Flickable {
         x: 2px;
         y: 2px;
-        viewport-y <=> i-ver-bar.value;
-        viewport-x <=> i-hor-bar.value;
+        content-y <=> i-ver-bar.value;
+        content-x <=> i-hor-bar.value;
         width: parent.width - i-ver-bar.width - Theme.spaces.medium;
         height: parent.height - i-hor-bar.height - Theme.spaces.medium;
 
@@ -74,29 +74,29 @@ export component ScrollView {
     }
 
     i-ver-bar := ScrollBar {
-        visible: viewport-height > visible-height;
+        visible: content-height > visible-height;
         width: 5px;
         x: i-flickable.width + i-flickable.x + Theme.spaces.medium;
         y: i-flickable.y;
         height:  i-flickable.height;
         horizontal: false;
-        maximum:  i-flickable.viewport-height - i-flickable.height;
+        maximum:  i-flickable.content-height - i-flickable.height;
         page-size:  i-flickable.height;
     }
 
     i-hor-bar := ScrollBar {
-        visible: viewport-width > visible-width;
+        visible: content-width > visible-width;
         height: 5px;
         y: i-flickable.height + i-flickable.y;
         x: i-flickable.x;
         width: i-flickable.width;
         horizontal: true;
-        maximum: i-flickable.viewport-width - i-flickable.width;
+        maximum: i-flickable.content-width - i-flickable.width;
         page-size: i-flickable.width;
     }
 
     Rectangle {
-        visible: viewport-y < 0;
+        visible: content-y < 0;
         x: 2px;
         y: 2px;
         width: i-flickable.width;
@@ -106,7 +106,7 @@ export component ScrollView {
     }
 
     Rectangle {
-        visible: viewport-height > visible-height && viewport-y > visible-height - viewport-height;
+        visible: content-height > visible-height && content-y > visible-height - content-height;
         x: 2px;
         y: i-flickable.y + i-flickable.height - self.height;
         width: i-flickable.width;

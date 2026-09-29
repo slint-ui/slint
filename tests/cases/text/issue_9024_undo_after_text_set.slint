@@ -6,7 +6,7 @@
 // with "byte index out of bounds". Setting `text` externally must clear the undo stack
 // (and re-clamp the cursor/anchor, see issue #331).
 
-component TestCase inherits Window {
+export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     ti := TextInput {

@@ -1,0 +1,120 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import time
+from dataclasses import dataclass
+from difflib import unified_diff
+from pathlib import Path
+
+
+def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
+    assert source.count(old) == 1
+    return source.replace(old, new, 1)
+
+
+def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
+    from editor_sync import wait_for_source
+    from ui_driver import wait_until
+
+    def changed_source() -> bytes | None:
+        source = source_file.read_bytes()
+        if not source or source == baseline:
+            return None
+        try:
+            wait_for_source(source_file, source, timeout=0.1)
+        except AssertionError:
+            return None
+        return source if source_file.read_bytes() == source else None
+
+    return wait_until(changed_source)
+
+
+def slint_sources(project: Path) -> dict[Path, bytes]:
+    return {
+        path.relative_to(project): path.read_bytes()
+        for path in sorted(project.rglob("*.slint"))
+    }
+
+
+def exact_source_mismatch(
+    current: dict[Path, bytes], expected: dict[Path, bytes]
+) -> str:
+    differences = []
+    for path in sorted(current.keys() | expected.keys()):
+        actual = current.get(path, b"").decode(errors="backslashreplace").splitlines()
+        wanted = expected.get(path, b"").decode(errors="backslashreplace").splitlines()
+        if actual == wanted:
+            continue
+        differences.extend(
+            unified_diff(
+                wanted,
+                actual,
+                fromfile=f"expected/{path}",
+                tofile=f"actual/{path}",
+                lineterm="",
+            )
+        )
+    return "exact .slint source mismatch:\n" + "\n".join(differences)
+
+
+@dataclass(frozen=True)
+class SourceSnapshot:
+    project: Path
+    sources: dict[Path, bytes]
+
+    @classmethod
+    def capture(cls, project: Path) -> "SourceSnapshot":
+        return cls(project=project, sources=slint_sources(project))
+
+    def assert_unchanged_now(self) -> None:
+        current = slint_sources(self.project)
+        assert current == self.sources, exact_source_mismatch(current, self.sources)
+
+    def assert_unchanged(
+        self, quiescence: float = 0.25, poll_interval: float = 0.02
+    ) -> None:
+        deadline = time.monotonic() + quiescence
+        while True:
+            self.assert_unchanged_now()
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(poll_interval)
+
+    def wait_for_exact(
+        self,
+        expected: bytes,
+        relative_path: Path | str = "Main.slint",
+        timeout: float = 5,
+        poll_interval: float = 0.02,
+    ) -> None:
+        relative_path = Path(relative_path)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            current = slint_sources(self.project)
+            expected_sources = self.sources | {relative_path: expected}
+            if current == expected_sources:
+                return
+            time.sleep(poll_interval)
+
+        current = slint_sources(self.project)
+        expected_sources = self.sources | {relative_path: expected}
+        assert current == expected_sources, exact_source_mismatch(
+            current, expected_sources
+        )
+
+    def wait_for_applied(
+        self,
+        expected: bytes,
+        relative_path: Path | str = "Main.slint",
+        timeout: float = 15,
+    ) -> None:
+        """Check exact project source, then wait for this revision in the preview."""
+        from editor_sync import wait_for_source
+
+        self.wait_for_exact(expected, relative_path, timeout=timeout)
+        wait_for_source(self.project / relative_path, expected, timeout=timeout)
+        expected_sources = self.sources | {Path(relative_path): expected}
+        current = slint_sources(self.project)
+        assert current == expected_sources, exact_source_mismatch(
+            current, expected_sources
+        )

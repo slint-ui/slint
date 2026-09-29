@@ -2,18 +2,108 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use by_address::ByAddress;
+use itertools::Either;
+use std::sync::Arc;
 
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
+use super::native_class_selection::{dropped_defaults, select_native_class};
 use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{BuiltinStruct, ElementType, Struct, StructName, Type};
+use crate::langtype::{
+    BuiltinStruct, ElementType, NativeClass, PropertyLookupMode, Struct, StructName, Type,
+};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
+use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis};
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 use typed_index_collections::TiVec;
+
+/// The types the generated module re-exports: every declared struct/enum under its own
+/// name (deprecated when not reachable from the public API), the renamed export aliases,
+/// and the deprecated pre-rename names. Collision-renamed types are omitted — they were
+/// never public.
+fn type_exports(
+    document: &object_tree::Document,
+    exported_roots: &[(Rc<Component>, Vec<SmolStr>)],
+) -> Vec<TypeExport> {
+    let used_types = document.used_types.borrow();
+    let public = public_facing_type_names(document);
+    let mut list = Vec::new();
+    for ty in &used_types.structs_and_enums {
+        let name = match ty {
+            Type::Struct(s) => match &s.name {
+                StructName::User { name, .. } => Some(name.clone()),
+                _ => None,
+            },
+            Type::Enumeration(en) => Some(en.name.clone()),
+            _ => None,
+        };
+        let Some(name) = name else { continue };
+        if used_types.collision_renamed_names.contains(&name) {
+            continue;
+        }
+        let deprecated = !public.contains(&name);
+        list.push(TypeExport { exported_name: name.clone(), internal_name: name, deprecated });
+    }
+    for (internal_name, exported_name) in document.exports.named_type_aliases() {
+        list.push(TypeExport { exported_name, internal_name, deprecated: false });
+    }
+    for (component, names) in exported_roots {
+        let (internal_name, aliases) =
+            names.split_first().expect("an exported root has at least one export name");
+        for exported_name in aliases {
+            list.push(TypeExport {
+                exported_name: exported_name.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: false,
+            });
+        }
+        if component.id != *internal_name {
+            list.push(TypeExport {
+                exported_name: component.id.clone(),
+                internal_name: internal_name.clone(),
+                deprecated: true,
+            });
+        }
+    }
+    for (old_name, new_name) in &used_types.deprecated_type_aliases {
+        list.push(TypeExport {
+            exported_name: old_name.clone(),
+            internal_name: new_name.clone(),
+            deprecated: true,
+        });
+    }
+    list
+}
+
+/// The names of the structs and enums reachable from the public API: explicitly exported,
+/// or used on a public member of an exported component. A type used only privately is not
+/// part of the public namespace.
+fn public_facing_type_names(
+    document: &object_tree::Document,
+) -> std::collections::HashSet<SmolStr> {
+    let mut public = std::collections::HashSet::new();
+    let mut collect = |ty: &Type| {
+        crate::langtype::visit_declared_types(ty, &mut |name, _| {
+            public.insert(name.clone());
+        })
+    };
+    for (_, export) in document.exports.iter() {
+        match export {
+            Either::Right(ty) => collect(ty),
+            Either::Left(component) => {
+                for pd in component.root_element.borrow().property_declarations.values() {
+                    if pd.visibility != object_tree::PropertyVisibility::Private {
+                        collect(&pd.property_type);
+                    }
+                }
+            }
+        }
+    }
+    public
+}
 
 pub fn lower_to_item_tree(
     document: &crate::object_tree::Document,
@@ -41,27 +131,36 @@ pub fn lower_to_item_tree(
         state.sub_component_mapping.insert(ByAddress(c.clone()), idx);
     }
 
-    let public_components = document
+    let exported_roots: Vec<(Rc<Component>, Vec<SmolStr>)> = document
         .exported_roots()
-        .map(|component| {
+        .map(|c| {
+            let names = document.export_names(&c);
+            (c, names)
+        })
+        .collect();
+    let public_components = exported_roots
+        .iter()
+        .map(|(component, names)| {
+            let name = &names[0];
             let top_level_type = if component.inherits_system_tray_icon() {
                 TopLevelComponentType::SystemTrayIcon
             } else {
                 TopLevelComponentType::Window
             };
-            let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
-            let public_properties = public_properties(&component, &sc.mapping, &state);
-            sc.sub_component.name = component.id.clone();
+            let mut sc = lower_sub_component(component, &mut state, None, compiler_config);
+            lower_fixed_size_root_layout_info(component, &mut sc, &mut state);
+            let public_properties = public_properties(component, &sc.mapping, &state);
+            // For C++ codegen, the root component must have the same name as the public component
+            sc.sub_component.name = name.clone();
             let item_tree = ItemTree {
                 tree: make_tree(&state, &component.root_element, &sc, &[]),
                 root: state.push_sub_component(sc),
             };
-            // For C++ codegen, the root component must have the same name as the public component
             PublicComponent {
                 item_tree,
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
-                name: component.id.clone(),
+                name: name.clone(),
                 top_level_type,
             }
         })
@@ -105,6 +204,7 @@ pub fn lower_to_item_tree(
             .collect(),
         has_debug_info: compiler_config.debug_info,
         popup_menu,
+        type_exports: type_exports(document, &exported_roots),
         #[cfg(feature = "bundle-translations")]
         translations: state.translation_builder.map(|x| x.result()),
     };
@@ -166,16 +266,32 @@ impl LoweredSubComponentMapping {
                 }
                 unreachable!()
             }
-            LoweredElement::NativeItem { item_index } => MemberReference::Relative {
-                parent_level: 0,
-                local_reference: LocalMemberReference {
-                    sub_component_path: Vec::new(),
-                    reference: LocalMemberIndex::Native {
-                        item_index: *item_index,
-                        prop_name: from.name().clone(),
+            LoweredElement::NativeItem { item_index } => {
+                // The element's declared property type is authoritative:
+                // probing the rtti tables by name at install time would pick
+                // the wrong side when a name exists in both the property and
+                // callback tables.
+                let kind = match element
+                    .borrow()
+                    .lookup_property(from.name(), PropertyLookupMode::InternalName)
+                    .property_type
+                {
+                    Type::Callback(..) => super::NativeMemberKind::Callback,
+                    Type::Function(..) => super::NativeMemberKind::Function,
+                    _ => super::NativeMemberKind::Property,
+                };
+                MemberReference::Relative {
+                    parent_level: 0,
+                    local_reference: LocalMemberReference {
+                        sub_component_path: Vec::new(),
+                        reference: LocalMemberIndex::Native {
+                            item_index: *item_index,
+                            prop_name: from.name().clone(),
+                            kind,
+                        },
                     },
-                },
-            },
+                }
+            }
             LoweredElement::Repeated { .. } => {
                 panic!(
                     "Trying to map property {from:?} on a repeated element {} of type {:?}",
@@ -198,6 +314,8 @@ pub struct LoweringState {
     global_properties: HashMap<NamedReference, MemberReference>,
     sub_components: TiVec<SubComponentIdx, LoweredSubComponent>,
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
+    /// The native class selected for each element lowered to an item.
+    native_classes: HashMap<ByAddress<ElementRc>, Arc<NativeClass>>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
     /// Counter for the unique `struct_assignment{n}` local variable names. Local
@@ -274,6 +392,31 @@ fn component_id(component: &Rc<Component>) -> SmolStr {
     }
 }
 
+/// Replaces the layout info of a public component's root on each axis whose size is fixed.
+/// See `get_fixed_size_root_layout_info`.
+fn lower_fixed_size_root_layout_info(
+    component: &Rc<Component>,
+    sc: &mut LoweredSubComponent,
+    state: &mut LoweringState,
+) {
+    let inner = ExpressionLoweringCtxInner { mapping: &sc.mapping, parent: None, component };
+    let mut ctx = ExpressionLoweringCtx { inner, state };
+    let constraints = component.root_constraints.borrow();
+    for (orientation, layout_info) in [
+        (crate::layout::Orientation::Horizontal, &mut sc.sub_component.layout_info_h),
+        (crate::layout::Orientation::Vertical, &mut sc.sub_component.layout_info_v),
+    ] {
+        if let Some(e) = super::lower_layout_expression::get_fixed_size_root_layout_info(
+            &component.root_element,
+            &mut ctx,
+            &constraints,
+            orientation,
+        ) {
+            *layout_info = e.into();
+        }
+    }
+}
+
 fn lower_sub_component(
     component: &Rc<Component>,
     state: &mut LoweringState,
@@ -306,7 +449,11 @@ fn lower_sub_component(
         child_of_layout: component.root_element.borrow().child_of_layout,
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
+        cross_axis_self_alignment_for_repeated: None,
+        layout_order_for_repeated: None,
         layout_info_v_constrained_for_repeated: None,
+        layout_info_v_at_cross_width_for_repeated: None,
+        grid_row_child_cross_width: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -318,11 +465,20 @@ fn lower_sub_component(
         accessible_prop: Default::default(),
         element_infos: Default::default(),
         prop_analysis: Default::default(),
+        debug_info: compiler_config.debug_info.then(|| super::debug_info::SubComponentDebugInfo {
+            source_location: crate::diagnostics::Spanned::to_source_location(
+                &*component.root_element.borrow(),
+            ),
+            items: Default::default(),
+            sub_component_use_sites: Default::default(),
+        }),
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = TiVec::new();
     let mut accessible_prop = Vec::new();
     let mut change_callbacks = Vec::new();
+    #[allow(clippy::mutable_key_type, reason = "ByAddress<ElementRc> keys hash by pointer")]
+    let mut dropped_bindings = HashSet::new();
 
     if let Some(parent) = component.parent_element() {
         // Add properties for the model data and index
@@ -359,7 +515,8 @@ fn lower_sub_component(
                     ret_ty: function.return_type.clone(),
                     args: function.args.clone(),
                     // will be replaced later
-                    code: super::Expression::CodeBlock(Vec::new()),
+                    code: super::Expression::CodeBlock(Vec::new()).into(),
+                    use_count: Default::default(),
                 });
                 index.into()
             } else if let Type::Callback(callback) = &x.property_type {
@@ -417,6 +574,12 @@ fn lower_sub_component(
                             .unwrap(),
                         repeater_offset,
                     });
+                if let Some(debug_info) = sub_component.debug_info.as_mut() {
+                    let added_index = debug_info
+                        .sub_component_use_sites
+                        .push_and_get_key(crate::diagnostics::Spanned::to_source_location(&*elem));
+                    debug_assert_eq!(added_index, sub_component_index);
+                }
                 mapping.element_mapping.insert(
                     element.clone().into(),
                     LoweredElement::SubComponent { sub_component_index },
@@ -424,12 +587,30 @@ fn lower_sub_component(
                 repeater_offset += comp.repeater_count();
             }
 
-            ElementType::Native(n) => {
+            ElementType::Builtin(b) => {
+                let ty = select_native_class(&elem, b);
+                dropped_bindings.extend(
+                    dropped_defaults(&elem, b, &ty)
+                        .map(|p| (ByAddress(element.clone()), p.clone())),
+                );
+                state.native_classes.insert(ByAddress(element.clone()), ty.clone());
                 let item_index = sub_component.items.push_and_get_key(Item {
-                    ty: n.clone(),
+                    ty,
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
                 });
+                if let Some(debug_info) = sub_component.debug_info.as_mut() {
+                    let primary = elem.debug.first();
+                    let source_location = crate::diagnostics::Spanned::to_source_location(&*elem);
+                    let added_index =
+                        debug_info.items.push_and_get_key(super::debug_info::ItemDebugInfo {
+                            source_location,
+                            qualified_id: primary.and_then(|d| d.qualified_id.clone()),
+                            element_hash: primary.map(|d| d.element_hash).unwrap_or_default(),
+                            is_injected_wrapper_element: elem.is_injected_wrapper_element,
+                        });
+                    debug_assert_eq!(added_index, item_index);
+                }
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
@@ -444,6 +625,9 @@ fn lower_sub_component(
         }
 
         for (prop, expr) in &elem.change_callbacks {
+            if !has_runtime_property(state, element, prop) {
+                continue;
+            }
             change_callbacks
                 .push((NamedReference::new(element, prop.clone()), expr.borrow().clone()));
         }
@@ -475,6 +659,9 @@ fn lower_sub_component(
     }
 
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
+        if dropped_bindings.contains(&(ByAddress(e.clone()), p.clone())) {
+            return;
+        }
         let nr = NamedReference::new(e, p.clone());
         let prop = ctx.map_property_reference(&nr);
 
@@ -488,8 +675,9 @@ fn lower_sub_component(
                 unreachable!()
             };
 
-            sub_component.functions[function_index].code =
-                super::lower_expression::lower_expression(&binding.expression, &mut ctx);
+            sub_component.functions[function_index]
+                .code
+                .replace(super::lower_expression::lower_expression(&binding.expression, &mut ctx));
 
             return;
         }
@@ -538,20 +726,20 @@ fn lower_sub_component(
                 },
             );
 
-            let is_state_info = matches!(
-                e.borrow().lookup_property(p).property_type,
+            let kind = if matches!(
+                e.borrow().lookup_property(p, PropertyLookupMode::InternalName).property_type,
                 Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
-            );
+            ) {
+                BindingKind::State
+            } else if is_constant {
+                BindingKind::Constant
+            } else {
+                BindingKind::Normal
+            };
 
             sub_component.property_init.push((
                 prop.clone(),
-                BindingExpression {
-                    expression,
-                    animation,
-                    is_constant,
-                    is_state_info,
-                    use_count: 0.into(),
-                },
+                BindingExpression { expression, animation, kind, use_count: 0.into() },
             ));
         }
 
@@ -595,7 +783,7 @@ fn lower_sub_component(
 
     sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
 
-    crate::generator::for_each_const_properties(component, |elem, n| {
+    for_each_const_properties(ctx.state, component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
         // ensure that all const properties have analysis
         sub_component.prop_analysis.entry(x.clone()).or_insert_with(|| PropAnalysis {
@@ -628,31 +816,27 @@ fn lower_sub_component(
         None,
     )
     .into();
-    // Measure the root's height for its preferred width, not an unbounded one, so a
-    // height-for-width Image doesn't report infinite height (mirrors the interpreter).
-    let v_cross_constraint = component
-        .root_element
-        .borrow()
-        .layout_info_v_with_constraint
-        .is_some()
-        .then(|| {
-            super::lower_layout_expression::default_cross_axis_constraint(&component.root_element)
-        })
+    // A root no layout sizes measures at its preferred width,
+    // or an unsized Image gets an infinite height (#12139).
+    // A layout cell reads the width it's given, or a wrapping Text measures one line (#13655).
+    let root_elem = &component.root_element;
+    let measure_at_preferred_width = root_elem.borrow().layout_info_v_with_constraint.is_some()
+        && !root_elem.borrow().child_of_layout;
+    let v_cross_constraint = measure_at_preferred_width
+        .then(|| super::lower_layout_expression::default_cross_axis_constraint(root_elem))
         .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
-        &component.root_element,
+        root_elem,
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
         v_cross_constraint,
     )
     .into();
-    if component.root_element.borrow().child_of_flexbox {
-        let root_elem = &component.root_element;
-        let has_flex_binding =
-            ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"]
-                .iter()
-                .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
+    if root_elem.borrow().child_of_flexbox {
+        let has_flex_binding = ["cross-axis-self-alignment", "layout-order"]
+            .iter()
+            .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
         let v_constrained =
             super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
                 &mut ctx,
@@ -660,8 +844,8 @@ fn lower_sub_component(
                 &component.root_constraints.borrow(),
             );
         // Generate the flex item-info accessor when the element sets flex
-        // properties, or when it needs the constrained-vertical fix (a
-        // height-for-width instance in a column flex).
+        // properties, or when it is a height-for-width instance in a column
+        // flex, which needs the constrained vertical info.
         if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
@@ -671,6 +855,62 @@ fn lower_sub_component(
             );
         }
         sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+                true,
+            )
+            .map(Into::into);
+    } else if let Some(box_orientation) =
+        component.root_element.borrow().parent_box_layout_orientation
+    {
+        // A repeated element in a box layout returns its `cross-axis-self-alignment`
+        // through the generated `layout_item_info`, on the cross axis only, and its
+        // `layout-order` on the main axis only.
+        if let Some(nr) =
+            crate::layout::binding_reference(&component.root_element, "cross-axis-self-alignment")
+        {
+            sub_component.cross_axis_self_alignment_for_repeated = Some((
+                box_orientation.orthogonal(),
+                super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
+            ));
+        }
+        if let Some(nr) = crate::layout::binding_reference(&component.root_element, "layout-order")
+        {
+            sub_component.layout_order_for_repeated = Some((
+                box_orientation,
+                super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
+            ));
+        }
+        // The parent box layout measures a height-for-width instance at the
+        // width it lays it out at, through `layout_item_info_at_cross_width` —
+        // the plain `layout_info` measures at the instance's preferred width.
+        // A vertical layout queries it from its main-axis pass, a horizontal
+        // one from its ortho measure pass.
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                &component.root_element,
+                &component.root_constraints.borrow(),
+                false,
+            )
+            .map(Into::into);
+    }
+
+    if component.root_element.borrow().grid_layout_cell.is_some() {
+        // A GridLayout measures a height-for-width instance at the column width
+        // it assigns, through `layout_item_info_at_cross_width`; the plain
+        // `layout_info` measures at the instance's preferred width.
+        sub_component.layout_info_v_at_cross_width_for_repeated =
+            super::lower_layout_expression::get_layout_info_v_at_cross_width_for_repeated(
+                &mut ctx,
+                &component.root_element,
+                &component.root_constraints.borrow(),
+                false,
+            )
+            .map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {
@@ -713,6 +953,19 @@ fn lower_sub_component(
                             .push(super::RowChildTemplateInfo::Static { child_index });
                     }
                     crate::layout::RowChildTemplate::Repeated { repeated_element, .. } => {
+                        // Measure this child at the column width the grid
+                        // assigns it. The expression is the same for every
+                        // child of the Row, so only the first one that needs
+                        // it builds it.
+                        let cross_width = super::lower_layout_expression::grid_measure_cross_width(
+                            &mut ctx,
+                            repeated_element,
+                            super::lower_layout_expression::GridMeasureIndex::RowChild,
+                        );
+                        let measure_at_cross_width = cross_width.is_some();
+                        if sub_component.grid_row_child_cross_width.is_none() {
+                            sub_component.grid_row_child_cross_width = cross_width.map(Into::into);
+                        }
                         // Inner repeater: layout_info is computed at runtime per instance.
                         if let Some(super::lower_to_item_tree::LoweredElement::Repeated {
                             repeated_index,
@@ -720,6 +973,7 @@ fn lower_sub_component(
                         {
                             row_child_templates.push(super::RowChildTemplateInfo::Repeated {
                                 repeater_index: *repeated_index,
+                                measure_at_cross_width,
                             });
                         }
                     }
@@ -807,7 +1061,86 @@ fn lower_geometry(
         values
             .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
     }
-    super::Expression::Struct { ty: Rc::new(Struct { fields, name: StructName::None }), values }
+    super::Expression::Struct { ty: Arc::new(Struct::new(fields, StructName::None)), values }
+}
+
+/// Call the given function for each constant property in the Component so one can set
+/// `set_constant` on it.
+fn for_each_const_properties(
+    state: &LoweringState,
+    component: &Rc<Component>,
+    mut f: impl FnMut(&ElementRc, &SmolStr),
+) {
+    object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
+        if elem.borrow().repeated.is_some() {
+            return;
+        }
+        let mut e = elem.clone();
+        let mut all_prop = BTreeSet::new();
+        loop {
+            all_prop.extend(
+                e.borrow()
+                    .property_declarations
+                    .iter()
+                    .filter(|(_, x)| {
+                        x.property_type.is_property_type() &&
+                            !matches!( &x.property_type, Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo)))
+                    })
+                    .map(|(k, _)| k.clone()),
+            );
+            let base_type = e.borrow().base_type.clone();
+            match base_type {
+                ElementType::Component(c) => {
+                    e = c.root_element.clone();
+                }
+                ElementType::Builtin(_) => {
+                    let mut n = &state.native_classes[&ByAddress(e.clone())];
+                    loop {
+                        all_prop.extend(
+                            n.properties
+                                .iter()
+                                .filter(|(k, x)| {
+                                    x.ty.is_property_type()
+                                        && (n.class_name != "Flickable"
+                                            || !k.starts_with("content-"))
+                                        && k.as_str() != "commands"
+                                })
+                                .map(|(k, _)| k.clone()),
+                        );
+                        match n.parent.as_ref() {
+                            Some(p) => n = p,
+                            None => break,
+                        }
+                    }
+                    break;
+                }
+                ElementType::Global | ElementType::Interface | ElementType::Error => break,
+            }
+        }
+        for c in all_prop {
+            if NamedReference::new(elem, c.clone()).is_constant() {
+                f(elem, &c);
+            }
+        }
+    });
+}
+
+/// Whether `prop` exists at runtime on `elem`: declared, or in the native class selected for it.
+fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> bool {
+    let mut e = elem.clone();
+    loop {
+        if e.borrow().property_declarations.contains_key(prop) {
+            return true;
+        }
+        let base_type = e.borrow().base_type.clone();
+        match base_type {
+            ElementType::Component(c) => e = c.root_element.clone(),
+            ElementType::Builtin(_) => {
+                return state.native_classes[&ByAddress(e)].lookup_property(prop).is_some();
+            }
+            ElementType::Global | ElementType::Interface | ElementType::Error => return false,
+        }
+    }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
@@ -822,7 +1155,9 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
         }
         let base = elem.borrow().base_type.clone();
         match base {
-            ElementType::Native(n) if n.properties.get(p).is_some_and(|p| p.is_native_output()) => {
+            ElementType::Builtin(b)
+                if b.properties.get(p).is_some_and(|p| p.is_native_output()) =>
+            {
                 a.is_set = true;
             }
             ElementType::Component(c) => {
@@ -854,9 +1189,15 @@ fn lower_repeated_component(
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
         ListViewInfo {
-            viewport_y: ctx.map_property_reference(&lv.viewport_y),
-            viewport_height: ctx.map_property_reference(&lv.viewport_height),
-            viewport_width: ctx.map_property_reference(&lv.viewport_width),
+            content_y: ctx.map_property_reference(&lv.content_y),
+            content_height: lv
+                .content_height
+                .as_ref()
+                .map(|content_height| ctx.map_property_reference(content_height)),
+            content_width: lv
+                .content_width
+                .as_ref()
+                .map(|content_width| ctx.map_property_reference(content_width)),
             listview_height: ctx.map_property_reference(&lv.listview_height),
             listview_width: ctx.map_property_reference(&lv.listview_width),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
@@ -868,6 +1209,13 @@ fn lower_repeated_component(
     let container_item_index =
         parent_index.and_then(|pii| sub_component.items.position(|i| i.index_in_tree == pii));
 
+    let dynamic_z = match &e.z_order {
+        Some(object_tree::ZOrder::PerInstance(nr)) => {
+            Some(sc.mapping.map_property_reference(nr, ctx.state))
+        }
+        _ => None,
+    };
+
     let tree = make_tree(ctx.state, &component.root_element, &sc, &[]);
     let root = ctx.state.push_sub_component(sc);
     // Register the repeated component in the mapping so it can be looked up
@@ -878,6 +1226,7 @@ fn lower_repeated_component(
         sub_tree: ItemTree { tree, root },
         index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
         data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),
+        dynamic_z,
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
         container_item_index,
@@ -946,7 +1295,8 @@ fn lower_global(
                 ret_ty: function.return_type.clone(),
                 args: function.args.clone(),
                 // will be replaced later
-                code: super::Expression::CodeBlock(Vec::new()),
+                code: super::Expression::CodeBlock(Vec::new()).into(),
+                use_count: Default::default(),
             });
             state.global_properties.insert(
                 nr.clone(),
@@ -993,7 +1343,8 @@ fn lower_global(
         );
     }
 
-    let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
+    let is_builtin = if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
             let property_index = properties.push_and_get_key(Property {
@@ -1027,7 +1378,6 @@ fn lower_global(
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
         init_values: BTreeMap::new(),
-        animations: BTreeMap::new(),
         properties,
         callbacks,
         functions,
@@ -1053,38 +1403,30 @@ fn lower_global_expressions(
     let inner = ExpressionLoweringCtxInner { mapping: &mapping, parent: None, component: global };
     let mut ctx = ExpressionLoweringCtx { inner, state };
 
-    for (prop, binding) in &global.root_element.borrow().bindings {
+    for (prop, binding) in global.root_element.borrow().bindings_including_synthetic() {
         assert!(binding.borrow().two_way_bindings.is_empty());
+        assert!(binding.borrow().animation.is_none());
         let expression =
             super::lower_expression::lower_expression(&binding.borrow().expression, &mut ctx);
-        let animation = binding
-            .borrow()
-            .animation
-            .as_ref()
-            .map(|a| super::lower_expression::lower_animation(a, &mut ctx));
 
         let nr = NamedReference::new(&global.root_element, prop.clone());
         let member_index = match &ctx.state.global_properties[&nr] {
             MemberReference::Global {
                 member: LocalMemberIndex::Function(function_index), ..
             } => {
-                lowered.functions[*function_index].code = expression;
+                lowered.functions[*function_index].code.replace(expression);
                 continue;
             }
             MemberReference::Global { member, .. } => member.clone(),
             _ => unreachable!(),
         };
-        if let Some(Animation::Static(animation)) = animation.as_ref() {
-            lowered.animations.insert(member_index.clone(), animation.clone());
-        }
         let is_constant = binding.borrow().analysis.as_ref().is_some_and(|a| a.is_const);
         lowered.init_values.insert(
             member_index,
             BindingExpression {
                 expression: expression.into(),
-                animation,
-                is_constant,
-                is_state_info: false,
+                animation: None,
+                kind: if is_constant { BindingKind::Constant } else { BindingKind::Normal },
                 use_count: 0.into(),
             },
         );
@@ -1104,7 +1446,8 @@ fn lower_global_expressions(
         lowered.change_callbacks.insert(property_index, expression.into());
     }
 
-    if let Some(builtin) = global.root_element.borrow().native_class() {
+    if let Some(builtin) = global.root_element.borrow().builtin_type() {
+        let builtin = &builtin.native_class;
         if lowered.exported {
             lowered.public_properties = builtin
                 .properties
@@ -1114,12 +1457,15 @@ fn lower_global_expressions(
                         &NamedReference::new(&global.root_element, p.clone()),
                         state,
                     );
-                    PublicProperty {
-                        name: p.clone(),
-                        ty: c.ty.clone(),
-                        prop: property_reference,
-                        read_only: c.property_visibility == PropertyVisibility::Output,
-                    }
+                    (
+                        p.clone(),
+                        PublicProperty {
+                            display_name: p.clone(),
+                            ty: c.ty.clone(),
+                            prop: property_reference,
+                            visibility: c.property_visibility,
+                        },
+                    )
                 })
                 .collect()
         }
@@ -1137,6 +1483,58 @@ fn make_tree(
     let e = element.borrow();
     let children = e.children.iter().map(|c| make_tree(state, c, component, sub_component_path));
     let repeater_count = component.mapping.repeater_count;
+
+    let zero = || ZSource::Expression(super::Expression::NumberLiteral(0.).into());
+    let z_sort_order_property = if e.has_dynamic_z_order() {
+        use crate::object_tree::ZOrder;
+        let mut z_sources: Vec<ZSource> = Vec::with_capacity(e.children.len());
+        for child in e.children.iter() {
+            let child_z = child.borrow().z_order.clone();
+            match child_z {
+                Some(ZOrder::Constant(val)) => {
+                    z_sources.push(ZSource::Expression(
+                        super::Expression::NumberLiteral(val as f64).into(),
+                    ));
+                }
+                Some(ZOrder::PerInstance(_)) => z_sources.push(ZSource::RepeaterInstances),
+                Some(ZOrder::Dynamic(ref nr)) => {
+                    match component.mapping.map_property_reference(nr, state) {
+                        MemberReference::Relative { parent_level, local_reference } => {
+                            // The per-visit sort evaluates in this item tree's own context.
+                            debug_assert_eq!(
+                                parent_level, 0,
+                                "z reference resolved outside the item tree"
+                            );
+                            // Store the path from the tree root so that consumers don't
+                            // need the node's sub_component_path to resolve the reference.
+                            let mut full_path = sub_component_path.to_vec();
+                            full_path.extend_from_slice(&local_reference.sub_component_path);
+                            z_sources.push(ZSource::Expression(
+                                super::Expression::PropertyReference(
+                                    LocalMemberReference {
+                                        sub_component_path: full_path,
+                                        reference: local_reference.reference,
+                                    }
+                                    .into(),
+                                )
+                                .into(),
+                            ));
+                        }
+                        global @ MemberReference::Global { .. } => {
+                            z_sources.push(ZSource::Expression(
+                                super::Expression::PropertyReference(global).into(),
+                            ));
+                        }
+                    }
+                }
+                None => z_sources.push(zero()),
+            }
+        }
+        Some(z_sources)
+    } else {
+        None
+    };
+
     match component.mapping.element_mapping.get(&ByAddress(element.clone())).unwrap() {
         LoweredElement::SubComponent { sub_component_index } => {
             let sub_component = e.sub_component().unwrap();
@@ -1151,7 +1549,22 @@ fn make_tree(
                 state.sub_component(sub_component),
                 &new_sub_component_path,
             );
+            // The children are the sub-component's own plus the instantiating element's,
+            // and either side may z-sort, so merge the z sources, padding the other with 0.
+            let inner_count = tree_node.children.len();
             tree_node.children.extend(children);
+            if z_sort_order_property.is_some() || tree_node.z_sort_order_property.is_some() {
+                let mut merged = tree_node
+                    .z_sort_order_property
+                    .take()
+                    .unwrap_or_else(|| (0..inner_count).map(|_| zero()).collect());
+                let outer_count = tree_node.children.len() - inner_count;
+                merged.extend(
+                    z_sort_order_property
+                        .unwrap_or_else(|| (0..outer_count).map(|_| zero()).collect()),
+                );
+                tree_node.z_sort_order_property = Some(merged);
+            }
             tree_node.is_accessible |= !e.accessibility_props.0.is_empty();
             tree_node
         }
@@ -1160,18 +1573,21 @@ fn make_tree(
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Left(*item_index),
             children: children.collect(),
+            z_sort_order_property,
         },
         LoweredElement::Repeated { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(usize::from(*repeated_index) as u32),
             children: Vec::new(),
+            z_sort_order_property: None,
         },
         LoweredElement::ComponentPlaceholder { repeated_index } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: itertools::Either::Right(*repeated_index + repeater_count),
             children: Vec::new(),
+            z_sort_order_property: None,
         },
     }
 }
@@ -1192,12 +1608,62 @@ fn public_properties(
                 &NamedReference::new(&component.root_element, p.clone()),
                 state,
             );
-            PublicProperty {
-                name: p.clone(),
-                ty: c.property_type.clone(),
-                prop: property_reference,
-                read_only: c.visibility == PropertyVisibility::Output,
-            }
+            // Recover the source-form identifier from the declaration node
+            // (preserves dashes and the original casing). Fall back to the
+            // normalized key if no node is attached.
+            let display_name = c
+                .node
+                .as_ref()
+                .and_then(|n| {
+                    n.child_node(crate::parser::SyntaxKind::DeclaredIdentifier)
+                        .and_then(|n| n.child_token(crate::parser::SyntaxKind::Identifier))
+                })
+                .map(|tok| SmolStr::new(tok.text()))
+                .unwrap_or_else(|| c.declared_name(p).clone());
+            (
+                // A shadowing declaration is exposed under the name it was written with,
+                // not the internal name it is stored under
+                c.declared_name(p).clone(),
+                PublicProperty {
+                    display_name,
+                    ty: c.property_type.clone(),
+                    prop: property_reference,
+                    visibility: c.visibility,
+                },
+            )
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    /// The names of the properties of the lowered public component's root sub-component.
+    fn root_property_names(source: &str) -> Vec<String> {
+        let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node =
+            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+        let (doc, diag, _) =
+            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
+        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+        let unit = super::lower_to_item_tree(&doc, &config);
+        let root = unit.public_components.iter().next().unwrap().item_tree.root;
+        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+    }
+
+    #[test]
+    fn fixed_size_root_does_not_fold_children() {
+        let children = "Rectangle { for i in 5: Rectangle { min-width: 1px; height: 2px; } }";
+        let names = |size: &str| {
+            let names = root_property_names(&format!(
+                "export component Main inherits Window {{ {size} {children} }}"
+            ));
+            let has = |p: &str| names.iter().any(|n| n == p);
+            (has("root-1_layoutinfo-h"), has("root-1_layoutinfo-v"))
+        };
+        assert_eq!(names(""), (true, true));
+        assert_eq!(names("width: 300px; height: 300px;"), (false, false));
+        assert_eq!(names("width: 300px;"), (false, true));
+        assert_eq!(names("height: 300px;"), (true, false));
+    }
 }

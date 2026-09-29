@@ -80,7 +80,7 @@ export component StateLayer inherits TouchArea {
         enabled: root.enabled && root.focusable;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                  root.clicked();
                  return accept;
             }

@@ -205,19 +205,6 @@ impl OpenGLContext {
             ns_view.setLayerContentsPlacement(objc2_app_kit::NSViewLayerContentsPlacement::TopLeft);
         }
 
-        // Sanity check, as all this might succeed on Windows without working GL drivers, but this will fail:
-        if context
-            .display()
-            .get_proc_address(&std::ffi::CString::new("glCreateShader").unwrap())
-            .is_null()
-        {
-            return Err(
-                "Failed to initialize OpenGL driver: Could not locate glCreateShader symbol"
-                    .to_string()
-                    .into(),
-            );
-        }
-
         // Try to default to vsync and ignore if the driver doesn't support it.
         surface
             .set_swap_interval(

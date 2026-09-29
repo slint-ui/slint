@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore fifi
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+
+// Same `fi` ligature cut as `text-selection-ligature`, but with the input on a fractional device
+// pixel. The boundary is snapped to a whole pixel once, where it is computed, and the highlight
+// rectangle and the glyph clip are both built from that one value -- yet they still have to agree
+// after the renderer adds the item's own offset. Quantizing the two differently there (rounding the
+// clip, truncating the rectangle) left a one pixel column of unselected glyph sitting on top of the
+// highlight, which is the artifact the clipping approach exists to remove.
+//
+// Qt and Skia pixel-align the origin before drawing a text input, and femtovg never quantizes
+// either edge, so only the software renderer can show this.
+TestCase := Window {
+    width: 64px;
+    height: 40px;
+
+    // The `i` half is selected, so the highlight's leading edge is the cut through the ligature:
+    // the `f` half must stay black right up to it, without a black column on the highlight.
+    TextInput {
+        x: 0.5px;
+        y: 0;
+        width: 60px;
+        height: 40px;
+        text: "fi";
+        font-size: 28px;
+        color: black;
+        selection-background-color: #c8c8c8;
+        selection-foreground-color: red;
+        anchor-position-byte-offset: 1;
+        cursor-position-byte-offset: 2;
+    }
+}

@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The `@deprecated` message goes through the string unescaping, so escape sequences and
+// non-ASCII characters reach the warning as written.
+
+component Inner {
+    @deprecated("Line one\nLine two") in-out property <int> newline;
+    @deprecated("Use \u{2018}new-prop\u{2019} \u{1F600}") in-out property <int> unicode-escape;
+    @deprecated("emoji 🎉 and a quote \"q\"") in-out property <int> literal-emoji;
+    @deprecated("bad escape \q") in-out property <int> invalid;
+//                          ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+}
+
+export component Test {
+    inner := Inner { }
+    out property <int> a: inner.newline;
+//                              >     <warning{The property 'newline' has been deprecated: Line one↵Line two}
+    out property <int> b: inner.unicode-escape;
+//                              >            <warning{The property 'unicode-escape' has been deprecated: Use ‘new-prop’ 😀}
+    out property <int> c: inner.literal-emoji;
+//                              >           <warning{The property 'literal-emoji' has been deprecated: emoji 🎉 and a quote "q"}
+    out property <int> d: inner.invalid;
+}

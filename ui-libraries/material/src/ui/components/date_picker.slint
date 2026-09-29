@@ -203,15 +203,15 @@ component YearSelection {
 
     property <length> row_height: root.height / root.visible_row_count;
     property <int> row_count: root.model.length / root.column_count;
-    property <length> viewport_height: root.row_count * root.row_height;
+    property <length> content_height: root.row_count * root.row_height;
     property <length> start_x: root.width / (root.column_count + 1);
     property <length> start_y: root.height / (root.visible_row_count + 1);
 
     ScrollView {
         width: 100%;
         height: 100%;
-        viewport_width: root.width;
-        viewport_height: root.viewport_height;
+        content_width: root.width;
+        content_height: root.content_height;
 
         for year[index] in root.model: CalendarDelegate {
             x: root.delegate_center_x(index) - self.width / 2;

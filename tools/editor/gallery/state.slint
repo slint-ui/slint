@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
+import { FillSession } from "../ui/components/inspector/index.slint";
+
+export enum GalleryPage {
+    foundations,
+    controls,
+    inspector-controls,
+    palette,
+    picker,
+    outline,
+}
+
+export global Gallery {
+    out property <[GalleryPage]> pages: [
+        GalleryPage.foundations,
+        GalleryPage.controls,
+        GalleryPage.inspector-controls,
+        GalleryPage.palette,
+        GalleryPage.picker,
+        GalleryPage.outline,
+    ];
+    in-out property <GalleryPage> page: GalleryPage.inspector-controls;
+    in-out property <int> scenario-index;
+    out property <string> title: page-title(page);
+    out property <string> description: page-description(page);
+    out property <[string]> scenarios: page-scenarios(page);
+    out property <string> scenario: scenarios[scenario-index];
+    in-out property <int> reset-generation;
+    in-out property <FillData> fill;
+    in-out property <float> preview-width;
+    in-out property <float> preview-height;
+    in-out property <float> panel-width: 260;
+    in-out property <string> input-text;
+    in-out property <string> sample-text: "Hello Slint";
+    in-out property <float> number: 24;
+    in-out property <float> slider: 24;
+    in-out property <float> rotation: 24;
+    in-out property <int> segment;
+
+    public pure function page-title(page: GalleryPage) -> string {
+        if page == GalleryPage.foundations { return "Theme and typography"; }
+        if page == GalleryPage.controls { return "Basic controls"; }
+        if page == GalleryPage.inspector-controls { return "Inspector controls"; }
+        if page == GalleryPage.palette { return "Element palette"; }
+        if page == GalleryPage.picker { return "Color and gradients"; }
+        return "Outline";
+    }
+    public pure function page-description(page: GalleryPage) -> string {
+        if page == GalleryPage.foundations { return "Semantic colors, type, spacing, radii, and icons."; }
+        if page == GalleryPage.controls { return "Inputs, buttons, segments, and a resize divider."; }
+        if page == GalleryPage.inspector-controls { return "Independent sample values for fields, the slider, and compound controls."; }
+        if page == GalleryPage.palette { return "Search and expand element groups."; }
+        if page == GalleryPage.picker { return "Edit a sample swatch with the production color and gradient picker."; }
+        return "Select and expand sample rows.";
+    }
+    public pure function page-scenarios(page: GalleryPage) -> [string] {
+        if page == GalleryPage.palette { return ["Default", "Unavailable"]; }
+        if page == GalleryPage.picker { return ["Default", "Transparent", "Linear", "Radial", "Conic", "Unsupported"]; }
+        if page == GalleryPage.outline { return ["Default", "Collapsed", "Long names", "Empty", "Unavailable"]; }
+        return ["Default"];
+    }
+    pure function row(label: string, kind: ElementKind, type: string, offset: int, expanded: bool) -> OutlineTreeNode {
+        return {
+            element-id: scenario == "Long names" ? label + "-with-a-long-component-name" : label,
+            icon-kind: kind, element-type: type, offset: offset, uri: "gallery",
+            indent-level: offset == 0 ? 0 : 1, has-children: offset == 0,
+            is-expanded: expanded, is-last-child: offset == 3,
+        };
+    }
+    function set-outline(expanded: bool) {
+        let main = row("Main", ElementKind.component, "Component", 0, expanded);
+        Api.outline = scenario == "Empty" ? [] : expanded ? [main,
+            row("card", ElementKind.rectangle, "Rectangle", 1, false),
+            row("title", ElementKind.text, "Text", 2, false),
+            row("artwork", ElementKind.image, "Image", 3, false),
+        ] : [main];
+    }
+    public function navigate(page: GalleryPage, scenario: int) {
+        FillSession.close-picker(false, false);
+        Gallery.page = page;
+        Gallery.scenario-index = scenario;
+        Gallery.reset-generation += 1;
+        Api.editor-surface-mode = Gallery.scenario == "Unavailable" ? EditorSurfaceMode.image : EditorSurfaceMode.component;
+        Api.current-element = { source-uri: "gallery" };
+        Api.recent-fills = [];
+        set-outline(Gallery.scenario != "Collapsed");
+        Gallery.fill = {
+            kind: Gallery.scenario == "Linear" ? BrushKind.linear : Gallery.scenario == "Radial" ? BrushKind.radial : Gallery.scenario == "Conic" ? BrushKind.conic : BrushKind.solid,
+            color: Gallery.scenario == "Transparent" ? #5c69e150 : #5c69e1,
+            angle: 120, stops: [{ color: #5c69e1, position: 0 }, { color: #ee86ac, position: 1 }],
+        };
+    }
+    public function open-picker(anchor: Point) {
+        FillSession.begin({
+            fill: fill, expression: Api.fill-expression(fill),
+            target: {
+                key: "sample", property-name: "background", size: { width: 240px, height: 160px },
+                session-key: "gallery:0:" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":background",
+            },
+            unsupported: scenario == "Unsupported", allow-gradient: true,
+            anchor-position: anchor, anchor-width: 24px,
+        });
+    }
+    callback fill-preview <=> Api.inspector-fill-preview;
+    fill-preview(key, name, value) => { return true; }
+    callback fill-commit <=> Api.inspector-fill-commit;
+    fill-commit(key, name, value) => { Gallery.fill = value; return true; }
+    callback select-row <=> Api.outline-select-element;
+    select-row(uri, offset, notify) => {
+        Api.current-element = { source-uri: uri, offset: offset };
+    }
+    callback expand-row <=> Api.outline-set-expanded;
+    expand-row(row, expanded) => { set-outline(expanded); }
+}

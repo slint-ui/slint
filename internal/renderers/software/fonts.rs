@@ -84,6 +84,28 @@ pub enum Font {
     VectorFont(vectorfont::VectorFont),
 }
 
+/// Runs `$body` with `$bound` bound to the concrete font held by `$font`.
+///
+/// The bitmap and vector paths through the text code are the same code; they need two
+/// match arms only because `PixelFont` and `VectorFont` are distinct types. The body is
+/// monomorphized per variant, the way a generic function would be, so that it can be
+/// written once.
+///
+/// Keep only font-dependent work in the body: it is emitted once per variant.
+///
+/// Callers that hand off to parley for vector fonts must do so before calling this, as
+/// `sharedparley::` needs the font context rather than a laid-out font.
+macro_rules! with_font {
+    ($font:expr, |$bound:ident| $body:block) => {
+        match $font {
+            $crate::fonts::Font::PixelFont($bound) => $body,
+            #[cfg(feature = "systemfonts")]
+            $crate::fonts::Font::VectorFont($bound) => $body,
+        }
+    };
+}
+pub(crate) use with_font;
+
 /// Returns the size of the pre-rendered font in pixels.
 pub fn pixel_size(glyphs: &i_slint_core::graphics::BitmapGlyphs) -> PhysicalLength {
     PhysicalLength::new(glyphs.pixel_size)
@@ -91,43 +113,23 @@ pub fn pixel_size(glyphs: &i_slint_core::graphics::BitmapGlyphs) -> PhysicalLeng
 
 impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for Font {
     fn ascent(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.ascent(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.ascent(),
-        }
+        with_font!(self, |font| { font.ascent() })
     }
 
     fn height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.height(),
-        }
+        with_font!(self, |font| { font.height() })
     }
 
     fn descent(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.descent(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.descent(),
-        }
+        with_font!(self, |font| { font.descent() })
     }
 
     fn x_height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.x_height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.x_height(),
-        }
+        with_font!(self, |font| { font.x_height() })
     }
 
     fn cap_height(&self) -> PhysicalLength {
-        match self {
-            Font::PixelFont(pixel_font) => pixel_font.cap_height(),
-            #[cfg(feature = "systemfonts")]
-            Font::VectorFont(vector_font) => vector_font.cap_height(),
-        }
+        with_font!(self, |font| { font.cap_height() })
     }
 }
 
@@ -222,10 +224,83 @@ where
 {
     let letter_spacing =
         font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
+    let line_height = font_request.line_height_for_natural_height(font.height().get() as f32).map(
+        |line_height| PhysicalLength::new(num_traits::Float::round(line_height).max(0.) as i16),
+    );
 
-    TextLayout { font, letter_spacing }
+    TextLayout { font, letter_spacing, line_height }
 }
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     BITMAP_FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_core::lengths::LogicalLength;
+    use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
+
+    struct TestFont;
+
+    impl FontMetrics<PhysicalLength> for TestFont {
+        fn ascent(&self) -> PhysicalLength {
+            PhysicalLength::new(18)
+        }
+
+        fn descent(&self) -> PhysicalLength {
+            PhysicalLength::new(-6)
+        }
+
+        fn x_height(&self) -> PhysicalLength {
+            PhysicalLength::new(10)
+        }
+
+        fn cap_height(&self) -> PhysicalLength {
+            PhysicalLength::new(14)
+        }
+    }
+
+    impl TextShaper for TestFont {
+        type LengthPrimitive = i16;
+        type Length = PhysicalLength;
+
+        fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
+            &self,
+            _text: &str,
+            _glyphs: &mut GlyphStorage,
+        ) {
+        }
+
+        fn glyph_for_char(&self, _ch: char) -> Option<Glyph<Self::Length>> {
+            None
+        }
+    }
+
+    #[test]
+    fn line_height_factor_scales_natural_height() {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(20.)),
+            line_height_factor: Some(1.5),
+            ..Default::default()
+        };
+
+        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+
+        assert_eq!(TestFont.height(), PhysicalLength::new(24));
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(36)));
+    }
+
+    #[test]
+    fn line_height_factor_zero_collapses_lines() {
+        let font_request = FontRequest {
+            pixel_size: Some(LogicalLength::new(20.)),
+            line_height_factor: Some(0.),
+            ..Default::default()
+        };
+
+        let layout = text_layout_for_font(&TestFont, &font_request, ScaleFactor::new(1.));
+
+        assert_eq!(layout.line_height, Some(PhysicalLength::new(0)));
+    }
 }

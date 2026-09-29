@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression: `absolute-position` of elements when a `Transform` wrapper is involved.
+// A `transform-rotation` binding makes `lower_transform_properties` inject a `Transform`
+// wrapper element around the element (via `adjust_geometry_for_injected_parent`). With zero
+// rotation (and unit scale) that transform is the identity, so no absolute position must
+// change compared to the same tree without the transform.
+//
+// Two distinct bugs are exercised:
+//
+// 1. Self offset double-counted. The wrapper takes over the element's geometry and the
+//    element's own origin is redirected to a 0 `dummy`, but the `absolute-position` binding
+//    still added the element's raw `x`/`y` on top of `map_to_window` (which already includes
+//    the wrapper's position), counting the offset twice -> (70, 100) instead of (40, 60).
+//
+// 2. Centered component root double-counted. When a *component instance* carries the transform
+//    and its size is set but its position is implicit (so `default_geometry` centers it), the
+//    component root's own `absolute-position` counts the centered offset twice: once through
+//    `map_to_window` (the wrapper is placed at the centered position) and once through the
+//    origin the `absolute-position` binding adds. The children of that root are unaffected.
+component CenteredRoot {
+    // `root.absolute-position` of the component root itself.
+    out property <length> root-abs-x: root.absolute-position.x;
+    inner := Rectangle { x: 42phx; }
+    // ... and of a child, which must stay consistent with the root.
+    out property <length> inner-abs-x: inner.absolute-position.x;
+}
+
+export component TestCase {
+    width: 500phx;
+    height: 500phx;
+
+    // Case 1: the transformed element's own x/y must not be double-counted.
+    Rectangle {
+        x: 10phx;
+        y: 20phx;
+
+        simple-inner := Rectangle {
+            x: 30phx;
+            y: 40phx;
+            transform-rotation: 0deg;
+        }
+    }
+
+    // Case 2: a centered component instance carrying a transform. Width is 250 with no
+    // explicit x, so the instance is centered at (500 - 250) / 2 = 125. Its root's
+    // absolute-position must be 125 (not 125 + 250/2), and its child at 125 + 42 = 167.
+    centered := CenteredRoot { width: 250phx; height: 100phx; transform-rotation: 0deg; }
+
+    out property <Point> coords <=> simple-inner.absolute-position;
+
+    out property <bool> simple-ok: simple-inner.absolute-position.x == 40phx
+        && simple-inner.absolute-position.y == 60phx;
+    out property <bool> centered-root-ok: centered.root-abs-x == 125phx;
+    out property <bool> centered-inner-ok: centered.inner-abs-x == 167phx;
+
+    out property <bool> test: simple-ok && centered-root-ok && centered-inner-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let pos: slint::LogicalPosition = instance.get_coords();
+assert_eq!(pos.x, 40.);
+assert_eq!(pos.y, 60.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+slint::LogicalPosition pos = instance.get_coords();
+assert_eq(pos.x, 40);
+assert_eq(pos.y, 60);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test, 1);
+assert.deepEqual(instance.coords, { x: 40, y: 60});
+```
+
+*/

@@ -1,0 +1,24 @@
+{
+    "schemaVersion": 8,
+    "selection": {
+        "nodeId": "authored:glyph",
+        "nodeName": "Authored glyph"
+    },
+    "root": {
+        "kind": "svg",
+        "id": "authored:glyph",
+        "name": "Authored glyph",
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 24,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutPositioning": "auto",
+        "layoutSizingHorizontal": "fill",
+        "layoutSizingVertical": "fixed",
+        "sourceType": "TEXT",
+        "svg": "<svg width=\"24\" height=\"24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M4 4H10V14H20V20H4Z\" fill=\"white\"/></svg>"
+    }
+}

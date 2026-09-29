@@ -15,7 +15,7 @@ edition = "2024"
 
 [package]
 name = "uefi-demo"
-version = "1.18.0"
+version = "1.19.0"
 edition.workspace = true
 license = "MIT"
 build = "build.rs"

@@ -1,0 +1,41 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The shape reported in slint-ui/slint#13275, with the window size it had there.
+// The analysis must not report a loop through the Image's width here: unlike
+// `flexbox_conditional_nested_auto_size`, no loop can pass through the window's
+// layout, so one would be an error rather than a deprecation warning.
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    fl := FlexboxLayout {
+        if true: Rectangle {
+            width: 40px;
+            FlexboxLayout {
+                flex-direction: column;
+                padding: 8px;
+                Image { height: 24px; preferred-width: 24px; }
+            }
+        }
+        anchor := Rectangle { width: 5px; height: 5px; }
+    }
+    out property <bool> test: anchor.x == 40px && fl.preferred-height == 40px && fl.preferred-width == 45px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

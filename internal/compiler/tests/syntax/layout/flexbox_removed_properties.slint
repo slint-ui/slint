@@ -1,0 +1,21 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The per-item flex-grow/flex-shrink/flex-basis properties were replaced by
+// concepts the box layouts already use: the `*-stretch` factors (with
+// `alignment: stretch` on the container), `min-*`/`max-*`, and `preferred-*`.
+// They no longer exist at all.
+
+export component X inherits Rectangle {
+
+    FlexboxLayout {
+        Text {
+            flex-grow: 1;
+//          >       <error{Unknown property flex-grow in Text}
+            flex-shrink: 2;
+//          >         <error{Unknown property flex-shrink in Text}
+            flex-basis: 100px;
+//          >        <error{Unknown property flex-basis in Text}
+        }
+    }
+}

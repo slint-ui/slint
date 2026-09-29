@@ -338,6 +338,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::Image => QAccessible_Role_Graphic,
                     i_slint_core::items::AccessibleRole::RadioButton => QAccessible_Role_RadioButton,
                     i_slint_core::items::AccessibleRole::RadioGroup => QAccessible_Role_Grouping,
+                    i_slint_core::items::AccessibleRole::WindowTitleBar => QAccessible_Role_TitleBar,
                     i_slint_core::items::AccessibleRole::Banner => QAccessible_Role_Section,
                     i_slint_core::items::AccessibleRole::Complementary => QAccessible_Role_ComplementaryContent,
                     i_slint_core::items::AccessibleRole::ContentInfo => QAccessible_Role_Footer,

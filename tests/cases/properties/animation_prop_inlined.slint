@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `Animated` accepts `@children`, so instantiating it with a child element
+// forces the instances to be inlined even in the default codegen path. After
+// inlining, `delay` is read only by the (standalone) `x` animation, whose
+// triggering assignment lives in `animate()`. The animation must keep `delay`
+// alive; two instances stop it being folded into a single reader.
+component Animated {
+    in property <duration> delay;
+    out property <length> xpos: r.x;
+    public function animate() { r.x += 500px; }
+    r := Rectangle {
+        x: 0px;
+        animate x { duration: 200ms; delay: delay; }
+        @children
+    }
+}
+
+export component TestCase {
+    in property <int> value: 100;
+    out property <length> a-x: a.xpos;
+    public function do-animate() { a.animate(); }
+    HorizontalLayout {
+        a := Animated { delay: value * 1ms; Rectangle {} }
+        Animated { delay: value * 1ms; Rectangle {} }
+    }
+    out property <bool> test: a-x == 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_a_x(), 0.);
+instance.invoke_do_animate();
+// Still within the delay (value = 100ms): x has not started moving.
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_a_x(), 0.);
+// Past delay + duration: x reached its target.
+slint_testing::mock_elapsed_time(100 + 200);
+assert_eq!(instance.get_a_x(), 500.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_a_x(), 0.);
+instance.invoke_do_animate();
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_a_x(), 0.);
+slint_testing::mock_elapsed_time(100 + 200);
+assert_eq(instance.get_a_x(), 500.);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.a_x, 0);
+instance.do_animate();
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.a_x, 0);
+slintlib.private_api.mock_elapsed_time(100 + 200);
+assert.equal(instance.a_x, 500);
+```
+*/

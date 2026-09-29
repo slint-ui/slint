@@ -5,7 +5,7 @@ export component Foo {
     in-out property <bool> foo: false;
     match foo {
         true Rectangle { }
-//           >       <error{Expected ':' after match case expression}
+//           >       <error{Expected ':' after match case}
     }
 }
 
@@ -14,7 +14,7 @@ export component Bar {
     match foo {
         true: Rectangle { }
         false Rectangle { }
-//            >       <error{Expected ':' after match case expression}
+//            >       <error{Expected ':' after match case}
     }
 }
 
@@ -34,7 +34,7 @@ export component Qux {
 
     match foo {
         1 => Rectangle { }
-//        ><error{Expected ':' after match case expression}
+//        ><error{Expected ':' after match case}
     }
 }
 

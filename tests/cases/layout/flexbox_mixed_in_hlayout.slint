@@ -1,11 +1,11 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Regression test: a width-for-height child (column FlexboxLayout) next to a
-// height-for-width child (wrapped Text) in the same HorizontalLayout used to
-// panic with "Recursion detected ... layoutinfo-h" in the interpreter. The
-// column flex's width-info read self.height, which depends back on the vertical
-// pass (the text's height-for-width). The layout must resolve instead.
+// Regression test: a column FlexboxLayout next to a height-for-width child
+// (wrapped Text) in the same HorizontalLayout used to panic with "Recursion
+// detected ... layoutinfo-h" in the interpreter. The column flex's width-info
+// read self.height, which depends back on the vertical pass (the text's
+// height-for-width). The layout must resolve instead.
 
 import { Button } from "std-widgets.slint";
 export component TestCase inherits Window {
@@ -17,7 +17,7 @@ export component TestCase inherits Window {
         spacing: 10px;
         padding: 10px;
 
-        flex := FlexboxLayout {       // width-for-height (column)
+        flex := FlexboxLayout {
             flex-direction: column;
             spacing: 4px;
             Button { text: "A"; }

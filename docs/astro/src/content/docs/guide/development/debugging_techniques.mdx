@@ -43,7 +43,7 @@ To inspect the animations in your application, set the `SLINT_SLOW_ANIMATIONS` e
 
 The use of logical pixel lengths throughout `.slint` files lets Slint compute the number of physical pixels, dynamically, depending on the device-pixel ratio of the screen. To get an impression of how the individual elements look like when rendered on a screen with a different device-pixel ratio, set the `SLINT_SCALE_FACTOR` environment variable before running the program. This variable accepts a floating pointer number that is used to convert logical pixel lengths to physical pixel lengths. For example, `SLINT_SCALE_FACTOR=2` renders the user interface in a way where every logical pixel has twice the width and height.
 
-_Note_: Currently, only the FemtoVG and Skia renderers support this environment variable.
+_Note_: This override is applied at the backend level, independently of the renderer. It is honored by the winit and linuxkms backends.
 
 ## Debugging for Performance Improvements
 

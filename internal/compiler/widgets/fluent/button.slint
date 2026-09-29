@@ -31,7 +31,11 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
+    accessible-action-default => {
+        if (root.enabled) {
+            i-touch-area.clicked();
+        }
+    }
 
     states [
         disabled when !root.enabled : {
@@ -80,6 +84,7 @@ export component Button {
                 width: root.icon-size;
                 min-height: root.icon-size;
                 colorize: root.colorize-icon ? root.text-color : transparent;
+                accessible-role: none;
             }
 
             if (root.text != ""): Text {
@@ -108,7 +113,7 @@ export component Button {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 i-touch-area.clicked();
                  return accept;
             }

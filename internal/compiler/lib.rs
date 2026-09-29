@@ -17,10 +17,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+mod builtin_elements;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
-pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
@@ -30,7 +30,6 @@ pub mod layout;
 pub mod lexer;
 pub mod literals;
 pub mod llr;
-pub(crate) mod load_builtins;
 pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
@@ -159,6 +158,12 @@ pub struct CompilerConfiguration {
     /// It will also be set as a const scale factor on the `slint::Window`.
     pub const_scale_factor: Option<f32>,
 
+    /// Whether image sizes are known when a compiled component is instantiated.
+    /// This is false when the generated code may run on the web, where the browser
+    /// decodes images asynchronously and the size updates once an image is loaded,
+    /// so that expressions using an image size stay in bindings.
+    pub const_image_sizes: bool,
+
     /// expose the accessible role and properties
     pub accessibility: bool,
 
@@ -169,7 +174,7 @@ pub struct CompilerConfiguration {
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
-    pub translation_path_bundle: Option<std::path::PathBuf>,
+    pub bundled_translations_path: Option<std::path::PathBuf>,
     /// Default translation context
     pub default_translation_context: DefaultTranslationContext,
 
@@ -185,6 +190,11 @@ pub struct CompilerConfiguration {
 
     /// Generate debug information for elements (ids, type names)
     pub debug_info: bool,
+
+    /// Write, next to the generated code, the map of its coverage points of
+    /// the `.slint` source, for `slint-sc-coverage`. Only the Slint SC
+    /// generator honors it, and only when writing to a file.
+    pub coverage: bool,
 
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
@@ -202,9 +212,27 @@ pub struct CompilerConfiguration {
     /// safety-critical subset.
     #[cfg(feature = "slint-sc")]
     pub(crate) slint_sc: bool,
+
+    /// Set by tools such as `slint-viewer`, the LSP (editor diagnostics/preview), and the
+    /// live-reload runtime to indicate that the `.slint` file is being previewed rather than
+    /// driven by real host application logic.
+    pub is_preview: bool,
 }
 
 impl CompilerConfiguration {
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn absolute_bundled_translations_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.bundled_translations_path.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
@@ -242,10 +270,25 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter,
         };
 
+        // The Slint SC generator flattens the exported component's element
+        // tree, so user-defined components must be inlined away. This
+        // overrides a SLINT_INLINING=false env override.
+        #[cfg(feature = "slint-sc")]
+        let inline_all_elements =
+            inline_all_elements || matches!(output_format, OutputFormat::SlintSc);
+
         let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f32>().ok())
             .filter(|f| *f > 0.);
+
+        let const_image_sizes = match std::env::var("CARGO_CFG_TARGET_FAMILY") {
+            // Set by cargo when running in a build script (slint-build): the target is known.
+            Ok(target_family) => !target_family.split(',').any(|f| f == "wasm"),
+            // The target is unknown (slint! macro, C++). The interpreter compiles for the
+            // architecture it runs on; otherwise assume the code may run on the web.
+            Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
+        };
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
@@ -274,6 +317,7 @@ impl CompilerConfiguration {
             resource_url_mapper: None,
             inline_all_elements,
             const_scale_factor,
+            const_image_sizes,
             accessibility: true,
             enable_experimental,
             translation_domain: None,
@@ -282,18 +326,20 @@ impl CompilerConfiguration {
             cpp_namespace,
             error_on_binding_loop_with_window_layout: false,
             debug_info,
+            coverage: false,
             debug_hooks: None,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
-            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+            bundled_translations_path: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
+            is_preview: false,
         }
     }
 }
@@ -343,6 +389,7 @@ pub async fn compile_syntax_node(
         &mut diagnostics,
         &type_registry,
         ignore_missing_font_files,
+        &loader.symbol_counters,
     );
 
     if !diagnostics.has_errors() {
@@ -398,4 +445,22 @@ pub async fn load_root_file_with_raw_type_loader(
         loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
 
     (path, diagnostics, loader, raw_type_loader)
+}
+
+/// Returns true and emits an error if experimental features should be disabled.
+///
+/// Some experimental features are used internally which is why this function also checks
+/// `TypeRegister::expose_internal_types`.
+fn reject_experimental_feature(
+    diagnostics: &mut diagnostics::BuildDiagnostics,
+    type_register: &typeregister::TypeRegister,
+    feature: &str,
+    source: &dyn diagnostics::Spanned,
+) -> bool {
+    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
+        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
+        true
+    } else {
+        false
+    }
 }

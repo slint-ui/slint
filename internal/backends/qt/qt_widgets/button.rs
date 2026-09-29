@@ -4,7 +4,9 @@
 // cSpell: ignore qstyle unshade
 
 use super::*;
+use i_slint_core::cursor::MouseCursorInner;
 use i_slint_core::graphics::euclid;
+use i_slint_core::input::key_codes;
 
 #[allow(nonstandard_style)]
 #[allow(unused)]
@@ -261,7 +263,7 @@ impl Item for NativeButton {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
@@ -272,7 +274,7 @@ impl Item for NativeButton {
         event: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
@@ -332,14 +334,20 @@ impl Item for NativeButton {
     ) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed
-                if event.key_event.text == " " || event.key_event.text == "\n" =>
+                if matches!(
+                    event.key_event.text.chars().next(),
+                    Some(key_codes::Space | key_codes::Return)
+                ) =>
             {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(true);
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
             KeyEventType::KeyReleased
-                if event.key_event.text == " " || event.key_event.text == "\n" =>
+                if matches!(
+                    event.key_event.text.chars().next(),
+                    Some(key_codes::Space | key_codes::Return)
+                ) =>
             {
                 self.activate();
                 KeyEventResult::EventAccepted

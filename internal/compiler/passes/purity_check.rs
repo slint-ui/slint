@@ -3,8 +3,9 @@
 
 use std::collections::HashSet;
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::langtype::PropertyLookupMode;
 
 /// Check that pure expression only call pure functions
 pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnostics) {
@@ -14,20 +15,21 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
             &(),
             &mut |elem, &()| {
                 let level = match elem.borrow().is_legacy_syntax {
-                    true => crate::diagnostics::DiagnosticLevel::Warning,
-                    false => crate::diagnostics::DiagnosticLevel::Error,
+                    true => DiagnosticLevel::Warning,
+                    false => DiagnosticLevel::Error,
                 };
                 crate::object_tree::visit_element_expressions(elem, |expr, name, _| {
                     if let Some(name) = name {
-                        let lookup = elem.borrow().lookup_property(name);
+                        let lookup =
+                            elem.borrow().lookup_property(name, PropertyLookupMode::InternalName);
                         if lookup.declared_pure.unwrap_or(false)
                             || lookup.property_type.is_property_type()
                         {
-                            ensure_pure(expr, Some(diag), level, &mut Default::default());
+                            ensure_pure(expr, Some((diag, level)), &mut Default::default());
                         }
                     } else {
                         // model expression must be pure
-                        ensure_pure(expr, Some(diag), level, &mut Default::default());
+                        ensure_pure(expr, Some((diag, level)), &mut Default::default());
                     };
                 })
             },
@@ -35,85 +37,87 @@ pub fn purity_check(doc: &crate::object_tree::Document, diag: &mut BuildDiagnost
     }
 }
 
+/// Whether evaluating `expr` has no side effect: it assigns no property and calls nothing impure.
+/// A `pure` declaration is taken at face value, which the legacy syntax only warns about.
+pub(super) fn is_pure(expr: &Expression) -> bool {
+    ensure_pure(expr, None, &mut Default::default())
+}
+
 fn ensure_pure(
     expr: &Expression,
-    mut diag: Option<&mut BuildDiagnostics>,
-    level: crate::diagnostics::DiagnosticLevel,
+    mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
     recursion_test: &mut HashSet<NamedReference>,
 ) -> bool {
     let mut r = true;
     expr.visit_recursive(&mut |e| match e {
         Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. }
-            if !nr.element().borrow().lookup_property(nr.name()).declared_pure.unwrap_or(false) =>
+            if !nr
+                .element()
+                .borrow()
+                .lookup_property(nr.name(), PropertyLookupMode::InternalName)
+                .declared_pure
+                .unwrap_or(false) =>
         {
-            if let Some(diag) = diag.as_deref_mut() {
+            if let Some((diag, level)) = diag.as_mut() {
                 diag.push_diagnostic(
-                    format!("Call of impure callback '{}'", nr.name()),
+                    format!("Call of impure callback '{}'", nr.declared_name()),
                     source_location,
-                    level,
+                    *level,
                 );
             }
             r = false;
         }
-        Expression::FunctionCall { function: Callable::Function(nr), source_location, .. } => {
-            match nr.element().borrow().lookup_property(nr.name()).declared_pure {
-                Some(true) => (),
-                Some(false) => {
-                    if let Some(diag) = diag.as_deref_mut() {
-                        diag.push_diagnostic(
-                            format!("Call of impure function '{}'", nr.name(),),
-                            source_location,
-                            level,
-                        );
-                    }
-                    r = false;
-                }
-                None => {
-                    if recursion_test.insert(nr.clone()) {
-                        match nr.element().borrow().bindings.get(nr.name()) {
-                            None => {
-                                debug_assert!(
-                                    diag.as_ref().is_none_or(|d| d.has_errors()),
-                                    "private functions must be local and defined"
-                                );
-                            }
-                            Some(binding) => {
-                                if !ensure_pure(
-                                    &binding.borrow().expression,
-                                    None,
-                                    level,
-                                    recursion_test,
-                                ) {
-                                    if let Some(diag) = diag.as_deref_mut() {
-                                        diag.push_diagnostic(
-                                            format!("Call of impure function '{}'", nr.name()),
-                                            source_location,
-                                            level,
-                                        );
-                                    }
-                                    r = false;
-                                }
-                            }
-                        }
-                    }
-                }
+        Expression::FunctionCall { function: Callable::Function(nr), source_location, .. }
+            if !function_is_pure(nr, recursion_test) =>
+        {
+            if let Some((diag, level)) = diag.as_mut() {
+                diag.push_diagnostic(
+                    format!("Call of impure function '{}'", nr.declared_name()),
+                    source_location,
+                    *level,
+                );
             }
+            r = false;
         }
         Expression::FunctionCall { function: Callable::Builtin(func), source_location, .. }
             if !func.is_pure() =>
         {
-            if let Some(diag) = diag.as_deref_mut() {
-                diag.push_diagnostic("Call of impure function".into(), source_location, level);
+            if let Some((diag, level)) = diag.as_mut() {
+                diag.push_diagnostic("Call of impure function".into(), source_location, *level);
             }
             r = false;
         }
         Expression::SelfAssignment { node, .. } => {
-            if let Some(diag) = diag.as_deref_mut() {
-                diag.push_diagnostic("Assignment in a pure context".into(), node, level);
+            if let Some((diag, level)) = diag.as_mut() {
+                diag.push_diagnostic("Assignment in a pure context".into(), node, *level);
             }
             r = false;
         }
         _ => (),
     });
     r
+}
+
+/// Whether calling the function `nr` is pure.
+/// A private function carries no declaration, so it is judged by its body.
+fn function_is_pure(nr: &NamedReference, recursion_test: &mut HashSet<NamedReference>) -> bool {
+    let element = nr.element();
+    let element = element.borrow();
+    if let Some(declared) =
+        element.lookup_property(nr.name(), PropertyLookupMode::InternalName).declared_pure
+    {
+        return declared;
+    }
+    // A function already under inspection is a cycle, reported as a binding loop elsewhere.
+    if !recursion_test.insert(nr.clone()) {
+        return true;
+    }
+    match element.binding_cell_including_synthetic(nr.name()).map(|body| body.try_borrow()) {
+        Some(Ok(body)) => ensure_pure(&body.expression, None, recursion_test),
+        // The expression visitor holds a mutable borrow on the body it is visiting, and that
+        // function isn't in `recursion_test`. A failed borrow is a call back into it: a cycle too.
+        Some(Err(_)) => true,
+        // Only reached for a lookup that already failed with an error.
+        None => true,
+    }
 }

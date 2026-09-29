@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A compound assignment (`+=`, `-=`, `*=`, `/=`) to an animated property runs
+// the animation, the same as a plain assignment. This must behave the same
+// across all generators. Values are chosen so each linear midpoint is an integer.
+export component TestCase inherits Window {
+    property <int> added: 8;
+    property <int> subbed: 108;
+    property <int> mulled: 10;
+    property <int> divided: 200;
+    animate added { duration: 200ms; }
+    animate subbed { duration: 200ms; }
+    animate mulled { duration: 200ms; }
+    animate divided { duration: 200ms; }
+    out property <int> added-obs: added;
+    out property <int> subbed-obs: subbed;
+    out property <int> mulled-obs: mulled;
+    out property <int> divided-obs: divided;
+    public function go() {
+        added += 100;    // 8 -> 108
+        subbed -= 100;   // 108 -> 8
+        mulled *= 10;    // 10 -> 100
+        divided /= 2;    // 200 -> 100
+    }
+    out property <bool> test: added-obs == 8 && subbed-obs == 108
+        && mulled-obs == 10 && divided-obs == 200;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.invoke_go();
+// Halfway through the 200ms animation (linear): each is at its midpoint.
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_added_obs(), 58);
+assert_eq!(instance.get_subbed_obs(), 58);
+assert_eq!(instance.get_mulled_obs(), 55);
+assert_eq!(instance.get_divided_obs(), 150);
+// Animation complete: each reached its target.
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_added_obs(), 108);
+assert_eq!(instance.get_subbed_obs(), 8);
+assert_eq!(instance.get_mulled_obs(), 100);
+assert_eq!(instance.get_divided_obs(), 100);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.invoke_go();
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_added_obs(), 58);
+assert_eq(instance.get_subbed_obs(), 58);
+assert_eq(instance.get_mulled_obs(), 55);
+assert_eq(instance.get_divided_obs(), 150);
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_added_obs(), 108);
+assert_eq(instance.get_subbed_obs(), 8);
+assert_eq(instance.get_mulled_obs(), 100);
+assert_eq(instance.get_divided_obs(), 100);
+```
+
+```js
+let instance = new slint.TestCase({});
+instance.go();
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.added_obs, 58);
+assert.equal(instance.subbed_obs, 58);
+assert.equal(instance.mulled_obs, 55);
+assert.equal(instance.divided_obs, 150);
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.added_obs, 108);
+assert.equal(instance.subbed_obs, 8);
+assert.equal(instance.mulled_obs, 100);
+assert.equal(instance.divided_obs, 100);
+```
+*/

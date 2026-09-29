@@ -48,8 +48,9 @@ An ***Embedded System*** is a computer system designed to perform a specific tas
 
 ## Contributions
 
-Contributions to this repository are licensed under the [MIT No Attribution License (MIT-0)](https://opensource.org/license/mit-0).
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details, including the Contributor License Agreement.
+Contributions to this repository are licensed under the [MIT No Attribution license (MIT-0)](https://opensource.org/license/mit-0).
+This does not assign copyright or transfer ownership; contributors keep full rights to their own code.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Additional Info
 

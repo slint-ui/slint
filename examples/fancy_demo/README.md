@@ -29,11 +29,7 @@ This example implements a complete widget set from scratch, demonstrating how to
 
 ## Running
 
-```sh
-cargo run -p fancy_demo
-```
-
-Or with the viewer:
+Open it with the viewer:
 
 ```sh
 cargo run --bin slint-viewer -- examples/fancy_demo/main.slint

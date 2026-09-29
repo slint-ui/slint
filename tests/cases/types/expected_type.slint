@@ -1,0 +1,202 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Type-directed resolution of bare color/brush/enum literals by their position
+// within an expression (issue #897). One component per scenario, aggregated by
+// the root TestCase. The callback-based scenario lives on the root so the
+// language bindings can invoke it.
+
+// --- struct fields, at any nesting depth ---
+
+struct Inner { c: color, a: TextHorizontalAlignment }
+struct Outer { inner: Inner, cols: [color], b: brush }
+
+component StructsTest {
+    property<Inner> i: { c: red, a: center };
+    property<Outer> o: {
+        inner: { c: blue, a: right },
+        cols: [red, green, blue],
+        b: yellow,
+    };
+    property<[Inner]> arr: [
+        { c: red, a: left },
+        { c: green, a: center },
+    ];
+    property<bool> flag: true;
+    property<Inner> t: { c: flag ? red : blue, a: flag ? center : left };
+    property<Inner> partial: { c: red };
+
+    out property<bool> test:
+        i.c == red && i.a == TextHorizontalAlignment.center
+        && o.inner.c == blue && o.inner.a == TextHorizontalAlignment.right
+        && o.cols[0] == red && o.cols[2] == blue
+        && arr[0].c == red && arr[1].a == TextHorizontalAlignment.center
+        && t.c == red && t.a == TextHorizontalAlignment.center
+        && partial.c == red;
+}
+
+// --- array elements, including nested arrays and arrays of structs ---
+
+struct P { c: color }
+
+component ArraysTest {
+    property<[color]> colors: [red, green, blue, black, white];
+    property<[brush]> brushes: [red, blue, green];
+    property<[TextHorizontalAlignment]> aligns: [left, center, right];
+    property<[[color]]> grid: [[red, green], [blue, yellow]];
+    property<[P]> ps: [{ c: red }, { c: green }, { c: blue }];
+    property<bool> flag: true;
+    property<[color]> chosen: flag ? [red, green] : [blue, yellow];
+
+    out property<bool> test:
+        colors[0] == red && colors[4] == white
+        && aligns[0] == TextHorizontalAlignment.left
+        && aligns[1] == TextHorizontalAlignment.center
+        && grid[0][0] == red && grid[1][1] == yellow
+        && ps[0].c == red && ps[2].c == blue
+        && chosen[0] == red && chosen[1] == green
+        && brushes.length == 3;
+}
+
+// --- deep function bodies: return, typed `let`, call args, nested ternaries ---
+
+struct Item { c: color, a: TextHorizontalAlignment, tags: [color] }
+
+component FunctionsTest {
+    pure function make-item(pick: bool) -> Item {
+        return {
+            c: pick ? red : blue,
+            a: pick ? center : left,
+            tags: pick ? [red, green] : [blue, yellow],
+        };
+    }
+    pure function tint(base: color, strong: bool) -> color {
+        let chosen: color = strong ? base : (base == red ? black : white);
+        return chosen;
+    }
+    pure function first-tag(it: Item) -> color {
+        return it.tags[0];
+    }
+    pure function deep(n: int) -> color {
+        let items: [Item] = [make-item(n > 0), make-item(n > 2)];
+        let picked: Item = n > 1 ? items[1] : items[0];
+        return picked.a == center
+            ? first-tag({ c: green, a: right, tags: [picked.c, red] })
+            : tint(picked.c, n > 3);
+    }
+
+    out property<bool> test:
+        make-item(true).c == red
+        && make-item(false).a == TextHorizontalAlignment.left
+        && make-item(true).tags[1] == green
+        && make-item(false).tags[0] == blue
+        && tint(red, true) == red
+        && tint(red, false) == black
+        && tint(blue, false) == white
+        && first-tag({ c: white, a: left, tags: [orange, red] }) == orange
+        && deep(0) == white
+        && deep(1) == red
+        && deep(2) == white
+        && deep(5) == red;
+}
+
+// --- a bare name that is both an enum variant and a color: position decides ---
+
+enum Shade { red, green, blue }
+struct Mix { shade: Shade, tint: color }
+
+component PositionTest {
+    property<Mix> m: { shade: red, tint: red };
+    property<[Shade]> shades: [red, green, blue];
+    property<[color]> tints: [red, green, blue];
+
+    pure function as-color(c: color) -> color { c }
+    pure function as-shade(s: Shade) -> Shade { s }
+    // a local/argument named like a color wins over the color literal
+    pure function shadow(red: color) -> color { red }
+
+    out property<bool> test:
+        m.shade == Shade.red && m.tint == #ff0000
+        && shades[2] == Shade.blue && tints[2] == #0000ff
+        && as-color(green) == #008000 && as-shade(green) == Shade.green
+        && shadow(#123456) == #123456;
+}
+
+// --- callback bodies: self-assignment, struct literals, arg-typed resolution ---
+
+export enum Align { left, center, right }
+export struct S { c: color, a: Align }
+
+export component TestCase inherits Rectangle {
+    in-out property<color> fg: white;
+    in-out property<Align> align: left;
+    in-out property<S> built;
+    in-out property<bool> ok;
+
+    callback activate();
+    activate => {
+        fg = red;
+        align = center;
+        built = { c: red, a: center };
+        ok = fg == red && align == center && built.c == red && built.a == center;
+    }
+
+    pure callback make(bool) -> S;
+    make(pick) => { { c: pick ? red : blue, a: pick ? center : left } }
+
+    pure callback echo(color) -> color;
+    echo(x) => { let s: S = { c: x, a: right }; s.c }
+
+    structs := StructsTest { }
+    arrays := ArraysTest { }
+    functions := FunctionsTest { }
+    position := PositionTest { }
+
+    out property<bool> test:
+        structs.test && arrays.test && functions.test && position.test
+        && fg == white && align == left;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_activate();
+assert!(instance.get_ok());
+assert_eq!(instance.get_fg(), slint::Color::from_rgb_u8(0xff, 0, 0));
+assert_eq!(instance.get_align(), Align::Center);
+let m = instance.invoke_make(true);
+assert_eq!(m.c, slint::Color::from_rgb_u8(0xff, 0, 0));
+assert_eq!(m.a, Align::Center);
+assert_eq!(instance.invoke_make(false).a, Align::Left);
+assert_eq!(instance.invoke_echo(slint::Color::from_rgb_u8(1, 2, 3)), slint::Color::from_rgb_u8(1, 2, 3));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_activate();
+assert(instance.get_ok());
+assert_eq(instance.get_fg(), slint::Color::from_rgb_uint8(0xff, 0, 0));
+assert(instance.get_align() == Align::Center);
+auto m = instance.invoke_make(true);
+assert_eq(m.c, slint::Color::from_rgb_uint8(0xff, 0, 0));
+assert(m.a == Align::Center);
+assert(instance.invoke_make(false).a == Align::Left);
+assert_eq(instance.invoke_echo(slint::Color::from_rgb_uint8(1, 2, 3)), slint::Color::from_rgb_uint8(1, 2, 3));
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.activate();
+assert(instance.ok);
+assert.equal(instance.fg.toString(), "#ff0000");
+assert.equal(instance.align, "center");
+let m = instance.make(true);
+assert.equal(m.c.toString(), "#ff0000");
+assert.equal(m.a, "center");
+assert.equal(instance.make(false).a, "left");
+```
+*/

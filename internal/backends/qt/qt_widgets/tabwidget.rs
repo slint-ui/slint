@@ -4,6 +4,7 @@
 // cSpell: ignore hframe qreal tabbar vframe
 
 use i_slint_core::{
+    cursor::MouseCursorInner,
     input::{FocusEventResult, FocusReason, InternalKeyEvent},
     platform::PointerEventButton,
 };
@@ -252,7 +253,7 @@ impl Item for NativeTabWidget {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -262,7 +263,7 @@ impl Item for NativeTabWidget {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -454,7 +455,7 @@ impl Item for NativeTab {
         _: &MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
     }
@@ -464,7 +465,7 @@ impl Item for NativeTab {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
-        _: &mut MouseCursor,
+        _: &mut MouseCursorInner,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {

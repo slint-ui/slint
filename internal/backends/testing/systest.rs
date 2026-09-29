@@ -130,6 +130,7 @@ impl TestingClient {
                 element_handle,
                 action,
                 button,
+                modifiers,
             }) => {
                 let element_index =
                     handle_to_index(element_handle.ok_or_else(|| {
@@ -139,13 +140,14 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let action = proto::ClickAction::try_from(action)
                     .map_err(|_| format!("invalid ClickAction value: {action}"))?;
-                dispatch::click(&self.state, element_index, action, button).await?;
+                dispatch::click(&self.state, element_index, action, button, modifiers).await?;
                 Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
             Req::RequestElementDrag(proto::RequestElementDrag {
                 element_handle,
                 target,
                 button,
+                modifiers,
             }) => {
                 let element_index =
                     handle_to_index(element_handle.ok_or_else(|| {
@@ -155,7 +157,7 @@ impl TestingClient {
                     .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let target =
                     target.ok_or_else(|| "element drag request missing target".to_string())?;
-                dispatch::drag(&self.state, element_index, target, button).await?;
+                dispatch::drag(&self.state, element_index, target, button, modifiers).await?;
                 Resp::ElementDragResponse(proto::ElementDragResponse {})
             }
             Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {

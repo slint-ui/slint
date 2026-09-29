@@ -1,0 +1,19 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// https://github.com/slint-ui/slint/issues/417
+// `foo` and `bar` are aliased with `<=>`, so `foo: self.bar;` on the instance
+// is a binding loop (foo == bar, and foo's binding reads bar).
+
+component SubCompWithAlias inherits Rectangle {
+    in-out property <string> bar: "Hello";
+    in-out property <string> foo <=> bar;
+}
+
+export component Test inherits Window {
+    a := SubCompWithAlias {
+        foo: self.bar;
+//           >       <error{Property 'foo' cannot refer to itself}
+    }
+    Text { text: a.bar; }
+}

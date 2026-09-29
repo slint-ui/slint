@@ -130,6 +130,26 @@ public:
         cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
         return img;
     }
+
+    /// Load an image from a buffer in memory that holds an encoded image, such as the content of a
+    /// PNG, JPEG, or SVG file.
+    ///
+    /// \a format is the lowercase file extension of the encoded data (for example "png", "jpg", or
+    /// "svg"). When left empty, the format is guessed from the data. SVG data is only recognized by
+    /// this guess when it begins with an `<?xml` or `<svg` tag; otherwise pass "svg" explicitly.
+    ///
+    /// The data only needs to remain valid for the duration of this call.
+    ///
+    /// Returns a default constructed (empty) Image if the data could not be decoded.
+    [[nodiscard]] static Image load_from_data(std::span<const uint8_t> data,
+                                              std::string_view format = {})
+    {
+        cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
+        cbindgen_private::types::slint_image_load_from_data(
+                private_api::make_slice(data.data(), data.size()),
+                private_api::string_to_slice(format), &img);
+        return Image(img);
+    }
 #endif
 
     /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by
@@ -194,6 +214,48 @@ public:
                                   .data = buffer.m_data })))
     {
     }
+
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
+    /// Construct an image from a SharedPixelBuffer of RGB565 pixels.
+    ///
+    /// The pixels are stored as they are, instead of being expanded to RGB8, and the
+    /// software renderer draws them without any pixel conversion when the render target
+    /// is RGB565 too.
+    ///
+    /// This constructor is only available when Slint was configured with
+    /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565.
+    Image(SharedPixelBuffer<Rgb565Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGB565(
+                          cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+#endif
+
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
+    /// Construct an image from a SharedPixelBuffer of 8 bit grayscale pixels.
+    ///
+    /// The pixels are stored as they are, instead of being expanded to RGB8.
+    ///
+    /// This constructor is only available when Slint was configured with
+    /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8.
+    Image(SharedPixelBuffer<Gray8Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::Gray8(
+                          cbindgen_private::types::SharedPixelBuffer<Gray8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+#endif
 
     /// Returns the size of the Image in pixels.
     Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }

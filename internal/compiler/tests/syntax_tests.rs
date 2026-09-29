@@ -56,14 +56,20 @@ fn syntax_tests() -> std::io::Result<()> {
 
     let pattern = std::env::var("SLINT_TEST_FILTER").ok().map(|p| regex::Regex::new(&p).unwrap());
 
+    let syntax_dir = format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR"));
     let mut test_entries = Vec::new();
-    for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
+    for entry in std::fs::read_dir(&syntax_dir)? {
         let entry = entry?;
         if entry.file_type().is_ok_and(|f| f.is_dir()) {
             let path = entry.path();
             // Skip slint-sc tests when the feature is not enabled
             #[cfg(not(feature = "slint-sc"))]
             if path.file_name().is_some_and(|n| n == "slint-sc") {
+                continue;
+            }
+            // Skip the tests that need the software renderer when the feature is not enabled
+            #[cfg(not(feature = "renderer-software"))]
+            if path.file_name().is_some_and(|n| n == "renderer-software") {
                 continue;
             }
             for test_entry in path.read_dir()? {
@@ -79,20 +85,63 @@ fn syntax_tests() -> std::io::Result<()> {
         }
     }
 
-    let success = test_entries
+    let results: Vec<(String, bool)> = test_entries
         .par_iter()
-        .try_fold(
-            || true,
-            |mut success, path| {
-                success &= process_file(path, update)?;
-                Ok::<bool, std::io::Error>(success)
-            },
-        )
-        .try_reduce(|| true, |success, result| Ok(success & result))?;
+        .map(|path| {
+            let ok = process_file(path, update)?;
+            let name = path
+                .strip_prefix(&syntax_dir)
+                .unwrap_or(path)
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/");
+            Ok::<_, std::io::Error>((name, ok))
+        })
+        .collect::<Result<_, _>>()?;
 
-    assert!(success);
+    if let Some(report) = std::env::var_os("SLINT_TEST_REPORT") {
+        let entries: Vec<(String, String, bool)> = results
+            .iter()
+            // The repository-relative source of each test file, for linking.
+            .map(|(name, ok)| (name.clone(), format!("internal/compiler/tests/syntax/{name}"), *ok))
+            .collect();
+        write_report(&entries, "syntax-tests", std::path::Path::new(&report))?;
+    }
+
+    assert!(results.iter().all(|(_, ok)| *ok));
 
     Ok(())
+}
+
+/// Write the per-case `(name, source path, passed)` results as CTRF-style
+/// JSON, for the safety manual's Test Results page.
+fn write_report(
+    results: &[(String, String, bool)],
+    tool: &str,
+    path: &std::path::Path,
+) -> std::io::Result<()> {
+    let tests: Vec<_> = results
+        .iter()
+        .map(|(name, file_path, ok)| {
+            serde_json::json!({
+                "name": name,
+                "filePath": file_path,
+                "status": if *ok { "passed" } else { "failed" },
+            })
+        })
+        .collect();
+    let failed = results.iter().filter(|(_, _, ok)| !ok).count();
+    let report = serde_json::json!({
+        "results": {
+            "tool": { "name": tool },
+            "summary": {
+                "tests": results.len(),
+                "passed": results.len() - failed,
+                "failed": failed,
+            },
+            "tests": tests,
+        }
+    });
+    std::fs::write(path, serde_json::to_string_pretty(&report).unwrap())
 }
 
 fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
@@ -101,6 +150,12 @@ fn process_file(path: &std::path::Path, update: bool) -> std::io::Result<bool> {
         // make sure that the file still contains BOM and it wasn't remove by some tools
         return Err(std::io::Error::other(format!(
             "{path:?} does not contains BOM while it should"
+        )));
+    }
+    if path.to_str().unwrap_or("").contains("crlf-") && !source.contains("\r\n") {
+        // make sure that the CRLF line terminators weren't normalized away by some tools
+        return Err(std::io::Error::other(format!(
+            "{path:?} does not contain CRLF line terminators while it should"
         )));
     }
     std::panic::catch_unwind(|| process_file_source(path, source, false, update)).unwrap_or_else(
@@ -428,14 +483,21 @@ fn process_file_source(
         i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
 
     let has_parse_error = parse_diagnostics.has_errors();
+    // Only the tests in the `slint-sc` directory are Slint SC tests; don't
+    // match the whole path, which depends on the name of the checkout.
     #[cfg(feature = "slint-sc")]
-    let output_format = if path.to_str().unwrap_or("").contains("slint-sc") {
-        i_slint_compiler::generator::OutputFormat::SlintSc
-    } else {
-        i_slint_compiler::generator::OutputFormat::Interpreter
-    };
+    let output_format =
+        if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "slint-sc") {
+            i_slint_compiler::generator::OutputFormat::SlintSc
+        } else {
+            i_slint_compiler::generator::OutputFormat::Interpreter
+        };
     #[cfg(not(feature = "slint-sc"))]
     let output_format = i_slint_compiler::generator::OutputFormat::Interpreter;
+    #[cfg(feature = "slint-sc")]
+    let is_slint_sc = matches!(output_format, i_slint_compiler::generator::OutputFormat::SlintSc);
+    #[cfg(not(feature = "slint-sc"))]
+    let is_slint_sc = false;
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
     compiler_config.library_paths = [(
         "test-lib".into(),
@@ -444,10 +506,22 @@ fn process_file_source(
     .into_iter()
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
+    // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.
+    #[cfg(feature = "renderer-software")]
+    if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "renderer-software") {
+        compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
+    }
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".into());
+    // The interpreter inlines every component, which merges an instance into
+    // its base. A diagnostic that depends on the two staying apart needs the
+    // element tree native codegen sees.
+    if source.contains("config:no_inlining") {
+        compiler_config.inline_all_elements = false;
+    }
     compiler_config.components_to_generate =
-        if source.contains("config:generate_all_exported_windows") {
+        if is_slint_sc || source.contains("config:generate_all_exported_windows") {
+            // Slint SC always compiles the exported windows
             ComponentSelection::ExportedWindows
         } else {
             // Otherwise we'd have lots of warnings about not inheriting Window

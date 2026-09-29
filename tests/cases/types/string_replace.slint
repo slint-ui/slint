@@ -1,0 +1,77 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore xyzb
+
+export component TestCase  {
+    out property<string> basic: "hello".replace-all("l", "L");
+    out property<string> repeated: "abcabcabc".replace_all("abc", "x");
+    out property<string> overlapping: "aaaa".replace-all("aa", "b");
+    out property<string> no-match: "hello".replace_all("z", "Z");
+    out property<string> replace-with-empty: "hello".replace-all("l", "");
+    out property<string> replace-empty-find: "abc".replace_all("", "-");
+    out property<string> full-match: "hello".replace-all("hello", "hi");
+    out property<string> empty-haystack: "".replace-all("a", "b");
+    out property<string> case-sensitive: "Hello".replace-all("hello", "x");
+    out property<string> longer-replacement: "ab".replace-all("a", "xyz");
+    out property<string> hiragana: "あいうえお".replace-all("い", "亜");
+    out property<string> surrogate-pair: "😊𩸽".replace-all("😊", "X");
+    out property<string> surrogate-pair-repeated: "😊😊😊".replace-all("😊", "X");
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_basic(), "heLLo");
+assert_eq(instance.get_repeated(), "xxx");
+assert_eq(instance.get_overlapping(), "bb");
+assert_eq(instance.get_no_match(), "hello");
+assert_eq(instance.get_replace_with_empty(), "heo");
+assert_eq(instance.get_replace_empty_find(), "-a-b-c-");
+assert_eq(instance.get_full_match(), "hi");
+assert_eq(instance.get_empty_haystack(), "");
+assert_eq(instance.get_case_sensitive(), "Hello");
+assert_eq(instance.get_longer_replacement(), "xyzb");
+assert_eq(instance.get_hiragana(), "あ亜うえお");
+assert_eq(instance.get_surrogate_pair(), "X𩸽");
+assert_eq(instance.get_surrogate_pair_repeated(), "XXX");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_basic(), "heLLo");
+assert_eq!(instance.get_repeated(), "xxx");
+assert_eq!(instance.get_overlapping(), "bb");
+assert_eq!(instance.get_no_match(), "hello");
+assert_eq!(instance.get_replace_with_empty(), "heo");
+assert_eq!(instance.get_replace_empty_find(), "-a-b-c-");
+assert_eq!(instance.get_full_match(), "hi");
+assert_eq!(instance.get_empty_haystack(), "");
+assert_eq!(instance.get_case_sensitive(), "Hello");
+assert_eq!(instance.get_longer_replacement(), "xyzb");
+assert_eq!(instance.get_hiragana(), "あ亜うえお");
+assert_eq!(instance.get_surrogate_pair(), "X𩸽");
+assert_eq!(instance.get_surrogate_pair_repeated(), "XXX");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.basic, "heLLo");
+assert.equal(instance.repeated, "xxx");
+assert.equal(instance.overlapping, "bb");
+assert.equal(instance.no_match, "hello");
+assert.equal(instance.replace_with_empty, "heo");
+assert.equal(instance.replace_empty_find, "-a-b-c-");
+assert.equal(instance.full_match, "hi");
+assert.equal(instance.empty_haystack, "");
+assert.equal(instance.case_sensitive, "Hello");
+assert.equal(instance.longer_replacement, "xyzb");
+assert.equal(instance.hiragana, "あ亜うえお");
+assert.equal(instance.surrogate_pair, "X𩸽");
+assert.equal(instance.surrogate_pair_repeated, "XXX");
+```
+
+*/

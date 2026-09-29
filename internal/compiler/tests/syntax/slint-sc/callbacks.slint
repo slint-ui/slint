@@ -1,9 +1,80 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Callbacks are rejected in Slint SC mode.
+// A callback of the Slint SC subset takes no parameters, returns nothing, is
+// declared on the root element, and is invoked from a handler.
+
+component Inner inherits Rectangle {
+    callback pressed;
+    TouchArea {
+        clicked => { root.pressed(); }
+    }
+}
 
 export component Test inherits Window {
-    callback clicked();
-//  >                 <error{Callback declarations are not supported in Slint SC}
+    //#sls.callback.decl.form
+    //#sls.callback.decl.unique
+    callback plain;
+
+    //#sls.callback.decl.no-params
+    callback with-parameters(int, string);
+//                           > <error{Callback parameters are not supported in Slint SC}
+//                                >    <^error{The type 'string' is not supported in Slint SC}
+    callback with-return() -> int;
+//                            > <error{Callback return types are not supported in Slint SC}
+
+    //#sls.callback.decl.plain
+    pure callback impure;
+//  >                   <error{Pure callbacks are not supported in Slint SC}
+    callback aliased <=> area.clicked;
+//                   >              <error{Callback aliases are not supported in Slint SC}
+
+    //#sls.callback.handler.not-root
+    plain => { }
+//  >   <error{A handler for a callback declared on the root element is not supported in Slint SC}
+
+    area := TouchArea {
+        //#sls.callback.handler.form
+        //#sls.callback.call.form
+        clicked => { root.plain(); }
+    }
+
+    Rectangle {
+        //#sls.callback.decl.root-only
+        callback on-a-child;
+//      >                  <error{Declaring a callback on an element other than the root is not supported in Slint SC}
+    }
+
+    Rectangle {
+        TouchArea {
+            //#sls.callback.handler.body
+            clicked => { root.width; }
+//          >     <error{A callback handler body that isn't a callback invocation is not supported in Slint SC}
+        }
+    }
+
+    Rectangle {
+        TouchArea {
+            clicked => { root.plain(); }
+            //#sls.callback.handler.one
+            clicked => { root.plain(); }
+//          >     <error{Duplicated callback}
+        }
+    }
+
+    // A handler names no parameters, and only a callback of the subset has one
+    Rectangle {
+        TouchArea {
+            clicked(unused) => { root.plain(); }
+//                  >    <error{Callback handler parameters are not supported in Slint SC}
+//          >     <^error{'clicked' only has 0 arguments, but 1 were provided}
+            moved => { root.plain(); }
+//          >   <error{The callback 'moved' is not supported in Slint SC}
+        }
+    }
+
+    // The callback of a component may be handled where the component is used
+    Inner {
+        pressed => { root.plain(); }
+    }
 }

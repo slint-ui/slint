@@ -5,8 +5,9 @@ export interface ExportedInterface {
     in-out property <float> value;
 }
 
-export component ExportedBase implements ExportedInterface {
-    value: 2.71;
+export component ExportedBase {
+    implement ExportedInterface <=> self;
+    in-out property <float> value: 2.71;
 }
 
 export interface ComboBoxInterface {

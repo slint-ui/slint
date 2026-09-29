@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component BoundsCases inherits Window {
+    width: 388px;
+    height: 718px;
+    background: #f8fafc;
+
+    bounds-rectangle := Rectangle {
+        x: 96px;
+        y: 80px;
+        width: 120px;
+        height: 96px;
+        background: #2563eb;
+    }
+
+    bounds-text := Text {
+        x: 104px;
+        y: 260px;
+        width: 140px;
+        height: 48px;
+        text: "Bounds text";
+        color: #111827;
+    }
+
+    bounds-image := Image {
+        x: 128px;
+        y: 480px;
+        width: 128px;
+        height: 96px;
+        source: @image-url("assets/checker.svg");
+        image-fit: contain;
+    }
+}

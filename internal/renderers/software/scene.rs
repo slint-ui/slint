@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
 use i_slint_core::graphics::{SharedImageBuffer, TexturePixelFormat};
-use i_slint_core::lengths::{PointLengths as _, SizeLengths as _};
+use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
 pub struct SceneVectors {
@@ -205,7 +205,9 @@ impl Scene {
         }
         self.current_items_index = i;
         // check that current items are properly sorted
-        debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+        debug_assert!(
+            self.items[0..self.current_items_index].array_windows().all(|[a, b]| a.z >= b.z)
+        );
     }
 
     // return true if lines were skipped
@@ -378,14 +380,14 @@ impl SceneTextureExtra {
         texture: &super::target_pixel_buffer::DrawTextureArgs,
         clip: &PhysicalRect,
     ) -> Option<(Self, PhysicalRect)> {
-        let geometry: PhysicalRect = euclid::rect(
-            texture.dst_x as i16,
-            texture.dst_y as i16,
-            texture.dst_width as i16,
-            texture.dst_height as i16,
+        let geometry: euclid::Rect<i32, PhysicalPx> = euclid::rect(
+            texture.dst_x as i32,
+            texture.dst_y as i32,
+            texture.dst_width as i32,
+            texture.dst_height as i32,
         );
         let geometry = geometry.to_box2d();
-        let clipped_geometry = geometry.intersection(&clip.to_box2d())?;
+        let clipped_geometry = geometry.intersection(&clip.cast::<i32>().to_box2d())?;
 
         let mut offset = match texture.rotation {
             RenderingRotation::NoRotation => clipped_geometry.min - geometry.min,
@@ -428,10 +430,10 @@ impl SceneTextureExtra {
                 rotation: texture.rotation,
                 dx: Fixed::try_from_fixed(dx).ok()?,
                 dy: Fixed::try_from_fixed(dy).ok()?,
-                off_x: Fixed::try_from_fixed(dx * offset.x as i32).ok()?,
-                off_y: Fixed::try_from_fixed(dy * offset.y as i32).ok()?,
+                off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,
+                off_y: Fixed::try_from_fixed(dy * offset.y).ok()?,
             },
-            clipped_geometry.to_rect(),
+            clipped_geometry.to_rect().cast(),
         ))
     }
 }
@@ -491,6 +493,20 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+                data: &b.as_bytes()[start * 2..end * 2],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Rgb565,
+                extra: self.extra,
+            },
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
+                data: &b.as_bytes()[start..end],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Gray8,
+                extra: self.extra,
+            },
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,

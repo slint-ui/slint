@@ -24,11 +24,17 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 "#
     )?;
 
-    for style in cargo_manifest_dir.join(&library_dir).read_dir()?.filter_map(Result::ok) {
-        if !style.file_type().is_ok_and(|f| f.is_dir()) {
-            continue;
-        }
-        let path = style.path();
+    // Sorted so the generated code, and with it the binaries, don't depend on
+    // the file system's directory order.
+    let mut styles: Vec<PathBuf> = cargo_manifest_dir
+        .join(&library_dir)
+        .read_dir()?
+        .filter_map(Result::ok)
+        .filter(|style| style.file_type().is_ok_and(|f| f.is_dir()))
+        .map(|style| style.path())
+        .collect();
+    styles.sort();
+    for path in styles {
         writeln!(
             file,
             "(\"{}\", &[{}]),",
@@ -46,7 +52,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 }
 
 fn process_style(cargo_manifest_dir: &Path, path: &Path) -> std::io::Result<String> {
-    let library_files: Vec<PathBuf> = cargo_manifest_dir
+    let mut library_files: Vec<PathBuf> = cargo_manifest_dir
         .join(path)
         .read_dir()?
         .filter_map(Result::ok)
@@ -65,6 +71,7 @@ fn process_style(cargo_manifest_dir: &Path, path: &Path) -> std::io::Result<Stri
         })
         .map(|entry| entry.path())
         .collect();
+    library_files.sort();
 
     Ok(library_files
         .iter()

@@ -1,0 +1,53 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component X inherits Rectangle {
+
+    FlexboxLayout {
+        Text {
+            cross-axis-self-alignment: center;
+            layout-order: 3;
+        }
+        Rectangle {
+            Text {
+                cross-axis-self-alignment: center;
+//                                         >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+                layout-order: 3;
+//                            ><error{layout-order used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+            }
+        }
+    }
+
+    // per-item properties used outside of a layout should error
+    Text {
+        cross-axis-self-alignment: center;
+//                                 >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+        layout-order: 3;
+//                    ><error{layout-order used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+    }
+
+    GridLayout {
+        Text {
+            cross-axis-self-alignment: center;
+//                                     >     <error{cross-axis-self-alignment used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+            layout-order: 3;
+//                        ><error{layout-order used outside of a FlexboxLayout, HorizontalLayout, or VerticalLayout}
+        }
+    }
+
+    HorizontalLayout {
+        Text {
+            // valid in a box layout
+            layout-order: 5;
+            cross-axis-self-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        Text {
+            // valid in a box layout
+            layout-order: -1;
+            cross-axis-self-alignment: end;
+        }
+    }
+}

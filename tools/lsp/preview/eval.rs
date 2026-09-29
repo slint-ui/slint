@@ -20,6 +20,20 @@ struct EvalLocalContext {
     window_adapter: Option<Rc<dyn slint::platform::WindowAdapter>>,
 }
 
+impl EvalLocalContext {
+    /// The decimal separator of the preview window, or the thread's if there is no window.
+    fn decimal_separator(&self) -> char {
+        self.window_adapter
+            .as_ref()
+            .and_then(|adapter| {
+                i_slint_core::window::WindowInner::from_pub(adapter.window())
+                    .try_context()
+                    .map(|ctx| ctx.locale_decimal_separator())
+            })
+            .unwrap_or_else(i_slint_core::string::current_decimal_separator)
+    }
+}
+
 /// If we only care about a specified field
 ///
 /// For example, if we need to evaluate `<expression>.foo.bar` we would have something like
@@ -54,7 +68,7 @@ fn eval_expression(
         Expression::PropertyReference(source) => {
             let elem = source.element();
             let elem = elem.borrow();
-            if let Some(binding) = elem.bindings.get(source.name()) {
+            if let Some(binding) = elem.binding_cell_including_synthetic(source.name()) {
                 let binding = binding.borrow();
                 let mut ctx = EvalLocalContext {
                     recursion_count: local_context.recursion_count + 1,
@@ -73,9 +87,9 @@ fn eval_expression(
             let v = eval_expression(from, local_context, field_filter);
             match (v, to) {
                 (Value::Number(n), langtype::Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), langtype::Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
+                (Value::Number(n), langtype::Type::String) => Value::String(
+                    i_slint_core::string::format_number(local_context.decimal_separator(), n),
+                ),
                 (Value::Number(n), langtype::Type::Color) => {
                     slint::Color::from_argb_encoded(n as u32).into()
                 }
@@ -101,7 +115,7 @@ fn eval_expression(
             arguments,
             source_location: _,
         } => handle_builtin_function(f, arguments, local_context),
-        Expression::BinaryExpression { lhs, rhs, op } => {
+        Expression::BinaryExpression { lhs, rhs, op, .. } => {
             let lhs = eval_expression(lhs, local_context, None);
             let rhs = eval_expression(rhs, local_context, None);
 
@@ -145,7 +159,7 @@ fn eval_expression(
                 (_, _) => Value::Void,
             }
         }
-        Expression::Condition { true_expr, false_expr, condition } => {
+        Expression::Condition { true_expr, false_expr, condition, .. } => {
             let condition = eval_expression(condition, local_context, None);
             if condition.try_into().unwrap_or(true) {
                 eval_expression(true_expr, local_context, field_filter)
@@ -210,6 +224,9 @@ fn eval_expression(
             }
             expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
                 i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
+            }
+            expression_tree::EasingCurve::Spring(a) => {
+                i_slint_core::animations::EasingCurve::Spring(*a)
             }
         }),
         Expression::LinearGradient { angle, stops } => {
@@ -427,7 +444,11 @@ fn handle_builtin_function(
             let digits: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
+            Value::String(i_slint_core::string::format_number_fixed(
+                local_context.decimal_separator(),
+                n,
+                digits,
+            ))
         }
         BuiltinFunction::ToPrecision => {
             let n: f64 =
@@ -435,7 +456,11 @@ fn handle_builtin_function(
             let precision: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+            Value::String(i_slint_core::string::format_number_precision(
+                local_context.decimal_separator(),
+                n,
+                precision,
+            ))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let n: f64 =
@@ -488,6 +513,24 @@ fn handle_builtin_function(
             }
             if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
                 Value::String(s.to_uppercase().into())
+            } else {
+                Value::Void
+            }
+        }
+        BuiltinFunction::StringReplaceAll => {
+            if arguments.len() != 3 {
+                return Value::Void;
+            }
+            if let (Value::String(s), Value::String(from), Value::String(to)) = (
+                eval_expression(&arguments[0], local_context, None),
+                eval_expression(&arguments[1], local_context, None),
+                eval_expression(&arguments[2], local_context, None),
+            ) {
+                Value::String(i_slint_core::string::shared_string_replace_all(
+                    &s,
+                    from.as_str(),
+                    to.as_str(),
+                ))
             } else {
                 Value::Void
             }
@@ -658,7 +701,7 @@ fn handle_builtin_function(
             };
             let value = eval_expression(&arguments[1], local_context, None);
 
-            model.push_row(value);
+            let _ = model.push_row(value);
 
             Value::Void
         }
@@ -677,7 +720,9 @@ fn handle_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[1]),
             };
 
-            model.remove_row(index as isize);
+            if let Ok(index) = usize::try_from(index as i64) {
+                let _ = model.remove_row(index);
+            }
 
             Value::Void
         }
@@ -696,7 +741,9 @@ fn handle_builtin_function(
             };
 
             let value = eval_expression(&arguments[2], local_context, None);
-            model.insert_row(index as isize, value);
+            if let Ok(index) = usize::try_from(index as i64) {
+                let _ = model.insert_row(index, value);
+            }
 
             Value::Void
         }

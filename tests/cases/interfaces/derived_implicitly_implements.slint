@@ -29,7 +29,8 @@ component Base {
     @children
 }
 
-export component TestCase implements InterfaceWithDefaults inherits Base {
+export component TestCase inherits Base {
+    implement InterfaceWithDefaults <=> self;
 
     // Explicitly override the InterfaceWithDefaults default for precision
     precision: 3;

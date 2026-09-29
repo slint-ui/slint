@@ -12,27 +12,27 @@ use i_slint_compiler::parser::{
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
-use crate::common::{self, text_edit};
-use crate::language::completion;
+use crate::editor_preview::{self, editing::text_edit};
 use crate::preview::{self, element_selection, ui};
 use crate::util;
+use i_slint_editor_preview::editing::import_edit;
 use i_slint_live_preview::protocol::VersionedUrl;
 
 use crate::preview::ext::ElementRcNodeExt;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use crate::editor_preview::wasm_prelude::*;
 
 pub fn placeholder() -> String {
     format!(
         " Rectangle {{ min-width: 16px; min-height: 16px; /* {} */ }}",
-        common::NODE_IGNORE_COMMENT
+        editor_preview::NODE_IGNORE_COMMENT
     )
 }
 
 #[derive(Clone, Debug)]
 pub struct DropInformation {
-    pub target_element_node: common::ElementRcNode,
+    pub target_element_node: editor_preview::ElementRcNode,
     pub insert_info: InsertInformation,
     pub drop_mark: Option<DropMark>,
     /// Child to insert *before* (or usize::MAX)
@@ -41,7 +41,7 @@ pub struct DropInformation {
 
 #[derive(Clone, Debug)]
 pub struct InsertInformation {
-    pub insertion_position: common::VersionedPosition,
+    pub insertion_position: editor_preview::editing::VersionedPosition,
     pub replacement_range: u32,
     pub pre_indent: String,
     pub indent: String,
@@ -290,7 +290,7 @@ fn calculate_drop_information_for_layout(
 }
 
 fn accept_drop_at(
-    element_node: &common::ElementRcNode,
+    element_node: &editor_preview::ElementRcNode,
     component_instance: &ComponentInstance,
     position: LogicalPoint,
 ) -> DropAccept {
@@ -311,7 +311,7 @@ pub struct DropMark {
 }
 
 pub fn insert_position_at_end(
-    target_element_node: &common::ElementRcNode,
+    target_element_node: &editor_preview::ElementRcNode,
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
         let closing_brace = crate::util::last_non_ws_token(node)?;
@@ -352,7 +352,7 @@ pub fn insert_position_at_end(
         let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
+            insertion_position: editor_preview::editing::VersionedPosition::new(
                 VersionedUrl::new(url, version),
                 offset,
             ),
@@ -365,7 +365,7 @@ pub fn insert_position_at_end(
 }
 
 pub fn insert_position_before_child(
-    target_element_node: &common::ElementRcNode,
+    target_element_node: &editor_preview::ElementRcNode,
     child_index: usize,
 ) -> Option<InsertInformation> {
     target_element_node.with_element_node(|node| {
@@ -410,7 +410,7 @@ pub fn insert_position_before_child(
             let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
             return Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(
+                insertion_position: editor_preview::editing::VersionedPosition::new(
                     VersionedUrl::new(url, version),
                     first_token_offset,
                 ),
@@ -429,7 +429,7 @@ pub fn insert_position_before_child(
 /// Insert before the first component (exported or not) or at the very end of the document if no
 /// Component is found.
 fn insert_position_before_first_component(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     document: &syntax_nodes::Document,
 ) -> Option<InsertInformation> {
     let url = {
@@ -488,7 +488,7 @@ fn insert_position_before_first_component(
                 find_pre_indent_and_replacement(&before_first_token);
 
             Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(
+                insertion_position: editor_preview::editing::VersionedPosition::new(
                     url,
                     first_token_offset - TextSize::new(replacement_range),
                 ),
@@ -500,7 +500,10 @@ fn insert_position_before_first_component(
         } else {
             // Component is the first thing in the file!
             Some(InsertInformation {
-                insertion_position: common::VersionedPosition::new(url, first_token_offset),
+                insertion_position: editor_preview::editing::VersionedPosition::new(
+                    url,
+                    first_token_offset,
+                ),
                 replacement_range: 0,
                 pre_indent: String::new(),
                 indent: "     ".to_string(),
@@ -512,7 +515,7 @@ fn insert_position_before_first_component(
 
         let (pre_indent, replacement_range) = find_pre_indent_and_replacement(&last_token);
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(
+            insertion_position: editor_preview::editing::VersionedPosition::new(
                 url,
                 document.text_range().end() - TextSize::new(replacement_range),
             ),
@@ -524,7 +527,10 @@ fn insert_position_before_first_component(
     } else {
         // Entire document is empty
         Some(InsertInformation {
-            insertion_position: common::VersionedPosition::new(url, document.text_range().end()),
+            insertion_position: editor_preview::editing::VersionedPosition::new(
+                url,
+                document.text_range().end(),
+            ),
             replacement_range: 0,
             pre_indent: String::new(),
             indent: String::new(),
@@ -534,7 +540,7 @@ fn insert_position_before_first_component(
 }
 
 pub fn add_new_component(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     component_name: &str,
     document: &syntax_nodes::Document,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
@@ -571,7 +577,11 @@ pub fn add_new_component(
     let edit = lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text };
 
     Some((
-        common::create_workspace_edit_from_path(document_cache, source_file.path(), vec![edit])?,
+        editor_preview::editing::create_workspace_edit_from_path(
+            document_cache,
+            source_file.path(),
+            vec![edit],
+        )?,
         DropData { selection_offset, path },
     ))
 }
@@ -580,8 +590,8 @@ pub fn add_new_component(
 fn drop_target_element_nodes(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
-) -> Vec<common::ElementRcNode> {
+    filter: Box<dyn Fn(&editor_preview::ElementRcNode) -> bool>,
+) -> Vec<editor_preview::ElementRcNode> {
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
@@ -589,7 +599,7 @@ fn drop_target_element_nodes(
             continue;
         };
 
-        if en.with_element_node(common::is_element_node_ignored) {
+        if en.with_element_node(editor_preview::is_element_node_ignored) {
             continue;
         }
 
@@ -604,7 +614,7 @@ fn drop_target_element_nodes(
 }
 
 fn is_recursive_inclusion(
-    root_node: &Option<&common::ElementRcNode>,
+    root_node: &Option<&editor_preview::ElementRcNode>,
     component_type: &str,
 ) -> bool {
     let declared_identifier = root_node
@@ -623,9 +633,9 @@ fn is_recursive_inclusion(
 fn find_element_to_drop_into(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    filter: Box<dyn Fn(&editor_preview::ElementRcNode) -> bool>,
     component_type: &str,
-) -> Option<common::ElementRcNode> {
+) -> Option<editor_preview::ElementRcNode> {
     let all_element_nodes = drop_target_element_nodes(component_instance, position, filter);
     if is_recursive_inclusion(&all_element_nodes.last(), component_type) {
         return None;
@@ -658,24 +668,24 @@ fn find_drop_location(
         .debug
         .first()
         .map(|info| info.node.source_file.path().to_owned());
-    let filter = Box::new(move |e: &common::ElementRcNode| {
+    let filter = Box::new(move |e: &editor_preview::ElementRcNode| {
         e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
     });
-    let mark = Box::new(move |_: &common::ElementRcNode| false);
+    let mark = Box::new(move |_: &editor_preview::ElementRcNode| false);
     find_filtered_location(component_instance, position, filter, mark, component_type)
 }
 
 fn find_move_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    selected_element: &common::ElementRcNode,
+    selected_element: &editor_preview::ElementRcNode,
     component_type: &str,
 ) -> Option<DropInformation> {
     let se = selected_element.clone();
     let filter =
-        Box::new(move |e: &common::ElementRcNode| *e == se || !e.is_same_component_as(&se));
+        Box::new(move |e: &editor_preview::ElementRcNode| *e == se || !e.is_same_component_as(&se));
     let se = selected_element.clone();
-    let mark = Box::new(move |e: &common::ElementRcNode| *e == se);
+    let mark = Box::new(move |e: &editor_preview::ElementRcNode| *e == se);
 
     find_filtered_location(component_instance, position, filter, mark, component_type)
 }
@@ -683,8 +693,8 @@ fn find_move_location(
 fn find_filtered_location(
     component_instance: &ComponentInstance,
     position: LogicalPoint,
-    filter: Box<dyn Fn(&common::ElementRcNode) -> bool>,
-    mark: Box<dyn Fn(&common::ElementRcNode) -> bool>,
+    filter: Box<dyn Fn(&editor_preview::ElementRcNode) -> bool>,
+    mark: Box<dyn Fn(&editor_preview::ElementRcNode) -> bool>,
     component_type: &str,
 ) -> Option<DropInformation> {
     let drop_target_node =
@@ -696,7 +706,7 @@ fn find_filtered_location(
         let children_geometries: Vec<_> = drop_target_node
             .children()
             .iter()
-            .filter(|c| !c.with_element_node(common::is_element_node_ignored))
+            .filter(|c| !c.with_element_node(editor_preview::is_element_node_ignored))
             .filter_map(|c| {
                 c.geometry_in(component_instance, &geometry.rect).map(|g| ((mark)(c), g.rect))
             })
@@ -736,9 +746,9 @@ fn find_filtered_location(
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_drop_at(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     position: LogicalPoint,
-    component: &common::ComponentInformation,
+    component: &editor_preview::component_catalog::ComponentInformation,
 ) -> bool {
     // let dm = &preview::component_instance()
     //     .and_then(|ci| find_drop_location(&ci, position, component_type));
@@ -766,8 +776,8 @@ pub fn can_drop_at(
 
 /// Do a compilation to figure out if the drop is allowed
 fn check_can_drop(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &editor_preview::DocumentCache,
+    component: &editor_preview::component_catalog::ComponentInformation,
     dm: &DropInformation,
 ) -> bool {
     // Cache compilation results:
@@ -805,7 +815,7 @@ fn check_can_drop(
 }
 
 pub fn workspace_edit_compiles(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
 ) -> preview::CompilationResult {
     let Ok(result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
@@ -815,7 +825,7 @@ pub fn workspace_edit_compiles(
 }
 
 pub fn edited_text_compiles(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     mut result: Vec<text_edit::EditedText>,
 ) -> preview::CompilationResult {
     if result.is_empty() {
@@ -833,7 +843,7 @@ pub fn edited_text_compiles(
     }) {
         diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere
 
-        let _ = common::poll_once(document_cache.load_url(&u, None, c, &mut diag));
+        let _ = editor_preview::util::poll_once(document_cache.load_url(&u, None, c, &mut diag));
     }
 
     if diag.has_errors() {
@@ -845,10 +855,10 @@ pub fn edited_text_compiles(
 
 /// Find the Element to insert into. None means we can not insert at this point.
 pub fn can_move_to(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     position: LogicalPoint,
     mouse_position: LogicalPoint,
-    element_node: common::ElementRcNode,
+    element_node: editor_preview::ElementRcNode,
     instance_index: usize,
 ) -> bool {
     let Some(component_instance) = preview::component_instance() else {
@@ -952,15 +962,15 @@ fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
 }
 
 fn drop_ignored_elements_from_node(
-    node: &common::ElementRcNode,
+    node: &editor_preview::ElementRcNode,
     source_file: &SourceFile,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Vec<lsp_types::TextEdit> {
     node.with_element_node(|node| {
         node.children()
             .filter_map(|c| {
-                let e = common::extract_element(c.clone())?;
-                if common::is_element_node_ignored(&e) {
+                let e = editor_preview::extract_element(c.clone())?;
+                if editor_preview::is_element_node_ignored(&e) {
                     pretty_node_removal_range(&e)
                         .map(|range| util::text_range_to_lsp_range(source_file, range, format))
                         .map(|range| lsp_types::TextEdit::new(range, String::new()))
@@ -977,9 +987,9 @@ fn drop_ignored_elements_from_node(
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
 /// the DropData struct.
 pub fn drop_at(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     position: LogicalPoint,
-    component: &common::ComponentInformation,
+    component: &editor_preview::component_catalog::ComponentInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_instance = preview::component_instance()?;
 
@@ -992,7 +1002,10 @@ pub fn drop_at(
     create_drop_element_workspace_edit(document_cache, component, &drop_info)
 }
 
-fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
+fn property_ranges(
+    element: &editor_preview::ElementRcNode,
+    remove_properties: &[&str],
+) -> Vec<TextRange> {
     element.with_element_node(|node| {
         let mut result = Vec::new();
 
@@ -1011,7 +1024,7 @@ fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) 
 }
 
 fn extract_text_of_element(
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     remove_properties: &[&str],
 ) -> Vec<String> {
     let (start_offset, mut text) = element.with_decorated_node(|node| {
@@ -1048,16 +1061,16 @@ fn extract_text_of_element(
 }
 
 fn node_removal_text_edit(
-    document_cache: &common::DocumentCache,
+    document_cache: &editor_preview::DocumentCache,
     node: &SyntaxNode,
     replace_with: String,
-) -> Option<common::SingleTextEdit> {
+) -> Option<editor_preview::editing::SingleTextEdit> {
     let range = util::text_range_to_lsp_range(
         &node.source_file.clone(),
         pretty_node_removal_range(node)?,
         document_cache.format,
     );
-    common::SingleTextEdit::from_path(
+    editor_preview::editing::SingleTextEdit::from_path(
         document_cache,
         node.source_file.path(),
         lsp_types::TextEdit::new(range, replace_with),
@@ -1065,8 +1078,8 @@ fn node_removal_text_edit(
 }
 
 pub fn create_drop_element_workspace_edit(
-    document_cache: &common::DocumentCache,
-    component: &common::ComponentInformation,
+    document_cache: &editor_preview::DocumentCache,
+    component: &editor_preview::component_catalog::ComponentInformation,
     drop_info: &DropInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
@@ -1108,7 +1121,7 @@ pub fn create_drop_element_workspace_edit(
     let mut edits = Vec::with_capacity(3);
     let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
     if let Some(edit) =
-        completion::create_import_edit(doc, &component.name, &import_file, document_cache.format)
+        import_edit::create_import_edit(doc, &component.name, &import_file, document_cache.format)
     {
         if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
             selection_offset =
@@ -1146,7 +1159,11 @@ pub fn create_drop_element_workspace_edit(
     edits.push(lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text });
 
     Some((
-        common::create_workspace_edit_from_path(document_cache, source_file.path(), edits)?,
+        editor_preview::editing::create_workspace_edit_from_path(
+            document_cache,
+            source_file.path(),
+            edits,
+        )?,
         DropData { selection_offset, path },
     ))
 }
@@ -1154,10 +1171,10 @@ pub fn create_drop_element_workspace_edit(
 pub fn create_move_element_workspace_edit(
     component_instance: &ComponentInstance,
     drop_info: &DropInformation,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     instance_index: usize,
     position: LogicalPoint,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let parent_of_element = element.parent();
 
@@ -1201,9 +1218,9 @@ pub fn create_move_element_workspace_edit(
 
 pub fn create_swap_element_workspace_edit(
     drop_info: &DropInformation,
-    element: &common::ElementRcNode,
+    element: &editor_preview::ElementRcNode,
     placeholder_text: String,
-    format: common::ByteFormat,
+    format: editor_preview::ByteFormat,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let component_type = element.component_type();
     let new_text = {
@@ -1263,13 +1280,13 @@ pub fn create_swap_element_workspace_edit(
         let import_file =
             component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
         if let Some(edit) =
-            completion::create_import_edit(doc, &component_type, &import_file, format)
+            import_edit::create_import_edit(doc, &component_type, &import_file, format)
         {
             if let Some(sf) = doc.node.as_ref().map(|n| &n.source_file) {
                 selection_offset = text_edit::TextOffsetAdjustment::new(&edit, sf, format)
                     .adjust(selection_offset);
             }
-            edits.push(common::SingleTextEdit::from_path(
+            edits.push(editor_preview::editing::SingleTextEdit::from_path(
                 &document_cache,
                 source_file.path(),
                 edit,
@@ -1284,7 +1301,11 @@ pub fn create_swap_element_workspace_edit(
                 // Abuse map somewhat...
                 selection_offset = text_edit::TextOffsetAdjustment::new(&te, &source_file, format)
                     .adjust(selection_offset);
-                common::SingleTextEdit::from_path(&document_cache, source_file.path(), te)
+                editor_preview::editing::SingleTextEdit::from_path(
+                    &document_cache,
+                    source_file.path(),
+                    te,
+                )
             }),
     );
 
@@ -1299,14 +1320,14 @@ pub fn create_swap_element_workspace_edit(
             + TextSize::new(drop_info.insert_info.replacement_range),
         format,
     );
-    edits.push(common::SingleTextEdit::from_path(
+    edits.push(editor_preview::editing::SingleTextEdit::from_path(
         &document_cache,
         source_file.path(),
         lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text },
     )?);
 
     Some((
-        common::create_workspace_edit_from_single_text_edits(edits),
+        editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
         DropData { selection_offset, path },
     ))
 }
@@ -1316,8 +1337,8 @@ pub fn create_swap_element_workspace_edit(
 /// Return a WorkspaceEdit to send to the editor and extra info for the live preview in
 /// the DropData struct.
 pub fn move_element_to(
-    document_cache: &common::DocumentCache,
-    element: common::ElementRcNode,
+    document_cache: &editor_preview::DocumentCache,
+    element: editor_preview::ElementRcNode,
     instance_index: usize,
     position: LogicalPoint,
     mouse_position: LogicalPoint,
@@ -1354,7 +1375,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        common::{self, test, text_edit},
+        editor_preview::{self, editing::text_edit, test},
         util,
     };
 
@@ -1389,7 +1410,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
     fn workspace_edit_setup(
         edits: Vec<(usize, usize, &str)>,
-    ) -> (common::DocumentCache, lsp_types::WorkspaceEdit) {
+    ) -> (editor_preview::DocumentCache, lsp_types::WorkspaceEdit) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
@@ -1409,7 +1430,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                     TextRange::new(TextSize::new(*so as u32), TextSize::new(*eo as u32)),
                     document_cache.format,
                 );
-                common::SingleTextEdit::from_path(
+                editor_preview::editing::SingleTextEdit::from_path(
                     &document_cache,
                     source_file.path(),
                     lsp_types::TextEdit { range, new_text: t.to_string() },
@@ -1417,7 +1438,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             })
             .collect();
 
-        let workspace_edit = crate::common::create_workspace_edit_from_single_text_edits(edits);
+        let workspace_edit =
+            crate::editor_preview::editing::create_workspace_edit_from_single_text_edits(edits);
 
         (document_cache, workspace_edit)
     }
