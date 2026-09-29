@@ -418,7 +418,7 @@ Don't maintain a second approximation of pointer behavior in Python.
 ### Stable Automation Identity
 
 Accessible roles and names should remain the preferred locators because users and assistive tools observe them.
-Some repeated or nonsemantic items still need stable identity.
+Some repeated or non-semantic items still need stable identity.
 
 Define whether the supported solution is an automation identifier, compiler debug identity, or another explicit test hook.
 Avoid making internal item-tree indices part of the public contract.
