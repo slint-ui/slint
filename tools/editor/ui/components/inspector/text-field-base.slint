@@ -14,6 +14,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> suffix: "";
     in property <length> suffix-width: 0px;
     in property <bool> normalize-accepted: false;
+    in property <bool> clear-focus-on-accept: false;
     in property <bool> show-focus-border: true;
     private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
         : input.has-focus ? root.style.appearance.focus
@@ -113,6 +114,8 @@ export component InspectorTextFieldBase inherits Rectangle {
                 accepted => {
                     if !root.accept-input(self.text) {
                         self.text = root.value;
+                    } else if root.clear-focus-on-accept {
+                        self.clear-focus();
                     }
                 }
 

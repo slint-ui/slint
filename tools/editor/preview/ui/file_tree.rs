@@ -358,17 +358,44 @@ pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
         .unwrap_or_else(|| tr::tr!("Custom expression").into())
 }
 
+pub(super) fn image_source_edit_value(source: SharedString) -> SharedString {
+    image_url_parts(source.trim()).map(|(path, _)| path.into()).unwrap_or(source)
+}
+
+pub(super) fn image_source_expression(source: SharedString, value: SharedString) -> SharedString {
+    let value = value.trim();
+    if value.is_empty() {
+        return Default::default();
+    }
+    if value.starts_with("@image-url(") {
+        return value.into();
+    }
+
+    let source = source.trim();
+    let Some((_, arguments)) = image_url_parts(source) else {
+        return if source.is_empty() {
+            format!("@image-url(\"{}\")", escape_slint_string(value)).into()
+        } else {
+            value.into()
+        };
+    };
+    format!("@image-url(\"{}\"{arguments})", escape_slint_string(value)).into()
+}
+
 fn image_url_path(source: &str) -> Option<String> {
-    let mut chars = source.strip_prefix("@image-url(")?.trim_start().chars();
-    if chars.next()? != '"' {
+    image_url_parts(source).map(|(path, _)| path)
+}
+
+fn image_url_parts(source: &str) -> Option<(String, &str)> {
+    let inner = source.strip_prefix("@image-url(")?.trim_start();
+    let mut chars = inner.char_indices();
+    if chars.next()?.1 != '"' {
         return None;
     }
 
     let mut path = String::new();
     let mut escaped = false;
-    let mut consumed = 1;
-    for ch in chars {
-        consumed += ch.len_utf8();
+    for (offset, ch) in chars {
         if escaped {
             path.push(match ch {
                 'n' => '\n',
@@ -380,9 +407,10 @@ fn image_url_path(source: &str) -> Option<String> {
         } else if ch == '\\' {
             escaped = true;
         } else if ch == '"' {
-            let rest = source.strip_prefix("@image-url(")?.trim_start().get(consumed..)?.trim();
-            if rest == ")" || rest.starts_with(',') && rest.ends_with(')') {
-                return Some(path);
+            let rest = inner.get(offset + ch.len_utf8()..)?.trim();
+            let arguments = rest.strip_suffix(')')?.trim_end();
+            if arguments.is_empty() || arguments.starts_with(',') {
+                return Some((path, arguments));
             }
             return None;
         } else {
@@ -873,6 +901,47 @@ mod tests {
             "Custom expression"
         );
         assert_eq!(image_source_file_name(SharedString::default()), "No image selected");
+    }
+
+    #[test]
+    fn image_source_field_edits_the_path_without_the_macro() {
+        let source = r#"@image-url("assets/icons/checker.svg")"#.into();
+        assert_eq!(image_source_edit_value(source), "assets/icons/checker.svg");
+        assert_eq!(
+            image_source_expression(
+                r#"@image-url("assets/icons/checker.svg")"#.into(),
+                "assets/alternate.svg".into(),
+            ),
+            r#"@image-url("assets/alternate.svg")"#
+        );
+    }
+
+    #[test]
+    fn editing_an_image_path_preserves_nine_slice_arguments() {
+        assert_eq!(
+            image_source_expression(
+                r#"@image-url("assets/panel.png", nine-slice(1 2 3 4))"#.into(),
+                "assets/replacement.png".into(),
+            ),
+            r#"@image-url("assets/replacement.png", nine-slice(1 2 3 4))"#
+        );
+    }
+
+    #[test]
+    fn custom_image_expressions_remain_editable() {
+        let expression = r#"enabled ? @image-url("on.svg") : @image-url("off.svg")"#;
+        assert_eq!(image_source_edit_value(expression.into()), expression);
+        assert_eq!(
+            image_source_expression(expression.into(), "alternate-source".into()),
+            "alternate-source"
+        );
+        assert_eq!(
+            image_source_expression(
+                SharedString::default(),
+                r#"@image-url("assets/checker.svg")"#.into(),
+            ),
+            r#"@image-url("assets/checker.svg")"#
+        );
     }
 
     #[test]

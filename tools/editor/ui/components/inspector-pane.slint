@@ -412,6 +412,11 @@ export component InspectorPane inherits Rectangle {
         }
     }
 
+    function set-image-source(value: string) -> bool {
+        let expression = Api.image-source-expression(root.image-source-value(), value);
+        return expression != "" && root.commit-code("source", expression);
+    }
+
     function rectangle-background-code() -> string {
         return Api.current-property-value("background", "");
     }
@@ -867,7 +872,9 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorImageSourceField {
                                 value: Api.image-source-file-name(root.image-source-value());
+                                edit-value: Api.image-source-edit-value(root.image-source-value());
                                 browse => { root.choose-image-source(); }
+                                accepted(value) => { return root.set-image-source(value); }
                             }
                         }
 

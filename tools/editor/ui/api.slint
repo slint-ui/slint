@@ -686,6 +686,8 @@ export global Api {
     pure callback current-property-value(property-name: string, fallback: string) -> string;
     pure callback current-color-field-data(property-name: string) -> ColorFieldData;
     pure callback image-source-file-name(source: string) -> string;
+    pure callback image-source-edit-value(source: string) -> string;
+    pure callback image-source-expression(source: string, value: string) -> string;
     callback choose-image-file(source-uri: string) -> string;
 
     // ## Outline

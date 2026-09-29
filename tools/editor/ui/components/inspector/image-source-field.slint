@@ -1,16 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Typography, FieldStyle, PaintStyle, Metrics } from "../../style.slint";
+import { Style, FieldStyle, Metrics } from "../../style.slint";
 
 import { InspectorIconButton } from "icon-button.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorImageSourceField inherits Rectangle {
     in property <FieldStyle> style: Style.inspector-field;
     in property <string> value;
+    in property <string> edit-value;
     callback browse;
-    private property <PaintStyle> paint: source-touch.has-hover
-        ? root.style.appearance.hover : root.style.appearance.normal;
+    callback accepted(string) -> bool;
 
     height: root.style.height;
 
@@ -25,32 +26,14 @@ export component InspectorImageSourceField inherits Rectangle {
             clicked => { root.browse(); }
         }
 
-        source-field := Rectangle {
+        source-field := InspectorTextFieldBase {
             horizontal-stretch: 1;
-            border-radius: root.style.radius;
-            background: root.paint.background;
-            accessible-role: AccessibleRole.text;
-            accessible-label: "Image source";
-            accessible-value: root.value;
-
-            HorizontalLayout {
-                padding-left: root.style.padding-inline;
-                padding-right: root.style.padding-inline;
-
-                Text {
-                    text: root.value;
-                    color: root.paint.foreground;
-                    font-size: root.style.text.size;
-                    font-weight: root.style.text.weight;
-                    overflow: elide;
-                    vertical-alignment: center;
-                }
-            }
-
-            source-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.browse(); }
-            }
+            accessible-name: "Image source";
+            value: self.input-focused ? root.edit-value : root.value;
+            normalize-accepted: true;
+            clear-focus-on-accept: true;
+            accepted(value) => { return root.accepted(value); }
+            normalized(value) => { return root.value; }
         }
     }
 }
