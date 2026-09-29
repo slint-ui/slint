@@ -62,13 +62,13 @@ body {
     cursor: ew-resize;
     right: 0;
     top: 0;
-    width: 8px;
+    width: 12px;
 }
 
 .dialog-frame-resize-handle-bottom {
     bottom: 0;
     cursor: ns-resize;
-    height: 8px;
+    height: 12px;
     left: 0;
     right: 0;
 }
@@ -76,9 +76,9 @@ body {
 .dialog-frame-resize-handle-bottom-right {
     bottom: 0;
     cursor: nwse-resize;
-    height: 16px;
+    height: 24px;
     right: 0;
-    width: 16px;
+    width: 24px;
 }
 
 .dialog-frame-resize-handle-right::after,
