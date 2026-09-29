@@ -707,7 +707,14 @@ mod tests {
         )
         .unwrap();
         let preview = user_instance.as_ref().unwrap();
-        assert!(!preview.component_positions(&preview_path, highlight.1).is_empty());
+        assert!(
+            !preview
+                .component_positions(
+                    &i_slint_compiler::source_path::SourcePath::new(&preview_path),
+                    highlight.1
+                )
+                .is_empty()
+        );
         let preview_item_tree = preview.as_item_tree(i_slint_core::InternalToken);
         assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
             &preview_item_tree,

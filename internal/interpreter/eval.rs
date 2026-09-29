@@ -1789,11 +1789,11 @@ fn load_image_reference(
             // Style-bundled resources (e.g. cosmic/material widget icons) are
             // baked into the compiler's builtin library and need to be fetched
             // through `fileaccess::load_file` rather than the filesystem.
-            let path = std::path::Path::new(url.as_str());
-            i_slint_compiler::fileaccess::load_file(path)
+            let path = i_slint_compiler::source_path::SourcePath::from_url(url.clone());
+            i_slint_compiler::fileaccess::load_file(&path)
                 .and_then(|virtual_file| virtual_file.builtin_contents)
                 .map(|contents| {
-                    let extension = path.extension().unwrap().to_str().unwrap();
+                    let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
@@ -1905,7 +1905,7 @@ fn log_message_location(
     let (line, column) = source_file
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
     Some(i_slint_core::debug_log::LogMessageLocation {
-        path: source_file.path().to_str()?,
+        path: source_file.path_buf().to_str()?,
         line,
         column,
     })

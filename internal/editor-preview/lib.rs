@@ -23,7 +23,7 @@ pub mod util;
 pub use document_cache::DocumentCache;
 pub use editor_session::{EditorSession, PreviewConnection, VersionedDiagnostics};
 pub use element::{ElementRcNode, NODE_IGNORE_COMMENT, extract_element, is_element_node_ignored};
-pub use file_url::{file_to_uri, uri_to_file};
+pub use file_url::uri_to_file;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 #[cfg(target_arch = "wasm32")]
 pub use i_slint_live_preview::protocol::wasm_prelude;

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::TextRange;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
@@ -185,7 +186,7 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            PathBuf::from(path.to_string()),
+            SourcePath::new(path.as_str()),
             preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,

@@ -12,9 +12,6 @@ use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::UrlWasm;
-
 #[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<Future: std::future::Future>(future: Future) -> Option<Future::Output> {
     let waker = std::task::Waker::noop();
@@ -45,7 +42,12 @@ pub fn node_to_url_and_lsp_range(
     format: ByteFormat,
 ) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let path = node.source_file.path();
-    Some((lsp_types::Url::from_file_path(path).ok()?, node_to_lsp_range(node, format)))
+    // Desktop editors can't open a `builtin:` URL (#4126).
+    let is_builtin = matches!(path, i_slint_compiler::source_path::SourcePath::Builtin(_));
+    if is_builtin && !cfg!(target_arch = "wasm32") {
+        return None;
+    }
+    Some((path.to_url()?, node_to_lsp_range(node, format)))
 }
 
 /// Map a `node` to the `Range` of characters covered by the `node`

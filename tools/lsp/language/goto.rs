@@ -9,9 +9,6 @@ use crate::util;
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
-
 pub fn goto_definition(
     document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
@@ -25,14 +22,14 @@ pub fn goto_definition(
             if let Some(doc) = document_cache.get_document_by_path(&f) {
                 let doc_node = doc.node.clone()?;
                 goto_node(&doc_node, document_cache.format)
-            } else if f.is_file() || cfg!(test) {
+            } else if f.as_native_path().is_some_and(std::path::Path::is_file) || cfg!(test) {
                 // WASM will never get here, but that is fine: Slintpad can not open images anyway;-)
                 Some(GotoDefinitionResponse::Link(vec![LocationLink {
                     origin_selection_range: Some(util::token_to_lsp_range(
                         &token,
                         document_cache.format,
                     )),
-                    target_uri: lsp_types::Url::from_file_path(&f).ok()?,
+                    target_uri: f.to_url()?,
                     target_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                     target_selection_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                 }]))

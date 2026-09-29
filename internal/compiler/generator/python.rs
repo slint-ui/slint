@@ -597,7 +597,8 @@ pub fn generate(
             .as_ref()
             .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
             .source_file
-            .path(),
+            .path()
+            .to_path_buf(),
     )
     .unwrap();
 

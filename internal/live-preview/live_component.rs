@@ -160,7 +160,13 @@ impl LiveReloadingComponent {
         Watcher::update_watched_paths(
             &self.watcher,
             std::iter::once(self.file_name.clone())
-                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
+                .chain(
+                    result
+                        .watch_paths(i_slint_core::InternalToken)
+                        .iter()
+                        .cloned()
+                        .filter_map(i_slint_compiler::source_path::SourcePath::into_native_path),
+                )
                 .chain(self.extra_watch_paths.iter().cloned()),
         );
     }

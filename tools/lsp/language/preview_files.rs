@@ -11,7 +11,8 @@
 //! sources, the fonts they import — don't go through here.
 
 use crate::editor_preview::{DocumentCache, uri_to_file};
-use i_slint_compiler::pathutils::{clean_path, is_url};
+use i_slint_compiler::pathutils::clean_path;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_live_preview::protocol::PreviewConfig;
 use lsp_types::InitializeParams;
 
@@ -47,7 +48,11 @@ impl PreviewFileAccess {
         preview_config: &PreviewConfig,
         document_cache: &DocumentCache,
     ) -> Self {
-        let project_files = document_cache.all_paths_to_watch();
+        let project_files: HashSet<PathBuf> = document_cache
+            .all_paths_to_watch()
+            .into_iter()
+            .filter_map(SourcePath::into_native_path)
+            .collect();
 
         // Deduplicated before canonicalizing: a project has many more files
         // than directories, and each candidate costs a system call. `builtin:/…`
@@ -55,17 +60,12 @@ impl PreviewFileAccess {
         let mut candidates: HashSet<PathBuf> =
             crate::host_language_search::resolve_workspace_folders(init_param)
                 .iter()
-                .filter_map(|folder| uri_to_file(&folder.uri))
+                .filter_map(|folder| uri_to_file(&folder.uri)?.into_native_path())
                 .chain(preview_config.include_paths.iter().cloned())
                 .chain(preview_config.library_paths.values().cloned())
                 .collect();
-        candidates.extend(
-            project_files
-                .iter()
-                .filter(|path| !is_url(path))
-                .filter_map(|path| path.parent())
-                .map(Path::to_path_buf),
-        );
+        candidates
+            .extend(project_files.iter().filter_map(|path| path.parent()).map(Path::to_path_buf));
 
         let roots = candidates
             .iter()

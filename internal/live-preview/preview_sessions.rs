@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::source_path::SourcePath;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
@@ -18,8 +19,6 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
 use crate::inspector::InspectorOverlay;
-#[cfg(target_arch = "wasm32")]
-use crate::protocol::wasm_prelude::*;
 use crate::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
     SourceFileVersion,
@@ -321,7 +320,7 @@ impl PreviewSession {
 
         let file_loader_session = Rc::downgrade(self);
         compiler.set_file_loader(move |path: &std::path::Path| {
-            let url = path_to_url(path);
+            let url = SourcePath::new(path).to_url();
             let path_display = path.display().to_string();
             let session = file_loader_session.clone();
             Box::pin(async move {
@@ -406,7 +405,7 @@ impl PreviewSession {
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
-            .filter_map(|path| path_to_url(path))
+            .filter_map(SourcePath::to_url)
             .collect();
 
         if compilation_result.has_errors() {
@@ -479,15 +478,7 @@ impl PreviewSession {
 /// such as a POSIX path on Windows (#13674), stays a URL.
 /// The compiler resolves imports and images against such a path on any host.
 fn url_to_path(url: &Url) -> Option<PathBuf> {
-    if url.scheme() != "file" {
-        return None;
-    }
-    Some(url.to_file_path().unwrap_or_else(|()| url.as_str().into()))
-}
-
-/// The inverse of [`url_to_path`].
-fn path_to_url(path: &Path) -> Option<Url> {
-    Url::from_file_path(path).ok().or_else(|| Url::parse(path.to_str()?).ok())
+    (url.scheme() == "file").then(|| SourcePath::from_url(url.clone()).to_path_buf())
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {

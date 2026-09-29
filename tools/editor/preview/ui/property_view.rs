@@ -340,7 +340,7 @@ fn map_property_declaration(
 
     Some(ui::PropertyDeclaration {
         defined_at,
-        source_path: da.path.to_string_lossy().to_string().into(),
+        source_path: da.path.to_string().into(),
         source_version,
         range: ui::to_ui_range(pos)?,
     })

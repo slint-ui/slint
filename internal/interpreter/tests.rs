@@ -3,6 +3,8 @@
 
 // cSpell: ignore descendents dontcrash
 
+#[cfg(feature = "internal")]
+use i_slint_compiler::source_path::SourcePath;
 #[allow(unused_imports)]
 use i_slint_core::api::ComponentHandle;
 
@@ -830,7 +832,7 @@ fn root_component_resolves_to_the_right_document() {
     let root = definition.root_component();
     assert_eq!(
         root.root_element.borrow().debug.first().unwrap().node.source_file.path(),
-        std::path::Path::new("main.slint")
+        &SourcePath::new("main.slint")
     );
 }
 

@@ -28,6 +28,7 @@ use crate::llr::{
     ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::source_path::SourcePath;
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
@@ -6116,7 +6117,7 @@ fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenSt
 }
 
 fn embedded_file_tokens(path: &str) -> TokenStream {
-    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+    let file = crate::fileaccess::load_file(&SourcePath::new(path)).unwrap(); // embedding pass ensured that the file exists
     match file.builtin_contents {
         Some(static_data) => {
             let literal = proc_macro2::Literal::byte_string(static_data);

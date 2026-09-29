@@ -55,7 +55,7 @@
 //! `window/showMessage` to the user, but the slint rename is not rolled
 //! back.
 
-use std::path::{Path, PathBuf};
+use i_slint_compiler::source_path::SourcePath;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -65,11 +65,7 @@ use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::generator::accessor_names::DeclarationKind;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
-use lsp_types::Url;
 use smol_str::SmolStr;
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 pub fn main_identifier(input: &SyntaxNode) -> Option<SyntaxToken> {
     input.child_token(SyntaxKind::Identifier)
@@ -131,11 +127,11 @@ fn is_symbol_name_exported(
 fn fix_imports(
     document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
-    exporter_path: &Path,
+    exporter_path: &SourcePath,
     new_type: &str,
     edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
-    let Ok(exporter_url) = Url::from_file_path(exporter_path) else {
+    let Some(exporter_url) = exporter_path.to_url() else {
         return;
     };
     for (url, doc) in document_cache.all_url_documents() {
@@ -147,7 +143,7 @@ fn fix_imports(
     }
 }
 
-fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<PathBuf> {
+fn import_path(document_directory: &SourcePath, specifier: &SyntaxNode) -> Option<SourcePath> {
     assert!([SyntaxKind::ImportSpecifier, SyntaxKind::ExportModule].contains(&specifier.kind()));
 
     let import = specifier
@@ -159,7 +155,7 @@ fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<Path
     }
 
     // Do not bother with the TypeLoader: It will check the FS, which we do not use:-/
-    Some(i_slint_compiler::pathutils::clean_path(&document_directory.join(import)))
+    document_directory.join(&import)
 }
 
 /// Fix up `Type as OtherType` like specifiers found in import and export lists
@@ -306,13 +302,11 @@ fn fix_import_in_document(
     document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     document_node: &syntax_nodes::Document,
-    exporter_path: &Path,
+    exporter_path: &SourcePath,
     new_type: &str,
     edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
-    let Some(document_directory) =
-        document_node.source_file().and_then(|sf| sf.path().parent()).map(|p| p.to_owned())
-    else {
+    let Some(document_directory) = document_node.source_file().map(|sf| sf.path().parent()) else {
         return;
     };
 
@@ -321,7 +315,7 @@ fn fix_import_in_document(
             continue;
         };
 
-        if import_path != exporter_path {
+        if &import_path != exporter_path {
             continue;
         }
 
@@ -357,7 +351,7 @@ fn fix_import_in_document(
             continue;
         };
 
-        if import_path != exporter_path {
+        if &import_path != exporter_path {
             continue;
         }
 
@@ -1153,7 +1147,7 @@ fn find_declaration_node_impl(
 
     // Imported?
     let document_path = document_node.source_file.path();
-    let document_dir = document_path.parent()?;
+    let document_dir = &document_path.parent();
 
     for import_spec in document_node.ImportSpecifier() {
         if let Some(import_id) = import_spec.ImportIdentifierList() {
@@ -1298,6 +1292,7 @@ mod tests {
     use super::*;
 
     use std::collections::HashMap;
+    use std::path::Path;
 
     use crate::editing::text_edit;
     use crate::test;
@@ -1308,7 +1303,8 @@ mod tests {
         document_path: &Path,
         suffix: &str,
     ) -> SyntaxToken {
-        let document = document_cache.get_document_by_path(document_path).unwrap();
+        let document =
+            document_cache.get_document_by_path(&SourcePath::new(document_path)).unwrap();
         let document = document.node.as_ref().unwrap();
 
         let offset =

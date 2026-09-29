@@ -31,6 +31,7 @@ pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Valu
 pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};
+    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
     use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
 
@@ -74,7 +75,7 @@ pub(crate) mod tests {
     fn find_element_hash(instance: &ComponentInstance, code: &str, search_term: &str) -> u64 {
         let offset = code.find(search_term).unwrap() as u32;
         let (element, debug_index) = instance
-            .element_node_at_source_code_position(&test_path(), offset)
+            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset)
             .first()
             .cloned()
             .expect("element resolved");
@@ -89,7 +90,11 @@ pub(crate) mod tests {
         search_term: &str,
     ) -> i_slint_core::lengths::LogicalRect {
         let offset = code.find(search_term).unwrap() as u32;
-        instance.component_positions(&test_path(), offset).first().expect("geometry").rect
+        instance
+            .component_positions(&SourcePath::new(test_path()), offset)
+            .first()
+            .expect("geometry")
+            .rect
     }
 
     // Editor-style override store + callback (must be installed before the first evaluation so
@@ -339,7 +344,7 @@ export component Win inherits Window {
                 .into_iter()
                 .map(|offset| {
                     let geometry = instance
-                        .component_positions(&test_path(), offset as u32)
+                        .component_positions(&SourcePath::new(test_path()), offset as u32)
                         .first()
                         .expect("geometry")
                         .rect;

@@ -110,7 +110,7 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: url.to_file_path().ok()?,
+                path: i_slint_compiler::source_path::SourcePath::from_url(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
             },
@@ -121,7 +121,7 @@ fn target_with_root(
     };
     let node = selected.as_element_node()?;
     let (path, offset) = node.path_and_offset();
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE
         .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;

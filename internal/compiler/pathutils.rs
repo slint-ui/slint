@@ -4,7 +4,7 @@
 //! Reimplement some Path handling code: The one in `std` is not available
 //! when running in WASM!
 //!
-//! This is not helped by us using URLs in place of paths *sometimes*.
+//! These functions take native paths; see [`crate::source_path::SourcePath`] for URLs.
 
 use smol_str::{SmolStr, SmolStrBuilder, format_smolstr};
 use std::path::{Path, PathBuf};
@@ -15,18 +15,8 @@ pub fn is_font_file(path: &str) -> bool {
     path.ends_with(".ttf") || path.ends_with(".ttc") || path.ends_with(".otf")
 }
 
-/// Check whether a `Path` is actually an URL.
-pub fn is_url(path: &Path) -> bool {
-    let Some(path) = path.to_str() else {
-        // URLs can always convert to string in Rust
-        return false;
-    };
-
-    to_url(path).is_some()
-}
-
 /// Convert a `Path` to an `url::Url` if possible
-fn to_url(path: &str) -> Option<url::Url> {
+pub(crate) fn to_url(path: &str) -> Option<url::Url> {
     let Ok(url) = url::Url::parse(path) else {
         return None;
     };
@@ -406,15 +396,9 @@ fn test_clean_path_string() {
 ///
 /// This will *not* look at the file system, so symlinks will not get resolved.
 pub fn clean_path(path: &Path) -> PathBuf {
-    let Some(path_str) = path.to_str() else {
-        return path.to_owned();
-    };
-
-    if let Some(url) = to_url(path_str) {
-        // URL is cleaned up while parsing!
-        PathBuf::from(url.to_string())
-    } else {
-        PathBuf::from(clean_path_string(path_str).to_string())
+    match path.to_str() {
+        Some(path_str) => PathBuf::from(clean_path_string(path_str).to_string()),
+        None => path.to_owned(),
     }
 }
 
@@ -460,87 +444,50 @@ pub fn dirname(path: &Path) -> PathBuf {
     PathBuf::from(dirname_string(path_str))
 }
 
-/// Join a `path` to a `base_path`, handling URLs in both, matching up
-/// path separators, etc.
+/// Join a `path` to a `base_path`, matching up path separators, etc.
 ///
 /// The result will be a `clean_path(...)`.
-pub fn join(base: &Path, path: &Path) -> Option<PathBuf> {
-    if is_absolute(path) {
-        return Some(clean_path(path));
-    }
-
-    let Some(base_str) = base.to_str() else {
-        return Some(clean_path(path));
+pub fn join(base: &Path, path: &Path) -> PathBuf {
+    let (Some(base_str), Some(path_str)) = (base.to_str(), path.to_str()) else {
+        return clean_path(path);
     };
-    let Some(path_str) = path.to_str() else {
-        return Some(clean_path(path));
-    };
-    if base_str.is_empty() {
-        return Some(clean_path(path));
+    if base_str.is_empty() || is_absolute(path) {
+        return clean_path(path);
     }
-
     let path_separator = find_path_separator(path_str);
-
-    if let Some(mut base_url) = to_url(base_str) {
-        let path_str = if path_separator != '/' {
-            path_str.replace(path_separator, "/")
-        } else {
-            path_str.to_string()
-        };
-
-        let base_path = base_url.path();
-        if !base_path.is_empty() && !base_path.ends_with('/') {
-            base_url.set_path(&format_smolstr!("{base_path}/"));
-        }
-
-        Some(PathBuf::from(base_url.join(&path_str).ok()?.to_string()))
+    let base_separator = find_path_separator(base_str);
+    let path_str = if path_separator != base_separator {
+        path_str.replace(path_separator, &base_separator.to_string())
     } else {
-        let base_separator = find_path_separator(base_str);
-        let path_str = if path_separator != base_separator {
-            path_str.replace(path_separator, &base_separator.to_string())
-        } else {
-            path_str.to_string()
-        };
-        let joined = clean_path_string(&format_smolstr!("{base_str}{base_separator}{path_str}"));
-        Some(PathBuf::from(joined.to_string()))
-    }
+        path_str.to_string()
+    };
+    PathBuf::from(
+        clean_path_string(&format_smolstr!("{base_str}{base_separator}{path_str}")).as_str(),
+    )
 }
 
 #[test]
 fn test_join() {
     #[track_caller]
-    fn th(base: &str, path: &str, expected: Option<&str>) {
-        let base = PathBuf::from(base);
-        let path = PathBuf::from(path);
-        let expected = expected.map(PathBuf::from);
-
-        let result = join(&base, &path);
-        assert_eq!(result, expected);
+    fn th(base: &str, path: &str, expected: &str) {
+        assert_eq!(join(Path::new(base), Path::new(path)), PathBuf::from(expected));
     }
 
-    th("https://slint.dev/", "/hello.txt", Some("/hello.txt"));
-    th("https://slint.dev/", "../../hello.txt", Some("https://slint.dev/hello.txt"));
-    th("/../../ab/.././", "hello.txt", Some("/hello.txt"));
-    th("ab/.././cb/./././..", "../.././hello.txt", Some("../../hello.txt"));
-    th("builtin:/foo", "..\\bar.slint", Some("builtin:/bar.slint"));
-    th("builtin:/", "..\\bar.slint", Some("builtin:/bar.slint"));
-    th("builtin:/foo/baz", "..\\bar.slint", Some("builtin:/foo/bar.slint"));
-    th("builtin:/foo", "bar.slint", Some("builtin:/foo/bar.slint"));
-    th("builtin:/foo/", "bar.slint", Some("builtin:/foo/bar.slint"));
-    th("builtin:/", "..\\bar.slint", Some("builtin:/bar.slint"));
+    th("/../../ab/.././", "hello.txt", "/hello.txt");
+    th("ab/.././cb/./././..", "../.././hello.txt", "../../hello.txt");
 
-    th("some/relative", "hello.txt", Some("some/relative/hello.txt"));
-    th("", "foo/hello.txt", Some("foo/hello.txt"));
-    th("some/relative", "/foo/hello.txt", Some("/foo/hello.txt"));
+    th("some/relative", "hello.txt", "some/relative/hello.txt");
+    th("", "foo/hello.txt", "foo/hello.txt");
+    th("some/relative", "/foo/hello.txt", "/foo/hello.txt");
 
     // An absolute `path` ignores `base`, but is still cleaned up (#12798): a stray
     // backslash used to be returned verbatim, which then mismatched the cleaned
     // path used to look the document up again, panicking the type loader.
-    th("some/base", "/ddd\\\"dd", Some("/ddd/\"dd"));
-    th("some/base", "/a/../b", Some("/b"));
-    th("some/base", "/a\\b\\c", Some("/a/b/c"));
+    th("some/base", "/ddd\\\"dd", "/ddd/\"dd");
+    th("some/base", "/a/../b", "/b");
+    th("some/base", "/a\\b\\c", "/a/b/c");
     // Windows drive-absolute paths keep their backslashes.
-    th("some/base", "C:\\a\\b", Some("C:\\a\\b"));
+    th("some/base", "C:\\a\\b", "C:\\a\\b");
     // An empty base also cleans the path instead of returning it raw.
-    th("", "a/../b", Some("b"));
+    th("", "a/../b", "b");
 }

@@ -3,6 +3,8 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
+#[cfg(any(feature = "internal", feature = "internal-highlight"))]
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -928,7 +930,7 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    watch_paths: vec![SourcePath::new(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                 };
@@ -1030,7 +1032,7 @@ pub struct CompilationResultSend {
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    watch_paths: Vec<PathBuf>,
+    watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     structs_and_enums: Vec<LangType>,
 }
@@ -1103,7 +1105,7 @@ pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    pub(crate) watch_paths: Vec<PathBuf>,
+    pub(crate) watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
@@ -1201,7 +1203,7 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[SourcePath] {
         &self.watch_paths
     }
 
@@ -1751,7 +1753,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
@@ -1774,7 +1776,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
@@ -2444,7 +2446,7 @@ export component Foo2 inherits Window  {
     let (handle, path) = compile(code);
 
     for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&path, i);
+        let elements = handle.element_node_at_source_code_position(&SourcePath::new(&path), i);
         eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
         match i {
             16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
@@ -2485,8 +2487,9 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let positions_at =
-        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
+    let positions_at = |pattern: &str| {
+        handle.component_positions(&SourcePath::new(&path), code.find(pattern).unwrap() as u32)
+    };
 
     // Each MyBox use highlights only its own instance.
     let b1_rects = positions_at("MyBox { x: 0px");
@@ -2513,8 +2516,8 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&path, offset).len(), 3);
-    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+    assert_eq!(handle.component_positions(&SourcePath::new(&path), offset).len(), 3);
+    assert!(handle.component_positions(&SourcePath::new(&path), code.len() as u32 - 1).is_empty());
 }
 
 #[cfg(feature = "internal-highlight")]
@@ -2569,7 +2572,7 @@ export component App inherits Window {
 
     let positions_at = |pattern: &str, inside_pattern: usize| {
         let offset = code.find(pattern).unwrap() + inside_pattern;
-        instance.component_positions(&path, offset as u32)
+        instance.component_positions(&SourcePath::new(&path), offset as u32)
     };
 
     let first = positions_at("Derived { x: 10px", 2);
@@ -2583,7 +2586,7 @@ export component App inherits Window {
     assert_eq!(definition.len(), 6, "{definition:?}");
 
     let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
-    let conditional = instance.component_positions(&path, conditional_offset);
+    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
     assert_eq!(conditional.len(), 1, "{conditional:?}");
     assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
 
@@ -2649,7 +2652,7 @@ export component App inherits Window {
         (&imported_path, imported_code, "Rectangle"),
     ] {
         let offset = code.find(pattern).unwrap() as u32;
-        let positions = instance.component_positions(path, offset);
+        let positions = instance.component_positions(&SourcePath::new(path), offset);
         assert_eq!(positions.len(), 1, "{positions:?}");
         assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
         assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
@@ -2683,9 +2686,10 @@ export component App inherits Window {
     second := RepeatedBox { x: 100px; y: 20px; }
 }
 "#;
-    let path = PathBuf::from("/virtual/inlined-repeaters.slint");
+    let path = SourcePath::new("/virtual/inlined-repeaters.slint");
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(code.into(), Some(&path), &mut diagnostics);
+    let syntax_node =
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
     let mut compiler_configuration =
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
@@ -2719,7 +2723,7 @@ export component App inherits Window {
             source_location
                 .source_file
                 .as_ref()
-                .is_some_and(|source_file| source_file.path() == path)
+                .is_some_and(|source_file| source_file.path() == &path)
                 && source_location.span.offset == repeated_offset
         })
         .count();

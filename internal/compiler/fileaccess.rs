@@ -1,20 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::source_path::SourcePath;
 use std::borrow::Cow;
 use std::fs;
 
 #[derive(Clone)]
 pub struct VirtualFile {
-    pub canon_path: std::path::PathBuf,
+    pub canon_path: SourcePath,
     pub builtin_contents: Option<&'static [u8]>,
 }
 
 impl VirtualFile {
     pub fn read(&self) -> Cow<'static, [u8]> {
-        match self.builtin_contents {
-            Some(static_data) => Cow::Borrowed(static_data),
-            None => Cow::Owned(std::fs::read(&self.canon_path).unwrap()),
+        match (self.builtin_contents, &self.canon_path) {
+            (Some(static_data), _) => Cow::Borrowed(static_data),
+            (None, SourcePath::File(path)) => Cow::Owned(std::fs::read(path).unwrap()),
+            (None, _) => unreachable!("load_file only opens builtin files and native files"),
         }
     }
 
@@ -27,52 +29,49 @@ pub fn styles() -> Vec<&'static str> {
     builtin_library::styles()
 }
 
-pub fn load_file(path: &std::path::Path) -> Option<VirtualFile> {
-    match path.strip_prefix("builtin:/") {
-        Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
-        Err(_) => path.exists().then(|| {
+pub fn load_file(path: &SourcePath) -> Option<VirtualFile> {
+    match path {
+        SourcePath::Builtin(builtin_path) => builtin_library::load_builtin_file(builtin_path),
+        SourcePath::File(path) => path.exists().then(|| {
             let path =
-                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path)
-                    .unwrap_or_else(|| path.to_path_buf());
-            VirtualFile { canon_path: crate::pathutils::clean_path(&path), builtin_contents: None }
+                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path);
+            VirtualFile { canon_path: SourcePath::File(path), builtin_contents: None }
         }),
+        SourcePath::Url(_) => None,
     }
 }
 
 #[test]
 fn test_load_file() {
-    let builtin = load_file(&std::path::PathBuf::from(
-        "builtin:/foo/../common/./MadeWithSlint-logo-dark.svg",
-    ))
-    .unwrap();
+    let builtin =
+        load_file(&SourcePath::new("builtin:/foo/../common/./MadeWithSlint-logo-dark.svg"))
+            .unwrap();
     assert!(builtin.is_builtin());
-    assert_eq!(
-        builtin.canon_path,
-        std::path::PathBuf::from("builtin:/common/MadeWithSlint-logo-dark.svg")
-    );
+    assert_eq!(builtin.canon_path.to_string(), "builtin:/common/MadeWithSlint-logo-dark.svg");
+    assert!(load_file(&SourcePath::new("https://slint.dev/Cargo.toml")).is_none());
 
     let dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap().to_string_lossy().to_string();
     let dir_path = std::path::PathBuf::from(dir);
 
     let non_existing = dir_path.join("XXXCargo.tomlXXX");
-    assert!(load_file(&non_existing).is_none());
+    assert!(load_file(&SourcePath::new(non_existing)).is_none());
 
     assert!(dir_path.exists()); // We need some existing path for all the rest
 
     let cargo_toml = dir_path.join("Cargo.toml");
-    let abs_cargo_toml = load_file(&cargo_toml).unwrap();
+    let abs_cargo_toml = load_file(&SourcePath::new(&cargo_toml)).unwrap();
     assert!(!abs_cargo_toml.is_builtin());
-    assert!(crate::pathutils::is_absolute(&abs_cargo_toml.canon_path));
-    assert!(abs_cargo_toml.canon_path.exists());
+    assert!(abs_cargo_toml.canon_path.to_url().is_some());
+    assert!(abs_cargo_toml.canon_path.as_native_path().unwrap().exists());
 
     let current = std::env::current_dir().unwrap();
     assert!(current.ends_with("compiler")); // This test is run in .../internal/compiler
 
     let cargo_toml = std::path::PathBuf::from("./tests/../Cargo.toml");
-    let rel_cargo_toml = load_file(&cargo_toml).unwrap();
+    let rel_cargo_toml = load_file(&SourcePath::new(&cargo_toml)).unwrap();
     assert!(!rel_cargo_toml.is_builtin());
-    assert!(crate::pathutils::is_absolute(&rel_cargo_toml.canon_path));
-    assert!(rel_cargo_toml.canon_path.exists());
+    assert!(rel_cargo_toml.canon_path.to_url().is_some());
+    assert!(rel_cargo_toml.canon_path.as_native_path().unwrap().exists());
 
     assert_eq!(abs_cargo_toml.canon_path, rel_cargo_toml.canon_path);
 }
@@ -101,7 +100,7 @@ mod builtin_library {
         pub contents: &'static [u8],
     }
 
-    use super::VirtualFile;
+    use super::{SourcePath, VirtualFile};
 
     const ALIASES: &[(&str, &str)] = &[
         ("cosmic-light", "cosmic"),
@@ -128,9 +127,9 @@ mod builtin_library {
             .collect()
     }
 
-    pub(crate) fn load_builtin_file(builtin_path: &std::path::Path) -> Option<VirtualFile> {
+    pub(crate) fn load_builtin_file(builtin_path: &str) -> Option<VirtualFile> {
         let mut components = Vec::new();
-        for part in builtin_path.iter() {
+        for part in builtin_path.split('/').filter(|part| !part.is_empty()) {
             if part == ".." {
                 components.pop();
             } else if part != "." {
@@ -140,18 +139,16 @@ mod builtin_library {
         if let Some(f) = components.first_mut()
             && let Some((_, x)) = ALIASES.iter().find(|x| x.0 == *f)
         {
-            *f = std::ffi::OsStr::new(x);
+            *f = x;
         }
         if let &[folder, file] = components.as_slice() {
             let library = widget_library().iter().find(|x| x.0 == folder)?.1;
             library.iter().find_map(|builtin_file| {
                 if builtin_file.path == file {
                     Some(VirtualFile {
-                        canon_path: std::path::PathBuf::from(format!(
-                            "builtin:/{}/{}",
-                            folder.to_str().unwrap(),
-                            builtin_file.path
-                        )),
+                        canon_path: SourcePath::Builtin(
+                            format!("{folder}/{}", builtin_file.path).into(),
+                        ),
                         builtin_contents: Some(builtin_file.contents),
                     })
                 } else {

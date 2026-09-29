@@ -3,14 +3,12 @@
 
 use std::path::PathBuf;
 
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::InternalToken;
 use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::model::{ModelRc, VecModel};
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use slint_interpreter::{ComponentHandle as _, Struct, Value};
-
-#[cfg(target_arch = "wasm32")]
-use crate::protocol::wasm_prelude::UrlWasm;
 
 pub struct InspectorOverlay {
     component: slint_interpreter::ComponentInstance,
@@ -58,8 +56,8 @@ impl InspectorOverlay {
         highlight: Option<&(lsp_types::Url, u32)>,
     ) {
         tracing::debug!("Updating highlight: {highlight:?}");
-        let highlight = user_instance.zip(highlight).and_then(|(instance, (url, offset))| {
-            url.to_file_path().ok().map(|path| (instance.as_weak(), path, *offset))
+        let highlight = user_instance.zip(highlight).map(|(instance, (url, offset))| {
+            (instance.as_weak(), SourcePath::from_url(url.clone()), *offset)
         });
         self.component
             .set_callback("highlight-positions", move |_| {

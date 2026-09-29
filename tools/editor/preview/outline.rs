@@ -250,9 +250,7 @@ fn create_node(
         icon_kind,
         element_type,
         element_id,
-        uri: i_slint_editor_preview::file_to_uri(element.source_file.path())
-            .unwrap()
-            .to_shared_string(),
+        uri: element.source_file.path().to_url().unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
     }

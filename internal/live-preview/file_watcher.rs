@@ -201,10 +201,7 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
     {
         let watched_files = paths
             .into_iter()
-            .map(|path| {
-                let path = i_slint_compiler::pathutils::join(&self.base, &path).unwrap_or(path);
-                i_slint_compiler::pathutils::clean_path(&path)
-            })
+            .map(|path| i_slint_compiler::pathutils::join(&self.base, &path))
             .collect::<HashSet<_>>();
 
         let (response_tx, response_rx) = mpsc::sync_channel(1);

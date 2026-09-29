@@ -20,8 +20,6 @@ pub mod test;
 use crate::editor_preview::EditorSession;
 use crate::{editor_preview, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
@@ -653,12 +651,9 @@ pub fn show_preview_command(
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url = editor_preview::uri_to_file(&url)
-        .and_then(|u| Url::from_file_path(u).ok())
-        .ok_or_else(|| LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "invalid document url".into(),
-        })?;
+    let url = editor_preview::uri_to_file(&url).and_then(|u| u.to_url()).ok_or_else(|| {
+        LspError { code: LspErrorCode::InvalidParameter, message: "invalid document url".into() }
+    })?;
 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
@@ -1081,7 +1076,7 @@ fn get_code_actions(
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
-    let uri = Url::from_file_path(token.source_file.path()).ok()?;
+    let uri = token.source_file.path().to_url()?;
     let mut result = Vec::new();
 
     let component = syntax_nodes::Component::new(node.clone())

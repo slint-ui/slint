@@ -425,7 +425,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return stream;
     }
 
-    let source_file = diagnostics::SourceFileInner::from_path_only(source_path);
+    let source_file = diagnostics::SourceFileInner::from_path_only(
+        i_slint_compiler::source_path::SourcePath::new(source_path),
+    );
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
     if diag.has_errors() {

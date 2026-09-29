@@ -16,6 +16,7 @@ use crate::editor_preview::{
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
@@ -460,7 +461,7 @@ fn add_new_component() {
         drop_location::add_new_component(&document_cache, &component_name, document)
     {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
+            drop_data.path.to_path_buf(),
             drop_data.selection_offset,
             None,
             SelectionNotification::AfterUpdate,
@@ -937,7 +938,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
+            drop_data.path.to_path_buf(),
             drop_data.selection_offset,
             None,
             SelectionNotification::AfterUpdate,
@@ -1073,7 +1074,7 @@ fn resize_selected_element_impl(
         return None;
     }
 
-    let url = Url::from_file_path(&path).ok()?;
+    let url = path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -1129,7 +1130,7 @@ fn move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) {
         mouse_position,
     ) {
         element_selection::select_element_at_source_code_position(
-            drop_data.path,
+            drop_data.path.to_path_buf(),
             drop_data.selection_offset,
             None,
             SelectionNotification::AfterUpdate,
@@ -1217,9 +1218,7 @@ fn extract_resources(
     let mut result: HashSet<Url> = Default::default();
 
     for dependency in dependencies {
-        let Ok(path) = dependency.to_file_path() else {
-            continue;
-        };
+        let path = SourcePath::from_url(dependency.clone());
         let Some(doc) = type_loader.get_document(&path) else {
             continue;
         };
@@ -1483,7 +1482,7 @@ async fn reload_timer_function() {
         if notify_editor
             && let Some(component_instance) = component_instance()
             && let Some((element, debug_index)) = component_instance
-                .element_node_at_source_code_position(&se.path, se.offset.into())
+                .element_node_at_source_code_position(&SourcePath::new(&se.path), se.offset.into())
                 .first()
         {
             let Some(element_node) = ElementRcNode::new(element.clone(), *debug_index) else {
@@ -1496,7 +1495,7 @@ async fn reload_timer_function() {
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
             lsp.ask_editor_to_show_document(
-                &path.to_string_lossy(),
+                &path.to_string(),
                 lsp_types::Range::new(pos, pos),
                 false,
             )
@@ -1599,7 +1598,10 @@ async fn parse_source(
         editor_preview::document_cache::document_cache_parts_setup(
             cc,
             Some(Rc::new(file_loader_fallback)),
-            editor_preview::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
+            editor_preview::document_cache::SourceFileVersionMap::from([(
+                SourcePath::new(&path),
+                version,
+            )]),
         );
 
     let result = builder.build_from_source(source_code, path).await;
@@ -1831,21 +1833,16 @@ fn convert_diagnostics(
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
 
-    fn path_to_url(path: &Path) -> Url {
-        Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap())
-    }
-
     // Pre-fill version info and an empty diagnostics to reset the state for the url
     for (path, version) in file_versions.iter() {
-        result.insert(path_to_url(path), (*version, Vec::new()));
+        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
     }
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
-            if d.source_file().is_none_or(|f| !i_slint_compiler::pathutils::is_absolute(f)) {
+            let Some(uri) = d.source_file().and_then(|f| SourcePath::new(f).to_url()) else {
                 continue;
-            }
-            let uri = path_to_url(d.source_file().unwrap());
+            };
             let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
             if let Some(data) = result.get_mut(&uri) {
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
@@ -2012,12 +2009,8 @@ fn set_selected_element(
                 util::text_size_to_lsp_position(sf, node.text_range().start(), format),
             )
         });
-        lsp.ask_editor_to_show_document(
-            &path.to_string_lossy(),
-            lsp_types::Range::new(pos, pos),
-            false,
-        )
-        .ok();
+        lsp.ask_editor_to_show_document(&path.to_string(), lsp_types::Range::new(pos, pos), false)
+            .ok();
     }
 }
 

@@ -752,7 +752,7 @@ fn test_no_property_for_100pc() {
         }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(crate::source_path::SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =

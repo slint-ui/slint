@@ -253,7 +253,8 @@ fn embed_image(
         return ImageReference::None;
     }
 
-    let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) else {
+    let Some(_file) = crate::fileaccess::load_file(&crate::source_path::SourcePath::new(path))
+    else {
         diag.push_error(format!("Cannot find image file {path}"), source_location);
         return ImageReference::None;
     };
@@ -570,17 +571,12 @@ fn load_image(
     scale_factor: f32,
     font_collection: Option<&SharedFontCollection>,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    use std::ffi::OsStr;
-
-    let extension = file.canon_path.extension().and_then(OsStr::to_str);
-
-    let data = if let Some(buffer) = file.builtin_contents {
-        buffer.to_vec()
-    } else {
-        std::fs::read(&file.canon_path)?
+    let data = match (file.builtin_contents, file.canon_path.as_native_path()) {
+        (Some(buffer), _) => buffer.to_vec(),
+        (None, Some(path)) => std::fs::read(path)?,
+        (None, None) => return Err(std::io::Error::from(std::io::ErrorKind::NotFound).into()),
     };
-
-    load_image_from_bytes(&data, extension, scale_factor, font_collection)
+    load_image_from_bytes(&data, file.canon_path.extension(), scale_factor, font_collection)
 }
 
 fn embed_data_uri(

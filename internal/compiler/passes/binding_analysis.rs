@@ -5,9 +5,9 @@
 
 //! Compute binding analysis and attempt to find binding loops
 
+use crate::source_path::SourcePath;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use by_address::ByAddress;
@@ -187,7 +187,7 @@ struct AnalysisContext<'a> {
     depth_limit_reported: bool,
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
     /// was an error.
-    loop_reported_at: HashMap<(Option<PathBuf>, usize, usize), bool>,
+    loop_reported_at: HashMap<(Option<SourcePath>, usize, usize), bool>,
     global_analysis: &'a mut GlobalAnalysis,
 }
 
@@ -549,13 +549,12 @@ fn escapes_parent_size(elem: &ElementRc) -> Option<SmolStr> {
 }
 
 /// Where a diagnostic would point, as a value two of them can be compared by.
-fn place(span: &SourceLocation) -> (Option<PathBuf>, usize, usize) {
-    (span.source_file.as_ref().map(|f| f.path().to_path_buf()), span.span.offset, span.span.length)
+fn place(span: &SourceLocation) -> (Option<SourcePath>, usize, usize) {
+    (span.source_file.as_ref().map(|f| f.path().clone()), span.span.offset, span.span.length)
 }
 
-/// Whether `path` is one of the files the compiler ships, such as a style's widgets.
-fn is_builtin(path: &std::path::Path) -> bool {
-    path.to_string_lossy().starts_with("builtin:")
+fn is_builtin(path: &SourcePath) -> bool {
+    matches!(path, SourcePath::Builtin(_))
 }
 
 /// Report the cycle `current` closes: one diagnostic on the binding the user is most likely to
@@ -691,16 +690,15 @@ fn report_binding_loop(
 
     // An editor lists each diagnostic on its own, away from the rest, so a note has to say which
     // loop it belongs to and where that one is.
-    let reported_at = span.source_file.as_ref().map(|file| {
-        (file.path().to_path_buf(), file.line_column(span.span.offset, ByteFormat::Utf8).0)
-    });
+    let reported_at = span
+        .source_file
+        .as_ref()
+        .map(|file| (file.path().clone(), file.line_column(span.span.offset, ByteFormat::Utf8).0));
     let at = |note_span: &SourceLocation| match &reported_at {
-        Some((path, line))
-            if note_span.source_file.as_ref().is_some_and(|f| f.path() == path.as_path()) =>
-        {
+        Some((path, line)) if note_span.source_file.as_ref().is_some_and(|f| f.path() == path) => {
             format!(" at line {line}")
         }
-        Some((path, line)) => format!(" at {}:{line}", path.display()),
+        Some((path, line)) => format!(" at {}:{line}", path),
         None => String::new(),
     };
     // The element the advice names may be one the source never named, in another component:
