@@ -5005,12 +5005,8 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
         BuiltinFunction::DecimalSeparator => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::SharedString::from(
-                sp::WindowInner::from_pub(#window_adapter_tokens.window())
-                    .context()
-                    .locale_decimal_separator()
-            ))
+            let context = access_context(ctx);
+            quote!(sp::SharedString::from(#context.locale_decimal_separator()))
         }
         BuiltinFunction::Mod => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
