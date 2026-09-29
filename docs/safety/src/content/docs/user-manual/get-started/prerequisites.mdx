@@ -1,0 +1,27 @@
+---
+title: Prerequisites
+description: The toolchain and tools you need before building an application with Slint SC.
+---
+
+Before you install Slint SC, make sure your host has the following software packages installed.
+
+## Rust Toolchain
+
+You must build your application with a Rust toolchain that's qualified for [ISO 26262 ASIL B](/qualification-plan/standards-compliance/#integrity-level) or higher.
+The runtime and the generated code ship as source, so your toolchain compiles them, not ours.
+
+The toolchain has to support Rust 1.95 or later.
+The runtime is `no_std` and doesn't allocate, so it builds for any target your toolchain supports, bare metal included.
+
+The guide uses Cargo to build the application.
+
+## Coverage Measurement
+
+To measure the coverage of your `.slint` code, you also need these on the host:
+
+- `llvm-cov` and `llvm-profdata`, the LLVM tools that match your Rust toolchain.
+- [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov), which runs your tests with coverage instrumentation.
+- Optionally, `genhtml` from [lcov](https://github.com/linux-test-project/lcov), to render the result as HTML.
+
+The measurement runs on the host, not on the bare-metal target.
+To learn what that means for your evidence, see [Coverage of Slint Code](/user-manual/slint-coverage/#constraints).

@@ -100,6 +100,7 @@ def test_imported_file_edit_targets_only_nested_source(
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, main_file) as editor:
+        wait_for_source(main_file, main_file.read_bytes())
         window = first_window(editor)
         wait_until(
             lambda: (

@@ -116,8 +116,8 @@ property<Large> p: { x: 5 };  // OK: y gets default value
 
 Elements (components/items) have their own type hierarchy.
 `ElementType` (`internal/compiler/langtype.rs`) is one of: `Component` for a user-defined
-component, `Builtin` for a built-in item such as `Rectangle` or `Text`, `Native` once the
-`resolve_native_classes` pass has run, `Error` when the base type couldn't be looked up, and
+component, `Builtin` for a built-in item such as `Rectangle` or `Text`,
+`Error` when the base type couldn't be looked up, and
 `Global` / `Interface` for the root element of a global or an interface.
 
 ### Property Lookup on Elements

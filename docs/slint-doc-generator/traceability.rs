@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Traceability matrix between the requirement paragraphs of the Language
-//! Specification and the generated SC API Reference (`{#sls.…}` anchors) and
+//! Specification and the generated SC Reference (`{#sls.…}` anchors) and
 //! the test cases that reference them with `//#sls.…` comments.
 
 use crate::Config;
@@ -13,7 +13,7 @@ use std::path::Path;
 
 /// Canonical location of the specification chapters, relative to the
 /// repository root. The safety manual syncs them at build time and serves
-/// them under the `language/` slug.
+/// them under the `reference/language/` slug, like the main documentation.
 const SPEC_DIR: &str = "docs/astro/src/content/docs/reference/language";
 
 /// Sidebar order of the specification pages in docs/safety/astro.config.mjs.
@@ -71,9 +71,10 @@ const SAFETY_DOCS_DIR: &str = "docs/safety/src/content/docs";
 const PROPERTY_TYPES_DIR: &str = "docs/astro/src/content/docs/reference/property-types";
 
 /// Subdirectories of [`SAFETY_DOCS_DIR`] whose anchors are already scanned
-/// from their canonical source: the generated pages and the specification
-/// chapters synced from [`SPEC_DIR`].
-const SAFETY_DOCS_EXCLUDE: &[&str] = &["generated", "language"];
+/// from their canonical source: the generated pages, and the pages synced
+/// from [`SPEC_DIR`] and [`PROPERTY_TYPES_DIR`].
+const SAFETY_DOCS_EXCLUDE: &[&str] =
+    &["generated", "reference/language", "reference/property-types"];
 
 /// Name of the matrix this module writes into
 /// [`Config::qualification_report_dir`], the section it belongs to.
@@ -357,8 +358,11 @@ fn scan_spec_pages(dir: &Path) -> Result<Vec<SpecPage>, Box<dyn std::error::Erro
         }
         // The index page is served at the root of the specification.
         page.top_level = stem == "index";
-        page.base =
-            if page.top_level { "/language/".to_string() } else { format!("/language/{stem}/") };
+        page.base = if page.top_level {
+            "/reference/language/".to_string()
+        } else {
+            format!("/reference/language/{stem}/")
+        };
         if !page.draft {
             pages.push(page);
         }
@@ -440,8 +444,7 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
         .into_iter()
         .filter_entry(|e| {
             !(e.file_type().is_dir()
-                && e.depth() == 1
-                && SAFETY_DOCS_EXCLUDE.contains(&e.file_name().to_string_lossy().as_ref()))
+                && SAFETY_DOCS_EXCLUDE.contains(&repo_relative(e.path(), &dir).as_str()))
         })
         .flatten()
     {
@@ -452,11 +455,6 @@ fn scan_safety_pages(repo_root: &Path) -> Result<Vec<SpecPage>, Box<dyn std::err
         }
         let file = repo_relative(path, repo_root);
         let text = std::fs::read_to_string(path).context(format!("error reading {path:?}"))?;
-        // The property-types pages are scanned from their canonical location,
-        // so skip the synced copies here to avoid duplicate anchors.
-        if file.contains("reference/property-types/") {
-            continue;
-        }
         let (mut page, slug) = parse_spec_page(&file, &text);
         if page.anchors.is_empty() || page.draft || !page.normative {
             continue;
@@ -547,11 +545,11 @@ fn write_matrix(
         file,
         r#"---
 title: Traceability Matrix
-description: Mapping between the requirement paragraphs of the Language Specification and the SC API Reference, and the test cases that verify them.
+description: Mapping between the requirement paragraphs of the Language Specification and the SC Reference, and the test cases that verify them.
 slug: qualification-report/traceability-matrix
 ---
 
-Each requirement paragraph in the [Language Specification](/language/), the [SC API Reference](/reference/), and the other chapters of this manual carries a unique identifier,
+Each requirement paragraph in the [Language Specification](/reference/language/), the [SC Reference](/reference/), and the other chapters of this manual carries a unique identifier,
 shown as a `[sls.…]` badge at the end of the paragraph.
 A test case declares which requirements it verifies by listing their identifiers in `//#sls.…` comments.
 This matrix lists every requirement paragraph with the test cases that declare it.
@@ -574,7 +572,7 @@ and `rust:` are Rust unit tests and test drivers of the `slint-sc` crate and the
 
     // Sections are skipped entirely when they state no testable requirement.
     if reference_pages.iter().flat_map(|p| &p.anchors).any(|(id, _)| !informative(id)) {
-        writeln!(file, "\n## SC API Reference")?;
+        writeln!(file, "\n## SC Reference")?;
         for page in reference_pages {
             write_page(&mut file, page, tests_by_id, &sha)?;
         }

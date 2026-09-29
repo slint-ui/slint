@@ -1,0 +1,153 @@
+---
+title: Using the Generated Code
+description: Create the component, drive it from your application, and render it into a frame buffer.
+---
+
+The generated code defines a struct for the component and a trait for its callbacks.
+Your application creates the component, implements the trait, and decides when the component handles input and when it renders.
+This page builds the application around the `Indicator` component from [Compiling .slint Files](/user-manual/get-started/compiling/).
+
+For the exact contract of every item this page uses, see [Generated Code](/reference/generated-code/).
+
+## Create the Component
+
+Create the component with the size of your display, in pixels:
+
+```rust
+let mut indicator = Indicator::new(slint_sc::Size::new(320, 240));
+```
+
+The size is fixed for the life of the component, and every frame buffer you render into must match it.
+
+## Set Properties
+
+Every `in` and `in-out` property of the root element has a setter, and every property that isn't private has a getter:
+
+```rust
+indicator.set_alarm(true);
+assert!(indicator.get_alarm());
+```
+
+The names follow the property names, with `-` replaced by `_` ([`sls.gen.prop.names`](/reference/generated-code/#sls.gen.prop.names)).
+The component shows the values you set when it next renders.
+
+## Implement the Callbacks
+
+The `IndicatorCallbacks` trait has one method for each callback of the component.
+Implement it on the type that holds your application's state:
+
+```rust
+struct Application {
+    acknowledged: bool,
+}
+
+impl IndicatorCallbacks for Application {
+    fn on_acknowledged(&mut self, indicator: &mut Indicator) {
+        self.acknowledged = true;
+        indicator.set_alarm(false);
+    }
+}
+```
+
+Each method takes your state and the component by mutable reference, so it can update both.
+None of the methods has a default, so the application doesn't compile until it handles every callback.
+
+## Deliver Touch Input
+
+Pass each press and release from your touch controller to `dispatch_touch_event`, together with your callbacks:
+
+```rust
+let position = slint_sc::Point::new(32, 32);
+indicator.dispatch_touch_event(slint_sc::TouchEvent::pressed(position), &mut application);
+indicator.dispatch_touch_event(slint_sc::TouchEvent::released(position), &mut application);
+```
+
+The positions are in pixels of the window.
+A press followed by a release over the same `TouchArea` is a click,
+so the second call runs `on_acknowledged`.
+To learn how events reach the elements, see [Touch Input](/reference/input/).
+
+## Render a Frame
+
+`render_rgb8` paints the whole window into a frame buffer that you provide.
+The buffer holds three bytes per pixel, red, green, and blue, in rows from the top:
+
+```rust
+match indicator.render_rgb8(frame_buffer) {
+    Ok(()) => { /* present the frame */ }
+    Err(_) => { /* keep the frame off the display, and report the fault */ }
+}
+```
+
+The buffer must be exactly `width * height * 3` bytes.
+Otherwise `render_rgb8` returns `RenderError::InvalidFrameBufferSize` and paints nothing,
+so check the result before you show the frame.
+
+## Put It Together
+
+The application below runs the indicator on a board.
+`Board` stands for what your board support package provides: the alarm input, the touch controller, and the display.
+The names are placeholders.
+
+```rust
+#![no_std]
+
+include!(concat!(env!("OUT_DIR"), "/indicator.rs"));
+
+use slint_sc::{Size, TouchEvent};
+
+pub trait Board {
+    fn alarm_active(&self) -> bool;
+    fn next_touch_event(&mut self) -> Option<TouchEvent>;
+    fn frame_buffer(&mut self) -> &mut [u8];
+    fn present(&mut self);
+    fn report_fault(&mut self);
+}
+
+struct Application {
+    acknowledged: bool,
+}
+
+impl IndicatorCallbacks for Application {
+    fn on_acknowledged(&mut self, indicator: &mut Indicator) {
+        self.acknowledged = true;
+        indicator.set_alarm(false);
+    }
+}
+
+pub fn run(board: &mut impl Board) -> ! {
+    let mut indicator = Indicator::new(Size::new(320, 240));
+    let mut application = Application { acknowledged: false };
+
+    loop {
+        let alarm = board.alarm_active();
+        if !alarm {
+            application.acknowledged = false;
+        }
+        indicator.set_alarm(alarm && !application.acknowledged);
+
+        while let Some(event) = board.next_touch_event() {
+            indicator.dispatch_touch_event(event, &mut application);
+        }
+
+        match indicator.render_rgb8(board.frame_buffer()) {
+            Ok(()) => board.present(),
+            Err(_) => board.report_fault(),
+        }
+    }
+}
+```
+
+Each pass of the loop copies the state into the component, handles the pending touch events, and renders a frame.
+The application decides that the alarm is raised and when it's acknowledged.
+The component only shows it.
+
+`present` is where the loop waits: return from it once the display has taken the frame, for example at the next refresh.
+
+## Next Steps
+
+- [Reference](/reference/): the [language](/reference/language/) Slint SC accepts, the elements, the property types, and the [generated code](/reference/generated-code/).
+- [`slint-sc` crate](/api/slint_sc/): the runtime types, such as `Size`, `Color`, `Point`, `TouchEvent`, and `RenderError`.
+- [Compiler Constraints](/user-manual/compiler/constraints/) and [Runtime Constraints](/user-manual/runtime/constraints/): the conditions your use of Slint SC must meet.
+- [Known Problems](/user-manual/known-problems/): the problems known in this release.
+- [Coverage of Slint Code](/user-manual/slint-coverage/): measuring which parts of your `.slint` code your tests reach.

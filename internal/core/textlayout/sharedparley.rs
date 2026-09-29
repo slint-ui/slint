@@ -287,7 +287,7 @@ fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string:
                 link_range.geometry_with(&paragraph.layout, |mut bounding_box, _line| {
                     bounding_box.y0 += paragraph_y;
                     bounding_box.y1 += paragraph_y;
-                    clicked = bounding_box.union(parley::BoundingBox::new(
+                    clicked |= bounding_box.union(parley::BoundingBox::new(
                         cursor.x.into(),
                         cursor.y.into(),
                         cursor.x.into(),
@@ -366,7 +366,11 @@ pub fn draw_text_input(
                 let selection_spans = if selection_range.is_empty() {
                     SelectionSpans::default()
                 } else {
-                    layout.selection_geometry(selection_range, &draw::visible_band(item_renderer))
+                    layout.selection_geometry(
+                        selection_range,
+                        &draw::visible_band(item_renderer),
+                        |x| item_renderer.snap_selection_x(x),
+                    )
                 };
                 // Inside the clip, like the glyphs it sits under: a line box taller than the item
                 // would otherwise paint the highlight over whatever follows the input.

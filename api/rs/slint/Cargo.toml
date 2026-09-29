@@ -103,6 +103,23 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
+## Enable storing an image's pixels in the RGB565 format ([`Image::from_rgb565`]).
+## The software renderer then draws such an image
+## without any per-pixel conversion when the render target is RGB565 too.
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-backend-selector/image-pixel-format-rgb565",
+]
+
+## Enable storing an image's pixels as a single 8 bit grayscale channel
+## ([`Image::from_gray8`]).
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-backend-selector/image-pixel-format-gray8",
+]
+
 ## Enable the live preview feature
 ##
 ## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
@@ -205,6 +222,9 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-
 ## Same as `renderer-skia`, but Skia will prefer Vulkan when selecting a backend.
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
+## Same as `renderer-skia`, but compiles only Skia's CPU rendering path, without a GPU renderer.
+renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software", "std"]
+
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
@@ -262,7 +282,7 @@ backend-android-activity-05 = [
 #! in your `Cargo.toml` when enabling any of these features:
 #!
 #! ```toml
-#! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+#! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
 #! ```
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
@@ -354,6 +374,8 @@ features = [
   "log",
   "gettext",
   "renderer-software",
+  "image-pixel-format-rgb565",
+  "image-pixel-format-gray8",
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",

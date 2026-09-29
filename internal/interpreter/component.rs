@@ -11,7 +11,7 @@ use crate::public_api;
 use crate::{AnimationMode, Value};
 use i_slint_compiler::expression_tree::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent};
+use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
 use i_slint_core::item_tree::ItemTreeVTable;
@@ -39,7 +39,12 @@ pub struct TypeLoaders {
     /// resolve elements against the exact component the definition was
     /// built from — a name lookup could hit a same-named component from
     /// another document.
-    pub originals: std::rc::Rc<[std::rc::Rc<i_slint_compiler::object_tree::Component>]>,
+    pub originals: std::rc::Rc<
+        typed_index_collections::TiVec<
+            PublicComponentIdx,
+            std::rc::Rc<i_slint_compiler::object_tree::Component>,
+        >,
+    >,
 }
 
 /// Compiled component, one per exported public component in the
@@ -48,7 +53,7 @@ pub struct TypeLoaders {
 #[derive(Clone)]
 pub struct ComponentDefinitionInner {
     pub compilation_unit: Rc<CompilationUnit>,
-    pub public_index: usize,
+    pub public_index: PublicComponentIdx,
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
     pub type_loaders: TypeLoaders,
@@ -305,7 +310,7 @@ impl ComponentInstanceInner {
 
     /// Definition this instance was created from.
     pub fn definition(&self) -> ComponentDefinitionInner {
-        let public_index = self.0.public_component_index.unwrap_or(0);
+        let public_index = self.0.public_component_index.unwrap_or(0.into());
         ComponentDefinitionInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
@@ -330,8 +335,9 @@ pub fn build_from_document(
     let unit = Rc::new(unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
-    type_loaders.originals = document.exported_roots().collect();
-    (0..unit.public_components.len())
+    type_loaders.originals = std::rc::Rc::new(document.exported_roots().collect());
+    unit.public_components
+        .keys()
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,

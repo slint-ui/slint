@@ -205,7 +205,9 @@ impl Scene {
         }
         self.current_items_index = i;
         // check that current items are properly sorted
-        debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+        debug_assert!(
+            self.items[0..self.current_items_index].array_windows().all(|[a, b]| a.z >= b.z)
+        );
     }
 
     // return true if lines were skipped
@@ -491,6 +493,20 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+                data: &b.as_bytes()[start * 2..end * 2],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Rgb565,
+                extra: self.extra,
+            },
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
+                data: &b.as_bytes()[start..end],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Gray8,
+                extra: self.extra,
+            },
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
                 data: &data[start..end],
                 pixel_stride: *width,

@@ -13,7 +13,8 @@
   Avoid layout-dependent screen coordinates.
 - Exercise real pointer/keyboard input for gesture and focus contracts; assert observable behavior.
 - Compare exact project source and applied preview; check atomic undo/redo and unchanged source after cancellation or rejection.
-  Reuse save waits that ignore transient empty reads.
+  Use `wait_for_source_change` when the saved bytes are not known in advance.
+  It waits for preview application because in-place writes can produce non-empty torn reads.
 - Isolate fixtures for independent, parallel runs; parameterize genuine variants and delete redundant setup or wrappers.
 - Reproduce failures; never weaken assertions, add skips, or replace screenshot references merely to pass.
 - Inspect renders for visual changes and account for logical-to-physical pixel scaling.

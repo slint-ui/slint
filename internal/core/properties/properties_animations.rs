@@ -357,7 +357,7 @@ pub(super) struct AnimatedBindingCallable<T, A> {
 
 pub(super) type AnimationDetail = (PropertyAnimation, Option<crate::animations::Instant>);
 
-unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
+impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable<T>
     for AnimatedBindingCallable<T, A>
 {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
@@ -519,7 +519,7 @@ struct AnimatedValueBinding<T> {
     animation_data: RefCell<PropertyValueAnimationData<T>>,
 }
 
-unsafe impl<T: InterpolatedPropertyValue + Clone + 'static> BindingCallable<T>
+impl<T: InterpolatedPropertyValue + Clone + 'static> BindingCallable<T>
     for AnimatedValueBinding<T>
 {
     fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
@@ -678,7 +678,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     }
 }
 
-unsafe impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
+impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
     for RefCell<PropertyPhysicsAnimationData<S>>
 {
     fn evaluate(self: Pin<&Self>, value: &mut Length<crate::Coord, Unit>) -> BindingResult {

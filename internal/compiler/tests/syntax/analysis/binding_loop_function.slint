@@ -24,11 +24,11 @@ export App := Rectangle {
 //         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     cc := Compo1 {
         aa() => { return self.a; }
-//      >error{The binding for the property 'aa' is part of a binding loop (cc.a -> cc.aa -> cc.a)}
+//      >note{'aa' is part of the binding loop reported for 'a' at line 7}
 
         b: self.bb();
-//     <error{The binding for the property 'aa' is part of a binding loop (cc.a -> cc.aa -> cc.a)}
-//         >        <^error{The binding for the property 'b' is part of a binding loop (cc.b -> cc.bb -> cc.b)}
+//     <note{'aa' is part of the binding loop reported for 'a' at line 7}
+//         >        <^note{'b' is part of the binding loop reported for 'bb' at line 19}
     }
 
 

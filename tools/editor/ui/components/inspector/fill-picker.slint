@@ -5,7 +5,7 @@ import { Style, Metrics, Colors, Typography, FillPickerStyle } from "../../style
 import { FillSession } from "fill-session.slint";
 
 import { BrushKind } from "../../api.slint";
-import { EditorWindow } from "../common.slint";
+import { EditorWindow } from "../index.slint";
 
 import { InspectorColorControls } from "color-controls.slint";
 
@@ -120,11 +120,7 @@ export component InspectorFillPicker inherits Rectangle {
                         }
                     }
 
-                    if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops {
-                        edit-color => {
-                            FillSession.stop-panel-open = true;
-                        }
-                    }
+                    if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientStops { }
                     if !FillSession.request.unsupported && FillSession.working-fill.kind == BrushKind.solid: InspectorColorControls {
                         value: FillSession.working-color;
                         editable: FillSession.editable;

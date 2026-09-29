@@ -120,11 +120,9 @@ Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar to the rust equivalent.
 
-It requires the Slint C++ library to be built first (see
-[building.md](./building.md#c-tests)):
+It builds the Slint C++ library itself (see [building.md](./building.md#c-tests)):
 
 ```
-cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --
 ```
 

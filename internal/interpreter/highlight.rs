@@ -510,7 +510,7 @@ fn items_by_source(
     results
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "internal"))]
 mod tests {
     use crate::{
         ComponentInstance,

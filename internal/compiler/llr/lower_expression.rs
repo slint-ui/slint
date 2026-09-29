@@ -334,8 +334,8 @@ fn lower_function_call(
             if nr
                 .element()
                 .borrow()
-                .native_class()
-                .is_some_and(|n| n.properties.contains_key(nr.name())) =>
+                .builtin_type()
+                .is_some_and(|b| b.properties.contains_key(nr.name())) =>
         {
             llr_Expression::ItemMemberFunctionCall { function: ctx.map_property_reference(nr) }
         }

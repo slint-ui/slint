@@ -10,6 +10,7 @@ from canvas_interactions import center, fixture_element
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field
 from slint_testing import keys
+from source_snapshot import wait_for_source_change
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -65,13 +66,8 @@ def test_removing_hovered_element_without_pointer_motion(
             source.write_bytes(expected)
         else:
             press_key(window, keys.Delete if operation == "delete" else keys.Backspace)
-            expected = wait_until(
-                lambda: (
-                    contents
-                    if b"root-rectangle :=" not in (contents := source.read_bytes())
-                    else None
-                )
-            )
+            expected = wait_for_source_change(source, baseline)
+            assert b"root-rectangle :=" not in expected
 
         wait_for_source(source, expected)
         assert not window.find_elements_by_id("Main::root-rectangle")
@@ -102,11 +98,8 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
         wait_for_source(source, baseline)
         select_fixture_element(window, "Rectangle")
         edit_field(window, FIELDS["x"], "220", slint_testing.AccessibleRole.TextInput)
-        moved = wait_until(
-            lambda: (
-                contents if b"x: 220px;" in (contents := source.read_bytes()) else None
-            )
-        )
+        moved = wait_for_source_change(source, baseline)
+        assert b"x: 220px;" in moved
         wait_for_source(source, moved)
         hover_rectangle(window)
 
@@ -160,13 +153,8 @@ def test_pointer_motion_clears_hover_after_removal(
         select_fixture_element(window, "Rectangle")
         hover_rectangle(window)
         press_key(window, keys.Delete)
-        expected = wait_until(
-            lambda: (
-                contents
-                if b"root-rectangle :=" not in (contents := source.read_bytes())
-                else None
-            )
-        )
+        expected = wait_for_source_change(source, baseline)
+        assert b"root-rectangle :=" not in expected
         wait_for_source(source, expected)
         window.dispatch_event(
             slint_testing.PointerMoveEvent(center(fixture_element(window, "Image")))

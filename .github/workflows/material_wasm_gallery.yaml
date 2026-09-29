@@ -27,7 +27,7 @@ jobs:
                       ui-libraries/material/examples/gallery/pkg
                       ui-libraries/material/examples/gallery/index.html
                       ui-libraries/material/examples/gallery/frame-tablet.webp
-                  key: wasm-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+                  key: wasm-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
             - name: Install Rust
               if: steps.cache-wasm.outputs.cache-hit != 'true'
               uses: dtolnay/rust-toolchain@stable

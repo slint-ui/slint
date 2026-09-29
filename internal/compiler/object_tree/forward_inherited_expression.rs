@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{BindingExpression, ElementRc, ElementType, PropertyDeclaration};
-use crate::expression_tree::{Callable, Expression};
+use crate::expression_tree::{Callable, Expression, TwoWayBinding};
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::symbol_counters::SymbolCounters;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
 #[derive(Default)]
@@ -16,10 +16,60 @@ pub(crate) struct ForwardedReferenceCache {
 
 pub(crate) enum InheritedExpression {
     Expression(Expression),
-    TwoWayBinding,
+    /// A two-way binding in the base binds the property. Carries the base root it is on, so a
+    /// caller that wants the value can resolve the link itself with [`follow_two_way_bindings`]
+    /// and rebase the result with [`rebase_expression_to_instance`].
+    TwoWayBinding(ElementRc),
     Unbound,
 }
 
+/// The property whose binding holds the value of `property_name`, reached by following the
+/// two-way bindings that [`remove_aliases`](crate::passes::remove_aliases) merges into a single
+/// property. Following again from the result returns it unchanged.
+///
+/// Returns `None` for a link that stays two separate properties: to a global, to a struct field,
+/// or to model data. This models a subset of `PropertySets::add_link`, which decides the merge
+/// for real and can only do so once every component is inlined; where the two disagree, a caller
+/// gets the conservative answer. `None` for a cycle as well, which `add_link` reports.
+pub(crate) fn follow_two_way_bindings(
+    element: &ElementRc,
+    property_name: &str,
+) -> Option<NamedReference> {
+    let mut current = NamedReference::new(element, property_name.into());
+    let mut seen = HashSet::new();
+    loop {
+        if !seen.insert(current.clone()) {
+            return None;
+        }
+        let current_element = current.element();
+        let next = {
+            let current_element = current_element.borrow();
+            let Some(binding) = current_element.binding(current.name()) else { break };
+            // A property that also has an expression of its own is where the chain ends: that
+            // expression is the value the merged property takes.
+            if !matches!(binding.expression, Expression::Invalid) {
+                break;
+            }
+            match binding.two_way_bindings.first() {
+                Some(TwoWayBinding::Property { property, field_access })
+                    if field_access.is_empty()
+                        && Weak::ptr_eq(
+                            &property.element().borrow().enclosing_component,
+                            &current_element.enclosing_component,
+                        ) =>
+                {
+                    property.clone()
+                }
+                Some(_) => return None,
+                None => break,
+            }
+        };
+        current = next;
+    }
+    Some(current)
+}
+
+/// The expression a base component binds `property_name` to, rebased onto `element`.
 pub(crate) fn forward_inherited_expression(
     element: &ElementRc,
     property_name: &str,
@@ -38,7 +88,7 @@ pub(crate) fn forward_inherited_expression(
             .map(|binding| (!binding.two_way_bindings.is_empty(), binding.expression.clone()));
         if let Some((is_two_way_binding, mut expression)) = binding {
             if is_two_way_binding {
-                return InheritedExpression::TwoWayBinding;
+                return InheritedExpression::TwoWayBinding(current_base_root.clone());
             }
             if !matches!(expression, Expression::Invalid) {
                 rebase_expression_to_instance(
@@ -63,7 +113,7 @@ pub(crate) fn forward_inherited_expression(
     }
 }
 
-fn rebase_expression_to_instance(
+pub(crate) fn rebase_expression_to_instance(
     expression: &mut Expression,
     base_root_element: &ElementRc,
     target_instance: &ElementRc,

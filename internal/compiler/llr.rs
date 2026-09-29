@@ -12,6 +12,7 @@ pub use item_tree::*;
 pub mod lower_expression;
 pub mod lower_layout_expression;
 pub mod lower_to_item_tree;
+mod native_class_selection;
 pub mod pretty_print;
 
 /// The optimization passes over the LLR

@@ -47,7 +47,7 @@ use crate::drag_and_drop::{self, PendingNativeDrag};
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalPoint};
+use corelib::lengths::{LogicalLength, LogicalPoint, LogicalRect, logical_size_from_api};
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
@@ -198,6 +198,30 @@ fn icon_to_winit(
         .ok()?
         .into(),
     )
+}
+
+/// Images without a cache key, such as ones made from a pixel buffer, compare by identity (#13609).
+fn is_same_icon(previous: &Image, next: &Image) -> bool {
+    let (previous, next): (&ImageInner, &ImageInner) = (previous.into(), next.into());
+    match (ImageCacheKey::new(previous), ImageCacheKey::new(next)) {
+        (Some(previous_key), Some(next_key)) => previous_key == next_key,
+        (None, None) => {
+            matches!((previous, next), (ImageInner::None, ImageInner::None)) || previous == next
+        }
+        _ => false,
+    }
+}
+
+#[test]
+fn test_is_same_icon() {
+    let pixels = || Image::from_rgba8(SharedPixelBuffer::new(16, 16));
+    let icon = pixels();
+
+    assert!(is_same_icon(&Image::default(), &Image::default()));
+    assert!(!is_same_icon(&Image::default(), &icon));
+    assert!(!is_same_icon(&icon, &Image::default()));
+    assert!(is_same_icon(&icon, &icon.clone()));
+    assert!(!is_same_icon(&icon, &pixels()));
 }
 
 fn window_is_resizable(
@@ -432,7 +456,7 @@ pub struct WinitWindowAdapter {
 
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
-    window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+    window_icon: RefCell<Image>,
 
     custom_cursor_source: Cell<Option<CustomCursorSource>>,
 
@@ -499,9 +523,9 @@ impl WinitWindowAdapter {
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
-            window_icon_cache_key: Default::default(),
             parent,
             event_loop_properties: Cell::new(event_loop_properties),
+            window_icon: Default::default(),
             custom_cursor_source: Cell::new(None),
             cursor_pos: Default::default(),
             pressed: Default::default(),
@@ -653,8 +677,8 @@ impl WinitWindowAdapter {
         // current scheme to this fresh winit window so its CSDs render correctly.
         // Otherwise winit exposes the system Light/Dark setting directly on the
         // new window, and the OS-specific query yields the accent color.
-        cfg_if::cfg_if! {
-            if #[cfg(xdg_desktop_settings)] {
+        core::cfg_select! {
+            xdg_desktop_settings => {
                 let scheme = WindowInner::from_pub(self.window()).context().color_scheme(None);
                 winit_window.set_theme(match scheme {
                     ColorScheme::Dark => Some(winit::window::Theme::Dark),
@@ -662,7 +686,8 @@ impl WinitWindowAdapter {
                     ColorScheme::Unknown => None,
                     _ => None,
                 });
-            } else {
+            }
+            _ => {
                 let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
                     winit::window::Theme::Light => ColorScheme::Light,
@@ -805,14 +830,11 @@ impl WinitWindowAdapter {
                 attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
                 *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
 
-                let window_id = last_window_rc.id();
-                if Arc::strong_count(&last_window_rc) > 1 {
-                    i_slint_core::debug_log!(
-                        "Slint winit backend: request to hide window failed because references to the window still exist. This could be an application issue, make sure that there are no slint::WindowHandle instances left"
-                    );
-                }
-                drop(last_window_rc);
-                self.shared_backend_data.unregister_window(Some(window_id));
+                // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
+                // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
+                // that's not visible.
+                self.shared_backend_data.watch_hidden_window(&last_window_rc);
+                self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
             }
             WinitWindowOrNone::None(ref attributes) => {
                 attributes.borrow_mut().visible = false;
@@ -860,6 +882,9 @@ impl WinitWindowAdapter {
         }
 
         self.pending_redraw.set(false);
+
+        #[cfg(target_os = "windows")]
+        self.mark_windows_update_region_dirty();
 
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             // on macOS we sometimes don't get a resize event after calling
@@ -1050,8 +1075,8 @@ impl WinitWindowAdapter {
     }
 
     fn query_system_accent_color() -> Color {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "windows")] {
+        core::cfg_select! {
+            target_os = "windows" => {
                 use windows::Win32::Graphics::{
                     Dwm::DwmGetColorizationColor,
                     Gdi::{GetSysColor, COLOR_HIGHLIGHT},
@@ -1072,7 +1097,8 @@ impl WinitWindowAdapter {
                 let g = ((colorref >> 8) & 0xFF) as u8;
                 let b = ((colorref >> 16) & 0xFF) as u8;
                 Color::from_argb_u8(255, r, g, b)
-            } else if #[cfg(target_os = "macos")] {
+            }
+            target_os = "macos" => {
                 use objc2::ClassType;
                 use objc2_app_kit::{NSColor, NSColorType};
                 // controlAccentColor is only available on macOS 10.14 and later.
@@ -1089,9 +1115,11 @@ impl WinitWindowAdapter {
                     let a = c.alphaComponent() as f32;
                     Color::from_argb_f32(a, r, g, b)
                 }).unwrap_or_default()
-            } else if #[cfg(target_arch = "wasm32")] {
+            }
+            target_arch = "wasm32" => {
                 query_wasm_accent_color()
-            } else {
+            }
+            _ => {
                 // Linux: set by XDG settings watcher; other platforms: not available
                 Color::default()
             }
@@ -1137,6 +1165,36 @@ impl WinitWindowAdapter {
     #[cfg(target_os = "ios")]
     pub fn set_platform_default_font_size(&self, size: i_slint_core::lengths::LogicalLength) {
         WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
+    }
+
+    /// Windows invalidates what a window shows when its scale factor changes, which the buffer
+    /// age a software surface reports doesn't account for. winit hands over the redraw before it
+    /// validates the region, so it can still be read here.
+    #[cfg(target_os = "windows")]
+    fn mark_windows_update_region_dirty(&self) {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        use windows::Win32::Foundation::{HWND, RECT};
+        use windows::Win32::Graphics::Gdi::GetUpdateRect;
+
+        let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
+        let Ok(window_handle) = winit_window.window_handle() else { return };
+        let RawWindowHandle::Win32(win32_handle) = window_handle.as_raw() else { return };
+        let hwnd = HWND(win32_handle.hwnd.get() as *mut core::ffi::c_void);
+
+        let mut update_rect = RECT::default();
+        if !unsafe { GetUpdateRect(hwnd, Some(&mut update_rect), false) }.as_bool() {
+            return;
+        }
+
+        let physical_rect = euclid::Box2D::<i32, PhysicalPx>::new(
+            euclid::point2(update_rect.left, update_rect.top),
+            euclid::point2(update_rect.right, update_rect.bottom),
+        )
+        .to_rect()
+        .cast::<Coord>();
+        let logical_rect: LogicalRect =
+            physical_rect / ScaleFactor::new(self.window().scale_factor());
+        self.renderer().as_core_renderer().mark_dirty_region(logical_rect.into());
     }
 
     pub fn window_state_event(&self) {
@@ -1266,10 +1324,10 @@ impl WinitWindowAdapter {
         &self,
         event_loop: &dyn ActiveEventLoop,
         winit_window: &dyn winit::window::Window,
-        event: WinitWindowEvent,
+        event: &WinitWindowEvent,
     ) -> Result<(), PlatformError> {
         if let Some(mut window_event_filter) = self.window_event_filter.take() {
-            let event_result = window_event_filter(self.window(), &event);
+            let event_result = window_event_filter(self.window(), event);
             self.window_event_filter.set(Some(window_event_filter));
 
             match event_result {
@@ -1278,11 +1336,17 @@ impl WinitWindowAdapter {
             }
         }
 
+        // A hook that ran before may have hidden the window, and then the event is about a
+        // window this adapter let go of.
+        if self.winit_window().is_none() {
+            return Ok(());
+        }
+
         #[cfg(enable_accesskit)]
         self.accesskit_adapter()
             .expect("internal error: accesskit adapter must exist when window exists")
             .borrow_mut()
-            .process_event(winit_window, &event);
+            .process_event(winit_window, event);
 
         let runtime_window = WindowInner::from_pub(self.window());
         self.maybe_set_custom_cursor(event_loop, winit_window);
@@ -1294,7 +1358,7 @@ impl WinitWindowAdapter {
         match event {
             WinitWindowEvent::RedrawRequested => self.draw()?,
             WinitWindowEvent::SurfaceResized(size) => {
-                let resized = self.resize_event(size);
+                let resized = self.resize_event(*size);
 
                 // Entering fullscreen, maximizing or minimizing the window will
                 // trigger a resize event. We need to update the internal window
@@ -1321,7 +1385,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::Focused(have_focus) => {
                 // Work around https://github.com/rust-windowing/winit/issues/4371
                 let have_focus =
-                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { have_focus };
+                    if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
             }
 
@@ -1369,7 +1433,7 @@ impl WinitWindowAdapter {
                     i_slint_common::for_each_keys!(winit_key_to_char)
                 }
                 #[allow(unused_mut)]
-                let mut text = to_slint_key(&event, &key_code);
+                let mut text = to_slint_key(event, &key_code);
 
                 #[cfg(target_os = "windows")]
                 let text_without_modifiers = {
@@ -1382,7 +1446,7 @@ impl WinitWindowAdapter {
                     // The text_without_modifiers also let's us disambiguate between a Ctrl+Alt
                     // combination used to imply AltGr or not.
                     // The latter case should be treated as a shortcut, the former should not.
-                    let text_without_modifiers = to_slint_key(&event, &event.key_without_modifiers);
+                    let text_without_modifiers = to_slint_key(event, &event.key_without_modifiers);
                     // Skip the fallback for dead keys so the accent composes instead of being inserted.
                     if text.is_empty()
                         && !text_without_modifiers.is_empty()
@@ -1398,7 +1462,7 @@ impl WinitWindowAdapter {
                     return Ok(());
                 }
 
-                if is_synthetic {
+                if *is_synthetic {
                     // Synthetic event are sent when the focus is acquired, for all the keys currently pressed.
                     // Don't forward these keys other than modifiers to the app
                     use winit::keyboard::{Key::Named, NamedKey as N};
@@ -1448,13 +1512,13 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(event);
             }
             WinitWindowEvent::PointerMoved { device_id, position, source, primary, .. } => {
-                let logical = physical_position_to_slint(position, runtime_window.scale_factor());
+                let logical = physical_position_to_slint(*position, runtime_window.scale_factor());
 
-                if primary {
+                if *primary {
                     self.cursor_pos.set(logical);
                     self.current_resize_direction.set(handle_cursor_move_for_resize(
                         winit_window,
-                        position,
+                        *position,
                         self.current_resize_direction.get(),
                         runtime_window
                             .window_item()
@@ -1463,7 +1527,7 @@ impl WinitWindowAdapter {
                 }
 
                 if let winit::event::PointerSource::Touch { finger_id, .. } = source {
-                    self.dispatch_touch_event((device_id, finger_id), logical, TouchPhase::Moved);
+                    self.dispatch_touch_event((*device_id, *finger_id), logical, TouchPhase::Moved);
                 } else {
                     // winit sends this event at a very high frequency, so coalesce the moves.
                     self.shared_backend_data.buffer_mouse_move(&self.self_weak, logical);
@@ -1479,11 +1543,11 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PointerLeft { device_id, kind, primary, .. } => {
                 if let winit::event::PointerKind::Touch(finger_id) = kind {
                     self.dispatch_touch_event(
-                        (device_id, finger_id),
+                        (*device_id, *finger_id),
                         self.cursor_pos.get(),
                         TouchPhase::Cancelled,
                     );
-                } else if primary && (cfg!(target_arch = "wasm32") || !self.pressed.get()) {
+                } else if *primary && (cfg!(target_arch = "wasm32") || !self.pressed.get()) {
                     // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                     self.pressed.set(false);
                     self.dispatch_internal_event(BackendMouseEvent::Exit);
@@ -1498,7 +1562,7 @@ impl WinitWindowAdapter {
                     }
                     _ => return Ok(()),
                 };
-                let phase = winit_touch_phase(phase);
+                let phase = winit_touch_phase(*phase);
                 self.dispatch_internal_event(BackendMouseEvent::Wheel {
                     position: self.cursor_pos.get(),
                     delta_x,
@@ -1509,7 +1573,7 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PointerButton { device_id, state, position, button, .. } => {
                 use winit::event::{ButtonSource as S, MouseButton as B};
 
-                let logical = physical_position_to_slint(position, runtime_window.scale_factor());
+                let logical = physical_position_to_slint(*position, runtime_window.scale_factor());
 
                 let button = match button {
                     S::Mouse(B::Left) => PointerEventButton::Left,
@@ -1523,7 +1587,7 @@ impl WinitWindowAdapter {
                             winit::event::ElementState::Pressed => TouchPhase::Started,
                             winit::event::ElementState::Released => TouchPhase::Ended,
                         };
-                        self.dispatch_touch_event((device_id, finger_id), logical, phase);
+                        self.dispatch_touch_event((*device_id, *finger_id), logical, phase);
                         return Ok(());
                     }
                     S::TabletTool { .. } => PointerEventButton::Other,
@@ -1563,15 +1627,15 @@ impl WinitWindowAdapter {
                 };
                 self.dispatch_internal_event(ev);
             }
-            WinitWindowEvent::ScaleFactorChanged { scale_factor, mut surface_size_writer } => {
+            WinitWindowEvent::ScaleFactorChanged { scale_factor, surface_size_writer } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                     self.window().dispatch_event_with_result(
                         corelib::platform::WindowEvent::ScaleFactorChanged {
-                            scale_factor: scale_factor as f32,
+                            scale_factor: *scale_factor as f32,
                         },
                     )?;
                     if let Some(physical) = self.physical_size_before_scale_factor.take() {
-                        surface_size_writer.request_surface_size(physical).ok();
+                        surface_size_writer.clone().request_surface_size(physical).ok();
                     }
                     // TODO: otherwise send a resize event or try to keep the logical size the same.
                 }
@@ -1584,12 +1648,12 @@ impl WinitWindowAdapter {
                 self.update_accent_color();
             }
             WinitWindowEvent::Occluded(occluded) => {
-                self.renderer.occluded(occluded);
+                self.renderer.occluded(*occluded);
 
                 // wgpu hands out no drawable while the window isn't visible, see
                 // `macos::RevealOnFirstFrame`. Draw now instead of at the next display link tick.
                 #[cfg(target_os = "macos")]
-                if !occluded && self.pending_redraw.get() {
+                if !*occluded && self.pending_redraw.get() {
                     self.draw()?;
                 }
 
@@ -1602,8 +1666,8 @@ impl WinitWindowAdapter {
             WinitWindowEvent::PinchGesture { delta, phase, .. } => {
                 self.dispatch_internal_event(BackendMouseEvent::PinchGesture {
                     position: self.cursor_pos.get(),
-                    delta: delta as f32,
-                    phase: winit_touch_phase(phase),
+                    delta: *delta as f32,
+                    phase: winit_touch_phase(*phase),
                 });
             }
             WinitWindowEvent::RotationGesture { delta, phase, .. } => {
@@ -1612,13 +1676,13 @@ impl WinitWindowAdapter {
                 self.dispatch_internal_event(BackendMouseEvent::RotationGesture {
                     position: self.cursor_pos.get(),
                     delta: -delta,
-                    phase: winit_touch_phase(phase),
+                    phase: winit_touch_phase(*phase),
                 });
             }
             // A native drag we started has finished. The core knows which drag is in flight, so
             // we only report the negotiated action (`None` for a cancel).
             WinitWindowEvent::OutgoingDragDropped { action, .. } => {
-                runtime_window.report_drag_finished(drag_and_drop::dnd_action_to_slint(action));
+                runtime_window.report_drag_finished(drag_and_drop::dnd_action_to_slint(*action));
             }
             WinitWindowEvent::OutgoingDragCanceled { .. } => {
                 runtime_window.report_drag_finished(corelib::items::DragAction::None);
@@ -1634,30 +1698,30 @@ impl WinitWindowAdapter {
                     winit::data_transfer::TypeHint::Image { extension_hint: None },
                     winit::data_transfer::TypeHint::UriList,
                 ] {
-                    let _ = event_loop.fetch_data_transfer(id, &hint);
+                    let _ = event_loop.fetch_data_transfer(*id, &hint);
                 }
                 if let Some(position) = position {
                     self.cursor_pos
-                        .set(physical_position_to_slint(position, runtime_window.scale_factor()));
+                        .set(physical_position_to_slint(*position, runtime_window.scale_factor()));
                 }
             }
             WinitWindowEvent::DragPosition { id, position, proposed_action } => {
                 self.cursor_pos
-                    .set(physical_position_to_slint(position, runtime_window.scale_factor()));
+                    .set(physical_position_to_slint(*position, runtime_window.scale_factor()));
                 // Only evaluate once the payload has arrived, so `can-drop` sees the data.
-                if self.has_incoming_data(id) {
-                    let proposed = drag_and_drop::proposed_action_or_copy(proposed_action);
-                    self.dispatch_and_report_incoming(event_loop, runtime_window, id, proposed);
+                if self.has_incoming_data(*id) {
+                    let proposed = drag_and_drop::proposed_action_or_copy(*proposed_action);
+                    self.dispatch_and_report_incoming(event_loop, runtime_window, *id, proposed);
                 }
             }
             WinitWindowEvent::DragDropped { id, proposed_action } => {
-                let proposed = drag_and_drop::proposed_action_or_copy(proposed_action);
-                self.dispatch_incoming_drag(runtime_window, id, proposed, true);
-                self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
+                let proposed = drag_and_drop::proposed_action_or_copy(*proposed_action);
+                self.dispatch_incoming_drag(runtime_window, *id, proposed, true);
+                self.shared_backend_data.incoming_transfers.borrow_mut().remove(id);
             }
             WinitWindowEvent::DragLeft { id } => {
                 runtime_window.process_drag_event(corelib::input::BackendDragEvent::Leave);
-                self.shared_backend_data.incoming_transfers.borrow_mut().remove(&id);
+                self.shared_backend_data.incoming_transfers.borrow_mut().remove(id);
             }
             WinitWindowEvent::DataTransferReceived { id, value, .. } => {
                 // Every type fetched in `DragEntered` arrives in its own event and
@@ -1673,7 +1737,7 @@ impl WinitWindowAdapter {
                     match value.type_().hint() {
                         Some(winit::data_transfer::TypeHint::Plaintext) => {
                             value.try_as_string().ok().map(|text| {
-                                transfers.entry(id).or_default().set_plain_text(text.into())
+                                transfers.entry(*id).or_default().set_plain_text(text.into())
                             })
                         }
                         Some(winit::data_transfer::TypeHint::Image { extension_hint }) => value
@@ -1682,12 +1746,12 @@ impl WinitWindowAdapter {
                             .and_then(|bytes| {
                                 drag_and_drop::decode_dropped_image(&bytes, extension_hint)
                             })
-                            .map(|image| transfers.entry(id).or_default().set_image(image)),
+                            .map(|image| transfers.entry(*id).or_default().set_image(image)),
                         Some(winit::data_transfer::TypeHint::UriList) => value
                             .try_as_uris()
                             .ok()
                             .and_then(|uris| drag_and_drop::dropped_file_paths(&uris))
-                            .map(|paths| transfers.entry(id).or_default().set_file_paths(paths)),
+                            .map(|paths| transfers.entry(*id).or_default().set_file_paths(paths)),
                         _ => None,
                     }
                     .is_some()
@@ -1698,7 +1762,7 @@ impl WinitWindowAdapter {
                     self.dispatch_and_report_incoming(
                         event_loop,
                         runtime_window,
-                        id,
+                        *id,
                         corelib::items::DragAction::Copy,
                     );
                 }
@@ -1867,6 +1931,15 @@ impl WinitWindowAdapter {
             }
 
             winit_window.set_visible(true);
+
+            // X11 and Windows discard what is drawn into a window that isn't mapped,
+            // which the buffer age a software surface reports doesn't account for.
+            self.renderer().as_core_renderer().mark_dirty_region(
+                LogicalRect::from_size(logical_size_from_api(
+                    self.size.get().to_logical(scale_factor as f32),
+                ))
+                .into(),
+            );
 
             // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
             // `winit_window.theme()` only reports a real value once the window is shown.
@@ -2045,9 +2118,8 @@ impl WindowAdapter for WinitWindowAdapter {
 
         // Update the icon only if it changes, to avoid flashing.
         let icon_image = window_item.icon();
-        let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
-        if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
-            *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
+        if !is_same_icon(&self.window_icon.borrow(), &icon_image) {
+            *self.window_icon.borrow_mut() = icon_image.clone();
             winit_window_or_none.set_window_icon(icon_to_winit(
                 icon_image,
                 i_slint_core::lengths::LogicalSize::new(64., 64.) * ScaleFactor::new(sf),

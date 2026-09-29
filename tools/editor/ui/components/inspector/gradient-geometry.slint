@@ -86,7 +86,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind != BrushKind.linear && root.value.custom-center && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Text { text: "X / Y px"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
+            Text { text: "X / Y"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient center X";
                 value: root.value.center-x.to-fixed(1);
@@ -129,7 +129,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && root.value.custom-radius && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Text { text: "px"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
+            Rectangle { width: root.style.gradient-label-width; horizontal-stretch: 0; }
             InspectorTextFieldBase {
                 accessible-name: "Gradient radius";
                 value: root.value.radius.to-fixed(1);

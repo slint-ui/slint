@@ -84,6 +84,16 @@ SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ["tools/editor/ui/assets/cursors/scrub-horizontal.svg"]
+SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
+SPDX-License-Identifier = "CC-PDDC"
+
+[[annotations]]
+path = ["tools/editor/ui/assets/cursors/resize.svg"]
+SPDX-FileCopyrightText = "Grida <https://github.com/gridaco/grida>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["tools/editor/ui-tests/fixtures/editor-project/assets/checker.svg"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -208,6 +218,7 @@ path = [
   "ui-libraries/material/docs/src/content/docs/components/icons/**.svg",
   "ui-libraries/material/docs/src/assets/**.webp",
   "ui-libraries/material/.gitignore",
+  "ui-libraries/material/release/released-versions.txt",
   "ui-libraries/material/docs/src/assets/images/Components.png",
   "ui-libraries/material/docs/src/assets/images/phone-dark.webp",
   "ui-libraries/material/docs/src/assets/images/material-tablet.webp",
@@ -436,4 +447,13 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/lucide/type.svg"]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "tools/figma-inspector/fixtures/**.png",
+  "tools/figma-inspector/fixtures/**.svg",
+  "tools/figma-inspector/fixtures/**.slint",
+]
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"

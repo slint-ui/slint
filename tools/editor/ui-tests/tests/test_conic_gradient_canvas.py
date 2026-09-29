@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
 from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot, wait_for_source_change
+from source_snapshot import SourceSnapshot
 from ui_driver import (
     elements_with_label,
     first_window,
@@ -90,27 +91,31 @@ def test_conic_escape_restores_gesture(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("percent", [50, 100, 200])
 def test_conic_keyboard_and_seam_neighbor(
-    editor_binary, editor_environment, conic_scene, tmp_path
+    editor_binary, editor_environment, conic_scene, tmp_path, percent
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
         wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
         gesture(window, c, c)
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.DownArrow)
         moved = center(control(window, "Gradient center handle"), 130)
-        assert moved.x == pytest.approx(c.x + 1, abs=0.001)
-        assert moved.y == pytest.approx(c.y + 10, abs=0.001)
+        assert moved.x == pytest.approx(c.x + percent / 100, abs=0.001)
+        assert moved.y == pytest.approx(c.y + percent / 10, abs=0.001)
         r = center(control(window, "Gradient rotation handle"), 130)
         gesture(window, r, r)
         press_key(window, keys.RightArrow)
         press_shortcut(window, keys.Shift, keys.LeftArrow)
         r = center(control(window, "Gradient rotation handle"), 121)
-        expected = around(moved, 126, 211)
+        expected = around(moved, 126 * percent / 100, 211)
         assert r.x == pytest.approx(expected.x, abs=0.001)
         assert r.y == pytest.approx(expected.y, abs=0.001)
         p = stop_center(window, 2, 198, start=211)
@@ -125,6 +130,12 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         press_key(window, keys.Delete)
+        wait_until(
+            lambda: (
+                not elements_with_label(window.root_element, "Gradient stop 3") or None
+            )
+        )
+        control(window, "Gradient stop 2")
         press_key(window, keys.LeftArrow)
         assert float(
             control(
@@ -135,6 +146,33 @@ def test_conic_keyboard_and_seam_neighbor(
         press_key(window, keys.Delete)
         control(window, "Gradient stop 2")
         assert not elements_with_label(window.root_element, "Gradient stop 3")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+def test_conic_swatch_delete_keeps_canvas_element(
+    editor_binary, editor_environment, conic_scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, conic_scene) as editor:
+        wait_for_source(conic_scene, conic_scene.read_bytes())
+        window = first_window(editor)
+        open_conic(window)
+        click(window, "Remove stop 3")
+        wait_until(
+            lambda: (
+                not elements_with_label(window.root_element, "Gradient stop 3") or None
+            )
+        )
+        position = control(
+            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
+        )
+        gesture(window, center(position), center(position))
+        press_key(window, keys.Tab)
+        press_key(window, keys.Delete)
+        original.assert_unchanged_now()
+        press_key(window, keys.Space)
+        control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -216,10 +254,19 @@ def test_conic_rotation_crosses_the_seam(
         )
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_for_source_change(
-            conic_scene, original.sources[Path(conic_scene.name)]
-        )
-        original.wait_for_applied(saved, conic_scene.name)
+        baseline = original.sources[Path(conic_scene.name)]
+
+        def applied_source() -> bytes | None:
+            saved = conic_scene.read_bytes()
+            if not saved or saved == baseline:
+                return None
+            try:
+                original.wait_for_applied(saved, conic_scene.name, timeout=0.1)
+            except AssertionError:
+                return None
+            return saved
+
+        saved = wait_until(applied_source)
         angle = re.search(rb"from ([0-9.]+)deg", saved)
         assert angle is not None
         assert float(angle.group(1)) == pytest.approx(367, abs=0.001)
@@ -271,15 +318,15 @@ def test_conic_seam_handles_and_stop_crossing(
         c = center(control(window, "Gradient center handle"), 130)
         first = stop_center(window, 1, 0)
         last = stop_center(window, 3, 360)
-        assert math.hypot(first.x - c.x, first.y - c.y) == pytest.approx(148, abs=0.001)
-        assert math.hypot(last.x - c.x, last.y - c.y) == pytest.approx(104, abs=0.001)
-        gesture(window, first, around(c, 148, 240))
+        assert math.hypot(first.x - c.x, first.y - c.y) == pytest.approx(152, abs=0.001)
+        assert math.hypot(last.x - c.x, last.y - c.y) == pytest.approx(100, abs=0.001)
+        gesture(window, first, around(c, 152, 240))
         assert float(
             control(
                 window, "Stop 1 position", slint_testing.AccessibleRole.TextInput
             ).accessible_value
         ) == pytest.approx(20, abs=0.01)
-        gesture(window, last, around(c, 104, 200))
+        gesture(window, last, around(c, 100, 200))
         assert float(
             control(
                 window, "Stop 3 position", slint_testing.AccessibleRole.TextInput
@@ -289,7 +336,7 @@ def test_conic_seam_handles_and_stop_crossing(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for degrees in [250, 320, 350, 280, 180, 90, 10, 60]:
-            p = around(c, 148, 220 + degrees)
+            p = around(c, 152, 220 + degrees)
             window.dispatch_event(slint_testing.PointerMoveEvent(p))
             assert float(
                 control(
@@ -305,7 +352,6 @@ def test_conic_seam_handles_and_stop_crossing(
             == "#264052"
         )
         click(window, "Close Stop color")
-        (tmp_path / "conic-editor.png").write_bytes(window.grab_window_as_png())
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -402,9 +448,6 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         wait_for_source(conic_scene, conic_scene.read_bytes())
         window = first_window(editor)
         open_conic(window)
-        (tmp_path / "conic-picker-and-canvas.png").write_bytes(
-            window.grab_window_as_png()
-        )
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
         assert not elements_with_label(window.root_element, "Hex color")
         click(window, "Edit stop 2 color")
@@ -422,7 +465,7 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         ).accessible_value = "162"
         c = center(control(window, "Gradient center handle"), 130)
         actual = stop_center(window, 2, 162)
-        expected = around(c, 148, 220 + 162)
+        expected = around(c, 152, 220 + 162)
         assert actual.x == pytest.approx(expected.x, abs=0.001)
         assert actual.y == pytest.approx(expected.y, abs=0.001)
         click(window, "Edit stop 2 color")

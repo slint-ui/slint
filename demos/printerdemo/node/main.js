@@ -3,13 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 import * as slint from "slint-ui";
+import { MainWindow } from "../ui/printerdemo.slint";
 
 slint.initTranslations("printerdemo", new URL("../lang/", import.meta.url));
 
-const demo = slint.loadFile(
-    new URL("../ui/printerdemo.slint", import.meta.url),
-);
-const appWindow = new demo.MainWindow();
+const appWindow = new MainWindow();
 
 appWindow.PrinterState.ink_levels = [
     { color: "#00ffff", level: 0.3 },

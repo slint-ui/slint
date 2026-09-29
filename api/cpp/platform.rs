@@ -362,7 +362,7 @@ mod software_renderer {
     use i_slint_core::SharedVector;
     use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_renderer_software::{
-        PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
+        DirtyRegionAlignment, PhysicalRegion, RepaintBufferType, Rgb565Pixel, SoftwareRenderer,
     };
 
     #[cfg(feature = "experimental")]
@@ -720,6 +720,16 @@ mod software_renderer {
             270 => RenderingRotation::Rotate270,
             _ => RenderingRotation::NoRotation,
         });
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_set_dirty_region_alignment(
+        r: SoftwareRendererOpaque,
+        horizontal: u16,
+        vertical: u16,
+    ) {
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.set_dirty_region_alignment(DirtyRegionAlignment::new(horizontal, vertical));
     }
 
     #[unsafe(no_mangle)]

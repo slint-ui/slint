@@ -27,5 +27,5 @@ pnpm-debug.log*
 /public/api/
 
 # Synced from docs/astro by scripts/sync-language-spec.mjs
-/src/content/docs/language/
+/src/content/docs/reference/language/
 /src/content/docs/reference/property-types/

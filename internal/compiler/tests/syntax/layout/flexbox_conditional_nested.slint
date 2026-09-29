@@ -1,0 +1,45 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// No diagnostic on any shape: the binding analysis terminates on the
+// conditional cell (slint-ui/slint#13275), and the inner layout hands the
+// Image its width, so no loop through it is declared. That holds per cell:
+// a repeated sibling before the Image must not change how it is measured.
+
+export component AutoSized inherits Window {
+    FlexboxLayout {
+        if true: Rectangle {
+            FlexboxLayout { flex-direction: column; Image { height: 24px; } }
+        }
+    }
+}
+
+export component FixedSize inherits Window {
+    width: 100px;
+    height: 100px;
+    FlexboxLayout {
+        if true: Rectangle {
+            width: 40px;
+            FlexboxLayout {
+                flex-direction: column;
+                padding: 8px;
+                Image { height: 24px; preferred-width: 24px; }
+            }
+        }
+    }
+}
+
+export component RepeatedSibling inherits Window {
+    width: 100px;
+    height: 100px;
+    FlexboxLayout {
+        if true: Rectangle {
+            width: 40px;
+            FlexboxLayout {
+                flex-direction: column;
+                if true: Rectangle { }
+                Image { height: 24px; preferred-width: 24px; }
+            }
+        }
+    }
+}

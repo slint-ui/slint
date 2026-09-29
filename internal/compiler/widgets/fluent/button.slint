@@ -31,7 +31,11 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { i-touch-area.clicked(); }
+    accessible-action-default => {
+        if (root.enabled) {
+            i-touch-area.clicked();
+        }
+    }
 
     states [
         disabled when !root.enabled : {

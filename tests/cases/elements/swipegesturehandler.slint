@@ -114,7 +114,8 @@ assert_eq!(instance.get_right_swiping(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(298.0, 452.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_ta_pressed(), false);
-assert_eq!(instance.get_ta_hover(), true);
+// The down-gesture owns the pan. `ta` is outside the dispatch path and loses hover.
+assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), true);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
@@ -123,7 +124,7 @@ slint_testing::mock_elapsed_time(220);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(350.0, 482.0) });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_ta_pressed(), false);
-assert_eq!(instance.get_ta_hover(), true);
+assert_eq!(instance.get_ta_hover(), false);
 assert_eq!(instance.get_down_swiping(), true);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
@@ -133,14 +134,13 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(316.0, 463.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_r(), "S1(65)");
 assert_eq!(instance.get_ta_pressed(), false);
+// Releasing the grab ends the gesture and synthesizes a Moved at the release position.
+// The pointer is over `ta`, so hover becomes true.
 assert_eq!(instance.get_ta_hover(), true);
 assert_eq!(instance.get_down_swiping(), false);
 assert_eq!(instance.get_left_swiping(), false);
 assert_eq!(instance.get_right_swiping(), false);
 instance.set_r("".into());
-
-// FIXME: this shouldn't be necessary, but otherwise we don't send exit event to the toucharea
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(316.0, 463.0) });
 
 // Left
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });

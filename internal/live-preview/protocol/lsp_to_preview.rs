@@ -96,6 +96,9 @@ pub enum LspToPreviewMessage {
 pub enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and the LSP is redialing it on its own.
+    /// A new connection attempt from the user replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for the user to
     /// type it into the editor.
     PairingRequired,

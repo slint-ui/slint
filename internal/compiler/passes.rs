@@ -55,7 +55,6 @@ mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
-pub mod resolve_native_classes;
 pub mod resolving;
 mod unique_declared_type_names;
 mod unique_id;
@@ -173,6 +172,7 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
         default_geometry::default_geometry(component, diag, &symbol_counters);
+        crate::layout::mark_repeated_cells_child_of_layout(component);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
@@ -254,9 +254,6 @@ pub async fn run_passes(
             remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
-        if !component.is_global() && !component.is_interface() {
-            resolve_native_classes::resolve_native_classes(component);
-        }
     });
 
     remove_unused_properties::remove_unused_properties(doc);
@@ -309,7 +306,7 @@ pub async fn run_passes(
     .await;
 
     #[cfg(feature = "bundle-translations")]
-    if let Some(path) = &type_loader.compiler_config.translation_path_bundle {
+    if let Some(path) = &type_loader.compiler_config.bundled_translations_path {
         match crate::translations::TranslationsBuilder::load_translations(
             path,
             type_loader.compiler_config.translation_domain.as_deref().unwrap_or(""),

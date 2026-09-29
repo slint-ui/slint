@@ -72,6 +72,7 @@ let factory = slint::ComponentFactory::new(move |ctx| {
 
 let instance = TestCase::new().unwrap();
 instance.set_cc(factory.clone());
+slint_testing::mock_elapsed_time(0);
 
 let cw = instance.get_cont_width();
 let ch = instance.get_cont_height();

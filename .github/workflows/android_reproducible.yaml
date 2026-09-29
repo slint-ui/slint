@@ -82,6 +82,18 @@ jobs:
                       env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
                       PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
                       fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:${code}3
+            # What fdroiddata's `check apk` job runs on the APK we publish: no
+            # non-free code, no debug flags, no banned signing blocks. Those
+            # blocks only exist once signed, so sign with a throwaway key.
+            - name: fdroid scanner
+              shell: bash
+              run: |
+                  source /etc/profile.d/bsenv.sh
+                  keystore=$(mktemp -d)/keystore.jks
+                  keytool -genkeypair -keystore $keystore -storepass 111111 -keypass 111111 -alias check \
+                      -keyalg RSA -keysize 2048 -validity 1 -dname CN=check
+                  apksigner sign --ks $keystore --ks-pass pass:111111 --in $home_vagrant/tmp/dev.slint.viewer_*.apk --out signed.apk
+                  PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples fdroid scanner --verbose --exit-code signed.apk
             - uses: actions/upload-artifact@v7
               with:
                   name: apk-fdroid

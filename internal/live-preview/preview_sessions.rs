@@ -57,10 +57,27 @@ pub enum PreviewSessionEvent {
 }
 
 pub enum PreviewCompilation {
-    Ready(slint_interpreter::ComponentDefinition),
+    Ready(CompiledPreview),
     CompilationError { message: String },
     ComponentNotFound,
     Unavailable,
+}
+
+/// A successful compilation, in the form that can leave the thread it was compiled on.
+///
+/// Call [`Self::component_definition()`] on the thread that instantiates the component.
+pub struct CompiledPreview {
+    compilation: Box<slint_interpreter::CompilationResultSend>,
+    component_name: String,
+}
+
+impl CompiledPreview {
+    /// `None` only if the component is gone from the result, which the compiling side
+    /// already ruled out: it reports [`PreviewCompilation::ComponentNotFound`] instead.
+    pub fn component_definition(self) -> Option<slint_interpreter::ComponentDefinition> {
+        slint_interpreter::CompilationResult::from(*self.compilation)
+            .component(&self.component_name)
+    }
 }
 
 enum PreviewSessionCommand {
@@ -92,11 +109,30 @@ pub struct PreviewSessionHandle {
     command_sender: mpsc::UnboundedSender<PreviewSessionCommand>,
 }
 
+/// The receiving end of a [`PreviewSessionHandle`], which
+/// [`PreviewSession::start_with()`] turns into a running session.
+///
+/// It exists so that the handle can be made before the session: the transport needs a
+/// handle to feed, while the session needs the transport to answer file requests. Both
+/// are `Send`, so the session can run on a thread of its own.
+pub struct PreviewSessionCommands(mpsc::UnboundedReceiver<PreviewSessionCommand>);
+
 impl PreviewSession {
     pub fn start(
         to_editor: Rc<dyn PreviewToLsp>,
         event_handler: impl Fn(PreviewSessionEvent) + 'static,
     ) -> (Rc<Self>, PreviewSessionHandle) {
+        let (handle, commands) = PreviewSessionHandle::new();
+        (Self::start_with(commands, to_editor, event_handler), handle)
+    }
+
+    /// Like [`Self::start()`], but for a handle that was made in advance, possibly on
+    /// another thread. The session runs on the thread that calls this.
+    pub fn start_with(
+        commands: PreviewSessionCommands,
+        to_editor: Rc<dyn PreviewToLsp>,
+        event_handler: impl Fn(PreviewSessionEvent) + 'static,
+    ) -> Rc<Self> {
         let session = Rc::new(Self {
             file_cache: Default::default(),
             dependencies: Default::default(),
@@ -105,9 +141,8 @@ impl PreviewSession {
             to_editor,
         });
         session.compiler.replace(Some(session.create_compiler()));
-        let (command_sender, command_receiver) = mpsc::unbounded_channel();
-        tokio_spawn_local(session.clone().process_messages(command_receiver, event_handler));
-        (session, PreviewSessionHandle { command_sender })
+        tokio_spawn_local(session.clone().process_messages(commands.0, event_handler));
+        session
     }
 
     async fn process_messages(
@@ -384,11 +419,12 @@ impl PreviewSession {
             return PreviewCompilation::CompilationError { message };
         }
 
-        let Some(component_definition) = component
+        let Some(component_name) = component
             .component
             .as_deref()
             .or_else(|| compilation_result.component_names().next())
-            .and_then(|name| compilation_result.component(name))
+            .filter(|name| compilation_result.component_names().any(|known| known == *name))
+            .map(String::from)
         else {
             // No compile errors but no component: skip the diagnostics so they don't clobber
             // unrelated ones the editor holds for this URL.
@@ -397,7 +433,10 @@ impl PreviewSession {
         };
 
         self.send_diagnostics(&compilation_result, &component.url);
-        PreviewCompilation::Ready(component_definition)
+        PreviewCompilation::Ready(CompiledPreview {
+            compilation: Box::new(compilation_result.into_send()),
+            component_name,
+        })
     }
 
     fn restore_compiler(&self, mut compiler: slint_interpreter::Compiler) {
@@ -440,6 +479,13 @@ fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration
 }
 
 impl PreviewSessionHandle {
+    /// Makes a handle and the [`PreviewSessionCommands`] that
+    /// [`PreviewSession::start_with()`] consumes.
+    pub fn new() -> (Self, PreviewSessionCommands) {
+        let (command_sender, command_receiver) = mpsc::unbounded_channel();
+        (Self { command_sender }, PreviewSessionCommands(command_receiver))
+    }
+
     pub fn handle_message(&self, message: LspToPreviewMessage) -> crate::protocol::Result<()> {
         self.command_sender.send(PreviewSessionCommand::Message(message))?;
         Ok(())
@@ -542,11 +588,11 @@ async fn show_component(
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
     pending_fonts: &mut Vec<Arc<[u8]>>,
 ) -> anyhow::Result<()> {
-    let PreviewCompilation::Ready(component_definition) =
-        preview_session.compile_component(component).await
+    let PreviewCompilation::Ready(compiled) = preview_session.compile_component(component).await
     else {
         return Ok(());
     };
+    let Some(component_definition) = compiled.component_definition() else { return Ok(()) };
 
     let new_instance = if let Some(component_instance) = component_instance.as_ref() {
         component_definition.create_with_existing_window(component_instance.window())?

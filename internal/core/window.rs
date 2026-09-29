@@ -852,7 +852,14 @@ impl WindowInner {
         // the tab holding it), drop the focus so that input methods get torn down.
         // The key-event handler does the same, but a tab is switched with a pointer
         // tap, not a key press, so it must also happen here.
-        if self.focus_item.borrow().upgrade().is_some_and(|i| !i.is_visible()) {
+        // An item that a Flickable only scrolled out of view keeps the focus:
+        // the wheel that scrolled it away is pointer input too.
+        if self
+            .focus_item
+            .borrow()
+            .upgrade()
+            .is_some_and(|i| !i.is_visible_or_clipped_by_flickable())
+        {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
         }
 
@@ -1091,6 +1098,8 @@ impl WindowInner {
             mouse_input_state
         };
 
+        let hover_position_after_drop =
+            matches!(event, MouseEvent::Drop { .. }).then(|| event.position()).flatten();
         let accepted = dispatch_accepted | grab_accepted;
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
@@ -1150,6 +1159,9 @@ impl WindowInner {
         }
 
         self.ensure_tree_instantiated();
+        if let Some(position) = hover_position_after_drop {
+            self.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+        }
 
         Some(MouseDispatchResult { drag_action, accepted })
     }
@@ -1312,8 +1324,9 @@ impl WindowInner {
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
-        if item.as_ref().is_some_and(|i| !i.is_visible()) {
-            // Reset the focus... not great, but better than keeping it.
+        // A hidden item loses the focus. An item that a Flickable only scrolled out of view
+        // keeps it, and the key goes to it.
+        if item.as_ref().is_some_and(|i| !i.is_visible_or_clipped_by_flickable()) {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
             item = None;
         }
