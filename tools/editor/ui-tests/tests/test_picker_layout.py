@@ -26,32 +26,6 @@ from ui_driver import (
 
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
-def test_fixed_picker_controls_keep_their_width(
-    editor_binary, editor_environment, tmp_path, kind
-):
-    prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
-    stops = (
-        "red 0deg, lime 180deg, blue 360deg" if kind == "conic" else "red, lime, blue"
-    )
-    file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
-    original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
-        wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
-        open_gradient(window)
-        assert control(window, "Add gradient stop").size.width == 24
-        for index in range(1, 4):
-            assert control(window, f"Remove stop {index}").size.width == 24
-        assert control(window, "Close Custom").size.width == 48
-        click_picker_button(window, "Edit stop 2 color")
-        assert control(window, "Close Stop color").size.width == 48
-        click_picker_button(window, "Close Stop color")
-        click_picker_button(window, "Close Custom")
-        original.assert_unchanged()
-
-
-@pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
 @pytest.mark.parametrize("count", [2, 32])
 def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
     editor_binary, editor_environment, tmp_path, kind, count
@@ -63,12 +37,35 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         for index in range(count)
     )
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
+    full_source = file.read_bytes()
+    if count == 32:
+        compact_stops = (
+            "red 0deg, lime 180deg, blue 360deg"
+            if kind == "conic"
+            else "red, lime, blue"
+        )
+        gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {compact_stops})")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+        if count == 32:
+            assert control(window, "Add gradient stop").size.width == 24
+            for index in range(1, 4):
+                assert control(window, f"Remove stop {index}").size.width == 24
+            assert control(window, "Close Custom").size.width == 48
+            click_picker_button(window, "Edit stop 2 color")
+            assert control(window, "Close Stop color").size.width == 48
+            click_picker_button(window, "Close Stop color")
+            click_picker_button(window, "Close Custom")
+            original.assert_unchanged()
+            file.write_bytes(full_source)
+            wait_for_source(file, full_source)
+            original = SourceSnapshot.capture(tmp_path)
+            select_outline_row(window, "fill")
+            open_gradient(window)
         first = picker_field(window, "Stop 1 position")
         top = first.absolute_position.y
         scroll_point = center(first)

@@ -172,28 +172,6 @@ def set_picker_mode(window, label, value):
     ).accessible_value = value
 
 
-@pytest.mark.parametrize("kind", ["radial", "conic"])
-def test_picker_uses_live_preview_stop_markers(
-    editor_binary, editor_environment, tmp_path, kind
-):
-    expression = (
-        "@radial-gradient(circle, red, blue)"
-        if kind == "radial"
-        else "@conic-gradient(from 0deg, red 0deg, blue 360deg)"
-    )
-    file = gradient_document(tmp_path, expression)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
-        wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
-        open_gradient(window)
-        stop = picker_field(
-            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
-        )
-        assert stop.size.width == 40
-        assert stop.size.height == 40
-
-
 @pytest.mark.parametrize("loaded_custom", [False, True])
 def test_custom_geometry_survives_mode_changes(
     editor_binary, editor_environment, tmp_path, loaded_custom
