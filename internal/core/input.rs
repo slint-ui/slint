@@ -216,8 +216,11 @@ impl MouseEvent {
     }
 }
 
-#[allow(missing_docs)]
-#[repr(C)]
+/// Historical touch events between the current event and the previous one
+/// On different platforms like on android or ios not for every touchscreen move
+/// move events are send but with a less frequency. The touch events between are
+/// not lost, but attached to the next event. This data can be used to determine
+/// better the touch velocity because more data is available
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
     /// Chronological positions and sample times preceding the current event.
