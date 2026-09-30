@@ -73,20 +73,20 @@ struct ActiveProjectFile {
     baseline: Option<ProjectCompilerBaseline>,
 }
 
-/// Inserts `project` so that the deepest project file comes first,
-/// which is the one that governs the fewest documents and therefore wins a conflict.
-fn insert_nearest_first(projects: &mut Vec<ActiveProjectFile>, project: ActiveProjectFile) {
+/// Inserts `project` so that the shallowest project file comes first.
+/// It likely covers the most open documents, so it wins a conflict.
+fn insert_broadest_first(projects: &mut Vec<ActiveProjectFile>, project: ActiveProjectFile) {
     let depth = |path: &std::path::Path| path.components().count();
     let position = projects
         .iter()
-        .position(|existing| depth(&existing.source_path) < depth(&project.source_path))
+        .position(|existing| depth(&existing.source_path) > depth(&project.source_path))
         .unwrap_or(projects.len());
     projects.insert(position, project);
 }
 
-/// Records `value` from the project file at `source` unless a nearer one already set it,
+/// Records `value` from the project file at `source` unless an earlier one already set it,
 /// and warns when the two disagree.
-fn keep_nearest<'a, T: Clone + PartialEq + std::fmt::Display>(
+fn keep_first<'a, T: Clone + PartialEq + std::fmt::Display>(
     kept: &mut Option<(T, &'a std::path::Path)>,
     value: &Option<T>,
     source: &'a std::path::Path,
@@ -124,7 +124,7 @@ pub struct EditorSession {
     compiler_config_defaults: crate::document_cache::CompilerConfiguration,
     startup_config_overrides: SessionConfigOverrides,
     workspace_config_overrides: SessionConfigOverrides,
-    /// The project files of the open documents, nearest first.
+    /// The project files of the open documents, broadest first.
     /// A shared document cache has one configuration, so their settings are merged.
     active_projects: Vec<ActiveProjectFile>,
 }
@@ -237,8 +237,8 @@ impl EditorSession {
         }
     }
 
-    /// Combines the baselines of the active project files, which are nearest first.
-    /// Lists grow, and a setting only one of them can hold goes to the nearest.
+    /// Combines the baselines of the active project files, which are broadest first.
+    /// Lists grow, and a setting only one of them can hold goes to the broadest.
     fn merged_project_baseline(projects: &[ActiveProjectFile]) -> ProjectCompilerBaseline {
         let mut merged = ProjectCompilerBaseline::default();
         let mut style = None;
@@ -265,8 +265,8 @@ impl EditorSession {
                 }
             }
 
-            keep_nearest(&mut style, &baseline.style, &project.source_path, "the style");
-            keep_nearest(
+            keep_first(&mut style, &baseline.style, &project.source_path, "the style");
+            keep_first(
                 &mut enable_experimental,
                 &baseline.enable_experimental,
                 &project.source_path,
@@ -373,7 +373,7 @@ impl EditorSession {
                         true
                     }
                     None => {
-                        insert_nearest_first(
+                        insert_broadest_first(
                             &mut self.active_projects,
                             ActiveProjectFile { source_path, baseline },
                         );
@@ -1124,7 +1124,7 @@ mod tests {
     }
 
     #[test]
-    fn a_conflicting_style_stays_with_the_nearest_project_file() {
+    fn a_conflicting_style_stays_with_the_broadest_project_file() {
         let temp = TempDir::new().unwrap();
         let outer = temp.path().to_path_buf();
         let inner = outer.join("nested");
@@ -1139,14 +1139,14 @@ mod tests {
         write_document(&inner_document);
 
         let mut session = session();
-        load_document(&mut session, &outer_document).unwrap();
         load_document(&mut session, &inner_document).unwrap();
+        load_document(&mut session, &outer_document).unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
-            [inner_file.as_path(), outer_file.as_path()]
+            [outer_file.as_path(), inner_file.as_path()]
         );
-        assert_eq!(session.preview_config.style, "cupertino");
+        assert_eq!(session.preview_config.style, "material");
     }
 
     #[test]
