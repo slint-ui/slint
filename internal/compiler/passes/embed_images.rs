@@ -236,7 +236,7 @@ fn embed_image(
         return ImageReference::None;
     }
 
-    let Some(_file) = crate::fileaccess::load_file(path) else {
+    let Some(_file) = crate::fileaccess::find_file(path) else {
         diag.push_error(format!("Cannot find image file {path}"), source_location);
         return ImageReference::None;
     };
@@ -249,7 +249,8 @@ fn embed_image(
             diag.slint_sc_error("SVG images are", source_location);
             return ImageReference::None;
         }
-        return match image::load_from_memory(&_file.read()) {
+        let decoded = _file.read().map_err(image::ImageError::IoError);
+        return match decoded.and_then(|data| image::load_from_memory(&data)) {
             Ok(decoded) => {
                 let resource_id = push(EmbeddedResourcesKind::StaticPixels(decoded.into_rgba8()));
                 ImageReference::EmbeddedTexture { resource_id }
@@ -549,12 +550,11 @@ fn load_image_from_bytes(
 
 #[cfg(feature = "renderer-software")]
 fn load_image(
-    file: crate::fileaccess::VirtualFile,
+    file: SourcePath,
     scale_factor: f32,
     font_collection: Option<&SharedFontCollection>,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    let data = file.try_read()?;
-    load_image_from_bytes(&data, file.canon_path.extension(), scale_factor, font_collection)
+    load_image_from_bytes(&file.read()?, file.extension(), scale_factor, font_collection)
 }
 
 fn embed_data_uri(

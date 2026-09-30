@@ -382,7 +382,7 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
             let to_previews = to_previews.clone();
             Box::pin(async move {
                 tracing::trace!("Importing file: {path}");
-                let contents = path.read();
+                let contents = path.read().map(std::borrow::Cow::into_owned);
                 if let Some(url) = path.as_native_path().and(path.to_url()) {
                     for to_preview in &to_previews {
                         if let Ok(contents) = &contents {

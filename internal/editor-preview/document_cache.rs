@@ -174,7 +174,7 @@ impl DocumentCache {
         &self,
         import_token: Option<&i_slint_compiler::parser::NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> Option<(SourcePath, Option<&'static [u8]>)> {
+    ) -> Option<SourcePath> {
         self.type_loader.resolve_import_path(import_token, maybe_relative_path_or_url)
     }
 

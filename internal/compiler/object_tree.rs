@@ -252,7 +252,7 @@ impl Document {
                     // delivered out-of-band; skip the local existence check.
                     if ignore_missing_font_files
                         || matches!(import_file_path, SourcePath::Url(_))
-                        || crate::fileaccess::load_file(&import_file_path).is_some()
+                        || crate::fileaccess::find_file(&import_file_path).is_some()
                     {
                         Some((import_file_path, import.import_uri_token.clone()))
                     } else {

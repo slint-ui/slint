@@ -1780,12 +1780,10 @@ fn load_image_reference(
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
-        Ref::Source(path @ SourcePath::Builtin(_)) => {
+        Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
-            // baked into the compiler's builtin library and need to be fetched
-            // through `fileaccess::load_file` rather than the filesystem.
-            i_slint_compiler::fileaccess::load_file(path)
-                .and_then(|virtual_file| virtual_file.builtin_contents)
+            // baked into the compiler's builtin library.
+            i_slint_compiler::fileaccess::builtin_contents(builtin_path)
                 .map(|contents| {
                     let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(

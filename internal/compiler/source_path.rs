@@ -81,14 +81,21 @@ impl SourcePath {
         matches!(self, Self::Builtin(_))
     }
 
-    /// Reads a `File`; anything else is `NotFound`.
-    pub fn read(&self) -> std::io::Result<Vec<u8>> {
-        std::fs::read(self.as_native_path().ok_or(std::io::ErrorKind::NotFound)?)
+    /// Reads a `File` or a `Builtin`; a `Url` is `NotFound`.
+    pub fn read(&self) -> std::io::Result<std::borrow::Cow<'static, [u8]>> {
+        match self {
+            Self::File(path) => std::fs::read(path).map(Into::into),
+            Self::Builtin(path) => crate::fileaccess::builtin_contents(path)
+                .map(Into::into)
+                .ok_or_else(|| std::io::ErrorKind::NotFound.into()),
+            Self::Url(_) => Err(std::io::ErrorKind::NotFound.into()),
+        }
     }
 
     /// See [`Self::read`].
     pub fn read_to_string(&self) -> std::io::Result<String> {
-        std::fs::read_to_string(self.as_native_path().ok_or(std::io::ErrorKind::NotFound)?)
+        String::from_utf8(self.read()?.into_owned())
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))
     }
 
     pub fn as_native_path(&self) -> Option<&Path> {

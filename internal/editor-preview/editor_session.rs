@@ -197,15 +197,14 @@ impl EditorSession {
         // `custom_fonts` holds the resolved path of every font import that
         // passed the compiler's existence check, plus remote URLs.
         for (font_path, _) in &doc.custom_fonts {
-            let Some(native_path) = font_path.as_native_path() else { continue };
-            if !sent.insert(font_path.clone()) {
+            if font_path.as_native_path().is_none() || !sent.insert(font_path.clone()) {
                 continue;
             }
             let Some(font_url) = font_path.to_url() else {
                 tracing::warn!("Cannot convert font path to URL: {font_path}");
                 continue;
             };
-            match std::fs::read(native_path) {
+            match font_path.read() {
                 Ok(contents) => {
                     tracing::debug!(
                         "Sending font {} ({} bytes) to remote viewer",
@@ -214,7 +213,7 @@ impl EditorSession {
                     );
                     remote.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(font_url, None),
-                        contents,
+                        contents: contents.into_owned(),
                     });
                 }
                 Err(err) => {

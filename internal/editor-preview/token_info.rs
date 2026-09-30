@@ -236,7 +236,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
                 })
                 .flatten();
             let import_file = match library_file {
-                Some((path, _)) => path,
+                Some(path) => path,
                 None => node.source_file.path().parent().join(&import_text)?,
             };
             return Some(TokenInfo::FileName(import_file));

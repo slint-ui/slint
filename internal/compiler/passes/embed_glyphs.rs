@@ -55,9 +55,8 @@ pub fn read_custom_fonts<'a>(
         for (font_path, import_token) in doc.custom_fonts.iter() {
             match font_path.read() {
                 Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
-                Ok(bytes) => {
-                    fonts.extend(font_path.as_native_path().map(|p| (p.to_owned(), bytes)))
-                }
+                Ok(bytes) => fonts
+                    .extend(font_path.as_native_path().map(|p| (p.to_owned(), bytes.into_owned()))),
             }
         }
     }

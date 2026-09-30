@@ -6121,15 +6121,15 @@ fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenSt
 }
 
 fn embedded_file_tokens(path: &SourcePath) -> TokenStream {
-    let file = crate::fileaccess::load_file(path).unwrap(); // embedding pass ensured that the file exists
-    match file.builtin_contents {
-        Some(static_data) => {
-            let literal = proc_macro2::Literal::byte_string(static_data);
-            quote!(#literal)
-        }
-        None => {
-            let path = path.to_string();
+    match path {
+        SourcePath::File(path) => {
+            let path = path.to_string_lossy();
             quote!(::core::include_bytes!(#path))
+        }
+        // The embedding pass ensured that the file exists
+        _ => {
+            let literal = proc_macro2::Literal::byte_string(&path.read().unwrap());
+            quote!(#literal)
         }
     }
 }

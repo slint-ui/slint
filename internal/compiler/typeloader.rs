@@ -1130,7 +1130,7 @@ impl TypeLoader {
             }
 
             if matches!(import.import_kind, ImportKind::FileImport) {
-                if let Some((path, _)) = state.borrow().tl.resolve_import_path(
+                if let Some(path) = state.borrow().tl.resolve_import_path(
                     Some(&import.import_uri_token.clone().into()),
                     &import.file,
                 ) {
@@ -1352,13 +1352,12 @@ impl TypeLoader {
         doc.exports.find(type_name).and_then(|compo_or_type| compo_or_type.left())
     }
 
-    /// Append a possibly relative path to a base path. Returns the data if it resolves to a built-in (compiled-in)
-    /// file.
+    /// Append a possibly relative path to a base path.
     pub fn resolve_import_path(
         &self,
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> Option<(SourcePath, Option<&'static [u8]>)> {
+    ) -> Option<SourcePath> {
         if let Some(maybe_library_import) = maybe_relative_path_or_url.strip_prefix('@') {
             self.find_file_in_library_path(maybe_library_import)
         } else {
@@ -1368,7 +1367,6 @@ impl TypeLoader {
                     referencing_file
                         .and_then(|file| file.parent().join(maybe_relative_path_or_url))
                         .filter(SourcePath::exists)
-                        .map(|p| (p, None))
                 },
             )
         }
@@ -1386,13 +1384,13 @@ impl TypeLoader {
         let mut borrowed_state = state.borrow_mut();
 
         let mut resolved = false;
-        let (path_canon, builtin) = match borrowed_state
+        let path_canon = match borrowed_state
             .tl
             .resolve_import_path(import_token.as_ref(), file_to_import)
         {
             Some(x) => {
                 resolved = true;
-                if let Some(file_name) = x.0.file_name() {
+                if let Some(file_name) = x.file_name() {
                     let len = file_to_import.len();
                     if !file_to_import.ends_with(file_name)
                         && len >= file_name.len()
@@ -1420,7 +1418,7 @@ impl TypeLoader {
                         &import_token,
                     );
                     }
-                    (import_path, None)
+                    import_path
                 } else {
                     // We will load using the `open_import_callback`
                     // Simplify the path to remove the ".."
@@ -1428,7 +1426,7 @@ impl TypeLoader {
                         .as_ref()
                         .and_then(|tok| tok.source_file())
                         .map_or_else(SourcePath::default, |f| f.path().parent());
-                    (base_dir.join(file_to_import).ok_or(None)?, None)
+                    base_dir.join(file_to_import).ok_or(None)?
                 }
             }
         };
@@ -1481,11 +1479,8 @@ impl TypeLoader {
             }
             Some(doc_node)
         } else {
-            let source_code_result = if let Some(builtin) = builtin {
-                Ok(String::from(
-                    core::str::from_utf8(builtin)
-                        .expect("internal error: embedded file is not UTF-8 source code"),
-                ))
+            let source_code_result = if path_canon.is_builtin() {
+                path_canon.read_to_string()
             } else {
                 let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
                 if let Some(callback) = callback {
@@ -1535,8 +1530,14 @@ impl TypeLoader {
         };
 
         let ok = if let Some(doc_node) = doc_node {
-            Self::load_file_impl(state, &path_canon, doc_node, builtin.is_some(), &import_stack)
-                .await;
+            Self::load_file_impl(
+                state,
+                &path_canon,
+                doc_node,
+                path_canon.is_builtin(),
+                &import_stack,
+            )
+            .await;
             state.borrow_mut().diag.all_loaded_files.insert(path_canon.clone());
             true
         } else {
@@ -1760,10 +1761,7 @@ impl TypeLoader {
     }
 
     /// Lookup a library and filename and try to find the absolute filename based on the library path
-    fn find_file_in_library_path(
-        &self,
-        maybe_library_import: &str,
-    ) -> Option<(SourcePath, Option<&'static [u8]>)> {
+    fn find_file_in_library_path(&self, maybe_library_import: &str) -> Option<SourcePath> {
         let (library, file) = maybe_library_import
             .splitn(2, '/')
             .collect_tuple()
@@ -1777,9 +1775,7 @@ impl TypeLoader {
                 // "@library" -> "/path/to/library/lib.slint"
                 None => library_path,
             };
-            crate::fileaccess::load_file(&path)
-                .map(|file| (file.canon_path, file.builtin_contents))
-                .or(Some((path, None)))
+            Some(crate::fileaccess::find_file(&path).unwrap_or(path))
         })
     }
 
@@ -1789,7 +1785,7 @@ impl TypeLoader {
         &self,
         referencing_file: Option<&SourcePath>,
         file_to_import: &str,
-    ) -> Option<(SourcePath, Option<&'static [u8]>)> {
+    ) -> Option<SourcePath> {
         let include_dirs = self.compiler_config.include_paths.iter().filter_map(|include_path| {
             match (referencing_file, include_path.to_str()) {
                 (Some(file), Some(include_path)) => file.parent().join(include_path),
@@ -1815,10 +1811,7 @@ impl TypeLoader {
             .chain(include_dirs)
             .chain(builtin_style)
             .filter_map(|dir| dir.join(file_to_import))
-            .find_map(|candidate| {
-                crate::fileaccess::load_file(&candidate)
-                    .map(|file| (file.canon_path, file.builtin_contents))
-            })
+            .find_map(|candidate| crate::fileaccess::find_file(&candidate))
     }
 
     fn collect_dependencies<'a: 'b, 'b>(

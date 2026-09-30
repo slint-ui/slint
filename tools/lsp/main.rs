@@ -453,7 +453,7 @@ async fn run_main_loop(
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
                 tracing::trace!("Importing file: {path}");
-                let contents = path.read();
+                let contents = path.read().map(std::borrow::Cow::into_owned);
                 if let Some(url) = path.as_native_path().and(path.to_url()) {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
