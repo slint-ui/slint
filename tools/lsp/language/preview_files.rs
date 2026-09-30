@@ -11,8 +11,7 @@
 //! sources, the fonts they import — don't go through here.
 
 use crate::editor_preview::{DocumentCache, uri_to_file};
-use i_slint_compiler::pathutils::clean_path;
-use i_slint_compiler::source_path::SourcePath;
+use i_slint_compiler::source_path::{SourcePath, clean_path};
 use i_slint_live_preview::protocol::PreviewConfig;
 use lsp_types::InitializeParams;
 
@@ -25,7 +24,7 @@ use std::path::{Path, PathBuf};
 const ASSET_EXTENSIONS: &[&str] = &[
     // images, mirroring `i_slint_core::graphics::image_mime_type_from_extension`
     "png", "jpg", "jpeg", "svg", "svgz", "gif", "webp", "bmp", "ico", "avif", //
-    // fonts, mirroring `i_slint_compiler::pathutils::is_font_file`
+    // fonts, mirroring `i_slint_compiler::fileaccess::is_font_file`
     "ttf", "ttc", "otf",
 ];
 

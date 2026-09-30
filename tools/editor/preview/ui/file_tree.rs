@@ -857,11 +857,15 @@ mod tests {
 
     #[test]
     fn image_picker_normalizes_source_uri_separators() {
-        let source = std::env::temp_dir().join("ui/pages/main.slint");
-        let uri = Url::from_file_path(&source).unwrap();
-        let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
-        let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
-        assert_eq!(source_path(&uri), Some(source));
+        // `\` only separates directories in a Windows path.
+        #[cfg(windows)]
+        {
+            let source = std::env::temp_dir().join("ui/pages/main.slint");
+            let uri = Url::from_file_path(&source).unwrap();
+            let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
+            let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
+            assert_eq!(source_path(&uri), Some(source));
+        }
         assert!(source_path("https://example.com/main.slint").is_none());
         assert!(source_path("vscode-remote://host/main.slint").is_none());
     }

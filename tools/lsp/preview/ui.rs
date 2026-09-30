@@ -353,7 +353,7 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
         return (Default::default(), Default::default());
     };
 
-    let file_name = SourcePath::from_url(url.clone()).file_name().unwrap_or_default().to_string();
+    let file_name = SourcePath::from_url(url).file_name().unwrap_or_default().to_string();
 
     (url.to_string().into(), file_name.into())
 }
@@ -426,7 +426,7 @@ pub fn ui_set_known_components(
             if let Some(library) = position.url().path().strip_prefix("/@") {
                 library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
-                let path = SourcePath::from_url(position.url().clone()).to_path_buf();
+                let path = SourcePath::from_url(position.url()).to_path_buf();
                 if path != PathBuf::new() {
                     if longest_path_prefix == PathBuf::new() {
                         longest_path_prefix = path.clone();

@@ -84,7 +84,7 @@ fn import_file_name_for_url(
         } else if let Some(current_uri) = current_uri {
             lsp_types::Url::make_relative(current_uri, url)
         } else {
-            Some(i_slint_compiler::source_path::SourcePath::from_url(url.clone()).to_string())
+            Some(i_slint_compiler::source_path::SourcePath::from_url(url).to_string())
         }
     }
 }
@@ -239,12 +239,12 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
 }
 
 fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_types::Url {
-    let url_path = i_slint_compiler::source_path::SourcePath::from_url(url.clone()).to_path_buf();
+    let url_path = i_slint_compiler::source_path::SourcePath::from_url(&url).to_path_buf();
     if let Some((library_name, library_path)) = document_cache
         .compiler_configuration()
         .library_paths
         .iter()
-        .map(|(n, p)| (n, i_slint_compiler::pathutils::clean_path(p)))
+        .map(|(n, p)| (n, i_slint_compiler::source_path::clean_path(p)))
         .find(|(_, path)| url_path.starts_with(path) || url_path == **path)
     {
         if url_path == library_path {

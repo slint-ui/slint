@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inlines namedreference pathutils
+// cSpell: ignore inlines namedreference
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -34,7 +34,6 @@ pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
-pub mod pathutils;
 pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]

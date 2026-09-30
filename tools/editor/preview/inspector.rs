@@ -110,7 +110,7 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: i_slint_compiler::source_path::SourcePath::from_url(url),
+                path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
             },
