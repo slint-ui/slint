@@ -269,6 +269,7 @@ impl BackendSelector {
     #[cfg(not(target_os = "android"))]
     fn select_internal(&mut self) -> Result<(), PlatformError> {
         self.selected = true;
+        let _prefetch = i_slint_core::font_collection::prefetch();
 
         #[cfg(any(
             feature = "i-slint-backend-qt",

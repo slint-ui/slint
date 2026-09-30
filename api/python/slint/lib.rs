@@ -18,6 +18,7 @@ mod async_adapter;
 mod brush;
 mod errors;
 mod keys;
+mod model_adapters;
 mod models;
 mod styled_text;
 mod timer;
@@ -220,6 +221,7 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<data_transfer::PyDataTransfer>()?;
     m.add_class::<styled_text::PyStyledText>()?;
     m.add_class::<models::PyModelBase>()?;
+    m.add_class::<model_adapters::PyModelAdapter>()?;
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;
     m.add_class::<api_match::PyGeneratedAPI>()?;

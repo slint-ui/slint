@@ -92,7 +92,7 @@ impl SlintContext {
     /// context has to be explicit about it (e.g. [`Self::new_timer`]).
     pub fn new(platform: Box<dyn Platform + 'static>) -> Self {
         #[cfg(feature = "shared-parley")]
-        let collection = i_slint_common::sharedfontique::create_collection(true);
+        let collection = crate::font_collection::take_or_create();
 
         let this = Self(Rc::pin(SlintContextInner {
             platform,
@@ -237,7 +237,7 @@ impl SlintContext {
     pub fn duration_until_next_timer_update(&self) -> Option<core::time::Duration> {
         let timeout = self.next_timer_timeout()?;
         let now = crate::animations::Instant::now(self);
-        Some(core::time::Duration::from_millis(timeout.0.saturating_sub(now.0)))
+        Some(timeout - now)
     }
 
     /// Fires the callbacks of this context's timers that have expired by `now`, and returns
@@ -441,6 +441,7 @@ pub fn with_global_context<R>(
                     crate::platform::SetPlatformError::AlreadySet,
                 ));
             }
+            let _prefetch = crate::font_collection::prefetch();
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             Ok(f(p.get().unwrap()))
         }

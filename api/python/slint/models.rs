@@ -15,9 +15,9 @@ use pyo3::prelude::*;
 
 use crate::value::{SlintToPyValue, TypeCollection};
 
-#[derive(Default)]
 pub struct PyModelShared {
-    notify: ModelNotify,
+    /// The notify of the Python wrapper, shared by every shared model it creates.
+    notify: Rc<ModelNotify>,
     self_ref: RefCell<Option<Py<PyAny>>>,
     /// The type collection is needed when calling a Python implementation of set_row_data and
     /// the model data provided (for example from within a .slint file) contains an enum. Then
@@ -30,6 +30,15 @@ pub struct PyModelShared {
 }
 
 impl PyModelShared {
+    fn new(notify: Rc<ModelNotify>) -> Self {
+        Self {
+            notify,
+            self_ref: Default::default(),
+            type_collection: Default::default(),
+            element_type: Default::default(),
+        }
+    }
+
     /// Let the cyclic GC see the wrapper this shared model keeps alive.
     pub fn visit_wrapper(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         if let Some(wrapper) = self.self_ref.borrow().as_ref() {
@@ -76,6 +85,9 @@ enum ModelOwnership {
 #[pyclass(unsendable, weakref, subclass, skip_from_py_object)]
 pub struct PyModelBase {
     inner: RefCell<ModelOwnership>,
+    /// Outlives the shared models, so views and model adapters stay notified
+    /// across hand-offs to Slint.
+    notify: Rc<ModelNotify>,
 }
 
 impl PyModelBase {
@@ -86,11 +98,17 @@ impl PyModelBase {
         }
     }
 
+    /// The notify that reaches the views of this wrapper, for a model adapter to track.
+    pub(crate) fn notify(&self) -> Rc<ModelNotify> {
+        self.notify.clone()
+    }
+
     /// Move ownership of the shared model to Slint; the wrapper keeps only a
     /// weak reference. Re-hand-off after Slint dropped the `ModelRc` attaches
     /// a fresh shared model; `self_ref` is only set when still empty.
     pub fn hand_to_slint(&self, wrapper: &Bound<'_, PyAny>) -> ModelRc<slint_interpreter::Value> {
-        let shared = self.shared_model().unwrap_or_else(|| Rc::new(PyModelShared::default()));
+        let shared =
+            self.shared_model().unwrap_or_else(|| Rc::new(PyModelShared::new(self.notify.clone())));
         *self.inner.borrow_mut() = ModelOwnership::OwnedBySlint(Rc::downgrade(&shared));
         {
             let mut self_ref = shared.self_ref.borrow_mut();
@@ -106,30 +124,25 @@ impl PyModelBase {
 impl PyModelBase {
     #[new]
     fn new() -> Self {
+        let notify = Rc::new(ModelNotify::default());
         Self {
-            inner: RefCell::new(ModelOwnership::OwnedByWrapper(Rc::new(PyModelShared::default()))),
+            inner: RefCell::new(ModelOwnership::OwnedByWrapper(Rc::new(PyModelShared::new(
+                notify.clone(),
+            )))),
+            notify,
         }
     }
 
-    // The notifications are no-ops once Slint dropped the last ModelRc of this model (the
-    // weak reference is dead): there are no views attached anymore to notify. The wrapper
-    // stays usable, and handing the model to Slint again re-attaches a fresh shared model.
     fn notify_row_added(&self, index: usize, count: usize) {
-        if let Some(shared) = self.shared_model() {
-            shared.notify.row_added(index, count)
-        }
+        self.notify.row_added(index, count)
     }
 
     fn notify_row_changed(&self, index: usize) {
-        if let Some(shared) = self.shared_model() {
-            shared.notify.row_changed(index)
-        }
+        self.notify.row_changed(index)
     }
 
     fn notify_row_removed(&self, index: usize, count: usize) {
-        if let Some(shared) = self.shared_model() {
-            shared.notify.row_removed(index, count)
-        }
+        self.notify.row_removed(index, count)
     }
 }
 
@@ -291,7 +304,7 @@ impl i_slint_core::model::Model for PyModelShared {
     }
 
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
-        &self.notify
+        &*self.notify
     }
 
     fn as_any(&self) -> &dyn core::any::Any {

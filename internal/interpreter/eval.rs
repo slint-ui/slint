@@ -2782,15 +2782,23 @@ pub(crate) fn find_window_adapter(
     find_root_instance(ctx)?.window_adapter_or_default()
 }
 
-/// The context of the component's window, or the thread's while it has no window.
+/// The context the component was created with, else its window's,
+/// or the thread's while it has no window.
 ///
 /// Unlike [`find_window_adapter`], this doesn't create a window.
 /// It uses [`root_instance`] so that it also works in a global's init code.
 fn context_or_global(ctx: &EvalContext) -> i_slint_core::SlintContext {
-    root_instance(ctx)
-        .and_then(|instance| instance.window_adapter.get().cloned())
-        .and_then(|adapter| {
-            i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+    ctx.globals
+        .upgrade()
+        .and_then(|globals| globals.context.get().cloned())
+        .or_else(|| {
+            root_instance(ctx).and_then(|instance| instance.window_adapter.get().cloned()).and_then(
+                |adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window())
+                        .try_context()
+                        .cloned()
+                },
+            )
         })
         .or_else(i_slint_core::SlintContext::current)
         .expect("a component is being evaluated, so a platform and its context exist")
