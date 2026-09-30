@@ -1,0 +1,20 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=50  - because gradients are imprecise in rotation
+// SIZE=64x40
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 40px;
+
+    background: @radial-gradient(circle, white, blue 60%, black);
+
+    Rectangle {
+        x: 16px;
+        y: 12px;
+        width: 20px;
+        height: 16px;
+        background: #f00a;
+    }
+}

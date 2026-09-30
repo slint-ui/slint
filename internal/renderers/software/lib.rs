@@ -908,15 +908,23 @@ impl SoftwareRenderer {
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
-                    let mut bg = TargetPixel::background();
-                    // TODO: gradient background
-                    TargetPixel::blend(&mut bg, background.color().into());
-                    renderer.actual_renderer.processor.foreach_ranges(
-                        &dirty_region.bounding_rect(),
-                        |_, buffer, _, _| {
-                            buffer.fill(bg);
-                        },
-                    );
+                    let gradient_covers_background = !matches!(background, Brush::SolidColor(_))
+                        && background.is_opaque()
+                        // A gradient without stops counts as opaque but draws nothing.
+                        && background.color().alpha() == 255;
+                    if !gradient_covers_background {
+                        let mut bg = TargetPixel::background();
+                        if matches!(background, Brush::SolidColor(_)) {
+                            TargetPixel::blend(&mut bg, background.color().into());
+                        }
+                        renderer.actual_renderer.processor.foreach_ranges(
+                            &dirty_region.bounding_rect(),
+                            |_, buffer, _, _| {
+                                buffer.fill(bg);
+                            },
+                        );
+                    }
+                    renderer.actual_renderer.draw_window_background_gradient(&background);
                 }
 
                 let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
@@ -1627,13 +1635,14 @@ fn render_window_frame_by_line(
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
-    let mut scene = prepare_scene(window, size, renderer);
+    let mut scene = prepare_scene(window, size, &background, renderer);
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
     let mut background_color = TargetPixel::background();
-    // FIXME gradient
-    TargetPixel::blend(&mut background_color, background.color().into());
+    if matches!(background, Brush::SolidColor(_)) {
+        TargetPixel::blend(&mut background_color, background.color().into());
+    }
 
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
         for r in &scene.current_line_ranges {
@@ -1770,6 +1779,7 @@ fn render_window_frame_by_line(
 fn prepare_scene(
     window: &WindowInner,
     size: PhysicalSize,
+    background: &Brush,
     software_renderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
@@ -1797,6 +1807,8 @@ fn prepare_scene(
             factor,
             size,
         );
+
+        renderer.actual_renderer.draw_window_background_gradient(background);
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
@@ -2522,6 +2534,17 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             #[cfg(feature = "systemfonts")]
             text_layout_cache,
         }
+    }
+
+    fn draw_window_background_gradient(&mut self, background: &Brush) {
+        if matches!(background, Brush::SolidColor(_)) {
+            return;
+        }
+        let screen = PhysicalRect::from_size(self.rotation.screen_size).transformed(self.rotation);
+        let mut args =
+            target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), background.clone());
+        args.rotation = self.rotation.orientation;
+        self.processor.process_rectangle(&args, screen);
     }
 
     fn should_draw(&self, rect: &LogicalRect) -> bool {
