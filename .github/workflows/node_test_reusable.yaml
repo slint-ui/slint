@@ -32,13 +32,13 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
