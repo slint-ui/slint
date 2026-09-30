@@ -66,10 +66,10 @@
 //! because that's the activity type the "backend-android-activity-06" feature supports.
 //! Tools that can package such an APK include:
 //!
-//! * [cargo-apk](https://github.com/rust-mobile/cargo-apk): `cargo apk run --target aarch64-linux-android --lib`
-//! * [cargo-apk2](https://github.com/mzdk100/cargo-apk2): `cargo apk2 run --target aarch64-linux-android --lib`
+//! * [cargo-apk2](https://crates.io/crates/cargo-apk2): `cargo apk2 run --target aarch64-linux-android --lib`
+//! * [cargo-apk](https://crates.io/crates/cargo-apk): `cargo apk run --target aarch64-linux-android --lib`
+//! * [cargo-ndk](https://crates.io/crates/cargo-ndk) to build the library, with Gradle to package it
 //! * [xbuild](https://github.com/rust-mobile/xbuild): `x run --device <id>`
-//! * [cargo-ndk](https://github.com/bbqsrc/cargo-ndk) to build the library, with Gradle to package it
 //!
 #![doc = i_slint_core_macros::slint_doc_str!("See the [Android platform guide](slint:android_building) for how to set up each of them.")]
 

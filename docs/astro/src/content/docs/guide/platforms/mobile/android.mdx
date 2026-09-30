@@ -323,9 +323,40 @@ because that's the activity type Slint's Android backend supports.
 This section covers some common tools that can package such an app.
 None of them needs Android Studio.
 
+### cargo-apk2
+
+[cargo-apk2](https://crates.io/crates/cargo-apk2) builds, signs, and installs the APK from your `Cargo.toml`,
+and can also compile Java and Kotlin sources into it.
+Install it and run your app on the connected device:
+
+```sh
+cargo install cargo-apk2
+cargo apk2 run --target aarch64-linux-android --lib
+```
+
+Declare the `NativeActivity` in your `Cargo.toml`:
+
+```toml
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+
+[[package.metadata.android.application.activity.meta_data]]
+name = "android.app.lib_name"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]
+```
+
+Set additional manifest values in the `[package.metadata.android]` table of your `Cargo.toml`.
+See the [cargo-apk2 README](https://github.com/mzdk100/cargo-apk2#manifest) for the available keys.
+
+To build a release APK, run `cargo apk2 build --target aarch64-linux-android --lib --release`.
+The APK is then located in `target/release/apk/`.
+
 ### cargo-apk
 
-[cargo-apk](https://github.com/rust-mobile/cargo-apk) generates the Android manifest,
+[cargo-apk](https://crates.io/crates/cargo-apk) generates the Android manifest,
 including the `NativeActivity`, from your `Cargo.toml`.
 Install it and run your app on the connected device:
 
@@ -340,34 +371,22 @@ See the [cargo-apk README](https://github.com/rust-mobile/cargo-apk/tree/main/ca
 To build a release APK, run `cargo apk build --target aarch64-linux-android --lib --release`.
 The APK is then located in `target/release/apk/`.
 
-### cargo-apk2
+### cargo-ndk and Gradle
 
-[cargo-apk2](https://github.com/mzdk100/cargo-apk2) is a fork of cargo-apk
-that also compiles Java and Kotlin sources and supports several activities.
-Install it and run your app on the connected device:
+[cargo-ndk](https://crates.io/crates/cargo-ndk) builds only the native library.
+Gradle, or Android Studio, then packages it like any other Android app.
+Use this setup to add Java or Kotlin code, or to build an Android App Bundle (AAB) for Google Play.
+
+Build the library into the `jniLibs` directory of your Gradle project:
 
 ```sh
-cargo install cargo-apk2
-cargo apk2 run --target aarch64-linux-android --lib
+cargo install cargo-ndk
+cargo ndk -t arm64-v8a -o app/src/main/jniLibs build --release --lib
 ```
 
-Unlike cargo-apk, it doesn't add a `NativeActivity` on its own.
-Declare it in your `Cargo.toml`:
-
-```toml
-[[package.metadata.android.application.activity]]
-name = "android.app.NativeActivity"
-
-[[package.metadata.android.application.activity.meta_data]]
-name = "android.app.lib_name"
-
-[[package.metadata.android.application.activity.intent_filter]]
-actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
-categories = ["android.intent.category.LAUNCHER"]
-```
-
-cargo-apk expects a single `activity` table instead of this array,
-so a `Cargo.toml` with this section builds only with cargo-apk2.
+Declare a `NativeActivity` in `AndroidManifest.xml`, with `android.app.lib_name` set to your library name.
+The C++ tab of this page shows such a manifest,
+and the [Slint Viewer](https://github.com/slint-ui/slint/tree/master/tools/viewer/android) is a complete example.
 
 ### xbuild
 
@@ -402,23 +421,6 @@ x build --platform android --arch arm64 --format apk --release
 
 The APK is then located in `target/x/release/android/<name>.apk`.
 Run `x build --help` for the other formats.
-
-### cargo-ndk and Gradle
-
-[cargo-ndk](https://github.com/bbqsrc/cargo-ndk) builds only the native library.
-Gradle, or Android Studio, then packages it like any other Android app.
-Use this setup to add Java or Kotlin code, or to build an Android App Bundle (AAB) for Google Play.
-
-Build the library into the `jniLibs` directory of your Gradle project:
-
-```sh
-cargo install cargo-ndk
-cargo ndk -t arm64-v8a -o app/src/main/jniLibs build --release --lib
-```
-
-Declare a `NativeActivity` in `AndroidManifest.xml`, with `android.app.lib_name` set to your library name.
-The C++ tab of this page shows such a manifest,
-and the [Slint Viewer](https://github.com/slint-ui/slint/tree/master/tools/viewer/android) is a complete example.
 
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
