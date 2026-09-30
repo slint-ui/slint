@@ -352,13 +352,13 @@ pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
     }
 
     image_url_path(source)
-        .and_then(|path| path.rsplit(['/', '\\']).next().map(str::to_owned))
-        .filter(|name| !name.is_empty())
-        .map(SharedString::from)
+        .and_then(|path| {
+            path.file_name().map(|name| SharedString::from(name.to_string_lossy().as_ref()))
+        })
         .unwrap_or_else(|| tr::tr!("Custom expression").into())
 }
 
-fn image_url_path(source: &str) -> Option<String> {
+fn image_url_path(source: &str) -> Option<PathBuf> {
     let source = source.strip_prefix("@image-url(")?.trim_start();
     let length = i_slint_compiler::lexer::lex_string(source, &mut Default::default());
     let (literal, rest) = source.split_at(length);
@@ -366,7 +366,8 @@ fn image_url_path(source: &str) -> Option<String> {
     if rest != ")" && !(rest.starts_with(',') && rest.ends_with(')')) {
         return None;
     }
-    i_slint_compiler::literals::unescape_string(literal).map(|path| path.to_string())
+    i_slint_compiler::literals::unescape_string(literal)
+        .map(|path| PathBuf::from(path.replace('\\', "/")))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -381,14 +382,10 @@ pub(super) fn choose_image_file(
         return Default::default();
     };
 
-    let dialog = rfd::FileDialog::new()
-        .set_title("Choose Image")
+    let dialog = crate::file_dialog::create(window)
+        .set_title(tr::tr!("Choose Image"))
         .set_directory(source_directory)
-        .add_filter("Images", &["png", "jpg", "jpeg", "svg"]);
-    let dialog = match window {
-        Some(window) => dialog.set_parent(&window),
-        None => dialog,
-    };
+        .add_filter(tr::tr!("Images"), &["png", "jpg", "jpeg", "svg"]);
     let Some(image_path) = dialog.pick_file() else {
         return Default::default();
     };
@@ -405,7 +402,11 @@ pub(super) fn choose_image_file(
 }
 
 fn source_path(source_uri: &str) -> Option<PathBuf> {
-    Url::parse(source_uri).ok().and_then(|url| url.to_file_path().ok())
+    let uri = Url::parse(source_uri).ok()?;
+    if uri.scheme() != "file" {
+        return None;
+    }
+    i_slint_editor_preview::uri_to_file(&uri)
 }
 
 fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {
@@ -832,14 +833,15 @@ mod tests {
 
     #[test]
     fn image_source_field_shows_only_the_file_name() {
-        assert_eq!(
-            image_source_file_name(r#"@image-url("assets/icons/checker.svg")"#.into()),
-            "checker.svg"
-        );
-        assert_eq!(
-            image_source_file_name(r#"@image-url("assets/check\u{65}r.svg")"#.into()),
-            "checker.svg"
-        );
+        for source in [
+            r#"@image-url("assets/icons/checker.svg")"#,
+            r#"@image-url("assets/check\u{65}r.svg")"#,
+            r#"@image-url("assets\\icons\\checker.svg")"#,
+            r#"@image-url("C:\\project\\assets\\checker.svg")"#,
+            r#"@image-url("assets\\icons/checker.svg")"#,
+        ] {
+            assert_eq!(image_source_file_name(source.into()), "checker.svg");
+        }
         assert_eq!(
             image_source_file_name(r#"@image-url("assets/panel.png", nine-slice(1 2 3 4))"#.into()),
             "panel.png"
@@ -851,6 +853,17 @@ mod tests {
             "Custom expression"
         );
         assert_eq!(image_source_file_name(SharedString::default()), "No image selected");
+    }
+
+    #[test]
+    fn image_picker_normalizes_source_uri_separators() {
+        let source = std::env::temp_dir().join("ui/pages/main.slint");
+        let uri = Url::from_file_path(&source).unwrap();
+        let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
+        let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
+        assert_eq!(source_path(&uri), Some(source));
+        assert!(source_path("https://example.com/main.slint").is_none());
+        assert!(source_path("vscode-remote://host/main.slint").is_none());
     }
 
     #[test]
