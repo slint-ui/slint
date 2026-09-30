@@ -885,7 +885,7 @@ impl Expression {
         let resource_ref = if s.starts_with("data:") {
             ImageReference::DataUri(s)
         } else {
-            let is_absolute = crate::pathutils::is_absolute(std::path::Path::new(&s));
+            let is_absolute = crate::source_path::is_absolute(&s);
             let resolved = ctx
                 .type_loader
                 .filter(|_| !is_absolute)

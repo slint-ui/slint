@@ -8,7 +8,7 @@ use lsp_types::Url;
 
 /// Returns `None` for a document that isn't a file, such as an `untitled:` one.
 pub fn uri_to_file(uri: &Url) -> Option<SourcePath> {
-    let path = SourcePath::from_url(uri.clone());
+    let path = SourcePath::from_url(&uri);
     let is_file = match &path {
         SourcePath::Url(url) => ["file", "vscode-remote"].contains(&url.scheme()),
         SourcePath::File(_) | SourcePath::Builtin(_) => true,

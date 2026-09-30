@@ -1200,7 +1200,7 @@ fn extract_resources(
     let mut result: HashSet<Url> = Default::default();
 
     for dependency in dependencies {
-        let path = SourcePath::from_url(dependency.clone());
+        let path = SourcePath::from_url(dependency);
         let Some(doc) = type_loader.get_document(&path) else {
             continue;
         };
@@ -1604,7 +1604,7 @@ async fn reload_preview_impl(
         set_current_live_data(live_preview_data);
     }
 
-    let path = SourcePath::from_url(component.url.clone()).to_path_buf();
+    let path = SourcePath::from_url(&component.url).to_path_buf();
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
@@ -1758,7 +1758,7 @@ pub fn set_remote_connection_state(
 }
 
 pub fn highlight(url: Option<Url>, offset: TextSize) {
-    let Some(path) = url.as_ref().map(|u| SourcePath::from_url(u.clone())) else {
+    let Some(path) = url.as_ref().map(SourcePath::from_url) else {
         element_selection::unselect_element();
         return;
     };

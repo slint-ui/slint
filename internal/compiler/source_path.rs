@@ -5,9 +5,8 @@
 
 //! The location of a .slint file or an asset.
 
-use crate::pathutils;
 use smol_str::SmolStr;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Where the compiler loads a .slint file or an asset from.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -32,21 +31,24 @@ impl SourcePath {
     /// Parses a native path, or a URL such as `builtin:/…`, `https:…` or `file:…`.
     pub fn new(path: impl AsRef<Path>) -> Self {
         let path = path.as_ref();
-        match path.to_str().and_then(pathutils::to_url) {
-            Some(url) => Self::from_url(url),
-            None => Self::File(pathutils::clean_path(path)),
+        match path.to_str().and_then(parse_url) {
+            Some(url) => url.into(),
+            None => Self::File(clean_path(path)),
         }
     }
 
-    pub fn from_url(url: url::Url) -> Self {
+    /// Clones `url` only for a `Url` result; `From<url::Url>` moves it instead.
+    pub fn from_url(url: &url::Url) -> Self {
+        Self::from_file_url(url).unwrap_or_else(|| Self::Url(ForeignUrl(url.clone())))
+    }
+
+    /// The `File` or `Builtin` that `url` names, if any.
+    fn from_file_url(url: &url::Url) -> Option<Self> {
         match url.scheme() {
-            "builtin" => Self::Builtin(url.path().trim_start_matches('/').into()),
+            "builtin" => Some(Self::Builtin(url.path().trim_start_matches('/').into())),
             #[cfg(not(target_arch = "wasm32"))]
-            "file" => match url.to_file_path() {
-                Ok(path) => Self::File(pathutils::clean_path(&path)),
-                Err(()) => Self::Url(ForeignUrl(url)),
-            },
-            _ => Self::Url(ForeignUrl(url)),
+            "file" => Some(Self::File(clean_path(&url.to_file_path().ok()?))),
+            _ => None,
         }
     }
 
@@ -105,28 +107,28 @@ impl SourcePath {
     /// The directory containing `self`.
     pub fn parent(&self) -> Self {
         match self {
-            Self::File(path) => Self::File(pathutils::dirname(path)),
-            _ => self
-                .to_url()
-                .and_then(|url| url.join(".").ok())
-                .map_or(self.clone(), Self::from_url),
+            Self::File(path) => Self::File(path.parent().unwrap_or(path).to_owned()),
+            _ => self.to_url().and_then(|url| url.join(".").ok()).map_or(self.clone(), Self::from),
         }
     }
 
     /// Resolves `relative` against `self` taken as a directory.
     /// An absolute path or URL in `relative` replaces `self`.
+    ///
+    /// `relative` follows the import syntax, where `\` separates directories on every host.
     pub fn join(&self, relative: &str) -> Option<Self> {
-        if pathutils::is_absolute(Path::new(relative)) {
+        let relative = relative.replace('\\', "/");
+        if is_absolute(&relative) {
             return Some(Self::new(relative));
         }
-        let mut url = match self {
-            Self::File(dir) => return Some(Self::File(pathutils::join(dir, Path::new(relative)))),
-            _ => self.to_url()?,
-        };
+        if let Self::File(dir) = self {
+            return Some(Self::File(clean_path(&dir.join(relative))));
+        }
+        let mut url = self.to_url()?;
         if !url.path().ends_with('/') {
             url.set_path(&format!("{}/", url.path()));
         }
-        Some(Self::from_url(url.join(&relative.replace('\\', "/")).ok()?))
+        Some(url.join(&relative).ok()?.into())
     }
 
     pub fn file_name(&self) -> Option<&str> {
@@ -141,6 +143,46 @@ impl SourcePath {
     pub fn extension(&self) -> Option<&str> {
         let (stem, extension) = self.file_name()?.rsplit_once('.')?;
         (!stem.is_empty()).then_some(extension)
+    }
+}
+
+/// Whether `path` is a URL or a path from the root on any host, such as `/a`, `\\a` or `C:/a`.
+pub fn is_absolute(path: &str) -> bool {
+    let windows_root = match path.as_bytes() {
+        [b'\\', ..] => true,
+        [drive, b':', b'/' | b'\\', ..] => drive.is_ascii_alphabetic(),
+        _ => false,
+    };
+    windows_root || parse_url(path).is_some() || Path::new(path).has_root()
+}
+
+/// A single-character scheme is a Windows drive letter (`c:\\...`), i.e. a path rather than a URL.
+fn parse_url(path: &str) -> Option<url::Url> {
+    url::Url::parse(path).ok().filter(|url| url.scheme().len() > 1)
+}
+
+/// Removes the `.` and `..` components of `path` without looking at the file system.
+pub fn clean_path(path: &Path) -> PathBuf {
+    let mut result = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match result.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    result.pop();
+                }
+                Some(Component::RootDir | Component::Prefix(_)) => {}
+                _ => result.push(".."),
+            },
+            component => result.push(component),
+        }
+    }
+    result
+}
+
+impl From<url::Url> for SourcePath {
+    fn from(url: url::Url) -> Self {
+        Self::from_file_url(&url).unwrap_or(Self::Url(ForeignUrl(url)))
     }
 }
 
@@ -165,8 +207,8 @@ mod tests {
     use super::*;
 
     #[track_caller]
-    fn join(base: &str, relative: &str) -> String {
-        SourcePath::new(base).parent().join(relative).unwrap().to_string()
+    fn join(base: &str, relative: &str) -> SourcePath {
+        SourcePath::new(base).parent().join(relative).unwrap()
     }
 
     #[test]
@@ -189,22 +231,55 @@ mod tests {
     fn joins() {
         assert_eq!(
             join("builtin:/fluent/button.slint", "../common/x.svg"),
-            "builtin:/common/x.svg"
+            SourcePath::new("builtin:/common/x.svg")
         );
         assert_eq!(
             join("https://slint.dev/ui/main.slint", "img/a b.png"),
-            "https://slint.dev/ui/img/a%20b.png"
+            SourcePath::new("https://slint.dev/ui/img/a%20b.png")
         );
         assert_eq!(
             join("https://slint.dev/ui/main.slint", "..\\x.slint"),
-            "https://slint.dev/x.slint"
+            SourcePath::new("https://slint.dev/x.slint")
         );
-        assert_eq!(join("https://slint.dev/ui/main.slint", "/abs/x.slint"), "/abs/x.slint");
-        assert_eq!(join("ui/main.slint", "../assets/logo.png"), "assets/logo.png");
-        assert_eq!(join("main.slint", "x.slint"), "x.slint");
-        assert_eq!(join("C:\\ui\\main.slint", "img/a.png"), "C:\\ui\\img\\a.png");
+        assert_eq!(
+            join("https://slint.dev/ui/main.slint", "/abs/x.slint"),
+            SourcePath::new("/abs/x.slint")
+        );
+        assert_eq!(join("ui/main.slint", "../assets/logo.png"), SourcePath::new("assets/logo.png"));
+        assert_eq!(join("main.slint", "x.slint"), SourcePath::new("x.slint"));
         let dir = SourcePath::new("https://slint.dev/lib");
         assert_eq!(dir.join("a.slint").unwrap().to_string(), "https://slint.dev/lib/a.slint");
+    }
+
+    #[test]
+    fn classification() {
+        for (path, absolute) in [
+            ("https://foo.bar/", true),
+            ("builtin:/foo", true),
+            ("/foo/bar", true),
+            ("C:/Documents", true),
+            ("\\Program Files", true),
+            ("C:Documents", false),
+            ("foo/bar", false),
+            ("./http://foo/bar", false),
+        ] {
+            assert_eq!(is_absolute(path), absolute, "{path}");
+        }
+        assert!(matches!(SourcePath::new("C:/ui/main.slint"), SourcePath::File(_)));
+    }
+
+    #[test]
+    fn clean_paths() {
+        for (path, clean) in [
+            ("ab/.././cb/./././..", ""),
+            ("../../ab/../cd", "../../cd"),
+            ("/../ab/./cd//ef", "/ab/cd/ef"),
+            ("a\\b", "a\\b"),
+        ] {
+            assert_eq!(clean_path(Path::new(path)), Path::new(clean), "{path}");
+        }
+        assert_eq!(join("ui/main.slint", "sub\\x.slint"), SourcePath::new("ui/sub/x.slint"));
+        assert_eq!(join("/ui/main.slint", "\\abs\\x.slint"), SourcePath::new("/abs/x.slint"));
     }
 
     /// The remote preview asks the editor for imports by the URL it derives back (#13674).
@@ -216,7 +291,7 @@ mod tests {
             "file://server/share/main.slint",
         ] {
             let url = url::Url::parse(s).unwrap();
-            let path = SourcePath::from_url(url.clone());
+            let path = SourcePath::from_url(&url);
             assert_eq!(path.to_url(), Some(url.clone()));
             let image = path.parent().join("images/logo.png").unwrap();
             assert_eq!(image.to_url(), url.join("images/logo.png").ok(), "{s}");

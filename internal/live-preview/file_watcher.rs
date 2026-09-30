@@ -201,7 +201,7 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
     {
         let watched_files = paths
             .into_iter()
-            .map(|path| i_slint_compiler::pathutils::join(&self.base, &path))
+            .map(|path| i_slint_compiler::source_path::clean_path(&self.base.join(path)))
             .collect::<HashSet<_>>();
 
         let (response_tx, response_rx) = mpsc::sync_channel(1);
@@ -239,7 +239,7 @@ fn classify_event(event: notify::Event) -> Vec<(PathBuf, FileChangeKind)> {
         event
             .paths
             .into_iter()
-            .map(|path| (i_slint_compiler::pathutils::clean_path(&path), kind))
+            .map(|path| (i_slint_compiler::source_path::clean_path(&path), kind))
             .collect()
     }
 
@@ -257,10 +257,10 @@ fn classify_event(event: notify::Event) -> Vec<(PathBuf, FileChangeKind)> {
             let mut paths = event.paths.into_iter();
             [
                 paths.next().map(|path| {
-                    (i_slint_compiler::pathutils::clean_path(&path), FileChangeKind::Deleted)
+                    (i_slint_compiler::source_path::clean_path(&path), FileChangeKind::Deleted)
                 }),
                 paths.next().map(|path| {
-                    (i_slint_compiler::pathutils::clean_path(&path), FileChangeKind::Created)
+                    (i_slint_compiler::source_path::clean_path(&path), FileChangeKind::Created)
                 }),
             ]
             .into_iter()
@@ -566,7 +566,7 @@ fn desired_watches_for_states<Impl: FileWatcherImpl>(
 fn probe_dir_for_path(path: &Path) -> Option<PathBuf> {
     if path.exists() {
         let parent = path.parent()?;
-        parent.is_dir().then(|| i_slint_compiler::pathutils::clean_path(parent))
+        parent.is_dir().then(|| i_slint_compiler::source_path::clean_path(parent))
     } else {
         nearest_existing_ancestor(path)
     }
@@ -578,7 +578,7 @@ fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
         current = current.parent()?;
     }
 
-    Some(i_slint_compiler::pathutils::clean_path(current))
+    Some(i_slint_compiler::source_path::clean_path(current))
 }
 
 #[cfg(test)]

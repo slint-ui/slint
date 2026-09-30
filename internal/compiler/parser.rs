@@ -1141,7 +1141,7 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> Option<SyntaxNode> {
-    let path = crate::pathutils::clean_path(path.as_ref());
+    let path = crate::source_path::clean_path(path.as_ref());
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;

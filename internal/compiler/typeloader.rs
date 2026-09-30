@@ -1124,7 +1124,7 @@ impl TypeLoader {
             if state.borrow().diag.slint_sc {
                 let rejected = if import.file.starts_with('@') {
                     Some("Library imports are")
-                } else if crate::pathutils::is_absolute(Path::new(import.file.as_str())) {
+                } else if crate::source_path::is_absolute(&import.file) {
                     Some("Absolute import paths are")
                 } else {
                     None
@@ -1141,7 +1141,7 @@ impl TypeLoader {
                     &import.file,
                 ) {
                     import.resolved = Some(path);
-                } else if crate::pathutils::is_font_file(&import.file) {
+                } else if crate::fileaccess::is_font_file(&import.file) {
                     let importing_file = import.import_uri_token.source_file.path();
                     // Slint ≤ 1.18 resolved also font files relative to the file itself by accident. Still support it with a warning.
                     let too_deep = importing_file.join(&import.file).filter(SourcePath::exists);
@@ -1954,7 +1954,7 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<SourcePath
     let target_path = std::env::var_os("OUT_DIR")
         .map(|path| {
             // Same logic as in i-slint-backend-selector's build script to get the path
-            crate::pathutils::join(Path::new(&path), Path::new("../../SLINT_DEFAULT_STYLE.txt"))
+            crate::source_path::clean_path(&Path::new(&path).join("../../SLINT_DEFAULT_STYLE.txt"))
         })
         .or_else(|| {
             // When we are called from a slint!, OUT_DIR is only defined when the crate having the macro has a build.rs script.
@@ -1969,9 +1969,8 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<SourcePath
                 }
             }
             out_dir.map(|od| {
-                crate::pathutils::join(
-                    Path::new(&od),
-                    Path::new("../build/SLINT_DEFAULT_STYLE.txt"),
+                crate::source_path::clean_path(
+                    &Path::new(&od).join("../build/SLINT_DEFAULT_STYLE.txt"),
                 )
             })
         });
@@ -2132,7 +2131,7 @@ fn test_import_path_verbatim() {
     // than an escape, so `sub\comp.slint` names `sub/comp.slint`. An absolute path
     // with a backslash cleans to a different string, so it must be registered and
     // looked up under that cleaned path or the type loader panics (#12798).
-    let requested = Rc::new(RefCell::new(Vec::<String>::new()));
+    let requested = Rc::new(RefCell::new(Vec::<SourcePath>::new()));
     let requested_ = requested.clone();
 
     let mut compiler_config =
@@ -2141,7 +2140,7 @@ fn test_import_path_verbatim() {
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
         let requested_ = requested_.clone();
         Box::pin(async move {
-            requested_.borrow_mut().push(path.to_string());
+            requested_.borrow_mut().push(path);
             Some(Ok("export XX := Rectangle {} ".to_owned()))
         })
     }));
@@ -2173,8 +2172,11 @@ export component X { A {} B {} C {} D {} }
     assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
     let mut requested = requested.borrow().clone();
     requested.sort();
-    // Unicode names are kept as written; a backslash is normalized to a slash.
-    assert_eq!(requested, ["/ddd/dd.slint", "naïve.slint", "party🎉.slint", "sub/comp.slint"]);
+    // Unicode names are kept as written; a backslash is a separator.
+    let mut expected =
+        ["/ddd/dd.slint", "naïve.slint", "party🎉.slint", "sub/comp.slint"].map(SourcePath::new);
+    expected.sort();
+    assert_eq!(requested, expected);
 }
 
 #[test]

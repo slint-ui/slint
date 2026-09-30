@@ -57,7 +57,7 @@ impl InspectorOverlay {
     ) {
         tracing::debug!("Updating highlight: {highlight:?}");
         let highlight = user_instance.zip(highlight).map(|(instance, (url, offset))| {
-            (instance.as_weak(), SourcePath::from_url(url.clone()), *offset)
+            (instance.as_weak(), SourcePath::from_url(url), *offset)
         });
         self.component
             .set_callback("highlight-positions", move |_| {

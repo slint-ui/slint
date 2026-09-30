@@ -2418,7 +2418,7 @@ impl ImageReference {
         if url.scheme() == "data" {
             Self::DataUri(url.as_str().into())
         } else {
-            Self::Source(crate::source_path::SourcePath::from_url(url))
+            Self::Source(url.into())
         }
     }
 }

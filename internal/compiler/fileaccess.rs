@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::source_path::SourcePath;
+use crate::source_path::{SourcePath, clean_path};
 use std::borrow::Cow;
 use std::fs;
 
@@ -28,6 +28,12 @@ impl VirtualFile {
     }
 }
 
+/// Return `true` if `path` has a font file extension supported by Slint
+/// (`.ttf`, `.ttc`, or `.otf`).
+pub fn is_font_file(path: &str) -> bool {
+    path.ends_with(".ttf") || path.ends_with(".ttc") || path.ends_with(".otf")
+}
+
 pub fn styles() -> Vec<&'static str> {
     builtin_library::styles()
 }
@@ -36,9 +42,8 @@ pub fn load_file(path: &SourcePath) -> Option<VirtualFile> {
     match path {
         SourcePath::Builtin(builtin_path) => builtin_library::load_builtin_file(builtin_path),
         SourcePath::File(path) => path.exists().then(|| {
-            let path =
-                crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path);
-            VirtualFile { canon_path: SourcePath::File(path), builtin_contents: None }
+            let path = std::path::absolute(path).unwrap_or_else(|_| path.clone());
+            VirtualFile { canon_path: SourcePath::File(clean_path(&path)), builtin_contents: None }
         }),
         SourcePath::Url(_) => None,
     }

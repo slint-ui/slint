@@ -240,7 +240,7 @@ impl Document {
             .iter()
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
-                if crate::pathutils::is_font_file(&import.file) {
+                if crate::fileaccess::is_font_file(&import.file) {
                     let import_file_path = import
                         .resolved
                         .clone()

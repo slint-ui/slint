@@ -222,7 +222,7 @@ impl PreviewSession {
                 if !is_supported(url.url()) {
                     return true;
                 }
-                if i_slint_compiler::pathutils::is_font_file(url.url().path()) {
+                if i_slint_compiler::fileaccess::is_font_file(url.url().path()) {
                     event_handler(PreviewSessionEvent::RegisterFont {
                         url: url.url().clone(),
                         contents: contents.into(),
@@ -478,7 +478,7 @@ impl PreviewSession {
 /// such as a POSIX path on Windows (#13674), stays a URL.
 /// The compiler resolves imports and images against such a path on any host.
 fn url_to_path(url: &Url) -> Option<PathBuf> {
-    (url.scheme() == "file").then(|| SourcePath::from_url(url.clone()).to_path_buf())
+    (url.scheme() == "file").then(|| SourcePath::from_url(url).to_path_buf())
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
