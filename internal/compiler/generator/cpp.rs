@@ -3249,6 +3249,9 @@ fn generate_grid_layout_input_decl(
         let templates = root_sc.row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
         let auto_val = i_slint_common::ROW_COL_AUTO;
+        let auto_cell = format!(
+            "slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }}"
+        );
         // When static children are present: fill them via the compiled expression into a temp
         // array, then interleave with inner-repeater cells in declaration order.
         // When there are no static children: skip the array/index variables entirely to avoid
@@ -3284,15 +3287,20 @@ fn generate_grid_layout_input_decl(
                 llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                     // Let the inner cell report its own col/row/colspan/rowspan.
+                    // An empty slot keeps its position, like in `layout_item_info` (#13726).
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
+                         for (size_t i = 0; i < {inner_rep_id}.len(); ++i) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 if (auto sub_comp = {inner_rep_id}.typed_instance_at(i)) {{\n\
+                                     sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 }} else {{\n\
+                                     result[write_idx] = {auto_cell};\n\
+                                 }}\n\
                              }}\n\
                              ++write_idx;\n\
-                         }});\n"
+                         }}\n"
                     )
                     .unwrap();
                 }
@@ -3303,7 +3311,7 @@ fn generate_grid_layout_input_decl(
         write!(
             fill_code,
             "while (write_idx < result.size()) {{\n\
-                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                 result[write_idx] = {auto_cell};\n\
                  ++write_idx;\n\
              }}\n"
         )
