@@ -82,12 +82,21 @@ jobs:
 
     visual_editor:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor (${{ matrix.suite }})
+        name: Visual Editor (${{ matrix.name }})
         strategy:
             fail-fast: false
             matrix:
-                suite: [rust, ui]
-        runs-on: macos-14
+                include:
+                    - name: Rust and UI on macOS
+                      os: macos-14
+                      run_ui_tests: true
+                    - name: Rust on Linux
+                      os: ubuntu-22.04
+                      run_ui_tests: false
+                    - name: Rust on Windows
+                      os: windows-2022
+                      run_ui_tests: false
+        runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
@@ -98,33 +107,33 @@ jobs:
             UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  key: x-visual-editor-v1-${{ matrix.suite }}
+                  key: x-visual-editor-v1-rust
                   save_if: ${{ github.ref == 'refs/heads/master' }}
+            - name: Test the visual editor
+              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - uses: actions/setup-python@v7
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
               with:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
             - name: Install UI test dependencies
-              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
-            - name: Test the visual editor
-              if: matrix.suite == 'rust'
-              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Build the visual editor UI test binary
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
-              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
@@ -135,8 +144,8 @@ jobs:
               if: always()
               uses: actions/upload-artifact@v4
               with:
-                  name: visual-editor-${{ matrix.suite }}-timings
-                  path: target/cargo-timings/
+                  name: visual-editor-${{ matrix.os }}-timings
+                  path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: warn
                   retention-days: 7
 
