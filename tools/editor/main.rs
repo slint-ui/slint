@@ -415,13 +415,12 @@ fn new_editor_session(
         }) as OpenImportCallback
     };
     let compiler_config = CompilerConfiguration {
-        style: Some("fluent".into()),
         open_import_callback: Some(open_import_callback),
         format: editor_preview::ByteFormat::Utf8,
         ..Default::default()
     };
 
-    let mut session = editor_preview::EditorSession::with_previews(
+    let session = editor_preview::EditorSession::with_previews(
         editor_preview::DocumentCache::new(compiler_config),
         to_previews
             .into_iter()
@@ -431,10 +430,6 @@ fn new_editor_session(
             })
             .collect(),
     );
-    session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
-        style: "fluent".into(),
-        ..Default::default()
-    };
     (session, publish_imports)
 }
 
