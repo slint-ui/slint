@@ -464,7 +464,7 @@ struct BindingHolder<B = ()> {
 
 impl BindingHolder {
     /// Registers this binding as a dependency of the given property.
-    /// self <-- notified -- property behind `property_that_will_notify`
+    /// property behind `property_that_will_notify` -- notified --> self 
     fn register_self_as_dependency(
         self_ptr: *const BindingHolder,
         property_that_will_notify: *mut DependencyListHead,
