@@ -28,12 +28,12 @@ pub fn count_property_use(root: &CompilationUnit) {
     }
 
     root.for_each_sub_components(&mut |_, sc, ctx| {
-        // 1.5. the `@testable` element properties, read through the debug-info channel
+        // 2. the `@testable` element properties, read through the debug-info channel
         for prop in sc.testable_properties.values().flatten() {
             visit_property(&prop.prop, ctx);
         }
 
-        // 2. the native items and bindings of properties
+        // 3. the native items and bindings of properties
         for (_, expr) in &sc.property_init {
             let c = expr.use_count.get();
             expr.use_count.set(c + 1);
@@ -41,11 +41,11 @@ pub fn count_property_use(root: &CompilationUnit) {
                 visit_binding_expression(expr, ctx)
             }
         }
-        // 3. the init code
+        // 4. the init code
         for expr in sc.pre_init_code.iter().chain(&sc.init_code) {
             expr.borrow().visit_property_references(ctx, &mut visit_property);
         }
-        // 4. the models
+        // 5. the models
         for (idx, r) in sc.repeated.iter_enumerated() {
             r.model.borrow().visit_property_references(ctx, &mut visit_property);
             if let Some(lv) = &r.listview {
@@ -86,7 +86,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
 
-        // 5. the layout info
+        // 6. the layout info
         sc.layout_info_h.borrow().visit_property_references(ctx, &mut visit_property);
         sc.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
         if let Some(e) = &sc.grid_layout_input_for_repeated {
@@ -115,7 +115,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             child.layout_info_v.borrow().visit_property_references(ctx, &mut visit_property);
         }
 
-        // 6. accessibility props and geometries
+        // 7. accessibility props and geometries
         for b in sc.accessible_prop.values() {
             b.borrow().visit_property_references(ctx, &mut visit_property)
         }
@@ -123,7 +123,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             i.borrow().visit_property_references(ctx, &mut visit_property)
         }
 
-        // 7. aliases (if they were not optimized, they are probably used)
+        // 8. aliases (if they were not optimized, they are probably used)
         for twb in &sc.two_way_bindings {
             visit_property(&twb.prop1.clone().into(), ctx);
             visit_property(&twb.prop2, ctx);
@@ -137,7 +137,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             }
         }
 
-        // 8. animations (`animate x { … }`): `remove_unused` keeps and remaps these,
+        // 9. animations (`animate x { … }`): `remove_unused` keeps and remaps these,
         // so the properties they read must be counted too.
         for anim in sc.animations.values() {
             anim.visit_property_references(ctx, &mut visit_property);
@@ -146,13 +146,13 @@ pub fn count_property_use(root: &CompilationUnit) {
         // Function bodies are visited on demand from visit_property when a call to
         // them is found, so that an unreachable function keeps nothing alive.
 
-        // 9. change callbacks
+        // 10. change callbacks
         for (p, e) in &sc.change_callbacks {
             visit_property(p, ctx);
             e.borrow().visit_property_references(ctx, &mut visit_property);
         }
 
-        // 10. popup x/y coordinates
+        // 11. popup x/y coordinates
         for popup in &sc.popup_windows {
             let parent_ctx = ParentScope::new(ctx, None);
             let popup_ctx = EvaluationContext::new_sub_component(
@@ -163,7 +163,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             );
             popup.position.borrow().visit_property_references(&popup_ctx, &mut visit_property)
         }
-        // 11. timer
+        // 12. timer
         for timer in &sc.timers {
             timer.interval.borrow().visit_property_references(ctx, &mut visit_property);
             timer.running.borrow().visit_property_references(ctx, &mut visit_property);
