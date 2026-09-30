@@ -2003,7 +2003,7 @@ mod tests {
         //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
         //                         ^
         // Window:              |------|
-        // Before:
+        // After:
         //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
         //                              ^
         // Window:                  |------|
@@ -2025,17 +2025,17 @@ mod tests {
         // Before:
         //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
         //                      ^
-        // Window:       |-------------|
+        // Window:       |----------|
         // After:
         //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
         //                           ^
-        // Window:        |-----------------|
+        // Window:        |--------------|
         model.insert(2, &[100]);
         assert_eq!(
             state(&repeater),
             (
                 // The row changed for the item, so they get all dirty
-                vec![Empty, Dirty, Dirty, Dirty, Dirty, Dirty],
+                vec![Empty, Dirty, Dirty, Dirty, Dirty],
                 ItemIndexRelationShip { row: 5, instance_index: 3 }
             ),
             "We must prepend one item"
@@ -2048,12 +2048,12 @@ mod tests {
         let repeater = repeater_with_window(&model, 0..3, 0);
         let before = state(&repeater);
         // Before:
-        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
-        //                      ^
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+        //                ^
         // Window:       |-------------|
         // After:
-        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100
-        //                      ^
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 100
+        //                ^
         // Window:       |-------------|
         model.insert(10, &[100]);
         assert_eq!(
@@ -2140,6 +2140,9 @@ mod tests {
         //          ^
         // Window: |-------|
         model.set_vec(vec![1, 2, 3]);
+        assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 0, instance_index: 0 }));
+
+        repeater.as_ref().ensure_updated(new_item);
         assert_eq!(
             state(&repeater),
             (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 0, instance_index: 0 })
@@ -2317,7 +2320,7 @@ mod tests {
         assert_eq!(
             state(&repeater),
             (
-                vec![Clean(2), Dirty(4), Dirty(5)],
+                vec![Clean(2), Clean(4), Clean(5)],
                 ItemIndexRelationShip { row: 3, instance_index: 1 }
             )
         );
@@ -2328,22 +2331,22 @@ mod tests {
         let model = TestModel::new(10);
         let repeater = repeater_with_window(&model, 4..8, 5);
         // Before:
-        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9
         //                  ^
         // Window:       |--------|
         // After:
-        //   0, 1, 2, 7, 8, 9, 10
+        //   0, 1, 2, 6, 7, 8, 9
         //            ^
-        // Window:   |-|
+        // Window:   |----|
         model.remove(3..6);
         assert_eq!(
             state(&repeater),
-            (vec![Dirty], ItemIndexRelationShip { row: 3, instance_index: 0 })
+            (vec![Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 0 })
         );
         repeater.as_ref().ensure_updated(new_item);
         assert_eq!(
             state(&repeater),
-            (vec![Clean(7)], ItemIndexRelationShip { row: 3, instance_index: 0 })
+            (vec![Clean(6), Clean(7)], ItemIndexRelationShip { row: 3, instance_index: 0 })
         );
     }
 
@@ -2352,17 +2355,17 @@ mod tests {
         let model = TestModel::new(10);
         let repeater = repeater_with_window(&model, 2..6, 4);
         // Before:
-        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9
         //               ^
         // Window: |-----------|
         // After:
-        //   0, 1, 2, 3, 8, 9, 10
+        //   0, 1, 2, 3, 8, 9
         //               ^
         // Window: |------|
         model.remove(4..8);
         assert_eq!(
             state(&repeater),
-            (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 2 })
+            (vec![Clean(2), Clean(3), Empty], ItemIndexRelationShip { row: 4, instance_index: 2 })
         );
         repeater.as_ref().ensure_updated(new_item);
         assert_eq!(
@@ -2377,7 +2380,7 @@ mod tests {
     #[test]
     fn test_all_rows_removed() {
         // Before:
-        //         0, 1, 2, 3, 4, 5
+        //         0, 1, 2, 3, 4
         //               ^
         // Window: |-----------|
         // After: empty
@@ -2487,9 +2490,14 @@ mod tests {
         with_ops(&repeater, |ops| ops.splice(0, 1, 0));
         assert_eq!(
             state(&repeater),
+            (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 1 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
             (
                 vec![Clean(3), Clean(4), Clean(5)],
-                ItemIndexRelationShip { row: 3, instance_index: 2 }
+                ItemIndexRelationShip { row: 4, instance_index: 1 }
             )
         );
     }
@@ -2534,7 +2542,7 @@ mod tests {
             state(&repeater),
             (
                 vec![Dirty, Empty, Clean(3), Clean(4)],
-                ItemIndexRelationShip { row: 3, instance_index: 3 }
+                ItemIndexRelationShip { row: 3, instance_index: 2 }
             )
         );
         repeater.as_ref().ensure_updated(new_item);
@@ -2542,14 +2550,14 @@ mod tests {
             state(&repeater),
             (
                 vec![Clean(1), Clean(2), Clean(3), Clean(4)],
-                ItemIndexRelationShip { row: 3, instance_index: 3 }
+                ItemIndexRelationShip { row: 3, instance_index: 2 }
             )
         );
     }
 
     #[test]
     fn test_splice_replacing_instances_before_current_instance2() {
-        let model = TestModel::new(5);
+        let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 0..8, 3);
         // Before:
         //         0, 1, 2, 3, 4, 5, 6, 7
@@ -2559,15 +2567,8 @@ mod tests {
         //         0, 1, 2, 3, 4, 5, 6, 7
         //                  ^
         // Window:         |---------| It would split up the window
+        #[should_panic(expected = "This should not work, because it would split the window!")]
         with_ops(&repeater, |ops| ops.splice(1, 4, 1));
-        assert_eq!(
-            state(&repeater),
-            (
-                vec![Clean(0), Empty, Dirty, Dirty],
-                ItemIndexRelationShip { row: 3, instance_index: 3 }
-            )
-        );
-        assert!(false); // TODO: This should not work
     }
 
     #[test]
