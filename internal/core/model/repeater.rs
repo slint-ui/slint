@@ -450,6 +450,7 @@ struct RustRepeaterOps<'a, C: RepeatedItemTree> {
     inner: &'a RefCell<RepeaterInner<C>>,
     init: &'a dyn Fn() -> ItemTreeRc<C>,
     model: &'a ModelRc<C::Data>,
+    instance_generation: &'a Property<()>,
 }
 
 impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
@@ -462,6 +463,8 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
             position..position + remove,
             core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
         );
+        // Before the new slots' init callbacks, which may read a layout over them.
+        self.instance_generation.mark_dirty();
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -673,6 +676,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             if old_model != m {
                 *self.data().inner.borrow_mut() = RepeaterInner::default();
                 self.data().is_dirty.set(true);
+                self.data().instance_generation.mark_dirty();
                 let peer = self.project_ref().0.model_peer();
                 m.model_tracker().attach_peer(peer);
             }
@@ -691,7 +695,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
             let offset = self.0.inner.borrow().layout_state.offset;
-            let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
+            let mut ops = RustRepeaterOps {
+                inner: &self.0.inner,
+                init: &init,
+                model: &model,
+                instance_generation: &self.data().instance_generation,
+            };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
             self.data().instance_generation.mark_dirty();
@@ -778,7 +787,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
         let data = self.data();
         let mut layout_state = data.inner.borrow().layout_state.clone();
-        let mut ops = RustRepeaterOps { inner: &data.inner, init: &init, model: &model };
+        let mut ops = RustRepeaterOps {
+            inner: &data.inner,
+            init: &init,
+            model: &model,
+            instance_generation: &data.instance_generation,
+        };
         let changed = update_visible_instances(
             &mut ops,
             &mut layout_state,
@@ -936,6 +950,8 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
         } else if self.instance.borrow().is_none() {
             let i = init();
             self.instance.replace(Some(i.clone()));
+            // Before init, which may read a layout over the new instance.
+            self.instance_generation.mark_dirty();
             i.init();
             true
         } else {

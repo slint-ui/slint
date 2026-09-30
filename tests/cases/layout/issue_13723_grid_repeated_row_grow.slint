@@ -16,12 +16,15 @@ export component TestCase inherits Window {
     out property <length> grid-preferred-width: grid.preferred-width;
     out property <length> grid-preferred-height: grid.preferred-height;
 
+    // Sized to its content, so the original row's cell width really changes.
     grid := GridLayout {
-        for r in root.rows: Row {
+        width: self.preferred-width;
+        for r[i] in root.rows: Row {
             Rectangle {
                 min-width: 20px + r.v * 1px;
                 min-height: 20px;
-                changed width => { root.width-changes += 1; }
+                // Counts the original row only, so the pushed row can't satisfy the test.
+                changed width => { if i == 0 { root.width-changes += 1; } }
             }
         }
     }

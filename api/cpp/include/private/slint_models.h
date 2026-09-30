@@ -1160,9 +1160,13 @@ class Repeater
             .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
             .splice =
                     [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
-                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        auto *inner = static_cast<Ctx *>(ud)->inner;
+                        auto &data = inner->data;
                         data.erase(data.begin() + position, data.begin() + position + remove);
                         data.insert(data.begin() + position, add, {});
+                        // Before the new slots' init callbacks, which may read a layout over them.
+                        if (inner->instance_generation)
+                            inner->instance_generation->mark_dirty();
                     },
             .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
                 auto *ctx = static_cast<Ctx *>(ud);
@@ -1230,6 +1234,7 @@ public:
             if (!inner || old_model != m) {
                 inner = std::make_shared<RepeaterInner>();
                 inner->instance_generation = &instance_generation;
+                instance_generation.mark_dirty();
                 if (m) {
                     inner->model = m;
                     m->attach_peer(inner);
@@ -1476,6 +1481,8 @@ public:
             instance = std::nullopt;
         } else if (!instance) {
             instance = C::create(parent);
+            // Before init, which may read a layout over the new instance.
+            instance_generation.mark_dirty();
             (*instance)->init();
             changed = true;
         } else {
