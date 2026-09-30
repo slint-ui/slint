@@ -365,6 +365,7 @@ pub fn collect_all_element_nodes_covering(
                 instance_index: candidate.instance_index,
             };
             let element = selection.as_element_node_in(component_instance)?;
+            // TODO: This should use the LLR - remove the use of ElementRc
             if i_slint_editor_preview::is_element_node_ignored(
                 &element.with_element_debug(|debug_info| debug_info.node.clone()),
             ) {
