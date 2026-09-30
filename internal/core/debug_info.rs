@@ -8,7 +8,8 @@
 //! so both encode the same value to the same string:
 //! booleans as `true`/`false`,
 //! integers and durations (milliseconds) in decimal,
-//! floats, lengths (logical pixels), angles (degrees) and percentages through `f32` `Display`,
+//! floats, lengths (logical and physical pixels), relative font sizes (rem), angles (degrees)
+//! and percentages through `f32` `Display`,
 //! colors and solid brushes as `#rrggbbaa`,
 //! and enums as the `.slint` source spelling of the value.
 //! Other types have no encoding.
@@ -26,6 +27,7 @@ pub fn format_integer(value: i64) -> SharedString {
 }
 
 /// Formats a float-typed property value (`float`, `length` in logical pixels,
+/// `physical-length` in physical pixels, `relative-font-size` in rem,
 /// `angle` in degrees, or `percent`).
 pub fn format_float(value: f32) -> SharedString {
     crate::string::format(format_args!("{value}"))
