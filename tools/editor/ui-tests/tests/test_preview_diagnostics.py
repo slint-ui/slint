@@ -40,11 +40,13 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
     source = fixture_project / "Main.slint"
     broken_file = fixture_project / relative_path
     baseline = broken_file.read_bytes()
+    baseline_snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
+        handle, size = window.handle, window.size
         select_outline_row(window, "root-text")
         if relative_path.startswith("components/"):
             folder = file_row(window, fixture_project / "components")
@@ -52,6 +54,15 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
         broken_file.write_bytes(baseline + b"\nthis is not valid Slint\n")
         card = window_element_with_label(
             window, "Stale preview", slint_testing.AccessibleRole.Region
+        )
+        window_element_with_label(
+            window, "Fixture text", slint_testing.AccessibleRole.Text
+        )
+        assert editor.process.poll() is None
+        assert window.handle == handle
+        assert window.size == size
+        baseline_snapshot.wait_for_exact(
+            baseline + b"\nthis is not valid Slint\n", relative_path
         )
         if relative_path.startswith("components/"):
             folder = file_row(window, fixture_project / "components")
@@ -89,9 +100,16 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
         snapshot.assert_unchanged()
         assert not elements_with_label(window.root_element, "Selected Text")
         screenshot(window).save(tmp_path / "stale-preview.png")
-        broken_file.write_bytes(baseline)
+        original_text = (
+            b"Imported component"
+            if relative_path.startswith("components/")
+            else b"Fixture text"
+        )
+        repaired = baseline.replace(original_text, b"Recovered source", 1)
+        broken_file.write_bytes(repaired)
+        baseline_snapshot.wait_for_applied(repaired, relative_path)
         window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
+            window, "Recovered source", slint_testing.AccessibleRole.Text
         )
         wait_until(
             lambda: (
@@ -101,30 +119,29 @@ def test_broken_preview_reports_locations_blocks_edits_and_recovers(
             )
         )
         assert file_row(window, broken_file).accessible_description == ""
+        assert editor.process.poll() is None
         select_outline_row(window, "root-text")
         window_element_with_label(
             window, "Selected Text", slint_testing.AccessibleRole.Region
         )
 
 
-@pytest.mark.parametrize("switch_from_valid", [False, True])
 def test_unavailable_preview_hides_unrelated_render_and_recovers(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     tmp_path: Path,
-    switch_from_valid: bool,
 ) -> None:
     broken = fixture_project / "Broken.slint"
     broken.write_text("export component Broken inherits Window { broken }\n")
-    entry = fixture_project / "Main.slint" if switch_from_valid else broken
-    with launch_editor(editor_binary, editor_environment, entry) as editor:
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
         window = first_window(editor)
-        if switch_from_valid:
-            window_element_with_label(
-                window, "Fixture text", slint_testing.AccessibleRole.Text
-            )
-            file_row(window, broken).invoke_accessible_default_action()
+        window_element_with_label(
+            window, "Fixture text", slint_testing.AccessibleRole.Text
+        )
+        file_row(window, broken).invoke_accessible_default_action()
         window_element_with_label(
             window, "Preview unavailable", slint_testing.AccessibleRole.Region
         )

@@ -11,7 +11,7 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, Model, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
@@ -263,11 +263,6 @@ impl FileTreeController {
             let (errors, warnings) = self.diagnostic_counts.get(&path).copied().unwrap_or_default();
             row.error_count = errors;
             row.warning_count = warnings;
-            row.diagnostic_description = if errors == 0 && warnings == 0 {
-                Default::default()
-            } else {
-                format!("{errors} errors, {warnings} warnings in the active preview").into()
-            };
         }
         project.set_file_tree(ModelRc::new(VecModel::from(rows)));
         project.set_selected_project_file(
@@ -294,7 +289,15 @@ pub(in crate::preview) fn set_diagnostics(
             .iter()
             .filter_map(|diagnostic| Some((diagnostic.source_file()?, diagnostic.level()))),
     );
-    tree.publish(project);
+    let model = project.get_file_tree();
+    for (index, mut row) in model.iter().enumerate() {
+        let counts =
+            tree.diagnostic_counts.get(Path::new(row.path.as_str())).copied().unwrap_or_default();
+        if (row.error_count, row.warning_count) != counts {
+            (row.error_count, row.warning_count) = counts;
+            model.set_row_data(index, row);
+        }
+    }
 }
 
 fn diagnostic_counts<'a>(
@@ -520,7 +523,7 @@ fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
     }
 }
 
-fn project_relative_path(root: &Path, path: &Path) -> String {
+pub(super) fn project_relative_path(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()

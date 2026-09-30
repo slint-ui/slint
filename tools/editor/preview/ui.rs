@@ -364,37 +364,19 @@ pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
 }
 
 pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics
-        .iter()
-        .inspect(|d| {
-            let location = d.source_file().map(|p| {
-                let (line, column) = d.line_column();
-                (p.to_string_lossy().to_string().into(), line, column)
-            });
-
-            let level = match d.level() {
-                DiagnosticLevel::Error => LogMessageLevel::Error,
-                DiagnosticLevel::Warning => LogMessageLevel::Warning,
-                DiagnosticLevel::Note => LogMessageLevel::Note,
-                _ => LogMessageLevel::Debug,
-            };
-
-            log_messages::append_log_message(api, level, location, d.message());
-        })
-        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
-            match (acc, d.level()) {
-                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-                // Ignore Note level diagnostics for the summary.
-                // If there is only a note, that's not relevant enough to bother the user.
-                (acc, DiagnosticLevel::Note) => acc,
-                // DiagnosticLevel is non-exhaustive:
-                (acc, _) => acc,
-            }
+    for diagnostic in diagnostics {
+        let location = diagnostic.source_file().map(|path| {
+            let (line, column) = diagnostic.line_column();
+            (path.to_string_lossy().to_string().into(), line, column)
         });
-
-    api.set_diagnostic_summary(summary);
+        let level = match diagnostic.level() {
+            DiagnosticLevel::Error => LogMessageLevel::Error,
+            DiagnosticLevel::Warning => LogMessageLevel::Warning,
+            DiagnosticLevel::Note => LogMessageLevel::Note,
+            _ => LogMessageLevel::Debug,
+        };
+        log_messages::append_log_message(api, level, location, diagnostic.message());
+    }
 }
 
 pub fn ui_set_known_components(

@@ -28,6 +28,7 @@ component FileTreeRow inherits Rectangle {
     property <color> selected-guide-color: root.style.selected-guide;
     property <color> guide-color: root.style.file-guide;
     property <color> error-color: Colors.danger;
+    private property <string> diagnostic-description: node.error-count == 0 && node.warning-count == 0 ? "" : "\{node.error-count} errors, \{node.warning-count} warnings in the active preview";
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -53,7 +54,7 @@ component FileTreeRow inherits Rectangle {
     background: node.is-selected || row-focus.has-focus ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
-    accessible-description: root.node.diagnostic-description;
+    accessible-description: root.diagnostic-description;
     accessible-item-selectable: !root.folder;
     accessible-item-selected: root.node.is-selected;
     accessible-expanded: root.folder && root.node.is-expanded;
@@ -270,8 +271,8 @@ component FileTreeRow inherits Rectangle {
             root.activate();
         }
     }
-    if root.node.diagnostic-description != "": Tooltip {
-        text: @markdown("\{root.node.diagnostic-description}");
+    if root.diagnostic-description != "": Tooltip {
+        text: @markdown("\{root.diagnostic-description}");
     }
 }
 

@@ -412,7 +412,6 @@ fn reset_project_state(root: Url) {
     if let Some(api) = api {
         api.set_preview_availability(ui::PreviewAvailability::Current);
         api.set_preview_file(Default::default());
-        api.set_diagnostic_summary(ui::DiagnosticSummary::NothingDetected);
         ui::diagnostics::publish(&api, &[], None);
         api.set_current_element(Default::default());
         api.set_properties(Default::default());

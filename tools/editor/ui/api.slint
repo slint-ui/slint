@@ -60,13 +60,6 @@ export struct InspectorNumberChange {
     value: float,
 }
 
-/// Some `Diagnostics` as raised by the compiler
-export enum DiagnosticSummary {
-    NothingDetected,
-    Warnings,
-    Errors,
-}
-
 export enum PreviewAvailability { current, stale, unavailable, no-component }
 
 /// One device discovered as a possible remote-preview target.
@@ -410,7 +403,6 @@ export enum LogMessageLevel {
 
 export struct PreviewDiagnostic {
     level: LogMessageLevel,
-    path: string,
     location: string,
     message: string,
 }
@@ -465,7 +457,6 @@ export struct FileTreeNode {
     kind: FileTreeNodeKind,
     error-count: int,
     warning-count: int,
-    diagnostic-description: string,
 }
 
 export struct ImageAssetPreview {
@@ -499,7 +490,6 @@ export global Api {
     out property <ComponentItem> visible-component;
 
     // ## Kinds of diagnostics seen in the last compiler run
-    in property <DiagnosticSummary> diagnostic-summary;
     in property <[PreviewDiagnostic]> preview-diagnostics;
     in property <[PreviewDiagnostic]> preview-errors;
     in property <[PreviewDiagnostic]> preview-warnings;

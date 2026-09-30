@@ -9,6 +9,7 @@ from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    elements_with_label,
     file_row,
     first_window,
     launch_editor,
@@ -32,45 +33,6 @@ def stage_field_text(
     for character in value:
         press_key(window, character)
     return wait_until(lambda: field if field.accessible_value == value else None)
-
-
-def test_broken_source_preserves_preview_and_recovers(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    snapshot = SourceSnapshot.capture(fixture_project)
-    baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
-        handle, size = window.handle, window.size
-        broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
-        source_file.write_bytes(broken)
-        snapshot.wait_for_exact(broken)
-        window_element_with_label(
-            window, "Stale preview", slint_testing.AccessibleRole.Region
-        )
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
-        window_element_with_label(
-            window, "root-text", slint_testing.AccessibleRole.ListItem
-        )
-        assert editor.process.poll() is None
-        assert window.handle == handle
-        assert window.size == size
-        assert source_file.read_bytes() == broken
-        repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)
-        source_file.write_bytes(repaired)
-        snapshot.wait_for_exact(repaired)
-        window_element_with_label(
-            window, "Recovered source", slint_testing.AccessibleRole.Text
-        )
-        assert editor.process.poll() is None
 
 
 def test_imported_file_edit_targets_only_nested_source(
@@ -269,6 +231,9 @@ def test_initial_broken_source_recovers_without_relaunch(
     )
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        window_element_with_label(
+            window, "Preview unavailable", slint_testing.AccessibleRole.Region
+        )
         assert editor.process.poll() is None
         source_file.write_bytes(repaired)
         window_element_with_label(
@@ -276,3 +241,11 @@ def test_initial_broken_source_recovers_without_relaunch(
         )
         assert source_file.read_bytes() == repaired
         assert editor.process.poll() is None
+        wait_until(
+            lambda: (
+                True
+                if not elements_with_label(window.root_element, "Preview unavailable")
+                else None
+            )
+        )
+        assert file_row(window, source_file).accessible_description == ""

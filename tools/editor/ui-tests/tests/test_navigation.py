@@ -17,9 +17,46 @@ from ui_driver import (
     palette_row,
     press_key,
     press_keys,
+    select_outline_row,
     wait_until,
     window_element_with_label,
 )
+
+
+def test_recompilation_preserves_inspector_focus_after_file_tree_navigation(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, "Fixture text", slint_testing.AccessibleRole.Text
+        )
+        file_row(window, source).invoke_accessible_default_action()
+        select_outline_row(window, "root-rectangle")
+        field = window_element_with_label(
+            window, "Position X", slint_testing.AccessibleRole.TextInput
+        )
+        field.invoke_accessible_default_action()
+        for _ in field.accessible_value:
+            press_key(window, keys.Delete)
+        press_keys(window, "99")
+        snapshot = SourceSnapshot.capture(fixture_project)
+        press_key(window, keys.Return)
+        expected = snapshot.sources[Path("Main.slint")].replace(
+            b"x: 40px;", b"x: 99px;", 1
+        )
+        snapshot.wait_for_applied(expected)
+        field = window_element_with_label(
+            window, "Position X", slint_testing.AccessibleRole.TextInput
+        )
+        press_key(window, "7")
+        wait_until(lambda: field if field.accessible_value == "997" else None)
+        press_key(window, keys.Return)
+        snapshot.wait_for_applied(expected.replace(b"x: 99px;", b"x: 997px;", 1))
+        assert not elements_with_label(window.root_element, "Rename Main.slint")
 
 
 def test_file_tree_renames_file_inline(

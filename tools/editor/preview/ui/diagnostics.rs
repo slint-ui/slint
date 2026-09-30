@@ -22,16 +22,13 @@ pub(super) fn setup(api: &Api<'_>, weak: slint::Weak<Api<'static>>) {
 }
 
 pub(in crate::preview) fn display_path(path: &Path, root: Option<&Path>) -> String {
-    root.and_then(|root| path.strip_prefix(root).ok())
-        .unwrap_or(path)
-        .to_string_lossy()
-        .replace(std::path::MAIN_SEPARATOR, "/")
+    super::file_tree::project_relative_path(root.unwrap_or(Path::new("")), path)
 }
 
 pub(super) fn project(diagnostic: &Diagnostic, root: Option<&Path>) -> PreviewDiagnostic {
     let path = diagnostic.source_file().map(|path| display_path(path, root)).unwrap_or_default();
     let (line, column) = diagnostic.line_column();
-    let location = if line == 0 { path.clone() } else { format!("{path}:{line}:{column}") };
+    let location = if line == 0 { path } else { format!("{path}:{line}:{column}") };
     PreviewDiagnostic {
         level: match diagnostic.level() {
             DiagnosticLevel::Error => LogMessageLevel::Error,
@@ -39,7 +36,6 @@ pub(super) fn project(diagnostic: &Diagnostic, root: Option<&Path>) -> PreviewDi
             DiagnosticLevel::Note => LogMessageLevel::Note,
             _ => LogMessageLevel::Debug,
         },
-        path: path.into(),
         location: location.into(),
         message: diagnostic.message().into(),
     }
@@ -161,8 +157,10 @@ mod tests {
             .unwrap();
         let row = project(diagnostic, path.parent());
         assert_eq!(row.message.as_str(), diagnostic.message());
-        assert_eq!(row.path.as_str(), path.file_name().unwrap().to_str().unwrap());
-        assert_eq!(row.location.as_str(), format!("{}:2:5", row.path));
+        assert_eq!(
+            row.location.as_str(),
+            format!("{}:2:5", path.file_name().unwrap().to_str().unwrap())
+        );
     }
 
     #[test]
@@ -190,7 +188,6 @@ mod tests {
                 level: LogMessageLevel::Error,
                 location: "components/Card.slint:18:21".into(),
                 message: "Expected '}'".into(),
-                ..Default::default()
             },
             PreviewDiagnostic {
                 level: LogMessageLevel::Warning,
