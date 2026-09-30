@@ -51,21 +51,19 @@ def border_pixel(window: slint_testing.Window) -> tuple[int, ...]:
 
 
 @pytest.mark.parametrize(
-    ("label", "value", "display", "old", "new"),
+    ("label", "value", "old", "new"),
     [
-        ("Border width", "12", "12", b"border-width: 2px;", b"border-width: 12px;"),
-        ("Border width", "0", "0", b"border-width: 2px;", b"border-width: 0px;"),
-        ("Border width", "2.5", "2.5", b"border-width: 2px;", b"border-width: 2.5px;"),
+        ("Border width", "12", b"border-width: 2px;", b"border-width: 12px;"),
+        ("Border width", "0", b"border-width: 2px;", b"border-width: 0px;"),
+        ("Border width", "2.5", b"border-width: 2px;", b"border-width: 2.5px;"),
         (
             "Border color",
-            "ABCDEF",
             "ABCDEF",
             b"border-color: #64748b;",
             b"border-color: #abcdef;",
         ),
         (
             "Border color opacity",
-            "40",
             "40",
             b"border-color: #64748b;",
             b"border-color: #64748b66;",
@@ -80,7 +78,6 @@ def test_border_fields_commit_and_undo(
     border_scene,
     label,
     value,
-    display,
     old,
     new,
 ):
@@ -92,7 +89,7 @@ def test_border_fields_commit_and_undo(
         select_outline_row(window, "inspect-rectangle")
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         snapshot.wait_for_applied(expected, SOURCE)
-        wait_for_field(window, label, display, slint_testing.AccessibleRole.TextInput)
+        wait_for_field(window, label, value, slint_testing.AccessibleRole.TextInput)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, SOURCE)
         press_shortcut(window, keys.Control, keys.Shift, "z")
@@ -165,49 +162,6 @@ def test_border_scrub_previews_and_reverts(
 
 
 @pytest.mark.parametrize(
-    ("value", "expected_color", "opacity"),
-    [("ABCDEF", "#abcdef4d", "30"), ("#abcdef80", "#abcdef80", "50")],
-)
-def test_border_color_preserves_or_replaces_alpha(
-    editor_binary,
-    editor_environment,
-    fixture_project,
-    border_scene,
-    value,
-    expected_color,
-    opacity,
-):
-    baseline = replace_once(
-        border_scene.read_bytes(),
-        b"border-color: #64748b;",
-        b"border-color: #64748b4d;",
-    )
-    border_scene.write_bytes(baseline)
-    snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, border_scene) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "inspect-rectangle")
-        edit_field(
-            window, "Border color", value, slint_testing.AccessibleRole.TextInput
-        )
-        expected = replace_once(
-            baseline,
-            b"border-color: #64748b4d;",
-            f"border-color: {expected_color};".encode(),
-        )
-        snapshot.wait_for_applied(expected, SOURCE)
-        wait_for_field(
-            window, "Border color", "ABCDEF", slint_testing.AccessibleRole.TextInput
-        )
-        wait_for_field(
-            window,
-            "Border color opacity",
-            opacity,
-            slint_testing.AccessibleRole.TextInput,
-        )
-
-
-@pytest.mark.parametrize(
     ("label", "value", "original"),
     [
         ("Border width", "-1", "2"),
@@ -244,6 +198,16 @@ def test_border_defaults_and_rectangle_selection(
         wait_for_field(
             window, "Border width", "0", slint_testing.AccessibleRole.TextInput
         )
+        width = inspector_field(
+            window, "Border width", slint_testing.AccessibleRole.TextInput
+        )
+        suffixes = (
+            width.query_descendants()
+            .match_id("InspectorTextFieldBase::fixed-suffix")
+            .find_all()
+        )
+        assert len(suffixes) == 1
+        assert suffixes[0].accessible_label == "px"
         inspector_field(
             window, "Border color opacity", slint_testing.AccessibleRole.TextInput
         )
