@@ -61,23 +61,17 @@
 //! * `JAVA_HOME`: The directory in which your Java compiler (`javac`) is located. This variable is optional if a `javac` is found in your `$PATH`.
 //!   Otherwise you can set `JAVA_HOME` to the `javac` installation shipped with Android Studio in `android-studio/jbr`.
 //!
-//! To build and deploy your application, we suggest the usage of [cargo-apk](https://github.com/rust-mobile/cargo-apk),
-//! a cargo subcommand that allows you to build, sign, and deploy Android APKs made in Rust.
+//! Slint doesn't require a specific tool to build, sign, and deploy the APK.
+//! The APK's activity must be `android.app.NativeActivity`, or a subclass of it,
+//! because that's the activity type the "backend-android-activity-06" feature supports.
+//! Tools that can package such an APK include:
 //!
-//! You can install it and use it with the following command:
+//! * [cargo-apk2](https://crates.io/crates/cargo-apk2): `cargo apk2 run --target aarch64-linux-android --lib`
+//! * [cargo-apk](https://crates.io/crates/cargo-apk): `cargo apk run --target aarch64-linux-android --lib`
+//! * [cargo-ndk](https://crates.io/crates/cargo-ndk) to build the library, with Gradle to package it
+//! * [xbuild](https://github.com/rust-mobile/xbuild): `x run --device <id>`
 //!
-//! ```sh
-//! cargo install cargo-apk
-//! ```
-//!
-//! Build and run your application with the following command:
-//!
-//! ```sh
-//! cargo apk run --target aarch64-linux-android --lib
-//! ```
-//!
-//!
-//! Note Slint does not require a specific build tool and can work with others, such as [xbuild](https://github.com/rust-mobile/xbuild).
+#![doc = i_slint_core_macros::slint_doc_str!("See the [Android platform guide](slint:android_building) for how to set up each of them.")]
 
 /// Re-export of the android-activity crate.
 #[cfg(all(
