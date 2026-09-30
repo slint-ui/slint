@@ -64,8 +64,8 @@ impl SourcePath {
         }
     }
 
-    /// The inverse of [`Self::new`].
-    pub fn to_path_buf(&self) -> PathBuf {
+    /// The inverse of [`Self::new`], with a URL stored as its string.
+    pub fn to_legacy_path(&self) -> PathBuf {
         match self {
             Self::File(path) => path.clone(),
             _ => self.to_string().into(),

@@ -22,7 +22,7 @@ async fn parse_source(
     style: String,
     enable_experimental: bool,
     file_loader_fallback: impl Fn(
-        &Path,
+        SourcePath,
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
@@ -37,8 +37,7 @@ async fn parse_source(
         tmp.include_paths = include_paths;
         tmp.library_paths = library_paths;
         tmp.enable_experimental |= enable_experimental;
-        tmp.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
+        tmp.open_import_callback = Some(Rc::new(file_loader_fallback));
         // The preview's resource URL mapper is installed by the wasm application at
         // runtime, so it was never set when this fixture ran.
         tmp.resource_url_mapper = None;
@@ -59,12 +58,12 @@ pub fn test_file_prefix() -> PathBuf {
     #[cfg(not(windows))]
     return std::path::PathBuf::from("/");
 }
-pub fn main_test_file_name() -> PathBuf {
+pub fn main_test_file_name() -> SourcePath {
     test_file_name("test_data.slint")
 }
 
-pub fn test_file_name(name: &str) -> PathBuf {
-    test_file_prefix().join(name)
+pub fn test_file_name(name: &str) -> SourcePath {
+    SourcePath::File(test_file_prefix().join(name))
 }
 
 pub type CapturedPreviewMessages = Rc<RefCell<Vec<LspToPreviewMessage>>>;
@@ -119,7 +118,7 @@ pub fn recompile_test_with_sources(
 ) -> crate::DocumentCache {
     let code = Rc::new(code);
 
-    let url = SourcePath::new(main_test_file_name()).to_url().unwrap();
+    let url = main_test_file_name().to_url().unwrap();
     let source_code = code.get(&url).unwrap().clone();
     let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
         Vec::new(),
@@ -130,7 +129,7 @@ pub fn recompile_test_with_sources(
         enable_experimental,
         move |path| {
             let code = code.clone();
-            let url = SourcePath::new(path).to_url();
+            let url = path.to_url();
 
             Box::pin(async move {
                 if let Some(url) = url {

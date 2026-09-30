@@ -373,7 +373,7 @@ impl LspFileWatcherImpl {
             .into_iter()
             .filter_map(|event| {
                 tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
-                editor_preview::uri_to_file(&event.uri)?.into_native_path().and_then(|path| {
+                SourcePath::from_url(&event.uri).into_native_path().and_then(|path| {
                     let ty = match event.typ {
                         FileChangeType::DELETED => FileChangeKind::Deleted,
                         FileChangeType::CREATED => FileChangeKind::Created,

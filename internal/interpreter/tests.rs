@@ -143,7 +143,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
 
         spin_on::spin_on(compiler.build_static_from_source(
             code.into(),
-            std::path::PathBuf::from("test.slint"),
+            SourcePath::new("test.slint"),
             InternalToken,
         ))
     } else {

@@ -247,7 +247,7 @@ impl EditorSession {
 
         tracing::trace!("Loading document: {url} (version: {version:?})");
 
-        let Some(path) = crate::uri_to_file(&url) else { return Default::default() };
+        let path = SourcePath::from_url(&url);
         // Normalize the URL
         let Some(url) = path.to_url() else { return Default::default() };
 
@@ -307,11 +307,8 @@ impl EditorSession {
             }
         }
 
-        let extra_files = dependencies
-            .iter()
-            .filter_map(crate::uri_to_file)
-            .chain(core::iter::once(path))
-            .collect();
+        let extra_files =
+            dependencies.iter().map(SourcePath::from_url).chain(core::iter::once(path)).collect();
 
         (extra_files, diag)
     }
@@ -364,17 +361,13 @@ impl EditorSession {
 
             self.document_cache.reload_cached_file(&url, &mut diagnostics).await;
             let mut extra_files = HashSet::new();
-            extra_files.extend(crate::uri_to_file(&url));
+            extra_files.insert(SourcePath::from_url(&url));
 
             Ok(collect_diagnostics(&self.document_cache, &extra_files, diagnostics))
         } else {
             tracing::trace!("Document not in cache, loading from disk: {url}");
 
-            let Some(path) = crate::uri_to_file(&url) else {
-                // The file was likely deleted, log and move on
-                tracing::debug!("Failed to locate file: {url}");
-                return Ok(Default::default());
-            };
+            let path = SourcePath::from_url(&url);
             match path.read_to_string() {
                 Ok(content) => self.load_document(content, url, None).await,
                 // The file was likely deleted, log and move on
@@ -530,7 +523,7 @@ mod tests {
     fn primary_preview_accessors_return_the_first_connection() {
         let (mut session, _) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("primary.slint")).unwrap(),
+            url: crate::test::test_file_name("primary.slint").to_url().unwrap(),
             component: Some("Primary".into()),
         };
 
@@ -544,7 +537,7 @@ mod tests {
     fn invalid_preview_indexes_are_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("missing.slint")).unwrap(),
+            url: crate::test::test_file_name("missing.slint").to_url().unwrap(),
             component: None,
         };
 
@@ -562,10 +555,8 @@ mod tests {
     #[test]
     fn shared_messages_are_broadcast_to_every_preview() {
         let (mut session, messages) = session_with_recording_previews();
-        let invalidated_url =
-            Url::from_file_path(crate::test::test_file_name("invalidated.slint")).unwrap();
-        let deleted_url =
-            Url::from_file_path(crate::test::test_file_name("deleted.slint")).unwrap();
+        let invalidated_url = crate::test::test_file_name("invalidated.slint").to_url().unwrap();
+        let deleted_url = crate::test::test_file_name("deleted.slint").to_url().unwrap();
 
         spin_on::spin_on(session.load_document_impl(
             "export component Shared {}".into(),

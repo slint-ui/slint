@@ -266,7 +266,7 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
-            i_slint_editor_preview::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
+            i_slint_compiler::source_path::SourcePath::from(Url::parse(uri.as_str()).unwrap()),
             TextSize::new(offset as u32),
             None,
             if notify_editor {

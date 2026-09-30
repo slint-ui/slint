@@ -516,7 +516,6 @@ mod tests {
         ComponentInstance,
         debug_hook::tests::{compile_with_debug_hooks, test_path},
     };
-    use i_slint_compiler::source_path::SourcePath;
 
     fn geometry_of(
         instance: &ComponentInstance,
@@ -526,7 +525,7 @@ mod tests {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
         let (element, _) = instance
-            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset as u32)
+            .element_node_at_source_code_position(&test_path(), offset as u32)
             .first()
             .cloned()
             .unwrap_or_else(|| panic!("element {id} not resolved"));
@@ -738,7 +737,7 @@ export component Win inherits Window {
             )
             .unwrap();
         let (element, _) = instance
-            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset as u32)
+            .element_node_at_source_code_position(&test_path(), offset as u32)
             .first()
             .cloned()
             .unwrap();

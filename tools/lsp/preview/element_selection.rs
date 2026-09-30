@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::source_path::SourcePath;
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
 
 use i_slint_compiler::{
     object_tree::ElementRc,
@@ -140,10 +140,7 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
-        .ok()
-        .and_then(|u| crate::editor_preview::uri_to_file(&u))
-    else {
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str()).ok().map(SourcePath::from) else {
         return Default::default();
     };
     let offset = TextSize::new(offset as u32);
@@ -338,8 +335,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
         (known_components, selected)
     });
 
-    let mut longest_path_prefix = PathBuf::new();
-
     let mut result = collect_all_element_nodes_covering(position, component_instance)
         .iter()
         .filter(|sn| filter_nodes_for_selection(sn, true).is_some())
@@ -348,7 +343,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 .as_element_node()
                 .map(|en| {
                     let (path, offset) = en.path_and_offset();
-                    let path = path.to_path_buf();
+                    let path = path.to_string();
                     let offset: u32 = offset.into();
 
                     let is_selected = if selected.is_none() {
@@ -401,18 +396,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 })
                 .unwrap_or_default();
 
-            if path.strip_prefix("/@").is_err() && path != PathBuf::new() {
-                if longest_path_prefix == PathBuf::new() {
-                    longest_path_prefix = path.clone();
-                } else {
-                    longest_path_prefix =
-                        std::iter::zip(longest_path_prefix.components(), path.components())
-                            .take_while(|(l, p)| l == p)
-                            .map(|(l, _)| l)
-                            .collect();
-                }
-            }
-
             let root_geo = root_geometry.rect;
             let sc_geom = sc.geometry.rect;
             let width = (sc_geom.size.width / root_geo.size.width) * 100.0;
@@ -436,28 +419,25 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 is_layout,
                 is_interactive,
                 type_name: type_name.into(),
-                file_name: path.to_string_lossy().to_string().into(),
-                element_path: path.to_string_lossy().to_string().into(),
+                file_name: path.as_str().into(),
+                element_path: path.into(),
                 element_offset: offset as i32,
                 id: id.into(),
             }
         })
         .collect::<Vec<_>>();
 
+    let common_directory = crate::editor_preview::util::common_directory(
+        result.iter().map(|frame| frame.file_name.as_str()).filter(|name| !name.starts_with("/@")),
+    );
     for frame in result.iter_mut() {
-        let file_name = PathBuf::from(frame.file_name.to_string());
-        let new_file_name = {
-            if let Some(library) = file_name.to_string_lossy().strip_prefix("/@") {
-                format!("@{library:?}")
-            } else if file_name == longest_path_prefix {
-                file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                file_name
-                    .strip_prefix(&longest_path_prefix)
-                    .unwrap_or(&file_name)
-                    .to_string_lossy()
-                    .to_string()
-            }
+        let new_file_name = match frame.file_name.strip_prefix("/@") {
+            Some(library) => format!("@{library:?}"),
+            None => frame
+                .file_name
+                .strip_prefix(common_directory.as_str())
+                .unwrap_or(&frame.file_name)
+                .to_string(),
         };
         frame.file_name = new_file_name.into();
     }
@@ -655,7 +635,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
-            assert_eq!(path, SourcePath::new(&test_file));
+            assert_eq!(path, test_file);
             assert_eq!(offset, (*expected_offset).into());
         }
 
@@ -899,7 +879,7 @@ export component Demo inherits Window {{
     }}
 }}
 "#,
-            controls = controls_path.to_string_lossy()
+            controls = controls_path
         );
 
         let controls_source = r#"component InputBlocker {
@@ -934,8 +914,7 @@ export component MyInput {
 
         let (path, _offset) = selected.path_and_offset();
         assert_eq!(
-            path,
-            SourcePath::new(&main_path),
+            path, main_path,
             "selection without `enter_component` should land on the MyInput use site \
              in the main file, not on a node inside the imported component"
         );

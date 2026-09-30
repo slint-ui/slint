@@ -36,7 +36,7 @@ use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -2221,7 +2221,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
 async fn parse_source(
     config: PreviewConfig,
-    path: PathBuf,
+    path: SourcePath,
     version: SourceFileVersion,
     source_code: String,
     style: String,
@@ -2267,7 +2267,7 @@ async fn parse_source(
             cc,
             Some(Rc::new(file_loader_fallback)),
             i_slint_editor_preview::document_cache::SourceFileVersionMap::from([(
-                SourcePath::new(&path),
+                path.clone(),
                 version,
             )]),
         );
@@ -2298,7 +2298,7 @@ async fn reload_preview_impl(
         set_current_live_data(live_preview_data);
     }
 
-    let path = SourcePath::from_url(&component.url).to_path_buf();
+    let path = SourcePath::from_url(&component.url);
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
@@ -2843,7 +2843,8 @@ fn update_preview_area(
 
 #[cfg(test)]
 pub mod test {
-    use std::{collections::HashMap, path::PathBuf, rc::Rc};
+    use i_slint_compiler::source_path::SourcePath;
+    use std::{collections::HashMap, rc::Rc};
 
     use slint_interpreter::ComponentInstance;
 
@@ -2852,7 +2853,7 @@ pub mod test {
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
         reinterpret_test_with_sources(style, code)
@@ -2861,7 +2862,7 @@ pub mod test {
     #[track_caller]
     pub fn reinterpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         let code = Rc::new(code);
 
@@ -2876,7 +2877,6 @@ pub mod test {
             None,
             move |path| {
                 let code = code.clone();
-                let path = path.to_path_buf();
 
                 Box::pin(async move {
                     let Some(source) = code.get(&path) else {
@@ -2908,6 +2908,7 @@ mod tests {
     use i_slint_editor_preview::PreviewToLsp;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
     use std::fs;
+    use std::path::PathBuf;
     use std::{cell::RefCell, rc::Rc};
 
     #[derive(Default)]
@@ -2997,7 +2998,7 @@ export component Main inherits Rectangle {
 }
 "#;
         let path = i_slint_editor_preview::test::main_test_file_name();
-        let url = Url::from_file_path(&path).unwrap();
+        let url = path.to_url().unwrap();
         let mut document_cache = i_slint_editor_preview::test::empty_document_cache();
         let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
         spin_on::spin_on(document_cache.load_url(
@@ -3200,12 +3201,12 @@ export component Main {
         instance: &ComponentInstance,
         id: &str,
     ) -> slint_interpreter::highlight::HighlightedRect {
-        let path = SourcePath::new(i_slint_editor_preview::test::main_test_file_name());
+        let path = i_slint_editor_preview::test::main_test_file_name();
         *instance.component_positions(&path, element_offset(id)).first().expect("geometry")
     }
 
     fn element_node_of(instance: &ComponentInstance, id: &str) -> ElementRcNode {
-        let path = SourcePath::new(i_slint_editor_preview::test::main_test_file_name());
+        let path = i_slint_editor_preview::test::main_test_file_name();
         let (element, debug_index) = instance
             .element_node_at_source_code_position(&path, element_offset(id))
             .first()

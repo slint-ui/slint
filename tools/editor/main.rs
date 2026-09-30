@@ -468,8 +468,7 @@ fn sync_file_watcher_if_needed(
                 preview
                     .to_show
                     .as_ref()
-                    .and_then(|component| editor_preview::uri_to_file(&component.url))
-                    .and_then(|path| path.into_native_path())
+                    .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             })),
     )?;
     *watch_paths_revision = Some(current_revision);
@@ -604,10 +603,10 @@ async fn open_initial_preview(
     project_root: &Path,
     component: PreviewComponent,
 ) -> Result<()> {
-    watcher
-        .update_watched_paths(std::iter::once(project_root.to_path_buf()).chain(
-            editor_preview::uri_to_file(&component.url).and_then(|p| p.into_native_path()),
-        ))?;
+    watcher.update_watched_paths(
+        std::iter::once(project_root.to_path_buf())
+            .chain(SourcePath::from_url(&component.url).into_native_path()),
+    )?;
     open_project(session, PRIMARY_PREVIEW_INDEX, project_root)?;
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await
 }
@@ -685,7 +684,7 @@ fn open_project(
 fn canonical_preview_component(
     component: &PreviewComponent,
 ) -> Option<(PreviewComponent, PathBuf)> {
-    let path = editor_preview::uri_to_file(&component.url)?.into_native_path()?;
+    let path = SourcePath::from_url(&component.url).into_native_path()?;
     let path = std::fs::canonicalize(path).ok()?;
     let url = Url::from_file_path(&path).ok()?;
     Some((PreviewComponent { url, component: component.component.clone() }, path))
@@ -700,7 +699,7 @@ fn handle_workspace_edit(
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
-                match editor_preview::uri_to_file(&url).and_then(|p| p.into_native_path()) {
+                match SourcePath::from_url(&url).into_native_path() {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
                             applied = false;
@@ -835,7 +834,7 @@ mod tests {
 
     fn component(file_name: &str, name: &str) -> PreviewComponent {
         PreviewComponent {
-            url: Url::from_file_path(editor_preview::test::test_file_name(file_name)).unwrap(),
+            url: editor_preview::test::test_file_name(file_name).to_url().unwrap(),
             component: Some(name.into()),
         }
     }
@@ -1108,8 +1107,7 @@ mod tests {
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
-                file: Url::from_file_path(editor_preview::test::test_file_name("run.slint"))
-                    .unwrap(),
+                file: editor_preview::test::test_file_name("run.slint").to_url().unwrap(),
                 selection: Default::default(),
                 take_focus: false,
             },

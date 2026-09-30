@@ -3,7 +3,6 @@
 
 // cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use super::user_settings::PreviewUserSettings;
@@ -403,9 +402,8 @@ pub fn ui_set_known_components(
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
+    let mut path_map: HashMap<String, (SharedString, Vec<ComponentItem>)> = Default::default();
     let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut longest_path_prefix = PathBuf::new();
 
     for (idx, ci) in known_components.iter().enumerate() {
         if ci.is_global {
@@ -426,18 +424,7 @@ pub fn ui_set_known_components(
             if let Some(library) = position.url().path().strip_prefix("/@") {
                 library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
-                let path = SourcePath::from_url(position.url()).to_path_buf();
-                if path != PathBuf::new() {
-                    if longest_path_prefix == PathBuf::new() {
-                        longest_path_prefix = path.clone();
-                    } else {
-                        longest_path_prefix =
-                            std::iter::zip(longest_path_prefix.components(), path.components())
-                                .take_while(|(l, p)| l == p)
-                                .map(|(l, _)| l)
-                                .collect();
-                    }
-                }
+                let path = SourcePath::from_url(position.url()).to_string();
                 path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
             }
         } else if ci.is_builtin {
@@ -475,20 +462,19 @@ pub fn ui_set_known_components(
     let std_widgets_components = sort_subset(std_widgets_map);
     let library_components = sort_subset(library_map);
 
+    let common_directory =
+        editor_preview::util::common_directory(path_map.keys().map(String::as_str));
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
             v.sort_by_key(|i| i.name.clone());
             let model = Rc::new(make_component_model(v));
-            let name = if p == longest_path_prefix {
-                p.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                p.strip_prefix(&longest_path_prefix).unwrap_or(&p).to_string_lossy().to_string()
-            };
+            let name = p.strip_prefix(common_directory.as_str()).unwrap_or(&p);
             ComponentListItem { category: name.into(), file_url, components: model.into() }
         })
         .collect::<Vec<_>>();
-    file_components.sort_by_key(|k| PathBuf::from(k.category.to_string()));
+    file_components
+        .sort_by(|a, b| a.category.split(['/', '\\']).cmp(b.category.split(['/', '\\'])));
 
     let mut all_components = Vec::with_capacity(
         builtin_components.len() + library_components.len() + file_components.len(),
