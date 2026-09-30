@@ -246,6 +246,7 @@ impl EditorSession {
         let mut merged = ProjectCompilerBaseline::default();
         let mut style = None;
         let mut enable_experimental = None;
+        let mut library_paths = HashMap::new();
 
         for project in projects {
             let Some(baseline) = &project.baseline else { continue };
@@ -259,12 +260,21 @@ impl EditorSession {
                 }
             }
 
-            if let Some(library_paths) = &baseline.library_paths {
-                let merged_library_paths = merged.library_paths.get_or_insert_default();
-                for (name, library_path) in library_paths {
-                    merged_library_paths
+            if let Some(project_library_paths) = &baseline.library_paths {
+                merged.library_paths.get_or_insert_default();
+                for (name, library_path) in project_library_paths {
+                    let (kept_path, kept_source) = library_paths
                         .entry(name.clone())
-                        .or_insert_with(|| library_path.clone());
+                        .or_insert_with(|| (library_path.clone(), &project.source_path));
+                    if kept_path != library_path {
+                        tracing::warn!(
+                            "Project file {} sets library {name} to {}, keeping {} from {}",
+                            project.source_path.display(),
+                            library_path.display(),
+                            kept_path.display(),
+                            kept_source.display()
+                        );
+                    }
                 }
             }
 
@@ -277,6 +287,10 @@ impl EditorSession {
             );
         }
 
+        if let Some(merged_library_paths) = &mut merged.library_paths {
+            merged_library_paths
+                .extend(library_paths.into_iter().map(|(name, (path, _))| (name, path)));
+        }
         merged.style = style.map(|(style, _)| style);
         merged.enable_experimental = enable_experimental.map(|(enabled, _)| enabled);
         merged
@@ -1206,6 +1220,29 @@ mod tests {
         );
         // Only project-a has a style, so no conflict arises.
         assert_eq!(session.preview_config.style, "material");
+    }
+
+    #[test]
+    fn a_conflicting_library_path_stays_with_the_broadest_project_file() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().to_path_buf();
+        let inner = outer.join("nested");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(outer.join(FILE_NAME), r#"{ "library-paths": {"widgets": "outer.slint"} }"#)
+            .unwrap();
+        std::fs::write(inner.join(FILE_NAME), r#"{ "library-paths": {"widgets": "inner.slint"} }"#)
+            .unwrap();
+        write_document(&outer.join("main.slint"));
+        write_document(&inner.join("main.slint"));
+
+        let mut session = session();
+        load_document(&mut session, &inner.join("main.slint")).unwrap();
+        load_document(&mut session, &outer.join("main.slint")).unwrap();
+
+        assert_eq!(
+            session.preview_config.library_paths,
+            HashMap::from([("widgets".to_string(), outer.join("outer.slint"))])
+        );
     }
 
     #[test]
