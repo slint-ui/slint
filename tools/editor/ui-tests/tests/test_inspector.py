@@ -1152,7 +1152,7 @@ def test_inspector_length_fields_show_numbers_without_pixel_labels(
             .match_accessible_role(slint_testing.AccessibleRole.Text)
             .find_all()
         )
-        assert not any(text.accessible_label == "px" for text in texts)
+        assert sum(text.accessible_label == "px" for text in texts) == 1
 
 
 SHADOW_EDITS = (

@@ -144,7 +144,7 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" => Some(vec![name]),
+        "transform-rotation" | "border-width" => Some(vec![name]),
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -391,6 +391,8 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
         send_workspace_edit(
             if name == "transform-rotation" {
                 "Rotating element"
+            } else if name == "border-width" {
+                "Changing border width"
             } else {
                 "Changing border radius"
             }

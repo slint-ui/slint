@@ -720,6 +720,60 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-rectangle-selection(): InspectorSection {
+                    title: "Border";
+
+                    InspectorPropertyRow {
+                        label: "Width";
+                        InspectorValueField {
+                            property <PropertyValue> border-value: Api.current-property-value-data("border-width");
+                            accessible-name: "Border width";
+                            value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : root.property-length-label("border-width", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.inspector-key;
+                            scrubbable: true;
+                            scrub-on-suffix: true;
+                            scrub-value: self.border-value.value-float;
+                            scrub-has-minimum: true;
+                            scrub-minimum: 0;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "border-width", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("border-width", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
+                            accepted(text) => { return text.is-float() && root.commit-inspector("border-width", text.to-float()); }
+                        }
+                    }
+
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-small;
+
+                        Text {
+                            height: Metrics.icon-small;
+                            text: "Color";
+                            color: Colors.muted;
+                            font-size: Typography.control.size;
+                            vertical-alignment: center;
+                        }
+
+                        InspectorColorField {
+                            accessible-name: "Border color";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
+                            value: Api.current-property-value("border-color", "");
+                            swatch: root.property-brush("border-color");
+                            commit-key: root.field-key("border-color");
+                            preview-key: root.field-key("border-color");
+                            session-key: root.fill-session-key("border-color");
+                            property-name: "border-color";
+                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
+                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
+                            width: root.width - 2 * root.style.padding;
+                            accepted(text) => { return root.commit-code("border-color", text); }
+                        }
+                    }
+                }
+
+                if root.is-rectangle-selection(): InspectorSection {
                     title: "Effects";
 
                     VerticalLayout {

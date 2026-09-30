@@ -177,16 +177,17 @@ pub fn evaluate_property(
     ty: &langtype::Type,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
-    let unfilled_rectangle = {
+    let default_rectangle_property = {
         let element = element.borrow();
-        property_name == "background"
+        matches!(property_name, "background" | "border-color" | "border-width")
             && default_value.is_none()
             && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
             && element.binding_cell_including_synthetic(property_name).is_none()
     };
     let expression =
         find_binding_expression(element, property_name).or(default_value.clone()).or_else(|| {
-            unfilled_rectangle.then(|| expression_tree::Expression::default_value_for_type(ty))
+            default_rectangle_property
+                .then(|| expression_tree::Expression::default_value_for_type(ty))
         });
     let value = expression.as_ref().and_then(|element| {
         crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
@@ -208,7 +209,7 @@ pub fn evaluate_property(
             }
         }
     }
-    if unfilled_rectangle {
+    if default_rectangle_property {
         property.code = Default::default();
     }
     property
