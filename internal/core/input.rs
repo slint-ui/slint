@@ -230,7 +230,7 @@ pub struct TouchHistory {
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackendMouseEvent {
     /// The mouse or finger was pressed
     Pressed {
