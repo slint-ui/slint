@@ -167,11 +167,7 @@ def test_preview_reload_preserves_hover_suppression(
                 y=artboard.absolute_position.y - 12,
             )
         elif state == "pressed":
-            rectangle = fixture_element(window, "Rectangle")
-            position = slint_testing.LogicalPosition(
-                x=rectangle.absolute_position.x + 40,
-                y=rectangle.absolute_position.y + 60,
-            )
+            position = center(fixture_element(window, "Rectangle"))
         else:
             position = center(window_element_with_label(window, "Rectangle " + state))
         window.dispatch_event(slint_testing.PointerMoveEvent(position))

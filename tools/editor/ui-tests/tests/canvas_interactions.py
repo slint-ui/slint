@@ -437,12 +437,7 @@ def center_canvas_selection(
 
 def hover_rectangle(window: slint_testing.Window) -> None:
     rectangle = fixture_element(window, "Rectangle")
-    position = rectangle.absolute_position
-    window.dispatch_event(
-        slint_testing.PointerMoveEvent(
-            slint_testing.LogicalPosition(x=position.x + 40, y=position.y + 60)
-        )
-    )
+    window.dispatch_event(slint_testing.PointerMoveEvent(center(rectangle)))
     window_element_with_label(window, "Hovered Rectangle")
 
 
