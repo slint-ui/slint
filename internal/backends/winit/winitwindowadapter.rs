@@ -2580,6 +2580,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                             window_attributes.clone(),
                             #[cfg(all(muda, target_os = "macos"))]
                             self.muda_enable_default_menu_bar,
+                            self.self_weak.clone(),
                         )
                         .ok_or_else(|| {
                             format!("Winit backend failed to find a suitable renderer: {e}")
