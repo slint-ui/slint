@@ -275,8 +275,8 @@ fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count
     } else if count < cur {
         ops.splice(count, cur - count, 0);
     }
-    for i in 0..count {
-        ops.ensure_updated(i, i + offset);
+    for instance_index in 0..count {
+        ops.ensure_updated(instance_index, instance_index + offset);
     }
 }
 
@@ -851,7 +851,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let model = self.model();
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
-            let offset = self.0.inner.borrow().layout_state.item_index.row;
+            let offset = {
+                let inner = self.0.inner.borrow();
+                inner.layout_state.item_index.row - inner.layout_state.item_index.instance_index
+            };
             let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
@@ -1648,7 +1651,10 @@ mod tests {
             assert_eq!(inner.layout_state.item_index.instance_index, 1); // One was prepended
             assert_eq!(inner.instances.len(), 3);
             assert_eq!(get_instance_inner_value(&inner, 0), 9, "Was prepended");
-            assert_eq!(get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index), 2);
+            assert_eq!(
+                get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index),
+                2
+            );
             assert_eq!(get_instance_inner_value(&inner, 2), 5);
         }
     }
