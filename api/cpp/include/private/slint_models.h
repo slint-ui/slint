@@ -1065,6 +1065,8 @@ class Repeater
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
+                    if (instance_generation)
+                        instance_generation->mark_dirty();
                     return;
                 }
                 count -= layout_state.offset - index;
@@ -1110,6 +1112,8 @@ class Repeater
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
+                    if (instance_generation)
+                        instance_generation->mark_dirty();
                     return;
                 }
                 count -= layout_state.offset - index;
@@ -1164,8 +1168,7 @@ class Repeater
                         auto &data = inner->data;
                         data.erase(data.begin() + position, data.begin() + position + remove);
                         data.insert(data.begin() + position, add, {});
-                        // Before the new slots' init callbacks, which may read a layout over them.
-                        if (inner->instance_generation)
+                        if ((remove != 0 || add != 0) && inner->instance_generation)
                             inner->instance_generation->mark_dirty();
                     },
             .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
@@ -1174,8 +1177,12 @@ class Repeater
                 if (c.state != RepeaterInner::State::Dirty)
                     return false;
                 bool created = !c.ptr;
-                if (created)
+                if (created) {
                     c.ptr = C::create(ctx->parent);
+                    // The slot is populated now, so a layout read from init sees the instance.
+                    if (ctx->inner->instance_generation)
+                        ctx->inner->instance_generation->mark_dirty();
+                }
                 std::optional<ModelData> data = ctx->inner->model->row_data(row);
                 (*c.ptr)->update_data(row, data ? *data : ModelData {});
                 c.state = RepeaterInner::State::Clean;

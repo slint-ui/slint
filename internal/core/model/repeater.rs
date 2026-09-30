@@ -463,8 +463,9 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
             position..position + remove,
             core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
         );
-        // Before the new slots' init callbacks, which may read a layout over them.
-        self.instance_generation.mark_dirty();
+        if remove != 0 || add != 0 {
+            self.instance_generation.mark_dirty();
+        }
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -483,6 +484,8 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
             (created, c.1.as_ref().unwrap().clone())
         };
         if created {
+            // The slot is populated now, so a layout read from init sees the instance.
+            self.instance_generation.mark_dirty();
             crate::properties::evaluate_no_tracking(|| instance.init());
         }
         crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
@@ -559,6 +562,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
+                self.instance_generation.mark_dirty();
                 return;
             }
             count -= inner.layout_state.offset - index;
@@ -591,6 +595,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
+                self.instance_generation.mark_dirty();
                 return;
             }
             count -= inner.layout_state.offset - index;
