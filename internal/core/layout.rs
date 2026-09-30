@@ -551,9 +551,13 @@ impl GridLayoutOrganizedData {
                 let row_in_rep = cell_in_rep / step;
                 let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
-                let data_base = self[jump_pos] as usize;
-                let stride = self[jump_pos + 1] as usize;
-                final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
+                // #13723
+                let Some(&[data_base, stride]) = self.get(jump_pos..jump_pos + 2) else {
+                    return (0, 0);
+                };
+                final_idx = data_base as usize
+                    + row_in_rep as usize * stride as usize
+                    + col_in_rep as usize * 4;
                 break;
             }
             // Each repeater occupies 1 jump cell in the static area but cells_in_repeater cells logically
@@ -564,7 +568,7 @@ impl GridLayoutOrganizedData {
             final_idx = ((cell_number - cell_nr_adj) * 4) as usize;
         }
         let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
-        (self[final_idx + offset], self[final_idx + offset + 1])
+        self.get(final_idx + offset..final_idx + offset + 2).map_or((0, 0), |s| (s[0], s[1]))
     }
 
     fn max_value(
@@ -3079,6 +3083,31 @@ mod tests {
         assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
         assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
         assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
+    }
+
+    #[test]
+    fn test_solve_grid_layout_with_more_cells_than_organized() {
+        // #13723
+        let cell = GridLayoutInputData { new_row: true, ..Default::default() };
+        let steps = [1_u32];
+        let (organized_data, _) = organize_grid_layout_impl(
+            Slice::from_slice(&[cell]),
+            Slice::from_slice(&[0, 1]),
+            Slice::from_slice(&steps),
+        );
+        let data =
+            GridLayoutData { organized_data, size: 100., spacing: 0., padding: Padding::default() };
+        let constraints = [LayoutItemInfo::default(), LayoutItemInfo::default()];
+        for orientation in [Orientation::Horizontal, Orientation::Vertical] {
+            let result = solve_grid_layout(
+                &data,
+                Slice::from_slice(&constraints),
+                orientation,
+                Slice::from_slice(&[0, 2]),
+                Slice::from_slice(&steps),
+            );
+            assert_eq!(result.as_slice(), &[2., 2., 0., 100., 0., 0.]);
+        }
     }
 
     #[test]
