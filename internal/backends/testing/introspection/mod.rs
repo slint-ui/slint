@@ -754,6 +754,9 @@ pub(crate) fn query_element_descendants(
             Instruction::MatchElementTypeNameOrBase(type_name_or_base) => {
                 query = query.match_inherits(type_name_or_base)
             }
+            Instruction::MatchElementAccessibleLabel(label) => {
+                query = query.match_accessible_label(label)
+            }
             Instruction::MatchElementAccessibleRole(role_i32) => {
                 let role = proto::AccessibleRole::try_from(role_i32)
                     .map_err(|_| format!("invalid AccessibleRole value: {role_i32}"))?;
@@ -1144,6 +1147,29 @@ fn test_element_handle_is_interned() {
         state.windows.borrow().values().map(|window| window.root_element_handle).collect();
     assert_eq!(roots[0], roots[1], "the same element was given two handles");
     assert_eq!(state.element_handles.borrow().len(), 1);
+}
+
+#[test]
+fn test_query_element_descendants_by_accessible_label() {
+    use crate::ElementRoot;
+    use proto::element_query_instruction::Instruction;
+
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window {
+            VerticalLayout {
+                Text { text: "hello"; }
+                Text { text: "world"; }
+            }
+        }
+    }
+    let app = App::new().unwrap();
+
+    let instruction = proto::ElementQueryInstruction {
+        instruction: Some(Instruction::MatchElementAccessibleLabel("world".into())),
+    };
+    let results = query_element_descendants(app.root_element(), vec![instruction], true).unwrap();
+    assert_eq!(results.len(), 1);
 }
 
 #[test]

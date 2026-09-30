@@ -74,7 +74,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "query_element_descendants",
-        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, or {\"matchElementAccessibleRole\": \"Button\"}. More efficient than get_element_tree for targeted lookups.",
+        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, {\"matchElementAccessibleRole\": \"Button\"}, or {\"matchElementAccessibleLabel\": \"...\"}. More efficient than get_element_tree for targeted lookups.",
         request_type: "RequestQueryElementDescendants",
         optional_fields: &["findAll"],
     },
@@ -653,6 +653,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- {\"matchElementTypeName\": \"Button\"} — match by exact Slint type name\n",
                     "- {\"matchElementTypeNameOrBase\": \"TouchArea\"} — match by type or inherited base\n",
                     "- {\"matchElementAccessibleRole\": \"Button\"} — match by accessible role (PascalCase)\n",
+                    "- {\"matchElementAccessibleLabel\": \"OK\"} — match by exact accessible label\n",
                     "Instructions are applied in order to build a query pipeline.\n\n",
 
                     "# Tips\n\n",
