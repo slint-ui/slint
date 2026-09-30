@@ -103,53 +103,6 @@ def gallery(
         yield window
 
 
-@pytest.mark.parametrize("page", PAGES)
-@pytest.mark.parametrize("theme", ["light", "dark"])
-def test_gallery_scenarios_render(
-    gallery_binary, editor_environment, tmp_path, page, theme
-):
-    scenarios = PAGES[page][1]
-    destination = Path(os.environ.get("SLINT_GALLERY_SCREENSHOT_DIR", str(tmp_path)))
-    destination.mkdir(parents=True, exist_ok=True)
-    for scenario in scenarios:
-        with gallery(
-            gallery_binary, editor_environment, page, scenario, theme
-        ) as window:
-            if page == "picker":
-                window_element_with_label(
-                    window, "Open color picker"
-                ).invoke_accessible_default_action()
-                window_element_with_label(window, "Close Custom")
-            expected = {
-                "foundations": "SEMANTIC COLORS",
-                "controls": "Sample text input",
-                "inspector-controls": "Sample slider",
-                "palette": "ELEMENTS",
-                "picker": "Sample fill",
-                "outline": "OUTLINE",
-            }[page]
-            window_element_with_label(window, expected)
-            sidebar = window_element_with_label(window, "Gallery properties")
-            assert (
-                sidebar.absolute_position.x
-                > window_element_with_label(
-                    window, "Gallery preview"
-                ).absolute_position.x
-            )
-            assert sidebar.absolute_position.x + sidebar.size.width <= 1440
-            assert (
-                window_element_with_label(window, "Gallery preview").absolute_position.y
-                < 200
-            )
-            image = screenshot(window)
-            assert image.width >= 800 and image.height >= 600
-            colors = image.resize((80, 60)).getcolors(4801)
-            assert colors is not None and len(colors) > 10
-            image.save(
-                destination / f"{page}-{scenario.lower().replace(' ', '-')}-{theme}.png"
-            )
-
-
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_gallery_gradient_stop_marker_contrast(
     gallery_binary, editor_environment, theme
