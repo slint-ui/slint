@@ -22,6 +22,7 @@ use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::renderer::DrawOutcome;
+use i_slint_core::window::WindowKind;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWeb;
@@ -2568,7 +2569,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn create_child_window_adapter(
         &self,
-        _window_kind: i_slint_core::window::WindowKind,
+        window_kind: WindowKind,
     ) -> Option<Rc<dyn WindowAdapter>> {
         if !self.event_loop_properties.get().support_native_popup {
             return None;
@@ -2582,6 +2583,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 .with_title("child window")
                 .with_decorations(false)
                 .with_visible(true)
+                .with_active(window_kind != WindowKind::ToolTip)
                 .with_window_type(WindowType::Popup);
 
             if let Ok(parent) = winit_window.window_handle() {
