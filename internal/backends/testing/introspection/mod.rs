@@ -108,13 +108,11 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
 /// from the event itself, so a modified gesture is a key press, the gesture, and a
 /// key release. Releasing on drop keeps the window's state clean when the gesture
 /// in between fails.
-#[cfg(feature = "mcp")]
 pub(crate) struct HeldModifiers {
     window_adapter: Rc<dyn WindowAdapter>,
     modifiers: proto::KeyboardModifiers,
 }
 
-#[cfg(feature = "mcp")]
 impl HeldModifiers {
     pub(crate) fn hold(
         window_adapter: Rc<dyn WindowAdapter>,
@@ -142,7 +140,6 @@ impl HeldModifiers {
     }
 }
 
-#[cfg(feature = "mcp")]
 impl Drop for HeldModifiers {
     fn drop(&mut self) {
         for key in self.keys().rev() {
@@ -1045,13 +1042,10 @@ pub(crate) mod dispatch {
         modifiers: Option<proto::KeyboardModifiers>,
     ) -> Result<(), String> {
         let element = state.element("click", element)?;
-        #[cfg(feature = "mcp")]
         let _modifiers = super::HeldModifiers::hold(
             element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
             modifiers.as_ref(),
         );
-        #[cfg(not(feature = "mcp"))]
-        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         match action {
             proto::ClickAction::SingleClick => element.single_click(button).await,
@@ -1106,13 +1100,10 @@ pub(crate) mod dispatch {
         modifiers: Option<proto::KeyboardModifiers>,
     ) -> Result<(), String> {
         let element = state.element("drag", element)?;
-        #[cfg(feature = "mcp")]
         let _modifiers = super::HeldModifiers::hold(
             element.window_adapter().ok_or_else(|| "element has no window".to_string())?,
             modifiers.as_ref(),
         );
-        #[cfg(not(feature = "mcp"))]
-        let _ = modifiers;
         let button = convert_pointer_event_button(button);
         let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
         element.drag(target, button).await;
@@ -1223,6 +1214,40 @@ fn test_dispatch_find_elements_by_id_stale_window() {
     let state = IntrospectionState::new();
     let err = dispatch::find_elements_by_id(&state, ArenaIndex::default(), "foo").unwrap_err();
     assert!(err.contains("Invalid window handle"), "got: {err}");
+}
+
+#[test]
+fn test_held_modifiers_apply_to_pointer_events() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            out property <string> pressed-modifiers;
+            area := TouchArea {
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down) {
+                        root.pressed-modifiers = (event.modifiers.shift ? "shift" : "-") + ","
+                            + (event.modifiers.control ? "control" : "-");
+                    }
+                }
+            }
+        }
+    }
+    let app = App::new().unwrap();
+    let area = ElementHandle::find_by_element_id(&app, "App::area").next().unwrap();
+    let button = i_slint_core::platform::PointerEventButton::Left;
+
+    {
+        let shift = proto::KeyboardModifiers { shift: true, ..Default::default() };
+        let _held = HeldModifiers::hold(window_adapter_for_test(&app), Some(&shift));
+        area.mock_single_click(button);
+    }
+    assert_eq!(app.get_pressed_modifiers(), "shift,-");
+
+    // Dropping the guard released the keys.
+    area.mock_single_click(button);
+    assert_eq!(app.get_pressed_modifiers(), "-,-");
 }
 
 #[test]
