@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /// If the size of the popup window is fixed, do not use the layout constraint values
+/// Check that when updating the popup width/height properties that they get really applied and the popup resizes
+
 #[satchel::test]
 fn popupwindow_size() {
     slint::slint! {

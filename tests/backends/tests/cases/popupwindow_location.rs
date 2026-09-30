@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-/// If the size of the popup window is fixed, do not use the layout constraint values
+// Check that position changes triggered by the timer that the Global properties pointing to the popups position are changing
+// and the popup gets moved
+
 #[satchel::test]
 fn popupwindow_location() {
     slint::slint! {
@@ -83,6 +85,4 @@ fn popupwindow_location() {
     assert_eq!(app.global::<Properties>().get_popup_initialized(), true);
     assert_eq!(app.global::<Properties>().get_popup_x(), TIMER_TRIGGER_COUNTS as f32 * 10.);
     assert_eq!(app.global::<Properties>().get_popup_y(), TIMER_TRIGGER_COUNTS as f32 * 1.);
-
-    // IMPORTANT: Check the real window position and not only the property!!!
 }

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // Check that the layout sizes are fixed even when the layout changes
+// The popup size must not change because the size is fixed
 
 #[satchel::test]
-fn popupwindow_size_layout() {
+fn popupwindow_size2() {
     slint::slint! {
 
         import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
@@ -171,7 +172,6 @@ fn popupwindow_size_layout() {
 
             const BUTTON_HEIGHT: f32 = (POPUP_FIXED_HEIGHT - 2. * PADDING - 2. * SPACING) / 3.;
             assert_eq!(app.global::<Properties>().get_btn_top_height(), BUTTON_HEIGHT);
-            // assert_eq!(app.global::<Properties>().get_btn_middle_height(), BUTTON_HEIGHT);
             assert_eq!(app.global::<Properties>().get_btn_bottom_height(), BUTTON_HEIGHT);
 
             slint::quit_event_loop().unwrap();

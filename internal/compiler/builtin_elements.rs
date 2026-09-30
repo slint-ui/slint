@@ -3284,6 +3284,7 @@ fn build(l: &mut Loader) {
             /// when dismissed by a click, by a selection, or by a programmatic `close()`.
             out property <bool> is-open;
 
+            /// Additional anchor possibilities. See `PopupAnchor` for further informations
             in property <PopupAnchor> anchor;
 
             /// Show the popup on the screen.
