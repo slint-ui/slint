@@ -278,7 +278,8 @@ fn process_diagnostics(
         .iter()
         .filter(|d| {
             canonical(
-                d.source_file()
+                i_slint_compiler::diagnostics::Spanned::source_file(*d)
+                    .and_then(|f| f.path().as_native_path())
                     .unwrap_or_else(|| panic!("{path:?}: Error without a source file {d:?}",)),
             ) == path
         })

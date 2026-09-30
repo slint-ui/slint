@@ -114,12 +114,14 @@ impl Coverage {
         }
         let (start_line, start_column) = char_position(source_file, span.offset);
         let (end_line, end_column) = char_position(source_file, span.offset + span.length);
-        let path = std::path::absolute(source_file.path_buf())
-            .unwrap_or_else(|_| source_file.path_buf().to_owned());
-        let record = format!(
-            "{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {}",
-            path.display()
-        );
+        let path = match source_file.path().as_native_path() {
+            Some(path) => {
+                std::path::absolute(path).unwrap_or_else(|_| path.to_owned()).display().to_string()
+            }
+            None => source_file.path().to_string(),
+        };
+        let record =
+            format!("{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {path}");
         let mut points = self.points.borrow_mut();
         if let Some(&id) = points.ids.get(&record) {
             return Some(points.records[id].1);

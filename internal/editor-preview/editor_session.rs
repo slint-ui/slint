@@ -467,7 +467,11 @@ pub fn convert_diagnostics(
 
     for d in diag.into_iter() {
         // A relative path, as in a test, has no URL.
-        let Some(uri) = d.source_path().and_then(SourcePath::to_url) else { continue };
+        let Some(uri) =
+            i_slint_compiler::diagnostics::Spanned::source_file(&d).and_then(|f| f.path().to_url())
+        else {
+            continue;
+        };
         lsp_diags
             .entry(uri)
             .or_default()

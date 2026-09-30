@@ -3,7 +3,7 @@
 
 use crate::source_path::SourcePath;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::parser::TextSize;
@@ -46,7 +46,6 @@ pub trait Spanned {
 #[derive(Default)]
 pub struct SourceFileInner {
     path: SourcePath,
-    path_buf: PathBuf,
 
     /// Complete source code of the path, used to map from offset to line number
     source: Option<String>,
@@ -63,26 +62,16 @@ impl std::fmt::Debug for SourceFileInner {
 
 impl SourceFileInner {
     pub fn new(path: SourcePath, source: String) -> Self {
-        Self {
-            path_buf: path.to_legacy_path(),
-            path,
-            source: Some(source),
-            line_offsets: Default::default(),
-        }
+        Self { path, source: Some(source), line_offsets: Default::default() }
     }
 
     pub fn path(&self) -> &SourcePath {
         &self.path
     }
 
-    /// [`Self::path`] as a `Path`, holding the string of a URL.
-    pub fn path_buf(&self) -> &Path {
-        &self.path_buf
-    }
-
     /// Create a SourceFile that has just a path, but no contents
     pub fn from_path_only(path: SourcePath) -> Arc<Self> {
-        Arc::new(Self { path_buf: path.to_legacy_path(), path, ..Default::default() })
+        Arc::new(Self { path, ..Default::default() })
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
@@ -296,15 +285,27 @@ impl Diagnostic {
     // NOTE: The return-type differs from the Spanned trait.
     // Because this is public API (Diagnostic is re-exported by the Interpreter), we cannot change
     // this.
-    /// return the path of the source file where this error is attached
+    /// Returns the path of the source file where this diagnostic is attached,
+    /// or `None` if the source wasn't loaded from a file, such as one loaded from a URL.
+    #[deprecated(note = "Use `source_path()`, which also names sources that aren't files")]
     pub fn source_file(&self) -> Option<&Path> {
-        self.span.source_file().map(|sf| sf.path_buf.as_path())
+        self.span.source_file()?.path().as_native_path()
     }
 
-    /// This is an internal function without API stability guarantees.
-    #[doc(hidden)]
-    pub fn source_path(&self) -> Option<&SourcePath> {
-        self.span.source_file().map(|sf| sf.path())
+    /// Returns the name of the source where this diagnostic is attached:
+    /// the path of a file, or the URL of a source that isn't a local file.
+    pub fn source_path(&self) -> Option<String> {
+        Some(self.span.source_file()?.path().to_string())
+    }
+}
+
+impl Spanned for Diagnostic {
+    fn span(&self) -> Span {
+        self.span.span()
+    }
+
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.span.source_file()
     }
 }
 
