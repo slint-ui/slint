@@ -116,6 +116,17 @@ export component InspectorTextFieldBase inherits Rectangle {
                     }
                 }
 
+                TouchArea {
+                    enabled: root.enabled && !input.has-focus;
+                    mouse-cursor: text;
+                    clicked => { input.focus(); }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                            input.focus();
+                        }
+                    }
+                }
+
                 changed has-focus => {
                     if self.has-focus {
                         root.active-commit-key = root.commit-key;
