@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13723: while a repeated `Row`'s instances are created one by one, a cell's `init` that
+// changes a constraint and reads the grid's size must see the instances created so far.
+// The interpreter driver exercises this at creation; the rows are set in the file for that.
+
+export struct RowData { v: int }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[RowData]> rows: [{ v: 0 }, { v: 5 }];
+    in-out property <length> shared-min: 20px;
+    out property <length> probe;
+
+    grid := GridLayout {
+        for r in root.rows: Row {
+            Rectangle {
+                min-width: root.shared-min + r.v * 1px;
+                min-height: 20px;
+                init => {
+                    root.shared-min += 1px;
+                    root.probe = grid.preferred-width;
+                }
+            }
+        }
+    }
+
+    // Two inits ran: shared-min is 22px, and the second init already saw both rows.
+    out property <bool> test: probe == 27px && grid.preferred-width == 27px && grid.preferred-height == 40px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_probe(), 27.);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_probe(), 27.);
+assert(instance.get_test());
+```
+*/

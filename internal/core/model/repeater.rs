@@ -450,6 +450,7 @@ struct RustRepeaterOps<'a, C: RepeatedItemTree> {
     inner: &'a RefCell<RepeaterInner<C>>,
     init: &'a dyn Fn() -> ItemTreeRc<C>,
     model: &'a ModelRc<C::Data>,
+    instance_generation: Pin<&'a Property<()>>,
 }
 
 impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
@@ -480,6 +481,8 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
             (created, c.1.as_ref().unwrap().clone())
         };
         if created {
+            // #13723
+            self.instance_generation.mark_dirty();
             crate::properties::evaluate_no_tracking(|| instance.init());
         }
         crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
@@ -687,7 +690,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
             let offset = self.0.inner.borrow().layout_state.offset;
-            let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
+            let mut ops = RustRepeaterOps {
+                inner: &self.0.inner,
+                init: &init,
+                model: &model,
+                instance_generation: self.data().project_ref().instance_generation,
+            };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
             self.data().instance_generation.mark_dirty();
@@ -774,7 +782,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
         let data = self.data();
         let mut layout_state = data.inner.borrow().layout_state.clone();
-        let mut ops = RustRepeaterOps { inner: &data.inner, init: &init, model: &model };
+        let mut ops = RustRepeaterOps {
+            inner: &data.inner,
+            init: &init,
+            model: &model,
+            instance_generation: data.project_ref().instance_generation,
+        };
         let changed = update_visible_instances(
             &mut ops,
             &mut layout_state,

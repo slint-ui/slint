@@ -1139,6 +1139,7 @@ class Repeater
     {
         RepeaterInner *inner;
         const Parent *parent;
+        const private_api::Property<bool> *instance_generation;
     };
 
     /// Build the ops vtable. The returned struct borrows from `ctx`,
@@ -1187,7 +1188,10 @@ class Repeater
                     }(),
             .init =
                     [](void *ud, uintptr_t instance_idx) {
-                        auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                        auto *ctx = static_cast<Ctx *>(ud);
+                        // #13723
+                        ctx->instance_generation->mark_dirty();
+                        auto &c = ctx->inner->data[instance_idx];
                         (*c.ptr)->init();
                         (*c.ptr)->ensure_instantiated();
                     },
@@ -1240,7 +1244,7 @@ public:
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
             if (auto m = model.get()) {
-                VTableContext<Parent> ctx { inner.get(), parent };
+                VTableContext<Parent> ctx { inner.get(), parent, &instance_generation };
                 auto ops = make_ops(ctx);
                 cbindgen_private::slint_repeater_ensure_updated(&ops, 0, m->row_count());
             } else {
@@ -1272,7 +1276,7 @@ public:
         if (!m)
             return false;
 
-        VTableContext<Parent> ctx { inner.get(), parent };
+        VTableContext<Parent> ctx { inner.get(), parent, &instance_generation };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
                 &ops, &inner->layout_state, m->row_count(), content_width, content_height,
