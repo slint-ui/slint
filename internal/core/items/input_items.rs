@@ -112,7 +112,7 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursorInner,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
@@ -138,6 +138,7 @@ impl Item for TouchArea {
                 if self.enabled() {
                     InputEventResult::GrabMouse
                 } else {
+                    self.input_event_filter_before_children(event, window_adapter, self_rc, cursor);
                     InputEventResult::EventIgnored
                 }
             }

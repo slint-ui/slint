@@ -33,17 +33,22 @@ export component TestCase inherits Window {
 ```rust
 use slint::{LogicalPosition, platform::{PointerEventButton, WindowEvent}};
 
-for button in [PointerEventButton::Left, PointerEventButton::Middle, PointerEventButton::Right] {
-    let instance = TestCase::new().unwrap();
-    let position = LogicalPosition::new(50., 50.);
-    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
-    assert_eq!(instance.get_parent_downs(), 1);
-    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
-    assert_eq!(instance.get_parent_ups(), 1);
-    assert_eq!(instance.get_clicked(), button == PointerEventButton::Left);
-    assert!(instance.get_canceled());
-    assert!(!instance.get_child_pressed());
-    assert!(!instance.get_child_hover());
+for outside in [false, true] {
+    for button in [PointerEventButton::Left, PointerEventButton::Middle, PointerEventButton::Right] {
+        let instance = TestCase::new().unwrap();
+        let position = LogicalPosition::new(50., 50.);
+        instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+        assert_eq!(instance.get_parent_downs(), 1);
+        assert!(instance.get_canceled());
+        assert!(!instance.get_child_pressed());
+        assert!(!instance.get_child_hover());
+        let position = if outside { LogicalPosition::new(200., 50.) } else { position };
+        instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+        assert_eq!(instance.get_parent_ups(), 1);
+        assert_eq!(instance.get_clicked(), button == PointerEventButton::Left && !outside);
+        assert!(!instance.get_child_pressed());
+        assert!(!instance.get_child_hover());
+    }
 }
 ```
 */
