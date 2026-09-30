@@ -30,7 +30,7 @@ pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLen
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
 bind_java_type! {
-    SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
+    SlintAndroidJavaHelper => "dev.slint.android.SlintAndroidJavaHelper",
     type_map = {
         AndroidActivity => "android.app.Activity",
         AndroidRect => "android.graphics.Rect",

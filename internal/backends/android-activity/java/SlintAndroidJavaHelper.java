@@ -3,6 +3,8 @@
 
 // cSpell:ignore drawables javahelper Spannable tbstart tbend
 
+package dev.slint.android;
+
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
