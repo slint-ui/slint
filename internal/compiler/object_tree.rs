@@ -28,7 +28,6 @@ use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
-use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -241,24 +240,20 @@ impl Document {
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if crate::pathutils::is_font_file(&import.file) {
-                    let token_path = import.import_uri_token.source_file.path();
-                    let import_file_path = PathBuf::from(import.file.clone());
-                    let import_file_path = crate::pathutils::join(token_path, &import_file_path)
-                        .unwrap_or(import_file_path);
+                    let import_file_path = std::path::Path::new(&import.file);
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
                     // When the resource URL mapper is set (e.g. remote viewer), fonts are
                     // delivered out-of-band; skip the local existence check.
                     if ignore_missing_font_files
-                        || crate::pathutils::is_url(&import_file_path)
-                        || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
-                            .is_some()
+                        || crate::pathutils::is_url(import_file_path)
+                        || crate::fileaccess::load_file(import_file_path).is_some()
                     {
-                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token.clone()))
+                        Some((import.file.as_str().into(), import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
-                            format!("File \"{}\" not found", import.file),
+                            format!("File {} not found", import.import_uri_token.text()),
                             &import.import_uri_token,
                         );
                         None
