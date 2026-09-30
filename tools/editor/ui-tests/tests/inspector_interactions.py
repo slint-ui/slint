@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from canvas_interactions import center
+from ui_driver import (
+    elements_with_label,
+    screenshot,
+    wait_until,
+    window_element_with_label,
+)
 
 FIELDS = {
     "x": "Position X",
@@ -60,6 +66,37 @@ def inspector_field(
         ):
             return fields[0]
     return window_element_with_label(window, label, role)
+
+
+def inspector_text_input(
+    window: slint_testing.Window, label: str
+) -> slint_testing.Element:
+    field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+    inputs = (
+        field.query_descendants().match_id("InspectorTextFieldBase::input").find_all()
+    )
+    assert len(inputs) == 1
+    return inputs[0]
+
+
+def click_field(
+    window: slint_testing.Window, label: str, *, on_text: bool = True
+) -> None:
+    field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+    input = inspector_text_input(window, label)
+    position = slint_testing.LogicalPosition(
+        x=input.absolute_position.x + 8
+        if on_text
+        else field.absolute_position.x + field.size.width - 2,
+        y=center(input).y,
+    )
+    button = slint_testing.PointerEventButton.Left
+    window.dispatch_event(slint_testing.PointerMoveEvent(position))
+    window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+    # A real click allows focus changes to settle before later pointer events.
+    screenshot(window)
+    window.dispatch_event(slint_testing.PointerMoveEvent(position))
+    window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
 
 
 def edit_field(

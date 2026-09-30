@@ -11,8 +11,10 @@ from canvas_interactions import center as element_center
 from editor_sync import wait_for_source
 from inspector_interactions import (
     FIELDS,
+    click_field,
     edit_field,
     inspector_field,
+    inspector_text_input,
     slider_position,
     wait_for_field,
 )
@@ -95,6 +97,102 @@ def image_alignment_button(
     return inspector_field(
         window, f"Align image {position}", slint_testing.AccessibleRole.Button
     )
+
+
+@pytest.mark.parametrize("click_target", ("text", "padding"))
+@pytest.mark.parametrize(
+    ("kind", "label", "initial", "replacement", "old", "new"),
+    [
+        (
+            "Rectangle",
+            "Width",
+            "160",
+            "176",
+            b"        width: 160px;",
+            b"        width: 176px;",
+        ),
+        (
+            "Text",
+            "Font family",
+            "Inter",
+            "Fira Sans",
+            b'        font-family: "Inter";',
+            b'        font-family: "Fira Sans";',
+        ),
+        (
+            "Rectangle",
+            "Rectangle background",
+            "2563EB",
+            "123456",
+            b"        background: #2563eb;",
+            b"        background: #123456;",
+        ),
+    ],
+    ids=("geometry", "font", "color"),
+)
+def test_first_field_click_selects_entire_value(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    click_target: str,
+    kind: str,
+    label: str,
+    initial: str,
+    replacement: str,
+    old: bytes,
+    new: bytes,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        wait_for_field(window, label, initial, slint_testing.AccessibleRole.TextInput)
+        click_field(window, label, on_text=click_target == "text")
+        press_keys(window, replacement)
+        wait_for_field(
+            window, label, replacement, slint_testing.AccessibleRole.TextInput
+        )
+        press_keys(window, keys.Return)
+        snapshot.wait_for_applied(
+            replace_once(baseline, old, new), relative_path=INSPECTOR_SOURCE
+        )
+        select_element(window, kind)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+
+
+def test_focused_field_click_places_caret(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        input = inspector_text_input(window, "Font family")
+        button = slint_testing.PointerEventButton.Left
+        click_field(window, "Font family", on_text=False)
+        input.single_click(button)
+        press_keys(window, " Mono")
+        wait_for_field(
+            window, "Font family", "Inter Mono", slint_testing.AccessibleRole.TextInput
+        )
+        press_keys(window, keys.Return)
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                b'        font-family: "Inter";',
+                b'        font-family: "Inter Mono";',
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
 
 
 @pytest.mark.parametrize(
