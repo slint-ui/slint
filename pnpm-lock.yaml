@@ -141,12 +141,13 @@ importers:
 
   demos/home-automation/node:
     dependencies:
-      '@biomejs/biome':
-        specifier: 'catalog:'
-        version: 2.5.14
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.14
 
   demos/printerdemo/node:
     dependencies:
