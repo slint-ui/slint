@@ -195,6 +195,7 @@ fn try_create_window_with_fallback_renderer(
         #[cfg(feature = "renderer-vello")]
         renderer::vello::WinitVelloRenderer::new_suspended,
     ];
+    let parent = if attrs.parent_window().is_some() { self.self_weak.clone() } else { Weak::new() };
     renderer_factories.iter().find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
@@ -202,7 +203,7 @@ fn try_create_window_with_fallback_renderer(
             attrs.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
-            Weak::new(),
+            parent,
         ))
     })
 }
