@@ -826,6 +826,13 @@ def test_image_alignment_grid_writes_both_properties(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
+        source = window_element_with_label(
+            window, "Image source", slint_testing.AccessibleRole.Text
+        )
+        assert source.accessible_value == "checker.svg"
+        window_element_with_label(
+            window, "Choose image file", slint_testing.AccessibleRole.Button
+        )
         window_element_with_label(
             window, "Alignment", slint_testing.AccessibleRole.Text
         )
@@ -945,26 +952,6 @@ def test_image_alignment_grid_replaces_custom_expression(
         )
         snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
         assert image_alignment_button(window, "top", "left").accessible_checked
-
-
-def test_image_source_shows_filename_and_file_browser(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, "Image")
-        source = window_element_with_label(
-            window, "Image source", slint_testing.AccessibleRole.Text
-        )
-        assert source.accessible_value == "checker.svg"
-        window_element_with_label(
-            window, "Choose image file", slint_testing.AccessibleRole.Button
-        )
-        assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
 def test_font_family_writes_exact_source(

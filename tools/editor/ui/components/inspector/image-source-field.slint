@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Typography, FieldStyle, PaintStyle, Metrics } from "../../style.slint";
+import { Style, FieldStyle, Metrics } from "../../style.slint";
 
 import { InspectorIconButton } from "icon-button.slint";
 
@@ -9,8 +9,6 @@ export component InspectorImageSourceField inherits Rectangle {
     in property <FieldStyle> style: Style.inspector-field;
     in property <string> value;
     callback browse;
-    private property <PaintStyle> paint: source-touch.has-hover
-        ? root.style.appearance.hover : root.style.appearance.normal;
 
     height: root.style.height;
 
@@ -21,14 +19,13 @@ export component InspectorImageSourceField inherits Rectangle {
             kind: "folder";
             label: "Choose image file";
             focus-on-click: false;
-            show-focus-ring: false;
             clicked => { root.browse(); }
         }
 
         source-field := Rectangle {
             horizontal-stretch: 1;
             border-radius: root.style.radius;
-            background: root.paint.background;
+            background: root.style.appearance.normal.background;
             accessible-role: AccessibleRole.text;
             accessible-label: "Image source";
             accessible-value: root.value;
@@ -39,17 +36,12 @@ export component InspectorImageSourceField inherits Rectangle {
 
                 Text {
                     text: root.value;
-                    color: root.paint.foreground;
+                    color: root.style.appearance.normal.foreground;
                     font-size: root.style.text.size;
                     font-weight: root.style.text.weight;
                     overflow: elide;
                     vertical-alignment: center;
                 }
-            }
-
-            source-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.browse(); }
             }
         }
     }

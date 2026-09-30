@@ -352,7 +352,7 @@ pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
     }
 
     image_url_path(source)
-        .and_then(|path| path.rsplit(|ch| ch == '/' || ch == '\\').next().map(str::to_owned))
+        .and_then(|path| path.rsplit(['/', '\\']).next().map(str::to_owned))
         .filter(|name| !name.is_empty())
         .map(SharedString::from)
         .unwrap_or_else(|| tr::tr!("Custom expression").into())
@@ -428,10 +428,7 @@ pub(super) fn choose_image_file(
 }
 
 fn source_path(source_uri: &str) -> Option<PathBuf> {
-    Url::parse(source_uri)
-        .ok()
-        .and_then(|url| url.to_file_path().ok())
-        .or_else(|| (!source_uri.is_empty()).then(|| PathBuf::from(source_uri)))
+    Url::parse(source_uri).ok().and_then(|url| url.to_file_path().ok())
 }
 
 fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {

@@ -9,18 +9,16 @@ export component InspectorIconButton inherits Rectangle {
     in property <string> label: root.kind;
     in property <bool> selected: false;
     in property <bool> focus-on-click: true;
-    in property <bool> show-focus-ring: true;
     callback clicked;
-    private property <bool> has-visible-focus: root.show-focus-ring && button-focus.has-focus;
     private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
-        : touch.has-hover || root.has-visible-focus ? root.style.appearance.hover : root.style.appearance.normal;
+        : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
     width: root.style.height;
     height: root.style.height;
     border-radius: root.style.radius;
     background: root.paint.background;
-    border-width: root.has-visible-focus ? root.style.border-width : 0px;
-    border-color: root.has-visible-focus ? root.style.appearance.focus-border : root.paint.border;
+    border-width: button-focus.has-focus ? root.style.border-width : 0px;
+    border-color: button-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
