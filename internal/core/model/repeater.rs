@@ -2544,11 +2544,15 @@ mod tests {
         );
     }
 
-    #[should_panic(expected = "This should not work, because it would split the window!")]
     #[test]
+    #[cfg_attr(
+        debug_assertions,
+        should_panic(expected = "This should not work, because it would split the window!")
+    )]
     fn test_splice_replacing_instances_before_current_instance2() {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 0..8, 3);
+        let before = state(&repeater);
         // Before:
         //         0, 1, 2, 3, 4, 5, 6, 7
         //                  ^
@@ -2558,6 +2562,8 @@ mod tests {
         //                  ^
         // Window:         |---------| It would split up the window
         with_ops(&repeater, |ops| ops.splice(1, 4, 1));
+        // Release builds ignore the splice
+        assert_eq!(state(&repeater), before);
     }
 
     #[test]
@@ -2630,27 +2636,31 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_instance_index_of_row() {
-    //     let current = ItemIndexRelationShip { row: 5, instance_index: 2 };
-    //     assert_eq!(current.get_instance_index_opt(7), Some(4));
-    //     assert_eq!(current.get_instance_index_opt(5), Some(2));
-    //     assert_eq!(current.get_instance_index_opt(3), Some(0));
-    //     assert_eq!(current.get_instance_index_opt(2), None);
-    //     assert_eq!(current.get_instance_index(7), 4);
-    //     assert_eq!(current.get_instance_index(2), usize::MAX);
-    // }
+    #[test]
+    fn test_instance_index_of_row() {
+        let current = ItemIndexRelationShip { row: 5, instance_index: 2 };
+        assert_eq!(current.get_instance_index_opt(7), Some(4));
+        assert_eq!(current.get_instance_index_opt(5), Some(2));
+        assert_eq!(current.get_instance_index_opt(3), Some(0));
+        assert_eq!(current.get_instance_index_opt(2), None);
+        assert_eq!(current.get_instance_index(7), 4);
+        assert_eq!(
+            current.get_instance_index(2),
+            usize::MAX,
+            "We are wrapping around. In real this should never happen"
+        );
+    }
 
-    // #[test]
-    // fn test_row_changed_after_insert_at_front() {
-    //     let model = Rc::new(VecModel::from(vec![10, 20]));
-    //     let repeater = repeater_for(&model);
-    //     model.insert(0, 5);
-    //     ensure_updated_window(&repeater);
-    //     model.set_row_data(0, 6);
-    //     model.set_row_data(2, 30);
-    //     assert_eq!(state(&repeater).0, [Clean(6), Clean(10), Clean(30)]);
-    // }
+    #[test]
+    fn test_row_data_changed_after_insert_at_front() {
+        let model = Rc::new(VecModel::from(vec![10, 20]));
+        let repeater = repeater_for(&model);
+        model.insert(0, 5);
+        ensure_updated_window(&repeater);
+        model.set_row_data(0, 6);
+        model.set_row_data(2, 30);
+        assert_eq!(state(&repeater).0, [Clean(6), Clean(10), Clean(30)]);
+    }
 
     // #[test]
     // fn test_instance_lookup_after_insert_at_front() {
