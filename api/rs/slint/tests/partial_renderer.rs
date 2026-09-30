@@ -1835,7 +1835,6 @@ fn partial_rendering_popup_anchor_placement() {
 
             callback change_anchor();
             change_anchor() => {
-                debug("Changing anchor properties");
                 MyProperty.anchor-x = 550px;
                 MyProperty.flip-enabled = true;
             }
@@ -1860,10 +1859,6 @@ fn partial_rendering_popup_anchor_placement() {
                     constraint-adjustment-x: { slide: false, flip: MyProperty.flip-enabled, resize: false },
                     constraint-adjustment-y: { slide: false, flip: MyProperty.flip-enabled, resize: false },
                 };
-
-                changed anchor => {
-                    debug("Anchor changed");
-                }
 
                 Rectangle {
                     background: blue;
