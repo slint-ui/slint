@@ -73,9 +73,7 @@ pub(crate) trait VelocityTracker: VelocityEstimator {
     fn push(&mut self, time: Instant, position_delta: LogicalVector);
     fn last_time(&self) -> Option<Instant>;
     fn estimate_velocity(&self) -> Option<VelocityEstimate> {
-        if crate::animations::current_tick().0.saturating_sub(self.last_time()?.0)
-            > ASSUME_POINTER_MOVE_STOPPED
-        {
+        if crate::animations::current_tick() - self.last_time()? > ASSUME_POINTER_MOVE_STOPPED {
             return None;
         }
         self.estimate_velocity_internal()

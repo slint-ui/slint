@@ -234,8 +234,7 @@ pub struct EventTime {
 impl EventTime {
     /// Returns the original sample time when the backend supplies one.
     pub fn get(self) -> Option<crate::animations::Instant> {
-        self.valid
-            .then(|| crate::animations::Instant(Duration::new(self.seconds, self.nanoseconds)))
+        self.valid.then(|| Duration::new(self.seconds, self.nanoseconds).into())
     }
 }
 
@@ -243,7 +242,8 @@ impl From<Option<crate::animations::Instant>> for EventTime {
     fn from(time: Option<crate::animations::Instant>) -> Self {
         match time {
             Some(time) => {
-                Self { seconds: time.0.as_secs(), nanoseconds: time.0.subsec_nanos(), valid: true }
+                let time = Duration::from(time);
+                Self { seconds: time.as_secs(), nanoseconds: time.subsec_nanos(), valid: true }
             }
             None => Self::default(),
         }

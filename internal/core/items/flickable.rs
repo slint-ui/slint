@@ -530,10 +530,7 @@ struct FlickableDataInner {
 impl FlickableDataInner {
     /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
-        if self
-            .last_scroll_event
-            .is_none_or(|(time, _)| tick.0.saturating_sub(time.0) > MOMENTUM_RETAIN_TIMEOUT)
-        {
+        if self.last_scroll_event.is_none_or(|(time, _)| (*tick - time) > MOMENTUM_RETAIN_TIMEOUT) {
             self.retained_velocity = Default::default();
         }
     }

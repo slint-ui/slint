@@ -60,7 +60,7 @@ pub fn set_animated_property_binding_erased<
         &(),
     ) -> (
         crate::items::PropertyAnimation,
-        Option<crate::animations::InstantNanosecond>,
+        Option<crate::animations::Instant>,
     ),
 ) {
     set_animated_property_binding_impl(
@@ -78,7 +78,7 @@ fn set_animated_property_binding_impl<
     binding: ErasedWeakFn<VT, T>,
     compute_animation_details: ErasedWeakFn<
         VT,
-        (crate::items::PropertyAnimation, Option<crate::animations::InstantNanosecond>),
+        (crate::items::PropertyAnimation, Option<crate::animations::Instant>),
     >,
 ) {
     property.set_animated_binding(

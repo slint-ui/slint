@@ -51,10 +51,10 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
             let delta = previous
                 .map(|p| {
                     position -= p.1;
-                    p.0.0.saturating_sub(e.0.0)
+                    p.0 - e.0
                 })
                 .unwrap_or_default();
-            let age = latest_time.0.saturating_sub(e.0.0);
+            let age = latest_time - e.0;
             if delta > ASSUME_POINTER_MOVE_STOPPED || age > HORIZON {
                 break;
             }
