@@ -2141,7 +2141,7 @@ export component TestCase inherits Window {
         );
     }
 
-    /// The retention gate in `remove_unused_properties` only applies when the declared-property
+    /// The retention gate in `remove_unused_properties` only applies when the testable-property
     /// table is actually generated: without debug info, an unused `@testable` property is
     /// removed like any other unused property, keeping ordinary release builds unaffected.
     #[test]

@@ -823,7 +823,7 @@ pub struct PropertyDeclaration {
     pub shadowed_name: Option<SmolStr>,
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
-    /// Declared `@testable`: the property is guaranteed to appear in the declared-property
+    /// Declared `@testable`: the property is guaranteed to appear in the testable-property
     /// introspection channel (see [`crate::llr::TestableProperty`]), regardless of its
     /// visibility or whether the document reads it.
     pub testable: bool,

@@ -722,7 +722,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- Start with get_element_tree to understand the UI structure before making targeted queries.\n",
                     "- Element IDs are qualified: 'ComponentName::element-id'. Use get_element_tree to discover them.\n",
                     "- To verify state after an interaction, read the element's testableProperties via get_element_properties instead of diffing screenshots. ",
-                    "A property the compiler optimized out (constant, or never read) is not listed.\n",
+                    "Only properties declared `@testable` in the .slint source are listed, and only in builds with debug info.\n",
                     "- After clicking or setting values, take a screenshot to verify the visual result.\n",
                     "- For text input: find the TextInput element, then use set_element_value to set its content.\n",
                     "- For buttons: use click_element, or invoke_accessibility_action with 'Default_' for the default action.\n",

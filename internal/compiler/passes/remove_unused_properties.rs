@@ -28,7 +28,7 @@ pub fn remove_unused_properties(doc: &Document, debug_info: bool) {
                                 .iter()
                                 .any(|t| matches!(t, TwoWayBinding::ModelData { .. }))
                         })
-                        // A `@testable` property must survive into the declared-property
+                        // A `@testable` property must survive into the testable-property
                         // introspection table, but only when that table is generated at all.
                         && !(debug_info && decl.testable)
                     {
