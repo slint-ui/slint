@@ -374,13 +374,6 @@ pub(crate) enum WindowVisibility {
     Shown,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
-struct EventLoopProperties {
-    /// Specifies if the current platform supports native popup
-    /// with winit or not
-    support_native_popup: bool,
-}
-
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
@@ -397,7 +390,9 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
-    event_loop_properties: Cell<EventLoopProperties>,
+    /// Specifies if the current platform supports native popup
+    /// with winit or not
+    support_native_popup: Cell<bool>,
     /// Mirrors the transparency the live window was given, so that a property update only
     /// reaches the NSWindow when the value actually changes.
     #[cfg(target_os = "macos")]
@@ -480,15 +475,6 @@ impl WinitWindowAdapter {
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
         parent: Weak<Self>,
     ) -> Rc<Self> {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let event_loop_properties = EventLoopProperties { support_native_popup: true };
-
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-        let event_loop_properties = EventLoopProperties {
-            // We don't know it yet if we have native support because X11 does not, while Wayland has
-            support_native_popup: false,
-        };
-
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
             window: corelib::api::Window::new(self_weak.clone() as _),
@@ -525,7 +511,8 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             parent,
-            event_loop_properties: Cell::new(event_loop_properties),
+            // We don't know it yet if we have native support because X11 does not, while Wayland has
+            support_native_popup: Cell::new(cfg!(any(target_os = "windows", target_os = "macos"))),
             window_icon: Default::default(),
             custom_cursor_source: Cell::new(None),
             cursor_pos: Default::default(),
@@ -609,9 +596,7 @@ impl WinitWindowAdapter {
                             .with_name(xdg_app_id.as_str(), ""),
                     ));
                 }
-                let mut p = self.event_loop_properties.get();
-                p.support_native_popup = true;
-                self.event_loop_properties.set(p);
+                self.support_native_popup.set(true);
             }
 
             #[cfg(feature = "x11")]
@@ -623,9 +608,7 @@ impl WinitWindowAdapter {
                     ));
                 }
                 // Currently x11 does not support native popups
-                let mut p = self.event_loop_properties.get();
-                p.support_native_popup = false;
-                self.event_loop_properties.set(p);
+                self.support_native_popup.set(false);
             }
         }
 
@@ -2571,7 +2554,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         &self,
         window_kind: WindowKind,
     ) -> Option<Rc<dyn WindowAdapter>> {
-        if !self.event_loop_properties.get().support_native_popup {
+        if !self.support_native_popup.get() {
             return None;
         }
 
@@ -2613,7 +2596,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                         ))
                     },
                 ) {
-                    adapter.event_loop_properties.set(self.event_loop_properties.get());
+                    adapter.support_native_popup.set(self.support_native_popup.get());
                     // Add to inactive_windows so that it gets shown in the next event loop round
                     self.shared_backend_data
                         .inactive_windows

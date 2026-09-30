@@ -15,21 +15,11 @@ fn popupwindow_size2() {
             in-out property <length> popup-width: -1px;
             in-out property <length> popup-height: -1px;
 
-            in-out property <bool> button-in-popup-pressed: false;
-            in-out property <bool> button-top-visible: false;
-
-            in-out property <length> button-width: -1px;
-            in-out property <length> button-height: -1px;
-            in-out property <length> btn-top-width: -1px;
             in-out property <length> btn-top-height: -1px;
-            in-out property <length> btn-middle-width: -1px;
-            in-out property <length> btn-middle-height: -1px;
-            in-out property <length> btn-bottom-width: -1px;
             in-out property <length> btn-bottom-height: -1px;
 
             callback cb-popup-initialized();
             callback cb-buttons-visible();
-            callback cb-button-top-visible();
         }
         export component MainWindow inherits Window {
             width: 600px;
@@ -52,7 +42,6 @@ fn popupwindow_size2() {
                     text: "Show popup";
 
                     clicked => {
-                        debug("Show popup");
                         popup.show();
                     }
                 }
@@ -89,9 +78,7 @@ fn popupwindow_size2() {
                     triggered => {
                         // We are sure that the previous state was correctly initialized
                         Properties.btn-top-height = btn-top.height;
-                        Properties.btn-top-width = btn-top.width;
                         Properties.btn-bottom-height = btn-bottom.height;
-                        Properties.btn-bottom-width = btn-bottom.width;
                         Properties.cb-popup-initialized();
                         self.running = false;
                         root.show-buttons = true;
@@ -104,11 +91,7 @@ fn popupwindow_size2() {
                     interval: 100ms;
                     triggered => {
                         Properties.btn-top-height = btn-top.height;
-                        Properties.btn-top-width = btn-top.width;
-                        // Properties.btn-middle-height = btn-middle.height;
-                        // Properties.btn-middle-width = btn-middle.width;
                         Properties.btn-bottom-height = btn-bottom.height;
-                        Properties.btn-bottom-width = btn-bottom.width;
 
                         Properties.cb-buttons-visible();
                     }
@@ -129,8 +112,6 @@ fn popupwindow_size2() {
                         text: root.show-buttons ? "Hide Buttons" : "Show buttons";
 
                         clicked => {
-                            // debug(self.text);
-                            Properties.button-in-popup-pressed = true;
                             root.show-buttons = true;
                         }
                     }

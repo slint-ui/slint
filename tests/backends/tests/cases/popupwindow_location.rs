@@ -10,8 +10,6 @@ fn popupwindow_location() {
 
         export global Properties {
             in-out property <bool> popup-initialized: false;
-            in-out property <length> popup-width: -1px;
-            in-out property <length> popup-height: -1px;
             in-out property <length> popup-x: -1px;
             in-out property <length> popup-y: -1px;
 

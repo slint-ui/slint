@@ -1919,7 +1919,7 @@ fn partial_rendering_popup_anchor_placement() {
         assert_eq!(buf.as_bytes().len(), WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL);
         for pixel_idx in 0..(WINDOW_WIDTH * WINDOW_HEIGHT) {
             let rgb = get_pixel_values(pixel_idx);
-            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index pixel_idx");
+            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index {pixel_idx}");
         }
     }
 

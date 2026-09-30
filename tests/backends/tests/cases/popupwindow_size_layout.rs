@@ -13,20 +13,13 @@ fn popupwindow_size_layout() {
 
         export global Properties {
             in-out property <bool> popup-initialized: false;
-            in-out property <length> popup-width: -1px;
             in-out property <length> popup-height: -1px;
 
-            in-out property <bool> button-in-popup-pressed: false;
-            in-out property <bool> button-top-visible: false;
-
-            in-out property <length> button-width: -1px;
             in-out property <length> button-height: -1px;
-            in-out property <length> text-width: -1px;
             in-out property <length> text-height: -1px;
 
             callback cb-popup-initialized();
             callback cb-buttons-visible(int) -> bool;
-            callback cb-button-top-visible();
         }
         export component MainWindow inherits Window {
             width: 600px;
@@ -71,17 +64,12 @@ fn popupwindow_size_layout() {
                     text: "Show popup";
 
                     clicked => {
-                        debug("Show popup");
                         popup.show();
                     }
                 }
             }
 
             popup := PopupWindow {
-
-                changed width => {
-                    Properties.popup-width = self.width;
-                }
 
                 changed height => {
                     Properties.popup-height = self.height;
@@ -91,17 +79,9 @@ fn popupwindow_size_layout() {
 
                 init => {
                     Properties.popup-initialized = true;
-                    Properties.popup-width = self.width;
                     Properties.popup-height = self.height;
-
                     Properties.text-height = ti.preferred-height;
-                    Properties.text-width = ti.width;
-
                     Properties.button-height = max(btn.preferred-height, btn.min-height);
-                    Properties.button-width = btn.width;
-
-                    // debug("Popup initialized");
-                    // debug("Text input size: ", ti.width, ", ", ti.height);
                     Properties.cb-popup-initialized();
                 }
 
@@ -123,9 +103,7 @@ fn popupwindow_size_layout() {
                         text: "Hello";
 
                         init => {
-                            // debug("Text initialized");
                             Properties.text-height = self.preferred-height;
-                            Properties.text-width = self.width;
                         }
                     }
                     if root.show-buttons : HorizontalBox {
@@ -133,13 +111,6 @@ fn popupwindow_size_layout() {
                         spacing: 6px;
                         Button {
                             text: "Button top";
-                            init => {
-                                // debug("Button. Preferred width: ", self.preferred-width);
-                                // debug("Button. Preferred height: ", self.preferred-height);
-                                // debug("Button. width: ", self.width);
-                                Properties.button_top_visible = true;
-                                Properties.cb-button-top-visible();
-                            }
                         }
 
                         Button {
@@ -155,8 +126,6 @@ fn popupwindow_size_layout() {
                         text: root.show-buttons ? "Hide Buttons" : "Show buttons";
 
                         clicked => {
-                            // debug(self.text);
-                            Properties.button-in-popup-pressed = true;
                             root.show-buttons = true;
                         }
                     }
