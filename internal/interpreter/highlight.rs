@@ -3,21 +3,17 @@
 
 //! Highlight support for running component instances.
 //!
-//! Walks the LLR `debug_info` side table to map either a source location
-//! or an object-tree `ElementRc` back to runtime flat item indices, then
-//! reads geometries via `ItemRc::geometry()` and transforms them through
-//! `map_to_item_tree`.
-
 use crate::instance::{Instance, SubComponentInstance};
-use i_slint_compiler::llr::{
-    ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx, SubComponentInstanceIdx,
-};
+use i_slint_compiler::diagnostics::SourceLocation;
+use i_slint_compiler::llr::ItemInstanceIdx;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeVTable, TraversalOrder, VisitChildrenResult};
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
-use std::path::Path;
+use std::cell::OnceCell;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 use vtable::VRc;
@@ -92,15 +88,6 @@ impl HighlightedRect {
     }
 }
 
-/// Argument to filter the elements returned by the highlight helpers.
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum ElementPositionFilter {
-    /// Include all elements.
-    IncludeClipped,
-    /// Exclude elements clipped by an ancestor `Clip` / `Flickable`.
-    ExcludeClipped,
-}
-
 /// A rendered item under a point and one source element that represents it.
 #[derive(Clone, Debug)]
 pub struct ElementCandidate {
@@ -115,119 +102,351 @@ pub struct ElementCandidate {
 /// Return the geometry of every runtime item whose source location covers
 /// the given `(path, offset)` pair.
 pub(crate) fn component_positions(
-    instance: &VRc<ItemTreeVTable, Instance>,
+    root: &VRc<ItemTreeVTable, Instance>,
     path: &Path,
     offset: u32,
 ) -> Vec<HighlightedRect> {
-    component_positions_with_filter(instance, path, offset, ElementPositionFilter::IncludeClipped)
-}
-
-fn component_positions_with_filter(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    path: &Path,
-    offset: u32,
-    filter: ElementPositionFilter,
-) -> Vec<HighlightedRect> {
-    positions_by_sources(instance, [(path, offset, SourceMatch::Contains)], filter)
+    let sources = SourceOccurrences::new(root);
+    sources.matching_occurrences(path, offset).map(|(_, geometry)| geometry).collect()
 }
 
 pub(crate) fn element_candidates_at(
     root: &VRc<ItemTreeVTable, Instance>,
     position: LogicalPoint,
 ) -> Vec<ElementCandidate> {
+    let sources = SourceOccurrences::new(root);
     let root_item_tree = VRc::into_dyn(root.clone());
-    i_slint_core::item_tree::ensure_item_tree_instantiated(&root_item_tree);
     let mut runtime_items = Vec::new();
     collect_runtime_items_front_to_back(&root_item_tree, 0, Some(root), &mut runtime_items);
 
     let mut candidates = Vec::new();
+    let mut seen = HashSet::new();
+    let mut seen_enclosing_elements = HashSet::new();
     for (instance, flat_index) in runtime_items {
-        let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
-        if !item.is_visible() {
-            continue;
-        }
-        let Some(geometry) = item_geometry(&instance, root, flat_index) else {
-            continue;
-        };
-        if !geometry.contains(position) {
-            continue;
-        }
-
-        let compilation_unit = &instance.root_sub_component.compilation_unit;
-        let Some((sub_component_path, local_item_index)) =
-            instance.item_table.get(flat_index).and_then(Option::as_ref)
+        let Some(&item_index) =
+            sources.item_indices.get(&(std::ptr::from_ref(&*instance), flat_index))
         else {
             continue;
         };
-        let sub_component_index = sub_component_index_at_path(
-            compilation_unit,
-            instance.root_sub_component.sub_component_idx,
-            sub_component_path,
-        );
-        if let Some(debug_info) =
-            compilation_unit.sub_components[sub_component_index].debug_info.as_ref()
-            && let Some(item_debug_entries) = debug_info.items.get(*local_item_index)
+        let item = &sources.items[item_index];
+        let Some(geometry) = item.geometry(root) else { continue };
+        if !geometry.contains(position) || !item.as_item_rc().is_visible() {
+            continue;
+        }
+
+        let mut add_candidates = |source_location: &SourceLocation, item_indices: &[usize]| {
+            for &item_index in item_indices {
+                let Some(candidate) = sources.candidate_at(source_location, item_index, position)
+                else {
+                    continue;
+                };
+                if let Some(key) = source_key(source_location)
+                    && seen.insert((key, candidate.instance_index))
+                {
+                    candidates.push(candidate);
+                }
+            }
+        };
+        let definition = &item.owner.compilation_unit.sub_components[item.owner.sub_component_idx];
+        if let Some(debug_info) = &definition.debug_info
+            && let Some(debug_entries) = debug_info.items.get(item.local_item_index)
         {
-            for item_debug_info in item_debug_entries.iter().rev() {
-                push_runtime_item_candidate(
-                    root,
-                    &instance,
-                    flat_index,
-                    geometry,
-                    &item_debug_info.source_location,
-                    &mut candidates,
-                );
+            for debug_entry in debug_entries.iter().rev() {
+                add_candidates(&debug_entry.source_location, &[item_index]);
             }
         }
 
-        let mut current_sub_component_index = instance.root_sub_component.sub_component_idx;
-        for sub_component_instance_index in sub_component_path.iter().copied() {
-            let sub_component = &compilation_unit.sub_components[current_sub_component_index];
-            if let Some(source_location) =
-                sub_component.debug_info.as_ref().and_then(|debug_info| {
-                    debug_info.sub_component_use_sites.get(sub_component_instance_index)
-                })
+        let mut owner = Some(item.owner.clone());
+        while let Some(component) = owner {
+            let component_pointer = std::ptr::from_ref(&*component);
+            if seen_enclosing_elements.insert(component_pointer)
+                && let Some((source_location, item_indices)) =
+                    sources.enclosing_elements.get(&component_pointer)
             {
-                push_source_candidates_at(
-                    root,
-                    source_location,
-                    position,
-                    ElementPositionFilter::ExcludeClipped,
-                    &mut candidates,
-                );
+                add_candidates(source_location, item_indices);
             }
-            current_sub_component_index =
-                sub_component.sub_components[sub_component_instance_index].ty;
-        }
-
-        let mut repeated_instance = Some(instance);
-        while let Some(instance) = repeated_instance {
-            let Some((parent_sub_component, repeated_element_index)) =
-                instance.root_sub_component.repeated_in.get()
-            else {
-                break;
-            };
-            let Some(parent_sub_component) = parent_sub_component.upgrade() else {
-                break;
-            };
-            if let Some(source_location) = parent_sub_component.compilation_unit.sub_components
-                [parent_sub_component.sub_component_idx]
-                .debug_info
-                .as_ref()
-                .and_then(|debug_info| debug_info.repeated_elements.get(*repeated_element_index))
-            {
-                push_source_candidates_at(
-                    root,
-                    source_location,
-                    position,
-                    ElementPositionFilter::ExcludeClipped,
-                    &mut candidates,
-                );
-            }
-            repeated_instance = parent_sub_component.root.get().and_then(|root| root.upgrade());
+            owner = component.parent.upgrade().map(Pin::new);
         }
     }
     candidates
+}
+
+// The same element can have source ranges of different lengths.
+// Use only its file path and starting byte offset to group those entries.
+type SourceKey = (PathBuf, usize);
+type SourceElements = BTreeMap<SourceKey, SourceElement>;
+
+struct RuntimeItem {
+    instance: VRc<ItemTreeVTable, Instance>,
+    flat_index: usize,
+    owner: Pin<Rc<SubComponentInstance>>,
+    local_item_index: ItemInstanceIdx,
+    geometry: OnceCell<Option<HighlightedRect>>,
+}
+
+impl RuntimeItem {
+    fn as_item_rc(&self) -> ItemRc {
+        ItemRc::new(VRc::into_dyn(self.instance.clone()), self.flat_index as u32)
+    }
+
+    fn geometry(&self, root: &VRc<ItemTreeVTable, Instance>) -> Option<HighlightedRect> {
+        *self.geometry.get_or_init(|| item_geometry(&self.instance, root, self.flat_index))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum SourcePriority {
+    Item,
+    ComponentUse,
+    RepeatedElement,
+}
+
+struct SourceElement {
+    source_location: SourceLocation,
+    // Indices into `SourceOccurrences.items` for the runtime items representing this source element.
+    item_indices: Vec<usize>,
+    priority: SourcePriority,
+    // Maps an index in `SourceOccurrences.items` to its position in `component_positions()`, skipping empty geometry.
+    instance_indices: OnceCell<HashMap<usize, usize>>,
+}
+
+impl SourceElement {
+    fn new(
+        source_location: &SourceLocation,
+        item_indices: Vec<usize>,
+        priority: SourcePriority,
+    ) -> Self {
+        Self {
+            source_location: source_location.clone(),
+            item_indices,
+            priority,
+            instance_indices: OnceCell::new(),
+        }
+    }
+
+    fn occurrences<'a>(
+        &'a self,
+        items: &'a [RuntimeItem],
+        root: &'a VRc<ItemTreeVTable, Instance>,
+    ) -> impl Iterator<Item = (usize, HighlightedRect)> + 'a {
+        self.item_indices.iter().filter_map(move |&item_index| {
+            items[item_index].geometry(root).map(|geometry| (item_index, geometry))
+        })
+    }
+}
+
+struct SourceOccurrences<'a> {
+    root: &'a VRc<ItemTreeVTable, Instance>,
+    items: Vec<RuntimeItem>,
+    // Maps an owning `Instance` and its flat item index to an index in `items`.
+    item_indices: HashMap<(*const Instance, usize), usize>,
+    elements: SourceElements,
+    // Indices into `items` for the items whose geometry represents this component use or repeated row.
+    enclosing_elements: HashMap<*const SubComponentInstance, (SourceLocation, Vec<usize>)>,
+}
+
+impl<'a> SourceOccurrences<'a> {
+    fn new(root: &'a VRc<ItemTreeVTable, Instance>) -> Self {
+        i_slint_core::item_tree::ensure_item_tree_instantiated(&VRc::into_dyn(root.clone()));
+        let mut sources = Self {
+            root,
+            items: Vec::new(),
+            item_indices: HashMap::new(),
+            elements: BTreeMap::new(),
+            enclosing_elements: HashMap::new(),
+        };
+        let mut local_item_indices = HashMap::new();
+        for instance in all_instances(root) {
+            for (flat_index, entry) in instance.item_table.iter().enumerate() {
+                let Some((path, local_item_index)) = entry else { continue };
+                let mut owner = instance.root_sub_component.clone();
+                for &component_index in path {
+                    owner = owner.sub_components[component_index].clone();
+                }
+                let item_index = sources.items.len();
+                local_item_indices
+                    .insert((std::ptr::from_ref(&*owner), *local_item_index), item_index);
+                sources
+                    .item_indices
+                    .insert((std::ptr::from_ref(&*instance), flat_index), item_index);
+                sources.items.push(RuntimeItem {
+                    instance: instance.clone(),
+                    flat_index,
+                    owner,
+                    local_item_index: *local_item_index,
+                    geometry: OnceCell::new(),
+                });
+            }
+        }
+        sources.elements = sources.collect_sources(&root.root_sub_component, &local_item_indices);
+        for element in sources.elements.values_mut() {
+            element.item_indices.sort_unstable();
+            element.item_indices.dedup();
+        }
+        for (_, item_indices) in sources.enclosing_elements.values_mut() {
+            item_indices.sort_unstable();
+            item_indices.dedup();
+        }
+        sources
+    }
+
+    fn collect_sources(
+        &mut self,
+        component: &Pin<Rc<SubComponentInstance>>,
+        // Maps a sub-component instance and an index in its `items` array to an index in `SourceOccurrences.items`.
+        local_item_indices: &HashMap<(*const SubComponentInstance, ItemInstanceIdx), usize>,
+    ) -> SourceElements {
+        let definition = &component.compilation_unit.sub_components[component.sub_component_idx];
+        let mut elements = BTreeMap::new();
+        if let Some(debug_info) = &definition.debug_info {
+            for (local_item_index, debug_entries) in debug_info.items.iter_enumerated() {
+                let Some(&item_index) =
+                    local_item_indices.get(&(std::ptr::from_ref(&**component), local_item_index))
+                else {
+                    continue;
+                };
+                for debug_entry in debug_entries {
+                    merge_sources(
+                        &mut elements,
+                        [SourceElement::new(
+                            &debug_entry.source_location,
+                            vec![item_index],
+                            SourcePriority::Item,
+                        )],
+                    );
+                }
+            }
+        }
+
+        for (component_index, child) in component.sub_components.iter_enumerated() {
+            let child_elements = self.collect_sources(child, local_item_indices);
+            if let Some(source_location) = definition
+                .debug_info
+                .as_ref()
+                .and_then(|debug_info| debug_info.sub_component_use_sites.get(component_index))
+            {
+                let root_items = component_root_items(child, &child_elements, source_location);
+                self.enclosing_elements.insert(
+                    std::ptr::from_ref(&**child),
+                    (source_location.clone(), root_items.clone()),
+                );
+                merge_sources(
+                    &mut elements,
+                    [SourceElement::new(source_location, root_items, SourcePriority::ComponentUse)],
+                );
+            }
+            merge_sources(&mut elements, child_elements.into_values());
+        }
+
+        for (repeated_index, repeater) in component.repeaters.iter_enumerated() {
+            let source_location = definition
+                .debug_info
+                .as_ref()
+                .and_then(|debug_info| debug_info.repeated_elements.get(repeated_index));
+            let mut root_items = Vec::new();
+            for row in repeater.instances_vec() {
+                let row_elements =
+                    self.collect_sources(&row.root_sub_component, local_item_indices);
+                if let Some(source_location) = source_location {
+                    let row_root_items = component_root_items(
+                        &row.root_sub_component,
+                        &row_elements,
+                        source_location,
+                    );
+                    self.enclosing_elements.insert(
+                        std::ptr::from_ref(&*row.root_sub_component),
+                        (source_location.clone(), row_root_items.clone()),
+                    );
+                    root_items.extend(row_root_items);
+                }
+                merge_sources(&mut elements, row_elements.into_values());
+            }
+            if let Some(source_location) = source_location {
+                merge_sources(
+                    &mut elements,
+                    [SourceElement::new(
+                        source_location,
+                        root_items,
+                        SourcePriority::RepeatedElement,
+                    )],
+                );
+            }
+        }
+        elements
+    }
+
+    fn matching_occurrences(
+        &self,
+        path: &Path,
+        offset: u32,
+    ) -> impl Iterator<Item = (usize, HighlightedRect)> {
+        self.elements
+            .values()
+            .filter(|element| source_location_contains(&element.source_location, path, offset))
+            .flat_map(|element| element.occurrences(&self.items, self.root))
+            .collect::<BTreeMap<_, _>>()
+            .into_iter()
+    }
+
+    fn candidate_at(
+        &self,
+        source_location: &SourceLocation,
+        item_index: usize,
+        position: LogicalPoint,
+    ) -> Option<ElementCandidate> {
+        let element = self.elements.get(&source_key(source_location)?)?;
+        let instance_indices = element.instance_indices.get_or_init(|| {
+            element
+                .occurrences(&self.items, self.root)
+                .enumerate()
+                .map(|(instance_index, (item_index, _))| (item_index, instance_index))
+                .collect()
+        });
+        let &instance_index = instance_indices.get(&item_index)?;
+        let item = &self.items[item_index];
+        let geometry = item.geometry(self.root)?;
+        if !geometry.contains(position) || !item.as_item_rc().is_visible() {
+            return None;
+        }
+        Some(ElementCandidate {
+            source_location: element.source_location.clone(),
+            geometry,
+            instance_index,
+        })
+    }
+}
+
+fn source_key(source_location: &SourceLocation) -> Option<SourceKey> {
+    Some((source_location.source_file.as_ref()?.path().to_path_buf(), source_location.span.offset))
+}
+
+fn merge_sources(elements: &mut SourceElements, sources: impl IntoIterator<Item = SourceElement>) {
+    for source in sources {
+        let Some(key) = source_key(&source.source_location) else { continue };
+        let element = elements.entry(key).or_insert_with(|| {
+            SourceElement::new(&source.source_location, Vec::new(), source.priority)
+        });
+        if source.priority > element.priority {
+            *element = source;
+        } else if source.priority == element.priority {
+            element.item_indices.extend(source.item_indices);
+        }
+    }
+}
+
+fn component_root_items(
+    component: &SubComponentInstance,
+    elements: &SourceElements,
+    source_location: &SourceLocation,
+) -> Vec<usize> {
+    component.compilation_unit.sub_components[component.sub_component_idx]
+        .debug_info
+        .as_ref()
+        .and_then(|debug_info| source_key(&debug_info.source_location))
+        .or_else(|| source_key(source_location))
+        .and_then(|key| elements.get(&key))
+        .map(|element| element.item_indices.clone())
+        .unwrap_or_default()
 }
 
 /// Look up the `(ElementRc, index)` tuples whose `debug` entries cover
@@ -297,60 +516,6 @@ fn visit_element_for_position(
     for child in &children {
         visit_element_for_position(child, path, offset, result);
     }
-}
-
-fn find_flat_indices_for_item(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    target: &ItemTarget,
-) -> Vec<usize> {
-    let compilation_unit = &instance.root_sub_component.compilation_unit;
-    let root_sub_component_index = instance.root_sub_component.sub_component_idx;
-    let mut flat_indices = Vec::new();
-    for (flat_index, entry) in instance.item_table.iter().enumerate() {
-        let Some((sub_component_path, local_index)) = entry.as_ref() else { continue };
-        if *local_index != target.local_item_index {
-            continue;
-        }
-        if sub_component_index_at_path(
-            compilation_unit,
-            root_sub_component_index,
-            sub_component_path,
-        ) != target.sub_component_index
-        {
-            continue;
-        }
-        if !target.use_sites.iter().all(|use_site| {
-            path_passes_use_site(
-                compilation_unit,
-                root_sub_component_index,
-                sub_component_path,
-                *use_site,
-            )
-        }) {
-            continue;
-        }
-        flat_indices.push(flat_index);
-    }
-    flat_indices
-}
-
-fn path_passes_use_site(
-    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
-    mut current_sub_component_index: SubComponentIdx,
-    path: &[SubComponentInstanceIdx],
-    use_site: UseSite,
-) -> bool {
-    for &sub_component_instance_index in path {
-        if current_sub_component_index == use_site.parent_sub_component
-            && sub_component_instance_index == use_site.sub_component_instance_index
-        {
-            return true;
-        }
-        current_sub_component_index = compilation_unit.sub_components[current_sub_component_index]
-            .sub_components[sub_component_instance_index]
-            .ty;
-    }
-    false
 }
 
 /// `root` plus every instantiated repeated / conditional row instance
@@ -426,96 +591,6 @@ fn collect_runtime_items_front_to_back(
     }
 }
 
-/// Walk the LLR sub_components tree to resolve `path` into its concrete
-/// [`SubComponentIdx`].
-fn sub_component_index_at_path(
-    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
-    root_sub_component_index: SubComponentIdx,
-    path: &[SubComponentInstanceIdx],
-) -> SubComponentIdx {
-    let mut current_sub_component_index = root_sub_component_index;
-    for &sub_component_instance_index in path {
-        let nested_sub_component = &compilation_unit.sub_components[current_sub_component_index]
-            .sub_components[sub_component_instance_index];
-        current_sub_component_index = nested_sub_component.ty;
-    }
-    current_sub_component_index
-}
-
-fn push_runtime_item_candidate(
-    root: &VRc<ItemTreeVTable, Instance>,
-    instance: &VRc<ItemTreeVTable, Instance>,
-    flat_index: usize,
-    geometry: HighlightedRect,
-    source_location: &i_slint_compiler::diagnostics::SourceLocation,
-    candidates: &mut Vec<ElementCandidate>,
-) {
-    let Some(source_file) = source_location.source_file.as_ref() else { return };
-    let Ok(source_offset) = u32::try_from(source_location.span.offset) else { return };
-    let Some(instance_index) =
-        items_by_source(root, source_file.path(), source_offset, SourceMatch::Start)
-            .iter()
-            .position(|(source_instance, source_flat_index)| {
-                VRc::ptr_eq(source_instance, instance) && *source_flat_index == flat_index
-            })
-    else {
-        return;
-    };
-    push_candidate(source_location, geometry, instance_index, candidates);
-}
-
-fn push_source_candidates_at(
-    root: &VRc<ItemTreeVTable, Instance>,
-    source_location: &i_slint_compiler::diagnostics::SourceLocation,
-    position: LogicalPoint,
-    filter: ElementPositionFilter,
-    candidates: &mut Vec<ElementCandidate>,
-) {
-    let Some(source_file) = source_location.source_file.as_ref() else { return };
-    let Ok(source_offset) = u32::try_from(source_location.span.offset) else { return };
-    for (instance_index, (instance, flat_index)) in
-        items_by_source(root, source_file.path(), source_offset, SourceMatch::Start)
-            .into_iter()
-            .enumerate()
-    {
-        if filter == ElementPositionFilter::ExcludeClipped {
-            let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
-            if !item.is_visible() {
-                continue;
-            }
-        }
-        let Some(geometry) = item_geometry(&instance, root, flat_index) else {
-            continue;
-        };
-        if geometry.contains(position) {
-            push_candidate(source_location, geometry, instance_index, candidates);
-        }
-    }
-}
-
-fn push_candidate(
-    source_location: &i_slint_compiler::diagnostics::SourceLocation,
-    geometry: HighlightedRect,
-    instance_index: usize,
-    candidates: &mut Vec<ElementCandidate>,
-) {
-    let Some(source_file) = source_location.source_file.as_ref() else { return };
-    if candidates.iter().any(|candidate| {
-        candidate.instance_index == instance_index
-            && candidate.source_location.span.offset == source_location.span.offset
-            && candidate.source_location.source_file.as_ref().is_some_and(|candidate_source_file| {
-                candidate_source_file.path() == source_file.path()
-            })
-    }) {
-        return;
-    }
-    candidates.push(ElementCandidate {
-        source_location: source_location.clone(),
-        geometry,
-        instance_index,
-    });
-}
-
 fn item_geometry(
     instance: &VRc<ItemTreeVTable, Instance>,
     root: &VRc<ItemTreeVTable, Instance>,
@@ -589,37 +664,6 @@ fn are_perpendicular(x: LogicalVector, y: LogicalVector) -> bool {
     squared_lengths == 0. || dot * dot < 1.0e-6 * squared_lengths
 }
 
-fn positions_by_sources<'a>(
-    root: &VRc<ItemTreeVTable, Instance>,
-    sources: impl IntoIterator<Item = (&'a Path, u32, SourceMatch)>,
-    filter: ElementPositionFilter,
-) -> Vec<HighlightedRect> {
-    let mut matching_items = Vec::new();
-    for (target_path, target_offset, source_match) in sources {
-        for (instance, flat_index) in
-            items_by_source(root, target_path, target_offset, source_match)
-        {
-            if !matching_items.iter().any(|(existing_instance, existing_index)| {
-                VRc::ptr_eq(existing_instance, &instance) && *existing_index == flat_index
-            }) {
-                matching_items.push((instance, flat_index));
-            }
-        }
-    }
-    matching_items
-        .into_iter()
-        .filter_map(|(instance, flat_index)| {
-            if filter == ElementPositionFilter::ExcludeClipped {
-                let item = ItemRc::new(VRc::into_dyn(instance.clone()), flat_index as u32);
-                if !item.is_visible() {
-                    return None;
-                }
-            }
-            item_geometry(&instance, root, flat_index)
-        })
-        .collect()
-}
-
 fn item_corner_radii(item: Pin<i_slint_core::items::ItemRef<'_>>) -> CornerRadii {
     use i_slint_core::items::{BasicBorderRectangle, BorderRectangle, ItemRef};
     if let Some(rect) = ItemRef::downcast_pin::<BorderRectangle>(item) {
@@ -642,249 +686,43 @@ fn item_corner_radii(item: Pin<i_slint_core::items::ItemRef<'_>>) -> CornerRadii
     }
 }
 
+#[cfg(all(test, feature = "internal"))]
 fn items_by_source(
     root: &VRc<ItemTreeVTable, Instance>,
     target_path: &Path,
     target_offset: u32,
-    source_match: SourceMatch,
+    _source_match: SourceMatch,
 ) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
-    let compilation_unit = root.root_sub_component.compilation_unit.clone();
-    let mut targets = Vec::new();
-    collect_item_targets(
-        &compilation_unit,
-        target_path,
-        target_offset,
-        source_match,
-        &[],
-        None,
-        &[],
-        &mut targets,
-    );
-    let mut results = Vec::new();
-    for instance in all_instances(root) {
-        for target in &targets {
-            if target.repeated_element_use.is_some_and(|repeated_element_use| {
-                !instance_belongs_to_repeated_element(&instance, repeated_element_use)
-            }) {
-                continue;
-            }
-            for flat_index in find_flat_indices_for_item(&instance, target) {
-                if !results.iter().any(|(existing_instance, existing_index)| {
-                    VRc::ptr_eq(existing_instance, &instance) && *existing_index == flat_index
-                }) {
-                    results.push((instance.clone(), flat_index));
-                }
-            }
-        }
-    }
-    results
+    let sources = SourceOccurrences::new(root);
+    sources
+        .elements
+        .get(&(target_path.to_path_buf(), target_offset as usize))
+        .into_iter()
+        .flat_map(|element| &element.item_indices)
+        .map(|&item_index| {
+            let item = &sources.items[item_index];
+            (item.instance.clone(), item.flat_index)
+        })
+        .collect()
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg(all(test, feature = "internal"))]
 enum SourceMatch {
-    Contains,
     Start,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-struct UseSite {
-    parent_sub_component: SubComponentIdx,
-    sub_component_instance_index: SubComponentInstanceIdx,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-struct RepeatedElementUse {
-    parent_sub_component: SubComponentIdx,
-    repeated_element_index: RepeatedElementIdx,
-}
-
-#[derive(Clone, Eq, PartialEq)]
-struct ItemTarget {
-    sub_component_index: SubComponentIdx,
-    local_item_index: ItemInstanceIdx,
-    use_sites: Vec<UseSite>,
-    repeated_element_use: Option<RepeatedElementUse>,
-}
-
-fn collect_item_targets(
-    compilation_unit: &i_slint_compiler::llr::CompilationUnit,
+fn source_location_contains(
+    source_location: &SourceLocation,
     target_path: &Path,
     target_offset: u32,
-    source_match: SourceMatch,
-    use_sites: &[UseSite],
-    repeated_element_use: Option<RepeatedElementUse>,
-    ignored_repeated_elements: &[RepeatedElementUse],
-    targets: &mut Vec<ItemTarget>,
-) {
-    let matching_repeated_elements = compilation_unit
-        .sub_components
-        .iter_enumerated()
-        .flat_map(|(sub_component_index, sub_component)| {
-            sub_component.debug_info.iter().flat_map(move |debug_info| {
-                debug_info.repeated_elements.iter_enumerated().filter_map(
-                    move |(repeated_element_index, source_location)| {
-                        source_location_matches(
-                            source_location,
-                            target_path,
-                            target_offset,
-                            source_match,
-                        )
-                        .then_some(RepeatedElementUse {
-                            parent_sub_component: sub_component_index,
-                            repeated_element_index,
-                        })
-                        .filter(|matching_repeated_element| {
-                            !ignored_repeated_elements.contains(matching_repeated_element)
-                        })
-                    },
-                )
-            })
-        })
-        .collect::<Vec<_>>();
-
-    if !matching_repeated_elements.is_empty() {
-        for child_repeated_element_use in matching_repeated_elements.iter().copied() {
-            collect_item_targets(
-                compilation_unit,
-                target_path,
-                target_offset,
-                source_match,
-                use_sites,
-                Some(child_repeated_element_use),
-                &matching_repeated_elements,
-                targets,
-            );
-        }
-        return;
-    }
-
-    let matching_use_sites = compilation_unit
-        .sub_components
-        .iter_enumerated()
-        .flat_map(|(sub_component_index, sub_component)| {
-            sub_component.debug_info.iter().flat_map(move |debug_info| {
-                debug_info.sub_component_use_sites.iter_enumerated().filter_map(
-                    move |(sub_component_instance_index, source_location)| {
-                        source_location_matches(
-                            source_location,
-                            target_path,
-                            target_offset,
-                            source_match,
-                        )
-                        .then_some((sub_component_index, sub_component_instance_index))
-                    },
-                )
-            })
-        })
-        .collect::<Vec<_>>();
-
-    if !matching_use_sites.is_empty() {
-        for (sub_component_index, sub_component_instance_index) in matching_use_sites {
-            let sub_component = &compilation_unit.sub_components[sub_component_index];
-            let child_sub_component_index =
-                sub_component.sub_components[sub_component_instance_index].ty;
-            let Some(child_debug_info) =
-                compilation_unit.sub_components[child_sub_component_index].debug_info.as_ref()
-            else {
-                continue;
-            };
-            let Some(child_source_file) = child_debug_info.source_location.source_file.as_ref()
-            else {
-                continue;
-            };
-            let Ok(child_source_offset) =
-                u32::try_from(child_debug_info.source_location.span.offset)
-            else {
-                continue;
-            };
-            let child_ignored_repeated_elements = if child_source_file.path() == target_path
-                && child_source_offset == target_offset
-            {
-                ignored_repeated_elements
-            } else {
-                &[]
-            };
-            let mut child_use_sites = use_sites.to_vec();
-            let child_use_site =
-                UseSite { parent_sub_component: sub_component_index, sub_component_instance_index };
-            if child_use_sites.contains(&child_use_site) {
-                continue;
-            }
-            child_use_sites.push(child_use_site);
-            collect_item_targets(
-                compilation_unit,
-                child_source_file.path(),
-                child_source_offset,
-                SourceMatch::Start,
-                &child_use_sites,
-                repeated_element_use,
-                child_ignored_repeated_elements,
-                targets,
-            );
-        }
-        return;
-    }
-
-    for (sub_component_index, sub_component) in compilation_unit.sub_components.iter_enumerated() {
-        let Some(debug_info) = sub_component.debug_info.as_ref() else { continue };
-
-        for (local_item_index, item_debug_entries) in debug_info.items.iter_enumerated() {
-            if item_debug_entries.iter().any(|item_debug_info| {
-                source_location_matches(
-                    &item_debug_info.source_location,
-                    target_path,
-                    target_offset,
-                    source_match,
-                )
-            }) {
-                let target = ItemTarget {
-                    sub_component_index,
-                    local_item_index,
-                    use_sites: use_sites.to_vec(),
-                    repeated_element_use,
-                };
-                if !targets.contains(&target) {
-                    targets.push(target);
-                }
-            }
-        }
-    }
-}
-
-fn instance_belongs_to_repeated_element(
-    instance: &VRc<ItemTreeVTable, Instance>,
-    repeated_element_use: RepeatedElementUse,
-) -> bool {
-    let Some((parent_sub_component, repeated_element_index)) =
-        instance.root_sub_component.repeated_in.get()
-    else {
-        return false;
-    };
-    *repeated_element_index == repeated_element_use.repeated_element_index
-        && parent_sub_component.upgrade().is_some_and(|parent_sub_component| {
-            parent_sub_component.sub_component_idx == repeated_element_use.parent_sub_component
-        })
-}
-
-fn source_location_matches(
-    source_location: &i_slint_compiler::diagnostics::SourceLocation,
-    target_path: &Path,
-    target_offset: u32,
-    source_match: SourceMatch,
 ) -> bool {
     let Some(source_file) = source_location.source_file.as_ref() else { return false };
     if source_file.path() != target_path {
         return false;
     }
     let target_offset = target_offset as usize;
-    match source_match {
-        SourceMatch::Contains => {
-            source_location.span.offset <= target_offset
-                && target_offset
-                    < source_location.span.offset.saturating_add(source_location.span.length)
-        }
-        SourceMatch::Start => source_location.span.offset == target_offset,
-    }
+    source_location.span.offset <= target_offset
+        && target_offset < source_location.span.offset.saturating_add(source_location.span.length)
 }
 
 #[cfg(all(test, feature = "internal"))]
