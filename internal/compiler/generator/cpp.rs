@@ -3283,16 +3283,21 @@ fn generate_grid_layout_input_decl(
                 }
                 llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
-                    // Let the inner cell report its own col/row/colspan/rowspan.
+                    // Let the inner cell report its own col/row/colspan/rowspan. An empty slot
+                    // keeps its position, like in layout_item_info, and is auto-placed.
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
+                         for (std::size_t inner_idx = 0; inner_idx < this->{inner_rep_id}.len(); ++inner_idx) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 if (auto *inner = this->{inner_rep_id}.typed_instance_at(inner_idx)) {{\n\
+                                     inner->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 }} else {{\n\
+                                     result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                                 }}\n\
                              }}\n\
                              ++write_idx;\n\
-                         }});\n"
+                         }}\n"
                     )
                     .unwrap();
                 }

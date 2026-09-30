@@ -1612,10 +1612,17 @@ fn push_repeater_grid_input_data(
                         // Let each inner cell report its own
                         // col/row/colspan/rowspan via its
                         // `grid_layout_input_for_repeated` expression.
-                        for inner_inst in inner_rep.instances_vec() {
+                        // An empty slot keeps its position, like in
+                        // `layout_item_info`, and is auto-placed.
+                        for inner_idx in 0..inner_rep.range().len() {
                             if written >= step {
                                 break;
                             }
+                            let Some(inner_inst) = inner_rep.instance_at(inner_idx) else {
+                                cells.push(auto_grid_input_data());
+                                written += 1;
+                                continue;
+                            };
                             for mut v in eval_grid_input_for_repeated(
                                 &inner_inst.root_sub_component,
                                 written == 0 && current_new_row,
