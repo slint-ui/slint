@@ -24,6 +24,35 @@ use pin_project::pin_project;
 
 type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 
+/// Represents the relationship between model row and instance collection index
+/// of an element
+/// This is required for components like the listview. The listview does not instantiate all
+/// items at once but instantiates only the visible once. If the current item is in the center
+/// of the screen we have in the instance list a few items before the current item and a few after
+/// `instance_index` indicates the position of the current item in this instance list
+/// while `row` is the index of the current item in the complete model
+#[derive(Default, Clone, Debug)]
+struct ItemIndexRelationShip {
+    /// The position of the item in the model
+    row: usize,
+    /// The index of the item in the instances collection
+    instance_index: usize,
+}
+
+impl ItemIndexRelationShip {
+    /// get the instance index from the model index `row`
+    fn get_instance_index(&self, row: usize) -> usize {
+        self.instance_index.wrapping_add(row.wrapping_sub(self.row))
+    }
+
+    fn get_instance_index_opt(&self, row: usize) -> Option<usize> {
+        row.checked_sub(self.row).map_or_else(
+            || self.instance_index.checked_add(row).and_then(|res| res.checked_sub(self.row)),
+            |res| self.instance_index.checked_add(res),
+        )
+    }
+}
+
 /// ItemTree that can be instantiated by a repeater.
 pub trait RepeatedItemTree:
     crate::item_tree::ItemTree + vtable::HasStaticVTable<ItemTreeVTable> + 'static
@@ -126,6 +155,52 @@ struct RepeaterInner<C: RepeatedItemTree> {
     layout_state: RepeaterLayoutState,
 }
 
+impl<C: RepeatedItemTree> RepeaterInner<C> {
+    fn current_row(&self) -> usize {
+        self.layout_state.item_index.row
+    }
+
+    /// Set the row to which layout state should point
+    fn set_current_row(&mut self, row: usize) {
+        if row == self.layout_state.item_index.row {
+            return;
+        } else if row > self.layout_state.item_index.row {
+            let new_instance_index = self.layout_state.item_index.instance_index
+                + (row - self.layout_state.item_index.row);
+
+            let number_new =
+                new_instance_index.saturating_sub(self.instances.len().saturating_sub(1));
+            if number_new > 0 {
+                // Append dirty elements
+                self.instances.splice(
+                    self.instances.len()..self.instances.len(),
+                    core::iter::repeat_n((RepeatedInstanceState::Dirty, None), number_new),
+                );
+            }
+
+            self.layout_state.item_index.instance_index = new_instance_index;
+        } else {
+            let diff = self.layout_state.item_index.row - row;
+            if diff <= self.layout_state.item_index.instance_index {
+                // The instances already exist so we don't have to add any new
+                self.layout_state.item_index.instance_index -= diff;
+            } else {
+                // Prepend dirty items
+                self.instances.splice(
+                    0..0,
+                    core::iter::repeat_n(
+                        (RepeatedInstanceState::Dirty, None),
+                        diff - self.layout_state.item_index.instance_index,
+                    ),
+                );
+                self.layout_state.item_index.instance_index = 0;
+            }
+        }
+
+        self.layout_state.item_index.row = row;
+    }
+}
+
 impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
     fn default() -> Self {
         RepeaterInner { instances: Default::default(), layout_state: Default::default() }
@@ -136,14 +211,14 @@ impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
 #[derive(Default, Clone, Debug)]
 #[repr(C)]
 pub struct RepeaterLayoutState {
-    /// The model row index of the first instance in the collection.
-    pub offset: usize,
+    /// The relation between the model row index and the instance collection index
+    pub item_index: ItemIndexRelationShip,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The content_y value from the previous layout pass.
     /// It is used to detect if we are scrolling up or down
     pub previous_content_y: Coord,
-    /// The y position of the item at `offset`.
+    /// The y position of the item at `item_index`.
     pub anchor_y: Coord,
 }
 
@@ -155,6 +230,21 @@ trait RepeaterInstanceOps {
 
     /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
     fn splice(&mut self, position: usize, remove: usize, add: usize);
+
+    /// Clears the instance collection
+    fn clear(&mut self) {
+        self.splice(0, self.len(), 0);
+    }
+
+    /// Prepends `add` number of items before the first item
+    fn prepend(&mut self, add: usize) {
+        self.splice(0, 0, add);
+    }
+
+    /// inserts `add` items at index `index`
+    fn insert(&mut self, index: usize, add: usize) {
+        self.splice(index, 0, add);
+    }
 
     /// If dirty, ensure the instance is created, initialized, and updated
     /// for `row`. Returns `true` if freshly created.
@@ -309,15 +399,15 @@ fn update_visible_instances(
             total_height / count as Coord
         } else {
             // No items exist yet. Create one to measure.
-            state.offset = state.offset.min(row_count - 1);
+            state.item_index.row = state.item_index.row.min(row_count - 1);
             ops.splice(0, ops.len(), 1);
-            changed |= ops.ensure_updated(0, state.offset);
+            changed |= ops.ensure_updated(0, state.item_index.row);
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
 
-    if state.offset >= row_count {
-        state.offset = row_count - 1;
+    if state.item_index.row >= row_count {
+        state.item_index.row = row_count - 1;
     }
 
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
@@ -330,12 +420,13 @@ fn update_visible_instances(
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
-        state.offset = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
+        state.item_index.row =
+            ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
+        (state.item_index.row, 0 as Coord)
     } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + content_y_value;
-        let mut new_off = state.offset;
+        let mut new_off = state.item_index.row;
         for i in 0..ops.len() {
             changed |= ops.ensure_updated(i, new_off);
             let h = ops.height(i).unwrap_or(0 as Coord);
@@ -348,15 +439,15 @@ fn update_visible_instances(
         (new_off, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + content_y_value)
+        (state.item_index.row, first_item_y + content_y_value)
     };
 
     let mut loop_count = 0;
     loop {
         // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.offset && new_offset_y > 0 as Coord {
+        while new_offset > state.item_index.row && new_offset_y > 0 as Coord {
             new_offset -= 1;
-            new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
+            new_offset_y -= ops.height(new_offset - state.item_index.row).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
@@ -368,14 +459,16 @@ fn update_visible_instances(
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            state.offset = new_offset;
+            state.item_index.row = new_offset;
         }
-        debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
+        debug_assert!(
+            new_offset >= state.item_index.row && new_offset <= state.item_index.row + ops.len()
+        );
 
         // Layout items until we fill the view, starting with already-instantiated ones.
         let mut y = new_offset_y;
         let mut idx = new_offset;
-        let instances_begin = new_offset - state.offset;
+        let instances_begin = new_offset - state.item_index.row;
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
@@ -406,10 +499,10 @@ fn update_visible_instances(
         }
 
         // Clean up instances that are not shown.
-        if new_offset != state.offset {
-            let remove_count = new_offset - state.offset;
+        if new_offset != state.item_index.row {
+            let remove_count = new_offset - state.item_index.row;
             ops.splice(0, remove_count, 0);
-            state.offset = new_offset;
+            state.item_index.row = new_offset;
         }
         let keep = idx - new_offset;
         if ops.len() > keep {
@@ -422,7 +515,7 @@ fn update_visible_instances(
 
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
-        state.anchor_y = state.cached_item_height * state.offset as Coord;
+        state.anchor_y = state.cached_item_height * state.item_index.row as Coord;
         props.content_height_set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         props.content_width_set(LogicalLength::new(content_width_value));
         let new_content_y = -state.anchor_y + new_offset_y;
@@ -457,11 +550,21 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
         self.inner.borrow().instances.len()
     }
 
+    /// Splices the instances from the data
     fn splice(&mut self, position: usize, remove: usize, add: usize) {
-        self.inner.borrow_mut().instances.splice(
+        let mut inner = self.inner.borrow_mut();
+        inner.instances.splice(
             position..position + remove,
             core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
         );
+
+        let diff = inner.layout_state.item_index.row - inner.layout_state.item_index.instance_index;
+        let position_instance = position + diff;
+
+        if position_instance < inner.layout_state.item_index.instance_index {
+            inner.layout_state.item_index.instance_index -= remove;
+            inner.layout_state.item_index.instance_index += add;
+        }
     }
 
     fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
@@ -533,7 +636,9 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
+        if let Some(c) =
+            inner.instances.get_mut(row.wrapping_sub(inner.layout_state.item_index.row))
+        {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
@@ -546,25 +651,37 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
     /// Notify the peers that rows were added
-    fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
+    fn row_added(self: Pin<&Self>, mut index: usize, count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
-                // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset += count;
-                self.is_dirty.set(true);
-                for c in inner.instances.iter_mut() {
-                    c.0 = RepeatedInstanceState::Dirty;
-                }
-                return;
-            }
-            count -= inner.layout_state.offset - index;
-            index = 0;
-        } else {
-            index -= inner.layout_state.offset;
-        }
-        if count == 0 || index > inner.instances.len() {
+        if count == 0 {
             return;
+        }
+        if inner.instances.len() == 0 {
+            inner.layout_state.item_index.row = 0;
+            inner.layout_state.item_index.instance_index = 0;
+            inner
+                .instances
+                .splice(0..0, core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count));
+            self.is_dirty.set(true);
+            for c in inner.instances.iter_mut() {
+                c.0 = RepeatedInstanceState::Dirty;
+            }
+            return;
+        } else if index <= inner.layout_state.item_index.row {
+            // Prepend
+            inner.layout_state.item_index.row += count;
+            inner.layout_state.item_index.instance_index += count;
+            inner.instances.splice(
+                index..index,
+                core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
+            );
+            self.is_dirty.set(true);
+            for c in inner.instances.iter_mut() {
+                c.0 = RepeatedInstanceState::Dirty;
+            }
+            return;
+        } else {
+            index -= inner.layout_state.item_index.row;
         }
         self.is_dirty.set(true);
         inner.instances.splice(
@@ -577,35 +694,81 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
     /// Notify the peers that rows were removed
-    fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
-                // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset -= count;
-                self.is_dirty.set(true);
-                for c in inner.instances.iter_mut() {
-                    c.0 = RepeatedInstanceState::Dirty;
-                }
-                return;
-            }
-            count -= inner.layout_state.offset - index;
-            inner.layout_state.offset = index;
-            index = 0;
-        } else {
-            index -= inner.layout_state.offset;
-        }
-        if count == 0 || index >= inner.instances.len() {
+        if count == 0 {
             return;
         }
-        if (index + count) > inner.instances.len() {
-            count = inner.instances.len() - index;
-        }
-        self.is_dirty.set(true);
-        inner.instances.drain(index..(index + count));
-        for c in inner.instances[index..].iter_mut() {
-            // Because all the indexes are dirty
-            c.0 = RepeatedInstanceState::Dirty;
+
+        if index > inner.layout_state.item_index.row {
+            // All indices are after our current row
+
+            self.is_dirty.set(true);
+            let start_instance_index = inner.layout_state.item_index.instance_index
+                + (index - inner.layout_state.item_index.row);
+            let instance_length = inner.instances.len();
+            if start_instance_index < instance_length {
+                inner.instances.drain(
+                    start_instance_index..(start_instance_index + count).min(instance_length),
+                );
+                if start_instance_index < inner.instances.len() {
+                    // Make all remaining dirty
+                    for c in inner.instances[start_instance_index..].iter_mut() {
+                        c.0 = RepeatedInstanceState::Dirty;
+                    }
+                }
+            }
+        } else if index + (count - 1) < inner.layout_state.item_index.row {
+            // entirely before the current row
+            self.is_dirty.set(true);
+
+            // All items from the first removed item are dirty because they do not match anymore with the row
+            let start_instance_index = inner
+                .layout_state
+                .item_index
+                .instance_index
+                .saturating_sub(inner.layout_state.item_index.row - index);
+            let instance_length = inner.instances.len();
+            if start_instance_index < instance_length {
+                inner.instances.drain(
+                    start_instance_index..(start_instance_index + count).min(instance_length),
+                );
+                if start_instance_index < inner.instances.len() {
+                    // Make all remaining dirty
+                    for c in inner.instances[start_instance_index..].iter_mut() {
+                        c.0 = RepeatedInstanceState::Dirty;
+                    }
+                }
+            }
+            inner.layout_state.item_index.instance_index =
+                inner.layout_state.item_index.instance_index.saturating_sub(count);
+            inner.layout_state.item_index.row -= count;
+        } else {
+            // Removing also the current item
+
+            // We removed all from index on. So index will occupy then the position
+
+            self.is_dirty.set(true);
+            let start_instance_index = inner
+                .layout_state
+                .item_index
+                .instance_index
+                .saturating_sub(inner.layout_state.item_index.row - index);
+            let instance_length = inner.instances.len();
+            if start_instance_index < instance_length {
+                inner.instances.drain(
+                    start_instance_index..(start_instance_index + count).min(instance_length),
+                );
+                if start_instance_index < inner.instances.len() {
+                    // Make all remaining dirty
+                    for c in inner.instances[start_instance_index..].iter_mut() {
+                        c.0 = RepeatedInstanceState::Dirty;
+                    }
+                }
+            }
+
+            inner.layout_state.item_index.instance_index = start_instance_index;
+            inner.layout_state.item_index.row = index;
         }
     }
 
@@ -660,6 +823,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self.data().project_ref().instance_generation.register_as_dependency();
     }
 
+    /// Get the model of the repeater
+    /// If the model is dirty the tracker to this repeater will be set up
     fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
         let model = self.data().project_ref().model;
 
@@ -686,7 +851,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let model = self.model();
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
-            let offset = self.0.inner.borrow().layout_state.offset;
+            let offset = self.0.inner.borrow().layout_state.item_index.row;
             let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
@@ -842,7 +1007,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         // binding can run user code
         let (offset, instances): (usize, Vec<_>) = {
             let inner = self.0.inner.borrow();
-            (inner.layout_state.offset, inner.instances.iter().map(|c| c.1.clone()).collect())
+            (
+                inner.layout_state.item_index.row,
+                inner.instances.iter().map(|c| c.1.clone()).collect(),
+            )
         };
         for (i, c) in instances.iter().enumerate() {
             let z = c.as_ref().and_then(|c| c.as_pin_ref().z_order()).unwrap_or_default();
@@ -862,8 +1030,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
         core::ops::Range {
-            start: inner.layout_state.offset,
-            end: inner.layout_state.offset + inner.instances.len(),
+            start: inner.layout_state.item_index.row,
+            end: inner.layout_state.item_index.row + inner.instances.len(),
         }
     }
 
@@ -871,7 +1039,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
+        inner
+            .instances
+            .get(index.checked_sub(inner.layout_state.item_index.row)?)
+            .and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -1099,5 +1270,828 @@ mod ffi {
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
         update_visible_instances(ops, state, row_count, &props, listview_width, listview_height)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SharedString;
+    use crate::accessibility::{
+        AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    };
+    use crate::cursor::MouseCursorInner;
+    use crate::input::{
+        FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
+        KeyEventResult, MouseEvent,
+    };
+    use crate::item_tree::{
+        IndexRange, ItemTree, ItemTreeNode, ItemTreeWeak, ItemVisitorVTable, ItemWeak,
+        VisitChildrenResult,
+    };
+    use crate::items::{AccessibleRole, ItemRc, ItemVTable, RenderingResult};
+    use crate::layout::LayoutInfo;
+    use crate::lengths::{LogicalRect, LogicalSize};
+    use crate::model::VecModel;
+    use crate::slice::Slice;
+    use crate::window::{WindowAdapter, WindowAdapterRc};
+    use alloc::rc::Rc;
+    use core::sync::atomic;
+    use std::vec;
+    use vtable::VRc;
+
+    type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
+
+    // Simple Item used in the tests for mocking
+    #[derive(Default)]
+    struct SimpleItem {
+        value: crate::model::Cell<i32>,
+        instantiated: bool,
+    }
+    crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for SimpleItem);
+    impl RepeatedItemTree for SimpleItem {
+        type Data = i32;
+
+        fn update(&self, _index: usize, data: Self::Data) {
+            self.value.set(data);
+        }
+    }
+    impl SimpleItem {
+        fn new(data: i32) -> VRc<ItemTreeVTable, Self> {
+            let mut _self = Self::default();
+            _self.value.set(data);
+            let self_rc = VRc::new(_self);
+            self_rc
+        }
+    }
+
+    // Get value stored in SimpleItem
+    fn get_instance_inner_value(
+        inner: &core::cell::Ref<'_, RepeaterInner<SimpleItem>>,
+        index: usize,
+    ) -> i32 {
+        inner.instances[index].1.as_ref().unwrap().as_pin_ref().value.get()
+    }
+
+    /// Remove elements from the model using the repeater op
+    #[test]
+    fn test_repeater_ops_splice() {
+        static COUNTER: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+
+        let repeater: Repeater<SimpleItem> = Repeater::default();
+        let repeater = core::pin::pin!(repeater);
+
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(vec![1, 2, 3, 4, 5, 6, 7, 8]));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        repeater.as_ref().ensure_updated(|| {
+            let index = COUNTER.fetch_add(-1, atomic::Ordering::Relaxed);
+            SimpleItem::new(index)
+        });
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 8);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_eq!(index as i32 + 1, item.as_ref().unwrap().value.get());
+                assert_ne!(*state, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        {
+            // Remove after current row -> current row still is the same
+            let mut ops = RustRepeaterOps {
+                inner: &repeater.0.inner,
+                init: &|| {
+                    let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+                    SimpleItem::new(index)
+                },
+                model: &ModelRc::from(model.clone()),
+            };
+            // Remove 4 at index 4
+            ops.splice(4, 4, 0);
+
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 4);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_eq!(index as i32 + 1, item.as_ref().unwrap().value.get());
+                assert_ne!(*state, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        {
+            // Remove current row
+            let mut ops = RustRepeaterOps {
+                inner: &repeater.0.inner,
+                init: &|| {
+                    let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+                    SimpleItem::new(index)
+                },
+                model: &ModelRc::from(model.clone()),
+            };
+            // Remove first 2 items
+            ops.splice(0, 2, 0);
+
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(inner.layout_state.item_index.row, 0, "Didn't change");
+            assert_eq!(inner.layout_state.item_index.instance_index, 0, "Didn't change");
+            const OFFSET: i32 = 2; // First instance must now be the element with value 3
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_eq!(index as i32 + 1 + OFFSET, item.as_ref().unwrap().value.get());
+                assert_ne!(*state, RepeatedInstanceState::Dirty);
+            }
+        }
+    }
+
+    #[test]
+    fn test_repeater() {
+        let repeater: Repeater<SimpleItem> = Repeater::default();
+        let repeater = core::pin::pin!(repeater);
+
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(vec![1, 2, 3, 4, 5, 6, 7, 8]));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 8);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_eq!(index as i32 + 1, item.as_ref().unwrap().value.get());
+                assert_ne!(*state, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        // All items are there already
+        repeater.0.inner.borrow_mut().set_current_row(2);
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 8);
+            assert_eq!(inner.layout_state.item_index.row, 2);
+            assert_eq!(inner.layout_state.item_index.instance_index, 2);
+            // None are dirty
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_eq!(index as i32 + 1, item.as_ref().unwrap().value.get());
+                assert_ne!(*state, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        {
+            // Remove multiple instances so we have less
+            let mut ops = RustRepeaterOps {
+                inner: &repeater.0.inner,
+                init: &|| SimpleItem::new(-1),
+                model: &ModelRc::from(model.clone()),
+            };
+            ops.splice(4, 4, 0);
+
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 4);
+            assert_eq!(inner.layout_state.item_index.row, 2);
+            assert_eq!(inner.layout_state.item_index.instance_index, 2);
+        }
+
+        // We are past the last instance so new instances must be created
+        repeater.0.inner.borrow_mut().set_current_row(6);
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 7);
+            assert_eq!(inner.layout_state.item_index.row, 6);
+            assert_eq!(inner.layout_state.item_index.instance_index, 6);
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                if index < 4 {
+                    assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                    assert_eq!(index as i32 + 1, item.as_ref().unwrap().value.get());
+                } else {
+                    assert_eq!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                }
+            }
+        }
+
+        const REMOVE_COUNT: usize = 2;
+        {
+            // Remove first 3 instances -> current row changes to still point to the same item
+            let mut ops = RustRepeaterOps {
+                inner: &repeater.0.inner,
+                init: &|| SimpleItem::new(-1),
+                model: &ModelRc::from(model.clone()),
+            };
+            ops.splice(0, REMOVE_COUNT, 0);
+
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 7 - REMOVE_COUNT);
+            assert_eq!(inner.layout_state.item_index.row, 6);
+            assert_eq!(inner.layout_state.item_index.instance_index, 6 - REMOVE_COUNT);
+
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                if index < 2 {
+                    assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                    assert_eq!(
+                        index as i32 + 1 + REMOVE_COUNT as i32,
+                        item.as_ref().unwrap().value.get(),
+                        "Index: {index}"
+                    );
+                } else {
+                    assert_eq!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                }
+            }
+        }
+
+        // Set to a row which is not yet instantiated because we removed before so new items must be created
+        // we removed previously 2 elements, therefore there are 4 items left in the instance and the 4th is row 6
+        // to get to row zero we have to add 2 elements (4 - 6 = -2)
+        const ADDED_COUNT: usize = 2;
+        repeater.0.inner.borrow_mut().set_current_row(0);
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 7 - REMOVE_COUNT + ADDED_COUNT);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(
+                inner.layout_state.item_index.instance_index, 0,
+                "New items got instantiated to be able to represent row 0"
+            );
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                if index == 2 || index == 3 {
+                    assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                    assert_eq!(
+                        index as i32 + 1 + REMOVE_COUNT as i32 - ADDED_COUNT as i32,
+                        item.as_ref().unwrap().value.get(),
+                        "Index: {index}"
+                    );
+                } else {
+                    assert_eq!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_adding_element() {
+        let repeater: Repeater<SimpleItem> = Repeater::default();
+        let repeater = core::pin::pin!(repeater);
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::new()));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 0, "We don't have any items yet in the model");
+            assert_eq!(inner.layout_state.item_index.row, 0);
+        }
+
+        model.push(2);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 1, "We added one element");
+            assert_eq!(
+                inner.instances[0].0,
+                RepeatedInstanceState::Dirty,
+                "The item was just added so it is still dirty"
+            );
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            // assert_eq!(get_instance_inner_value(&inner, 0), 2); // Still dirty
+        }
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 1);
+            assert_eq!(get_instance_inner_value(&inner, 0), 2);
+        }
+
+        // Append
+        model.push(5);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(
+                inner.layout_state.item_index.row, 0,
+                "We appended the item so we don't have to adapt"
+            );
+            assert_ne!(
+                inner.instances[0].0,
+                RepeatedInstanceState::Dirty,
+                "The item was already inside so it must not be dirty because of the previous ensure_updated"
+            );
+            assert_eq!(
+                inner.instances[1].0,
+                RepeatedInstanceState::Dirty,
+                "The item was just added so it is still dirty"
+            );
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(get_instance_inner_value(&inner, 0), 2);
+            // assert_eq!(get_instance_inner_value(&inner, 1), 5); // It is still dirty!
+        }
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
+
+        // Check that appended by checking their internal values
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(get_instance_inner_value(&inner, 0), 2);
+            assert_eq!(get_instance_inner_value(&inner, 1), 5);
+        }
+
+        // Prepend
+        model.insert(0, 9);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(
+                inner.layout_state.item_index.row, 1,
+                "We inserted an element before the current element so we have to adapt"
+            );
+            assert_eq!(inner.layout_state.item_index.instance_index, 1);
+
+            // All are dirty because the first was added and the others got moved because of the prepend
+            for instance in &inner.instances {
+                assert_eq!(instance.0, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
+
+        // Check that prepended by checking their internal values
+        // All must got dirty because the first was prepended and the others shifted
+        {
+            assert_eq!(model.row_data(0).unwrap(), 9);
+            assert_eq!(model.row_data(1).unwrap(), 2);
+            assert_eq!(model.row_data(2).unwrap(), 5);
+
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.layout_state.item_index.instance_index, 1); // One was prepended
+            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(get_instance_inner_value(&inner, 0), 9, "Was prepended");
+            assert_eq!(get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index), 2);
+            assert_eq!(get_instance_inner_value(&inner, 2), 5);
+        }
+    }
+
+    #[test]
+    fn test_remove_elements() {
+        let repeater: Repeater<SimpleItem> = Repeater::default();
+        let repeater = core::pin::pin!(repeater);
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::from_iter(2..6)));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 4);
+            assert_eq!(
+                inner.instances.len(),
+                0,
+                "We didn't instantiate one yet because ensure updated was not yet called"
+            );
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Create instances
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 4, "We added 4 elements");
+            assert_eq!(inner.instances.len(), 4, "4 instances are created for every element one");
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Point as current element to the 3th one but the instance index is still at 0.
+        // That means for the listview that the current item is at the beginning and
+        // the next visible elements are after and no element before the current item is visible
+        {
+            let mut inner = repeater.0.inner.borrow_mut();
+            inner.set_current_row(2);
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+            drop(inner);
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(
+                get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index),
+                4
+            );
+        }
+
+        // Remove one after the current element
+        assert_eq!(model.remove(3), 5, "Last element must be 5");
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 3);
+            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(
+                inner.layout_state.item_index.row, 2,
+                "The row must not change because the removed is after"
+            );
+            assert_eq!(
+                inner.layout_state.item_index.instance_index, 0,
+                "The instance index must not change because the removed is after"
+            );
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+
+            // The current item is not dirty but all after
+            assert!(
+                inner.instances[inner.layout_state.item_index.instance_index].0
+                    != RepeatedInstanceState::Dirty
+            );
+            for instance in &inner.instances[inner.layout_state.item_index.instance_index + 1..] {
+                assert_eq!(instance.0, RepeatedInstanceState::Dirty);
+            }
+        }
+
+        // Remove one before the current element
+        // Remove one element of the three left
+        assert_eq!(model.remove(1), 3, "Second element must have the internal value 3");
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 2);
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(inner.layout_state.item_index.row, 1);
+            assert_eq!(
+                inner.layout_state.item_index.instance_index, 0,
+                "The instance did not change because the removed item was before"
+            );
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+            assert_eq!(
+                get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index),
+                4
+            );
+        }
+
+        // Remove current item
+        // Remove last element from the two left
+        assert_eq!(model.remove(1), 4);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 1);
+            assert_eq!(inner.instances.len(), 1, "Only one item is left");
+            assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(
+                model.row_data(inner.layout_state.item_index.row),
+                Some(2),
+                "row points now to the previous one"
+            );
+        }
+
+        // Remove last element
+        assert_eq!(model.remove(0), 3);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 0);
+            assert_eq!(inner.instances.len(), 0);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), None, "Should be empty");
+        }
+    }
+
+    // TODO: Test swapping!
+
+    // Currently changing the instance_index is not yet supported
+    // #[test]
+    // fn test_remove_elements() {
+    //     let mut repeater: Repeater<SimpleItem> = Repeater::default();
+    //     let mut repeater = core::pin::pin!(repeater);
+    //     let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::from_iter(2..6)));
+
+    //     repeater.set_model_binding({
+    //         let model = model.clone();
+    //         move || ModelRc::from(model.clone())
+    //     });
+    //     repeater.as_ref().model(); // Setup tracker
+
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 4);
+    //         assert_eq!(
+    //             inner.instances.len(),
+    //             0,
+    //             "We didn't instantiate one yet because ensure updated was not yet called"
+    //         );
+    //         assert_eq!(inner.layout_state.item_index.row, 0);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //     }
+
+    //     // Create instances
+    //     static COUNTER: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+    //     repeater.as_ref().ensure_updated(|| {
+    //         let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+    //         SimpleItem::new(index)
+    //     });
+
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 4);
+    //         assert_eq!(inner.instances.len(), 4);
+    //         assert_eq!(inner.layout_state.item_index.row, 0);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //     }
+
+    //     // Point as current element to the 3th one
+    //     {
+    //         let mut inner = repeater.0.inner.borrow_mut();
+    //         inner.layout_state.item_index.row = 2;
+    //         inner.layout_state.item_index.instance_index = 2;
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove one after the current element
+    //     assert_eq!(model.remove(3), 5);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 3);
+    //         assert_eq!(inner.instances.len(), 3);
+    //         assert_eq!(inner.layout_state.item_index.row, 2);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 2);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove one before the current element
+    //     assert_eq!(model.remove(1), 3);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 2);
+    //         assert_eq!(inner.instances.len(), 2);
+    //         assert_eq!(inner.layout_state.item_index.row, 1);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 1);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove current item
+    //     assert_eq!(model.remove(1), 4);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 1);
+    //         assert_eq!(inner.instances.len(), 1);
+    //         assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //         assert_eq!(
+    //             model.row_data(inner.layout_state.item_index.row),
+    //             Some(2),
+    //             "row points now to the previous one"
+    //         );
+    //     }
+
+    //     // Remove last element
+    //     assert_eq!(model.remove(0), 3);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 0);
+    //         assert_eq!(inner.instances.len(), 0);
+    //         assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), None, "Should be empty");
+    //     }
+    // }
+
+    // Trait implementations
+    // ###############################################################################
+
+    impl crate::items::Item for SimpleItem {
+        fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+        fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+        fn layout_info(
+            self: Pin<&Self>,
+            _orientation: Orientation,
+            _cross_axis_constraint: Coord,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> LayoutInfo {
+            unimplemented!("Not implemented");
+            LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+        }
+
+        fn input_event_filter_before_children(
+            self: Pin<&Self>,
+            _: &MouseEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            _: &mut MouseCursorInner,
+        ) -> InputEventFilterResult {
+            unimplemented!("Not implemented");
+            InputEventFilterResult::ForwardAndIgnore
+        }
+
+        fn input_event(
+            self: Pin<&Self>,
+            _: &MouseEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            _: &mut MouseCursorInner,
+        ) -> InputEventResult {
+            unimplemented!("Not implemented");
+            InputEventResult::EventIgnored
+        }
+
+        fn capture_key_event(
+            self: Pin<&Self>,
+            _: &InternalKeyEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> KeyEventResult {
+            unimplemented!("Not implemented");
+            KeyEventResult::EventIgnored
+        }
+
+        fn key_event(
+            self: Pin<&Self>,
+            _: &InternalKeyEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> KeyEventResult {
+            unimplemented!("Not implemented");
+            KeyEventResult::EventIgnored
+        }
+
+        fn focus_event(
+            self: Pin<&Self>,
+            _: &FocusEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> FocusEventResult {
+            unimplemented!("Not implemented");
+            FocusEventResult::FocusIgnored
+        }
+
+        fn render(
+            self: Pin<&Self>,
+            backend: &mut ItemRendererRef,
+            self_rc: &ItemRc,
+            size: LogicalSize,
+        ) -> RenderingResult {
+            unimplemented!("Not implemented");
+            RenderingResult::ContinueRenderingChildren
+        }
+
+        fn bounding_rect(
+            self: core::pin::Pin<&Self>,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            geometry: LogicalRect,
+        ) -> LogicalRect {
+            unimplemented!("Not implemented");
+            geometry
+        }
+
+        fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+    }
+
+    impl ItemTree for SimpleItem {
+        fn visit_children_item(
+            self: core::pin::Pin<&Self>,
+            _1: isize,
+            _2: crate::item_tree::TraversalOrder,
+            _3: vtable::VRefMut<crate::item_tree::ItemVisitorVTable>,
+        ) -> crate::item_tree::VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(
+            self: core::pin::Pin<&Self>,
+            index: u32,
+        ) -> core::pin::Pin<vtable::VRef<'_, crate::items::ItemVTable>> {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            unimplemented!("Not implemented");
+            Slice::default()
+        }
+
+        fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
+            unimplemented!("Not implemented");
+            *result = ItemWeak::default();
+        }
+
+        fn embed_component(
+            self: core::pin::Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn ensure_instantiated(mut self: core::pin::Pin<&Self>) -> bool {
+            false
+        }
+
+        fn layout_info(self: core::pin::Pin<&Self>, o: Orientation) -> LayoutInfo {
+            // return LayoutInfo {
+            //     max: wi.width.get_internal().0,
+            //     max_percent: 100.,
+            //     min: wi.width.get_internal().0,
+            //     min_percent: 100.,
+            //     preferred: wi.width.get_internal().0,
+            //     stretch: 1.,
+            // };
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: core::pin::Pin<&Self>) -> usize {
+            unimplemented!("Not implemented");
+            0
+        }
+
+        fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: u32) -> IndexRange {
+            unimplemented!("Not implemented");
+            IndexRange { start: 0, end: 0 }
+        }
+
+        fn get_subtree(
+            self: core::pin::Pin<&Self>,
+            subtree_index: u32,
+            component_index: usize,
+            result: &mut ItemTreeWeak,
+        ) {
+            unimplemented!("Not implemented");
+        }
+
+        fn accessible_role(self: Pin<&Self>, _: u32) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _: u32,
+            _: AccessibleStringProperty,
+            _: &mut crate::SharedString,
+        ) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            unimplemented!("Not implemented");
+            *result = None;
+        }
+
+        fn item_geometry(self: Pin<&Self>, _: u32) -> crate::lengths::LogicalRect {
+            unimplemented!("Not implemented");
+            crate::lengths::LogicalRect::new(
+                euclid::Point2D::new(0 as Coord, 0 as Coord),
+                euclid::Size2D::new(100 as Coord, 100 as Coord),
+            )
+        }
+
+        fn accessibility_action(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+            _: &crate::accessibility::AccessibilityAction,
+        ) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+        ) -> crate::accessibility::SupportedAccessibilityAction {
+            unimplemented!("Not needed for this test")
+        }
     }
 }
