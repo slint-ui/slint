@@ -723,16 +723,16 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             self.is_dirty.set(true);
 
             // All items from the first removed item are dirty because they do not match anymore with the row
-            let start_instance_index = inner
-                .layout_state
-                .item_index
-                .instance_index
-                .saturating_sub(inner.layout_state.item_index.row - index);
+            let diff = inner.layout_state.item_index.row - index;
+            let curr_instance_index = inner.layout_state.item_index.instance_index;
+            let start_instance_index = curr_instance_index.saturating_sub(diff);
+            let end_instance_index = (curr_instance_index + count).saturating_sub(diff);
+
             let instance_length = inner.instances.len();
             if start_instance_index < instance_length {
-                inner.instances.drain(
-                    start_instance_index..(start_instance_index + count).min(instance_length),
-                );
+                inner
+                    .instances
+                    .drain(start_instance_index..end_instance_index.min(instance_length));
                 if start_instance_index < inner.instances.len() {
                     // Make all remaining dirty
                     for c in inner.instances[start_instance_index..].iter_mut() {
@@ -740,8 +740,12 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
                     }
                 }
             }
-            inner.layout_state.item_index.instance_index =
-                inner.layout_state.item_index.instance_index.saturating_sub(count);
+
+            inner.layout_state.item_index.instance_index = inner
+                .layout_state
+                .item_index
+                .instance_index
+                .saturating_sub(end_instance_index - start_instance_index);
             inner.layout_state.item_index.row -= count;
         } else {
             // Removing also the current item
@@ -749,16 +753,16 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             // We removed all from index on. So index will occupy then the position
 
             self.is_dirty.set(true);
-            let start_instance_index = inner
-                .layout_state
-                .item_index
-                .instance_index
-                .saturating_sub(inner.layout_state.item_index.row - index);
+            let diff = inner.layout_state.item_index.row - index;
+            let curr_instance_index = inner.layout_state.item_index.instance_index;
+            let start_instance_index = curr_instance_index.saturating_sub(diff);
+            let end_instance_index = (curr_instance_index + count).saturating_sub(diff);
+
             let instance_length = inner.instances.len();
             if start_instance_index < instance_length {
-                inner.instances.drain(
-                    start_instance_index..(start_instance_index + count).min(instance_length),
-                );
+                inner
+                    .instances
+                    .drain(start_instance_index..end_instance_index.min(instance_length));
                 if start_instance_index < inner.instances.len() {
                     // Make all remaining dirty
                     for c in inner.instances[start_instance_index..].iter_mut() {
@@ -768,7 +772,14 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             }
 
             inner.layout_state.item_index.instance_index = start_instance_index;
-            inner.layout_state.item_index.row = index;
+            inner.layout_state.item_index.row = index.min(
+                self.model
+                    .get_internal()
+                    .0
+                    .as_ref()
+                    .map(|m| m.row_count().saturating_sub(1))
+                    .unwrap_or(0),
+            );
         }
     }
 
@@ -1692,29 +1703,72 @@ mod tests {
             assert_eq!(inner.instances.len(), 4, "4 instances are created for every element one");
             assert_eq!(inner.layout_state.item_index.row, 0);
             assert_eq!(inner.layout_state.item_index.instance_index, 0);
+
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                assert_eq!(index as i32 + 2, item.as_ref().unwrap().value.get(), "Index: {index}");
+            }
         }
 
         // Point as current element to the 3th one but the instance index is still at 0.
         // That means for the listview that the current item is at the beginning and
         // the next visible elements are after and no element before the current item is visible
+        const REMOVE_COUNT: usize = 2; // Count of instances to remove
         {
             let mut inner = repeater.0.inner.borrow_mut();
             inner.set_current_row(2);
+            assert_eq!(
+                inner.layout_state.item_index.instance_index, 2,
+                "Must move together with the row"
+            );
             assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
             drop(inner);
+            {
+                // Remove first two instances
+                let mut ops = RustRepeaterOps {
+                    inner: &repeater.0.inner,
+                    init: &|| SimpleItem::new(-1),
+                    model: &ModelRc::from(model.clone()),
+                };
+                // Remove first REMOVE_COUNT items
+                ops.splice(0, REMOVE_COUNT, 0);
+                let inner = repeater.0.inner.borrow();
+                assert_eq!(
+                    inner.layout_state.item_index.instance_index, 0,
+                    "Must point to the first item because the first two are removed"
+                );
+                assert_eq!(
+                    model.row_data(inner.layout_state.item_index.row),
+                    Some(4),
+                    "The row must stay"
+                );
+            }
             let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
             assert_eq!(
                 get_instance_inner_value(&inner, inner.layout_state.item_index.instance_index),
                 4
             );
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                assert_eq!(
+                    index as i32 + 2 + REMOVE_COUNT as i32,
+                    item.as_ref().unwrap().value.get(),
+                    "Index: {index}"
+                );
+            }
         }
 
         // Remove one after the current element
         assert_eq!(model.remove(3), 5, "Last element must be 5");
         {
             let inner = repeater.0.inner.borrow();
-            assert_eq!(model.row_count(), 3);
-            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(model.row_count(), 3); // --> 2, 3, 4 are left
+            assert_eq!(
+                inner.instances.len(),
+                1,
+                "We had totally 4 instances. Above we removed 2 and now another one. The one left is the instance for the current row"
+            );
             assert_eq!(
                 inner.layout_state.item_index.row, 2,
                 "The row must not change because the removed is after"
@@ -1726,12 +1780,23 @@ mod tests {
             assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
 
             // The current item is not dirty but all after
-            assert!(
-                inner.instances[inner.layout_state.item_index.instance_index].0
-                    != RepeatedInstanceState::Dirty
+            assert_ne!(
+                inner.instances[inner.layout_state.item_index.instance_index].0,
+                RepeatedInstanceState::Dirty
             );
-            for instance in &inner.instances[inner.layout_state.item_index.instance_index + 1..] {
-                assert_eq!(instance.0, RepeatedInstanceState::Dirty);
+
+            for (index, (state, item)) in inner.instances.iter().enumerate() {
+                if index <= inner.layout_state.item_index.instance_index {
+                    assert_ne!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                    assert_eq!(
+                        index as i32 + 2 + REMOVE_COUNT as i32,
+                        item.as_ref().unwrap().value.get(),
+                        "Index: {index}"
+                    );
+                } else {
+                    // All items after the current index are dirty
+                    assert_eq!(*state, RepeatedInstanceState::Dirty, "Index: {index}");
+                }
             }
         }
 
@@ -1740,12 +1805,16 @@ mod tests {
         assert_eq!(model.remove(1), 3, "Second element must have the internal value 3");
         {
             let inner = repeater.0.inner.borrow();
-            assert_eq!(model.row_count(), 2);
-            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(model.row_count(), 2); // -> 2, 4 left
+            assert_eq!(
+                inner.instances.len(),
+                1,
+                "The removed item was before the current row. So the instance does not change"
+            );
             assert_eq!(inner.layout_state.item_index.row, 1);
             assert_eq!(
                 inner.layout_state.item_index.instance_index, 0,
-                "The instance did not change because the removed item was before"
+                "The instance did not change because the removed item was out of view"
             );
             assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
             assert_eq!(
@@ -1755,13 +1824,15 @@ mod tests {
         }
 
         // Remove current item
-        // Remove last element from the two left
         assert_eq!(model.remove(1), 4);
         {
             let inner = repeater.0.inner.borrow();
-            assert_eq!(model.row_count(), 1);
-            assert_eq!(inner.instances.len(), 1, "Only one item is left");
-            assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+            assert_eq!(model.row_count(), 1); // -> item with value 2 left
+            assert_eq!(inner.instances.len(), 0, "Current instance is now cleared as well");
+            assert_eq!(
+                inner.layout_state.item_index.row, 0,
+                "row points now to the last remaining item"
+            );
             assert_eq!(inner.layout_state.item_index.instance_index, 0);
             assert_eq!(
                 model.row_data(inner.layout_state.item_index.row),
@@ -1771,7 +1842,7 @@ mod tests {
         }
 
         // Remove last element
-        assert_eq!(model.remove(0), 3);
+        assert_eq!(model.remove(0), 2);
         {
             let inner = repeater.0.inner.borrow();
             assert_eq!(model.row_count(), 0);
