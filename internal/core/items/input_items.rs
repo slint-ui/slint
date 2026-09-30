@@ -135,7 +135,11 @@ impl Item for TouchArea {
                     touch_finger_id: *touch_finger_id,
                 },));
 
-                InputEventResult::GrabMouse
+                if self.enabled() {
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventIgnored
+                }
             }
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);

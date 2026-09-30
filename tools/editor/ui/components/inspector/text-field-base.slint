@@ -120,6 +120,11 @@ export component InspectorTextFieldBase inherits Rectangle {
                     enabled: root.enabled && !input.has-focus;
                     mouse-cursor: text;
                     clicked => { input.focus(); }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                            input.focus();
+                        }
+                    }
                 }
 
                 changed has-focus => {
