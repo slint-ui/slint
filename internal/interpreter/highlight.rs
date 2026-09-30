@@ -137,9 +137,8 @@ pub(crate) fn element_candidates_at(
 ) -> Vec<ElementCandidate> {
     let root_item_tree = VRc::into_dyn(root.clone());
     i_slint_core::item_tree::ensure_item_tree_instantiated(&root_item_tree);
-    let instances = all_instances(root);
     let mut runtime_items = Vec::new();
-    collect_runtime_items_front_to_back(&root_item_tree, -1, &instances, &mut runtime_items);
+    collect_runtime_items_front_to_back(&root_item_tree, 0, Some(root), &mut runtime_items);
 
     let mut candidates = Vec::new();
     for (instance, flat_index) in runtime_items {
@@ -387,42 +386,42 @@ fn collect_row_instances(
 
 fn collect_runtime_items_front_to_back(
     item_tree: &ItemTreeRc,
-    index: isize,
-    instances: &[VRc<ItemTreeVTable, Instance>],
+    index: u32,
+    instance: Option<&VRc<ItemTreeVTable, Instance>>,
     runtime_items: &mut Vec<(VRc<ItemTreeVTable, Instance>, usize)>,
 ) {
-    let mut children = Vec::new();
-    let mut collect_child = |child_item_tree: &ItemTreeRc,
-                             child_index: u32,
-                             _: Pin<i_slint_core::items::ItemRef<'_>>|
+    let mut visit_child = |child_item_tree: &ItemTreeRc,
+                           child_index: u32,
+                           _: Pin<i_slint_core::items::ItemRef<'_>>|
      -> VisitChildrenResult {
-        children.push((child_item_tree.clone(), child_index));
+        let resolved_instance;
+        let child_instance = if VRc::ptr_eq(child_item_tree, item_tree) {
+            instance
+        } else {
+            resolved_instance = VRc::borrow(child_item_tree)
+                .downcast::<Instance>()
+                .and_then(|instance| instance.self_weak.get())
+                .and_then(|instance| instance.upgrade());
+            resolved_instance.as_ref()
+        };
+        collect_runtime_items_front_to_back(
+            child_item_tree,
+            child_index,
+            child_instance,
+            runtime_items,
+        );
         VisitChildrenResult::CONTINUE
     };
     vtable::new_vref!(
-        let mut collect_child: VRefMut<i_slint_core::item_tree::ItemVisitorVTable>
-            for i_slint_core::item_tree::ItemVisitor = &mut collect_child
+        let mut visit_child: VRefMut<i_slint_core::item_tree::ItemVisitorVTable>
+            for i_slint_core::item_tree::ItemVisitor = &mut visit_child
     );
     VRc::borrow_pin(item_tree).as_ref().visit_children_item(
-        index,
+        index as isize,
         TraversalOrder::FrontToBack,
-        collect_child,
+        visit_child,
     );
-    for (child_item_tree, child_index) in children {
-        collect_runtime_items_front_to_back(
-            &child_item_tree,
-            child_index as isize,
-            instances,
-            runtime_items,
-        );
-    }
-    if index < 0 {
-        return;
-    }
-    if let Some(instance) = instances
-        .iter()
-        .find(|instance| VRc::ptr_eq(&VRc::into_dyn((*instance).clone()), item_tree))
-    {
+    if let Some(instance) = instance {
         runtime_items.push((instance.clone(), index as usize));
     }
 }
