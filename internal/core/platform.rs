@@ -589,6 +589,10 @@ pub enum InternalEvent {
         position: crate::lengths::LogicalPoint,
         /// Whether the finger was put down, moved, lifted or cancelled.
         phase: crate::input::TouchPhase,
+        /// Original sample time on the animation clock, independent of event delivery.
+        event_time: Option<crate::animations::Instant>,
+        /// Movement samples coalesced into this event.
+        history: crate::input::TouchHistory,
     },
 }
 

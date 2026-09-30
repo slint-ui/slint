@@ -1703,6 +1703,8 @@ mod dispatch_result_tests {
                     id: 1,
                     position: LogicalPoint::new(50.0, 50.0),
                     phase: TouchPhase::Started,
+                    event_time: None,
+                    history: Default::default(),
                 })
             )
             .is_empty()
