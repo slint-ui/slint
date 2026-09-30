@@ -384,7 +384,7 @@ pub fn to_value(
         | Type::ComponentFactory
         | Type::Easing
         | Type::PathData
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::ArrayOfU16
         | Type::ElementReference
         | Type::MouseCursor

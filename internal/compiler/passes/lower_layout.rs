@@ -448,12 +448,12 @@ fn lower_grid_layout(
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-h"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_cache_prop_v = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-v"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_info_prop_h = create_new_prop(
         grid_layout_element,
@@ -1605,7 +1605,7 @@ fn lower_box_layout(
             create_new_prop(
                 layout_element,
                 SmolStr::new_static("layout-cache-ortho"),
-                Type::LayoutCache,
+                Type::ArrayOfCoord,
             )
         });
 
@@ -1615,7 +1615,7 @@ fn lower_box_layout(
     };
 
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
         let pads = layout.geometry.padding.begin_end(orientation.orthogonal());
@@ -1743,7 +1743,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
 
     // FlexboxLayout needs 4 values per item: x, y, width, height
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     let layout_info_prop_v = create_new_prop(
         layout_element,
         SmolStr::new_static("layoutinfo-v"),
@@ -1905,9 +1905,9 @@ fn lower_dialog_layout(
         Type::ArrayOfU16,
     );
     let layout_cache_prop_h =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::ArrayOfCoord);
     let layout_cache_prop_v =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::ArrayOfCoord);
     let layout_info_prop_h = create_new_prop(
         dialog_element,
         SmolStr::new_static("layoutinfo-h"),

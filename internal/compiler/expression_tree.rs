@@ -1037,6 +1037,9 @@ pub enum Expression {
         arg_name: SmolStr,
         expression: Box<Expression>,
     },
+
+    /// A pre-parsed `Path.stroke-dash-array`, packed for `Type::ArrayOfCoord`.
+    DashArray(Vec<f32>),
 }
 
 impl Expression {
@@ -1157,14 +1160,15 @@ impl Expression {
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
             Expression::ComputeBoxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
-            Expression::SolveBoxLayout(..) => Type::LayoutCache,
-            Expression::SolveGridLayout { .. } => Type::LayoutCache,
-            Expression::SolveFlexboxLayout(..) => Type::LayoutCache,
+            Expression::SolveBoxLayout(..) => Type::ArrayOfCoord,
+            Expression::SolveGridLayout { .. } => Type::ArrayOfCoord,
+            Expression::SolveFlexboxLayout(..) => Type::ArrayOfCoord,
             Expression::ComputeFlexboxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
             Expression::Closure { .. } => Type::Closure,
+            Expression::DashArray(_) => Type::ArrayOfCoord,
         }
     }
 
@@ -1312,6 +1316,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1461,6 +1466,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1585,6 +1591,7 @@ impl Expression {
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
             Expression::Closure { expression, .. } => expression.is_constant(ga),
+            Expression::DashArray(_) => false,
         }
     }
 
@@ -1890,7 +1897,7 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache
+            | Type::ArrayOfCoord
             | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::DataTransfer => Expression::EmptyDataTransfer,
@@ -2684,5 +2691,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "({display_name}) => ")?;
             pretty_print(f, expression)
         }
+        Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
     }
 }

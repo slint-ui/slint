@@ -761,6 +761,15 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 i_slint_core::items::LineJoin::Miter | _ => skia_safe::PaintJoin::Miter,
             });
             border_paint.set_stroke_miter(path.stroke_miter_limit());
+            border_paint.set_path_effect(skia_safe::PathEffect::dash(
+                &path
+                    .stroke_dash_array()
+                    .iter()
+                    .map(|x| x * self.scale_factor.get())
+                    .collect::<Vec<_>>(),
+                path.stroke_dash_offset().get() * self.scale_factor.get(),
+            ));
+
             border_paint.set_stroke(true);
             self.canvas.draw_path(&skpath, &border_paint);
         }

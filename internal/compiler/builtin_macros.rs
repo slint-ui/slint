@@ -640,7 +640,7 @@ fn to_debug_string(
         | Type::ComponentFactory
         | Type::Function { .. }
         | Type::ElementReference
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::ArrayOfU16
         | Type::Model
         | Type::PathData
