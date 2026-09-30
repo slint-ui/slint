@@ -1154,7 +1154,7 @@ impl WindowInner {
             self.process_mouse_input(MouseEvent::Moved {
                 position,
                 touch_finger_id: 0,
-                event_time: Default::default(),
+                event_time: None,
                 history: Default::default(),
             });
         }
@@ -1306,7 +1306,7 @@ impl WindowInner {
                 self.process_mouse_input(MouseEvent::Moved {
                     position: crate::lengths::logical_point_from_api(pos),
                     touch_finger_id: 0,
-                    event_time: Default::default(),
+                    event_time: None,
                     history: Default::default(),
                 });
             }
@@ -3106,9 +3106,7 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .window()
-                .dispatch_event(crate::platform::WindowEvent::internal(event.clone()));
+            window_adapter.window().dispatch_event(crate::platform::WindowEvent::internal(*event));
         }
     }
 

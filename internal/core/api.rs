@@ -679,7 +679,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
-                    event_time: Default::default(),
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerReleased { position, button } => self
@@ -696,7 +696,7 @@ impl Window {
                 .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
-                    event_time: Default::default(),
+                    event_time: None,
                     history: Default::default(),
                 })
                 .into(),

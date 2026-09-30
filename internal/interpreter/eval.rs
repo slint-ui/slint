@@ -2188,6 +2188,7 @@ fn call_builtin_function(
             let value = eval_expression(ctx, &arguments[1]);
 
             i_slint_core::model::report_model_error(
+                &context_or_global(ctx),
                 "push",
                 log_message_location(source_location),
                 model.push_row(value),
@@ -2214,6 +2215,7 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &context_or_global(ctx),
                 "remove",
                 log_message_location(source_location),
                 result,
@@ -2242,6 +2244,7 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &context_or_global(ctx),
                 "insert",
                 log_message_location(source_location),
                 result,
@@ -2563,25 +2566,11 @@ fn call_builtin_function(
         BuiltinFunction::Debug => {
             use i_slint_core::debug_log::*;
             let msg = to_string(ctx, &arguments[0]);
-            let root = ctx
-                .current
-                .as_ref()
-                .and_then(|c| c.root.get())
-                .and_then(|w| w.upgrade())
-                .map(vtable::VRc::into_dyn);
-            if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
-                context.dispatch_log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            } else {
-                log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            }
+            context_or_global(ctx).dispatch_log_message(LogMessage::new(
+                LogMessageSource::SlintCode,
+                log_message_location(source_location),
+                format_args!("{msg}"),
+            ));
             Value::Void
         }
         BuiltinFunction::ArrayLength => match eval_expression(ctx, &arguments[0]) {

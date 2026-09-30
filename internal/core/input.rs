@@ -17,7 +17,6 @@ pub use crate::items::{FocusReason, KeyEvent, KeyboardModifiers, PointerEventBut
 use crate::lengths::{ItemTransform, LogicalPoint, LogicalVector};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Coord, Property, SharedString};
-use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
@@ -30,7 +29,6 @@ use core::time::Duration;
 ///
 /// The only difference with [`crate::platform::WindowEvent`] is that it uses untyped `Point`
 /// TODO: merge with platform::WindowEvent
-#[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
@@ -44,7 +42,7 @@ pub enum MouseEvent {
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
         /// Original sample time on the animation clock, independent of event delivery.
-        event_time: EventTime,
+        event_time: Option<crate::animations::Instant>,
     },
     /// The mouse or finger was released
     Released {
@@ -64,9 +62,9 @@ pub enum MouseEvent {
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
         /// Original sample time on the animation clock, independent of event delivery.
-        event_time: EventTime,
+        event_time: Option<crate::animations::Instant>,
         /// Movement samples coalesced into this event.
-        history: EventTouchHistory,
+        history: TouchHistory,
     },
     /// Wheel was operated.
     Wheel {
@@ -156,10 +154,8 @@ impl MouseEvent {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, history, .. } => {
-                if let Some(history) = history.0.as_deref_mut() {
-                    for (position, _) in &mut history.history {
-                        *position += vec;
-                    }
+                for (position, _) in &mut history.history {
+                    *position += vec;
                 }
                 Some(position)
             }
@@ -185,10 +181,8 @@ impl MouseEvent {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
             MouseEvent::Moved { position, history, .. } => {
-                if let Some(history) = history.0.as_deref_mut() {
-                    for (position, _) in &mut history.history {
-                        *position = transform.transform_point(position.cast()).cast();
-                    }
+                for (position, _) in &mut history.history {
+                    *position = transform.transform_point(position.cast()).cast();
                 }
                 Some(position)
             }
@@ -221,37 +215,11 @@ impl MouseEvent {
     }
 }
 
-/// An optional input timestamp with C-compatible storage.
-/// `Option<Instant>` contains a Rust `Duration`, whose layout isn't guaranteed across the FFI boundary.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct EventTime {
-    seconds: u64,
-    nanoseconds: u32,
-    valid: bool,
-}
-
-impl EventTime {
-    /// Returns the original sample time when the backend supplies one.
-    pub fn get(self) -> Option<crate::animations::Instant> {
-        self.valid.then(|| Duration::new(self.seconds, self.nanoseconds).into())
-    }
-}
-
-impl From<Option<crate::animations::Instant>> for EventTime {
-    fn from(time: Option<crate::animations::Instant>) -> Self {
-        match time {
-            Some(time) => {
-                let time = Duration::from(time);
-                Self { seconds: time.as_secs(), nanoseconds: time.subsec_nanos(), valid: true }
-            }
-            None => Self::default(),
-        }
-    }
-}
-
-#[allow(missing_docs)]
-#[repr(C)]
+/// Historical touch events between the current event and the previous one
+/// On different platforms like on android or ios not for every touchscreen move
+/// move events are send but with a less frequency. The touch events between are
+/// not lost, but attached to the next event. This data can be used to determine
+/// better the touch velocity because more data is available
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TouchHistory {
     /// Chronological positions and sample times preceding the current event.
@@ -259,33 +227,10 @@ pub struct TouchHistory {
     pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
 }
 
-/// The [`TouchHistory`] of a move event.
-///
-/// cbindgen can't express `TouchHistory` (it contains a `Vec`) nor `Option<Box<_>>` in C++, so
-/// this new type is left out of the generated headers and replaced there by a pointer-sized
-/// struct, declared by hand in `api/cpp/cbindgen.rs`. C++ never records a history.
-#[repr(transparent)]
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct EventTouchHistory(Option<Box<TouchHistory>>);
-
-impl EventTouchHistory {
-    /// The recorded history, if there is one.
-    pub fn get(&self) -> Option<&TouchHistory> {
-        self.0.as_deref()
-    }
-}
-
-impl From<TouchHistory> for EventTouchHistory {
-    /// Events without a recorded history don't allocate.
-    fn from(history: TouchHistory) -> Self {
-        Self(if history == TouchHistory::default() { None } else { Some(Box::new(history)) })
-    }
-}
-
 /// The mouse events a backend can deliver to the runtime.
 #[allow(missing_docs)]
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BackendMouseEvent {
     /// The mouse or finger was pressed
     Pressed {
@@ -293,7 +238,6 @@ pub enum BackendMouseEvent {
         button: PointerEventButton,
         click_count: u8,
         touch_finger_id: i32,
-        event_time: EventTime,
     },
     /// The mouse or finger was released
     Released {
@@ -303,12 +247,7 @@ pub enum BackendMouseEvent {
         touch_finger_id: i32,
     },
     /// The position of the pointer has changed.
-    Moved {
-        position: LogicalPoint,
-        touch_finger_id: i32,
-        event_time: EventTime,
-        history: EventTouchHistory,
-    },
+    Moved { position: LogicalPoint, touch_finger_id: i32 },
     /// Wheel was operated.
     Wheel { position: LogicalPoint, delta_x: Coord, delta_y: Coord, phase: TouchPhase },
     /// A platform-recognized pinch gesture (macOS/iOS trackpad, Qt).
@@ -322,19 +261,18 @@ pub enum BackendMouseEvent {
 impl From<BackendMouseEvent> for MouseEvent {
     fn from(event: BackendMouseEvent) -> Self {
         match event {
-            BackendMouseEvent::Pressed {
-                position,
-                button,
-                click_count,
-                touch_finger_id,
-                event_time,
-            } => Self::Pressed { position, button, click_count, touch_finger_id, event_time },
+            BackendMouseEvent::Pressed { position, button, click_count, touch_finger_id } => {
+                Self::Pressed { position, button, click_count, touch_finger_id, event_time: None }
+            }
             BackendMouseEvent::Released { position, button, click_count, touch_finger_id } => {
                 Self::Released { position, button, click_count, touch_finger_id }
             }
-            BackendMouseEvent::Moved { position, touch_finger_id, event_time, history } => {
-                Self::Moved { position, touch_finger_id, event_time, history }
-            }
+            BackendMouseEvent::Moved { position, touch_finger_id } => Self::Moved {
+                position,
+                touch_finger_id,
+                event_time: None,
+                history: TouchHistory { history: Default::default() },
+            },
             BackendMouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 Self::Wheel { position, delta_x, delta_y, phase }
             }
@@ -1737,7 +1675,7 @@ pub(crate) fn handle_mouse_grab(
                         event_time: match mouse_event {
                             MouseEvent::Pressed { event_time, .. }
                             | MouseEvent::Moved { event_time, .. } => *event_time,
-                            _ => Default::default(),
+                            _ => None,
                         },
                         history: Default::default(),
                     }
@@ -1887,7 +1825,7 @@ pub fn process_mouse_input(
             &MouseEvent::Moved {
                 position: *position,
                 touch_finger_id: 0,
-                event_time: Default::default(),
+                event_time: None,
                 history: Default::default(),
             },
             window_adapter,
@@ -2381,7 +2319,7 @@ impl TouchState {
         for event in events.events[..events.len].iter_mut().flatten() {
             match event {
                 MouseEvent::Pressed { event_time: time, .. }
-                | MouseEvent::Moved { event_time: time, .. } => *time = event_time.into(),
+                | MouseEvent::Moved { event_time: time, .. } => *time = event_time,
                 _ => {}
             }
         }
@@ -2401,7 +2339,7 @@ impl TouchState {
                 button: PointerEventButton::Left,
                 click_count: 0,
                 touch_finger_id: id + 1,
-                event_time: Default::default(),
+                event_time: None,
             });
         } else if total == 2 {
             // Second finger: transition Idle → TwoFingersDown.
@@ -2454,8 +2392,8 @@ impl TouchState {
                     events.push(MouseEvent::Moved {
                         position,
                         touch_finger_id: id + 1,
-                        event_time: Default::default(),
-                        history: history.into(),
+                        event_time: None,
+                        history,
                     });
                 }
             }
@@ -2572,7 +2510,7 @@ impl TouchState {
                             button: PointerEventButton::Left,
                             click_count: 0,
                             touch_finger_id: remaining.id + 1,
-                            event_time: Default::default(),
+                            event_time: None,
                         });
                     } else {
                         self.primary_touch_id = None;
@@ -2617,7 +2555,7 @@ impl TouchState {
                         button: PointerEventButton::Left,
                         click_count: 0,
                         touch_finger_id: rid + 1,
-                        event_time: Default::default(),
+                        event_time: None,
                     });
                 } else {
                     events.push(MouseEvent::Exit);
@@ -2660,21 +2598,19 @@ mod touch_tests {
                 id,
                 pt(0., 0.),
                 phase,
-                Some(Instant(Duration::from_nanos(nanos))),
+                Some(Instant::from_nanos(nanos)),
                 TouchHistory::default(),
             );
             let times: Vec<_> = events
                 .into_iter()
                 .filter_map(|event| match event {
                     MouseEvent::Pressed { event_time, .. }
-                    | MouseEvent::Moved { event_time, .. } => Some(event_time.get()),
+                    | MouseEvent::Moved { event_time, .. } => Some(event_time),
                     _ => None,
                 })
                 .collect();
-            let expected: Vec<_> = expected_time
-                .into_iter()
-                .map(|nanos| Some(Instant(Duration::from_nanos(nanos))))
-                .collect();
+            let expected: Vec<_> =
+                expected_time.into_iter().map(|nanos| Some(Instant::from_nanos(nanos))).collect();
             assert_eq!(times, expected);
         }
     }

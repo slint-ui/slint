@@ -667,18 +667,9 @@ impl InternalEvent {
     /// The position of the pointer or finger for this event, if any.
     fn position(&self) -> Option<LogicalPosition> {
         match self {
-            Self::Mouse(event) => match event {
-                crate::input::BackendMouseEvent::Pressed { position, .. } => Some(*position),
-                crate::input::BackendMouseEvent::Released { position, .. } => Some(*position),
-                crate::input::BackendMouseEvent::Moved { position, .. } => Some(*position),
-                crate::input::BackendMouseEvent::Wheel { position, .. } => Some(*position),
-                crate::input::BackendMouseEvent::PinchGesture { position, .. } => Some(*position),
-                crate::input::BackendMouseEvent::RotationGesture { position, .. } => {
-                    Some(*position)
-                }
-                crate::input::BackendMouseEvent::Exit => None,
-            }
-            .map(crate::lengths::logical_position_to_api),
+            Self::Mouse(event) => crate::input::MouseEvent::from(*event)
+                .position()
+                .map(crate::lengths::logical_position_to_api),
             Self::Key(_) => None,
             Self::Touch { position, .. } => {
                 Some(crate::lengths::logical_position_to_api(*position))

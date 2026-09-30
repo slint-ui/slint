@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// debug() and array errors go to the log of the context the component was created with.
+
+export component TestCase inherits Window {
+    in property <[int]> list;
+
+    init => {
+        debug("init");
+    }
+
+    public function log() {
+        debug("hello");
+        list.remove(5);
+    }
+}
+
+/*
+```rust
+let backend = i_slint_backend_testing::TestingBackend::new(Default::default());
+let logs = backend.debug_logs.clone();
+let ctx = i_slint_core::SlintContext::new(Box::new(backend));
+let instance = TestCase::new_with_context(ctx).unwrap();
+assert_eq!(std::mem::take(&mut *logs.borrow_mut()), ["init"]);
+instance.set_list(std::rc::Rc::new(slint::VecModel::from(vec![1])).into());
+instance.invoke_log();
+assert_eq!(
+    std::mem::take(&mut *logs.borrow_mut()),
+    ["hello", "array.remove(): the row index is out of bounds (the model has 1 rows)"]
+);
+```
+*/

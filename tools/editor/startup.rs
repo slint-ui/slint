@@ -107,22 +107,15 @@ pub fn setup(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn choose_project_file(window: Option<slint::WindowHandle>) -> Option<PathBuf> {
-    let dialog =
-        rfd::FileDialog::new().set_title("Open Slint File").add_filter("Slint files", &["slint"]);
-    with_parent(dialog, window).pick_file()
+    crate::file_dialog::create(window)
+        .set_title(tr::tr!("Open Slint File"))
+        .add_filter(tr::tr!("Slint files"), &["slint"])
+        .pick_file()
 }
 
 #[cfg(target_arch = "wasm32")]
 fn choose_project_file(_window: Option<slint::WindowHandle>) -> Option<PathBuf> {
     None
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn with_parent(dialog: rfd::FileDialog, window: Option<slint::WindowHandle>) -> rfd::FileDialog {
-    match window {
-        Some(window) => dialog.set_parent(&window),
-        None => dialog,
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -148,11 +141,11 @@ fn choose_new_project_path(window: Option<slint::WindowHandle>) -> Option<PathBu
     let path = unique_new_project_path(&parent);
     let file_name = path.file_name()?.to_string_lossy();
 
-    let dialog = rfd::FileDialog::new()
-        .set_title("New Slint UI Project")
+    crate::file_dialog::create(window)
+        .set_title(tr::tr!("New Slint UI Project"))
         .set_directory(parent)
-        .set_file_name(file_name.as_ref());
-    with_parent(dialog, window).save_file()
+        .set_file_name(file_name.as_ref())
+        .save_file()
 }
 
 #[cfg(target_arch = "wasm32")]

@@ -1576,7 +1576,6 @@ impl WinitWindowAdapter {
                             button,
                             click_count: 0,
                             touch_finger_id: 0,
-                            event_time: Default::default(),
                         }
                     }
                     winit::event::ElementState::Released => {

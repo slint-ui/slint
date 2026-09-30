@@ -1604,7 +1604,6 @@ mod dispatch_result_tests {
                     button: PointerEventButton::Left,
                     click_count: 0,
                     touch_finger_id: 0,
-                    event_time: Default::default(),
                 })
             ),
             vec![(

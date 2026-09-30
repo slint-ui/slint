@@ -1064,7 +1064,7 @@ impl FlickableData {
                 }
 
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
-                inner.track_press(event_time.get().unwrap_or_else(crate::animations::current_tick));
+                inner.track_press(event_time.unwrap_or_else(crate::animations::current_tick));
                 inner.capture_momentum();
                 inner.last_scroll_event =
                     Some((crate::animations::current_tick(), Default::default())); // The position is not important
@@ -1273,9 +1273,9 @@ impl FlickableData {
                     let mut mouse_delta =
                         if is_capturing { tracking_delta } else { *position - pressed_position };
                     inner.track_move(
-                        event_time.get().unwrap_or_else(crate::animations::current_tick),
+                        event_time.unwrap_or_else(crate::animations::current_tick),
                         *position,
-                        history.get().unwrap_or(&TouchHistory::default()),
+                        history,
                     );
 
                     if is_capturing
@@ -1455,7 +1455,7 @@ mod velocity_history_tests {
                     for event in pressed.into_iter() {
                         if let MouseEvent::Pressed { position, event_time, .. } = event {
                             inner.pressed_mouse_state = Some((press_frame, position));
-                            inner.track_press(event_time.get().unwrap_or(press_frame));
+                            inner.track_press(event_time.unwrap_or(press_frame));
                         }
                     }
                     let moves = if batched {
@@ -1475,11 +1475,11 @@ mod velocity_history_tests {
                             touch.process(0, position, TouchPhase::Moved, Some(time), history);
                         for event in events.into_iter() {
                             if let MouseEvent::Moved { position, event_time, history, .. } = event {
-                                assert_eq!(event_time.get(), Some(time));
+                                assert_eq!(event_time, Some(time));
                                 inner.track_move(
-                                    event_time.get().unwrap_or(start + Duration::from_millis(100)),
+                                    event_time.unwrap_or(start + Duration::from_millis(100)),
                                     position,
-                                    history.get().unwrap_or(&TouchHistory::default()),
+                                    &history,
                                 );
                             }
                         }
@@ -1647,11 +1647,7 @@ mod velocity_history_tests {
                             event.translate(translation);
                             event.transform(transform);
                             if let MouseEvent::Moved { position, event_time, history, .. } = event {
-                                inner.track_move(
-                                    event_time.get().unwrap(),
-                                    position,
-                                    history.get().unwrap_or(&TouchHistory::default()),
-                                );
+                                inner.track_move(event_time.unwrap(), position, &history);
                             }
                         }
                     }

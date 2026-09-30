@@ -4999,7 +4999,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
         }
-        BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
+        BuiltinFunction::Debug => {
+            let context = access_context(ctx);
+            quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
+        }
         BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
         BuiltinFunction::DecimalSeparator => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -5116,15 +5119,17 @@ fn compile_builtin_function_call(
             }})
         }
         BuiltinFunction::ArrayPush => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let value = a.next().unwrap();
             quote!({
                 let model = &#model;
                 let value = #value;
-                sp::report_model_error("push", None, model.push_row(value));
+                sp::report_model_error(&#context, "push", None, model.push_row(value));
             })
         }
         BuiltinFunction::ArrayRemove => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             quote!({
@@ -5133,10 +5138,11 @@ fn compile_builtin_function_call(
                     Ok(index) => model.remove_row(index),
                     Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
                 };
-                sp::report_model_error("remove", None, result);
+                sp::report_model_error(&#context, "remove", None, result);
             })
         }
         BuiltinFunction::ArrayInsert => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             let value = a.next().unwrap();
@@ -5148,7 +5154,7 @@ fn compile_builtin_function_call(
                     Ok(index) => model.insert_row(index, value),
                     Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
                 };
-                sp::report_model_error("insert", None, result);
+                sp::report_model_error(&#context, "insert", None, result);
             })
         }
         BuiltinFunction::Rgb => {
