@@ -240,33 +240,42 @@ impl EditorSession {
     /// Combines the baselines of the active project files, which are broadest first.
     /// Lists grow, and a setting only one of them can hold goes to the broadest.
     fn merged_project_baseline(projects: &[ActiveProjectFile]) -> ProjectCompilerBaseline {
-        let mut merged = ProjectCompilerBaseline::default();
+        let mut include_paths: Option<Vec<PathBuf>> = None;
+        let mut library_paths: Option<HashMap<String, (PathBuf, &std::path::Path)>> = None;
         let mut style = None;
         let mut enable_experimental = None;
-        let mut library_paths = HashMap::new();
 
         for project in projects {
-            let Some(baseline) = &project.baseline else { continue };
+            let Some(ProjectCompilerBaseline {
+                include_paths: project_include_paths,
+                library_paths: project_library_paths,
+                style: project_style,
+                enable_experimental: project_enable_experimental,
+            }) = &project.baseline
+            else {
+                continue;
+            };
+            let source = project.source_path.as_path();
 
-            if let Some(include_paths) = &baseline.include_paths {
-                let merged_include_paths = merged.include_paths.get_or_insert_default();
-                for include_path in include_paths {
-                    if !merged_include_paths.contains(include_path) {
-                        merged_include_paths.push(include_path.clone());
+            if let Some(project_include_paths) = project_include_paths {
+                let include_paths = include_paths.get_or_insert_default();
+                for include_path in project_include_paths {
+                    if !include_paths.contains(include_path) {
+                        include_paths.push(include_path.clone());
                     }
                 }
             }
 
-            if let Some(project_library_paths) = &baseline.library_paths {
-                merged.library_paths.get_or_insert_default();
+            if let Some(project_library_paths) = project_library_paths {
+                let library_paths = library_paths.get_or_insert_default();
                 for (name, library_path) in project_library_paths {
                     let (kept_path, kept_source) = library_paths
                         .entry(name.clone())
-                        .or_insert_with(|| (library_path.clone(), &project.source_path));
+                        .or_insert_with(|| (library_path.clone(), source));
                     if kept_path != library_path {
                         tracing::warn!(
                             "Project file {} sets library {name} to {}, keeping {} from {}",
-                            project.source_path.display(),
+                            source.display(),
                             library_path.display(),
                             kept_path.display(),
                             kept_source.display()
@@ -275,52 +284,59 @@ impl EditorSession {
                 }
             }
 
-            keep_first(&mut style, &baseline.style, &project.source_path, "the style");
+            keep_first(&mut style, project_style, source, "the style");
             keep_first(
                 &mut enable_experimental,
-                &baseline.enable_experimental,
-                &project.source_path,
+                project_enable_experimental,
+                source,
                 "experimental features",
             );
         }
 
-        if let Some(merged_library_paths) = &mut merged.library_paths {
-            merged_library_paths
-                .extend(library_paths.into_iter().map(|(name, (path, _))| (name, path)));
+        ProjectCompilerBaseline {
+            include_paths,
+            library_paths: library_paths
+                .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
+            style: style.map(|(style, _)| style),
+            enable_experimental: enable_experimental.map(|(enabled, _)| enabled),
         }
-        merged.style = style.map(|(style, _)| style);
-        merged.enable_experimental = enable_experimental.map(|(enabled, _)| enabled);
-        merged
     }
 
     fn effective_compiler_configuration(&self) -> crate::document_cache::CompilerConfiguration {
         let mut config = self.compiler_config_defaults.clone();
 
-        let merged = Self::merged_project_baseline(&self.active_projects);
-        if let Some(include_paths) = merged.include_paths {
+        let ProjectCompilerBaseline { include_paths, library_paths, style, enable_experimental } =
+            Self::merged_project_baseline(&self.active_projects);
+        if let Some(include_paths) = include_paths {
             config.include_paths = include_paths;
         }
-        if let Some(library_paths) = merged.library_paths {
+        if let Some(library_paths) = library_paths {
             config.library_paths = library_paths;
         }
-        if let Some(style) = merged.style {
+        if let Some(style) = style {
             config.style = Some(style);
         }
-        if let Some(enable_experimental) = merged.enable_experimental {
+        if let Some(enable_experimental) = enable_experimental {
             config.enable_experimental = enable_experimental;
         }
 
-        let overrides = self.effective_config_overrides();
-        if let Some(include_paths) = overrides.include_paths {
+        let SessionConfigOverrides {
+            hide_ui: _,
+            include_paths,
+            library_paths,
+            style,
+            experimental,
+        } = self.effective_config_overrides();
+        if let Some(include_paths) = include_paths {
             config.include_paths = include_paths;
         }
-        if let Some(library_paths) = overrides.library_paths {
+        if let Some(library_paths) = library_paths {
             config.library_paths = library_paths;
         }
-        if let Some(style) = overrides.style {
+        if let Some(style) = style {
             config.style = Some(style);
         }
-        if let Some(experimental) = overrides.experimental {
+        if let Some(experimental) = experimental {
             config.enable_experimental = experimental;
         }
 
