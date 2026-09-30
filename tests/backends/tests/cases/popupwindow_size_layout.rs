@@ -25,7 +25,7 @@ fn popupwindow_size_layout() {
             in-out property <length> text-height: -1px;
 
             callback cb-popup-initialized();
-            callback cb-buttons-visible();
+            callback cb-buttons-visible(int) -> bool;
             callback cb-button-top-visible();
         }
         export component MainWindow inherits Window {
@@ -52,8 +52,11 @@ fn popupwindow_size_layout() {
             show-buttons-timer:= Timer {
                 running: show-buttons;
                 interval: 100ms;
+
+                property<int> count: 0;
                 triggered => {
-                    Properties.cb-buttons-visible();
+                    self.running = Properties.cb-buttons-visible(count);
+                    count += 1;
                 }
             }
 
@@ -183,24 +186,39 @@ fn popupwindow_size_layout() {
 
     app.global::<Properties>().on_cb_buttons_visible({
         let app = app.as_weak();
-        move || {
+        move |count: i32| {
             let app = app.upgrade().unwrap();
             // This is not constant depending on the system text font used
             let text_height = app.get_reference_text_size();
 
-            assert_eq!(app.global::<Properties>().get_text_height(), text_height);
-            assert_eq!(app.global::<Properties>().get_button_height(), BUTTON_HEIGHT);
-            assert_eq!(
-                app.global::<Properties>().get_popup_height(),
-                PADDING
-                    + text_height
-                    + SPACING
-                    + HORIZONTAL_BOX_HEIGHT
-                    + SPACING
-                    + BUTTON_HEIGHT
-                    + PADDING
-            );
+            let expected_text_height = text_height;
+            let text_height_test =
+                app.global::<Properties>().get_text_height() == expected_text_height;
+
+            let expected_button_height = BUTTON_HEIGHT;
+            let button_height_test =
+                app.global::<Properties>().get_button_height() == expected_button_height;
+
+            let expected_popup_height = PADDING
+                + text_height
+                + SPACING
+                + HORIZONTAL_BOX_HEIGHT
+                + SPACING
+                + BUTTON_HEIGHT
+                + PADDING;
+            let total_height_test =
+                app.global::<Properties>().get_popup_height() == expected_popup_height;
+
+            if count < 3 && !(text_height_test && button_height_test && total_height_test) {
+                return true;
+            }
+
+            assert_eq!(app.global::<Properties>().get_text_height(), expected_text_height);
+            assert_eq!(app.global::<Properties>().get_button_height(), expected_button_height);
+            assert_eq!(app.global::<Properties>().get_popup_height(), expected_popup_height);
+
             slint::quit_event_loop().unwrap();
+            return false;
         }
     });
 
