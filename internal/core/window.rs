@@ -3106,9 +3106,7 @@ pub mod ffi {
     ) {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .window()
-                .dispatch_event(crate::platform::WindowEvent::internal(event.clone()));
+            window_adapter.window().dispatch_event(crate::platform::WindowEvent::internal(*event));
         }
     }
 
