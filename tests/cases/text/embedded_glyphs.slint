@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell:disable
+
+// With the `deterministic-output` feature, the Rust driver checks that the glyphs
+// it embeds, and the order of the fonts it embeds them from, come out the same in
+// each compilation.
+//embed-textures
+
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Regular.ttf";
+import "../../../demos/printerdemo/ui/fonts/Inter-24pt-Medium.ttf";
+import "../../screenshots/fonts/NotoSans-Regular.ttf";
+
+export component TestCase inherits Window {
+    preferred-width: 100phx;
+    preferred-height: 100phx;
+    default-font-family: "Inter 24pt";
+    VerticalLayout {
+        Text { text: "The quick brown fox jumps over the lazy dog: 0123456789 ÀÉÎÕÜ"; }
+        Text {
+            text: "Pack my box with five dozen liquor jugs";
+            font-size: 20px;
+            font-weight: 500;
+        }
+        Text {
+            text: "Sphinx of black quartz, judge my vow: ÇÑØßæœ";
+            font-family: "Noto Sans";
+            font-size: 32px;
+        }
+        Text {
+            text: "Zwölf Boxkämpfer jagen Viktor quer über den großen Sylter Deich";
+            font-family: "Noto Sans";
+            font-size: 9px;
+            font-weight: 500;
+        }
+    }
+}
+
+/*
+```rust
+let _instance = TestCase::new().unwrap();
+```
+*/
