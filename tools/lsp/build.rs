@@ -11,6 +11,6 @@ fn bump_windows_stack_size() {
 
 fn main() {
     #[cfg(feature = "preview-engine")]
-    slint_build::compile("ui/main.slint").unwrap();
+    slint_build::compile("slint-project.json").unwrap();
     bump_windows_stack_size();
 }
