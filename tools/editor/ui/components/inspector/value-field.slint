@@ -30,6 +30,7 @@ export component InspectorValueField inherits FocusScope {
     out property <bool> input-focused: field.input-focused;
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
+    callback scrub-started();
     callback scrub-preview(float) -> bool;
     callback scrub-accepted(float) -> bool;
     callback scrub-canceled(float);
@@ -63,6 +64,7 @@ export component InspectorValueField inherits FocusScope {
 
     function begin-scrub(mouse-x: length) {
         root.focus();
+        root.scrub-started();
         root.scrubbing = true;
         root.scrub-start-x = mouse-x;
         root.scrub-initial-value = root.scrub-value;

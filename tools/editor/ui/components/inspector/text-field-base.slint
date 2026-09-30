@@ -23,6 +23,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
+    callback edit-started();
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
 
@@ -60,12 +61,20 @@ export component InspectorTextFieldBase inherits Rectangle {
         root.active-commit-key = root.commit-key;
     }
 
+    function begin-edit() {
+        if !root.edited {
+            root.edit-started();
+            root.edited = true;
+        }
+    }
+
     function accept-input(text: string, normalize: bool) -> bool {
         if root.active-commit-key != root.commit-key {
             input.text = root.value;
             root.active-commit-key = root.commit-key;
             return false;
         }
+        root.begin-edit();
         let accepted = root.accepted(text);
         if accepted && normalize && root.normalize-accepted {
             input.text = root.normalized(text);
@@ -106,7 +115,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                 text-cursor-width: root.style.border-width;
 
                 edited => {
-                    root.edited = true;
+                    root.begin-edit();
                     if root.live-edit { root.accept-input(self.text, false); }
                 }
 
@@ -137,6 +146,7 @@ export component InspectorTextFieldBase inherits Rectangle {
                             self.text = root.value;
                         }
                     }
+                    if !self.has-focus { root.edited = false; }
                 }
             }
 

@@ -30,6 +30,8 @@ export component InspectorColorValueField inherits Rectangle {
     private property <ColorValueData> data: Api.color-value-data(root.value);
     private property <ColorFieldEdit> color-edit;
     private property <ColorFieldEdit> opacity-edit;
+    private property <color> color-edit-original;
+    private property <color> scrub-original;
 
     preferred-width: Style.inspector-layout.column-width;
     height: root.style.field.height;
@@ -39,7 +41,7 @@ export component InspectorColorValueField inherits Rectangle {
     }
 
     function accept-color(text: string) -> bool {
-        root.color-edit = Api.color-value-color-edit(root.value, text);
+        root.color-edit = Api.color-value-color-edit(root.color-edit-original, text);
         return root.color-edit.valid && root.accepted(root.color-edit.color, root.color-edit.expression);
     }
 
@@ -69,6 +71,7 @@ export component InspectorColorValueField inherits Rectangle {
                 value: root.data.color-text;
                 commit-key: root.commit-key;
                 normalize-accepted: true;
+                edit-started => { root.color-edit-original = root.value; }
                 accepted(text) => { return root.accept-color(text); }
                 normalized(text) => { return root.color-edit.display; }
 
@@ -98,14 +101,15 @@ export component InspectorColorValueField inherits Rectangle {
                 scrub-maximum: 100;
                 accepted(text) => { return root.accept-opacity(text); }
                 normalized(text) => { return root.opacity-edit.display; }
+                scrub-started => { root.scrub-original = root.value; }
                 scrub-preview(value) => {
-                    return root.preview(Api.color-value-with-opacity(root.value, value));
+                    return root.preview(Api.color-value-with-opacity(root.scrub-original, value));
                 }
                 scrub-accepted(value) => {
-                    return root.scrub-accepted(Api.color-value-with-opacity(root.value, value));
+                    return root.scrub-accepted(Api.color-value-with-opacity(root.scrub-original, value));
                 }
                 scrub-canceled(value) => {
-                    root.scrub-canceled(Api.color-value-with-opacity(root.value, value));
+                    root.scrub-canceled(root.scrub-original);
                 }
             }
         }
