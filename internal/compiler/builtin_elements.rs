@@ -642,6 +642,7 @@ fn build(l: &mut Loader) {
         //!
         //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
         //! The fill and border alpha determine the shadow's shape and strength.
+        //! These semantics correspond to CSS `filter: drop-shadow()`, with an additional spread property.
         //! A rectangle with a transparent fill and an opaque border casts a border-shaped shadow.
         //! The offset shadow can remain visible through transparent parts of the rectangle.
         //! Children don't contribute to the shadow; a rectangle without a background or border casts no shadow.
@@ -669,7 +670,7 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
         //! Positive spread also thickens borders inward; negative spread thins them.
-        //! Supported by the Skia, FemtoVG, and anyrender renderers.
+        //! Supported by the Skia, FemtoVG, and Vello renderers.
         //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
