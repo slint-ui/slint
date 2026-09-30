@@ -36,10 +36,10 @@ Each one names the rule it violates, so the two stay in step.
 | `slint.runtime.err.wrong-clip` | An element is clipped when it shouldn't be, against `sls.paint.no-parent-clip`. | A truncated reading, so `120` displays as `12`. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
 | `slint.runtime.err.stale-property` | A dependent value isn't recomputed after the value it depends on changes. | The display shows a reading that was correct a moment ago and is wrong now. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
 | `slint.runtime.err.eval-order` | Bindings evaluate in an order that shows a combination of values that never existed. | A single frame of a state the system was never in. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
-| `slint.runtime.err.stack-overflow` | Recursion or deep nesting exhausts the stack. The runtime has no allocator, so storage failures are a stack concern rather than a heap one. | The application aborts, so the display freezes or goes blank. | [`slint.compiler.cstr.no-unbounded-recursion`](/user-manual/compiler/constraints/#no-unbounded-recursion) | Not decided yet |
-| `slint.runtime.err.frame-overrun` | A frame takes longer to render than the display refresh interval. | The display freezes on old content, which is indistinguishable from a working one. | [`slint.runtime.cstr.frame-time`](/user-manual/runtime/constraints/#frame-time) | No |
-| `slint.runtime.err.data-race` | The component is accessed from another thread while a render is in progress. | Any display error, including a partly drawn frame. | [`slint.runtime.cstr.single-thread`](/user-manual/runtime/constraints/#single-thread) | No |
-| `slint.runtime.err.miscompiled` | The integrator's Rust toolchain miscompiles the runtime or the generated code. The runtime ships as source, so the final binary isn't built by us. | Any display error, and none of Slint SC's evidence covers it. | [`slint.runtime.cstr.qualified-toolchain`](/user-manual/runtime/constraints/#qualified-toolchain) | No |
+| `slint.runtime.err.stack-overflow` | Recursion or deep nesting exhausts the stack. The runtime has no allocator, so storage failures are a stack concern rather than a heap one. | The application aborts, so the display freezes or goes blank. | TODO | Not decided yet |
+| `slint.runtime.err.frame-overrun` | A frame takes longer to render than the display refresh interval. | The display freezes on old content, which is indistinguishable from a working one. | TODO | No |
+| `slint.runtime.err.data-race` | The component is accessed from another thread while a render is in progress. | Any display error, including a partly drawn frame. | TODO | No |
+| `slint.runtime.err.miscompiled` | The integrator's Rust toolchain miscompiles the runtime or the generated code. The runtime ships as source, so the final binary isn't built by us. | Any display error, and none of Slint SC's evidence covers it. | TODO | No |
 
 ## Detection Measures and Usage Restrictions
 
@@ -51,5 +51,3 @@ A constraint is something we ask the integrator to do, and it exists only becaus
 | <span id="slint.runtime.avd.spec-tests">`slint.runtime.avd.spec-tests`</span> | Every paragraph of the rendering model and the generated code contract is traced to at least one test, and the runtime is held at complete structural coverage. See [Test Coverage](/qualification-report/test-coverage/). |
 | <span id="slint.runtime.avd.buffer-size-check">`slint.runtime.avd.buffer-size-check`</span> | `render_rgb8` checks the frame buffer length and paints nothing if it doesn't match, per `sls.gen.render-error`. |
 | <span id="slint.runtime.avd.no-allocator">`slint.runtime.avd.no-allocator`</span> | The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator to fail and no dynamic allocation to make timing unpredictable. |
-
-The errors no measure covers become [runtime constraints](/user-manual/runtime/constraints/).
