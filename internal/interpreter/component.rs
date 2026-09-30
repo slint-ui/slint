@@ -14,6 +14,7 @@ use i_slint_compiler::langtype::Type as LangType;
 use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::item_tree::ItemTreeVTable;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -416,7 +417,7 @@ pub struct BuildResult {
     pub diagnostics: Vec<i_slint_compiler::diagnostics::Diagnostic>,
     pub components: std::collections::HashMap<String, ComponentDefinitionInner>,
     #[cfg(feature = "internal")]
-    pub watch_paths: Vec<i_slint_compiler::source_path::SourcePath>,
+    pub watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
 }
@@ -424,7 +425,7 @@ pub struct BuildResult {
 /// Compile a `.slint` source string.
 pub async fn build_from_source(
     source_code: String,
-    path: std::path::PathBuf,
+    path: SourcePath,
     mut config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> BuildResult {
@@ -468,15 +469,13 @@ pub async fn build_from_source(
     // map source-level elements back to runtime items.
     config.debug_info = true;
     let diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let (path, mut diag, loader, raw_loader) =
-        i_slint_compiler::load_root_file_with_raw_type_loader(
-            &path,
-            &path,
-            source_code,
-            diag,
-            config.clone(),
-        )
-        .await;
+    let (mut diag, loader, raw_loader) = i_slint_compiler::load_root_file_with_raw_type_loader(
+        &path,
+        source_code,
+        diag,
+        config.clone(),
+    )
+    .await;
     #[cfg(feature = "internal")]
     let watch_paths = loader.all_files_to_watch().into_iter().collect();
     let error_result = |diagnostics| BuildResult {

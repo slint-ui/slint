@@ -45,7 +45,6 @@ pub mod passes;
 
 use crate::generator::OutputFormat;
 use source_path::SourcePath;
-use std::path::Path;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -405,49 +404,34 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
+/// `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (SourcePath, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, source_path) = (SourcePath::new(path), SourcePath::new(source_path));
-    let (path, _) =
-        loader.load_root_file(&path, &source_path, source_code, false, &mut diagnostics).await;
-
-    (path, diagnostics, loader)
+    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
+    (diagnostics, loader)
 }
 
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes, just like `load_root_file`.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
-/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and another `TypeLoader` with a minimal
+/// set of passes applied to it.
 pub async fn load_root_file_with_raw_type_loader(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (
-    SourcePath,
-    diagnostics::BuildDiagnostics,
-    typeloader::TypeLoader,
-    Option<typeloader::TypeLoader>,
-) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, source_path) = (SourcePath::new(path), SourcePath::new(source_path));
-    let (path, raw_type_loader) =
-        loader.load_root_file(&path, &source_path, source_code, true, &mut diagnostics).await;
-
-    (path, diagnostics, loader, raw_type_loader)
+    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    (diagnostics, loader, raw_type_loader)
 }
 
 /// Returns true and emits an error if experimental features should be disabled.

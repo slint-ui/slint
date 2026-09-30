@@ -1370,7 +1370,6 @@ pub fn move_element_to(
 mod tests {
     use i_slint_compiler::parser::{TextRange, TextSize};
     use i_slint_compiler::source_path::SourcePath;
-    use lsp_types::Url;
 
     use std::collections::HashMap;
 
@@ -1413,15 +1412,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     ) -> (editor_preview::DocumentCache, lsp_types::WorkspaceEdit) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                DEMO_CODE.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), DEMO_CODE.to_string())]),
             false,
         );
-        let doc = document_cache
-            .get_document_by_path(&SourcePath::new(test::main_test_file_name()))
-            .unwrap();
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let source_file = &doc.node.as_ref().unwrap().source_file;
 
         let edits = edits
@@ -1559,15 +1553,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     fn add_component_test(input: &str, output: &str, selection_offset: u32) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                input.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), input.to_string())]),
             true,
         );
-        let doc = document_cache
-            .get_document_by_path(&SourcePath::new(test::main_test_file_name()))
-            .unwrap();
+        let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
         let doc_node = doc.node.as_ref().unwrap();
 
         let (workspace_edit, drop_data) =
@@ -1575,10 +1564,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].url.to_file_path().unwrap(), test::main_test_file_name());
+        assert_eq!(SourcePath::from_url(&result[0].url), test::main_test_file_name());
         assert_eq!(&result[0].contents, output);
 
-        assert_eq!(drop_data.path, SourcePath::new(test::main_test_file_name()));
+        assert_eq!(drop_data.path, test::main_test_file_name());
         assert_eq!(drop_data.selection_offset, selection_offset.into());
 
         assert_eq!(

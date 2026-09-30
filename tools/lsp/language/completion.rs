@@ -2745,7 +2745,6 @@ mod tests {
         main_file_with_cursor: &str,
     ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
-        use lsp_types::Url;
 
         const CURSOR_EMOJI: char = '🔺';
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
@@ -2755,8 +2754,7 @@ mod tests {
         let mut diagnostics = BuildDiagnostics::default();
 
         let types_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(types_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(types_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
             Some(1),
@@ -2765,8 +2763,7 @@ mod tests {
         ));
 
         let main_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(main_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(main_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &main_url,
             Some(2),

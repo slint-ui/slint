@@ -33,7 +33,7 @@ pub(crate) mod tests {
     use crate::{Compiler, ComponentInstance};
     use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
-    use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
+    use std::{cell::RefCell, collections::HashMap, pin::Pin, rc::Rc};
 
     pub fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
@@ -41,8 +41,11 @@ pub(crate) mod tests {
         let mut compiler = Compiler::default();
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
-        let compile_result =
-            spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+        let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+            code.to_string(),
+            test_path(),
+            i_slint_core::InternalToken,
+        ));
         assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
         compile_result.components().next().unwrap().create().unwrap()
     }
@@ -68,14 +71,14 @@ pub(crate) mod tests {
     }
 
     // Make sure to not actually write this file, it's just a synthetic path
-    pub fn test_path() -> PathBuf {
-        PathBuf::from("/tmp/test.slint")
+    pub fn test_path() -> SourcePath {
+        SourcePath::new("/tmp/test.slint")
     }
 
     fn find_element_hash(instance: &ComponentInstance, code: &str, search_term: &str) -> u64 {
         let offset = code.find(search_term).unwrap() as u32;
         let (element, debug_index) = instance
-            .element_node_at_source_code_position(&SourcePath::new(test_path()), offset)
+            .element_node_at_source_code_position(&test_path(), offset)
             .first()
             .cloned()
             .expect("element resolved");
@@ -90,11 +93,7 @@ pub(crate) mod tests {
         search_term: &str,
     ) -> i_slint_core::lengths::LogicalRect {
         let offset = code.find(search_term).unwrap() as u32;
-        instance
-            .component_positions(&SourcePath::new(test_path()), offset)
-            .first()
-            .expect("geometry")
-            .rect
+        instance.component_positions(&test_path(), offset).first().expect("geometry").rect
     }
 
     // Editor-style override store + callback (must be installed before the first evaluation so
@@ -337,14 +336,18 @@ export component Win inherits Window {
                 compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
                     Some(std::hash::RandomState::new());
             }
-            let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+            let r = spin_on::spin_on(compiler.build_from_source_path(
+                code.to_string(),
+                test_path(),
+                i_slint_core::InternalToken,
+            ));
             assert!(!r.has_errors(), "{:?}", r.diagnostics);
             let instance = r.components().next().unwrap().create().unwrap();
             [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
                 .into_iter()
                 .map(|offset| {
                     let geometry = instance
-                        .component_positions(&SourcePath::new(test_path()), offset as u32)
+                        .component_positions(&test_path(), offset as u32)
                         .first()
                         .expect("geometry")
                         .rect;

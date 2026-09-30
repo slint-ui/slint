@@ -731,7 +731,6 @@ mod tests {
         ComponentInstance,
         debug_hook::tests::{compile_with_debug_hooks, test_path},
     };
-    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::item_tree::ParentItemTraversalMode;
     use i_slint_core::items::{BoxShadow, Clip, ItemRc, Layer, Opacity, Transform};
     use vtable::VRc;
@@ -743,10 +742,7 @@ mod tests {
     ) -> crate::highlight::HighlightedRect {
         let id_position = code.find(id).unwrap_or_else(|| panic!("{id} not found"));
         let offset = id_position + code[id_position..].find("Rectangle").unwrap();
-        *instance
-            .component_positions(&SourcePath::new(test_path()), offset as u32)
-            .first()
-            .expect("geometry")
+        *instance.component_positions(&test_path(), offset as u32).first().expect("geometry")
     }
 
     fn runtime_item_of(instance: &ComponentInstance, source: &str, element_id: &str) -> ItemRc {
@@ -755,7 +751,7 @@ mod tests {
         let offset = element_id_position + source[element_id_position..].find("Rectangle").unwrap();
         let (runtime_instance, flat_index) = super::items_by_source(
             instance.inner.vrc(),
-            &SourcePath::new(test_path()),
+            &test_path(),
             offset as u32,
             super::SourceMatch::Start,
         )
@@ -1048,7 +1044,7 @@ export component Win inherits Window {
             width",
             )
             .unwrap();
-        let geometries = instance.component_positions(&SourcePath::new(test_path()), offset as u32);
+        let geometries = instance.component_positions(&test_path(), offset as u32);
         assert_eq!(geometries.len(), 2);
         for (geometry, expected) in geometries.iter().zip([382.25, -397.5]) {
             assert_eq!(geometry.transform_rotation, expected);

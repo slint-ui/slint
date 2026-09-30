@@ -11,7 +11,6 @@ pub mod document_cache;
 pub mod editing;
 pub mod editor_session;
 pub mod element;
-pub mod file_url;
 mod lsp_to_previews;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
@@ -23,7 +22,6 @@ pub mod util;
 pub use document_cache::DocumentCache;
 pub use editor_session::{EditorSession, PreviewConnection, VersionedDiagnostics};
 pub use element::{ElementRcNode, NODE_IGNORE_COMMENT, extract_element, is_element_node_ignored};
-pub use file_url::uri_to_file;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub use i_slint_live_preview::protocol::{LspToPreview, PreviewToLsp, Result};
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]

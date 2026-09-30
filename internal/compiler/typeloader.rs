@@ -1598,13 +1598,12 @@ impl TypeLoader {
     pub async fn load_root_file(
         &mut self,
         path: &SourcePath,
-        source_path: &SourcePath,
         source_code: String,
         keep_raw: bool,
         diag: &mut BuildDiagnostics,
-    ) -> (SourcePath, Option<TypeLoader>) {
+    ) -> Option<TypeLoader> {
         let doc_node: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(source_path.clone()), diag).into();
+            crate::parser::parse(source_code, Some(path.clone()), diag).into();
         let parse_errors = diag.iter().cloned().collect();
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
         let (path, mut doc) =
@@ -1617,8 +1616,8 @@ impl TypeLoader {
         } else {
             None
         };
-        Self::register_document(state, doc, path.clone(), parse_errors);
-        (path, raw_type_loader)
+        Self::register_document(state, doc, path, parse_errors);
+        raw_type_loader
     }
 
     fn register_document(
@@ -2361,7 +2360,6 @@ fn test_load_root_file_tracks_missing_imports() {
     spin_on::spin_on(
         loader.load_root_file(
             &main_path,
-            &main_path,
             r#"
 import { Missing } from "missing.slint";
 export component Main inherits Window {
@@ -2400,7 +2398,6 @@ fn test_load_root_file_tracks_missing_resources() {
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     spin_on::spin_on(
         loader.load_root_file(
-            &main_path,
             &main_path,
             r#"
 export component Main inherits Window {

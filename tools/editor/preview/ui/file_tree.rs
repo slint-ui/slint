@@ -402,11 +402,7 @@ pub(super) fn choose_image_file(
 }
 
 fn source_path(source_uri: &str) -> Option<PathBuf> {
-    let uri = Url::parse(source_uri).ok()?;
-    if uri.scheme() != "file" {
-        return None;
-    }
-    i_slint_editor_preview::uri_to_file(&uri)?.into_native_path()
+    i_slint_compiler::source_path::SourcePath::from(Url::parse(source_uri).ok()?).into_native_path()
 }
 
 fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {

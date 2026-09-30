@@ -3,7 +3,6 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
-#[cfg(any(feature = "internal", feature = "internal-highlight"))]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
@@ -692,8 +691,9 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -734,7 +734,7 @@ impl ComponentCompiler {
 
         let r = build_compilation_result(
             source,
-            path.into(),
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -766,7 +766,7 @@ impl ComponentCompiler {
     ) -> Option<ComponentDefinition> {
         let r = build_compilation_result(
             source_code,
-            path,
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -897,8 +897,9 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(&path.to_path_buf())));
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Compile a .slint file
@@ -937,8 +938,13 @@ impl Compiler {
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
-            .await
+        build_compilation_result(
+            source,
+            SourcePath::new(path),
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await
     }
 
     /// Compile some .slint code
@@ -954,6 +960,22 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
+        let path = SourcePath::new(path);
+        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
+            .await
+    }
+
+    /// [`Self::build_from_source`] for a file that may only be reachable by URL.
+    ///
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_from_source_path(
+        &self,
+        source_code: String,
+        path: SourcePath,
+        _: i_slint_core::InternalToken,
+    ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
             .await
     }
@@ -964,7 +986,7 @@ impl Compiler {
     pub async fn build_static_from_source(
         &self,
         source_code: String,
-        path: PathBuf,
+        path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
@@ -982,7 +1004,7 @@ pub(crate) enum AnimationMode {
 
 async fn build_compilation_result(
     source_code: String,
-    path: PathBuf,
+    path: SourcePath,
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> CompilationResult {
@@ -2408,14 +2430,17 @@ fn test_multi_components() {
 }
 
 #[cfg(all(test, feature = "internal-highlight"))]
-fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let path = PathBuf::from("/tmp/test.slint");
+    let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+        code.to_string(),
+        path.clone(),
+        i_slint_core::InternalToken,
+    ));
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");
@@ -2446,7 +2471,7 @@ export component Foo2 inherits Window  {
     let (handle, path) = compile(code);
 
     for i in 0..code.len() as u32 {
-        let elements = handle.element_node_at_source_code_position(&SourcePath::new(&path), i);
+        let elements = handle.element_node_at_source_code_position(&path, i);
         eprintln!("{i}: {}", code.as_bytes()[i as usize] as char);
         match i {
             16 => assert_eq!(elements.len(), 1),       // Bar1 (def)
@@ -2487,9 +2512,8 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let positions_at = |pattern: &str| {
-        handle.component_positions(&SourcePath::new(&path), code.find(pattern).unwrap() as u32)
-    };
+    let positions_at =
+        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
 
     // Each MyBox use highlights only its own instance.
     let b1_rects = positions_at("MyBox { x: 0px");
@@ -2516,8 +2540,8 @@ export component Foo3 inherits Window {
     // component_positions covers the same shapes, and an offset outside any
     // element matches nothing.
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
-    assert_eq!(handle.component_positions(&SourcePath::new(&path), offset).len(), 3);
-    assert!(handle.component_positions(&SourcePath::new(&path), code.len() as u32 - 1).is_empty());
+    assert_eq!(handle.component_positions(&path, offset).len(), 3);
+    assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
 }
 
 #[cfg(feature = "internal-highlight")]

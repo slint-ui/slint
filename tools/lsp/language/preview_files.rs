@@ -10,7 +10,7 @@
 //! and the rest of the disk. Files the LSP pushes on its own — the loaded
 //! sources, the fonts they import — don't go through here.
 
-use crate::editor_preview::{DocumentCache, uri_to_file};
+use crate::editor_preview::DocumentCache;
 use i_slint_compiler::source_path::{SourcePath, clean_path};
 use i_slint_live_preview::protocol::PreviewConfig;
 use lsp_types::InitializeParams;
@@ -58,7 +58,7 @@ impl PreviewFileAccess {
         let mut candidates: HashSet<PathBuf> =
             crate::host_language_search::resolve_workspace_folders(init_param)
                 .iter()
-                .filter_map(|folder| uri_to_file(&folder.uri)?.into_native_path())
+                .filter_map(|folder| SourcePath::from_url(&folder.uri).into_native_path())
                 .chain(preview_config.include_paths.iter().cloned())
                 .chain(preview_config.library_paths.values().cloned())
                 .collect();

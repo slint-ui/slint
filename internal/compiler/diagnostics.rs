@@ -64,7 +64,7 @@ impl std::fmt::Debug for SourceFileInner {
 impl SourceFileInner {
     pub fn new(path: SourcePath, source: String) -> Self {
         Self {
-            path_buf: path.to_path_buf(),
+            path_buf: path.to_legacy_path(),
             path,
             source: Some(source),
             line_offsets: Default::default(),
@@ -82,7 +82,7 @@ impl SourceFileInner {
 
     /// Create a SourceFile that has just a path, but no contents
     pub fn from_path_only(path: SourcePath) -> Arc<Self> {
-        Arc::new(Self { path_buf: path.to_path_buf(), path, ..Default::default() })
+        Arc::new(Self { path_buf: path.to_legacy_path(), path, ..Default::default() })
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)

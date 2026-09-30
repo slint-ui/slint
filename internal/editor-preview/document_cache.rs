@@ -12,7 +12,7 @@ use lsp_types::Url;
 
 use std::{cell::RefCell, collections::HashMap, future::Future, path::PathBuf, pin::Pin, rc::Rc};
 
-use crate::{ElementRcNode, Result, uri_to_file};
+use crate::{ElementRcNode, Result};
 use std::collections::HashSet;
 
 pub type SourceFileVersionMap = HashMap<SourcePath, SourceFileVersion>;
@@ -179,7 +179,7 @@ impl DocumentCache {
     }
 
     pub fn document_version(&self, target_uri: &Url) -> SourceFileVersion {
-        self.document_version_by_path(&uri_to_file(target_uri)?)
+        self.document_version_by_path(&SourcePath::from_url(target_uri))
     }
 
     pub fn document_version_by_path(&self, path: &SourcePath) -> SourceFileVersion {
@@ -187,8 +187,7 @@ impl DocumentCache {
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
-        let path = uri_to_file(url)?;
-        self.type_loader.get_document(&path)
+        self.type_loader.get_document(&SourcePath::from_url(url))
     }
 
     /// Iterator over every fully-loaded `object_tree::Document` in the cache.
@@ -222,13 +221,7 @@ impl DocumentCache {
 
     /// Returns true if doc_url uses (possibly indirectly) widgets from "std-widgets.slint"
     pub fn uses_widgets(&self, doc_url: &Url) -> bool {
-        let Some(doc_path) = uri_to_file(doc_url) else {
-            return false;
-        };
-
-        let mut dedup = HashSet::new();
-
-        self.uses_widgets_impl(doc_path, &mut dedup)
+        self.uses_widgets_impl(SourcePath::from_url(doc_url), &mut HashSet::new())
     }
 
     pub fn get_document_by_path<'a>(&'a self, path: &'_ SourcePath) -> Option<&'a Document> {
@@ -346,16 +339,14 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path =
-            uri_to_file(url).ok_or_else(|| format!("Failed to convert path for loading: {url}"))?;
+        let path = SourcePath::from_url(url);
         self.type_loader.load_file(&path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())
     }
 
     pub async fn reload_cached_file(&mut self, url: &Url, diag: &mut BuildDiagnostics) {
-        let Some(path) = uri_to_file(url) else { return };
-        self.type_loader.reload_cached_file(&path, diag).await;
+        self.type_loader.reload_cached_file(&SourcePath::from_url(url), diag).await;
     }
 
     /// Drop a document from the cache.
@@ -364,11 +355,7 @@ impl DocumentCache {
     /// Compared to [Self::invalidate_url], this actually causes the document to be reloaded from
     /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
-        let Some(path) = uri_to_file(url) else {
-            // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
-            tracing::error!("Failed to convert path for dropping document: {url}");
-            return Ok(Default::default());
-        };
+        let path = SourcePath::from_url(url);
         Ok(self.type_loader.drop_document(&path)?.iter().filter_map(|path| path.to_url()).collect())
     }
 
@@ -378,8 +365,11 @@ impl DocumentCache {
     /// Compared to [Self::drop_document], the CST remains in the cache, and only the type
     /// information is dropped from the cache, which causes the document to be re-analyzed.
     pub fn invalidate_url(&mut self, url: &Url) -> HashSet<Url> {
-        let Some(path) = uri_to_file(url) else { return HashSet::new() };
-        self.type_loader.invalidate_document(&path).into_iter().filter_map(|x| x.to_url()).collect()
+        self.type_loader
+            .invalidate_document(&SourcePath::from_url(url))
+            .into_iter()
+            .filter_map(|x| x.to_url())
+            .collect()
     }
 
     pub fn compiler_configuration(&self) -> CompilerConfiguration {

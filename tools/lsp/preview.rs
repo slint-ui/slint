@@ -31,7 +31,6 @@ use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance}
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
@@ -1530,7 +1529,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
 async fn parse_source(
     config: PreviewConfig,
-    path: PathBuf,
+    path: SourcePath,
     version: SourceFileVersion,
     source_code: String,
     style: String,
@@ -1574,13 +1573,11 @@ async fn parse_source(
         editor_preview::document_cache::document_cache_parts_setup(
             cc,
             Some(Rc::new(file_loader_fallback)),
-            editor_preview::document_cache::SourceFileVersionMap::from([(
-                SourcePath::new(&path),
-                version,
-            )]),
+            editor_preview::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
-    let result = builder.build_from_source(source_code, path).await;
+    let result =
+        builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
@@ -1604,7 +1601,7 @@ async fn reload_preview_impl(
         set_current_live_data(live_preview_data);
     }
 
-    let path = SourcePath::from_url(&component.url).to_path_buf();
+    let path = SourcePath::from_url(&component.url);
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
@@ -2122,7 +2119,8 @@ fn update_preview_area(
 
 #[cfg(test)]
 pub mod test {
-    use std::{collections::HashMap, path::PathBuf, rc::Rc};
+    use i_slint_compiler::source_path::SourcePath;
+    use std::{collections::HashMap, rc::Rc};
 
     use slint_interpreter::ComponentInstance;
 
@@ -2131,7 +2129,7 @@ pub mod test {
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
         reinterpret_test_with_sources(style, code)
@@ -2140,7 +2138,7 @@ pub mod test {
     #[track_caller]
     pub fn reinterpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         let code = Rc::new(code);
 
@@ -2155,7 +2153,6 @@ pub mod test {
             None,
             move |path| {
                 let code = code.clone();
-                let path = path.to_path_buf();
 
                 Box::pin(async move {
                     let Some(source) = code.get(&path) else {

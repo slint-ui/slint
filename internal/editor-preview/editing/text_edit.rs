@@ -1093,7 +1093,7 @@ mod test_apply_reversed_edit {
 
     #[test]
     fn test_multi_line_edit() {
-        let url = lsp_types::Url::from_file_path(crate::test::main_test_file_name()).unwrap();
+        let url = crate::test::main_test_file_name().to_url().unwrap();
         let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
         let mut document_cache = crate::test::compile_test_with_sources("fluent", code, true);
 
