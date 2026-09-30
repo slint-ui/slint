@@ -179,7 +179,7 @@ pub fn evaluate_property(
 ) -> ui::PropertyValue {
     let default_rectangle_property = {
         let element = element.borrow();
-        matches!(property_name, "background" | "border-color" | "border-width")
+        matches!(property_name, "background" | "border-color")
             && default_value.is_none()
             && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
             && element.binding_cell_including_synthetic(property_name).is_none()
