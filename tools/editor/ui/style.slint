@@ -287,6 +287,19 @@ export struct ArtboardStyle {
     border: brush,
 }
 
+export struct PreviewDiagnosticsStyle {
+    max-width: length = 520px,
+    margin: length = 24px,
+    padding: length = 24px,
+    max-details-height: length = 200px,
+    radius: length = 12px,
+    background: color,
+    foreground: color,
+    muted: color,
+    border: color,
+    veil: color,
+}
+
 export struct SelectionFrameStyle {
     outline-width: length = 1px,
     hover-width: length = 2px,
@@ -1519,6 +1532,13 @@ export global Colors {
 }
 
 export global Style {
+    out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        background: Colors.surface,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        border: Colors.border,
+        veil: Colors.background.with-alpha(0.72),
+    };
     out property <ScrollIndicatorStyle> scroll-indicator: {
         color: Colors.foreground.with-alpha(0.4),
         active-color: Colors.foreground.with-alpha(0.6),

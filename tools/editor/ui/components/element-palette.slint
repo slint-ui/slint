@@ -206,8 +206,8 @@ export component ElementPalette inherits Rectangle {
             ElementPaletteRows {
                 vertical-stretch: 1;
                 query: Api.element-library-normalize-query(search.text);
-                enabled: !root.image-mode;
-                drag-enabled: Api.known-components.length > 0;
+                enabled: !root.image-mode && Api.preview-editable;
+                drag-enabled: Api.preview-editable && Api.known-components.length > 0;
                 drag-started => { root.drag-started(); }
             }
         }

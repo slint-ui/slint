@@ -1,7 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import time
 from pathlib import Path
 
 import slint_testing
@@ -52,7 +51,9 @@ def test_broken_source_preserves_preview_and_recovers(
         broken = source_file.read_bytes() + b"\nthis is not valid Slint\n"
         source_file.write_bytes(broken)
         snapshot.wait_for_exact(broken)
-        time.sleep(0.25)
+        window_element_with_label(
+            window, "Stale preview", slint_testing.AccessibleRole.Region
+        )
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
@@ -206,6 +207,9 @@ def test_deleted_root_file_recovers_without_relaunch(
         source_file.unlink()
         SourceSnapshot.capture(fixture_project).assert_unchanged()
         window_element_with_label(
+            window, "Stale preview", slint_testing.AccessibleRole.Region
+        )
+        window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
         assert not source_file.exists()
@@ -232,7 +236,9 @@ def test_deleted_import_recovers_without_relaunch(
             window, "Imported component", slint_testing.AccessibleRole.Text
         )
         imported_file.unlink()
-        time.sleep(0.25)
+        window_element_with_label(
+            window, "Stale preview", slint_testing.AccessibleRole.Region
+        )
         window_element_with_label(
             window, "Imported component", slint_testing.AccessibleRole.Text
         )
