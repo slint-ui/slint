@@ -359,37 +359,14 @@ pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
 }
 
 fn image_url_path(source: &str) -> Option<String> {
-    let mut chars = source.strip_prefix("@image-url(")?.trim_start().chars();
-    if chars.next()? != '"' {
+    let source = source.strip_prefix("@image-url(")?.trim_start();
+    let length = i_slint_compiler::lexer::lex_string(source, &mut Default::default());
+    let (literal, rest) = source.split_at(length);
+    let rest = rest.trim();
+    if rest != ")" && !(rest.starts_with(',') && rest.ends_with(')')) {
         return None;
     }
-
-    let mut path = String::new();
-    let mut escaped = false;
-    let mut consumed = 1;
-    for ch in chars {
-        consumed += ch.len_utf8();
-        if escaped {
-            path.push(match ch {
-                'n' => '\n',
-                'r' => '\r',
-                't' => '\t',
-                other => other,
-            });
-            escaped = false;
-        } else if ch == '\\' {
-            escaped = true;
-        } else if ch == '"' {
-            let rest = source.strip_prefix("@image-url(")?.trim_start().get(consumed..)?.trim();
-            if rest == ")" || rest.starts_with(',') && rest.ends_with(')') {
-                return Some(path);
-            }
-            return None;
-        } else {
-            path.push(ch);
-        }
-    }
-    None
+    i_slint_compiler::literals::unescape_string(literal).map(|path| path.to_string())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -860,6 +837,10 @@ mod tests {
             "checker.svg"
         );
         assert_eq!(
+            image_source_file_name(r#"@image-url("assets/\u{63}hecker.svg")"#.into()),
+            "checker.svg"
+        );
+        assert_eq!(
             image_source_file_name(r#"@image-url("assets/panel.png", nine-slice(1 2 3 4))"#.into()),
             "panel.png"
         );
@@ -874,12 +855,12 @@ mod tests {
 
     #[test]
     fn chosen_image_is_relative_to_the_edited_slint_file() {
-        let tree = TempTree::new();
-        let source = tree.file("ui/pages/main.slint");
-        let image = tree.file("ui/assets/panel.png");
-
         assert_eq!(
-            image_url_expression(&source, &image).as_deref(),
+            image_url_expression(
+                Path::new("ui/pages/main.slint"),
+                Path::new("ui/assets/panel.png"),
+            )
+            .as_deref(),
             Some(r#"@image-url("../assets/panel.png")"#)
         );
     }
