@@ -222,7 +222,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 // libinput timestamps use CLOCK_MONOTONIC.
                 let now_nanos = clock_gettime(ClockId::CLOCK_MONOTONIC)?.num_nanoseconds();
                 let ctx = WindowInner::from_pub(window).context();
-                let offset = Instant::now(&ctx).as_nanos() as i64 - now_nanos;
+                let offset = Instant::now(ctx).as_nanos() as i64 - now_nanos;
                 self.input_timestamp_offset = Some(offset);
                 offset
             }
