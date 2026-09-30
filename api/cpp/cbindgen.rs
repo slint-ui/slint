@@ -572,7 +572,6 @@ fn gen_corelib(
         "LogicalPoint",
         "LogicalPosition",
         "LogicalLength",
-        // C++ only handles it by pointer, and cbindgen can't lay out its `Option<Instant>` fields.
         "MouseEvent",
     ]
     .iter()
@@ -1068,8 +1067,6 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;
-        namespace types { struct MouseEvent; }
-        using types::MouseEvent;
 
         template<typename T> struct Option;
         // This specialization provides a concrete C++ type for Option types
