@@ -1220,8 +1220,7 @@ where
         let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
         if new_state != state_info.current_state {
             state_info.previous_state = state_info.current_state;
-            state_info.change_time =
-                timestamp.unwrap_or_else(crate::animations::current_tick).into();
+            state_info.change_time = timestamp.unwrap_or_else(crate::animations::current_tick);
             state_info.current_state = new_state;
         }
         *value = T::from(state_info);

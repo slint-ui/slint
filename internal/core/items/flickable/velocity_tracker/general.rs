@@ -148,10 +148,11 @@ mod tests_general_velocity_tracker {
     fn precise_samples_survive_buffer_wraparound() {
         let mut tracker = GeneralVelocityTracker::<3>::default();
         for i in 0..8 {
-            tracker.push(Instant(Duration::from_micros(i * 3500)), LogicalVector::new(0., 21.));
+            tracker
+                .push(Instant::from(Duration::from_micros(i * 3500)), LogicalVector::new(0., 21.));
         }
         assert_eq!(tracker.buffer.len(), 3);
-        assert_eq!(tracker.last_time(), Some(Instant(Duration::from_micros(24500))));
+        assert_eq!(tracker.last_time(), Some(Instant::from(Duration::from_micros(24500))));
         let estimate = tracker.estimate_velocity_internal().unwrap();
         values_equal!(estimate.velocity.y, 6000., 0.1);
     }
@@ -159,9 +160,9 @@ mod tests_general_velocity_tracker {
     #[test]
     fn short_flick_preserves_submillisecond_timing() {
         let mut tracker = GeneralVelocityTracker::<8>::default();
-        tracker.push(Instant(Duration::ZERO), LogicalVector::default());
-        tracker.push(Instant(Duration::from_micros(7000)), LogicalVector::new(0., 42.));
-        tracker.push(Instant(Duration::from_micros(10500)), LogicalVector::new(0., 21.));
+        tracker.push(Instant::from(Duration::ZERO), LogicalVector::default());
+        tracker.push(Instant::from(Duration::from_micros(7000)), LogicalVector::new(0., 42.));
+        tracker.push(Instant::from(Duration::from_micros(10500)), LogicalVector::new(0., 21.));
         let estimate = tracker.estimate_velocity_internal().unwrap();
         values_equal!(estimate.velocity.y, 6000., 0.1);
     }

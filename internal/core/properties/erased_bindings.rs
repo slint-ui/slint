@@ -84,10 +84,9 @@ fn set_animated_property_binding_impl<
     property.set_animated_binding(
         move || binding.upgrade_and_call(&()).expect("binding evaluated on dropped component"),
         move || {
-            let (animation, start_time) = compute_animation_details
+            compute_animation_details
                 .upgrade_and_call(&())
-                .expect("binding evaluated on dropped component");
-            (animation, start_time.map(crate::animations::Instant::from))
+                .expect("binding evaluated on dropped component")
         },
     )
 }
