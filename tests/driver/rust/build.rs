@@ -321,6 +321,9 @@ fn compile_and_generate(
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
     }
+    if source.contains("//embed-textures") {
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+    }
     if source.contains("//no-default-translation-context") {
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
