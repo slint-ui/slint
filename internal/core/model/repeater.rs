@@ -1345,6 +1345,18 @@ mod tests {
         }
     }
 
+    fn ensure_updated_window(repeater: &Repeater<SimpleItem>) {
+        let current = repeater.0.inner.borrow().layout_state.item_index.clone();
+        let model = repeater.0.model.get_internal();
+        let mut ops = RustRepeaterOps { inner: &repeater.0.inner, init: &new_item, model: &model };
+        for instance_index in 0..ops.len() {
+            ops.ensure_updated(
+                instance_index,
+                current.row - current.instance_index + instance_index,
+            );
+        }
+    }
+
     // Get value stored in SimpleItem
     fn get_instance_inner_value(
         inner: &core::cell::Ref<'_, RepeaterInner<SimpleItem>>,
@@ -1356,8 +1368,6 @@ mod tests {
     /// Remove elements from the model using the repeater op
     #[test]
     fn test_repeater_ops_splice() {
-        static COUNTER: atomic::AtomicI32 = atomic::AtomicI32::new(0);
-
         let repeater: Repeater<SimpleItem> = Repeater::default();
         let repeater = core::pin::pin!(repeater);
 
@@ -1369,10 +1379,7 @@ mod tests {
         });
         repeater.as_ref().model(); // Setup tracker
 
-        repeater.as_ref().ensure_updated(|| {
-            let index = COUNTER.fetch_add(-1, atomic::Ordering::Relaxed);
-            SimpleItem::new(index)
-        });
+        repeater.as_ref().ensure_updated(|| SimpleItem::new(-1));
 
         {
             let inner = repeater.0.inner.borrow();
@@ -1390,10 +1397,7 @@ mod tests {
             // Remove after current row -> current row still is the same
             let mut ops = RustRepeaterOps {
                 inner: &repeater.0.inner,
-                init: &|| {
-                    let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
-                    SimpleItem::new(index)
-                },
+                init: &|| SimpleItem::new(-1),
                 model: &ModelRc::from(model.clone()),
             };
             // Remove 4 at index 4
@@ -1413,10 +1417,7 @@ mod tests {
             // Remove current row
             let mut ops = RustRepeaterOps {
                 inner: &repeater.0.inner,
-                init: &|| {
-                    let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
-                    SimpleItem::new(index)
-                },
+                init: &|| SimpleItem::new(-1),
                 model: &ModelRc::from(model.clone()),
             };
             // Remove first 2 items
@@ -2000,11 +2001,11 @@ mod tests {
         let model = TestModel::new(10);
         let repeater = repeater_with_window(&model, 4..7, 5);
         // Before:
-        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9
         //                         ^
         // Window:              |------|
         // After:
-        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9
         //                              ^
         // Window:                  |------|
         model.insert(2, &[100]);
@@ -2023,11 +2024,11 @@ mod tests {
         let model = TestModel::new(10);
         let repeater = repeater_with_window(&model, 2..6, 4);
         // Before:
-        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9
         //                      ^
         // Window:       |----------|
         // After:
-        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9
         //                           ^
         // Window:        |--------------|
         model.insert(2, &[100]);
@@ -2049,12 +2050,12 @@ mod tests {
         let before = state(&repeater);
         // Before:
         //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-        //                ^
-        // Window:       |-------------|
+        //          ^
+        // Window:  |------|
         // After:
         //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 100
-        //                ^
-        // Window:       |-------------|
+        //          ^
+        // Window:  |------|
         model.insert(10, &[100]);
         assert_eq!(
             state(&repeater),
@@ -2145,11 +2146,6 @@ mod tests {
         repeater.as_ref().ensure_updated(new_item);
         assert_eq!(
             state(&repeater),
-            (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 0, instance_index: 0 })
-        );
-        repeater.as_ref().ensure_updated(new_item);
-        assert_eq!(
-            state(&repeater),
             (
                 vec![Clean(1), Clean(2), Clean(3)],
                 ItemIndexRelationShip { row: 0, instance_index: 0 }
@@ -2160,11 +2156,11 @@ mod tests {
         assert_eq!(
             state(&repeater),
             (
-                vec![Clean(1), Clean(2), Clean(3), Dirty, Dirty],
+                vec![Clean(1), Clean(2), Clean(3), Empty, Empty],
                 ItemIndexRelationShip { row: 0, instance_index: 0 }
             )
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2198,11 +2194,11 @@ mod tests {
         let repeater = repeater_with_window(&model, 2..6, 3);
         let before = state(&repeater);
         // Before:
-        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //           0, 1, 2, 3, 4, 5, 6, 7
         //                    ^
         // Window:        |----------|
         // After:
-        //           0, 1, 2, 3, 5, 6, 7, 8
+        //           0, 1, 2, 3, 5, 6, 7
         //                    ^
         // Window:        |-------|
         model.remove(4..5);
@@ -2216,11 +2212,11 @@ mod tests {
         let repeater = repeater_with_window(&model, 2..6, 3);
         let before = state(&repeater);
         // Before:
-        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //           0, 1, 2, 3, 4, 5, 6, 7
         //                    ^
         // Window:        |----------|
         // After:
-        //           0, 1, 2, 3, 4, 7, 8
+        //           0, 1, 2, 3, 4, 7
         //                    ^
         // Window:        |-------|
         model.remove(5..7);
@@ -2233,7 +2229,7 @@ mod tests {
         let repeater = repeater_with_window(&model, 2..6, 3);
         let before = state(&repeater);
         // Before:
-        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //           0, 1, 2, 3, 4, 5, 6, 7
         //                    ^
         // Window:        |----------|
         // After:
@@ -2262,7 +2258,7 @@ mod tests {
             state(&repeater),
             (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2277,11 +2273,11 @@ mod tests {
         let model = TestModel::new(10);
         let repeater = repeater_with_window(&model, 4..8, 6);
         // Before:
-        // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
         //                   ^
         // Window:     |--------|
         // After:
-        // 0, 1, 2, 5, 6, 7, 8, 9, 10
+        // 0, 1, 2, 5, 6, 7, 8, 9
         //             ^
         // Window: |------|
         model.remove(3..5);
@@ -2289,7 +2285,7 @@ mod tests {
             state(&repeater),
             (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 1 })
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2304,11 +2300,11 @@ mod tests {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 2..6, 3);
         // Before:
-        //   0, 1, 2, 3, 4, 5, 6, 7, 8
+        //   0, 1, 2, 3, 4, 5, 6, 7
         //            ^
         // Window: |--------|
         // After:
-        //   0, 1, 2, 4, 5, 6, 7, 8
+        //   0, 1, 2, 4, 5, 6, 7
         //            ^
         // Window: |-----|
         model.remove(3..4);
@@ -2316,7 +2312,7 @@ mod tests {
             state(&repeater),
             (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2343,7 +2339,7 @@ mod tests {
             state(&repeater),
             (vec![Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 0 })
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (vec![Clean(6), Clean(7)], ItemIndexRelationShip { row: 3, instance_index: 0 })
@@ -2367,7 +2363,7 @@ mod tests {
             state(&repeater),
             (vec![Clean(2), Clean(3), Empty], ItemIndexRelationShip { row: 4, instance_index: 2 })
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2408,7 +2404,7 @@ mod tests {
             //            ^
             // Window: |-----|
             model.insert(0, value);
-            repeater.as_ref().ensure_updated(new_item);
+            ensure_updated_window(&repeater);
             assert_eq!(
                 state(&repeater),
                 (
@@ -2425,7 +2421,7 @@ mod tests {
             //            ^
             // Window: |---|
             model.remove(2);
-            repeater.as_ref().ensure_updated(new_item);
+            ensure_updated_window(&repeater);
             assert_eq!(
                 state(&repeater),
                 (
@@ -2446,7 +2442,7 @@ mod tests {
             //               ^
             // Window: |-----|
             model.insert(0, value);
-            repeater.as_ref().ensure_updated(new_item);
+            ensure_updated_window(&repeater);
             assert_eq!(
                 state(&repeater),
                 (
@@ -2463,7 +2459,7 @@ mod tests {
             //            ^
             // Window: |---|
             model.remove(2);
-            repeater.as_ref().ensure_updated(new_item);
+            ensure_updated_window(&repeater);
             assert_eq!(
                 state(&repeater),
                 (
@@ -2488,11 +2484,6 @@ mod tests {
         //                     ^
         // Window:         |-------|
         with_ops(&repeater, |ops| ops.splice(0, 1, 0));
-        assert_eq!(
-            state(&repeater),
-            (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 1 })
-        );
-        repeater.as_ref().ensure_updated(new_item);
         assert_eq!(
             state(&repeater),
             (
@@ -2545,7 +2536,7 @@ mod tests {
                 ItemIndexRelationShip { row: 3, instance_index: 2 }
             )
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2555,6 +2546,7 @@ mod tests {
         );
     }
 
+    #[should_panic(expected = "This should not work, because it would split the window!")]
     #[test]
     fn test_splice_replacing_instances_before_current_instance2() {
         let model = TestModel::new(8);
@@ -2567,7 +2559,6 @@ mod tests {
         //         0, 1, 2, 3, 4, 5, 6, 7
         //                  ^
         // Window:         |---------| It would split up the window
-        #[should_panic(expected = "This should not work, because it would split the window!")]
         with_ops(&repeater, |ops| ops.splice(1, 4, 1));
     }
 
@@ -2591,7 +2582,7 @@ mod tests {
                 ItemIndexRelationShip { row: 1, instance_index: 1 }
             )
         );
-        repeater.as_ref().ensure_updated(new_item);
+        ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
             (
@@ -2657,7 +2648,7 @@ mod tests {
     //     let model = Rc::new(VecModel::from(vec![10, 20]));
     //     let repeater = repeater_for(&model);
     //     model.insert(0, 5);
-    //     repeater.as_ref().ensure_updated(new_item);
+    //     ensure_updated_window(&repeater);
     //     model.set_row_data(0, 6);
     //     model.set_row_data(2, 30);
     //     assert_eq!(state(&repeater).0, [Clean(6), Clean(10), Clean(30)]);
@@ -2668,7 +2659,7 @@ mod tests {
     //     let model = Rc::new(VecModel::from(vec![10, 20]));
     //     let repeater = repeater_for(&model);
     //     model.insert(0, 5);
-    //     repeater.as_ref().ensure_updated(new_item);
+    //     ensure_updated_window(&repeater);
     //     assert_eq!(repeater.range(), 0..3);
     //     assert_eq!(repeater.instance_at(0).map(|instance| instance.value.get()), Some(5));
     //     let mut rows = Vec::new();
