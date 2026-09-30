@@ -452,30 +452,34 @@ impl EditorSession {
         path: &std::path::Path,
         change: FileChangeKind,
     ) -> crate::Result<VersionedDiagnostics> {
-        let Some(reloaded) =
-            self.active_projects.iter_mut().find(|project| project.source_path == path)
+        let Some(index) =
+            self.active_projects.iter().position(|project| project.source_path == path)
         else {
             return Ok(Default::default());
         };
 
-        let baseline = match change {
-            FileChangeKind::Deleted => None,
-            FileChangeKind::Changed | FileChangeKind::Created => match ProjectFile::load(path) {
-                Ok(project_file) => Some(Self::project_baseline(project_file)),
-                Err(error) => {
-                    tracing::warn!(
-                        "Failed to reload active project file {}: {error}",
-                        path.display()
-                    );
-                    None
+        match change {
+            FileChangeKind::Deleted => {
+                self.active_projects.remove(index);
+            }
+            FileChangeKind::Changed | FileChangeKind::Created => {
+                let baseline = match ProjectFile::load(path) {
+                    Ok(project_file) => Some(Self::project_baseline(project_file)),
+                    Err(error) => {
+                        tracing::warn!(
+                            "Failed to reload active project file {}: {error}",
+                            path.display()
+                        );
+                        None
+                    }
+                };
+                let reloaded = &mut self.active_projects[index];
+                if reloaded.baseline == baseline {
+                    return Ok(Default::default());
                 }
-            },
-        };
-
-        if reloaded.baseline == baseline {
-            return Ok(Default::default());
+                reloaded.baseline = baseline;
+            }
         }
-        reloaded.baseline = baseline;
         let diagnostics = self.reapply_effective_configuration().await?;
         self.enqueue_configuration_recompile();
         Ok(diagnostics)
@@ -1309,7 +1313,7 @@ mod tests {
     }
 
     #[test]
-    fn deleted_active_project_file_remains_selected() {
+    fn a_deleted_project_file_is_dropped() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
@@ -1318,24 +1322,25 @@ mod tests {
 
         let mut session = session();
         open_document(&mut session, &document_path).unwrap();
+        let document_url = Url::from_file_path(&document_path).unwrap();
         let project_url = Url::from_file_path(&project_path).unwrap();
 
         std::fs::remove_file(&project_path).unwrap();
-        spin_on::spin_on(
-            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted),
-        )
-        .unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Deleted))
+            .unwrap();
+
+        assert_eq!(session.active_project_file_paths().next(), None);
+        assert_eq!(session.preview_config.style, "fluent");
+        assert!(session.pending_recompile.contains(&document_url));
+
+        // A project file created again is found the next time the document loads.
+        std::fs::write(&project_path, r#"{ "style": "cupertino" }"#).unwrap();
+        spin_on::spin_on(session.reload_document(document_url)).unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
             [project_path.as_path()]
         );
-        assert_eq!(session.preview_config.style, "fluent");
-
-        std::fs::write(&project_path, r#"{ "style": "cupertino" }"#).unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Created))
-            .unwrap();
-
         assert_eq!(session.preview_config.style, "cupertino");
     }
 }
