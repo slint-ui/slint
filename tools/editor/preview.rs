@@ -1392,6 +1392,41 @@ fn override_selected_element_rotation(angle: f32) {
     );
 }
 
+fn current_text_color() -> slint::Brush {
+    let color = (|| {
+        let selected = selected_element()?;
+        let node = selected.as_element_node()?;
+        let hash = node.with_element_debug(|debug| debug.element_hash);
+        let instance =
+            vtable::VRc::<i_slint_core::item_tree::ItemTreeVTable, _>::from(component_instance()?);
+        let mut instances = vec![instance];
+        let mut colors = Vec::new();
+        while let Some(instance) = instances.pop() {
+            let mut subcomponents = vec![instance.root_sub_component.clone()];
+            while let Some(subcomponent) = subcomponents.pop() {
+                let compiled =
+                    &subcomponent.compilation_unit.sub_components[subcomponent.sub_component_idx];
+                if let Some(debug) = &compiled.debug_info {
+                    for (index, item) in subcomponent.items.iter_enumerated() {
+                        if debug.items[index].element_hash == hash
+                            && let Ok(slint_interpreter::Value::Brush(color)) =
+                                item.as_ref().get_property("color")
+                        {
+                            colors.push(color);
+                        }
+                    }
+                }
+                for repeater in subcomponent.repeaters.iter().rev() {
+                    instances.extend(repeater.instances_vec().into_iter().rev());
+                }
+                subcomponents.extend(subcomponent.sub_components.iter().rev().cloned());
+            }
+        }
+        colors.get(selected.instance_index).cloned()
+    })();
+    color.unwrap_or_default()
+}
+
 fn override_element_text(
     override_id: slint::SharedString,
     text: slint::SharedString,

@@ -233,6 +233,7 @@ pub fn initialize_editor(
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_element_text(super::override_element_text);
+    api.on_current_text_color(super::current_text_color);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 

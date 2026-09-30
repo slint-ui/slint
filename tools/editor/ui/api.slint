@@ -757,6 +757,7 @@ export global Api {
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
     callback override-element-text(override-id: string, text: string) -> string;
+    callback current-text-color() -> brush;
 
     callback selected-element-delete();
 
