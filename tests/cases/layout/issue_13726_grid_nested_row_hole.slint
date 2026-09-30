@@ -15,7 +15,7 @@ export component TestCase inherits Window {
     grid := GridLayout {
         spacing: 0px;
         // Pins columns 0, 1 and 3. A span that lands on column 3 is absorbed by the pin,
-        // so a mispaired constraint changes the total width.
+        // so a constraint paired with the wrong slot changes the total width.
         Row {
             Rectangle { min-width: 20px; min-height: 10px; }
             Rectangle { min-width: 30px; min-height: 10px; }
