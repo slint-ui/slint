@@ -1578,11 +1578,10 @@ fn build(l: &mut Loader) {
         ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
         ///    to the coordinates of the press event exceeds 8 logical pixels.
         ///
-        /// Released within the 100ms delay with the pointer still since the press, an unclaimed press passes through to elements underneath.
-        /// This applies whether or not the `Flickable` can pan.
-        /// Drags follow the algorithm above.
-        /// Any pointer movement at all, even a single sub-threshold pixel, keeps the press from being forwarded.
-        /// So does a release held past the delay.
+        /// A quick click is a press and release within 100ms, without moving the pointer.
+        /// If no element inside the `Flickable` handles a quick click, the click goes to the elements behind the `Flickable`.
+        /// This happens whether or not the `Flickable` can scroll.
+        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
         ///
         /// ## Wheel/Scroll Event Interaction
         ///
@@ -1685,9 +1684,9 @@ fn build(l: &mut Loader) {
         /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
         ///
-        /// Released within the 100ms delay with the pointer still since the press, an unclaimed press passes through to elements underneath, the same as <Link type="Flickable"/>.
-        /// Any pointer movement at all, even a single sub-threshold pixel, keeps the press from being forwarded.
-        /// So does a release held past the delay.
+        /// A quick click is a press and release within 100ms, without moving the pointer.
+        /// If no child handles a quick click, the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
