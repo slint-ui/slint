@@ -1425,8 +1425,14 @@ mod tests {
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 2);
-            assert_eq!(inner.layout_state.item_index.row, 0, "Didn't change");
-            assert_eq!(inner.layout_state.item_index.instance_index, 0, "Didn't change");
+            assert_eq!(
+                inner.layout_state.item_index.row, 2,
+                "Current row instance was removed. So we move to the first available instance"
+            );
+            assert_eq!(
+                inner.layout_state.item_index.instance_index, 0,
+                "Didn't change. Points now to the first remaining instance"
+            );
             const OFFSET: i32 = 2; // First instance must now be the element with value 3
             for (index, (state, item)) in inner.instances.iter().enumerate() {
                 assert_eq!(index as i32 + 1 + OFFSET, item.as_ref().unwrap().value.get());
