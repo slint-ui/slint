@@ -185,7 +185,6 @@ slint_testing::mock_elapsed_time(3000);
 
 // The inner never started flicking until yet so this is a move without any phase (So animation with around 180ms)
 instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LOCATION_OUTER_INNER, delta_x: -30., delta_y: 0., phase: TouchPhase::Moved }));
-instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LOCATION_OUTER_INNER, delta_x: -30., delta_y: 0., phase: TouchPhase::Moved }));
 slint_testing::mock_elapsed_time(16);
 assert!(instance.get_inner_x() > 0. && instance.get_inner_x() < 30., "Mouse wheel is animated: {}", instance.get_inner_x());
 slint_testing::mock_elapsed_time(30000);
