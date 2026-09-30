@@ -163,6 +163,7 @@ struct CacheEntry<ImageType> {
 
 /// Cache to hold box textures for given box shadow options.
 pub struct BoxShadowCache<ImageType> {
+    // Brushes have no total ordering, so the cache uses equality comparisons.
     entries: RefCell<Vec<(BoxShadowOptions, CacheEntry<ImageType>)>>,
     access_counter: Cell<u64>,
     /// Track if the window scale factor changes; used to clear the cache if necessary.
@@ -218,7 +219,6 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
                 entry.last_used = stamp;
                 return entry.image.clone();
             }
-            // Brushes have no total ordering, so the cache uses equality comparisons.
             if entries.len() >= MAX_CACHED_SHADOWS {
                 let oldest = entries
                     .iter()
