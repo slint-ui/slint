@@ -2446,6 +2446,15 @@ async fn reload_preview_impl(
                 ui::log_messages::clear_log_messages_impl(&api);
             }
             ui::set_diagnostics(&api, &diagnostics);
+            if let (Some(controller), Some(editor_ui)) =
+                (&preview_state.file_tree_controller, &preview_state.editor_ui)
+            {
+                ui::file_tree::set_diagnostics(
+                    controller,
+                    &editor_ui.global::<ui::Project>(),
+                    &diagnostics,
+                );
+            }
         }
         preview_state.to_lsp.borrow().clone().unwrap()
     });

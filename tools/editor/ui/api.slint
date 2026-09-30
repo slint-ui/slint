@@ -463,6 +463,9 @@ export struct FileTreeNode {
     is-slint-file: bool,
     show-selected-guide: bool,
     kind: FileTreeNodeKind,
+    error-count: int,
+    warning-count: int,
+    diagnostic-description: string,
 }
 
 export struct ImageAssetPreview {
