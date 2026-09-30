@@ -68,22 +68,15 @@ def inspector_field(
     return window_element_with_label(window, label, role)
 
 
-def inspector_text_input(
-    window: slint_testing.Window, label: str
+def click_field(
+    window: slint_testing.Window, label: str, *, on_text: bool = True
 ) -> slint_testing.Element:
     field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
     inputs = (
         field.query_descendants().match_id("InspectorTextFieldBase::input").find_all()
     )
     assert len(inputs) == 1
-    return inputs[0]
-
-
-def click_field(
-    window: slint_testing.Window, label: str, *, on_text: bool = True
-) -> None:
-    field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
-    input = inspector_text_input(window, label)
+    input = inputs[0]
     position = slint_testing.LogicalPosition(
         x=input.absolute_position.x + 8
         if on_text
@@ -97,6 +90,7 @@ def click_field(
     screenshot(window)
     window.dispatch_event(slint_testing.PointerMoveEvent(position))
     window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+    return input
 
 
 def edit_field(

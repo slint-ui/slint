@@ -14,7 +14,6 @@ from inspector_interactions import (
     click_field,
     edit_field,
     inspector_field,
-    inspector_text_input,
     slider_position,
     wait_for_field,
 )
@@ -130,7 +129,7 @@ def image_alignment_button(
     ],
     ids=("geometry", "font", "color"),
 )
-def test_first_field_click_selects_entire_value(
+def test_field_click_selection(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -150,8 +149,20 @@ def test_first_field_click_selects_entire_value(
         window = first_window(editor)
         select_element(window, kind)
         wait_for_field(window, label, initial, slint_testing.AccessibleRole.TextInput)
-        click_field(window, label, on_text=click_target == "text")
+        input = click_field(window, label, on_text=click_target == "text")
         press_keys(window, replacement)
+        wait_for_field(
+            window, label, replacement, slint_testing.AccessibleRole.TextInput
+        )
+        input.single_click(slint_testing.PointerEventButton.Left)
+        press_keys(window, replacement[-1])
+        wait_for_field(
+            window,
+            label,
+            replacement + replacement[-1],
+            slint_testing.AccessibleRole.TextInput,
+        )
+        press_keys(window, keys.Backspace)
         wait_for_field(
             window, label, replacement, slint_testing.AccessibleRole.TextInput
         )
@@ -162,37 +173,6 @@ def test_first_field_click_selects_entire_value(
         select_element(window, kind)
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
-
-
-def test_focused_field_click_places_caret(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, "Text")
-        input = inspector_text_input(window, "Font family")
-        button = slint_testing.PointerEventButton.Left
-        click_field(window, "Font family", on_text=False)
-        input.single_click(button)
-        press_keys(window, " Mono")
-        wait_for_field(
-            window, "Font family", "Inter Mono", slint_testing.AccessibleRole.TextInput
-        )
-        press_keys(window, keys.Return)
-        snapshot.wait_for_applied(
-            replace_once(
-                baseline,
-                b'        font-family: "Inter";',
-                b'        font-family: "Inter Mono";',
-            ),
-            relative_path=INSPECTOR_SOURCE,
-        )
 
 
 @pytest.mark.parametrize(
