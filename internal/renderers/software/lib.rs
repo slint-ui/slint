@@ -37,7 +37,7 @@ use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
@@ -1894,17 +1894,95 @@ fn process_rectangle_impl(
 
     let color = if let Brush::LinearGradient(g) = &args.background {
         let angle = g.angle() + args.rotation.angle();
+        let axis_angle = (angle % 180. + 180.) % 180.;
         let tan = angle.to_radians().tan().abs();
-        let start = if !tan.is_finite() {
-            255.
+        // f32 `tan` of 90° is finite, so a horizontal gradient is detected from the angle.
+        let start = if axis_angle == 90. {
+            255
         } else {
             let h = tan * geom.width();
-            255. * h / (h + geom.height())
-        } as u8;
+            (255. * h / (h + geom.height())) as u8
+        };
         let mut angle = angle as i32 % 360;
         if angle < 0 {
             angle += 360;
         }
+        let invert_slope = (angle % 180) > 90;
+        let reversed = angle <= 90 || angle > 270;
+        let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
+
+        let act_rect: PhysicalRect = clipped.round().cast();
+        let act = act_rect.to_i32();
+        let clip_length = |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
+        let anchored_band = |origin: f32, extent: f32, from: f32, to: f32| {
+            ((origin + extent * from).floor() as i32, (origin + extent * to).floor() as i32)
+        };
+
+        // Returns false when the segment is too thin to get a band.
+        let mut draw_segment = |mut s1: GradientStop, mut s2: GradientStop, first, last| {
+            if reversed {
+                core::mem::swap(&mut s1, &mut s2);
+                s1.position = 1. - s1.position;
+                s2.position = 1. - s2.position;
+            }
+            let mut flags = if invert_slope { 0b1 } else { 0 };
+            if first {
+                flags |= fill_first;
+            }
+            if last {
+                flags |= fill_last;
+            }
+
+            // At a `start` of 0 or 255 a band has no slope, so both ends are rounded from the
+            // geometry's origin and adjacent bands meet. Otherwise `draw_linear_gradient` derives
+            // the slope from the band's rounded size, and each end is rounded from its own edge.
+            let (band_left, band_right) = if start == 255 {
+                anchored_band(geom.min_x(), geom.width(), 1. - s2.position, 1. - s1.position)
+            } else {
+                let (adjust_left, adjust_right) = if invert_slope {
+                    (
+                        (geom.width() * s1.position).floor() as i32,
+                        (geom.width() * (1. - s2.position)).ceil() as i32,
+                    )
+                } else {
+                    (
+                        (geom.width() * (1. - s2.position)).ceil() as i32,
+                        (geom.width() * s1.position).floor() as i32,
+                    )
+                };
+                (
+                    act.min_x() - (clipped.min_x() - geom.min_x()) as i32 + adjust_left,
+                    act.max_x() + (geom.max_x() - clipped.max_x()) as i32 - adjust_right,
+                )
+            };
+            let (band_top, band_bottom) = if start == 0 {
+                anchored_band(geom.min_y(), geom.height(), s1.position, s2.position)
+            } else {
+                (
+                    act.min_y() - (clipped.min_y() - geom.min_y()) as i32
+                        + (geom.height() * s1.position).floor() as i32,
+                    act.max_y() + (geom.max_y() - clipped.max_y()) as i32
+                        - (geom.height() * (1. - s2.position)).ceil() as i32,
+                )
+            };
+            if band_right <= band_left || band_bottom <= band_top {
+                return false;
+            }
+
+            let gr = LinearGradientCommand {
+                color1: s1.color.into(),
+                color2: s2.color.into(),
+                start,
+                flags,
+                top_clip: clip_length(act.min_y() - band_top),
+                bottom_clip: clip_length(band_bottom - act.max_y()),
+                left_clip: clip_length(act.min_x() - band_left),
+                right_clip: clip_length(band_right - act.max_x()),
+            };
+            processor.process_linear_gradient(act_rect, gr);
+            true
+        };
+
         let mut stops = g
             .stops()
             .copied()
@@ -1913,72 +1991,24 @@ fn process_rectangle_impl(
                 s
             })
             .peekable();
-        let mut idx = 0;
         let stop_count = g.stops().count();
-        while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
-            let mut flags = 0;
-            if (angle % 180) > 90 {
-                flags |= 0b1;
-            }
-            if angle <= 90 || angle > 270 {
-                core::mem::swap(&mut s1, &mut s2);
-                s1.position = 1. - s1.position;
-                s2.position = 1. - s2.position;
-                if idx == 0 {
-                    flags |= 0b100;
-                }
-                if idx == stop_count - 2 {
-                    flags |= 0b010;
-                }
-            } else {
-                if idx == 0 {
-                    flags |= 0b010;
-                }
-                if idx == stop_count - 2 {
-                    flags |= 0b100;
-                }
-            }
-
+        let mut idx = 0;
+        while let (Some(s1), Some(s2)) = (stops.next(), stops.peek().copied()) {
+            let first = idx == 0;
+            let last = idx == stop_count - 2;
             idx += 1;
-
-            let (adjust_left, adjust_right) = if (angle % 180) > 90 {
-                (
-                    (geom.width() * s1.position).floor() as i16,
-                    (geom.width() * (1. - s2.position)).ceil() as i16,
-                )
-            } else {
-                (
-                    (geom.width() * (1. - s2.position)).ceil() as i16,
-                    (geom.width() * s1.position).floor() as i16,
-                )
-            };
-
-            let gr = LinearGradientCommand {
-                color1: s1.color.into(),
-                color2: s2.color.into(),
-                start,
-                flags,
-                top_clip: Length::new(
-                    (clipped.min_y() - geom.min_y() - (geom.height() * s1.position).floor()) as i16,
-                ),
-                bottom_clip: Length::new(
-                    (geom.max_y() - clipped.max_y() - (geom.height() * (1. - s2.position)).ceil())
-                        as i16,
-                ),
-                left_clip: Length::new((clipped.min_x() - geom.min_x()) as i16 - adjust_left),
-                right_clip: Length::new((geom.max_x() - clipped.max_x()) as i16 - adjust_right),
-            };
-
-            let act_rect = clipped.round().cast();
-            let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
-            let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
-            if size_x.get() == 0 || size_y.get() == 0 {
-                // the position are too close to each other
-                // FIXME: For the first or the last, we should draw a plain color to the end
-                continue;
+            // Rounding can give stops at the same position a 1px band, and its slope wouldn't
+            // match the neighboring bands'.
+            if s1.position >= s2.position || !draw_segment(s1, s2, first, last) {
+                // The first and last segments still fill to the edge, so draw their outer color
+                // as a solid segment up to the stop.
+                if first {
+                    draw_segment(GradientStop { position: 0., ..s1 }, s1, true, false);
+                }
+                if last {
+                    draw_segment(s2, GradientStop { position: 1., ..s2 }, false, true);
+                }
             }
-
-            processor.process_linear_gradient(act_rect, gr);
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
