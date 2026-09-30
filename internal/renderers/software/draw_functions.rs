@@ -738,8 +738,7 @@ pub(super) fn draw_radial_gradient(
                     (position - stop1.position) / (stop2.position - stop1.position)
                 };
 
-                let c1 = super::PremultipliedRgbaColor::from(stop1.color);
-                let c2 = super::PremultipliedRgbaColor::from(stop2.color);
+                let (c1, c2) = (stop1.color, stop2.color);
                 let lerp = |a: u8, b: u8| ((1.0 - t) * a as f32 + t * b as f32) as u8;
 
                 pixel.blend(super::PremultipliedRgbaColor {
@@ -754,7 +753,7 @@ pub(super) fn draw_radial_gradient(
             }
         }
 
-        pixel.blend(fallback.color.into());
+        pixel.blend(fallback.color);
     }
 }
 
