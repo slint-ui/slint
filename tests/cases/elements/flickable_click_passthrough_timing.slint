@@ -111,10 +111,10 @@ use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
 use slint::platform::WindowEvent;
 let instance = TestCaseSecondFinger::new().unwrap();
 
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 1, position: LogicalPoint::new(100.0, 100.0), phase: TouchPhase::Started }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 1, position: LogicalPoint::new(100.0, 100.0), phase: TouchPhase::Started, event_time: None, history: Default::default() }));
 slint_testing::mock_elapsed_time(10);
 
-instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 2, position: LogicalPoint::new(10.0, 10.0), phase: TouchPhase::Started }));
+instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 2, position: LogicalPoint::new(10.0, 10.0), phase: TouchPhase::Started, event_time: None, history: Default::default() }));
 assert_eq!(instance.get_counter(), 0);
 ```
 
