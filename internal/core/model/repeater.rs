@@ -575,6 +575,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             // Because all the indexes are dirty
             c.0 = RepeatedInstanceState::Dirty;
         }
+        self.instance_generation.mark_dirty();
     }
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
@@ -607,11 +608,13 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             // Because all the indexes are dirty
             c.0 = RepeatedInstanceState::Dirty;
         }
+        self.instance_generation.mark_dirty();
     }
 
     fn reset(self: Pin<&Self>) {
         self.is_dirty.set(true);
         self.inner.borrow_mut().instances.clear();
+        self.instance_generation.mark_dirty();
     }
 }
 
@@ -653,9 +656,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. This is for layout and visit code that should
-    /// re-evaluate only after `ensure_updated` has materialized instance
-    /// changes, not when the model first becomes dirty.
+    /// tracking scope. This is for layout and visit code that reads the
+    /// instance slots through [`Self::len`] and [`Self::instance_at`]: it is
+    /// notified when rows are inserted or removed, and again when
+    /// `ensure_updated` materializes them, but not when a row's data changes.
     pub fn track_instance_changes(self: Pin<&Self>) {
         self.data().project_ref().instance_generation.register_as_dependency();
     }

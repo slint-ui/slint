@@ -1052,6 +1052,8 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
         cbindgen_private::RepeaterLayoutState layout_state {};
+        /// The owning Repeater's instance_generation, see track_instance_changes.
+        private_api::Property<bool> *instance_generation = nullptr;
 
         void row_added(size_t index, size_t count) override
         {
@@ -1079,6 +1081,8 @@ class Repeater
             for (std::size_t i = index; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
             }
+            if (instance_generation)
+                instance_generation->mark_dirty();
         }
         void row_changed(size_t index) override
         {
@@ -1125,11 +1129,15 @@ class Repeater
             for (std::size_t i = index; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
             }
+            if (instance_generation)
+                instance_generation->mark_dirty();
         }
         void reset() override
         {
             is_dirty.set(true);
             data.clear();
+            if (instance_generation)
+                instance_generation->mark_dirty();
         }
     };
 
@@ -1196,9 +1204,9 @@ class Repeater
 
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
-    /// Toggled by ensure_updated when instances are added or removed.
-    /// Layout code tracks this instead of is_dirty so it re-evaluates
-    /// only after the update pass materializes the change.
+    /// Marked dirty when instance slots are inserted or removed, and by ensure_updated
+    /// when it materializes them. Layout code tracks this instead of is_dirty, so a row's
+    /// data change alone doesn't re-evaluate it.
     mutable private_api::Property<bool> instance_generation { false };
 
     vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
@@ -1221,6 +1229,7 @@ public:
             auto m = model.get();
             if (!inner || old_model != m) {
                 inner = std::make_shared<RepeaterInner>();
+                inner->instance_generation = &instance_generation;
                 if (m) {
                     inner->model = m;
                     m->attach_peer(inner);
@@ -1297,8 +1306,8 @@ public:
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. Layout code uses this to re-evaluate only after
-    /// ensure_updated materializes instance changes.
+    /// tracking scope. Layout code uses this to re-evaluate when rows are
+    /// inserted or removed and after ensure_updated materializes them.
     void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView content properties as dependencies so that
