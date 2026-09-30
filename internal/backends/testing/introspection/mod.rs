@@ -1266,6 +1266,7 @@ fn test_handle_to_index_rejects_out_of_range_parts() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_filters_since_sequence_and_window() {
     let state = IntrospectionState::new();
     let mut window_indices = SlotMap::with_key();
@@ -1305,6 +1306,7 @@ fn test_event_log_filters_since_sequence_and_window() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_eviction_at_cap() {
     let state = IntrospectionState::new();
 
@@ -1336,6 +1338,7 @@ fn test_event_log_eviction_at_cap() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_pagination_cursor_advances_to_returned_page() {
     let state = IntrospectionState::new();
     for seq in 0..3 {
@@ -1357,6 +1360,7 @@ fn test_event_log_pagination_cursor_advances_to_returned_page() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_clear_keeps_sequence_monotonic() {
     let state = IntrospectionState::new();
     state.next_event_sequence.set(42);
