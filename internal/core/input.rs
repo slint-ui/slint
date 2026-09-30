@@ -29,7 +29,6 @@ use core::time::Duration;
 ///
 /// The only difference with [`crate::platform::WindowEvent`] is that it uses untyped `Point`
 /// TODO: merge with platform::WindowEvent
-#[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
