@@ -837,7 +837,7 @@ mod tests {
             "checker.svg"
         );
         assert_eq!(
-            image_source_file_name(r#"@image-url("assets/\u{63}hecker.svg")"#.into()),
+            image_source_file_name(r#"@image-url("assets/check\u{65}r.svg")"#.into()),
             "checker.svg"
         );
         assert_eq!(
