@@ -48,6 +48,41 @@ def open_linear(window):
     control(window, "Gradient start")
 
 
+@pytest.mark.parametrize("text", ("ff", "12ab3"))
+def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
+    editor_binary, editor_environment, scene, tmp_path, text
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        field = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        field.invoke_accessible_default_action()
+        press_keys(window, text)
+        assert field.accessible_value == text
+        original.assert_unchanged_now()
+        screenshot(window).save(tmp_path / "partial-hex.png")
+        press_key(window, keys.Escape)
+        assert not elements_with_label(window.root_element, "Close Custom")
+        original.assert_unchanged()
+        open_linear(window)
+        assert (
+            control(
+                window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "264052"
+        )
+        assert (
+            control(
+                window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "100"
+        )
+        click(window, "Close Custom")
+        original.assert_unchanged()
+
+
 @pytest.mark.parametrize("surface", ("inline", "stop-picker", "solid-picker"))
 @pytest.mark.parametrize("alpha", ("", "7f"))
 def test_live_rgb_typing_preserves_edit_start_alpha(
