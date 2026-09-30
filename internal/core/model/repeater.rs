@@ -521,14 +521,20 @@ pub struct RepeaterTracker<T: RepeatedItemTree> {
     /// Set to true when the model becomes dirty.
     is_dirty: Property<bool>,
     #[pin]
-    /// Marked dirty by `ensure_updated` when instances are added or
-    /// removed.  Layout and visit code register this as a dependency so
-    /// they re-evaluate only after the update pass materializes the
-    /// change, not when the model first becomes dirty.
+    /// Marked dirty whenever `instances` changes, including when `ensure_updated` creates one.
+    /// A row's data change alone doesn't mark it.
     instance_generation: Property<()>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
+}
+
+impl<T: RepeatedItemTree> RepeaterTracker<T> {
+    /// Call whenever `instances` changes outside of `ensure_updated`.
+    fn instances_changed(self: Pin<&Self>) {
+        self.is_dirty.set(true);
+        self.project_ref().instance_generation.mark_dirty();
+    }
 }
 
 impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
@@ -555,7 +561,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             if index + count <= inner.layout_state.offset {
                 // Entirely before the visible range: shift the offset.
                 inner.layout_state.offset += count;
-                self.is_dirty.set(true);
+                self.instances_changed();
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
@@ -569,7 +575,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         if count == 0 || index > inner.instances.len() {
             return;
         }
-        self.is_dirty.set(true);
+        self.instances_changed();
         inner.instances.splice(
             index..index,
             core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
@@ -586,7 +592,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             if index + count <= inner.layout_state.offset {
                 // Entirely before the visible range: shift the offset.
                 inner.layout_state.offset -= count;
-                self.is_dirty.set(true);
+                self.instances_changed();
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
@@ -604,7 +610,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         if (index + count) > inner.instances.len() {
             count = inner.instances.len() - index;
         }
-        self.is_dirty.set(true);
+        self.instances_changed();
         inner.instances.drain(index..(index + count));
         for c in inner.instances[index..].iter_mut() {
             // Because all the indexes are dirty
@@ -613,7 +619,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     }
 
     fn reset(self: Pin<&Self>) {
-        self.is_dirty.set(true);
+        self.instances_changed();
         self.inner.borrow_mut().instances.clear();
     }
 }
@@ -656,9 +662,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. This is for layout and visit code that should
-    /// re-evaluate only after `ensure_updated` has materialized instance
-    /// changes, not when the model first becomes dirty.
+    /// tracking scope. This is for layout and visit code that reads the
+    /// instances through [`Self::len`] and [`Self::instance_at`]: it is
+    /// notified when rows are inserted or removed, and again when
+    /// `ensure_updated` creates their instances.
     pub fn track_instance_changes(self: Pin<&Self>) {
         self.data().project_ref().instance_generation.register_as_dependency();
     }
@@ -671,7 +678,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let m = model.get();
             if old_model != m {
                 *self.data().inner.borrow_mut() = RepeaterInner::default();
-                self.data().is_dirty.set(true);
+                self.data().instances_changed();
                 let peer = self.project_ref().0.model_peer();
                 m.model_tracker().attach_peer(peer);
             }
@@ -928,8 +935,8 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. Layout code uses this to re-evaluate only after
-    /// `ensure_updated` materializes instance changes.
+    /// tracking scope. Layout code uses this to re-evaluate when
+    /// `ensure_updated` creates or removes the instance.
     pub fn track_instance_changes(self: Pin<&Self>) {
         self.project_ref().instance_generation.register_as_dependency();
     }
@@ -945,6 +952,8 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
         } else if self.instance.borrow().is_none() {
             let i = init();
             self.instance.replace(Some(i.clone()));
+            // #13723
+            self.instance_generation.mark_dirty();
             i.init();
             true
         } else {

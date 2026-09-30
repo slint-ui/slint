@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13726: a repeated `Row` with an inner repeater followed by a spanning cell. Between an insert
+// into the inner model and the instantiation pass, the inner repeater has an empty slot in the
+// middle. The row's constraint list and its grid input data must enumerate that slot the same
+// way, otherwise the spanning cell's placement lands on the wrong constraint.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[[int]]> rows;
+
+    grid := GridLayout {
+        spacing: 0px;
+        // Pins columns 0, 1 and 3. A span that lands on column 3 is absorbed by the pin,
+        // so a constraint paired with the wrong slot changes the total width.
+        Row {
+            Rectangle { min-width: 20px; min-height: 10px; }
+            Rectangle { min-width: 30px; min-height: 10px; }
+            Rectangle { min-height: 10px; }
+            Rectangle { min-width: 30px; min-height: 10px; }
+        }
+        for cells in root.rows: Row {
+            for c in cells: Rectangle { min-width: 5px; min-height: 10px; }
+            Rectangle { colspan: 2; min-width: 50px; min-height: 10px; }
+        }
+    }
+
+    out property <length> grid-preferred-width: grid.preferred-width;
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{ModelRc, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let inner = Rc::new(VecModel::from(vec![1, 1]));
+let rows = Rc::new(VecModel::from(vec![ModelRc::from(inner.clone())]));
+instance.set_rows(rows.clone().into());
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_grid_preferred_width(), 100.);
+
+// Insert between the two inner cells and read the layout before the next frame.
+// The new slot is empty until the frame, so it contributes no width yet: 20 + 30 + 5 + 50,
+// the same as after the frame, where the new 5px cell fits into the pinned column 3.
+inner.insert(1, 2);
+assert_eq!(instance.get_grid_preferred_width(), 105.);
+
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_grid_preferred_width(), 105.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto inner = std::make_shared<slint::VectorModel<int>>(std::vector<int>{ 1, 1 });
+auto rows = std::make_shared<slint::VectorModel<std::shared_ptr<slint::Model<int>>>>(
+    std::vector<std::shared_ptr<slint::Model<int>>>{ inner });
+instance.set_rows(rows);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_grid_preferred_width(), 100.);
+
+// Insert between the two inner cells and read the layout before the next frame.
+inner->insert(1, 2);
+assert_eq(instance.get_grid_preferred_width(), 105.);
+
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_grid_preferred_width(), 105.);
+```
+*/

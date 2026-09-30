@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13723: the `init` of an `if` inside a layout sees the layout with its own instance.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <bool> show: true;
+    out property <length> probe;
+    out property <length> layout-preferred-height: layout.preferred-height;
+
+    layout := VerticalLayout {
+        Rectangle { min-height: 20px; }
+        if root.show: Rectangle {
+            min-height: 30px;
+            init => { root.probe = layout.preferred-height; }
+        }
+    }
+
+    out property <bool> test: probe == 50px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_probe(), 50.);
+
+instance.set_show(false);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_layout_preferred_height(), 20.);
+instance.set_show(true);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_probe(), 50.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_probe(), 50.);
+
+instance.set_show(false);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_layout_preferred_height(), 20.);
+instance.set_show(true);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_probe(), 50.);
+```
+*/
