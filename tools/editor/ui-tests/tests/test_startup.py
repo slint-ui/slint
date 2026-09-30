@@ -13,37 +13,6 @@ from ui_driver import (
 )
 
 
-def test_editor_starts_with_valid_fixture(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "Main.slint"
-    ) as editor:
-        window = first_window(editor)
-        assert window.size.width > 0
-        assert window.size.height > 0
-        window_element_with_label(
-            window, "Editor canvas", slint_testing.AccessibleRole.Main
-        )
-        window_element_with_label(
-            window, "Project and elements", slint_testing.AccessibleRole.Navigation
-        )
-        window_element_with_label(
-            window,
-            "Inspector and outline",
-            slint_testing.AccessibleRole.Complementary,
-        )
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
-        window_element_with_label(
-            window, "root-text", slint_testing.AccessibleRole.ListItem
-        )
-        assert not elements_with_label(window.root_element, "Startup wizard")
-
-
 def test_startup_page_shows_project_actions_without_editor_panes(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -81,9 +50,26 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
+        assert window.size.width > 0
+        assert window.size.height > 0
+        window_element_with_label(
+            window, "Editor canvas", slint_testing.AccessibleRole.Main
+        )
+        window_element_with_label(
+            window, "Project and elements", slint_testing.AccessibleRole.Navigation
+        )
+        window_element_with_label(
+            window,
+            "Inspector and outline",
+            slint_testing.AccessibleRole.Complementary,
+        )
         window_element_with_label(
             window, "Fixture text", slint_testing.AccessibleRole.Text
         )
+        window_element_with_label(
+            window, "root-text", slint_testing.AccessibleRole.ListItem
+        )
+        assert not elements_with_label(window.root_element, "Startup wizard")
 
         def recent_project_was_saved() -> Path | None:
             settings_files = list(tmp_path.rglob("visual-editor-user-settings.json"))

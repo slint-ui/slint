@@ -114,47 +114,6 @@ def finish_palette_drag(
     )
 
 
-def test_component_palette_preserves_compact_row_layout(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        section = window_element_with_label(
-            window, "ELEMENTS", slint_testing.AccessibleRole.Text
-        )
-        search = window_element_with_label(window, "Search elements")
-        group = window_element_with_label(
-            window, "Visual", slint_testing.AccessibleRole.Button
-        )
-        rows = [
-            window_element_with_label(
-                window, kind, slint_testing.AccessibleRole.ListItem
-            )
-            for kind in sorted(PALETTE_DROP_SIZES)
-        ]
-        assert (
-            section.absolute_position.y + section.size.height
-            <= search.absolute_position.y
-        )
-        assert (
-            search.absolute_position.y + search.size.height <= group.absolute_position.y
-        )
-        assert group.absolute_position.y + group.size.height == pytest.approx(
-            rows[0].absolute_position.y
-        )
-        assert all(row.size.height == pytest.approx(36) for row in rows)
-        assert all(row.size.width == rows[0].size.width for row in rows)
-        assert rows[0].absolute_position.y == rows[1].absolute_position.y
-        assert rows[1].absolute_position.x > rows[0].absolute_position.x
-        assert rows[2].absolute_position.x == rows[0].absolute_position.x
-        assert rows[2].absolute_position.y - rows[
-            0
-        ].absolute_position.y == pytest.approx(36)
-
-
 @pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
 def test_component_palette_drop_can_extend_outside_artboard(
     editor_binary: Path,

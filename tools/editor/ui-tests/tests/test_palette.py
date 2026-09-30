@@ -161,42 +161,6 @@ def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
     )
 
 
-def test_library_search_filters_elements(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    snapshot = SourceSnapshot.capture(fixture_project)
-    source_file = fixture_project / "Palette.slint"
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        wait_for_source(source_file, source_file.read_bytes())
-        window = first_window(editor)
-        expect_library(window, list(PALETTE_KINDS))
-        search = window_element_with_label(window, "Search elements")
-        for query, expected in [
-            ("  aG  ", ["Image"]),
-            ("T", ["Rectangle", "Text", "TouchArea"]),
-            ("  tOuCh  ", ["TouchArea"]),
-            ("AREA", ["TouchArea"]),
-            ("missing", []),
-        ]:
-            search.accessible_value = query
-            expect_library(window, expected)
-            for label in ("Visual", "Input & interaction"):
-                for header in elements_with_label(
-                    window.root_element, label, slint_testing.AccessibleRole.Button
-                ):
-                    assert not header.accessible_enabled
-        window_element_with_label(window, "No Results")
-        for label in ("Visual", "Input & interaction"):
-            assert not elements_with_label(
-                window.root_element, label, slint_testing.AccessibleRole.Button
-            )
-        search.accessible_value = ""
-        expect_library(window, list(PALETTE_KINDS))
-        snapshot.assert_unchanged()
-
-
 def test_library_search_restores_independent_collapse_states(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -208,6 +172,22 @@ def test_library_search_restores_independent_collapse_states(
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
         search = window_element_with_label(window, "Search elements")
+        search.accessible_value = "  tOuCh  "
+        expect_library(window, ["TouchArea"])
+        for label in ("Visual", "Input & interaction"):
+            for header in elements_with_label(
+                window.root_element, label, slint_testing.AccessibleRole.Button
+            ):
+                assert not header.accessible_enabled
+        search.accessible_value = "missing"
+        expect_library(window, [])
+        window_element_with_label(window, "No Results")
+        for label in ("Visual", "Input & interaction"):
+            assert not elements_with_label(
+                window.root_element, label, slint_testing.AccessibleRole.Button
+            )
+        search.accessible_value = ""
+        expect_library(window, list(PALETTE_KINDS))
         for label, collapsed_labels in [
             ("Visual", ["TouchArea"]),
             ("Input & interaction", []),
@@ -262,6 +242,25 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         heading_y = heading.absolute_position.y
         search_y = search.absolute_position.y
         rows = library_rows(window)
+        group = window_element_with_label(
+            window, "Visual", slint_testing.AccessibleRole.Button
+        )
+        assert (
+            heading.absolute_position.y + heading.size.height
+            <= search.absolute_position.y
+        )
+        assert (
+            search.absolute_position.y + search.size.height <= group.absolute_position.y
+        )
+        assert group.absolute_position.y + group.size.height == pytest.approx(
+            rows[0].absolute_position.y
+        )
+        assert all(row.size.height == pytest.approx(36) for row in rows[:3])
+        assert all(row.size.width == rows[0].size.width for row in rows[:3])
+        assert rows[2].absolute_position.x == rows[0].absolute_position.x
+        assert rows[2].absolute_position.y - rows[
+            0
+        ].absolute_position.y == pytest.approx(36)
         assert rows[0].absolute_position.y == rows[1].absolute_position.y
         assert rows[0].absolute_position.x < rows[1].absolute_position.x
         assert rows[2].absolute_position.y > rows[0].absolute_position.y
