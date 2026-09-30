@@ -147,7 +147,7 @@ pub(crate) fn element_candidates_at(
         if !item.is_visible() {
             continue;
         }
-        let Some(geometry) = item_flat_index_to_rect(&instance, root, flat_index) else {
+        let Some(geometry) = item_geometry(&instance, root, flat_index) else {
             continue;
         };
         if !geometry.contains(position) {
@@ -167,18 +167,17 @@ pub(crate) fn element_candidates_at(
         );
         if let Some(debug_info) =
             compilation_unit.sub_components[sub_component_index].debug_info.as_ref()
+            && let Some(item_debug_entries) = debug_info.items.get(*local_item_index)
         {
-            if let Some(item_debug_entries) = debug_info.items.get(*local_item_index) {
-                for item_debug_info in item_debug_entries.iter().rev() {
-                    push_runtime_item_candidate(
-                        root,
-                        &instance,
-                        flat_index,
-                        geometry,
-                        &item_debug_info.source_location,
-                        &mut candidates,
-                    );
-                }
+            for item_debug_info in item_debug_entries.iter().rev() {
+                push_runtime_item_candidate(
+                    root,
+                    &instance,
+                    flat_index,
+                    geometry,
+                    &item_debug_info.source_location,
+                    &mut candidates,
+                );
             }
         }
 
@@ -486,7 +485,7 @@ fn push_source_candidates_at(
                 continue;
             }
         }
-        let Some(geometry) = item_flat_index_to_rect(&instance, root, flat_index) else {
+        let Some(geometry) = item_geometry(&instance, root, flat_index) else {
             continue;
         };
         if geometry.contains(position) {
@@ -518,7 +517,7 @@ fn push_candidate(
     });
 }
 
-fn item_flat_index_to_rect(
+fn item_geometry(
     instance: &VRc<ItemTreeVTable, Instance>,
     root: &VRc<ItemTreeVTable, Instance>,
     flat_idx: usize,
@@ -617,7 +616,7 @@ fn positions_by_sources<'a>(
                     return None;
                 }
             }
-            item_flat_index_to_rect(&instance, root, flat_index)
+            item_geometry(&instance, root, flat_index)
         })
         .collect()
 }
