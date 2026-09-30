@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore Spannable tbstart tbend
+// cSpell:ignore drawables Spannable tbstart tbend
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import android.view.ActionMode;
 import android.view.Menu;
@@ -21,8 +22,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
-import android.graphics.BlendMode;
-import android.graphics.BlendModeColorFilter;
 import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
@@ -30,7 +29,6 @@ import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
-import android.util.TypedValue;
 import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 import android.widget.FrameLayout;
@@ -38,6 +36,7 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.view.inputmethod.BaseInputConnection;
 import android.os.Build;
+import android.util.Log;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 
@@ -58,8 +57,9 @@ class InputHandle extends ImageView {
         mPopupWindow = new PopupWindow(ctx, null, android.R.attr.textSelectHandleWindowStyle);
         mPopupWindow.setSplitTouchEnabled(true);
         mPopupWindow.setClippingEnabled(false);
-        int[] attrs = { attr };
-        Drawable drawable = ctx.getTheme().obtainStyledAttributes(attrs).getDrawable(0);
+        TypedArray a = ctx.getTheme().obtainStyledAttributes(new int[] { attr });
+        Drawable drawable = a.getDrawable(0);
+        a.recycle();
         mPopupWindow.setWidth(drawable.getIntrinsicWidth());
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
         this.setImageDrawable(drawable);
@@ -111,15 +111,9 @@ class InputHandle extends ImageView {
     }
 
     public void setHandleColor(int color) {
-        Drawable drawable = getDrawable();
-        if (drawable != null) {
-            if (android.os.Build.VERSION.SDK_INT >= 29) {
-                drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
-            } else {
-                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
-            }
-            setImageDrawable(drawable);
-        }
+        // ImageView mutates the drawable before applying the filter, so other drawables
+        // of the same resource keep their color.
+        setColorFilter(color, PorterDuff.Mode.SRC_IN);
     }
 }
 
@@ -391,6 +385,7 @@ class SlintInputView extends View {
 
             @Override
             public void onDestroyActionMode(ActionMode action) {
+                mCurrentActionMode = null;
             }
 
             // Introduced in API level 23
@@ -452,24 +447,11 @@ public class SlintAndroidJavaHelper {
                                     return dispatchInsets(insets);
                                 }
                             });
-                }
-                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
-                // it into Slint's key-event pipeline.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
-                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
-                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
-                }
-            }
-        });
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            activity.getWindow().getDecorView().getRootView().getViewTreeObserver()
-                    .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-                        @Override
-                        public void onGlobalLayout() {
-                            mActivity.runOnUiThread(new Runnable() {
+                } else {
+                    mActivity.getWindow().getDecorView().getRootView().getViewTreeObserver()
+                            .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
                                 @Override
-                                public void run() {
+                                public void onGlobalLayout() {
                                     Rect windowRect = get_view_rect();
                                     Rect safeAreaRect = get_safe_area();
 
@@ -513,9 +495,16 @@ public class SlintAndroidJavaHelper {
                                             keyboardBottom, keyboardRight);
                                 }
                             });
-                        }
-                    });
-        }
+                }
+                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
+                // it into Slint's key-event pipeline.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
+                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
+                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
+                }
+            }
+        });
     }
 
     private WindowInsets dispatchInsets(WindowInsets insets) {
@@ -643,11 +632,10 @@ public class SlintAndroidJavaHelper {
     }
 
     public int accent_color() {
-        TypedValue typedValue = new TypedValue();
-        if (mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, typedValue, true)) {
-            return mActivity.getColor(typedValue.resourceId);
-        }
-        return 0;
+        TypedArray a = mActivity.getTheme().obtainStyledAttributes(new int[] { android.R.attr.colorAccent });
+        int color = a.getColor(0, 0);
+        a.recycle();
+        return color;
     }
 
     // Get the size of the window
@@ -701,19 +689,23 @@ public class SlintAndroidJavaHelper {
             @Override
             public String call() throws Exception {
                 ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-                if (clipboard.hasPrimaryClip()) {
-                    ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
-                    return item.getText().toString();
+                ClipData clip = clipboard.getPrimaryClip();
+                if (clip == null || clip.getItemCount() == 0) {
+                    return "";
                 }
-                return "";
+                CharSequence text = clip.getItemAt(0).coerceToText(mActivity);
+                return text == null ? "" : text.toString();
             }
         });
 
         mActivity.runOnUiThread(future);
         try {
-            return future.get(); // Wait for the result and return it
-        } catch (Exception e) {
-            e.printStackTrace();
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        } catch (ExecutionException e) {
+            Log.w("slint", "Failed to read the clipboard", e.getCause());
             return "";
         }
     }
