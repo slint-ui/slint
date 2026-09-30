@@ -19,15 +19,16 @@ use core::convert::{TryFrom, TryInto};
 use core::ffi::c_void;
 use core::pin::Pin;
 
-macro_rules! declare_ValueType {
-    ($($ty:ty,)*) => {
-        pub trait ValueType: 'static + PartialEq + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
-    };
+// There is no `Path` item without the `path` feature, and `()` is in the list anyway.
+cfg_select! {
+    feature = "path" => { use crate::graphics::PathData; }
+    _ => { type PathData = (); }
 }
 
-macro_rules! declare_ValueType_2 {
+// List here the type of every member of a builtin item.
+macro_rules! declare_ValueType {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
-        declare_ValueType![
+        declare_ValueType![@types
             (),
             bool,
             u32,
@@ -39,7 +40,7 @@ macro_rules! declare_ValueType_2 {
             crate::SharedString,
             crate::graphics::Image,
             crate::Color,
-            crate::PathData,
+            PathData,
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,
             crate::items::TableColumn,
@@ -66,9 +67,12 @@ macro_rules! declare_ValueType_2 {
             $(crate::items::$Name,)*
         ];
     };
+    (@types $($ty:ty,)*) => {
+        pub trait ValueType: 'static + PartialEq + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
+    };
 }
 
-i_slint_common::for_each_enums!(declare_ValueType_2);
+i_slint_common::for_each_enums!(declare_ValueType);
 
 /// What kind of animation is on a binding
 pub enum AnimatedBindingKind {
