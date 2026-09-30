@@ -83,7 +83,7 @@ export component GalleryProperties inherits Rectangle {
                         swatch-activated => { Gallery.open-picker(self.absolute-position); }
                     }
                 }
-                Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position); } }
+                Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); } }
             }
             Button { text: "Reset example"; clicked => { Gallery.preview-width = 0; Gallery.preview-height = 0; Gallery.panel-width = 260; Gallery.navigate(Gallery.page, Gallery.scenario-index); } }
         }

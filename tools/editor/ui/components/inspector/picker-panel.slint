@@ -2,16 +2,49 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, FillPickerStyle } from "../../style.slint";
-
-import { InspectorSegment } from "segment.slint";
+import { EditorWindow } from "../index.slint";
+import { EditorScrollView } from "../editor-scroll-view.slint";
+import { InspectorIconButton } from "icon-button.slint";
 
 export component InspectorPickerPanel inherits Rectangle {
     in property <FillPickerStyle> style: Style.fill-picker;
     in property <string> title;
+    in-out property <Point> window-position;
+    in property <Point> parent-origin;
     callback closed();
-    width: root.style.width;
-    preferred-height: layout.preferred-height;
-    height: self.preferred-height;
+    callback activated();
+    private property <length> horizontal-margin: min(root.style.margin, max(0px, root.available-space.width / 2));
+    private property <length> vertical-margin: min(root.style.margin, max(0px, root.available-space.height / 2));
+    private property <Size> available-space: { width: EditorWindow.width - root.width, height: EditorWindow.height - root.height };
+    private property <Point> drag-offset;
+
+    pure function bounded-position(position: Point) -> Point {
+        return {
+            x: position.x.clamp(root.horizontal-margin, max(root.horizontal-margin, root.available-space.width - root.horizontal-margin)),
+            y: position.y.clamp(root.vertical-margin, max(root.vertical-margin, root.available-space.height - root.vertical-margin)),
+        };
+    }
+
+    public function place-next-to(position: Point, size: Size) {
+        let left = position.x - root.style.gap - root.width;
+        let right = position.x + size.width + root.style.gap;
+        let below = position.y + size.height + root.style.gap;
+        let above = position.y - root.style.gap - root.height;
+        let candidate = left >= root.horizontal-margin ? { x: left, y: position.y }
+            : right + root.width <= EditorWindow.width - root.horizontal-margin ? { x: right, y: position.y }
+            : below + root.height <= EditorWindow.height - root.vertical-margin ? { x: position.x, y: below }
+            : above >= root.vertical-margin ? { x: position.x, y: above }
+            : { x: left, y: position.y };
+        root.window-position = root.bounded-position(candidate);
+    }
+
+    changed available-space => { root.window-position = root.bounded-position(root.window-position); }
+
+    x: root.window-position.x - root.parent-origin.x;
+    y: root.window-position.y - root.parent-origin.y;
+    width: min(root.style.width, max(0px, EditorWindow.width - 2 * root.style.margin));
+    preferred-height: body-layout.preferred-height + header.height + divider.height + 4 * Metrics.space-medium;
+    height: min(self.preferred-height, max(0px, EditorWindow.height - 2 * root.style.margin));
     background: root.style.background;
     border-width: Metrics.border-width;
     border-color: root.style.border;
@@ -19,18 +52,77 @@ export component InspectorPickerPanel inherits Rectangle {
     drop-shadow-color: root.style.shadow.color;
     drop-shadow-blur: root.style.shadow.blur;
     drop-shadow-offset-y: root.style.shadow.offset-y;
-    TouchArea { }
-    layout := VerticalLayout {
-        padding: Metrics.space-medium;
-        spacing: Metrics.space-medium;
-        alignment: start;
-        HorizontalLayout {
-            height: Style.inspector-field.height;
-            Text { text: root.title; color: Colors.foreground; font-size: Typography.body.size; font-weight: FontWeight.bold; vertical-alignment: center; }
-            Rectangle { }
-            InspectorSegment { kind: "text"; label: "Close"; width: root.style.close-width; accessible-label: "Close " + root.title; clicked => { root.closed(); } }
+
+    TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down { root.activated(); }
         }
-        Rectangle { height: Metrics.border-width; background: root.style.border; }
-        @children
+        scroll-event(event) => { return accept; }
+    }
+
+    header := Rectangle {
+        x: Metrics.space-medium;
+        y: Metrics.space-medium;
+        width: max(0px, parent.width - 2 * Metrics.space-medium);
+        height: Style.inspector-field.height;
+        Text {
+            width: max(0px, parent.width - close-button.width - Metrics.space-small);
+            text: root.title;
+            color: Colors.foreground;
+            font-size: Typography.body.size;
+            font-weight: FontWeight.bold;
+            vertical-alignment: center;
+        }
+        drag-handle := TouchArea {
+            width: max(0px, parent.width - close-button.width - Metrics.space-small);
+            mouse-cursor: self.pressed ? grabbing : grab;
+            accessible-role: button;
+            accessible-label: "Move " + root.title + " picker";
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.activated();
+                    root.drag-offset = {
+                        x: root.window-position.x - self.absolute-position.x - self.mouse-x,
+                        y: root.window-position.y - self.absolute-position.y - self.mouse-y,
+                    };
+                } else if event.kind == PointerEventKind.move && self.pressed {
+                    root.window-position = root.bounded-position({
+                        x: self.absolute-position.x + self.mouse-x + root.drag-offset.x,
+                        y: self.absolute-position.y + self.mouse-y + root.drag-offset.y,
+                    });
+                }
+            }
+        }
+        close-button := InspectorIconButton {
+            x: parent.width - self.width;
+            y: (parent.height - self.height) / 2;
+            kind: "close";
+            label: "Close " + root.title;
+            clicked => { root.closed(); }
+        }
+    }
+    divider := Rectangle {
+        x: Metrics.space-medium;
+        y: header.y + header.height + Metrics.space-medium;
+        width: max(0px, parent.width - 2 * Metrics.space-medium);
+        height: Metrics.border-width;
+        background: root.style.border;
+    }
+    body := EditorScrollView {
+        x: Metrics.space-medium;
+        y: divider.y + divider.height + Metrics.space-medium;
+        width: max(0px, parent.width - 2 * Metrics.space-medium);
+        height: max(0px, parent.height - self.y - Metrics.space-medium);
+        content-width: self.visible-width;
+        content-height: body-content.height;
+        body-content := Rectangle {
+            width: body.visible-width;
+            height: max(body.visible-height, body-layout.min-height);
+            body-layout := VerticalLayout {
+                spacing: Metrics.space-medium;
+                alignment: start;
+                @children
+            }
+        }
     }
 }

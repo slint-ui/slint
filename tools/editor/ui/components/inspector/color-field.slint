@@ -19,8 +19,6 @@ export component InspectorColorField inherits Rectangle {
         height: Api.current-property-value-data("height").value-float * 1px,
     };
     in property <bool> wide: false;
-    in property <length> picker-anchor-x: swatch-focus.x;
-    in property <length> picker-anchor-y: swatch-focus.y;
     in property <string> commit-key: "";
     in property <string> preview-key: "";
     in property <string> session-key: "";
@@ -164,11 +162,8 @@ export component InspectorColorField inherits Rectangle {
             expression: root.value,
             unsupported: root.data.unsupported,
             allow-gradient: root.data.allow-gradient,
-            anchor-position: {
-                x: root.absolute-position.x + root.picker-anchor-x,
-                y: root.absolute-position.y + root.picker-anchor-y,
-            },
-            anchor-width: root.style.field.height,
+            anchor-position: root.absolute-position,
+            anchor-size: { width: root.width, height: root.height },
         });
     }
 
