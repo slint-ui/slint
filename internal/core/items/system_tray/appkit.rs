@@ -199,8 +199,11 @@ impl PlatformTray {
         self_weak: ItemWeak,
         _context: &crate::SlintContext,
     ) -> Result<Self, Error> {
-        let mtm = MainThreadMarker::new()
-            .expect("SystemTrayIcon must be created on the main thread on macOS");
+        let mtm = MainThreadMarker::new().ok_or_else(|| {
+            Error::PlatformError(crate::platform::PlatformError::Other(
+                "SystemTrayIcon must be created on the main thread on macOS".into(),
+            ))
+        })?;
 
         let image = image_to_nsimage(params.icon)?;
 
