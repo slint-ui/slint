@@ -1904,7 +1904,9 @@ fn process_rectangle_impl(
         (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
     };
 
-    let color = if let Brush::LinearGradient(g) = &args.background {
+    let color = if let Brush::LinearGradient(g) = &args.background
+        && g.stops().nth(1).is_some()
+    {
         let angle = g.angle() + args.rotation.angle();
         let axis_angle = (angle % 180. + 180.) % 180.;
         let tan = angle.to_radians().tan().abs();
