@@ -31,6 +31,11 @@ export component TestCase inherits Window {
         width: 200px;
         height: 200px;
 
+        anchor: {
+            constraint-adjustment-x: { slide: true, flip: false, resize: false },
+            constraint-adjustment-y: { slide: true, flip: false, resize: false },
+        };
+
         init => {
             root.popup-open = true;
         }
@@ -45,12 +50,16 @@ export component TestCase inherits Window {
 ```rust
 let instance = TestCase::new().unwrap();
 let inner =  slint_testing::WindowInner::from_pub(&instance.window());
-instance.window().set_size(slint::PhysicalSize::new(500, 500));
+
+const WINDOW_WIDTH: u32 = 500;
+const WINDOW_HEIGHT: u32 = 500;
+
+instance.window().set_size(slint::PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
 
 slint_testing::mock_elapsed_time(50000);
 
-assert_eq!(instance.get_window_width(), 500.);
-assert_eq!(instance.get_window_height(), 500.);
+assert_eq!(instance.get_window_width(), WINDOW_WIDTH as f32);
+assert_eq!(instance.get_window_height(), WINDOW_HEIGHT as f32);
 assert_eq!(instance.get_popup_open(), false);
 
 instance.invoke_show_popup();
@@ -61,7 +70,7 @@ assert_eq!(inner.active_popups.borrow().len(), 1, "We have one open popup");
 let popups = inner.active_popups.borrow();
 if let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popups.first().unwrap().location {
     assert_eq!(loc.x, 0.);
-    assert_eq!(loc.y, 500. - 200., "The popup was moved up because otherwise it would clip");
+    assert_eq!(loc.y, WINDOW_HEIGHT as f32 - 200., "The popup was moved up because otherwise it would clip");
 }else {
     assert!(false, "The popup is expected to be a ChildWindow");
 };
