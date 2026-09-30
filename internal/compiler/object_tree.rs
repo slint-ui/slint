@@ -851,13 +851,13 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// Whether the declaration is marked `@testable` (an experimental feature).
+/// The `@testable` attribute (an experimental feature), if the declaration has one.
 fn testable_attribute(
     node: Option<syntax_nodes::TestableAttribute>,
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) -> bool {
-    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@testable", &node))
+) -> Option<syntax_nodes::TestableAttribute> {
+    node.filter(|node| !reject_experimental_feature(diag, tr, "@testable", node))
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
