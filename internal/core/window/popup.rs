@@ -73,7 +73,7 @@ fn constrain_axis(
     let mut extent = extent;
     if adj.resize && !fits(origin) {
         let clamped_origin = origin.max(clip_min);
-        extent = (clip_max - clamped_origin).max(0 as Coord);
+        extent = (clip_max.min(origin + extent) - clamped_origin).max(0 as Coord);
         origin = clamped_origin;
     }
 
@@ -548,6 +548,30 @@ fn test_place_popup_resize() {
 
     let result = place_popup(anchor, anchor_position, LogicalPoint::zero(), size, &clip);
     assert_eq!(result, clip);
+}
+
+#[test]
+fn test_place_popup_resize_leading_edge_only() {
+    // The popup spans x = -20..30, so only its leading edge overflows. Resizing must cut off
+    // the part outside the clip region, not grow the popup out to the clip region's right edge.
+    let clip = r(0, 0, 300, 300);
+    let anchor_position = LogicalPoint::new(-20., 0.);
+    let size = LogicalSize::new(50., 50.);
+
+    let resize_only = ConstraintAdjustment { slide: false, flip: false, resize: true };
+    let anchor = PopupAnchor {
+        location: PopupAnchorLocation::TopLeft,
+        x: 0.,
+        y: 0.,
+        width: 0.,
+        height: 0.,
+        gravity: PopupGravity::BottomRight,
+        constraint_adjustment_x: resize_only.clone(),
+        constraint_adjustment_y: resize_only,
+    };
+
+    let result = place_popup(anchor, anchor_position, LogicalPoint::zero(), size, &clip);
+    assert_eq!(result, r(0, 0, 30, 50));
 }
 
 #[test]
