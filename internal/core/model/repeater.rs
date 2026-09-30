@@ -31,7 +31,7 @@ type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 /// of the screen we have in the instance list a few items before the current item and a few after
 /// `instance_index` indicates the position of the current item in this instance list
 /// while `row` is the index of the current item in the complete model
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq)]
 struct ItemIndexRelationShip {
     /// The position of the item in the model
     row: usize,
@@ -1306,12 +1306,13 @@ mod tests {
     use crate::items::{AccessibleRole, ItemRc, ItemVTable, RenderingResult};
     use crate::layout::LayoutInfo;
     use crate::lengths::{LogicalRect, LogicalSize};
-    use crate::model::VecModel;
+    use crate::model::{ModelNotify, ModelTracker, VecModel};
     use crate::slice::Slice;
     use crate::window::{WindowAdapter, WindowAdapterRc};
+    use alloc::boxed::Box;
     use alloc::rc::Rc;
     use core::sync::atomic;
-    use std::vec;
+    use std::{println, vec};
     use vtable::VRc;
 
     type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
@@ -1328,6 +1329,11 @@ mod tests {
 
         fn update(&self, _index: usize, data: Self::Data) {
             self.value.set(data);
+        }
+
+        fn listview_layout(self: Pin<&Self>, offset_y: &mut LogicalLength) -> LogicalLength {
+            *offset_y += LogicalLength::new(ITEM_HEIGHT);
+            LogicalLength::default()
         }
     }
     impl SimpleItem {
@@ -1391,7 +1397,7 @@ mod tests {
                 model: &ModelRc::from(model.clone()),
             };
             // Remove 4 at index 4
-            ops.splice(4, 4, 0);
+            ops.splice(4, 4, 0); // Remove last 4
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 4);
@@ -1855,6 +1861,848 @@ mod tests {
 
     // TODO: Test swapping!
 
+    const ITEM_HEIGHT: Coord = 100 as Coord;
+
+    /// Unlike `VecModel`, inserts and removes several rows with a single notification.
+    struct TestModel {
+        rows: RefCell<Vec<i32>>,
+        notify: ModelNotify,
+    }
+
+    impl TestModel {
+        /// Rows `0..count`, each holding its own index
+        fn new(count: usize) -> Rc<Self> {
+            Rc::new(Self {
+                rows: RefCell::new((0..count as i32).collect()),
+                notify: Default::default(),
+            })
+        }
+
+        fn insert(&self, index: usize, values: &[i32]) {
+            self.rows.borrow_mut().splice(index..index, values.iter().copied());
+            self.notify.row_added(index, values.len());
+        }
+
+        fn remove(&self, rows: core::ops::Range<usize>) {
+            self.rows.borrow_mut().drain(rows.clone());
+            self.notify.row_removed(rows.start, rows.len());
+        }
+    }
+
+    impl Model for TestModel {
+        type Data = i32;
+
+        fn row_count(&self) -> usize {
+            self.rows.borrow().len()
+        }
+
+        fn row_data(&self, row: usize) -> Option<i32> {
+            self.rows.borrow().get(row).copied()
+        }
+
+        fn model_tracker(&self) -> &dyn ModelTracker {
+            &self.notify
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum Slot {
+        Clean(i32),
+        /// Marked dirty, still showing the data of its last update
+        Dirty,
+        /// Marked dirty, without an instance yet
+        Empty,
+    }
+    use Slot::{Clean, Dirty, Empty};
+
+    /// The instance slots and the current item
+    fn state(repeater: &Repeater<SimpleItem>) -> (Vec<Slot>, ItemIndexRelationShip) {
+        let inner = repeater.0.inner.borrow();
+        let slots = inner
+            .instances
+            .iter()
+            .map(|(state, instance)| match (state, instance) {
+                (RepeatedInstanceState::Clean, Some(instance)) => Clean(instance.value.get()),
+                (RepeatedInstanceState::Dirty, Some(instance)) => Dirty,
+                (RepeatedInstanceState::Dirty, None) => Empty,
+                (RepeatedInstanceState::Clean, None) => panic!("clean slot without an instance"),
+            })
+            .collect();
+        (slots, inner.layout_state.item_index.clone())
+    }
+
+    fn new_item() -> ItemTreeRc<SimpleItem> {
+        SimpleItem::new(-1)
+    }
+
+    /// A repeater with clean instances for the rows in `window` only, as a ListView leaves it
+    fn repeater_with_window(
+        model: &Rc<TestModel>,
+        window: core::ops::Range<usize>,
+        current_row: usize,
+    ) -> Pin<Box<Repeater<SimpleItem>>> {
+        let repeater = Box::pin(Repeater::default());
+        let model_rc = ModelRc::from(model.clone());
+        repeater.set_model_binding(move || model_rc.clone());
+        repeater.as_ref().model(); // Setup tracker
+        let mut inner = repeater.0.inner.borrow_mut();
+        inner.instances = window
+            .clone()
+            .map(|row| {
+                let instance = SimpleItem::new(model.row_data(row).unwrap());
+                (RepeatedInstanceState::Clean, Some(instance))
+            })
+            .collect();
+        inner.layout_state.item_index =
+            ItemIndexRelationShip { row: current_row, instance_index: current_row - window.start };
+        drop(inner);
+        repeater.0.is_dirty.set(false);
+        repeater
+    }
+
+    /// A repeater outside a ListView, with instances for all rows
+    fn repeater_for(model: &Rc<VecModel<i32>>) -> Pin<Box<Repeater<SimpleItem>>> {
+        let repeater = Box::pin(Repeater::default());
+        let model = ModelRc::from(model.clone());
+        repeater.set_model_binding(move || model.clone());
+        repeater.as_ref().ensure_updated(new_item);
+        repeater
+    }
+
+    fn with_ops(
+        repeater: &Repeater<SimpleItem>,
+        f: impl FnOnce(&mut RustRepeaterOps<'_, SimpleItem>),
+    ) {
+        let model = ModelRc::default();
+        f(&mut RustRepeaterOps { inner: &repeater.0.inner, init: &new_item, model: &model });
+    }
+
+    #[test]
+    fn test_row_added_without_rows() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 2);
+        let before = state(&repeater);
+        // Before:
+        //          0, 1, 2, 3, 4
+        //                ^
+        // Window: |-------------|
+        // After:
+        //          0, 1, 2, 3, 4
+        //                ^
+        // Window: |-------------|
+        model.insert(3, &[]);
+        assert_eq!(state(&repeater), before);
+        assert!(!repeater.as_ref().data().project_ref().is_dirty.get());
+    }
+
+    #[test]
+    fn test_row_added_before_window() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 4..7, 5);
+        // Before:
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                         ^
+        // Window:              |------|
+        // Before:
+        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                              ^
+        // Window:                  |------|
+        model.insert(2, &[100]);
+        assert_eq!(
+            state(&repeater),
+            (
+                // They must be dirty, because the row changed
+                vec![Dirty, Dirty, Dirty],
+                ItemIndexRelationShip { row: 6, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_row_added_at_window_start() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 2..6, 4);
+        // Before:
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                      ^
+        // Window:       |-------------|
+        // After:
+        //          0, 1, 100, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                           ^
+        // Window:        |-----------------|
+        model.insert(2, &[100]);
+        assert_eq!(
+            state(&repeater),
+            (
+                // The row changed for the item, so they get all dirty
+                vec![Empty, Dirty, Dirty, Dirty, Dirty, Dirty],
+                ItemIndexRelationShip { row: 5, instance_index: 3 }
+            ),
+            "We must prepend one item"
+        );
+    }
+
+    #[test]
+    fn test_row_added_after_window() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 0..3, 0);
+        let before = state(&repeater);
+        // Before:
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                      ^
+        // Window:       |-------------|
+        // After:
+        //          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100
+        //                      ^
+        // Window:       |-------------|
+        model.insert(10, &[100]);
+        assert_eq!(
+            state(&repeater),
+            before,
+            "State must not change because it is after the window and that would lead to a splitted window"
+        );
+    }
+
+    #[test]
+    fn test_row_added_after_current_row() {
+        let model = Rc::new(VecModel::from(vec![10, 20]));
+        let repeater = repeater_for(&model);
+        // Before:
+        //          10, 20
+        //           ^
+        // Window: |-----|
+        // After:
+        //          5, 10, 20
+        //             ^
+        // Window: |---------|
+        model.insert(0, 5);
+        repeater.as_ref().ensure_updated(new_item);
+        // Before:
+        //          5, 10, 20
+        //             ^
+        // Window: |---------|
+        // After:
+        //          5, 10, 20, 30
+        //             ^
+        // Window: |-------------|
+        model.push(30);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(5), Clean(10), Clean(20), Empty],
+                ItemIndexRelationShip { row: 1, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_row_added_at_current_row_keeps_earlier_instances_clean() {
+        let model = Rc::new(VecModel::from(vec![10, 20]));
+        let repeater = repeater_for(&model);
+        // Before:
+        //          10, 20
+        //           ^
+        // Window: |-----|
+        // After:
+        //          5, 10, 20
+        //             ^
+        // Window: |---------|
+        model.insert(0, 5);
+        repeater.as_ref().ensure_updated(new_item);
+        // Before:
+        //          5, 10, 20
+        //             ^
+        // Window: |---------|
+        // After:
+        //          5, 7, 10, 20
+        //                ^
+        // Window: |------------|
+        model.insert(1, 7);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(5), Empty, Dirty, Dirty],
+                ItemIndexRelationShip { row: 2, instance_index: 2 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_rows_added_after_reset() {
+        let model = Rc::new(VecModel::from(vec![10, 20]));
+        let repeater = repeater_for(&model);
+        // Before:
+        //          10, 20
+        //           ^
+        // Window: |-----|
+        // After:
+        //          1, 2, 3
+        //          ^
+        // Window: |-------|
+        model.set_vec(vec![1, 2, 3]);
+        assert_eq!(
+            state(&repeater),
+            (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 0, instance_index: 0 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(1), Clean(2), Clean(3)],
+                ItemIndexRelationShip { row: 0, instance_index: 0 }
+            )
+        );
+        model.push(4);
+        model.push(5);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(1), Clean(2), Clean(3), Dirty, Dirty],
+                ItemIndexRelationShip { row: 0, instance_index: 0 }
+            )
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(1), Clean(2), Clean(3), Clean(4), Clean(5)],
+                ItemIndexRelationShip { row: 0, instance_index: 0 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_row_removed_without_rows() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 2);
+        let before = state(&repeater);
+        // Before:
+        //           0, 1, 2, 3, 4
+        //                 ^
+        // Window:  |-------------|
+        // After:
+        //           0, 1, 2, 3, 4
+        //                 ^
+        // Window:  |-------------|
+        model.remove(1..1);
+        assert_eq!(state(&repeater), before);
+        assert!(!repeater.as_ref().data().project_ref().is_dirty.get());
+    }
+
+    #[test]
+    fn test_row_removed_after_current_row() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        let before = state(&repeater);
+        // Before:
+        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //                    ^
+        // Window:        |----------|
+        // After:
+        //           0, 1, 2, 3, 5, 6, 7, 8
+        //                    ^
+        // Window:        |-------|
+        model.remove(4..5);
+        // Last one is dirty, because the row of it changed
+        assert_eq!(state(&repeater), (vec![Clean(2), Clean(3), Dirty], before.1));
+    }
+
+    #[test]
+    fn test_rows_removed_across_window_end() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        let before = state(&repeater);
+        // Before:
+        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //                    ^
+        // Window:        |----------|
+        // After:
+        //           0, 1, 2, 3, 4, 7, 8
+        //                    ^
+        // Window:        |-------|
+        model.remove(5..7);
+        assert_eq!(state(&repeater), (vec![Clean(2), Clean(3), Clean(4)], before.1));
+    }
+
+    #[test]
+    fn test_rows_removed_after_window() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        let before = state(&repeater);
+        // Before:
+        //           0, 1, 2, 3, 4, 5, 6, 7, 8
+        //                    ^
+        // Window:        |----------|
+        // After:
+        //           0, 1, 2, 3, 4, 5
+        //                    ^
+        // Window:        |----------|
+        model.remove(6..8);
+        assert_eq!(state(&repeater), before);
+    }
+
+    #[test]
+    fn test_rows_removed_before_current_row_but_inside_window() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..7, 5);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                        ^
+        // Window:       |------------|
+        // After:
+        //         0, 1, 2, 5, 6, 7
+        //                  ^
+        // Window:       |------|
+        model.remove(3..5);
+        // The second and the third must be dirty because their row changed
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(2), Clean(5), Clean(6)],
+                ItemIndexRelationShip { row: 3, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_rows_removed_across_window_start() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 4..8, 6);
+        // Before:
+        // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                   ^
+        // Window:     |--------|
+        // After:
+        // 0, 1, 2, 5, 6, 7, 8, 9, 10
+        //             ^
+        // Window: |------|
+        model.remove(3..5);
+        assert_eq!(
+            state(&repeater),
+            (vec![Dirty, Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 1 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(5), Clean(6), Clean(7)],
+                ItemIndexRelationShip { row: 4, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_row_removed_current_row() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        // Before:
+        //   0, 1, 2, 3, 4, 5, 6, 7, 8
+        //            ^
+        // Window: |--------|
+        // After:
+        //   0, 1, 2, 4, 5, 6, 7, 8
+        //            ^
+        // Window: |-----|
+        model.remove(3..4);
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(2), Dirty(4), Dirty(5)],
+                ItemIndexRelationShip { row: 3, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_rows_removed_across_window_start_and_current_row() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 4..8, 5);
+        // Before:
+        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //                  ^
+        // Window:       |--------|
+        // After:
+        //   0, 1, 2, 7, 8, 9, 10
+        //            ^
+        // Window:   |-|
+        model.remove(3..6);
+        assert_eq!(
+            state(&repeater),
+            (vec![Dirty], ItemIndexRelationShip { row: 3, instance_index: 0 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(7)], ItemIndexRelationShip { row: 3, instance_index: 0 })
+        );
+    }
+
+    #[test]
+    fn test_rows_removed_from_current_row_across_window_end() {
+        let model = TestModel::new(10);
+        let repeater = repeater_with_window(&model, 2..6, 4);
+        // Before:
+        //   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        //               ^
+        // Window: |-----------|
+        // After:
+        //   0, 1, 2, 3, 8, 9, 10
+        //               ^
+        // Window: |------|
+        model.remove(4..8);
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(2), Dirty, Dirty], ItemIndexRelationShip { row: 4, instance_index: 2 })
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(2), Clean(3), Clean(8)],
+                ItemIndexRelationShip { row: 4, instance_index: 2 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_all_rows_removed() {
+        // Before:
+        //         0, 1, 2, 3, 4, 5
+        //               ^
+        // Window: |-----------|
+        // After: empty
+        // Window: empty
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 2);
+        model.remove(0..5);
+        assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 0, instance_index: 0 }));
+    }
+
+    #[test]
+    fn test_current_row_removed_at_the_end() {
+        // Newest first, capped at two rows
+        let model = Rc::new(VecModel::from(vec![2, 1]));
+        let repeater = repeater_for(&model);
+        {
+            let value = 3;
+            // Example for value 3
+            // Before:
+            //         2, 1
+            //         ^
+            // Window: |--|
+            // After:
+            //         3, 2, 1
+            //            ^
+            // Window: |-----|
+            model.insert(0, value);
+            repeater.as_ref().ensure_updated(new_item);
+            assert_eq!(
+                state(&repeater),
+                (
+                    vec![Clean(value), Clean(value - 1), Clean(value - 2)],
+                    ItemIndexRelationShip { row: 1, instance_index: 1 }
+                )
+            );
+            // Before:
+            //         3, 2, 1
+            //            ^
+            // Window: |-----|
+            // After:
+            //         3, 2
+            //            ^
+            // Window: |---|
+            model.remove(2);
+            repeater.as_ref().ensure_updated(new_item);
+            assert_eq!(
+                state(&repeater),
+                (
+                    vec![Clean(value), Clean(value - 1)],
+                    ItemIndexRelationShip { row: 1, instance_index: 1 }
+                )
+            );
+        }
+        {
+            let value = 4;
+            // Example for value 4
+            // Before:
+            //         3, 2
+            //            ^
+            // Window: |--|
+            // After:
+            //         4, 3, 2
+            //               ^
+            // Window: |-----|
+            model.insert(0, value);
+            repeater.as_ref().ensure_updated(new_item);
+            assert_eq!(
+                state(&repeater),
+                (
+                    vec![Clean(value), Clean(value - 1), Clean(value - 2)],
+                    ItemIndexRelationShip { row: 2, instance_index: 2 }
+                )
+            );
+            // Before:
+            //         4, 3, 2
+            //               ^
+            // Window: |-----|
+            // After:
+            //         4, 3 // behind 2 there are no elements so the direct previous gets the new active
+            //            ^
+            // Window: |---|
+            model.remove(2);
+            repeater.as_ref().ensure_updated(new_item);
+            assert_eq!(
+                state(&repeater),
+                (
+                    vec![Clean(value), Clean(value - 1)],
+                    ItemIndexRelationShip { row: 1, instance_index: 1 }
+                )
+            );
+        }
+    }
+
+    /// Remove first instance
+    #[test]
+    fn test_splice_before_current_instance() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 4);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                     ^
+        // Window:       |---------|
+        // After:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                     ^
+        // Window:         |-------|
+        with_ops(&repeater, |ops| ops.splice(0, 1, 0));
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(3), Clean(4), Clean(5)],
+                ItemIndexRelationShip { row: 3, instance_index: 2 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_prepend_instances() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:       |---------|
+        // After:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window: |---------------|
+        with_ops(&repeater, |ops| ops.prepend(2));
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Empty, Empty, Clean(2), Clean(3), Clean(4), Clean(5)],
+                ItemIndexRelationShip { row: 3, instance_index: 3 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_splice_replacing_instances_before_current_instance() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 3);
+        // Before:
+        //         0, 1, 2, 3, 4
+        //                  ^
+        // Window:|-------------|
+        // After:
+        //         0, 1, 2, 3, 4
+        //                  ^
+        // Window:   |----------|
+        with_ops(&repeater, |ops| ops.splice(1, 2, 1));
+        // The first gets dirty because it will be reused by another row now
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Dirty, Empty, Clean(3), Clean(4)],
+                ItemIndexRelationShip { row: 3, instance_index: 3 }
+            )
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(1), Clean(2), Clean(3), Clean(4)],
+                ItemIndexRelationShip { row: 3, instance_index: 3 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_splice_replacing_instances_before_current_instance2() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..8, 3);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:|----------------------|
+        // After:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:         |---------| It would split up the window
+        with_ops(&repeater, |ops| ops.splice(1, 4, 1));
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(0), Empty, Dirty, Dirty],
+                ItemIndexRelationShip { row: 3, instance_index: 3 }
+            )
+        );
+        assert!(false); // TODO: This should not work
+    }
+
+    #[test]
+    fn test_insert_instances_after_current_instance() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 0..5, 1);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //            ^
+        // Window:|-------------|
+        // After:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //            ^
+        // Window:|-------------------|
+        with_ops(&repeater, |ops| ops.insert(3, 2));
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(0), Clean(1), Clean(2), Empty, Empty, Dirty, Dirty],
+                ItemIndexRelationShip { row: 1, instance_index: 1 }
+            )
+        );
+        repeater.as_ref().ensure_updated(new_item);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(0), Clean(1), Clean(2), Clean(3), Clean(4), Clean(5), Clean(6)],
+                ItemIndexRelationShip { row: 1, instance_index: 1 }
+            )
+        );
+    }
+
+    #[test]
+    fn test_clear_instances() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 2);
+        with_ops(&repeater, |ops| ops.clear());
+        assert_eq!(state(&repeater), (vec![], ItemIndexRelationShip { row: 2, instance_index: 0 }));
+    }
+
+    #[test]
+    fn test_set_current_row_within_window() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..5, 4);
+        let slots = state(&repeater).0;
+        // Before:
+        //         0, 1, 2, 3, 4
+        //                     ^
+        // Window:|-------------|
+        // After:
+        //         0, 1, 2, 3, 4
+        //            ^
+        // Window:|-------------|
+        repeater.0.inner.borrow_mut().set_current_row(1);
+        assert_eq!(state(&repeater), (slots, ItemIndexRelationShip { row: 1, instance_index: 1 }));
+        let before = state(&repeater);
+        repeater.0.inner.borrow_mut().set_current_row(1);
+        assert_eq!(state(&repeater), before);
+    }
+
+    #[test]
+    fn test_set_current_row_without_instances() {
+        let model = TestModel::new(5);
+        let repeater = repeater_with_window(&model, 0..0, 0);
+        repeater.0.inner.borrow_mut().set_current_row(3);
+        // Creates all instances up to this instance
+        assert_eq!(
+            state(&repeater),
+            (vec![Empty, Empty, Empty, Empty], ItemIndexRelationShip { row: 3, instance_index: 3 })
+        );
+    }
+
+    // #[test]
+    // fn test_instance_index_of_row() {
+    //     let current = ItemIndexRelationShip { row: 5, instance_index: 2 };
+    //     assert_eq!(current.get_instance_index_opt(7), Some(4));
+    //     assert_eq!(current.get_instance_index_opt(5), Some(2));
+    //     assert_eq!(current.get_instance_index_opt(3), Some(0));
+    //     assert_eq!(current.get_instance_index_opt(2), None);
+    //     assert_eq!(current.get_instance_index(7), 4);
+    //     assert_eq!(current.get_instance_index(2), usize::MAX);
+    // }
+
+    // #[test]
+    // fn test_row_changed_after_insert_at_front() {
+    //     let model = Rc::new(VecModel::from(vec![10, 20]));
+    //     let repeater = repeater_for(&model);
+    //     model.insert(0, 5);
+    //     repeater.as_ref().ensure_updated(new_item);
+    //     model.set_row_data(0, 6);
+    //     model.set_row_data(2, 30);
+    //     assert_eq!(state(&repeater).0, [Clean(6), Clean(10), Clean(30)]);
+    // }
+
+    // #[test]
+    // fn test_instance_lookup_after_insert_at_front() {
+    //     let model = Rc::new(VecModel::from(vec![10, 20]));
+    //     let repeater = repeater_for(&model);
+    //     model.insert(0, 5);
+    //     repeater.as_ref().ensure_updated(new_item);
+    //     assert_eq!(repeater.range(), 0..3);
+    //     assert_eq!(repeater.instance_at(0).map(|instance| instance.value.get()), Some(5));
+    //     let mut rows = Vec::new();
+    //     repeater.as_ref().for_each_instance_z(&mut |row, _| rows.push(row));
+    //     assert_eq!(rows, [0, 1, 2]);
+    // }
+
+    // #[test]
+    // fn test_listview_scrolled_after_insert_at_front() {
+    //     let model = TestModel::new(10);
+    //     let repeater = Box::pin(Repeater::<SimpleItem>::default());
+    //     let model_rc = ModelRc::from(model.clone());
+    //     repeater.set_model_binding(move || model_rc.clone());
+    //     let content_y = Box::pin(Property::new(LogicalLength::default()));
+    //     let listview_height = Box::pin(Property::new(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)));
+    //     let update = || {
+    //         repeater.as_ref().ensure_updated_listview(
+    //             new_item,
+    //             None,
+    //             None,
+    //             content_y.as_ref(),
+    //             LogicalLength::new(100 as Coord),
+    //             listview_height.as_ref(),
+    //         );
+    //     };
+
+    //     update();
+    //     model.insert(0, &[100]);
+    //     update();
+    //     // Scrolled by 3.5 rows, so rows 3 to 6 are in view
+    //     content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 7 as Coord / 2 as Coord));
+    //     update();
+    //     assert_eq!(state(&repeater).0, [Clean(2), Clean(3), Clean(4), Clean(5)]);
+    // }
+
     // Trait implementations
     // ###############################################################################
 
@@ -2052,10 +2900,9 @@ mod tests {
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> crate::lengths::LogicalRect {
-            unimplemented!("Not implemented");
             crate::lengths::LogicalRect::new(
                 euclid::Point2D::new(0 as Coord, 0 as Coord),
-                euclid::Size2D::new(100 as Coord, 100 as Coord),
+                euclid::Size2D::new(100 as Coord, ITEM_HEIGHT),
             )
         }
 
