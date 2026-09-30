@@ -1112,35 +1112,42 @@ fn collect_testable_properties(
     mapping: &LoweredSubComponentMapping,
     state: &LoweringState,
 ) -> Vec<TestableProperty> {
-    fn readable(decl: &crate::object_tree::PropertyDeclaration) -> bool {
+    use crate::object_tree::PropertyDeclaration;
+
+    fn readable(decl: &PropertyDeclaration) -> bool {
         decl.testable && decl.property_type.is_property_type()
     }
 
-    let mut seen = std::collections::HashSet::new();
-    let mut result = Vec::new();
-    let elem = element.borrow();
+    /// The readable declarations an element declares itself, shadowing declarations first.
+    fn shadowing_first(
+        decls: &BTreeMap<SmolStr, PropertyDeclaration>,
+    ) -> impl Iterator<Item = (&SmolStr, &PropertyDeclaration)> {
+        [true, false].into_iter().flat_map(move |shadowing| {
+            decls.iter().filter(move |(_, decl)| {
+                decl.shadowed_name.is_some() == shadowing
+                    && decl.moved_from.is_none()
+                    && readable(decl)
+            })
+        })
+    }
 
-    // Two passes so a shadowing declaration wins over the one it shadows:
-    // both carry the same source name, and the first insertion into `seen` wins.
-    for shadow_pass in [true, false] {
-        for (key, decl) in &elem.property_declarations {
-            if decl.shadowed_name.is_some() != shadow_pass {
-                continue;
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+    let mut push =
+        |name: &SmolStr, decl: &PropertyDeclaration, owner: &ElementRc, key: &SmolStr| {
+            if seen.insert(name.clone()) {
+                result.push(TestableProperty {
+                    name: name.clone(),
+                    ty: decl.property_type.clone(),
+                    prop: mapping
+                        .map_property_reference(&NamedReference::new(owner, key.clone()), state),
+                });
             }
-            if decl.moved_from.is_some() || !readable(decl) {
-                continue;
-            }
-            let name = decl.declared_name(key);
-            if !seen.insert(name.clone()) {
-                continue;
-            }
-            result.push(TestableProperty {
-                name: name.clone(),
-                ty: decl.property_type.clone(),
-                prop: mapping
-                    .map_property_reference(&NamedReference::new(element, key.clone()), state),
-            });
-        }
+        };
+
+    let elem = element.borrow();
+    for (key, decl) in shadowing_first(&elem.property_declarations) {
+        push(decl.declared_name(key), decl, element, key);
     }
 
     if !Rc::ptr_eq(element, &component.root_element) {
@@ -1148,43 +1155,17 @@ fn collect_testable_properties(
         for (source_name, root_key) in &elem.moved_property_declarations {
             // The declaration can be gone: remove_unused_properties runs after the move.
             let Some(decl) = root.property_declarations.get(root_key) else { continue };
-            if !readable(decl) || !seen.insert(source_name.clone()) {
-                continue;
+            if readable(decl) {
+                push(source_name, decl, &component.root_element, root_key);
             }
-            result.push(TestableProperty {
-                name: source_name.clone(),
-                ty: decl.property_type.clone(),
-                prop: mapping.map_property_reference(
-                    &NamedReference::new(&component.root_element, root_key.clone()),
-                    state,
-                ),
-            });
         }
     }
 
     let mut base = elem.base_type.clone();
     while let ElementType::Component(b) = base {
         let base_root = b.root_element.borrow();
-        // Shadowing declarations first within each level; see the loop above.
-        for shadow_pass in [true, false] {
-            for (key, decl) in &base_root.property_declarations {
-                if decl.shadowed_name.is_some() != shadow_pass {
-                    continue;
-                }
-                if decl.moved_from.is_some() || !readable(decl) {
-                    continue;
-                }
-                let name = decl.declared_name(key);
-                if !seen.insert(name.clone()) {
-                    continue;
-                }
-                result.push(TestableProperty {
-                    name: name.clone(),
-                    ty: decl.property_type.clone(),
-                    prop: mapping
-                        .map_property_reference(&NamedReference::new(element, key.clone()), state),
-                });
-            }
+        for (key, decl) in shadowing_first(&base_root.property_declarations) {
+            push(decl.declared_name(key), decl, element, key);
         }
         let next = base_root.base_type.clone();
         drop(base_root);
@@ -2022,33 +2003,43 @@ export component TestCase inherits Window {
     d := Derived { }
 }
 "#;
-        let mut config =
-            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-        config.style = Some("fluent".into());
-        config.debug_info = true;
-        config.enable_experimental = true;
-        let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node = crate::parser::parse(
-            source.into(),
-            Some(SourcePath::new("shadow.slint")),
-            &mut diags,
+        assert_eq!(testable_types(source, "name"), [crate::langtype::Type::Int32]);
+    }
+
+    #[test]
+    fn testable_properties_follow_a_shadowing_chain() {
+        let source = r#"
+component Base inherits Rectangle {
+    @shadowable @testable in-out property <string> name: "base";
+    Text { text: root.name; }
+}
+component Mid inherits Base {
+    @shadowable @testable in-out property <int> name: 42;
+}
+component Derived inherits Mid {
+    @testable in-out property <bool> name: true;
+}
+export component TestCase inherits Window {
+    m := Mid { }
+    d := Derived { }
+}
+"#;
+        assert_eq!(
+            testable_types(source, "name"),
+            [crate::langtype::Type::Int32, crate::langtype::Type::Bool]
         );
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
-        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
+    }
+
+    /// The types of all listed properties called `name`, in item order.
+    fn testable_types(source: &str, name: &str) -> Vec<crate::langtype::Type> {
+        let (doc, config) = compile_for_test(source, true);
         let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
-        let mut checked = 0;
-        for sc in unit.sub_components.iter() {
-            for props in sc.testable_properties.values() {
-                for p in props.iter().filter(|p| p.name == "name") {
-                    if sc.name.contains("TestCase") || sc.name.contains("Derived") {
-                        assert_eq!(p.ty, crate::langtype::Type::Int32, "in {}", sc.name);
-                        checked += 1;
-                    }
-                }
-            }
-        }
-        assert!(checked > 0, "no Derived/TestCase entry listed 'name'");
+        unit.sub_components
+            .iter()
+            .flat_map(|sc| sc.testable_properties.values().flatten())
+            .filter(|p| p.name == name)
+            .map(|p| p.ty.clone())
+            .collect()
     }
 
     fn compile_for_test(
@@ -2099,16 +2090,6 @@ export component TestCase inherits Window {
         assert!(!names.iter().any(|n| n == "other"), "'other' unexpectedly listed: {names:?}");
     }
 
-    /// `count_property_use` visits every listed property as a read, which is what
-    /// `remove_unused` requires to keep the property, its `property_init` entry, and its
-    /// `testable_properties` entry (see `only_testable_properties_are_listed` and the
-    /// no-visit baseline: skipping the visit drops the property everywhere). This test
-    /// pins the companion invariant: the surviving `property_init` entry still carries the
-    /// bound expression rather than a blanked-out placeholder.
-    ///
-    /// `lower_to_item_tree` already runs the full optimization pipeline (including
-    /// `count_property_use`) internally, so this inspects its output directly rather than
-    /// re-running the pass, which would just observe an already-settled result.
     #[test]
     fn testable_property_keeps_its_bound_value() {
         let source = r#"
@@ -2141,9 +2122,6 @@ export component TestCase inherits Window {
         );
     }
 
-    /// The retention gate in `remove_unused_properties` only applies when the testable-property
-    /// table is actually generated: without debug info, an unused `@testable` property is
-    /// removed like any other unused property, keeping ordinary release builds unaffected.
     #[test]
     fn testable_property_removed_without_debug_info() {
         let source = r#"
@@ -2163,9 +2141,6 @@ export component TestCase inherits Window {
         );
     }
 
-    /// A private `@testable` base declaration hidden by a derived same-name declaration must
-    /// not create a second table entry: the existing shadow ranking still decides which
-    /// declaration the table exposes.
     #[test]
     fn testable_attribute_on_shadowed_base_does_not_leak() {
         let source = r#"
@@ -2179,21 +2154,6 @@ export component TestCase inherits Window {
     d := Derived { }
 }
 "#;
-        let (doc, config) = compile_for_test(source, true);
-        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
-        let mut checked = 0;
-        for sc in unit.sub_components.iter() {
-            for props in sc.testable_properties.values() {
-                for p in props.iter().filter(|p| p.name == "secret") {
-                    if sc.name.contains("TestCase") || sc.name.contains("Derived") {
-                        // A leaked entry from the hidden base would carry its String type
-                        // instead of the shadowing declaration's Int32.
-                        assert_eq!(p.ty, crate::langtype::Type::Int32, "in {}", sc.name);
-                        checked += 1;
-                    }
-                }
-            }
-        }
-        assert!(checked > 0, "no Derived/TestCase entry listed 'secret'");
+        assert_eq!(testable_types(source, "secret"), [crate::langtype::Type::Int32]);
     }
 }

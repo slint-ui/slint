@@ -877,13 +877,13 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// Whether the declaration is marked `@testable` (an experimental feature).
+/// The `@testable` attribute (an experimental feature), if the declaration has one.
 fn testable_attribute(
     node: Option<syntax_nodes::TestableAttribute>,
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) -> bool {
-    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@testable", &node))
+) -> Option<syntax_nodes::TestableAttribute> {
+    node.filter(|node| !reject_experimental_feature(diag, tr, "@testable", node))
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
@@ -2318,13 +2318,15 @@ impl Element {
             let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
 
             let testable = testable_attribute(prop_decl.TestableAttribute(), tr, diag);
-            if testable && (is_global || is_interface) {
+            if let Some(node) = &testable
+                && (is_global || is_interface)
+            {
                 diag.push_error(
                     format!(
                         "'@testable' is not supported on {} properties",
                         if is_global { "global" } else { "interface" }
                     ),
-                    &prop_decl.TestableAttribute().unwrap(),
+                    node,
                 );
             }
 
@@ -2337,7 +2339,7 @@ impl Element {
                     shadowed_name,
                     shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
                     deprecated,
-                    testable,
+                    testable: testable.is_some(),
                     ..Default::default()
                 },
             );
@@ -2460,11 +2462,8 @@ impl Element {
                 continue;
             }
             let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
-            if testable_attribute(sig_decl.TestableAttribute(), tr, diag) {
-                diag.push_error(
-                    "'@testable' is only supported on properties".into(),
-                    &sig_decl.TestableAttribute().unwrap(),
-                );
+            if let Some(node) = testable_attribute(sig_decl.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
             }
             let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
             let source_name = name;
@@ -2599,11 +2598,8 @@ impl Element {
                 );
             }
 
-            if testable_attribute(func.TestableAttribute(), tr, diag) {
-                diag.push_error(
-                    "'@testable' is only supported on properties".into(),
-                    &func.TestableAttribute().unwrap(),
-                );
+            if let Some(node) = testable_attribute(func.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
             }
 
             let declaration = PropertyDeclaration {

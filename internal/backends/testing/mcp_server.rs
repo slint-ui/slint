@@ -62,7 +62,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "get_element_properties",
-        description: "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, layout kind, and testableProperties — the element's @testable properties with name, type and current value (booleans and numbers typed; length in logical px, duration in ms, angle in deg; colors as #rrggbbaa; enums as their .slint spelling). Prefer reading testableProperties over screenshot diffing to verify state.",
+        description: "Get full details of a single element: type names and IDs (including inherited bases), all accessible properties (role, label, value, description, checked, enabled, read-only, placeholder, value min/max/step), logical size and position, computed opacity, layout kind, and testableProperties — the element's @testable properties with name, type and current value (booleans and numbers typed; length in logical px, duration in ms, angle in deg; colors as #rrggbbaa; enums as their .slint spelling; non-finite floats stay strings such as \"inf\"). Prefer reading testableProperties over screenshot diffing to verify state.",
         request_type: "RequestElementProperties",
         optional_fields: &[],
     },
