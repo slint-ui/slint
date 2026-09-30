@@ -891,7 +891,7 @@ impl Expression {
                 .filter(|_| !is_absolute)
                 .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s));
             let path = match resolved {
-                Some((path, _)) => path,
+                Some(path) => path,
                 None => {
                     node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }

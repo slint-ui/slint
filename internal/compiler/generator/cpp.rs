@@ -1137,9 +1137,7 @@ fn embed_resource(
             unreachable!("slint-sc resources in the C++ generator")
         }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file =
-                crate::fileaccess::load_file(resource.path.as_ref().unwrap()).unwrap(); // embedding pass ensured that the file exists
-            let data = resource_file.read();
+            let data = resource.path.as_ref().unwrap().read().unwrap(); // embedding pass ensured that the file exists
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),

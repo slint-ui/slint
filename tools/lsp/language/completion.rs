@@ -410,12 +410,10 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::ImportIdentifierList {
         let import = syntax_nodes::ImportSpecifier::new(node.parent()?)?;
 
-        let path = document_cache
-            .resolve_import_path(
-                Some(&token.into()),
-                import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
-            )?
-            .0;
+        let path = document_cache.resolve_import_path(
+            Some(&token.into()),
+            import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
+        )?;
         let doc = document_cache.get_document_by_path(&path)?;
         return Some(
             doc.exports
