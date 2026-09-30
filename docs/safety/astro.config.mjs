@@ -112,21 +112,7 @@ export default defineConfig({
                             },
                             {
                                 label: "Slint Compiler",
-                                items: [
-                                    {
-                                        label: "Constraints",
-                                        slug: "user-manual/compiler/constraints",
-                                    },
-                                ],
-                            },
-                            {
-                                label: "slint-sc Runtime",
-                                items: [
-                                    {
-                                        label: "Constraints",
-                                        slug: "user-manual/runtime/constraints",
-                                    },
-                                ],
+                                slug: "user-manual/compiler",
                             },
                         ],
                     },
