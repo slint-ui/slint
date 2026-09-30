@@ -30,7 +30,7 @@ export component PreviewDiagnostics inherits Rectangle {
             border-width: Metrics.border-width;
             border-radius: root.style.radius;
             accessible-role: AccessibleRole.region;
-            accessible-label: root.empty ? "No previewable component" : root.stale ? "Stale preview" : "Preview unavailable";
+            accessible-label: root.empty ? "No component to preview" : root.stale ? "Stale preview" : "Preview unavailable";
 
             content := VerticalLayout {
                 padding: root.style.padding;

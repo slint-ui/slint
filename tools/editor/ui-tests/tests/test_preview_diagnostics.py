@@ -212,7 +212,7 @@ def test_valid_global_file_has_neutral_preview_state(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
         window_element_with_label(
-            window, "No previewable component", slint_testing.AccessibleRole.Region
+            window, "No component to preview", slint_testing.AccessibleRole.Region
         )
         assert file_row(window, source).accessible_description == ""
         screenshot(window).save(tmp_path / "neutral-preview.png")
