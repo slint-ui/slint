@@ -142,8 +142,7 @@ def test_geometry_field_writes_exact_source(
                 if property_name in ("x", "y")
                 else rectangle.size
             )
-            # Preview replacement can invalidate the handle during the property read.
-            return getattr(geometry, property_name) if rectangle.is_valid else None
+            return getattr(geometry, property_name)
 
         expected = float(value)
         if property_name in ("x", "y"):

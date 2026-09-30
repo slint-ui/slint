@@ -52,7 +52,12 @@ T = TypeVar("T")
 def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        result = probe()
+        try:
+            result = probe()
+        except slint_testing.RequestError:
+            # An element the probe reads was replaced, e.g. by a preview update. Probe again; the
+            # final attempt below lets the error through.
+            result = None
         if result is not None:
             return result
         time.sleep(0.02)
@@ -77,9 +82,7 @@ def elements_with_label(
     query = root.query_descendants()
     if role is not None:
         query = query.match_accessible_role(role)
-    return [
-        element for element in query.find_all() if element.accessible_label == label
-    ]
+    return query.match_accessible_label(label).find_all()
 
 
 def element_with_label(
