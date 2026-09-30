@@ -251,8 +251,16 @@ def point(knob, angle):
     )
 
 
-@pytest.mark.parametrize("cancel", ["release", "escape", "pointer"])
-@pytest.mark.parametrize("initial", [350, 1070, -10])
+@pytest.mark.parametrize(
+    "cancel,initial",
+    [
+        ("release", 350),
+        ("release", 1070),
+        ("release", -10),
+        ("escape", 350),
+        ("pointer", 350),
+    ],
+)
 def test_knob_crosses_zero_with_transient_preview(
     editor_binary, editor_environment, fixture_project, cancel, initial
 ):

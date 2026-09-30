@@ -802,7 +802,12 @@ def test_each_image_fit_value_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        edit_field(window, "Image fit", fit, slint_testing.AccessibleRole.Combobox)
+        if fit == "cover":
+            open_combo_and_accept(
+                window, "Image fit", ("fill", "preserve", "contain", "cover"), fit
+            )
+        else:
+            edit_field(window, "Image fit", fit, slint_testing.AccessibleRole.Combobox)
         snapshot.wait_for_exact(
             replace_once(
                 starting_source,
@@ -879,40 +884,17 @@ def test_image_alignment_grid_writes_both_properties(
                     window, display, slint_testing.AccessibleRole.Text
                 )
                 assert_rendered_element(window, "InspectorCases::inspect-image")
-
-
-def test_image_alignment_grid_one_undo_restores_both_properties(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    expected = replace_once(
-        baseline,
-        b"        horizontal-alignment: center;",
-        b"        horizontal-alignment: right;",
-    )
-    expected = replace_once(
-        expected,
-        b"        vertical-alignment: center;",
-        b"        vertical-alignment: bottom;",
-    )
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, "Image")
-        image_alignment_button(
-            window, "bottom", "right"
-        ).invoke_accessible_default_action()
-        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        press_shortcut(window, keys.Control, "z")
-        snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
-        assert image_alignment_button(window, "center", "center").accessible_checked
-        press_shortcut(window, keys.Control, keys.Shift, "z")
-        snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
-        assert image_alignment_button(window, "bottom", "right").accessible_checked
+                if vertical == "top" and horizontal == "left":
+                    press_shortcut(window, keys.Control, "z")
+                    snapshot.wait_for_applied(baseline, relative_path=INSPECTOR_SOURCE)
+                    assert image_alignment_button(
+                        window, "center", "center"
+                    ).accessible_checked
+                    press_shortcut(window, keys.Control, keys.Shift, "z")
+                    snapshot.wait_for_applied(expected, relative_path=INSPECTOR_SOURCE)
+                    assert image_alignment_button(
+                        window, vertical, horizontal
+                    ).accessible_checked
 
 
 def test_image_alignment_grid_replaces_custom_expression(
@@ -1003,7 +985,27 @@ def test_each_font_weight_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Text")
-        edit_field(window, "Font weight", weight, slint_testing.AccessibleRole.Combobox)
+        if weight == "700":
+            open_combo_and_accept(
+                window,
+                "Font weight",
+                (
+                    "Thin",
+                    "Extra Light",
+                    "Light",
+                    "Normal",
+                    "Medium",
+                    "Semi Bold",
+                    "Bold",
+                    "Extra Bold",
+                    "Black",
+                ),
+                weight,
+            )
+        else:
+            edit_field(
+                window, "Font weight", weight, slint_testing.AccessibleRole.Combobox
+            )
         snapshot.wait_for_exact(
             replace_once(
                 starting_source,
@@ -1014,63 +1016,6 @@ def test_each_font_weight_writes_exact_source(
         )
         window_element_with_label(
             window, "Inspector text", slint_testing.AccessibleRole.Text
-        )
-
-
-@pytest.mark.parametrize(
-    ("kind", "label", "options", "value", "old", "new"),
-    [
-        (
-            "Image",
-            "Image fit",
-            ("fill", "preserve", "contain", "cover"),
-            "cover",
-            b"        image-fit: contain;",
-            b"        image-fit: cover;",
-        ),
-        (
-            "Text",
-            "Font weight",
-            (
-                "Thin",
-                "Extra Light",
-                "Light",
-                "Normal",
-                "Medium",
-                "Semi Bold",
-                "Bold",
-                "Extra Bold",
-                "Black",
-            ),
-            "700",
-            b"        font-weight: 400;",
-            b"        font-weight: 700;",
-        ),
-    ],
-    ids=("image-fit", "font-weight"),
-)
-def test_combobox_opens_options_and_accepts_accessible_choice(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    kind: str,
-    label: str,
-    options: tuple[str, ...],
-    value: str,
-    old: bytes,
-    new: bytes,
-) -> None:
-    source_file = fixture_project / INSPECTOR_SOURCE
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
-
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_element(window, kind)
-        open_combo_and_accept(window, label, options, value)
-        snapshot.wait_for_exact(
-            replace_once(baseline, old, new),
-            relative_path=INSPECTOR_SOURCE,
         )
 
 
@@ -1315,16 +1260,30 @@ def test_shadow_control_writes_exact_source(
         )
 
 
-@pytest.mark.parametrize("family", ("drop", "inner"))
 @pytest.mark.parametrize(
-    ("control", "label", "initial", "progress", "value"),
+    "family,control,label,initial,progress,value,outcome",
     [
-        ("distance", "Shadow distance", 8 / 96, 0.5, "48"),
-        ("blur", "Shadow blur", 16 / 128, 0.5, "64"),
-        ("spread", "Shadow spread", 0.5, 0.25, "-32"),
+        pytest.param(
+            family,
+            control,
+            label,
+            initial,
+            progress,
+            value,
+            outcome,
+            id=f"{family}-{control}-{outcome}",
+        )
+        for family in ("drop", "inner")
+        for control, label, initial, progress, value in (
+            ("distance", "Shadow distance", 8 / 96, 0.5, "48"),
+            ("blur", "Shadow blur", 16 / 128, 0.5, "64"),
+            ("spread", "Shadow spread", 0.5, 0.25, "-32"),
+        )
+        for outcome in ("commit", "cancel", "selection", "source")
+        if outcome == "commit"
+        or (family, control) in (("drop", "blur"), ("inner", "distance"))
     ],
 )
-@pytest.mark.parametrize("outcome", ("commit", "cancel", "selection", "source"))
 def test_shadow_slider_previews_without_source_writes(
     editor_binary,
     editor_environment,

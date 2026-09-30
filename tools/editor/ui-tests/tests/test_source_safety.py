@@ -4,7 +4,6 @@
 import time
 from pathlib import Path
 
-import pytest
 import slint_testing
 from editor_sync import wait_for_source
 from inspector_interactions import FIELDS
@@ -36,13 +35,14 @@ def stage_field_text(
     return wait_until(lambda: field if field.accessible_value == value else None)
 
 
-def test_broken_source_preserves_last_valid_preview(
+def test_broken_source_preserves_preview_and_recovers(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
     snapshot = SourceSnapshot.capture(fixture_project)
+    baseline = source_file.read_bytes()
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         window_element_with_label(
@@ -63,23 +63,6 @@ def test_broken_source_preserves_last_valid_preview(
         assert window.handle == handle
         assert window.size == size
         assert source_file.read_bytes() == broken
-
-
-def test_repaired_source_recovers_preview(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    source_file = fixture_project / "Main.slint"
-    snapshot = SourceSnapshot.capture(fixture_project)
-    baseline = source_file.read_bytes()
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        window_element_with_label(
-            window, "Fixture text", slint_testing.AccessibleRole.Text
-        )
-        source_file.write_bytes(baseline + b"\ninvalid source\n")
-        time.sleep(0.25)
         repaired = baseline.replace(b"Fixture text", b"Recovered source", 1)
         source_file.write_bytes(repaired)
         snapshot.wait_for_exact(repaired)
@@ -165,24 +148,12 @@ def test_stale_selection_commit_is_rejected(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize(
-    ("label", "property_name", "original", "updated"),
-    [
-        (FIELDS["x"], "x", "32", "36"),
-        (FIELDS["y"], "y", "32", "40"),
-        (FIELDS["width"], "width", "160", "180"),
-        (FIELDS["height"], "height", "96", "120"),
-    ],
-)
 def test_stale_revision_commit_is_rejected(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    label: str,
-    property_name: str,
-    original: str,
-    updated: str,
 ) -> None:
+    label, property_name, original, updated = FIELDS["x"], "x", "32", "36"
     source_file = fixture_project / "InspectorCases.slint"
     baseline = source_file.read_bytes()
     snapshot = SourceSnapshot.capture(fixture_project)

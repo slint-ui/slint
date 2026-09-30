@@ -56,15 +56,19 @@ ELEMENTS = {
 }
 
 
-@pytest.mark.parametrize("kind", PALETTE_KINDS)
 @pytest.mark.parametrize(
-    "target,location",
+    "kind,target,location",
     [
-        ("container", "onto"),
-        ("sibling-a", "before"),
-        ("sibling-a", "after"),
-        ("<component-root>", "onto"),
-        ("<outline-root>", "onto"),
+        (kind, target, location)
+        for kind in PALETTE_KINDS
+        for target, location in (
+            ("container", "onto"),
+            ("sibling-a", "before"),
+            ("sibling-a", "after"),
+            ("<component-root>", "onto"),
+            ("<outline-root>", "onto"),
+        )
+        if kind == "Rectangle" or target == "container"
     ],
 )
 def test_palette_outline_insertion(

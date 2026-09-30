@@ -164,6 +164,18 @@ def test_outline_changes_element_parent_with_exact_source(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
+        if source == "child-a":
+            outline_row(window, "container").invoke_accessible_expand_action()
+            wait_until(
+                lambda: (
+                    True
+                    if not elements_with_label(window.root_element, "child-a")
+                    else None
+                )
+            )
+            outline_row(window, "container").invoke_accessible_expand_action()
+            outline_row(window, "child-a")
+            snapshot.assert_unchanged()
         drag_row(window, source, target, "onto")
         snapshot.wait_for_exact((GOLDENS / golden).read_bytes(), "OutlineCases.slint")
         expected = (
@@ -184,29 +196,6 @@ def test_outline_changes_element_parent_with_exact_source(
             ]
         )
         wait_for_outline_state(window, expected)
-
-
-def test_outline_disclosure_collapses_and_expands_without_source_edit(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-) -> None:
-    snapshot = SourceSnapshot.capture(fixture_project)
-    with launch_editor(
-        editor_binary, editor_environment, fixture_project / "OutlineCases.slint"
-    ) as editor:
-        window = first_window(editor)
-        outline_row(window, "container").invoke_accessible_expand_action()
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "child-a")
-                else None
-            )
-        )
-        outline_row(window, "container").invoke_accessible_expand_action()
-        outline_row(window, "child-a")
-        snapshot.assert_unchanged()
 
 
 @pytest.mark.parametrize(
