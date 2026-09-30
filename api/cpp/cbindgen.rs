@@ -1067,6 +1067,7 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;
+        struct MouseEvent;
 
         template<typename T> struct Option;
         // This specialization provides a concrete C++ type for Option types
