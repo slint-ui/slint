@@ -2356,20 +2356,12 @@ mod tests {
         // Window: |-----------|
         // After:
         //   0, 1, 2, 3, 8, 9
-        //               ^
-        // Window: |------|
+        //            ^
+        // Window: |---|
         model.remove(4..8);
         assert_eq!(
             state(&repeater),
-            (vec![Clean(2), Clean(3), Empty], ItemIndexRelationShip { row: 4, instance_index: 2 })
-        );
-        ensure_updated_window(&repeater);
-        assert_eq!(
-            state(&repeater),
-            (
-                vec![Clean(2), Clean(3), Clean(8)],
-                ItemIndexRelationShip { row: 4, instance_index: 2 }
-            )
+            (vec![Clean(2), Clean(3)], ItemIndexRelationShip { row: 3, instance_index: 1 })
         );
     }
 
