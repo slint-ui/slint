@@ -65,10 +65,7 @@ pub fn set_animated_property_binding<
     property.set_animated_binding(
         move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
         move || {
-            let (animation, start_time) = compute_animation_details(
-                <StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap(),
-            );
-            (animation, start_time.map(i_slint_core::animations::Instant::from))
+            compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
         },
     )
 }

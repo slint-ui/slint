@@ -365,8 +365,7 @@ fn default_config() -> cbindgen::Config {
             ("MenuEntryModel".into(), "std::shared_ptr<slint::Model<MenuEntry>>".into()),
             ("Coord".into(), "float".into()),
             ("Channel".into(), "uint8_t".into()),
-            // `InstantNanosecond` is `#[repr(transparent)]` over a `u64`.
-            ("InstantNanosecond".into(), "uint64_t".into()),
+            ("Instant".into(), "uint64_t".into()),
         ]
         .iter()
         .cloned()
