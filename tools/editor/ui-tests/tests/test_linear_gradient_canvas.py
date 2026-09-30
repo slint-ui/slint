@@ -85,6 +85,83 @@ def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
 
 
+@pytest.mark.parametrize("outcome", ("commit", "revert", "cancel"))
+def test_gradient_stop_opacity_scrub_keeps_capture(
+    editor_binary, editor_environment, scene, tmp_path, outcome
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        scrubber = control(
+            window,
+            "Stop 2 color opacity scrubber",
+            slint_testing.AccessibleRole.Slider,
+        )
+        start = center(scrubber)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        for delta in (-10, -35, -20):
+            window.dispatch_event(
+                slint_testing.PointerMoveEvent(shifted(start, x=delta))
+            )
+            wait_until(
+                lambda delta=delta: (
+                    control(
+                        window,
+                        "Stop 2 color opacity",
+                        slint_testing.AccessibleRole.TextInput,
+                    ).accessible_value
+                    == str(100 + delta)
+                    or None
+                )
+            )
+            assert scrubber.is_valid
+            original.assert_unchanged_now()
+
+        if outcome == "cancel":
+            press_key(window, keys.Escape)
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(shifted(start, x=-20), button)
+            )
+            assert not elements_with_label(window.root_element, "Close Custom")
+            original.assert_unchanged()
+            return
+
+        end = shifted(start, x=-20)
+        if outcome == "revert":
+            end = start
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            wait_until(
+                lambda: (
+                    control(
+                        window,
+                        "Stop 2 color opacity",
+                        slint_testing.AccessibleRole.TextInput,
+                    ).accessible_value
+                    == "100"
+                    or None
+                )
+            )
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        original.assert_unchanged_now()
+        click(window, "Close Custom")
+        if outcome == "revert":
+            original.assert_unchanged()
+            return
+
+        expected = replace_once(
+            original.sources[Path(scene.name)], b"#264052 55%", b"#264052cc 55%"
+        )
+        original.wait_for_applied(expected, scene.name)
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        original.wait_for_applied(expected, scene.name)
+
+
 @pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(

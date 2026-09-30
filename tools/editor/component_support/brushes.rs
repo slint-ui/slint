@@ -58,7 +58,17 @@ pub fn setup(api: &ui::Api<'_>) {
     });
     api.on_add_gradient_stop(add_gradient_stop);
     api.on_remove_gradient_stop(remove_gradient_stop);
-    api.on_gradient_stop_order(gradient_stop_order);
+    let stop_order_indices = std::cell::RefCell::new(slint::ModelRc::<i32>::default());
+    api.on_gradient_stop_order(move |model, selected| {
+        let mut order = gradient_stop_order(model, selected);
+        let mut indices = stop_order_indices.borrow_mut();
+        if indices.iter().eq(order.indices.iter()) {
+            order.indices = indices.clone();
+        } else {
+            *indices = order.indices.clone();
+        }
+        order
+    });
     // Skia interpolates linear/radial gradients in premultiplied alpha, but conic gradients in straight alpha.
     api.on_sample_fill_stop(|fill, position| {
         gradient_stop_at_position(fill.stops, position, fill.kind != ui::BrushKind::Conic)
