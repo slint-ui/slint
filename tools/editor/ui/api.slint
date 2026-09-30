@@ -67,6 +67,8 @@ export enum DiagnosticSummary {
     Errors,
 }
 
+export enum PreviewAvailability { current, stale, unavailable, no-component }
+
 /// One device discovered as a possible remote-preview target.
 export struct RemoteViewerInfo {
     /// User-facing name, e.g. "Simon's iPhone".
@@ -406,6 +408,13 @@ export enum LogMessageLevel {
     Note,
 }
 
+export struct PreviewDiagnostic {
+    level: LogMessageLevel,
+    path: string,
+    location: string,
+    message: string,
+}
+
 export struct LogMessage {
     file: string,
     line: int,
@@ -488,6 +497,15 @@ export global Api {
 
     // ## Kinds of diagnostics seen in the last compiler run
     in property <DiagnosticSummary> diagnostic-summary;
+    in property <[PreviewDiagnostic]> preview-diagnostics;
+    in property <[PreviewDiagnostic]> preview-errors;
+    in property <[PreviewDiagnostic]> preview-warnings;
+    in property <int> preview-error-count;
+    in property <int> preview-warning-count;
+    in property <PreviewAvailability> preview-availability;
+    in property <string> preview-file;
+    out property <bool> preview-editable: self.preview-availability == PreviewAvailability.current;
+    callback copy-preview-diagnostics();
     // status message text
     in property <string> status-text;
 

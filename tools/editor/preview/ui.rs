@@ -62,6 +62,7 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
+pub(super) mod diagnostics;
 pub(super) use brushes::{fill_brush, fill_expression};
 pub(super) mod file_tree;
 pub mod log_messages;
@@ -128,6 +129,8 @@ pub fn initialize_editor(
     let hover = editor_ui.global::<Hover>();
     let project = editor_ui.global::<Project>();
     let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
+
+    diagnostics::setup(&api, api_weak.clone());
 
     // styles:
     let known_styles = once(&"native")

@@ -275,6 +275,8 @@ pub struct PreviewState {
     /// redundant updates when the UI re-reports settings we just applied.
     settings: VisualEditorSettings,
     current_previewed_component: Option<PreviewComponent>,
+    last_successful_component: Option<PreviewComponent>,
+    preview_blocked: bool,
     current_project_root: Option<Url>,
     project_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
@@ -400,12 +402,18 @@ fn reset_project_state(root: Url) {
         state.resources.clear();
         state.dependencies.clear();
         state.current_previewed_component = None;
+        state.last_successful_component = None;
+        state.preview_blocked = false;
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
     });
 
     if let Some(api) = api {
+        api.set_preview_availability(ui::PreviewAvailability::Current);
+        api.set_preview_file(Default::default());
+        api.set_diagnostic_summary(ui::DiagnosticSummary::NothingDetected);
+        ui::diagnostics::publish(&api, &[], None);
         api.set_current_element(Default::default());
         api.set_properties(Default::default());
         api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
@@ -1110,6 +1118,9 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
+    if PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        return false;
+    }
     let Ok(DragItem::NewComponent { kind }) = data.try_into() else {
         return false;
     };
@@ -1346,6 +1357,9 @@ fn override_element_text(
     override_id: slint::SharedString,
     text: slint::SharedString,
 ) -> slint::SharedString {
+    if PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        return Default::default();
+    }
     let id = if override_id.is_empty() {
         let Some(element_selection) = selected_element() else { return Default::default() };
         let Some(element) = element_selection.as_element_node() else { return Default::default() };
@@ -1804,6 +1818,9 @@ fn submit_workspace_edit(
     test_edit: bool,
     fill: Option<ui::FillData>,
 ) -> bool {
+    if PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        return false;
+    }
     let Some(document_cache) = document_cache() else {
         return false;
     };
@@ -1900,11 +1917,6 @@ fn change_style() {
 
 fn start_parsing() {
     set_status_text("Updating Preview...");
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(api) = preview_state.api.upgrade() {
-            ui::set_diagnostics(&api, &[]);
-        }
-    });
 }
 
 fn extract_resources(
@@ -2330,8 +2342,16 @@ async fn reload_preview_impl(
     }
 
     let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
+    let mut load_diagnostics = diagnostics::BuildDiagnostics::default();
     let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
+        load_diagnostics.push_error_with_span(
+            "Could not load this file. Restore it or select another file".into(),
+            diagnostics::SourceLocation {
+                source_file: Some(diagnostics::SourceFileInner::from_path_only(path.clone())),
+                ..Default::default()
+            },
+        );
         Default::default()
     });
 
@@ -2341,7 +2361,7 @@ async fn reload_preview_impl(
         i_slint_editor_preview::ByteFormat::Utf16
     };
 
-    let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
+    let (mut diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
         version,
@@ -2359,9 +2379,20 @@ async fn reload_preview_impl(
         },
     )
     .await;
+    diagnostics.extend(load_diagnostics);
 
-    if !is_current_project_generation(project_generation) {
-        tracing::debug!("Discarding preview compiled for an inactive project");
+    let current_sources = PREVIEW_STATE.with_borrow(|state| {
+        !matches!(state.loading_state, PreviewFutureState::NeedsReload)
+            && state.current_component().as_ref() == Some(&component)
+            && source_file_versions.borrow().iter().all(|(path, version)| {
+                Url::from_file_path(path)
+                    .ok()
+                    .and_then(|url| state.source_code.get(&url))
+                    .is_none_or(|source| source.version == *version)
+            })
+    });
+    if !is_current_project_generation(project_generation) || !current_sources {
+        tracing::debug!("Discarding preview compiled for an obsolete project or source snapshot");
         finish_parsing();
         return Ok(());
     }
@@ -2384,7 +2415,33 @@ async fn reload_preview_impl(
     );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let has_errors = diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.level() == slint_interpreter::DiagnosticLevel::Error);
+        let same_preview = preview_state.component_instance().is_some()
+            && preview_state.last_successful_component.as_ref().is_some_and(|last| {
+                last.url == component.url
+                    && (component.component.is_none() || last.component == component.component)
+            });
+        let availability = ui::diagnostics::availability(success, has_errors, same_preview);
+        preview_state.preview_blocked = availability != ui::PreviewAvailability::Current;
+        if success {
+            let mut last = component.clone();
+            last.component = loaded_component_name.clone();
+            preview_state.last_successful_component = Some(last);
+        }
         if let Some(api) = preview_state.api.upgrade() {
+            let root = preview_state
+                .current_project_root
+                .as_ref()
+                .and_then(|root| root.to_file_path().ok());
+            ui::diagnostics::publish(&api, &diagnostics, root.as_deref());
+            let path = component
+                .url
+                .to_file_path()
+                .unwrap_or_else(|_| PathBuf::from(component.url.as_str()));
+            api.set_preview_file(ui::diagnostics::display_path(&path, root.as_deref()).into());
+            api.set_preview_availability(availability);
             if api.get_auto_clear_console() {
                 ui::log_messages::clear_log_messages_impl(&api);
             }
@@ -2622,6 +2679,9 @@ fn set_selected_element(
     mut selection: Option<element_selection::ElementSelection>,
     editor_notification: SelectionNotification,
 ) {
+    if selection.is_some() && PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        return;
+    }
     inspector::cancel();
     let (layout_kind, parent_layout_kind, type_name) = {
         let selection_node = selection.as_ref().and_then(|s| s.as_element_node());
@@ -2877,7 +2937,17 @@ fn update_preview_area(
     })?;
 
     inspector::invalidate();
-    element_selection::reselect_element();
+    if PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        PREVIEW_STATE.with_borrow(|state| {
+            for property in (*state.debug_hook_overrides).borrow().values() {
+                property.as_ref().set(None);
+            }
+        });
+        element_selection::unselect_element();
+        set_drop_mark(&None);
+    } else {
+        element_selection::reselect_element();
+    }
     undo_redo::apply_pending();
     Ok(())
 }
