@@ -86,6 +86,11 @@ def test_zoom_scales_content_and_preserves_controls(
             rendered.getpixel((x, row)) == (37, 99, 235) for x in range(left, right)
         )
         assert blue_pixels / scale == pytest.approx(180 * percent / 100, abs=2)
+        if percent in (25, 400):
+            for _ in range(3):
+                press_shortcut(window, keys.Control, "-" if percent == 25 else "+")
+            assert canvas.accessible_value == f"{percent}%"
+            zoom_canvas(window, 400 if percent == 25 else 25)
         press_shortcut(window, keys.Control, "0")
         wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
         original.assert_unchanged()
@@ -398,33 +403,6 @@ def test_view_survives_reload_and_document_switch(
         assert frame.absolute_position.x == pytest.approx(before.x)
         assert frame.absolute_position.y == pytest.approx(before.y)
         assert frame.size.width == pytest.approx(360)
-
-
-@pytest.mark.parametrize("percent,key", [(25, "-"), (400, "+")])
-def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent, key):
-    source = fixture_project / "Main.slint"
-    original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        zoom_canvas(window, percent)
-        for _ in range(3):
-            press_shortcut(window, keys.Control, key)
-        assert (
-            window_element_with_label(window, "Editor canvas").accessible_value
-            == f"{percent}%"
-        )
-        zoom_canvas(window, 400 if percent == 25 else 25)
-        press_shortcut(window, keys.Control, "0")
-        wait_until(
-            lambda: (
-                True
-                if window_element_with_label(window, "Editor canvas").accessible_value
-                == "100%"
-                else None
-            )
-        )
-        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("percent", [50, 200])

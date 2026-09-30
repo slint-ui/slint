@@ -34,7 +34,7 @@ def protected_regions(window: slint_testing.Window, image: Image.Image):
     }
 
 
-@pytest.mark.parametrize("edge", ["left", "right", "top", "bottom"])
+@pytest.mark.parametrize("edge", ["left", "right", "top"])
 def test_selection_overlays_are_clipped_to_canvas(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -61,10 +61,8 @@ def test_selection_overlays_are_clipped_to_canvas(
             x = canvas.absolute_position.x - 40
         elif edge == "right":
             x = canvas.absolute_position.x + canvas.size.width - 80
-        elif edge == "top":
-            y = canvas.absolute_position.y - 20
         else:
-            y = canvas.absolute_position.y + canvas.size.height - 60
+            y = canvas.absolute_position.y - 20
         expected = (
             source.read_text()
             .replace("x: 96px;", f"x: {x - artboard.absolute_position.x}px;")

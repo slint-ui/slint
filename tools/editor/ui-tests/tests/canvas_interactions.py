@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
+from collections.abc import Callable
 
 import slint_testing
 from slint_testing import keys
@@ -321,6 +322,7 @@ def manual_radius_drag(
     snapshot: SourceSnapshot,
     *,
     shift: bool = False,
+    check_preview: Callable[[], None] | None = None,
 ) -> None:
     start = center(handle)
     target = slint_testing.LogicalPosition(x=start.x + dx, y=start.y + dy)
@@ -341,6 +343,8 @@ def manual_radius_drag(
             else None
         )
     )
+    if check_preview is not None:
+        check_preview()
     snapshot.assert_unchanged_now()
     window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
     if shift:
@@ -426,6 +430,27 @@ def center_canvas_selection(
             True
             if abs(center(frame).x - target.x) < 0.01
             and abs(center(frame).y - target.y) < 0.01
+            else None
+        )
+    )
+
+
+def hover_rectangle(window: slint_testing.Window) -> None:
+    rectangle = fixture_element(window, "Rectangle")
+    position = rectangle.absolute_position
+    window.dispatch_event(
+        slint_testing.PointerMoveEvent(
+            slint_testing.LogicalPosition(x=position.x + 40, y=position.y + 60)
+        )
+    )
+    window_element_with_label(window, "Hovered Rectangle")
+
+
+def wait_for_no_rectangle_hover(window: slint_testing.Window) -> None:
+    wait_until(
+        lambda: (
+            True
+            if not elements_with_label(window.root_element, "Hovered Rectangle")
             else None
         )
     )
