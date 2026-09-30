@@ -406,13 +406,12 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
         }) as OpenImportCallback
     };
     let compiler_config = CompilerConfiguration {
-        style: Some("fluent".into()),
         open_import_callback: Some(open_import_callback),
         format: editor_preview::ByteFormat::Utf8,
         ..Default::default()
     };
 
-    let mut session = editor_preview::EditorSession::with_previews(
+    editor_preview::EditorSession::with_previews(
         editor_preview::DocumentCache::new(compiler_config),
         to_previews
             .into_iter()
@@ -421,12 +420,7 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
                 to_show: Default::default(),
             })
             .collect(),
-    );
-    session.preview_config = i_slint_live_preview::protocol::PreviewConfig {
-        style: "fluent".into(),
-        ..Default::default()
-    };
-    session
+    )
 }
 
 async fn trigger_editor_file_watcher(
