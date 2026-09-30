@@ -24,6 +24,9 @@ export component InspectorColorValueField inherits Rectangle {
     callback scrub-canceled(color);
     callback swatch-activated();
     callback remove-requested();
+    accepted(color, expression) => { return root.preview(color); }
+    scrub-accepted(color) => { return root.preview(color); }
+    scrub-canceled(color) => { root.preview(color); }
     private property <ColorValueData> data: Api.color-value-data(root.value);
     private property <ColorFieldEdit> color-edit;
     private property <ColorFieldEdit> opacity-edit;

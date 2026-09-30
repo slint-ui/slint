@@ -54,9 +54,7 @@ def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        color = control(
-            window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
-        )
+        color = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
         opacity = control(
             window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
         )

@@ -158,9 +158,7 @@ def test_conic_color_input_delete_keeps_canvas_element(
         open_conic(window)
         click(window, "Remove stop 3")
         expect(query(window, "Gradient stop 3")).to_be_hidden()
-        color = control(
-            window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
-        )
+        color = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
         gesture(window, center(color), center(color))
         press_key(window, keys.Delete)
         original.assert_unchanged_now()
@@ -471,9 +469,12 @@ def test_conic_picker_and_canvas_share_selection_and_color(
             ).accessible_value
             == "ABCDEF"
         )
-        assert control(
-            window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
-        ).accessible_value == "50"
+        assert (
+            control(
+                window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "50"
+        )
         press_key(window, keys.Escape)
         original.assert_unchanged()
 

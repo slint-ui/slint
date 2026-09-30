@@ -79,10 +79,7 @@ export component GalleryProperties inherits Rectangle {
                         accessible-name: "Property fill color";
                         value: Gallery.fill.color;
                         live-edit: true;
-                        accepted(color, expression) => { Gallery.fill.color = color; return true; }
                         preview(color) => { Gallery.fill.color = color; return true; }
-                        scrub-accepted(color) => { Gallery.fill.color = color; return true; }
-                        scrub-canceled(color) => { Gallery.fill.color = color; }
                         swatch-activated => { Gallery.open-picker(self.absolute-position); }
                     }
                 }

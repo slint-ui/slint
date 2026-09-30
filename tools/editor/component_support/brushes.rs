@@ -67,27 +67,6 @@ pub fn setup(api: &ui::Api<'_>) {
 
     api.on_create_brush(create_brush);
 
-    api.on_string_to_color(|s| string_to_color(s.as_ref()).unwrap_or_default());
-    api.on_string_is_color(|s| string_to_color(s.as_ref()).is_some());
-    api.on_color_to_data(|c| ui::ColorData {
-        a: c.alpha() as i32,
-        r: c.red() as i32,
-        g: c.green() as i32,
-        b: c.blue() as i32,
-        text: color_to_string(c),
-        short_text: color_to_short_string(c).into(),
-    });
-    api.on_rgba_to_color(|r, g, b, a| {
-        if (0..256).contains(&r)
-            && (0..256).contains(&g)
-            && (0..256).contains(&b)
-            && (0..256).contains(&a)
-        {
-            slint::Color::from_argb_u8(a as u8, r as u8, g as u8, b as u8)
-        } else {
-            slint::Color::default()
-        }
-    });
     api.on_color_value_data(color_value_data);
     api.on_color_value_color_edit(color_value_color_edit);
     api.on_color_value_opacity_edit(color_value_opacity_edit);
@@ -116,12 +95,12 @@ fn color_to_short_string(color: slint::Color) -> String {
     let g = color.green();
     let b = color.blue();
 
-    format!("{r:02x}{g:02x}{b:02x}")
+    format!("{r:02X}{g:02X}{b:02X}")
 }
 
 fn color_value_data(color: slint::Color) -> ui::ColorValueData {
     ui::ColorValueData {
-        color_text: color_to_short_string(color).to_uppercase().into(),
+        color_text: color_to_short_string(color).into(),
         opacity: ((color.alpha() as f32 * 100. / 255.).round()) as i32,
     }
 }
@@ -175,7 +154,7 @@ fn color_field_edit(color: slint::Color) -> ui::ColorFieldEdit {
         valid: true,
         color,
         expression: color_to_string(color),
-        display: color_to_short_string(color).to_uppercase().into(),
+        display: color_to_short_string(color).into(),
     }
 }
 

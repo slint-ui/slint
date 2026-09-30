@@ -143,7 +143,7 @@ export component InspectorGradientStops inherits Rectangle {
             spacing: Metrics.space-compact;
             Text { text: "Position " + root.suffix; width: root.style.row.position-width; color: Colors.muted; font-size: Typography.caption.size; }
             Text { text: "Color"; horizontal-stretch: 1; color: Colors.muted; font-size: Typography.caption.size; }
-            Text { text: "Opacity"; width: root.style.row.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: "Opacity"; width: Style.color-field.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
             Rectangle { width: root.style.row.action-width; }
         }
         EditorScrollView {
@@ -188,21 +188,9 @@ export component InspectorGradientStops inherits Rectangle {
                                     self.focus-swatch();
                                 }
                             }
-                            accepted(color, expression) => {
-                                root.selected-index = index;
-                                return FillSession.preview-color(color);
-                            }
                             preview(color) => {
                                 root.selected-index = index;
                                 return FillSession.preview-color(color);
-                            }
-                            scrub-accepted(color) => {
-                                root.selected-index = index;
-                                return FillSession.preview-color(color);
-                            }
-                            scrub-canceled(color) => {
-                                root.selected-index = index;
-                                FillSession.preview-color(color);
                             }
                             swatch-activated => {
                                 FillSession.edit-stop-color(index);

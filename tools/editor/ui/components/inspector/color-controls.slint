@@ -218,12 +218,7 @@ export component InspectorColorControls inherits Rectangle {
             live-edit: true;
             swatch-enabled: false;
             commit-key: root.session-key;
-            accepted(color, expression) => { return root.preview-color(color); }
             preview(color) => { return root.preview-color(color); }
-            scrub-accepted(color) => { return root.preview-color(color); }
-            scrub-canceled(color) => {
-                root.preview-color(color);
-            }
         }
 
     }
