@@ -145,6 +145,62 @@ def test_unavailable_preview_hides_unrelated_render_and_recovers(
         assert file_row(window, broken).accessible_description == ""
 
 
+def test_warnings_show_details_without_blocking_editing(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tmp_path: Path,
+) -> None:
+    source = fixture_project / "Warnings.slint"
+    source.write_text(
+        'export Warnings := Window { width: 320px; height: 240px; label := Text { text: "Warning preview"; } }\n'
+    )
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, "Warning preview", slint_testing.AccessibleRole.Text
+        )
+        window_element_with_label(
+            window, "Preview warnings", slint_testing.AccessibleRole.Region
+        )
+        assert "warnings" in file_row(window, source).accessible_description
+        window_element_with_label(
+            window,
+            "Toggle preview warning details",
+            slint_testing.AccessibleRole.Button,
+        ).invoke_accessible_default_action()
+        labels = [
+            element.accessible_label
+            for element in window.root_element.query_descendants().find_all()
+        ]
+        assert any("deprecated" in label for label in labels)
+        select_outline_row(window, "label")
+        window_element_with_label(
+            window, "Selected Text", slint_testing.AccessibleRole.Region
+        )
+        assert not elements_with_label(
+            window.root_element, "Editing paused until the preview is available"
+        )
+        screenshot(window).save(tmp_path / "warning-preview.png")
+
+
+def test_valid_global_file_has_neutral_preview_state(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tmp_path: Path,
+) -> None:
+    source = fixture_project / "Globals.slint"
+    source.write_text("export global Globals { out property <int> answer: 42; }\n")
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        window_element_with_label(
+            window, "No previewable component", slint_testing.AccessibleRole.Region
+        )
+        assert file_row(window, source).accessible_description == ""
+        screenshot(window).save(tmp_path / "neutral-preview.png")
+
+
 def test_broken_preview_cancels_active_fill_session(
     editor_binary: Path,
     editor_environment: dict[str, str],

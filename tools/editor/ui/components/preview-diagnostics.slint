@@ -12,6 +12,7 @@ export component PreviewDiagnostics inherits Rectangle {
     private property <bool> blocked: !Api.preview-editable;
     private property <bool> empty: Api.preview-availability == PreviewAvailability.no-component;
     private property <bool> stale: Api.preview-availability == PreviewAvailability.stale;
+    private property <bool> warnings-open;
     private property <string> title: root.empty ? "Nothing to preview"
         : root.stale ? "Preview paused" : "Couldn't preview this file";
 
@@ -112,4 +113,65 @@ export component PreviewDiagnostics inherits Rectangle {
         }
     }
 
+    if !root.blocked && Api.preview-warning-count > 0: Rectangle {
+        width: min(root.style.max-width, root.width - 2 * root.style.margin);
+        height: warning-layout.preferred-height;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - root.style.margin;
+        background: root.style.background;
+        border-width: Metrics.border-width;
+        border-color: Colors.warning.with-alpha(0.6);
+        border-radius: root.style.radius;
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Preview warnings";
+        accessible-description: "Warnings do not prevent editing";
+        warning-layout := VerticalLayout {
+            padding: Metrics.space-medium;
+            spacing: Metrics.space-small;
+            HorizontalLayout {
+                spacing: Metrics.space-small;
+                cross-axis-alignment: center;
+                Text {
+                    horizontal-stretch: 1;
+                    text: "\{Api.preview-warning-count} \{Api.preview-warning-count == 1 ? "warning" : "warnings"} · Preview up to date";
+                    color: Colors.warning;
+                    font-size: Typography.body.size;
+                    wrap: word-wrap;
+                }
+                Button {
+                    text: root.warnings-open ? "Hide" : "Details";
+                    accessible-label: "Toggle preview warning details";
+                    clicked => { root.warnings-open = !root.warnings-open; }
+                }
+                Button {
+                    text: "Copy";
+                    accessible-label: "Copy preview diagnostics";
+                    clicked => { Api.copy-preview-diagnostics(); }
+                }
+            }
+            if root.warnings-open: warning-details := EditorScrollView {
+                height: min(warnings.preferred-height, root.style.max-details-height);
+                content-width: self.width;
+                content-height: warnings.preferred-height;
+                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+                warnings := VerticalLayout {
+                    width: warning-details.width;
+                    spacing: Metrics.space-small;
+                    for diagnostic in Api.preview-warnings: Text {
+                        text: diagnostic.location + "\n" + diagnostic.message;
+                        color: root.style.foreground;
+                        font-size: Typography.body.size;
+                        wrap: word-wrap;
+                    }
+                    if Api.preview-warning-count > Api.preview-warnings.length: Text {
+                        text: "\{Api.preview-warning-count - Api.preview-warnings.length} more warnings. Copy diagnostics to see all messages.";
+                        color: root.style.muted;
+                        font-size: Typography.body.size;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
 }
