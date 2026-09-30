@@ -74,12 +74,17 @@ def test_tree_indicators_scroll_without_losing_virtualization(
         ).not_to_equal(before)
         assert tree.size == tree_size
 
+        start = center(vertical)
         expect.poll(
             lambda: 0 < vertical.computed_opacity < 1,
             message="vertical scroll indicator is fading",
         ).to_equal(True)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="hover keeps the vertical scroll indicator opaque",
+        ).to_equal(1)
         before_drag = row_labels()
-        start = center(vertical)
         end = slint_testing.LogicalPosition(x=start.x, y=start.y + 30)
         gesture(window, start, end)
         expect.poll(
