@@ -855,10 +855,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
         let (line, column) = diagnostic.line_column();
         Diagnostic {
             message: diagnostic.message().into(),
-            source_file: diagnostic
-                .source_file()
-                .and_then(|path| path.to_str())
-                .map_or_else(Default::default, |str| str.into()),
+            source_file: diagnostic.source_path().unwrap_or_default().into(),
             line,
             column,
             level: match diagnostic.level() {

@@ -1892,21 +1892,35 @@ fn grid_repeater_cache_access(
     }
 }
 
-/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
-/// The location of a builtin function call in the .slint source, in the form
-/// attached to the log messages it emits.
-fn log_message_location(
-    source_location: &Option<SourceLocation>,
-) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+/// The location of a builtin function call in the .slint source, which the log
+/// messages it emits borrow through [`LogLocation::get`].
+struct LogLocation<'a> {
+    path: std::borrow::Cow<'a, str>,
+    line: usize,
+    column: usize,
+}
+
+impl LogLocation<'_> {
+    fn get(&self) -> i_slint_core::debug_log::LogMessageLocation<'_> {
+        i_slint_core::debug_log::LogMessageLocation {
+            path: &self.path,
+            line: self.line,
+            column: self.column,
+        }
+    }
+}
+
+fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogLocation<'_>> {
     let location = source_location.as_ref()?;
     let source_file = location.source_file.as_ref()?;
     let (line, column) = source_file
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
-    Some(i_slint_core::debug_log::LogMessageLocation {
-        path: source_file.path_buf().to_str()?,
-        line,
-        column,
-    })
+    let path = match source_file.path() {
+        SourcePath::File(path) => path.to_string_lossy(),
+        SourcePath::Url(url) => url.as_str().into(),
+        path => path.to_string().into(),
+    };
+    Some(LogLocation { path, line, column })
 }
 
 /// Arguments of a `@tr(...)` formatting, as a model of strings.
@@ -1961,6 +1975,7 @@ fn eval_translation_reference(
     ))
 }
 
+/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
@@ -2187,7 +2202,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "push",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 model.push_row(value),
             );
 
@@ -2214,7 +2229,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "remove",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2243,7 +2258,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "insert",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2565,7 +2580,7 @@ fn call_builtin_function(
             let msg = to_string(ctx, &arguments[0]);
             context_or_global(ctx).dispatch_log_message(LogMessage::new(
                 LogMessageSource::SlintCode,
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 format_args!("{msg}"),
             ));
             Value::Void

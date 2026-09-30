@@ -1646,8 +1646,13 @@ impl TypeLoader {
         is_builtin: bool,
         import_stack: &HashSet<SourcePath>,
     ) {
-        let parse_errors =
-            state.borrow().diag.iter().filter(|e| e.source_path() == Some(path)).cloned().collect();
+        let parse_errors = state
+            .borrow()
+            .diag
+            .iter()
+            .filter(|e| Spanned::source_file(*e).is_some_and(|f| f.path() == path))
+            .cloned()
+            .collect();
         let (path, doc) =
             Self::load_doc_no_pass(state, path, doc_node, is_builtin, import_stack).await;
 

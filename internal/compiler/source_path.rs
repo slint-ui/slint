@@ -65,6 +65,7 @@ impl SourcePath {
     }
 
     /// The inverse of [`Self::new`], with a URL stored as its string.
+    #[deprecated(note = "A URL isn't a path: only for public APIs that take a `Path`")]
     pub fn to_legacy_path(&self) -> PathBuf {
         match self {
             Self::File(path) => path.clone(),

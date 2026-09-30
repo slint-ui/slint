@@ -365,9 +365,9 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
     let summary = diagnostics
         .iter()
         .inspect(|d| {
-            let location = d.source_file().map(|p| {
+            let location = d.source_path().map(|p| {
                 let (line, column) = d.line_column();
-                (p.to_string_lossy().to_string().into(), line, column)
+                (p.into(), line, column)
             });
 
             let level = match d.level() {

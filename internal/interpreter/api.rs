@@ -691,6 +691,7 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
+        #[expect(deprecated)]
         let open_import_callback: i_slint_compiler::OpenImportCallback =
             Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
         self.config.open_import_callback = Some(open_import_callback);
@@ -897,6 +898,7 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
+        #[expect(deprecated)]
         let open_import_callback: i_slint_compiler::OpenImportCallback =
             Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
         self.config.open_import_callback = Some(open_import_callback);
