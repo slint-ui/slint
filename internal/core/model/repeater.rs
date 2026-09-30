@@ -40,6 +40,11 @@ struct ItemIndexRelationShip {
 }
 
 impl ItemIndexRelationShip {
+    /// The row of the first instance
+    fn first_row(&self) -> usize {
+        self.row - self.instance_index
+    }
+
     /// get the instance index from the model index `row`
     fn get_instance_index(&self, row: usize) -> usize {
         self.instance_index.wrapping_add(row.wrapping_sub(self.row))
@@ -168,8 +173,7 @@ impl<C: RepeatedItemTree> RepeaterInner<C> {
             let new_instance_index = self.layout_state.item_index.instance_index
                 + (row - self.layout_state.item_index.row);
 
-            let number_new =
-                new_instance_index.saturating_sub(self.instances.len().saturating_sub(1));
+            let number_new = (new_instance_index + 1).saturating_sub(self.instances.len());
             if number_new > 0 {
                 // Append dirty elements
                 self.instances.splice(
@@ -550,20 +554,52 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
         self.inner.borrow().instances.len()
     }
 
-    /// Splices the instances from the data
+    /// The instances on the side of the current item keep their rows, the others move and
+    /// become dirty. If the current instance is removed, the current item moves to the nearest
+    /// remaining instance.
     fn splice(&mut self, position: usize, remove: usize, add: usize) {
         let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        let len = inner.instances.len();
+        let current = &mut inner.layout_state.item_index;
+        let removes_current =
+            position <= current.instance_index && current.instance_index < position + remove;
+        let valid = !removes_current || position == 0 || position + remove == len;
+        debug_assert!(valid, "This should not work, because it would split the window!");
+        if !valid {
+            return;
+        }
         inner.instances.splice(
             position..position + remove,
             core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
         );
-
-        let diff = inner.layout_state.item_index.row - inner.layout_state.item_index.instance_index;
-        let position_instance = position + diff;
-
-        if position_instance < inner.layout_state.item_index.instance_index {
-            inner.layout_state.item_index.instance_index -= remove;
-            inner.layout_state.item_index.instance_index += add;
+        if len == 0 {
+            return;
+        }
+        // During a ListView update this lags behind the ListView's own copy of the layout state
+        let first_row = current.row.saturating_sub(current.instance_index);
+        if removes_current {
+            *current = if remove == len {
+                ItemIndexRelationShip { row: current.row, instance_index: 0 }
+            } else if position == 0 {
+                ItemIndexRelationShip { row: first_row + remove, instance_index: add }
+            } else {
+                ItemIndexRelationShip {
+                    row: first_row + position - 1,
+                    instance_index: position - 1,
+                }
+            };
+        } else if current.instance_index >= position + remove {
+            current.instance_index = current.instance_index + add - remove;
+            if add != remove {
+                for c in inner.instances[..position].iter_mut() {
+                    c.0 = RepeatedInstanceState::Dirty;
+                }
+            }
+        } else if add != remove {
+            for c in inner.instances[position + add..].iter_mut() {
+                c.0 = RepeatedInstanceState::Dirty;
+            }
         }
     }
 
@@ -637,7 +673,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
         if let Some(c) =
-            inner.instances.get_mut(row.wrapping_sub(inner.layout_state.item_index.row))
+            inner.instances.get_mut(inner.layout_state.item_index.get_instance_index(row))
         {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
@@ -651,141 +687,95 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
     /// Notify the peers that rows were added
-    fn row_added(self: Pin<&Self>, mut index: usize, count: usize) {
-        let mut inner = self.inner.borrow_mut();
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
         if count == 0 {
             return;
         }
-        if inner.instances.len() == 0 {
-            inner.layout_state.item_index.row = 0;
-            inner.layout_state.item_index.instance_index = 0;
-            inner
-                .instances
-                .splice(0..0, core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count));
-            self.is_dirty.set(true);
-            for c in inner.instances.iter_mut() {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
+        let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        let current = &mut inner.layout_state.item_index;
+        let first_row = current.first_row();
+        if index > first_row + inner.instances.len() {
+            // A slot for these rows would split the window
             return;
-        } else if index <= inner.layout_state.item_index.row {
-            // Prepend
-            inner.layout_state.item_index.row += count;
-            inner.layout_state.item_index.instance_index += count;
-            inner.instances.splice(
-                index..index,
-                core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
-            );
-            self.is_dirty.set(true);
-            for c in inner.instances.iter_mut() {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
-            return;
-        } else {
-            index -= inner.layout_state.item_index.row;
         }
         self.is_dirty.set(true);
+        if index < first_row {
+            current.row += count;
+            for c in inner.instances.iter_mut() {
+                c.0 = RepeatedInstanceState::Dirty;
+            }
+            return;
+        }
+        if index <= current.row && !inner.instances.is_empty() {
+            current.row += count;
+            current.instance_index += count;
+        }
+        let position = index - first_row;
         inner.instances.splice(
-            index..index,
+            position..position,
             core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
         );
-        for c in inner.instances[index + count..].iter_mut() {
+        for c in inner.instances[position + count..].iter_mut() {
             // Because all the indexes are dirty
             c.0 = RepeatedInstanceState::Dirty;
         }
     }
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
-        let mut inner = self.inner.borrow_mut();
         if count == 0 {
             return;
         }
-
-        if index > inner.layout_state.item_index.row {
-            // All indices are after our current row
-
-            self.is_dirty.set(true);
-            let start_instance_index = inner.layout_state.item_index.instance_index
-                + (index - inner.layout_state.item_index.row);
-            let instance_length = inner.instances.len();
-            if start_instance_index < instance_length {
-                inner.instances.drain(
-                    start_instance_index..(start_instance_index + count).min(instance_length),
-                );
-                if start_instance_index < inner.instances.len() {
-                    // Make all remaining dirty
-                    for c in inner.instances[start_instance_index..].iter_mut() {
-                        c.0 = RepeatedInstanceState::Dirty;
-                    }
-                }
+        let row_count = self.model.get_internal().row_count();
+        let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        let current = &mut inner.layout_state.item_index;
+        let first_row = current.first_row();
+        let end_row = first_row + inner.instances.len();
+        let removed_end = index + count;
+        if inner.instances.is_empty() {
+            if removed_end <= current.row {
+                current.row -= count;
+            } else if index <= current.row {
+                current.row = index.min(row_count.saturating_sub(1));
             }
-        } else if index + (count - 1) < inner.layout_state.item_index.row {
-            // entirely before the current row
-            self.is_dirty.set(true);
-
-            // All items from the first removed item are dirty because they do not match anymore with the row
-            let diff = inner.layout_state.item_index.row - index;
-            let curr_instance_index = inner.layout_state.item_index.instance_index;
-            let start_instance_index = curr_instance_index.saturating_sub(diff);
-            let end_instance_index = (curr_instance_index + count).saturating_sub(diff);
-
-            let instance_length = inner.instances.len();
-            if start_instance_index < instance_length {
-                inner
-                    .instances
-                    .drain(start_instance_index..end_instance_index.min(instance_length));
-                if start_instance_index < inner.instances.len() {
-                    // Make all remaining dirty
-                    for c in inner.instances[start_instance_index..].iter_mut() {
-                        c.0 = RepeatedInstanceState::Dirty;
-                    }
+            return;
+        }
+        if index >= end_row {
+            return;
+        }
+        self.is_dirty.set(true);
+        let start = index.clamp(first_row, end_row) - first_row;
+        let end = removed_end.clamp(first_row, end_row) - first_row;
+        inner.instances.drain(start..end);
+        for c in inner.instances[start..].iter_mut() {
+            // Because all the indexes are dirty
+            c.0 = RepeatedInstanceState::Dirty;
+        }
+        if removed_end <= current.row {
+            current.row -= count;
+            current.instance_index -= end - start;
+        } else if index <= current.row {
+            // The current item moves to the next remaining instance, or else to the previous one
+            *current = if start < inner.instances.len() {
+                ItemIndexRelationShip { row: index, instance_index: start }
+            } else if start > 0 {
+                ItemIndexRelationShip { row: first_row + start - 1, instance_index: start - 1 }
+            } else {
+                ItemIndexRelationShip {
+                    row: index.min(row_count.saturating_sub(1)),
+                    instance_index: 0,
                 }
-            }
-
-            inner.layout_state.item_index.instance_index = inner
-                .layout_state
-                .item_index
-                .instance_index
-                .saturating_sub(end_instance_index - start_instance_index);
-            inner.layout_state.item_index.row -= count;
-        } else {
-            // Removing also the current item
-
-            // We removed all from index on. So index will occupy then the position
-
-            self.is_dirty.set(true);
-            let diff = inner.layout_state.item_index.row - index;
-            let curr_instance_index = inner.layout_state.item_index.instance_index;
-            let start_instance_index = curr_instance_index.saturating_sub(diff);
-            let end_instance_index = (curr_instance_index + count).saturating_sub(diff);
-
-            let instance_length = inner.instances.len();
-            if start_instance_index < instance_length {
-                inner
-                    .instances
-                    .drain(start_instance_index..end_instance_index.min(instance_length));
-                if start_instance_index < inner.instances.len() {
-                    // Make all remaining dirty
-                    for c in inner.instances[start_instance_index..].iter_mut() {
-                        c.0 = RepeatedInstanceState::Dirty;
-                    }
-                }
-            }
-
-            inner.layout_state.item_index.instance_index = start_instance_index;
-            inner.layout_state.item_index.row = index.min(
-                self.model
-                    .get_internal()
-                    .0
-                    .as_ref()
-                    .map(|m| m.row_count().saturating_sub(1))
-                    .unwrap_or(0),
-            );
+            };
         }
     }
 
     fn reset(self: Pin<&Self>) {
         self.is_dirty.set(true);
-        self.inner.borrow_mut().instances.clear();
+        let mut inner = self.inner.borrow_mut();
+        inner.instances.clear();
+        let current = &mut inner.layout_state.item_index;
+        *current = ItemIndexRelationShip { row: current.first_row(), instance_index: 0 };
     }
 }
 
@@ -863,8 +853,12 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
             let offset = {
-                let inner = self.0.inner.borrow();
-                inner.layout_state.item_index.row - inner.layout_state.item_index.instance_index
+                let mut inner = self.0.inner.borrow_mut();
+                if inner.instances.is_empty() {
+                    // Outside a ListView the instances start at row 0
+                    inner.layout_state.item_index = Default::default();
+                }
+                inner.layout_state.item_index.first_row()
             };
             let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
             self.data().is_dirty.set(false);
@@ -952,7 +946,13 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let row_count = model.row_count();
 
         let data = self.data();
-        let mut layout_state = data.inner.borrow().layout_state.clone();
+        let mut layout_state = {
+            let mut inner = data.inner.borrow_mut();
+            let current = &mut inner.layout_state.item_index;
+            // `update_visible_instances` keeps the current item on the first instance
+            *current = ItemIndexRelationShip { row: current.first_row(), instance_index: 0 };
+            inner.layout_state.clone()
+        };
         let mut ops = RustRepeaterOps { inner: &data.inner, init: &init, model: &model };
         let changed = update_visible_instances(
             &mut ops,
@@ -1022,7 +1022,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let (offset, instances): (usize, Vec<_>) = {
             let inner = self.0.inner.borrow();
             (
-                inner.layout_state.item_index.row,
+                inner.layout_state.item_index.first_row(),
                 inner.instances.iter().map(|c| c.1.clone()).collect(),
             )
         };
@@ -1043,10 +1043,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// model at an offset.
     pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
-        core::ops::Range {
-            start: inner.layout_state.item_index.row,
-            end: inner.layout_state.item_index.row + inner.instances.len(),
-        }
+        let start = inner.layout_state.item_index.first_row();
+        core::ops::Range { start, end: start + inner.instances.len() }
     }
 
     /// Return the instance for the given model index.
@@ -1055,7 +1053,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let inner = self.0.inner.borrow();
         inner
             .instances
-            .get(index.checked_sub(inner.layout_state.item_index.row)?)
+            .get(inner.layout_state.item_index.get_instance_index_opt(index)?)
             .and_then(|c| c.1.clone())
     }
 
