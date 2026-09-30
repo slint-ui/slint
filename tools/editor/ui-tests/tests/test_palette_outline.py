@@ -105,7 +105,7 @@ def test_palette_outline_insertion(
         release_palette_drag(window, position)
         snapshot.wait_for_applied(expected.encode(), source.name)
         if kind == "Text":
-            assert not elements_with_label(window.root_element, "Inline text editor")
+            assert not elements(window.root_element, "Inline text editor")
         inserted = wait_until(
             lambda: next(
                 (

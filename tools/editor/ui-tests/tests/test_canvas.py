@@ -34,6 +34,7 @@ from ui_driver import (
     file_row,
     first_window,
     launch_editor,
+    press_key,
     screenshot,
     select_fixture_element,
     select_outline_row,
@@ -507,6 +508,9 @@ def test_repeated_palette_drop_preserves_component_kind(
                 GOLDENS / f"RepeatedPaletteDrops.{kind.lower()}-{step}.slint"
             ).read_bytes()
             snapshot.wait_for_applied(expected, "RepeatedPaletteDrops.slint")
+            if kind == "Text":
+                element(window, "Inline text editor")
+                press_key(window, keys.Escape)
             reload_label = f"Reload probe {step}"
             reloaded = expected.replace(b"Reload probe", reload_label.encode(), 1)
             source_file.write_bytes(reloaded)

@@ -83,7 +83,9 @@ def test_insert_palette_element_writes_exact_source(
         snapshot.wait_for_exact(expected, "Palette.slint")
         if kind == "Text":
             inline_editor = element(
-                window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
+                window,
+                "Inline text editor",
+                role=slint_testing.AccessibleRole.TextInput,
             )
             assert inline_editor.accessible_value == "Text"
             press_key(window, keys.Escape)
@@ -135,18 +137,18 @@ def test_text_drag_preview_uses_preview_default_font_size(
         window = first_window(editor)
         target = canvas_drop_position(window)
         begin_palette_drag(window, "Text", target)
-        preview = window_element_with_label(
-            window, "Text drag preview", slint_testing.AccessibleRole.Region
+        preview = element(
+            window, "Text drag preview", role=slint_testing.AccessibleRole.Region
         )
         preview_size = preview.size
         assert preview_size.height >= 24
         release_palette_drag(window, target)
-        window_element_with_label(
-            window, "Inline text editor", slint_testing.AccessibleRole.TextInput
+        element(
+            window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
         )
         press_key(window, keys.Escape)
-        selected = window_element_with_label(
-            window, "Selected Text", slint_testing.AccessibleRole.Region
+        selected = element(
+            window, "Selected Text", role=slint_testing.AccessibleRole.Region
         )
         assert selected.size.width == pytest.approx(preview_size.width, abs=1)
         assert selected.size.height == pytest.approx(preview_size.height, abs=1)
