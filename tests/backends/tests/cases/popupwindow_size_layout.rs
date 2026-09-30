@@ -34,10 +34,16 @@ fn popupwindow_size_layout() {
 
             in-out property <bool> show-buttons;
             out property <length> reference-text-size: reference-text.preferred-height;
+            out property <length> reference-button-height: max(reference-button.preferred-height, reference-button.min-height);
 
             // Used to determine the preferred text height
             reference-text:= TextInput {
                 text: "Reference Text";
+            }
+
+            // Used to determine the button height, which depends on the style
+            reference-button:= Button {
+                text: "Reference Button";
             }
 
             Timer {
@@ -162,8 +168,6 @@ fn popupwindow_size_layout() {
     let app = MainWindow::new().unwrap();
     const PADDING: f32 = 9.;
     const SPACING: f32 = 6.;
-    const BUTTON_HEIGHT: f32 = 32.;
-    const HORIZONTAL_BOX_HEIGHT: f32 = PADDING + BUTTON_HEIGHT + PADDING;
 
     // app.invoke_show_popup(); // Opens the popup, but does not execute Winit backend update_window_properties()
     assert_eq!(app.global::<Properties>().get_popup_initialized(), false);
@@ -174,12 +178,13 @@ fn popupwindow_size_layout() {
 
             // This is not constant depending on the system text font used
             let text_height = app.get_reference_text_size();
+            let button_height = app.get_reference_button_height();
 
             assert_eq!(app.global::<Properties>().get_text_height(), text_height);
-            assert_eq!(app.global::<Properties>().get_button_height(), BUTTON_HEIGHT);
+            assert_eq!(app.global::<Properties>().get_button_height(), button_height);
             assert_eq!(
                 app.global::<Properties>().get_popup_height(),
-                PADDING + text_height + SPACING + BUTTON_HEIGHT + PADDING
+                PADDING + text_height + SPACING + button_height + PADDING
             );
         }
     });
@@ -190,21 +195,23 @@ fn popupwindow_size_layout() {
             let app = app.upgrade().unwrap();
             // This is not constant depending on the system text font used
             let text_height = app.get_reference_text_size();
+            let button_height = app.get_reference_button_height();
+            let horizontal_box_height = PADDING + button_height + PADDING;
 
             let expected_text_height = text_height;
             let text_height_test =
                 app.global::<Properties>().get_text_height() == expected_text_height;
 
-            let expected_button_height = BUTTON_HEIGHT;
+            let expected_button_height = button_height;
             let button_height_test =
                 app.global::<Properties>().get_button_height() == expected_button_height;
 
             let expected_popup_height = PADDING
                 + text_height
                 + SPACING
-                + HORIZONTAL_BOX_HEIGHT
+                + horizontal_box_height
                 + SPACING
-                + BUTTON_HEIGHT
+                + button_height
                 + PADDING;
             let total_height_test =
                 app.global::<Properties>().get_popup_height() == expected_popup_height;
