@@ -560,6 +560,12 @@ pub struct RoundedRectangle {
     pub inner_color: PremultipliedRgbaColor,
 }
 
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
+}
+
 /// Goes from color 1 to color2
 ///
 /// depending of `flags & 0b1`
