@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -170,6 +170,55 @@ test("MapModel notify rowChanged", () => {
     private_api.send_mouse_click(instance, 5, 5);
 
     expect(instance.changed_items).toBe("Goffart, OlivierHausmann, Simon");
+});
+
+test("A subclass's row method overrides apply when the model is bound to a property", () => {
+    class Upper extends MapModel<string, string> {
+        rowData(row: number): string | undefined {
+            return super.rowData(row)?.toUpperCase();
+        }
+    }
+    const demo = loadSource(
+        `
+    export component App {
+        in property <[string]> data;
+        out property <string> row0: data.length > 0 ? data[0] : "";
+    }`,
+        "override.slint",
+    ) as any;
+    const upper = new Upper(new ArrayModel(["a", "b"]), (x) => x);
+
+    const instance = new demo.App();
+    instance.data = upper;
+    expect(instance.row0).toBe("A");
+
+    instance.data = upper.filter((x) => x === "B");
+    expect(instance.row0).toBe("B");
+});
+
+test("A row that can't be converted to the property's type is reported", () => {
+    const demo = loadSource(
+        `
+    export component App {
+        in property <[string]> data;
+        out property <string> row0: data.length > 0 ? data[0] : "";
+    }`,
+        "convert.slint",
+    ) as any;
+    const instance = new demo.App();
+    instance.data = new ArrayModel([{}]);
+
+    const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+    try {
+        expect(instance.row0).toBe("");
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining("cannot be represented in Rust"),
+        );
+    } finally {
+        consoleError.mockRestore();
+    }
 });
 
 test("MapModel handles an empty source model", () => {
@@ -390,9 +439,6 @@ test("SortModel sorts rows from the source model", () => {
 });
 
 test("SortModel does not evaluate the compare function until the sort order is first needed", () => {
-    // Backed by i_slint_core::model::SortModel: unlike FilterModel, its row
-    // mapping is built lazily, so rowCount() alone (which just reads the
-    // source's count) doesn't trigger it.
     const source = new ArrayModel([3, 1, 2]);
     let called = false;
     const sorted = new SortModel(source, (a, b) => {
@@ -505,6 +551,20 @@ test("SortModel.rowData and setRowData ignore out-of-range rows", () => {
     sorted.setRowData(-1, 100);
     sorted.setRowData(10, 100);
     expect(Array.from(source)).toEqual([3, 1, 2]);
+});
+
+test("SortModel ignores rows a source added without notifying", () => {
+    const array = [3, 1, 2];
+    const source = new SilentModel(array);
+    const sorted = new SortModel(source, (a, b) => a - b);
+    expect(sorted.rowData(0)).toBe(1);
+
+    array.push(4);
+
+    expect(sorted.rowCount()).toBe(3);
+    expect(sorted.unsortedRow(3)).toBeUndefined();
+    sorted.setRowData(3, 9);
+    expect(array).toEqual([3, 1, 2, 4]);
 });
 
 test("SortModel automatically reflects direct source model mutations", () => {

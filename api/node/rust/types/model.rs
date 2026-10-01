@@ -45,6 +45,22 @@ fn report_glue_error(env: Env, message: core::fmt::Arguments<'_>) {
     crate::print_to_console(env, "error", message);
 }
 
+/// Runs `f`, which reads or writes a native adapter for the run-time, and
+/// reports a panic in it instead of letting it unwind into the run-time.
+/// A panic usually means a user callback broke the adapter's contract,
+/// such as a comparator that isn't a total order.
+fn catch_adapter_panic<R>(env: Env, fallback: R, f: impl FnOnce() -> R) -> R {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|panic| {
+        let message = panic
+            .downcast_ref::<&str>()
+            .copied()
+            .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown panic");
+        report_glue_error(env, format_args!("Node.js: model adapter panicked: {message}"));
+        fallback
+    })
+}
+
 /// An unsupported ModelError naming the JavaScript class of the model, falling
 /// back to the name of the RawJsModel wrapper. Clears the exception thrown to signal
 /// the rejection, so the class-name lookup and later napi calls work.
@@ -419,13 +435,22 @@ impl Model for TerminalTypedModel {
     type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
-        self.inner.row_count()
+        catch_adapter_panic(self.env, 0, || self.inner.row_count())
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        let raw = self.inner.row_data(row)?;
+        let raw = catch_adapter_panic(self.env, None, || self.inner.row_data(row))?;
         let unknown = unsafe { Unknown::from_raw_unchecked(raw.env, raw.value) };
-        to_value(&self.env, unknown, &self.row_data_type, &self.owner).ok()
+        let Ok(value) = to_value(&self.env, unknown, &self.row_data_type, &self.owner) else {
+            report_glue_error(
+                self.env,
+                format_args!(
+                    "Node.js: JavaScript Model<T>'s rowData function returned data type that cannot be represented in Rust"
+                ),
+            );
+            return None;
+        };
+        Some(value)
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
@@ -438,7 +463,8 @@ impl Model for TerminalTypedModel {
             );
             return;
         };
-        self.inner.set_row_data(row, JsRawValue { env: self.env.raw(), value: js_unknown.raw() });
+        let data = JsRawValue { env: self.env.raw(), value: js_unknown.raw() };
+        catch_adapter_panic(self.env, (), || self.inner.set_row_data(row, data));
     }
 
     fn push_row(&self, data: Self::Data) -> CoreResult<(), ModelError> {
@@ -482,12 +508,12 @@ pub struct NativeModel {
 
 #[napi]
 impl NativeModel {
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn row_count(&self) -> u32 {
         self.inner.row_count() as u32
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn row_data<'a>(&self, env: &'a Env, row: u32) -> Result<Unknown<'a>> {
         match self.inner.row_data(row as usize) {
             Some(raw) => Ok(unsafe { Unknown::from_raw_unchecked(raw.env, raw.value) }),
@@ -495,7 +521,7 @@ impl NativeModel {
         }
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn set_row_data(&self, env: &Env, row: u32, data: Unknown<'_>) {
         // Some adapters (e.g. FilterModel/SortModel's row-mapping lookup)
         // index directly and panic on an out-of-range row, unlike the JS
@@ -506,14 +532,14 @@ impl NativeModel {
         self.inner.set_row_data(row as usize, JsRawValue { env: env.raw(), value: data.raw() });
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn reset(&self) {
         if let Some(reset_fn) = &self.reset_fn {
             reset_fn();
         }
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn unmapped_row(&self, row: u32) -> Option<u32> {
         self.unmap_fn.as_ref().and_then(|f| f(row as usize)).map(|r| r as u32)
     }
@@ -531,7 +557,7 @@ impl NativeModel {
     }
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn native_reverse_model_new(
     env: Env,
     source: Object,
@@ -542,7 +568,7 @@ pub fn native_reverse_model_new(
     Ok(NativeModel::new(native.into(), &notify, None, None))
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn native_filter_model_new(
     env: Env,
     source: Object,
@@ -586,7 +612,7 @@ pub fn native_filter_model_new(
     Ok(NativeModel::new(native.into(), &notify, Some(reset_fn), Some(unmap_fn)))
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn native_sort_model_new(
     env: Env,
     source: Object,
@@ -646,7 +672,7 @@ pub fn native_sort_model_new(
     Ok(NativeModel::new(native.into(), &notify, Some(reset_fn), Some(unmap_fn)))
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn native_map_model_new(
     env: Env,
     source: Object,
@@ -761,22 +787,22 @@ pub fn js_model_notify_new() -> Result<External<SharedModelNotify>> {
     Ok(External::new(Default::default()))
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn js_model_notify_row_data_changed(notify: ExternalRef<SharedModelNotify>, row: u32) {
     notify.row_changed(row as usize);
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn js_model_notify_row_added(notify: ExternalRef<SharedModelNotify>, row: u32, count: u32) {
     notify.row_added(row as usize, count as usize);
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn js_model_notify_row_removed(notify: ExternalRef<SharedModelNotify>, row: u32, count: u32) {
     notify.row_removed(row as usize, count as usize);
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn js_model_notify_reset(notify: ExternalRef<SharedModelNotify>) {
     notify.reset();
 }

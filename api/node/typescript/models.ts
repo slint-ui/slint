@@ -396,14 +396,22 @@ export class ArrayModel<T> extends Model<T> {
  * `__slintNativeModel` property the native side uses to recognize a source
  * model as backed by a native adapter and reuse its backing directly
  * instead of treating it as an opaque JS model.
+ * A subclass that overrides a row method is treated as an opaque JS model,
+ * so that its override runs for every reader.
  */
 abstract class NativeAdapterModel<T> extends Model<T> {
     #native!: napi.NativeModel;
+    #adapterPrototype!: Model<unknown>;
     // Keeps the callback alive: the native adapter only references it weakly.
     #callback?: unknown;
 
-    protected setNative(native: napi.NativeModel, callback?: unknown): void {
+    protected setNative(
+        native: napi.NativeModel,
+        adapterPrototype: Model<unknown>,
+        callback?: unknown,
+    ): void {
         this.#native = native;
+        this.#adapterPrototype = adapterPrototype;
         this.#callback = callback;
     }
 
@@ -414,8 +422,13 @@ abstract class NativeAdapterModel<T> extends Model<T> {
     /**
      * @hidden
      */
-    get __slintNativeModel(): napi.NativeModel {
-        return this.#native;
+    get __slintNativeModel(): napi.NativeModel | undefined {
+        const adapter = this.#adapterPrototype;
+        const overridden =
+            this.rowCount !== adapter.rowCount ||
+            this.rowData !== adapter.rowData ||
+            this.setRowData !== adapter.setRowData;
+        return overridden ? undefined : this.#native;
     }
 
     /**
@@ -473,7 +486,7 @@ export class FilterModel<T> extends NativeAdapterModel<T> {
      * `sourceModel` by applying `filterFunction` on each of its rows.
      * @param sourceModel the wrapped model.
      * @param filterFunction returns true if a row should be visible in the FilterModel.
-     *                       It must not modify `sourceModel`.
+     *                       It must not modify `sourceModel` or read this FilterModel.
      */
     constructor(sourceModel: Model<T>, filterFunction: (data: T) => boolean) {
         super();
@@ -484,6 +497,7 @@ export class FilterModel<T> extends NativeAdapterModel<T> {
                 filterFunction as (data: unknown) => boolean,
                 this.modelNotify,
             ),
+            FilterModel.prototype,
             filterFunction,
         );
     }
@@ -559,6 +573,7 @@ export class MapModel<T, U> extends NativeAdapterModel<U> {
                 mapFunction as (data: unknown) => unknown,
                 this.modelNotify,
             ),
+            MapModel.prototype,
             mapFunction,
         );
     }
@@ -599,9 +614,9 @@ export class SortModel<T> extends NativeAdapterModel<T> {
      * @param sourceModel the wrapped model.
      * @param compareFunction compares two rows the same way the callback passed to
      *                         {@link Array.prototype.sort} does.
-     *                         It must not modify `sourceModel`,
+     *                         It must not modify `sourceModel` or read this SortModel,
      *                         and it must define a consistent total order.
-     *                         An inconsistent comparator such as `(a, b) => a > b` can abort the process.
+     *                         An inconsistent comparator such as `(a, b) => a > b` makes reading the model fail with an error.
      */
     constructor(
         sourceModel: Model<T>,
@@ -615,6 +630,7 @@ export class SortModel<T> extends NativeAdapterModel<T> {
                 compareFunction as (a: unknown, b: unknown) => number,
                 this.modelNotify,
             ),
+            SortModel.prototype,
             compareFunction,
         );
     }
@@ -672,6 +688,7 @@ export class ReverseModel<T> extends NativeAdapterModel<T> {
         this.sourceModel = sourceModel;
         this.setNative(
             napi.nativeReverseModelNew(sourceModel, this.modelNotify),
+            ReverseModel.prototype,
         );
     }
 }
