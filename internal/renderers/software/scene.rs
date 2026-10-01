@@ -645,10 +645,21 @@ pub struct RoundedRectangle {
     pub shape: RoundedShape,
     /// the border's width
     pub width: PhysicalLength,
-    pub border_color: PremultipliedRgbaColor,
+    /// A translucent solid border is premixed with `inner_color`;
+    /// a gradient border is premixed while drawing.
+    pub border: Paint,
     pub inner_color: PremultipliedRgbaColor,
 }
 
+/// What a shape is filled with.
+#[derive(Debug)]
+pub enum Paint {
+    Solid(PremultipliedRgbaColor),
+    /// Gradient commands, each with the rect it's placed in.
+    Gradient(Vec<(PhysicalRect, AnyGradientCommand)>),
+}
+
+#[derive(Debug)]
 pub enum AnyGradientCommand {
     Linear(LinearGradientCommand),
     Radial(RadialGradientCommand),

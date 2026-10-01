@@ -4,8 +4,10 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel, blend_with_coverage};
-use super::{AnyGradientCommand, PhysicalLength};
+use super::draw_functions::{
+    PremultipliedRgbaColor, TargetPixel, blend_with_coverage, draw_gradients_scratch_line,
+};
+use super::{Paint, PhysicalLength};
 use alloc::vec;
 use alloc::vec::Vec;
 use zeno::{Cap, Fill, Join, Mask, Stroke, Style};
@@ -57,13 +59,6 @@ pub fn convert_path_data_to_zeno(
     }
 
     commands
-}
-
-/// What a path's coverage mask is filled with.
-pub enum Paint {
-    Solid(PremultipliedRgbaColor),
-    /// Gradient commands, each with the rect it's placed in.
-    Gradient(Vec<(PhysicalRect, AnyGradientCommand)>),
 }
 
 /// Common rendering logic for both filled and stroked paths
@@ -161,15 +156,12 @@ fn render_path_with_style<T: TargetPixel>(
                         line,
                         run,
                         |scratch, chunk| {
-                            for (rect, gradient) in gradients {
-                                gradient.as_command::<T>().draw_scratch_line(
-                                    rect,
-                                    line_number,
-                                    scratch,
-                                    chunk.start as i16 - rect.min_x(),
-                                    rect.max_x() - chunk.end as i16,
-                                );
-                            }
+                            draw_gradients_scratch_line(
+                                gradients,
+                                line_number,
+                                scratch,
+                                chunk.start as i16..chunk.end as i16,
+                            );
                         },
                         |x| mask_row[x - x_start] as u32,
                     );

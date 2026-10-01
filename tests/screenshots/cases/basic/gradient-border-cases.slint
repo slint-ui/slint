@@ -1,0 +1,133 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=160x96
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=400  - gradients and the border radius algorithm are imprecise in rotation
+// Cells stay clear of x=40 and x=120: line-by-line partial rendering misplaces the corner
+// anti-aliasing of a rounded rectangle cut by the dirty region there.
+
+export component TestCase inherits Window {
+    width: 160px;
+    height: 96px;
+    background: black;
+
+    // Translucent linear border over a solid background
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border-width: 5px;
+        border-color: @linear-gradient(45deg, #ff000080, #0000ff80);
+        background: white;
+    }
+    // Opaque radial border over a linear background
+    Rectangle {
+        x: 42px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        border-width: 5px;
+        border-color: @radial-gradient(circle, yellow, red);
+        background: @linear-gradient(90deg, green, magenta);
+    }
+    // Translucent conic border over a radial background
+    Rectangle {
+        x: 74px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        border-width: 5px;
+        border-color: @conic-gradient(#ff000080 0deg, #00ff0080 120deg, #0000ff80 240deg, #ff000080 360deg);
+        background: @radial-gradient(circle, white, blue);
+    }
+    // Square gradient border under opacity
+    Rectangle {
+        x: 122px;
+        y: 34px;
+        width: 28px;
+        height: 28px;
+        opacity: 0.5;
+        border-width: 5px;
+        border-color: @linear-gradient(0deg, cyan, magenta);
+        background: white;
+    }
+    // Asymmetric radii, some smaller than the border width
+    Rectangle {
+        x: 2px;
+        y: 34px;
+        width: 28px;
+        height: 28px;
+        border-top-left-radius: 14px;
+        border-top-right-radius: 2px;
+        border-bottom-right-radius: 8px;
+        border-bottom-left-radius: 0px;
+        border-width: 6px;
+        border-color: @linear-gradient(135deg, red, yellow, blue);
+        background: #404040;
+    }
+    // A parent clip cuts through a rounded gradient border
+    Rectangle {
+        x: 42px;
+        y: 36px;
+        width: 40px;
+        height: 22px;
+        clip: true;
+        Rectangle {
+            x: -6px;
+            y: -6px;
+            width: 52px;
+            height: 34px;
+            border-radius: 12px;
+            border-width: 8px;
+            border-color: @conic-gradient(red 0deg, yellow 120deg, blue 240deg, red 360deg);
+            background: white;
+        }
+    }
+    // Fractional position
+    Rectangle {
+        x: 86.5px;
+        y: 34.5px;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border-width: 4.5px;
+        border-color: @conic-gradient(cyan 0deg, magenta 180deg, cyan 360deg);
+        background: white;
+    }
+    // Square gradient border over a gradient background
+    Rectangle {
+        x: 122px;
+        y: 2px;
+        width: 28px;
+        height: 28px;
+        border-width: 5px;
+        border-color: @linear-gradient(90deg, #ff000080, #ffff0080);
+        background: @radial-gradient(circle, white, green);
+    }
+    // Translucent gradient border over a translucent solid background
+    Rectangle {
+        x: 2px;
+        y: 66px;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border-width: 5px;
+        border-color: @linear-gradient(0deg, #00ffff80, #ff00ff80);
+        background: #ffffff80;
+    }
+    // Square gradient border at a fractional position, over a radial background
+    Rectangle {
+        x: 42.5px;
+        y: 66.5px;
+        width: 27px;
+        height: 27px;
+        border-width: 4px;
+        border-color: @linear-gradient(90deg, red, blue);
+        background: @radial-gradient(circle, white, green);
+    }
+}

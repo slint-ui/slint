@@ -1521,7 +1521,7 @@ fn prepare_scene(
             RoundedRectangle {
                 shape: RoundedShape::default(),
                 width: Length::new(1),
-                border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
+                border: Paint::Solid(Color::from_argb_u8(128, 255, 0, 0).into()),
                 inner_color: PremultipliedRgbaColor::default(),
             },
         )
@@ -1552,7 +1552,7 @@ trait ProcessScene {
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
+        paint: Paint,
     );
     #[cfg(feature = "path")]
     fn process_stroked_path(
@@ -1560,7 +1560,7 @@ trait ProcessScene {
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
+        paint: Paint,
         stroke_style: path::StrokeStyle<'_>,
     );
 }
@@ -1590,14 +1590,37 @@ fn process_rectangle_impl(
         left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
         right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
     };
+    let rounded_rect: PhysicalRect = clipped.round().cast();
 
-    let mut border_color =
-        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
-    let border =
-        PhysicalLength::new(if border_color.alpha == 0 { 0 } else { args.border_width as _ });
+    let border_width = PhysicalLength::new(args.border_width as _);
+    let mut border_paint = if border_width.get() > 0 {
+        let mut gradients = Vec::new();
+        let fill = gradient_commands(
+            &args.border,
+            args.alpha,
+            args.rotation,
+            geom,
+            clipped,
+            GradientClip::default(),
+            scale_factor,
+            &mut |rect, gradient| gradients.push((rect, gradient)),
+        );
+        match fill {
+            BrushFill::Solid(color) => Paint::Solid(color.into()),
+            BrushFill::Gradient => Paint::Gradient(gradients),
+        }
+    } else {
+        Paint::Solid(PremultipliedRgbaColor::default())
+    };
+    let (border, opaque_border) = match &border_paint {
+        Paint::Solid(color) if color.alpha == 0 => (PhysicalLength::new(0), false),
+        Paint::Solid(color) => (border_width, color.alpha == u8::MAX),
+        Paint::Gradient(_) => (border_width, args.alpha == u8::MAX && args.border.is_opaque()),
+    };
+
     let gradient_clip = GradientClip {
         shape: rounded_shape,
-        opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
+        opaque_border: if opaque_border { border } else { PhysicalLength::new(0) },
     };
     let fill = gradient_commands(
         &args.background,
@@ -1618,38 +1641,31 @@ fn process_rectangle_impl(
         BrushFill::Solid(color) => PremultipliedRgbaColor::from(color),
         BrushFill::Gradient => PremultipliedRgbaColor::default(),
     };
-    if border_color.alpha > 0 && border_color.alpha < 255 {
-        // Find a color for the border which is an equivalent to blend the background and then the border.
-        // In the end, the resulting of blending the background and the color is
-        // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
-        // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
-        // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
-        // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
-        // N being the equivalent color of the border that mixes the background and the border
-        // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
-        let b = border_color;
-        let b_alpha_16 = b.alpha as u16;
-        border_color = PremultipliedRgbaColor {
-            red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
-            green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
-            blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
-            alpha: (color.alpha as u16 + b_alpha_16 - (color.alpha as u16 * b_alpha_16) / 255)
-                as u8,
-        }
+    if let Paint::Solid(border_color) = &mut border_paint
+        && border_color.alpha > 0
+        && border_color.alpha < 255
+    {
+        // The background isn't drawn under the border, so the border is blended over it here.
+        let mut premixed = color;
+        premixed.blend(*border_color);
+        *border_color = premixed;
     }
 
-    if !radius.is_zero() {
-        processor.process_rounded_rectangle(
-            clipped.round().cast(),
-            RoundedRectangle {
-                shape: rounded_shape,
-                width: border,
-                border_color,
-                inner_color: color,
-            },
-        );
-        return;
-    }
+    let border_color = match border_paint {
+        Paint::Solid(border_color) if radius.is_zero() => border_color,
+        border_paint => {
+            processor.process_rounded_rectangle(
+                rounded_rect,
+                RoundedRectangle {
+                    shape: rounded_shape,
+                    width: border,
+                    border: border_paint,
+                    inner_color: color,
+                },
+            );
+            return;
+        }
+    };
 
     // `cast` panics past the `i16` range, while `as` saturates and keeps a far edge far away.
     let b = border.get();
@@ -2067,7 +2083,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
+        paint: Paint,
     ) {
         path::render_filled_path(&commands, &path_geometry, &clip_geometry, &paint, self.buffer);
     }
@@ -2078,7 +2094,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         path_geometry: PhysicalRect,
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
-        paint: path::Paint,
+        paint: Paint,
         stroke_style: path::StrokeStyle<'_>,
     ) {
         path::render_stroked_path(
@@ -2247,7 +2263,7 @@ impl ProcessScene for PrepareScene {
         _path_geometry: PhysicalRect,
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
-        _paint: path::Paint,
+        _paint: Paint,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
         // Only works with buffer-based rendering (RenderToBuffer)
@@ -2259,7 +2275,7 @@ impl ProcessScene for PrepareScene {
         _path_geometry: PhysicalRect,
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
-        _paint: path::Paint,
+        _paint: Paint,
         _stroke_style: path::StrokeStyle<'_>,
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
@@ -3199,9 +3215,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             match fill {
                 BrushFill::Solid(color) => {
                     let color = PremultipliedRgbaColor::from(color);
-                    (color.alpha > 0).then_some(path::Paint::Solid(color))
+                    (color.alpha > 0).then_some(Paint::Solid(color))
                 }
-                BrushFill::Gradient => Some(path::Paint::Gradient(gradients)),
+                BrushFill::Gradient => Some(Paint::Gradient(gradients)),
             }
         };
 
