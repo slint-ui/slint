@@ -531,7 +531,7 @@ impl FlickableDataInner {
     }
 
     /// Calculate the position offset of this scroll move. If we would go beyond the limits and bouncing is enabled
-    /// a friction will be applied so the user cannot go far beyond the limits
+    /// the move is rubber-banded so the user cannot go far beyond the limits
     fn calculate_move_offset(
         &self,
         current_pos: LogicalPoint,
@@ -542,8 +542,14 @@ impl FlickableDataInner {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
         let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::X));
         let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y));
-        let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, use_bounce_x, use_bounce_y);
-        FlickAnimation::apply_friction(current_pos, new_pos - current_pos, flick, flick_rc)
+        FlickAnimation::rubber_band_move(
+            current_pos,
+            delta,
+            flick,
+            &geo,
+            use_bounce_x,
+            use_bounce_y,
+        ) - current_pos
     }
 
     fn track_press(&mut self, event_time: Instant) {

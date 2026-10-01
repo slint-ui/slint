@@ -15,16 +15,12 @@ use crate::animations::simulations::ios::{IOsFlick, IOsFlickParameters};
 use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
-use crate::lengths::{LogicalPoint, LogicalVector, RectLengths};
+use crate::lengths::{LogicalPoint, LogicalRect, LogicalVector, RectLengths};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-/// `BouncingScrollPhysics.frictionFactor`'s base factor for
-/// `ScrollDecelerationRate.normal`, used on iOS.
-const IOS_FRICTION_FACTOR: f32 = 0.52;
-/// `BouncingScrollPhysics.frictionFactor`'s base factor for
-/// `ScrollDecelerationRate.fast`, used on macOS.
-const MACOS_FRICTION_FACTOR: f32 = 0.26;
+/// The coefficient of UIKit's rubber-band curve, see [`rubber_band_move_axis`].
+const RUBBER_BAND_COEFFICIENT: f32 = 0.55;
 /// `FlickAnimation::carried_momentum`'s growth curve: `carried = CARRY_SCALE *
 /// current_velocity.abs().powf(CARRY_EXPONENT)`. Fit by log-log least squares (R² = 0.76)
 /// against 112 real same-direction repeat flicks (a rapid flick starting while the previous
@@ -70,84 +66,72 @@ impl PositionSimulation for FlickAnimation {
     }
 }
 
-/// `BouncingScrollPhysics.frictionFactor`: the further past the edge
-/// `overscroll_fraction` (a fraction of the viewport size) already is, the
-/// harder further overscroll gets.
-fn friction_factor(overscroll_fraction: f32, base: f32) -> f32 {
-    base * (1. - overscroll_fraction) * (1. - overscroll_fraction)
-}
-
-/// `BouncingScrollPhysics._applyFriction`: resists the portion of `abs_delta`
-/// that lies within `extent_outside` of the edge by `gamma`, and passes the
-/// rest through unresisted
-fn apply_friction_scalar(extent_outside: f32, abs_delta: f32, gamma: f32) -> f32 {
-    if extent_outside > 0. {
-        let delta_to_limit = extent_outside / gamma;
-        if abs_delta < delta_to_limit {
-            return abs_delta * gamma;
-        }
-        extent_outside + (abs_delta - delta_to_limit)
-    } else {
-        abs_delta
+/// Moves `pos` by the drag `delta` along one axis, rubber-banding the part outside
+/// `min_pos..=0`.
+/// The overscroll follows UIKit's rubber-band curve,
+/// `exposure = c * distance * viewport / (viewport + c * distance)`,
+/// where `distance` is how far the finger moved past the edge.
+pub(super) fn rubber_band_move_axis(pos: f32, delta: f32, min_pos: f32, viewport: f32) -> f32 {
+    if viewport <= 0. {
+        return pos + delta;
     }
-}
-
-/// Rubber-bands a proposed drag `delta` along one axis, mirroring Flutter's
-/// `BouncingScrollPhysics.applyPhysicsToUserOffset`
-/// (`scroll_physics.dart`, Copyright 2014 The Flutter Authors, BSD-style license,
-/// <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/widgets/scroll_physics.dart>):
-/// once already overscrolled, further movement in the same direction gets
-/// harder the further out `pos` already is, while movement back toward the
-/// valid range ("easing") meets less resistance, or none at all on macOS.
-///
-/// `pos`/`delta`/`min_pos` are in the same units as `content_x`/`content_y`
-/// (`0` is the leading edge, `min_pos` the trailing edge), not Flutter's
-/// `pixels` (which increases into the content); the shape of the formula is
-/// the same either way.
-fn apply_friction_axis(pos: f32, delta: f32, min_pos: f32, viewport: f32) -> f32 {
-    let overscroll_past_start = f32::max(pos, 0.);
-    let overscroll_past_end = f32::max(min_pos - pos, 0.);
-    let overscroll_past = f32::max(overscroll_past_start, overscroll_past_end);
-    // no viewport fraction to compute friction from.
-    if delta == 0. || overscroll_past <= 0. || viewport <= 0. {
-        return delta;
-    }
-
-    let easing =
-        (overscroll_past_start > 0. && delta < 0.) || (overscroll_past_end > 0. && delta > 0.);
-    let fast = cfg!(target_os = "macos");
-    if easing && fast {
-        // macOS lets an easing drag back toward the valid range through at full speed.
-        return delta;
-    }
-
-    let base = if fast { MACOS_FRICTION_FACTOR } else { IOS_FRICTION_FACTOR };
-    let overscroll_fraction = if easing {
-        (overscroll_past - delta.abs()) / viewport
-    } else {
-        overscroll_past / viewport
+    let uncompress = |exposure: f32| {
+        exposure * viewport / (RUBBER_BAND_COEFFICIENT * (viewport - exposure).max(0.001))
     };
-    let gamma = friction_factor(overscroll_fraction, base);
-    delta.signum() * apply_friction_scalar(overscroll_past, delta.abs(), gamma)
+    let compress = |distance: f32| {
+        RUBBER_BAND_COEFFICIENT * distance * viewport
+            / (viewport + RUBBER_BAND_COEFFICIENT * distance)
+    };
+    let raw = if pos > 0. {
+        uncompress(pos)
+    } else if pos < min_pos {
+        min_pos - uncompress(min_pos - pos)
+    } else {
+        pos
+    } + delta;
+    if raw > 0. {
+        compress(raw)
+    } else if raw < min_pos {
+        min_pos - compress(min_pos - raw)
+    } else {
+        raw
+    }
 }
 
 impl FlickAnimation {
-    /// Applies overscroll drag resistance to a proposed `content_x`/`content_y`
-    /// delta, per axis (see [`apply_friction_axis`]).
-    pub fn apply_friction(
+    /// Moves `current_pos` by the drag `delta`.
+    /// Axes that bounce are rubber-banded (see [`rubber_band_move_axis`]); the others are clamped.
+    pub fn rubber_band_move(
         current_pos: LogicalPoint,
-        offset: LogicalVector,
+        delta: LogicalVector,
         flick: Pin<&crate::items::Flickable>,
-        flick_rc: &crate::item_tree::ItemRc,
-    ) -> LogicalVector {
-        let geo = crate::items::Flickable::geometry_without_virtual_keyboard(flick_rc);
-        let width = geo.width_length().get() as f32;
-        let height = geo.height_length().get() as f32;
-        let min_x = width - flick.content_width().get() as f32;
-        let min_y = height - flick.content_height().get() as f32;
-        LogicalVector::new(
-            apply_friction_axis(current_pos.x as f32, offset.x as f32, min_x, width) as _,
-            apply_friction_axis(current_pos.y as f32, offset.y as f32, min_y, height) as _,
+        geo: &LogicalRect,
+        use_bounce_x: bool,
+        use_bounce_y: bool,
+    ) -> LogicalPoint {
+        let move_axis = |pos: f32, delta: f32, content: f32, viewport: f32, bounce: bool| {
+            let min_pos = (viewport - content).min(0.);
+            if bounce {
+                rubber_band_move_axis(pos, delta, min_pos, viewport)
+            } else {
+                (pos + delta).clamp(min_pos, 0.)
+            }
+        };
+        LogicalPoint::new(
+            move_axis(
+                current_pos.x as f32,
+                delta.x as f32,
+                flick.content_width().get() as f32,
+                geo.width_length().get() as f32,
+                use_bounce_x,
+            ) as _,
+            move_axis(
+                current_pos.y as f32,
+                delta.y as f32,
+                flick.content_height().get() as f32,
+                geo.height_length().get() as f32,
+                use_bounce_y,
+            ) as _,
         )
     }
 
@@ -285,14 +269,33 @@ mod tests {
     /// A Flickable with no laid-out size yet, or one the virtual keyboard fully
     /// covers, has zero (or negative) viewport extent on that axis. Dividing by
     /// it must not corrupt the position with `inf`/`NaN`; there's no viewport
-    /// fraction to compute friction from, so the delta passes through unresisted.
+    /// to rubber-band against, so the delta passes through unresisted.
     #[test]
     fn non_positive_viewport_does_not_produce_nan_or_inf() {
         for viewport in [0., -5.] {
             for delta in [-10., -1., 1., 10.] {
-                let result = apply_friction_axis(10., delta, -100., viewport);
+                let result = rubber_band_move_axis(10., delta, -100., viewport);
                 assert!(result.is_finite(), "viewport {viewport}, delta {delta}: {result}");
-                assert_eq!(result, delta);
+                assert_eq!(result, 10. + delta);
+            }
+        }
+    }
+
+    #[test]
+    fn rubber_band_paths_do_not_depend_on_move_batching() {
+        for start in [0., -100.] {
+            for distance in [-600., -190., 190., 600.] {
+                let single = rubber_band_move_axis(start, distance, -100., 774.);
+                for count in [2, 10, 100] {
+                    let mut stepped = start;
+                    for _ in 0..count {
+                        stepped =
+                            rubber_band_move_axis(stepped, distance / count as f32, -100., 774.);
+                    }
+                    assert!((single - stepped).abs() < 0.003, "{single} != {stepped}");
+                    let returned = rubber_band_move_axis(stepped, -distance, -100., 774.);
+                    assert!((returned - start).abs() < 0.003, "{start} != {returned}");
+                }
             }
         }
     }
