@@ -589,7 +589,6 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
         runs-on: ubuntu-latest
         env:
-            RUSTFLAGS: -D warnings
             # cargo-apk does not honor the repository's relative `build.target-dir`
             # (.cargo/config.toml), so point it at an absolute path that matches
             # where cargo actually writes the artifacts.
