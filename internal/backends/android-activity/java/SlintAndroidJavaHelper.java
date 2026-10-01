@@ -65,22 +65,26 @@ class InputHandle extends ImageView {
         mPopupWindow.setSplitTouchEnabled(true);
         mPopupWindow.setClippingEnabled(false);
         int attr;
+        int offsetQuarters;
         switch (id) {
             case SELECTION_START:
                 attr = android.R.attr.textSelectHandleLeft;
+                offsetQuarters = 3;
                 break;
             case SELECTION_END:
                 attr = android.R.attr.textSelectHandleRight;
+                offsetQuarters = 1;
                 break;
             default:
                 attr = android.R.attr.textSelectHandle;
+                offsetQuarters = 2;
                 break;
         }
         TypedArray a = ctx.getTheme().obtainStyledAttributes(new int[] { attr });
         Drawable drawable = a.getDrawable(0);
         a.recycle();
         int width = drawable.getIntrinsicWidth();
-        mOffsetX = id == SELECTION_START ? 3 * width / 4 : id == SELECTION_END ? width / 4 : width / 2;
+        mOffsetX = offsetQuarters * width / 4;
         mPopupWindow.setWidth(width);
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
         setImageDrawable(drawable);
@@ -95,7 +99,7 @@ class InputHandle extends ImageView {
                 mPressedY = ev.getRawY() - mCursorY;
                 break;
             case MotionEvent.ACTION_MOVE:
-                mRootView.hideActionMenu(ActionMode.DEFAULT_HIDE_DURATION);
+                mRootView.finishActionMenu();
                 SlintAndroidJavaHelper.moveCursorHandle(mId, Math.round(ev.getRawX() - mPressedX),
                         Math.round(ev.getRawY() - mPressedY));
                 break;
@@ -149,7 +153,7 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            setCursorPos(0, 0, 0, 0, 0, 0);
+            hideCursor();
             if (mInBatch == 0) {
                 update();
             } else {
@@ -268,6 +272,10 @@ class SlintInputView extends View {
         }
     }
 
+    public void hideCursor() {
+        setCursorPos(0, 0, 0, 0, 0, 0);
+    }
+
     // numHandles: 0=hidden, 1=cursor handle, 2=selection handles
     public void setCursorPos(int leftX, int leftY, int rightX, int rightY, int cursorHeight, int numHandles) {
         int handleHeight = 0;
@@ -296,7 +304,7 @@ class SlintInputView extends View {
             hideHandle(mCursorHandle);
             hideHandle(mLeftHandle);
             hideHandle(mRightHandle);
-            hideActionMenu(-1);
+            finishActionMenu();
         }
 
         mSelectionRect.set(Math.min(leftX, rightX), Math.min(leftY, rightY) - cursorHeight,
@@ -387,15 +395,10 @@ class SlintInputView extends View {
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
     }
 
-    public void hideActionMenu(int duration) {
-        if (mCurrentActionMode == null) {
-            return;
-        }
-        if (duration < 0) {
+    void finishActionMenu() {
+        if (mCurrentActionMode != null) {
             mCurrentActionMode.finish();
             mCurrentActionMode = null;
-        } else {
-            mCurrentActionMode.hide(duration);
         }
     }
 }
@@ -512,7 +515,7 @@ public class SlintAndroidJavaHelper {
             mActivity.getSystemService(InputMethodManager.class)
                     .hideSoftInputFromWindow(mInputView.getWindowToken(), 0);
             mInputView.clearFocus();
-            mInputView.setCursorPos(0, 0, 0, 0, 0, 0);
+            mInputView.hideCursor();
         });
     }
 
@@ -524,7 +527,7 @@ public class SlintAndroidJavaHelper {
     }
 
     public static native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
-            int preeditOffset);
+            int preeditEnd);
 
     public static native void setNightMode(int nightMode);
 

@@ -155,7 +155,7 @@ bind_java_type! {
                     cursor_position: jint,
                     anchor_position: jint,
                     preedit_start: jint,
-                    preedit_offset: jint
+                    preedit_end: jint
             ) -> (),
             fn = callback_update_text,
         },
