@@ -85,13 +85,19 @@ impl Brush {
     /// assert!(!Brush::default().is_opaque());
     /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 255, 128, 140)).is_opaque());
     /// assert!(Brush::SolidColor(Color::from_rgb_u8(128, 140, 210)).is_opaque());
+    /// assert!(!Brush::LinearGradient(LinearGradientBrush::new(0., [])).is_opaque());
     /// ```
     pub fn is_opaque(&self) -> bool {
+        // A gradient without stops draws nothing, so it isn't opaque.
+        fn all_opaque<'a>(stops: impl Iterator<Item = &'a GradientStop>) -> bool {
+            let mut stops = stops.peekable();
+            stops.peek().is_some() && stops.all(|s| s.color.alpha() == 255)
+        }
         match self {
             Brush::SolidColor(c) => c.alpha() == 255,
-            Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
-            Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
-            Brush::ConicGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+            Brush::LinearGradient(g) => all_opaque(g.stops()),
+            Brush::RadialGradient(g) => all_opaque(g.stops()),
+            Brush::ConicGradient(g) => all_opaque(g.stops()),
         }
     }
 
