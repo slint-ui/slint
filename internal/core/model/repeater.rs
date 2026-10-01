@@ -2603,6 +2603,28 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_instance() {
+        let model = TestModel::new(50);
+        let repeater = repeater_with_window(&model, 10..10, 10);
+        with_ops(&repeater, |ops| ops.clear());
+        assert_eq!(
+            state(&repeater),
+            (vec![], ItemIndexRelationShip { row: 10, instance_index: 0 })
+        );
+
+        repeater.0.inner.borrow_mut().set_current_row(25);
+        assert_eq!(
+            state(&repeater),
+            (vec![Empty], ItemIndexRelationShip { row: 25, instance_index: 0 })
+        );
+        ensure_updated_window(&repeater);
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(25)], ItemIndexRelationShip { row: 25, instance_index: 0 })
+        );
+    }
+
+    #[test]
     fn test_set_current_row_within_window() {
         let model = TestModel::new(5);
         let repeater = repeater_with_window(&model, 0..5, 4);
