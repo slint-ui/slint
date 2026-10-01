@@ -915,14 +915,9 @@ impl FlickableDataInner {
         let curr_val = content.get().0 as f32;
         // Spring back to whichever edge we're already past
         let limit = Self::flick_limits(flick_rc, curr_val, dimension);
-        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-        let viewport_length = match dimension {
-            Dimension::X => geo.width_length().get(),
-            Dimension::Y => geo.height_length().get(),
-        } as f32;
         Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
             content.set_physic_animation_value(weak.clone());
-            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit, viewport_length))
+            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit))
         })
     }
 

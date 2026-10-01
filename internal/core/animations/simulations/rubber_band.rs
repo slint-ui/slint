@@ -15,9 +15,3 @@ pub fn compress(distance: f32, viewport_length: f32) -> f32 {
 pub fn uncompress(exposure: f32, viewport_length: f32) -> f32 {
     exposure * viewport_length / (COEFFICIENT * (viewport_length - exposure.abs()).max(0.001))
 }
-
-/// The derivative of [`compress`] with respect to `distance`.
-pub fn compress_slope(distance: f32, viewport_length: f32) -> f32 {
-    let scale = viewport_length / (viewport_length + COEFFICIENT * distance.abs());
-    COEFFICIENT * scale * scale
-}

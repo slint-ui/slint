@@ -8,24 +8,36 @@
 //!
 //! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/physics/spring_simulation.dart>
 
+use core::time::Duration;
+
 use crate::animations::Instant;
-use crate::animations::simulations::rubber_band;
-use crate::animations::simulations::spring::{
-    SpringParameters, SpringPhysicalParameters, SpringRegime,
-};
+use crate::animations::simulations::spring::SpringRegime;
 use crate::animations::simulations::{PositionSimulation, Simulation};
 
 #[cfg(test)]
 use crate::animations::simulations::test_limit_property;
 
-const DEFAULT_MASS: f32 = 0.5;
-const DEFAULT_STIFFNESS: f32 = 100.;
-const DEFAULT_RATIO: f32 = 1.1;
-
 const ZERO_TOLERANCE: f32 = 1e-3;
-/// The spring's initial return speed, relative to its raw distance, at zero overscroll.
-/// Fitted to a 200-point pull on a UIKit `UIScrollView` (iPhone 13 Pro Max, iOS 27).
-const RETURN_RATE: f32 = 2.4422646;
+
+// The return constants are fitted to UIKit `UIScrollView` returns after a held pull from the top
+// edge, captured on an iPhone 13 Pro Max with iOS 27.
+/// The natural frequency of the critically damped return.
+const RETURN_FREQUENCY: f32 = 10.67037;
+/// How long after the release UIKit's return starts moving.
+const RETURN_DELAY: Duration = Duration::from_nanos(16_827_855);
+/// The initial return speed relative to the overscroll, for a small overscroll.
+const RETURN_RATE_MIN: f32 = 5.470122;
+/// How much the initial return rate rises for a large overscroll.
+const RETURN_RATE_RISE: f32 = 4.825567;
+/// The overscroll at which the initial return rate has risen halfway.
+const RETURN_RATE_HALF_DISTANCE: f32 = 165.8656;
+
+fn initial_return_rate(distance: f32) -> f32 {
+    let squared = distance * distance;
+    RETURN_RATE_MIN
+        + RETURN_RATE_RISE * squared
+            / (RETURN_RATE_HALF_DISTANCE * RETURN_RATE_HALF_DISTANCE + squared)
+}
 
 #[derive(Debug)]
 pub struct SpringSimulation {
@@ -33,52 +45,32 @@ pub struct SpringSimulation {
     traveled: f32,
     data: SpringRegime,
     init_pos: f32,
-    viewport_length: f32,
 }
 
 impl SpringSimulation {
-    /// Springs from `start_value` back to `limit_value`.
+    /// Springs from `start_value` back to `limit_value`, like UIKit's return after a held pull.
     pub fn new_with_default_parameters(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        viewport_length: f32,
     ) -> Self {
         let distance = limit_value.as_ref().get() - start_value;
-        let (w_n, zeta) = SpringPhysicalParameters::new_with_damping_ratio(
-            DEFAULT_MASS,
-            DEFAULT_STIFFNESS,
-            DEFAULT_RATIO,
-        )
-        .to_natural_frequency_and_damping_ratio();
-        let (init_pos, velocity) = if viewport_length > 0. {
-            let init_pos = rubber_band::uncompress(distance, viewport_length);
-            let compression = (1. - distance.abs() / viewport_length).max(0.001);
-            (init_pos, -init_pos * RETURN_RATE / compression)
-        } else {
-            (distance, 0.)
-        };
-
+        let velocity = -distance * initial_return_rate(distance);
         Self {
             start_time: crate::animations::current_tick(),
             traveled: 0.,
-            data: SpringRegime::new(init_pos, velocity, w_n, zeta),
-            init_pos,
-            viewport_length,
+            data: SpringRegime::new(distance, velocity, RETURN_FREQUENCY, 1.),
+            init_pos: distance,
         }
     }
 
-    fn display_travel(&self, raw_travel: f32) -> f32 {
-        if self.viewport_length <= 0. {
-            return raw_travel;
-        }
-        let travel = raw_travel.clamp(self.init_pos.min(0.), self.init_pos.max(0.));
-        rubber_band::compress(travel, self.viewport_length)
+    fn spring_time(time_elapsed: Duration) -> f32 {
+        time_elapsed.saturating_sub(RETURN_DELAY).as_secs_f32()
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
-        let t = new_tick.duration_since(self.start_time).as_secs_f32();
+        let t = Self::spring_time(new_tick.duration_since(self.start_time));
         let (new_pos, new_vel) = self.data.evaluate(t);
-        let new_traveled = self.display_travel(self.init_pos - new_pos);
+        let new_traveled = self.init_pos - new_pos;
         *current += new_traveled - self.traveled;
         self.traveled = new_traveled;
 
@@ -93,22 +85,15 @@ impl Simulation for SpringSimulation {
 }
 
 impl PositionSimulation for SpringSimulation {
-    fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
-        let position = self.data.current_position(time_elapsed.as_secs_f32());
-        self.display_travel(self.init_pos) - self.display_travel(self.init_pos - position)
+    fn remaining_distance(&self, time_elapsed: Duration) -> f32 {
+        self.data.current_position(Self::spring_time(time_elapsed))
     }
 
-    fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32 {
-        let t = time_elapsed.as_secs_f32();
-        let velocity = -self.data.current_velocity(t);
-        if self.viewport_length <= 0. {
-            return velocity;
-        }
-        let progress = self.init_pos - self.data.current_position(t);
-        if progress < self.init_pos.min(0.) || progress > self.init_pos.max(0.) {
+    fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
+        if time_elapsed < RETURN_DELAY {
             return 0.;
         }
-        velocity * rubber_band::compress_slope(progress, self.viewport_length)
+        -self.data.current_velocity(Self::spring_time(time_elapsed))
     }
 }
 
@@ -121,7 +106,7 @@ mod tests {
     #[test]
     fn remaining_distance_and_velocity_settle_to_zero() {
         let simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), 774.);
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
         assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
         assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
     }
@@ -133,7 +118,7 @@ mod tests {
     #[test]
     fn remaining_velocity_points_toward_the_limit_from_above() {
         let simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), 774.);
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
             assert!(simulation.remaining_velocity(t) < 0., "{millis}ms");
@@ -146,7 +131,7 @@ mod tests {
     #[test]
     fn remaining_velocity_points_toward_the_limit_from_below() {
         let simulation =
-            SpringSimulation::new_with_default_parameters(10., test_limit_property(20.), 774.);
+            SpringSimulation::new_with_default_parameters(10., test_limit_property(20.));
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
             assert!(simulation.remaining_velocity(t) > 0., "{millis}ms");
@@ -157,7 +142,7 @@ mod tests {
     fn remaining_velocity_matches_the_displayed_motion() {
         for start in [-228.642, -92.069, 21.392, 228.642] {
             let simulation =
-                SpringSimulation::new_with_default_parameters(start, test_limit_property(0.), 774.);
+                SpringSimulation::new_with_default_parameters(start, test_limit_property(0.));
             assert_approx_eq!(simulation.remaining_distance(Duration::ZERO), -start);
             for millis in [50, 100, 200, 500] {
                 let t = Duration::from_millis(millis);
@@ -172,16 +157,32 @@ mod tests {
     }
 
     #[test]
-    fn non_positive_viewport_springs_the_displayed_position() {
-        for viewport_length in [0., -5.] {
-            let simulation = SpringSimulation::new_with_default_parameters(
-                30.,
-                test_limit_property(20.),
-                viewport_length,
-            );
-            assert_approx_eq!(simulation.remaining_distance(Duration::ZERO), -10.);
-            assert_approx_eq!(simulation.remaining_velocity(Duration::ZERO), 0.);
-            assert_approx_eq!(simulation.remaining_distance(Duration::from_secs(10)), 0.);
+    fn does_not_move_before_the_return_delay() {
+        let start = crate::animations::current_tick();
+        let mut simulation =
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+        let mut position = 30.;
+        simulation.step(&mut position, start + RETURN_DELAY);
+        assert_approx_eq!(position, 30.);
+        assert_approx_eq!(simulation.remaining_distance(RETURN_DELAY), -10.);
+        assert_approx_eq!(simulation.remaining_velocity(RETURN_DELAY / 2), 0.);
+        simulation.step(&mut position, start + RETURN_DELAY + Duration::from_millis(8));
+        assert!(position < 30.);
+    }
+
+    /// Samples of a UIKit return after a held 200-point pull, which ended 92 points past the top.
+    /// UIKit reports positions in 1/3-point steps, with up to a frame of sampling jitter.
+    #[test]
+    fn follows_a_measured_uikit_return() {
+        let start = crate::animations::current_tick();
+        let mut simulation =
+            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.));
+        let mut position = 92.;
+        for (millis, uikit) in
+            [(17, 92.), (25, 87.), (50, 73.), (100, 50.), (150, 33.667), (200, 22.), (300, 10.)]
+        {
+            simulation.step(&mut position, start + Duration::from_millis(millis));
+            assert!((position - uikit).abs() < 1.5, "{millis} ms: {position} != {uikit}");
         }
     }
 }

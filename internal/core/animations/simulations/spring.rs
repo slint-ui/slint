@@ -59,10 +59,6 @@ impl SpringPhysicalParameters {
     pub fn new(mass: f32, stiffness: f32, damping: f32) -> Self {
         Self { mass, stiffness, damping }
     }
-
-    pub fn new_with_damping_ratio(mass: f32, stiffness: f32, damping_ratio: f32) -> Self {
-        Self { mass, stiffness, damping: damping_ratio * 2. * f32::sqrt(mass * stiffness) }
-    }
 }
 
 impl SpringParameters for SpringPhysicalParameters {
