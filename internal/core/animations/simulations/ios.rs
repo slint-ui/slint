@@ -12,8 +12,6 @@
 //! An implementation of scroll physics that matches iOS: the position decelerates
 //! under friction, and if that would carry it past `limit_value`, a spring takes
 //! over and pulls it back to the boundary (the "rubber band" overscroll effect).
-//! Unlike `android::AndroidFlick`, this simulation allows the position to
-//! overshoot `limit_value` before settling, hence `overshoot_allowed() == true`.
 //!
 //! The spring phase reuses `spring::SpringRegime` rather than re-deriving the
 //! mass/spring/damper ODE Flutter's own `SpringSimulation` solves.
