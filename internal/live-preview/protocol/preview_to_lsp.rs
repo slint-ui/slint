@@ -98,6 +98,8 @@ pub enum PreviewToLspMessage {
     PairingRejected { reason: PairingRejection },
     /// The preview exited.
     Exited,
+    /// Clear the highlight in the visual editor run preview.
+    ClearHighlight,
 }
 
 /// One transport from a preview back to the LSP.

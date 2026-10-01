@@ -2176,6 +2176,7 @@ async fn reload_timer_function() {
         element_selection::restore_selection(selection.clone(), SelectionNotification::Never);
 
         if notify_editor
+            && selected_element().is_some()
             && let Some(component_instance) = component_instance()
             && let Some((element, debug_index)) = component_instance
                 .element_node_at_source_code_position(&selection.path, selection.offset.into())
@@ -2200,6 +2201,11 @@ async fn reload_timer_function() {
             )
             .ok();
         }
+    }
+    if notify_editor && selected_element().is_none() {
+        let lsp = PREVIEW_STATE
+            .with_borrow(|preview_state| preview_state.to_lsp.borrow().clone().unwrap());
+        lsp.send(&PreviewToLspMessage::ClearHighlight).ok();
     }
 }
 
@@ -2513,7 +2519,7 @@ pub fn set_remote_connection_state(
 
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
-        element_selection::unselect_element();
+        element_selection::unselect_element(SelectionNotification::Never);
         return;
     };
 
@@ -2647,7 +2653,8 @@ fn set_selected_element(
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
-    let (lsp, format) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let (lsp, format, selection_cleared) = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+        let had_selection = preview_state.selected.is_some() || selection.is_some();
         let is_in_layout = parent_layout_kind != ui::LayoutKind::None;
         let is_layout = layout_kind != ui::LayoutKind::None;
         let is_interactive = {
@@ -2715,14 +2722,17 @@ fn set_selected_element(
             }
         }
 
+        let selection_cleared = had_selection && selection.is_none();
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
 
-        (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format())
+        (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format(), selection_cleared)
     });
 
-    if editor_notification == SelectionNotification::Now
+    if editor_notification == SelectionNotification::Now && selection_cleared {
+        lsp.send(&PreviewToLspMessage::ClearHighlight).ok();
+    } else if editor_notification == SelectionNotification::Now
         && let Some(element_node) = element_node
     {
         let (path, pos) = element_node.with_element_node(|node| {
@@ -2968,6 +2978,82 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn unselect_respects_selection_notification() {
+        for notification in [
+            SelectionNotification::Never,
+            SelectionNotification::Now,
+            SelectionNotification::AfterUpdate,
+        ] {
+            let notify_now = notification == SelectionNotification::Now;
+            let notify_after_update = notification == SelectionNotification::AfterUpdate;
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            reset_preview_state(messages.clone());
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.selected = Some(ElementSelection {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: 0.into(),
+                    instance_index: 0,
+                });
+            });
+
+            element_selection::unselect_element(notification);
+
+            PREVIEW_STATE.with_borrow(|state| {
+                assert!(state.selected.is_none());
+                assert_eq!(state.notify_editor_about_selection_after_update, notify_after_update);
+            });
+            if notify_now {
+                assert!(matches!(
+                    messages.borrow().as_slice(),
+                    [PreviewToLspMessage::ClearHighlight]
+                ));
+            } else {
+                assert!(messages.borrow().is_empty());
+            }
+
+            messages.as_ref().borrow_mut().clear();
+            element_selection::reselect_element();
+            element_selection::unselect_element(SelectionNotification::Now);
+            assert!(messages.borrow().is_empty());
+        }
+    }
+
+    #[test]
+    fn missing_selection_respects_selection_notification() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let api = editor.global::<ui::Api>();
+        for notification in [SelectionNotification::Never, SelectionNotification::Now] {
+            let notify_now = notification == SelectionNotification::Now;
+            let messages = Rc::new(RefCell::new(Vec::new()));
+            reset_preview_state(messages.clone());
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            });
+
+            set_selected_element(
+                Some(ElementSelection {
+                    path: i_slint_editor_preview::test::main_test_file_name(),
+                    offset: 0.into(),
+                    instance_index: 0,
+                }),
+                notification,
+            );
+
+            assert!(PREVIEW_STATE.with_borrow(|state| state.selected.is_none()));
+            if notify_now {
+                assert!(matches!(
+                    messages.borrow().as_slice(),
+                    [PreviewToLspMessage::ClearHighlight]
+                ));
+            } else {
+                assert!(messages.borrow().is_empty());
+            }
+        }
+        reset_preview_state(Default::default());
     }
 
     #[test]

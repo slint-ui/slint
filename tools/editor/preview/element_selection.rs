@@ -76,8 +76,8 @@ fn lsp_element_node_position(
     Some((f, Range::new(start, end)))
 }
 
-pub fn unselect_element() {
-    super::set_selected_element(None, SelectionNotification::Never);
+pub fn unselect_element(editor_notification: SelectionNotification) {
+    super::set_selected_element(None, editor_notification);
 }
 
 pub fn select_element_at_source_code_position(
