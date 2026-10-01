@@ -801,7 +801,7 @@ impl FlickableDataInner {
             // After reaching the end, keep accepting the input event for a while longer, then time
             // out (by not updating the last_scroll_event)
             if phase == TouchPhase::Started {
-                InputEventResult::EventRecognized
+                InputEventResult::EventIgnored
             } else {
                 InputEventResult::EventAccepted
             }

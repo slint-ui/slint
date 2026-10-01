@@ -333,8 +333,6 @@ pub enum TouchPhase {
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub enum InputEventResult {
-    /// The event was recognized but the event shall be forwarded to the parent
-    EventRecognized,
     /// The event was accepted. This may result in additional events, for example
     /// accepting a mouse move will result in a MouseExit event later.
     EventAccepted,
@@ -1662,9 +1660,7 @@ pub(crate) fn handle_mouse_grab(
             );
             MouseGrabResult { event: None, accepted: true }
         }
-        InputEventResult::EventAccepted
-        | InputEventResult::EventIgnored
-        | InputEventResult::EventRecognized => {
+        InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
             mouse_input_state.grabbed = false;
             // Return a move event so that the new position can be registered properly
             MouseGrabResult {
@@ -1980,7 +1976,7 @@ fn send_mouse_event_to_item(
     };
     match r {
         InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
-        InputEventResult::EventRecognized | InputEventResult::EventIgnored => {
+        InputEventResult::EventIgnored => {
             let popped = result.item_stack.pop();
             debug_assert_eq!(
                 popped.as_ref().map(|x| (x.0.upgrade().unwrap().index(), x.1)).unwrap(),
