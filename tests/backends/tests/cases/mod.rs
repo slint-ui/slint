@@ -3,6 +3,7 @@
 
 pub mod context_menu;
 pub mod harness;
+pub mod popupwindow_anchor;
 pub mod popupwindow_location;
 pub mod popupwindow_size;
 pub mod popupwindow_size2;

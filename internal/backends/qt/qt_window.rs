@@ -41,7 +41,7 @@ use i_slint_core::window::{
 };
 use i_slint_core::{ImageInner, SharedString};
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -2057,6 +2057,15 @@ pub struct QtWindow {
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 
     parent: Weak<QtWindow>,
+
+    /// For a popup: the origin of the anchor rectangle, relative to the parent window,
+    /// as last passed to `set_position`.
+    popup_anchor_position: Cell<Option<LogicalPoint>>,
+    /// For a popup: the anchor data last passed to `set_position_anchor`.
+    popup_anchor: RefCell<Option<items::PopupAnchor>>,
+    /// For a popup: the size last requested with `set_size`, before any constraint
+    /// adjustment shrank it.
+    popup_requested_size: Cell<Option<LogicalSize>>,
 }
 
 impl Drop for QtWindow {
@@ -2093,6 +2102,9 @@ impl QtWindow {
                 tree_structure_changed: RefCell::new(false),
                 window_icon_cache_key: Default::default(),
                 parent,
+                popup_anchor_position: Default::default(),
+                popup_anchor: Default::default(),
+                popup_requested_size: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -2169,6 +2181,67 @@ impl QtWindow {
         }
 
         timer_event();
+    }
+
+    /// Places a popup according to its anchor: the anchor point on the anchor rectangle, the
+    /// gravity, the offset and the constraint adjustments.
+    /// Does nothing until `set_position_anchor` was called.
+    fn place_anchored_popup(&self) {
+        let Some(anchor) = self.popup_anchor.borrow().clone() else { return };
+        let anchor_position = self.popup_anchor_position.get().unwrap_or_default();
+        let widget_ptr = self.widget_ptr();
+
+        let current_size = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+        let size = self
+            .popup_requested_size
+            .get()
+            .unwrap_or_else(|| LogicalSize::new(current_size.width as _, current_size.height as _));
+
+        // The space available for the popup, relative to the parent window like the anchor
+        // rectangle.
+        let available = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QRectF as "QRectF" {
+            const auto *parent = widget_ptr->parentWidget();
+            const auto *reference = parent ? parent : widget_ptr;
+            const auto *screen = reference->screen();
+            if (!screen)
+                return QRectF();
+            QRectF geometry = screen->availableGeometry();
+            if (parent)
+                geometry.translate(-parent->mapToGlobal(QPoint(0, 0)));
+            return geometry;
+        }};
+        let clip_region = LogicalRect::new(
+            LogicalPoint::new(available.x as _, available.y as _),
+            LogicalSize::new(available.width as _, available.height as _),
+        );
+
+        let offset = LogicalPoint::new(anchor.x, anchor.y);
+        let rect = i_slint_core::window::popup::place_popup(
+            anchor,
+            anchor_position,
+            offset,
+            size,
+            &clip_region,
+        );
+
+        let pos = qttypes::QPoint { x: rect.origin.x.round() as _, y: rect.origin.y.round() as _ };
+        let new_size = qttypes::QSize {
+            width: rect.size.width.round() as _,
+            height: rect.size.height.round() as _,
+        };
+        let resized =
+            new_size.width != current_size.width || new_size.height != current_size.height;
+        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint", new_size as "QSize", resized as "bool"] {
+            const auto *parent = widget_ptr->parentWidget();
+            widget_ptr->move(parent ? parent->mapToGlobal(QPoint(0, 0)) + pos : pos);
+            if (resized)
+                widget_ptr->resize(new_size);
+        }};
+        if resized {
+            self.resize_event(new_size);
+        }
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
@@ -2361,6 +2434,20 @@ impl WindowAdapter for QtWindow {
     }
 
     fn set_position(&self, position: i_slint_core::api::WindowPosition) {
+        if self.parent.upgrade().is_some() {
+            let logical_position = match position {
+                i_slint_core::api::WindowPosition::Logical(logical) => logical,
+                i_slint_core::api::WindowPosition::Physical(physical) => {
+                    physical.to_logical(self.window().scale_factor())
+                }
+            };
+            self.popup_anchor_position
+                .set(Some(LogicalPoint::new(logical_position.x as _, logical_position.y as _)));
+            if self.popup_anchor.borrow().is_some() {
+                self.place_anchored_popup();
+                return;
+            }
+        }
         let physical_position = position.to_physical(self.window().scale_factor());
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
@@ -2385,6 +2472,17 @@ impl WindowAdapter for QtWindow {
         }};
 
         self.resize_event(sz);
+
+        if self.parent.upgrade().is_some() {
+            self.popup_requested_size
+                .set(Some(LogicalSize::new(logical_size.width as _, logical_size.height as _)));
+            self.place_anchored_popup();
+        }
+    }
+
+    fn set_position_anchor(&self, anchor: &items::PopupAnchor) {
+        *self.popup_anchor.borrow_mut() = Some(anchor.clone());
+        self.place_anchored_popup();
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {
