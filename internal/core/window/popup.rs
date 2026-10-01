@@ -10,35 +10,39 @@ use crate::items::{ConstraintAdjustment, PopupAnchor, PopupAnchorLocation, Popup
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 
 /// Returns, as fractions of the anchor rectangle's width/height, the point within that
-/// rectangle that the popup is anchored to (0.0 = left/top edge, 0.5 = center, 1.0 =
+/// rectangle that the popup is anchored to (0.0 = left/top edge, 1.0 = center, 2.0 =
 /// right/bottom edge). Mirrors the Wayland `xdg_positioner` anchor semantics.
+/// The factor is scaled to 0..2 because interger division would always result in 0 for 0.5
+/// so the division by 2 is done outside
 fn anchor_location_fraction(location: PopupAnchorLocation) -> (Coord, Coord) {
     match location {
-        PopupAnchorLocation::Center => (0.5 as Coord, 0.5 as Coord),
-        PopupAnchorLocation::Top => (0.5 as Coord, 0.0 as Coord),
-        PopupAnchorLocation::Bottom => (0.5 as Coord, 1.0 as Coord),
-        PopupAnchorLocation::Left => (0.0 as Coord, 0.5 as Coord),
-        PopupAnchorLocation::Right => (1.0 as Coord, 0.5 as Coord),
+        PopupAnchorLocation::Center => (1.0 as Coord, 1.0 as Coord),
+        PopupAnchorLocation::Top => (1.0 as Coord, 0.0 as Coord),
+        PopupAnchorLocation::Bottom => (1.0 as Coord, 2.0 as Coord),
+        PopupAnchorLocation::Left => (0.0 as Coord, 1.0 as Coord),
+        PopupAnchorLocation::Right => (2.0 as Coord, 1.0 as Coord),
         PopupAnchorLocation::TopLeft => (0.0 as Coord, 0.0 as Coord),
-        PopupAnchorLocation::BottomLeft => (0.0 as Coord, 1.0 as Coord),
-        PopupAnchorLocation::TopRight => (1.0 as Coord, 0.0 as Coord),
-        PopupAnchorLocation::BottomRight => (1.0 as Coord, 1.0 as Coord),
+        PopupAnchorLocation::BottomLeft => (0.0 as Coord, 2.0 as Coord),
+        PopupAnchorLocation::TopRight => (2.0 as Coord, 0.0 as Coord),
+        PopupAnchorLocation::BottomRight => (2.0 as Coord, 2.0 as Coord),
     }
 }
 
 /// Returns, as fractions of the popup's own width/height, the offset from the anchor point
 /// to the popup's origin (top-left corner). For example a gravity of `BottomRight` places the
 /// popup's top-left corner at the anchor point, so the popup grows down and to the right.
+/// The factor is scaled to 0..2 because integer division would always result in 0 for 0.5
+/// so the division by 2 is done outside
 fn gravity_fraction(gravity: PopupGravity) -> (Coord, Coord) {
     match gravity {
-        PopupGravity::Center => (-0.5 as Coord, -0.5 as Coord),
-        PopupGravity::Top => (-0.5 as Coord, -1.0 as Coord),
-        PopupGravity::Bottom => (-0.5 as Coord, 0.0 as Coord),
-        PopupGravity::Left => (-1.0 as Coord, -0.5 as Coord),
-        PopupGravity::Right => (0.0 as Coord, -0.5 as Coord),
-        PopupGravity::TopLeft => (-1.0 as Coord, -1.0 as Coord),
-        PopupGravity::BottomLeft => (-1.0 as Coord, 0.0 as Coord),
-        PopupGravity::TopRight => (0.0 as Coord, -1.0 as Coord),
+        PopupGravity::Center => (-1.0 as Coord, -1.0 as Coord),
+        PopupGravity::Top => (-1.0 as Coord, -2.0 as Coord),
+        PopupGravity::Bottom => (-1.0 as Coord, 0.0 as Coord),
+        PopupGravity::Left => (-2.0 as Coord, -1.0 as Coord),
+        PopupGravity::Right => (0.0 as Coord, -1.0 as Coord),
+        PopupGravity::TopLeft => (-2.0 as Coord, -2.0 as Coord),
+        PopupGravity::BottomLeft => (-2.0 as Coord, 0.0 as Coord),
+        PopupGravity::TopRight => (0.0 as Coord, -2.0 as Coord),
         PopupGravity::BottomRight => (0.0 as Coord, 0.0 as Coord),
     }
 }
@@ -103,18 +107,22 @@ pub fn place_popup(
     let (anchor_fx, anchor_fy) = anchor_location_fraction(anchor.location);
     let (gravity_fx, gravity_fy) = gravity_fraction(anchor.gravity);
 
-    let anchor_point_x = anchor_position.x + anchor.width * anchor_fx;
-    let anchor_point_y = anchor_position.y + anchor.height * anchor_fy;
+    let anchor_point_x = anchor_position.x + anchor.width * anchor_fx / 2 as Coord;
+    let anchor_point_y = anchor_position.y + anchor.height * anchor_fy / 2 as Coord;
 
-    let origin_x = anchor_point_x + size.width * gravity_fx + offset.x;
-    let origin_y = anchor_point_y + size.height * gravity_fy + offset.y;
+    let origin_x = anchor_point_x + size.width * gravity_fx / 2 as Coord + offset.x;
+    let origin_y = anchor_point_y + size.height * gravity_fy / 2 as Coord + offset.y;
 
     // Flipping mirrors both the anchor edge and the gravity on that axis, effectively placing
     // the popup on the opposite side of the anchor rectangle.
-    let flipped_anchor_point_x = anchor_position.x + anchor.width * (1 as Coord - anchor_fx);
-    let flipped_anchor_point_y = anchor_position.y + anchor.height * (1 as Coord - anchor_fy);
-    let flipped_x = flipped_anchor_point_x + size.width * (-1 as Coord - gravity_fx) + offset.x;
-    let flipped_y = flipped_anchor_point_y + size.height * (-1 as Coord - gravity_fy) + offset.y;
+    let flipped_anchor_point_x =
+        anchor_position.x + anchor.width * (2 as Coord - anchor_fx) / 2 as Coord;
+    let flipped_anchor_point_y =
+        anchor_position.y + anchor.height * (2 as Coord - anchor_fy) / 2 as Coord;
+    let flipped_x =
+        flipped_anchor_point_x + size.width * (-2 as Coord - gravity_fx) / 2 as Coord + offset.x;
+    let flipped_y =
+        flipped_anchor_point_y + size.height * (-2 as Coord - gravity_fy) / 2 as Coord + offset.y;
 
     let clip_min_x = clip_region.origin.x;
     let clip_max_x = clip_region.origin.x + clip_region.size.width;
