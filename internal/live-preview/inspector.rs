@@ -9,6 +9,9 @@ use i_slint_core::model::{ModelRc, VecModel};
 use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use slint_interpreter::{ComponentHandle as _, Struct, Value};
 
+#[cfg(target_arch = "wasm32")]
+use crate::protocol::wasm_prelude::UrlWasm;
+
 pub struct InspectorOverlay {
     component: slint_interpreter::ComponentInstance,
     item_tree: ItemTreeRc,

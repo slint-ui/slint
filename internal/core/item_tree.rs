@@ -3116,7 +3116,7 @@ mod tests {
         window_adapter
             .window
             .0
-            .set_context(crate::SlintContext::new(Box::new(window_adapter.clone())));
+            .set_context(crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform)));
         window_adapter.window.0.set_component(&component);
 
         let popup = create_subsubtree_items(Some(window_adapter.clone())).1;

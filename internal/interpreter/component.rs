@@ -104,6 +104,7 @@ impl ComponentDefinitionInner {
         ComponentInstanceInner(vrc)
     }
 
+    #[cfg(feature = "internal")]
     pub fn create_detached_with_existing_window(
         &self,
         window_adapter: i_slint_core::window::WindowAdapterRc,

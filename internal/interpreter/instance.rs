@@ -690,6 +690,7 @@ impl Instance {
         )
     }
 
+    #[cfg(feature = "internal")]
     pub fn new_detached_with_window(
         compilation_unit: Rc<CompilationUnit>,
         public_component_index: PublicComponentIdx,
