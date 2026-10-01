@@ -549,11 +549,23 @@ impl JavaHelper {
     }
 
     /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
-    pub fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
+    fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let argb = helper.accent_color(env)? as u32;
             Ok((argb != 0).then(|| Color::from_argb_encoded(argb)))
         })
+    }
+
+    /// `night_mode` is a `Configuration.UI_MODE_NIGHT_*` value.
+    pub fn set_system_colors(&self, ctx: &i_slint_core::SlintContext, night_mode: i32) {
+        ctx.set_color_scheme(match night_mode {
+            0x10 => ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => ColorScheme::Unknown,
+        });
+        if let Ok(Some(accent)) = self.accent_color() {
+            ctx.set_accent_color(accent);
+        }
     }
 
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
@@ -679,17 +691,8 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            let scheme = match night_mode {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            };
             let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
-            ctx.set_color_scheme(scheme);
-            if let Ok(Some(accent)) = w.java_helper.accent_color() {
-                ctx.set_accent_color(accent);
-            }
+            w.java_helper.set_system_colors(ctx, night_mode);
         }
     })
     .unwrap();
