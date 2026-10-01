@@ -2995,10 +2995,34 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     .cast()
                     .transformed(self.rotation);
 
-            let radius = (rect.border_radius().cast() * self.scale_factor)
-                .transformed(self.rotation)
-                .min(BorderRadius::from_length(geom.width_length() / 2.))
-                .min(BorderRadius::from_length(geom.height_length() / 2.));
+            let radius =
+                (rect.border_radius().cast() * self.scale_factor).transformed(self.rotation);
+
+            let width = geom.width_length().get();
+            let height = geom.height_length().get();
+            let positive = |r: f32| if r > 0. { r } else { 0. };
+            let mut tl = positive(radius.top_left);
+            let mut tr = positive(radius.top_right);
+            let mut bl = positive(radius.bottom_left);
+            let mut br = positive(radius.bottom_right);
+
+            let top = tl + tr;
+            let bottom = bl + br;
+            let left = tl + bl;
+            let right = tr + br;
+
+            // Skip divisions when nothing overflows
+            if top > width || bottom > width || left > height || right > height {
+                let scale = [(width, top), (width, bottom), (height, left), (height, right)]
+                    .into_iter()
+                    .map(|(side, sum)| side / sum)
+                    .fold(1.0, |acc, s| if s < acc { s } else { acc });
+
+                tl *= scale;
+                tr *= scale;
+                bl *= scale;
+                br *= scale;
+            }
 
             let border = rect.border_width().cast() * self.scale_factor;
             let border_color =
@@ -3009,10 +3033,10 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 y: geom.origin.y,
                 width: geom.size.width,
                 height: geom.size.height,
-                top_left_radius: radius.top_left,
-                top_right_radius: radius.top_right,
-                bottom_right_radius: radius.bottom_right,
-                bottom_left_radius: radius.bottom_left,
+                top_left_radius: tl,
+                top_right_radius: tr,
+                bottom_right_radius: br,
+                bottom_left_radius: bl,
                 border_width: border.get(),
                 background: rect.background(),
                 border: border_color,

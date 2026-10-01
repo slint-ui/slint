@@ -439,22 +439,30 @@ pub(super) fn draw_rounded_rectangle_line(
         (x1, x2, x3, x4, rev(x4), rev(x3), rev(x2), rev(x1))
     } else {
         let (x1, x2, x3, x4) = if y1 < PhysicalLength::new(rr.radius.top_left) {
-            calculate_xxxx(rr.radius.top_left, y.get())
+            calculate_xxxx(rr.radius.top_left, y1.get())
         } else if y2 < PhysicalLength::new(rr.radius.bottom_left) {
-            calculate_xxxx(rr.radius.bottom_left, y.get())
+            calculate_xxxx(rr.radius.bottom_left, y2.get())
         } else {
             (ZERO, ZERO, border, border)
         };
         let (x5, x6, x7, x8) = if y1 < PhysicalLength::new(rr.radius.top_right) {
-            let x = calculate_xxxx(rr.radius.top_right, y.get());
+            let x = calculate_xxxx(rr.radius.top_right, y1.get());
             (x.3, x.2, x.1, x.0)
         } else if y2 < PhysicalLength::new(rr.radius.bottom_right) {
-            let x = calculate_xxxx(rr.radius.bottom_right, y.get());
+            let x = calculate_xxxx(rr.radius.bottom_right, y2.get());
             (x.3, x.2, x.1, x.0)
         } else {
             (border, border, ZERO, ZERO)
         };
-        (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
+        let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
+        // A corner wider than half the rectangle reaches past the opposite side's border.
+        // `rev` gives line buffer positions, while the left side's are relative to the rectangle.
+        let left_clip = Shifted::new(rr.left_clip.get() + extra_left_clip);
+        let x4 = x4.min(x6 + left_clip);
+        let x3 = x3.min(x4);
+        let x5 = x5.max(x3.saturating_sub(left_clip));
+        let x6 = x6.max(x5);
+        (x1, x2, x3, x4, x5, x6, x7, x8)
     };
     anti_alias(
         x1.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
