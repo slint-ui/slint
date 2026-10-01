@@ -67,3 +67,79 @@ export component TestCase inherits Window {
 "#,
     );
 }
+
+/// Compile `source` and run the Rust code generator on it. A panic in the generator
+/// surfaces as a test failure.
+#[cfg(feature = "rust")]
+fn generate_rust(source: &str) {
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let config = CompilerConfiguration::new(OutputFormat::Rust);
+    let (doc, diagnostics, loader) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    generator::generate(
+        OutputFormat::Rust,
+        &mut std::io::sink(),
+        None,
+        &doc,
+        &loader.compiler_config,
+    )
+    .unwrap();
+}
+
+// FIXME: `PopupWindow::anchor` isn't visited by `visit_all_named_references`, so when
+// `remove_aliases` folds the popup's `anchor` into the other end of a two-way binding,
+// the popup keeps a reference to the removed property and the code generator panics with
+// "Failed to lookup property anchor". Remove the `#[ignore]` once that is fixed.
+#[cfg(feature = "rust")]
+#[test]
+#[ignore = "two-way binding on PopupWindow::anchor crashes the code generator"]
+fn popup_anchor_two_way_binding_to_global_does_not_crash() {
+    generate_rust(
+        r#"
+export global G {
+    in-out property <PopupAnchor> a;
+}
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    popup := PopupWindow {
+        width: 50px;
+        height: 50px;
+        anchor <=> G.a;
+        Rectangle { background: red; }
+    }
+    public function show-popup() {
+        popup.show();
+    }
+}
+"#,
+    );
+}
+
+// Same crash as above: `aaa` sorts before `anchor`, so it is the property that survives
+// the alias removal.
+#[cfg(feature = "rust")]
+#[test]
+#[ignore = "two-way binding on PopupWindow::anchor crashes the code generator"]
+fn popup_anchor_two_way_binding_to_local_property_does_not_crash() {
+    generate_rust(
+        r#"
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    popup := PopupWindow {
+        in-out property <PopupAnchor> aaa;
+        anchor <=> aaa;
+        width: 50px;
+        height: 50px;
+        Rectangle { background: red; }
+    }
+    public function show-popup() {
+        popup.show();
+    }
+}
+"#,
+    );
+}
