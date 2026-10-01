@@ -901,11 +901,19 @@ impl FlickableDataInner {
         self.move_within_limits(flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
     }
 
-    /// Springs the content back to the limit it is beyond
+    /// The backend's clock, falling back to the animation tick without a window.
+    fn backend_now(flick_rc: &ItemRc) -> Instant {
+        flick_rc.window_adapter().map_or_else(crate::animations::current_tick, |adapter| {
+            Instant::now(crate::window::WindowInner::from_pub(adapter.window()).context())
+        })
+    }
+
+    /// Springs the content back to the limit it is beyond, starting at `start_time`
     fn spring_back(
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
         dimension: Dimension,
+        start_time: Instant,
     ) -> Rc<RefCell<dyn PositionSimulation>> {
         let content = match dimension {
             Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
@@ -917,7 +925,7 @@ impl FlickableDataInner {
         let limit = Self::flick_limits(flick_rc, curr_val, dimension);
         Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
             content.set_physic_animation_value(weak.clone());
-            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit))
+            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit, start_time))
         })
     }
 
@@ -931,7 +939,7 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
         dimension: Dimension,
     ) {
-        let simulation = Self::spring_back(flick, flick_rc, dimension);
+        let simulation = Self::spring_back(flick, flick_rc, dimension, Self::backend_now(flick_rc));
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
             start_time: crate::animations::current_tick(),
             weak: flick_rc.downgrade(),
@@ -953,6 +961,7 @@ impl FlickableDataInner {
                 &geo,
             );
             let velocity_estimation = self.velocity_rb.estimate_velocity();
+            let release_time = Self::backend_now(flick_rc);
 
             let x_simulation = if inside_bounds_x {
                 match velocity_estimation.as_ref() {
@@ -990,7 +999,7 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                Some(Self::spring_back(flick, flick_rc, Dimension::X))
+                Some(Self::spring_back(flick, flick_rc, Dimension::X, release_time))
             };
 
             let y_simulation = if inside_bounds_y {
@@ -1029,7 +1038,7 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                Some(Self::spring_back(flick, flick_rc, Dimension::Y))
+                Some(Self::spring_back(flick, flick_rc, Dimension::Y, release_time))
             };
 
             if x_simulation.is_some() || y_simulation.is_some() {

@@ -49,14 +49,16 @@ pub struct SpringSimulation {
 
 impl SpringSimulation {
     /// Springs from `start_value` back to `limit_value`, like UIKit's return after a held pull.
+    /// The return starts [`RETURN_DELAY`] after `start_time`.
     pub fn new_with_default_parameters(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        start_time: Instant,
     ) -> Self {
         let distance = limit_value.as_ref().get() - start_value;
         let velocity = -distance * initial_return_rate(distance);
         Self {
-            start_time: crate::animations::current_tick(),
+            start_time,
             traveled: 0.,
             data: SpringRegime::new(distance, velocity, RETURN_FREQUENCY, 1.),
             init_pos: distance,
@@ -103,10 +105,17 @@ mod tests {
     use crate::animations::simulations::assert_approx_eq;
     use core::time::Duration;
 
+    fn start_time() -> Instant {
+        Instant::from_millis(1_000)
+    }
+
     #[test]
     fn remaining_distance_and_velocity_settle_to_zero() {
-        let simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+        let simulation = SpringSimulation::new_with_default_parameters(
+            30.,
+            test_limit_property(20.),
+            start_time(),
+        );
         assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
         assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
     }
@@ -117,8 +126,11 @@ mod tests {
     /// velocity is negative.
     #[test]
     fn remaining_velocity_points_toward_the_limit_from_above() {
-        let simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+        let simulation = SpringSimulation::new_with_default_parameters(
+            30.,
+            test_limit_property(20.),
+            start_time(),
+        );
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
             assert!(simulation.remaining_velocity(t) < 0., "{millis}ms");
@@ -130,8 +142,11 @@ mod tests {
     /// velocity is positive.
     #[test]
     fn remaining_velocity_points_toward_the_limit_from_below() {
-        let simulation =
-            SpringSimulation::new_with_default_parameters(10., test_limit_property(20.));
+        let simulation = SpringSimulation::new_with_default_parameters(
+            10.,
+            test_limit_property(20.),
+            start_time(),
+        );
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
             assert!(simulation.remaining_velocity(t) > 0., "{millis}ms");
@@ -141,8 +156,11 @@ mod tests {
     #[test]
     fn remaining_velocity_matches_the_displayed_motion() {
         for start in [-228.642, -92.069, 21.392, 228.642] {
-            let simulation =
-                SpringSimulation::new_with_default_parameters(start, test_limit_property(0.));
+            let simulation = SpringSimulation::new_with_default_parameters(
+                start,
+                test_limit_property(0.),
+                start_time(),
+            );
             assert_approx_eq!(simulation.remaining_distance(Duration::ZERO), -start);
             for millis in [50, 100, 200, 500] {
                 let t = Duration::from_millis(millis);
@@ -158,9 +176,9 @@ mod tests {
 
     #[test]
     fn does_not_move_before_the_return_delay() {
-        let start = crate::animations::current_tick();
+        let start = start_time();
         let mut simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.));
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), start);
         let mut position = 30.;
         simulation.step(&mut position, start + RETURN_DELAY);
         assert_approx_eq!(position, 30.);
@@ -174,9 +192,9 @@ mod tests {
     /// UIKit reports positions in 1/3-point steps, with up to a frame of sampling jitter.
     #[test]
     fn follows_a_measured_uikit_return() {
-        let start = crate::animations::current_tick();
+        let start = start_time();
         let mut simulation =
-            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.));
+            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.), start);
         let mut position = 92.;
         for (millis, uikit) in
             [(17, 92.), (25, 87.), (50, 73.), (100, 50.), (150, 33.667), (200, 22.), (300, 10.)]

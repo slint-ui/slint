@@ -212,8 +212,9 @@ impl FlickAnimation {
     pub fn create_spring_animation(
         start_value: f32,
         limit_value: Pin<Box<Property<f32>>>,
+        start_time: Instant,
     ) -> SpringSimulation {
-        SpringSimulation::new_with_default_parameters(start_value, limit_value)
+        SpringSimulation::new_with_default_parameters(start_value, limit_value, start_time)
     }
 }
 
