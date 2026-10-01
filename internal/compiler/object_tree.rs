@@ -1089,26 +1089,29 @@ pub enum PropertyAnimation {
     Transition { state_ref: Expression, animations: Vec<TransitionPropertyAnimation> },
 }
 
+pub fn deep_clone_animation_element(e: &ElementRc) -> ElementRc {
+    let e = e.borrow();
+    debug_assert!(e.children.is_empty());
+    debug_assert!(e.property_declarations.is_empty());
+    debug_assert!(e.states.is_empty() && e.transitions.is_empty());
+    Rc::new(RefCell::new(Element {
+        id: e.id.clone(),
+        base_type: e.base_type.clone(),
+        bindings: e.bindings.clone(),
+        property_analysis: e.property_analysis.clone(),
+        enclosing_component: e.enclosing_component.clone(),
+        repeated: None,
+        debug: e.debug.clone(),
+        ..Default::default()
+    }))
+}
+
 impl Clone for PropertyAnimation {
     fn clone(&self) -> Self {
-        fn deep_clone(e: &ElementRc) -> ElementRc {
-            let e = e.borrow();
-            debug_assert!(e.children.is_empty());
-            debug_assert!(e.property_declarations.is_empty());
-            debug_assert!(e.states.is_empty() && e.transitions.is_empty());
-            Rc::new(RefCell::new(Element {
-                id: e.id.clone(),
-                base_type: e.base_type.clone(),
-                bindings: e.bindings.clone(),
-                property_analysis: e.property_analysis.clone(),
-                enclosing_component: e.enclosing_component.clone(),
-                repeated: None,
-                debug: e.debug.clone(),
-                ..Default::default()
-            }))
-        }
         match self {
-            PropertyAnimation::Static(e) => PropertyAnimation::Static(deep_clone(e)),
+            PropertyAnimation::Static(e) => {
+                PropertyAnimation::Static(deep_clone_animation_element(e))
+            }
             PropertyAnimation::Transition { state_ref, animations } => {
                 PropertyAnimation::Transition {
                     state_ref: state_ref.clone(),
@@ -1117,7 +1120,7 @@ impl Clone for PropertyAnimation {
                         .map(|t| TransitionPropertyAnimation {
                             state_id: t.state_id,
                             direction: t.direction,
-                            animation: deep_clone(&t.animation),
+                            animation: deep_clone_animation_element(&t.animation),
                         })
                         .collect(),
                 }
@@ -4092,6 +4095,25 @@ fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
     reason
 }
 
+fn build_animation_element(
+    anim: &syntax_nodes::PropertyAnimation,
+    anim_type: ElementType,
+    diag: &mut BuildDiagnostics,
+) -> ElementRc {
+    let mut anim_element = Element { id: "".into(), base_type: anim_type, ..Default::default() };
+    anim_element.parse_bindings(
+        anim.Binding().filter_map(|b| {
+            Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+        }),
+        false,
+        diag,
+    );
+
+    apply_default_type_properties(&mut anim_element);
+
+    Rc::new(RefCell::new(anim_element))
+}
+
 fn animation_element_from_node(
     anim: &syntax_nodes::PropertyAnimation,
     prop_name: &syntax_nodes::QualifiedName,
@@ -4110,19 +4132,7 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let mut anim_element =
-            Element { id: "".into(), base_type: anim_type, ..Default::default() };
-        anim_element.parse_bindings(
-            anim.Binding().filter_map(|b| {
-                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
-            }),
-            false,
-            diag,
-        );
-
-        apply_default_type_properties(&mut anim_element);
-
-        Some(Rc::new(RefCell::new(anim_element)))
+        Some(build_animation_element(anim, anim_type, diag))
     }
 }
 
