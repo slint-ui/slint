@@ -1055,20 +1055,20 @@ class Repeater
 
         void row_added(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
+            if (index < layout_state.item_index.row) {
+                if (index + count <= layout_state.item_index.row) {
                     // Entirely before the visible range: shift the offset.
-                    layout_state.offset += count;
+                    layout_state.item_index.row += count;
                     is_dirty.set(true);
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
                     return;
                 }
-                count -= layout_state.offset - index;
+                count -= layout_state.item_index.row - index;
                 index = 0;
             } else {
-                index -= layout_state.offset;
+                index -= layout_state.item_index.row;
             }
             if (count == 0 || index > data.size()) {
                 return;
@@ -1082,9 +1082,9 @@ class Repeater
         }
         void row_changed(size_t index) override
         {
-            if (index < layout_state.offset)
+            if (index < layout_state.item_index.row)
                 return;
-            const auto local = index - layout_state.offset;
+            const auto local = index - layout_state.item_index.row;
             if (local >= data.size())
                 return;
             auto &c = data[local];
@@ -1098,21 +1098,21 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            if (index < layout_state.offset) {
-                if (index + count <= layout_state.offset) {
+            if (index < layout_state.item_index.row) {
+                if (index + count <= layout_state.item_index.row) {
                     // Entirely before the visible range: shift the offset.
-                    layout_state.offset -= count;
+                    layout_state.item_index.row -= count;
                     is_dirty.set(true);
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
                     return;
                 }
-                count -= layout_state.offset - index;
-                layout_state.offset = index;
+                count -= layout_state.item_index.row - index;
+                layout_state.item_index.row = index;
                 index = 0;
             } else {
-                index -= layout_state.offset;
+                index -= layout_state.item_index.row;
             }
             if (count == 0 || index >= data.size()) {
                 return;
@@ -1150,11 +1150,29 @@ class Repeater
         return cbindgen_private::RepeaterInstanceOpsVTable {
             .user_data = &ctx,
             .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
-            .splice =
-                    [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
+            .clear = [](void *ud) { static_cast<Ctx *>(ud)->inner->data.clear(); },
+            .push =
+                    [](void *ud, uintptr_t count) {
                         auto &data = static_cast<Ctx *>(ud)->inner->data;
-                        data.erase(data.begin() + position, data.begin() + position + remove);
-                        data.insert(data.begin() + position, add, {});
+                        data.resize(data.size() + count);
+                    },
+            .prepend =
+                    [](void *ud, uintptr_t count) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        data.insert(data.begin(), count, {});
+                    },
+            .remove_first =
+                    [](void *ud, uintptr_t count) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        data.erase(data.begin(),
+                                   data.begin() + std::min<size_t>(count, data.size()));
+                    },
+            .truncate =
+                    [](void *ud, uintptr_t len) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        if (len < data.size()) {
+                            data.erase(data.begin() + len, data.end());
+                        }
                     },
             .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
                 auto *ctx = static_cast<Ctx *>(ud);
@@ -1351,7 +1369,7 @@ public:
         track_model_changes();
         if (!inner)
             return;
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->layout_state.item_index.row;
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             cb(uint32_t(offset + i), inner->data[i].ptr ? (*inner->data[i].ptr)->z_order() : 0.f);
         }
@@ -1361,7 +1379,7 @@ public:
     {
         if (!inner)
             return {};
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->layout_state.item_index.row;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
@@ -1375,7 +1393,7 @@ public:
     {
         if (!inner)
             return private_api::IndexRange { 0, 0 };
-        const auto offset = inner->layout_state.offset;
+        const auto offset = inner->layout_state.item_index.row;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 

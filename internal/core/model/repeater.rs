@@ -32,7 +32,8 @@ type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 /// `instance_index` indicates the position of the current item in this instance list
 /// while `row` is the index of the current item in the complete model
 #[derive(Default, Clone, Debug, PartialEq)]
-struct ItemIndexRelationShip {
+#[repr(C)]
+pub struct ItemIndexRelationShip {
     /// The position of the item in the model
     row: usize,
     /// The index of the item in the instances collection
@@ -232,23 +233,20 @@ trait RepeaterInstanceOps {
     /// Number of currently instantiated items.
     fn len(&self) -> usize;
 
-    /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
-    fn splice(&mut self, position: usize, remove: usize, add: usize);
+    /// Remove all instances.
+    fn clear(&mut self);
 
-    /// Clears the instance collection
-    fn clear(&mut self) {
-        self.splice(0, self.len(), 0);
-    }
+    /// Append `count` empty, dirty slots.
+    fn push(&mut self, count: usize);
 
-    /// Prepends `add` number of items before the first item
-    fn prepend(&mut self, add: usize) {
-        self.splice(0, 0, add);
-    }
+    /// Insert `count` empty, dirty slots before the first instance.
+    fn prepend(&mut self, count: usize);
 
-    /// inserts `add` items at index `index`
-    fn insert(&mut self, index: usize, add: usize) {
-        self.splice(index, 0, add);
-    }
+    /// Remove the first `count` instances.
+    fn remove_first(&mut self, count: usize);
+
+    /// Keep only the first `len` instances.
+    fn truncate(&mut self, len: usize);
 
     /// If dirty, ensure the instance is created, initialized, and updated
     /// for `row`. Returns `true` if freshly created.
@@ -275,9 +273,9 @@ fn update_all_instances(ops: &mut impl RepeaterInstanceOps, offset: usize, count
     };
     let cur = ops.len();
     if count > cur {
-        ops.splice(cur, 0, count - cur);
+        ops.push(count - cur);
     } else if count < cur {
-        ops.splice(count, cur - count, 0);
+        ops.truncate(count);
     }
     for instance_index in 0..count {
         ops.ensure_updated(instance_index, instance_index + offset);
@@ -372,7 +370,7 @@ fn update_visible_instances(
     let listview_height = listview_height.get();
 
     if row_count == 0 {
-        ops.splice(0, ops.len(), 0);
+        ops.clear();
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
@@ -404,7 +402,8 @@ fn update_visible_instances(
         } else {
             // No items exist yet. Create one to measure.
             state.item_index.row = state.item_index.row.min(row_count - 1);
-            ops.splice(0, ops.len(), 1);
+            ops.clear();
+            ops.push(1);
             changed |= ops.ensure_updated(0, state.item_index.row);
             ops.height(0).unwrap_or(0 as Coord)
         }
@@ -423,7 +422,7 @@ fn update_visible_instances(
         || (props.computes_content_height() && last_item_bottom + element_height < -content_y_value)
     {
         // Jumping more than 1.5 screens: random seek.
-        ops.splice(0, ops.len(), 0);
+        ops.clear();
         state.item_index.row =
             ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
         (state.item_index.row, 0 as Coord)
@@ -457,7 +456,7 @@ fn update_visible_instances(
         let mut prepend_count = 0;
         while new_offset > 0 && new_offset_y > 0 as Coord {
             new_offset -= 1;
-            ops.splice(0, 0, 1);
+            ops.prepend(1);
             changed |= ops.ensure_updated(0, new_offset);
             new_offset_y -= ops.height(0).unwrap_or(0 as Coord);
             prepend_count += 1;
@@ -488,7 +487,7 @@ fn update_visible_instances(
         // Create more items until there is no more room.
         while y < listview_height && idx < row_count {
             let i = ops.len();
-            ops.splice(i, 0, 1);
+            ops.push(1);
             changed |= ops.ensure_updated(i, idx);
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
@@ -505,13 +504,11 @@ fn update_visible_instances(
         // Clean up instances that are not shown.
         if new_offset != state.item_index.row {
             let remove_count = new_offset - state.item_index.row;
-            ops.splice(0, remove_count, 0);
+            ops.remove_first(remove_count);
             state.item_index.row = new_offset;
         }
         let keep = idx - new_offset;
-        if ops.len() > keep {
-            ops.splice(keep, ops.len() - keep, 0);
-        }
+        ops.truncate(keep);
 
         if ops.len() == 0 {
             break;
@@ -542,6 +539,12 @@ fn update_visible_instances(
     changed
 }
 
+fn empty_slots<C: RepeatedItemTree>(
+    count: usize,
+) -> impl Iterator<Item = (RepeatedInstanceState, Option<ItemTreeRc<C>>)> {
+    core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(count)
+}
+
 /// Adapter implementing [`RepeaterInstanceOps`] for the native Rust repeater.
 struct RustRepeaterOps<'a, C: RepeatedItemTree> {
     inner: &'a RefCell<RepeaterInner<C>>,
@@ -554,52 +557,56 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
         self.inner.borrow().instances.len()
     }
 
-    /// The instances on the side of the current item keep their rows, the others move and
-    /// become dirty. If the current instance is removed, the current item moves to the nearest
-    /// remaining instance.
-    fn splice(&mut self, position: usize, remove: usize, add: usize) {
+    fn clear(&mut self) {
+        let mut inner = self.inner.borrow_mut();
+        inner.instances.clear();
+        inner.layout_state.item_index.instance_index = 0;
+    }
+
+    fn push(&mut self, count: usize) {
+        self.inner.borrow_mut().instances.extend(empty_slots(count));
+    }
+
+    fn prepend(&mut self, count: usize) {
+        let mut inner = self.inner.borrow_mut();
+        if !inner.instances.is_empty() {
+            inner.layout_state.item_index.instance_index += count;
+        }
+        inner.instances.splice(0..0, empty_slots(count));
+    }
+
+    fn remove_first(&mut self, count: usize) {
+        if count >= self.len() {
+            return self.clear();
+        }
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        let len = inner.instances.len();
+        inner.instances.drain(..count);
         let current = &mut inner.layout_state.item_index;
-        let removes_current =
-            position <= current.instance_index && current.instance_index < position + remove;
-        let valid = !removes_current || position == 0 || position + remove == len;
-        debug_assert!(valid, "This should not work, because it would split the window!");
-        if !valid {
-            return;
+        if count > current.instance_index {
+            // During a ListView update `row` lags behind the ListView's own copy of the layout
+            // state, hence the saturating_sub
+            current.row = current.row.saturating_sub(current.instance_index) + count;
+            current.instance_index = 0;
+        } else {
+            current.instance_index -= count;
         }
-        inner.instances.splice(
-            position..position + remove,
-            core::iter::repeat_with(|| (RepeatedInstanceState::Dirty, None)).take(add),
-        );
+    }
+
+    fn truncate(&mut self, len: usize) {
         if len == 0 {
+            return self.clear();
+        }
+        let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        if len >= inner.instances.len() {
             return;
         }
-        // During a ListView update this lags behind the ListView's own copy of the layout state
-        let first_row = current.row.saturating_sub(current.instance_index);
-        if removes_current {
-            *current = if remove == len {
-                ItemIndexRelationShip { row: current.row, instance_index: 0 }
-            } else if position == 0 {
-                ItemIndexRelationShip { row: first_row + remove, instance_index: add }
-            } else {
-                ItemIndexRelationShip {
-                    row: first_row + position - 1,
-                    instance_index: position - 1,
-                }
-            };
-        } else if current.instance_index >= position + remove {
-            current.instance_index = current.instance_index + add - remove;
-            if add != remove {
-                for c in inner.instances[..position].iter_mut() {
-                    c.0 = RepeatedInstanceState::Dirty;
-                }
-            }
-        } else if add != remove {
-            for c in inner.instances[position + add..].iter_mut() {
-                c.0 = RepeatedInstanceState::Dirty;
-            }
+        inner.instances.truncate(len);
+        let current = &mut inner.layout_state.item_index;
+        if current.instance_index >= len {
+            current.row = current.row.saturating_sub(current.instance_index) + len - 1;
+            current.instance_index = len - 1;
         }
     }
 
@@ -1212,12 +1219,11 @@ mod ffi {
     pub struct RepeaterInstanceOpsVTable {
         pub user_data: *mut core::ffi::c_void,
         pub len: unsafe extern "C" fn(user_data: *mut core::ffi::c_void) -> usize,
-        pub splice: unsafe extern "C" fn(
-            user_data: *mut core::ffi::c_void,
-            position: usize,
-            remove: usize,
-            add: usize,
-        ),
+        pub clear: unsafe extern "C" fn(user_data: *mut core::ffi::c_void),
+        pub push: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
+        pub prepend: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
+        pub remove_first: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, count: usize),
+        pub truncate: unsafe extern "C" fn(user_data: *mut core::ffi::c_void, len: usize),
         pub ensure_updated: unsafe extern "C" fn(
             user_data: *mut core::ffi::c_void,
             instance_idx: usize,
@@ -1240,8 +1246,20 @@ mod ffi {
         fn len(&self) -> usize {
             unsafe { (self.len)(self.user_data) }
         }
-        fn splice(&mut self, position: usize, remove: usize, add: usize) {
-            unsafe { (self.splice)(self.user_data, position, remove, add) }
+        fn clear(&mut self) {
+            unsafe { (self.clear)(self.user_data) }
+        }
+        fn push(&mut self, count: usize) {
+            unsafe { (self.push)(self.user_data, count) }
+        }
+        fn prepend(&mut self, count: usize) {
+            unsafe { (self.prepend)(self.user_data, count) }
+        }
+        fn remove_first(&mut self, count: usize) {
+            unsafe { (self.remove_first)(self.user_data, count) }
+        }
+        fn truncate(&mut self, len: usize) {
+            unsafe { (self.truncate)(self.user_data, len) }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
             let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
@@ -1399,7 +1417,7 @@ mod tests {
                 model: &ModelRc::from(model.clone()),
             };
             // Remove 4 at index 4
-            ops.splice(4, 4, 0); // Remove last 4
+            ops.truncate(4);
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 4);
@@ -1419,7 +1437,7 @@ mod tests {
                 model: &ModelRc::from(model.clone()),
             };
             // Remove first 2 items
-            ops.splice(0, 2, 0);
+            ops.remove_first(2);
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 2);
@@ -1487,7 +1505,7 @@ mod tests {
                 init: &|| SimpleItem::new(-1),
                 model: &ModelRc::from(model.clone()),
             };
-            ops.splice(4, 4, 0);
+            ops.truncate(4);
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 4);
@@ -1521,7 +1539,7 @@ mod tests {
                 init: &|| SimpleItem::new(-1),
                 model: &ModelRc::from(model.clone()),
             };
-            ops.splice(0, REMOVE_COUNT, 0);
+            ops.remove_first(REMOVE_COUNT);
 
             let inner = repeater.0.inner.borrow();
             assert_eq!(inner.instances.len(), 7 - REMOVE_COUNT);
@@ -1742,7 +1760,7 @@ mod tests {
                     model: &ModelRc::from(model.clone()),
                 };
                 // Remove first REMOVE_COUNT items
-                ops.splice(0, REMOVE_COUNT, 0);
+                ops.remove_first(REMOVE_COUNT);
                 let inner = repeater.0.inner.borrow();
                 assert_eq!(
                     inner.layout_state.item_index.instance_index, 0,
@@ -2468,7 +2486,7 @@ mod tests {
 
     /// Remove first instance
     #[test]
-    fn test_splice_before_current_instance() {
+    fn test_remove_first_instance() {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 2..6, 4);
         // Before:
@@ -2479,7 +2497,7 @@ mod tests {
         //         0, 1, 2, 3, 4, 5, 6, 7
         //                     ^
         // Window:         |-------|
-        with_ops(&repeater, |ops| ops.splice(0, 1, 0));
+        with_ops(&repeater, |ops| ops.remove_first(1));
         assert_eq!(
             state(&repeater),
             (
@@ -2512,85 +2530,39 @@ mod tests {
     }
 
     #[test]
-    fn test_splice_replacing_instances_before_current_instance() {
-        let model = TestModel::new(5);
-        let repeater = repeater_with_window(&model, 0..5, 3);
-        // Before:
-        //         0, 1, 2, 3, 4
-        //                  ^
-        // Window:|-------------|
-        // After:
-        //         0, 1, 2, 3, 4
-        //                  ^
-        // Window:   |----------|
-        with_ops(&repeater, |ops| ops.splice(1, 2, 1));
-        // The first gets dirty because it will be reused by another row now
+    fn test_push_instances() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 2..5, 3);
+        with_ops(&repeater, |ops| ops.push(2));
         assert_eq!(
             state(&repeater),
             (
-                vec![Dirty, Empty, Clean(3), Clean(4)],
-                ItemIndexRelationShip { row: 3, instance_index: 2 }
-            )
-        );
-        ensure_updated_window(&repeater);
-        assert_eq!(
-            state(&repeater),
-            (
-                vec![Clean(1), Clean(2), Clean(3), Clean(4)],
-                ItemIndexRelationShip { row: 3, instance_index: 2 }
+                vec![Clean(2), Clean(3), Clean(4), Empty, Empty],
+                ItemIndexRelationShip { row: 3, instance_index: 1 }
             )
         );
     }
 
     #[test]
-    #[cfg_attr(
-        debug_assertions,
-        should_panic(expected = "This should not work, because it would split the window!")
-    )]
-    fn test_splice_replacing_instances_before_current_instance2() {
+    fn test_truncate_after_current_instance() {
         let model = TestModel::new(8);
-        let repeater = repeater_with_window(&model, 0..8, 3);
-        let before = state(&repeater);
-        // Before:
-        //         0, 1, 2, 3, 4, 5, 6, 7
-        //                  ^
-        // Window:|----------------------|
-        // After:
-        //         0, 1, 2, 3, 4, 5, 6, 7
-        //                  ^
-        // Window:         |---------| It would split up the window
-        with_ops(&repeater, |ops| ops.splice(1, 4, 1));
-        // Release builds ignore the splice
-        assert_eq!(state(&repeater), before);
+        let repeater = repeater_with_window(&model, 2..6, 3);
+        with_ops(&repeater, |ops| ops.truncate(2));
+        assert_eq!(
+            state(&repeater),
+            (vec![Clean(2), Clean(3)], ItemIndexRelationShip { row: 3, instance_index: 1 })
+        );
     }
 
     #[test]
-    fn test_insert_instances_after_current_instance() {
+    fn test_truncate_removing_current_instance() {
         let model = TestModel::new(8);
-        let repeater = repeater_with_window(&model, 0..5, 1);
-        // Before:
-        //         0, 1, 2, 3, 4, 5, 6, 7
-        //            ^
-        // Window:|-------------|
-        // After:
-        //         0, 1, 2, 3, 4, 5, 6, 7
-        //            ^
-        // Window:|-------------------|
-        with_ops(&repeater, |ops| ops.insert(3, 2));
+        let repeater = repeater_with_window(&model, 2..6, 4);
+        with_ops(&repeater, |ops| ops.truncate(1));
         assert_eq!(
             state(&repeater),
-            (
-                vec![Clean(0), Clean(1), Clean(2), Empty, Empty, Dirty, Dirty],
-                ItemIndexRelationShip { row: 1, instance_index: 1 }
-            )
-        );
-        ensure_updated_window(&repeater);
-        assert_eq!(
-            state(&repeater),
-            (
-                vec![Clean(0), Clean(1), Clean(2), Clean(3), Clean(4), Clean(5), Clean(6)],
-                ItemIndexRelationShip { row: 1, instance_index: 1 }
-            )
+            (vec![Clean(2)], ItemIndexRelationShip { row: 2, instance_index: 0 }),
+            "Moves to the last remaining instance"
         );
     }
 
