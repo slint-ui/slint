@@ -540,7 +540,7 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GradientClip {
     /// A zero radius means no clip.
