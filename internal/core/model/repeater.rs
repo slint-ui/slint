@@ -168,6 +168,10 @@ impl<C: RepeatedItemTree> RepeaterInner<C> {
 
     /// Set the row to which layout state should point
     fn set_current_row(&mut self, row: usize) {
+        if self.instances.is_empty() {
+            self.layout_state.item_index.row = row;
+            return;
+        }
         if row == self.layout_state.item_index.row {
             return;
         } else if row > self.layout_state.item_index.row {
@@ -2533,11 +2537,27 @@ mod tests {
     fn test_push_instances() {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 2..5, 3);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:       |------|
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:       |------------|
         with_ops(&repeater, |ops| ops.push(2));
         assert_eq!(
             state(&repeater),
             (
                 vec![Clean(2), Clean(3), Clean(4), Empty, Empty],
+                ItemIndexRelationShip { row: 3, instance_index: 1 }
+            )
+        );
+        ensure_updated_window(&repeater);
+        assert_eq!(
+            state(&repeater),
+            (
+                vec![Clean(2), Clean(3), Clean(4), Clean(5), Clean(6)],
                 ItemIndexRelationShip { row: 3, instance_index: 1 }
             )
         );
@@ -2547,6 +2567,14 @@ mod tests {
     fn test_truncate_after_current_instance() {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 2..6, 3);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:       |---------|
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:      |----|
         with_ops(&repeater, |ops| ops.truncate(2));
         assert_eq!(
             state(&repeater),
@@ -2558,6 +2586,14 @@ mod tests {
     fn test_truncate_removing_current_instance() {
         let model = TestModel::new(8);
         let repeater = repeater_with_window(&model, 2..6, 4);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                  ^
+        // Window:       |---------|
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //               ^
+        // Window:      |-|
         with_ops(&repeater, |ops| ops.truncate(1));
         assert_eq!(
             state(&repeater),
@@ -2587,12 +2623,12 @@ mod tests {
         repeater.0.inner.borrow_mut().set_current_row(25);
         assert_eq!(
             state(&repeater),
-            (vec![Empty], ItemIndexRelationShip { row: 25, instance_index: 0 })
+            (vec![], ItemIndexRelationShip { row: 25, instance_index: 0 })
         );
         ensure_updated_window(&repeater);
         assert_eq!(
             state(&repeater),
-            (vec![Clean(25)], ItemIndexRelationShip { row: 25, instance_index: 0 })
+            (vec![], ItemIndexRelationShip { row: 25, instance_index: 0 })
         );
     }
 
@@ -2617,14 +2653,24 @@ mod tests {
     }
 
     #[test]
-    fn test_set_current_row_without_instances() {
-        let model = TestModel::new(5);
-        let repeater = repeater_with_window(&model, 0..0, 0);
-        repeater.0.inner.borrow_mut().set_current_row(3);
-        // Creates all instances up to this instance
+    fn test_set_current_row_append() {
+        let model = TestModel::new(8);
+        let repeater = repeater_with_window(&model, 0..5, 4);
+        // Before:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                     ^
+        // Window:|-------------|
+        // After:
+        //         0, 1, 2, 3, 4, 5, 6, 7
+        //                              ^
+        // Window:|----------------------|
+        repeater.0.inner.borrow_mut().set_current_row(7);
         assert_eq!(
             state(&repeater),
-            (vec![Empty, Empty, Empty, Empty], ItemIndexRelationShip { row: 3, instance_index: 3 })
+            (
+                vec![Clean(0), Clean(1), Clean(2), Clean(3), Clean(4), Empty, Empty, Empty],
+                ItemIndexRelationShip { row: 7, instance_index: 7 }
+            )
         );
     }
 
