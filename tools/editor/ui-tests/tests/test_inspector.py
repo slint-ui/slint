@@ -55,9 +55,16 @@ def open_combo_and_accept(
     combo.invoke_accessible_expand_action()
 
     def menu_labels() -> tuple[str, ...] | None:
+        # Linux uses list-item rows in a custom popup; macOS and Windows use MenuItem.
         items = (
             window.root_element.query_descendants()
             .match_type_name("MenuItem")
+            .find_all()
+        ) + (
+            window.root_element.query_descendants()
+            .match_id("InspectorComboBox::options-content")
+            .match_descendants()
+            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
             .find_all()
         )
         labels = tuple(
