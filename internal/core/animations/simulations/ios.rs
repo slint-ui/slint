@@ -231,7 +231,6 @@ impl IOsFlick {
         let (mut position, _velocity, done) = self.evaluate(t);
 
         if done && t >= self.spring_time {
-            // Land exactly on the boundary, matching `ScrollSpringSimulation`.
             position = self.limit_value.as_ref().get();
         }
 

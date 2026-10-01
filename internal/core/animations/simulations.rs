@@ -3,9 +3,9 @@
 
 //! Physics simulations that animate a Flickable's content position.
 //!
-//! `android` and `ios` implement the platform-specific flick simulations that run after a
-//! release or a fling. `scroll_spring` settles content that already lies past its scroll
-//! limit back to the boundary. `spring` holds the spring math the other two build on.
+//! `android` and `ios` implement the platform-specific flick simulations that run after a release or a fling.
+//! `scroll_spring` settles content that already lies past its scroll limit back to the boundary.
+//! `spring` holds the spring math the other two build on.
 
 pub mod android;
 pub mod ios;
