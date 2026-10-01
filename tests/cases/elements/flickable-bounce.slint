@@ -448,4 +448,78 @@ for (bounce, name) in [(AutoBool::Off, "off"), (AutoBool::On, "on")] {
     assert!((instance.get_fli_content_y() - (-60.)).abs() < 0.1, "Bounce {name}: two notches scroll by 60, received: {}", instance.get_fli_content_y());
 }
 ```
+
+// A tap while the content springs back stops the spring. The release starts it again.
+```rust
+use slint_testing::AutoBool;
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_content_height(instance.get_fli_height() + 40.);
+let window = instance.window();
+let button = PointerEventButton::Left;
+
+// Drag the content beyond its limit and release it there
+window.dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(5., 5.) });
+window.dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(5., 5.), button });
+for i in 0..10 {
+    slint_testing::mock_elapsed_time(5);
+    window.dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(5., 5. + i as f32 * 12.5) });
+}
+slint_testing::mock_elapsed_time(2);
+window.dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(5., 130.), button });
+slint_testing::mock_elapsed_time(35);
+let overscroll = instance.get_fli_content_y();
+assert!(overscroll > 20., "The content is still on its way back, received: {overscroll}");
+
+let position = LogicalPosition::new(200., 200.);
+window.dispatch_event(WindowEvent::PointerPressed { position, button });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_fli_content_y(), overscroll, "The press holds the content");
+window.dispatch_event(WindowEvent::PointerReleased { position, button });
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back after the tap");
+```
+
+// Same, but a touchpad gesture without any movement stops the spring.
+```rust
+use slint_testing::AutoBool;
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+
+const INFINITE_TIME_SPEND: u64 = 100000000;
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_content_height(instance.get_fli_height() + 40.);
+let wheel = |delta_y: f32, phase: TouchPhase| {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LogicalPoint::new(5., 5.), delta_x: 0., delta_y, phase }));
+};
+
+// Scroll the content beyond its limit and end the gesture there
+wheel(0., TouchPhase::Started);
+for _ in 0..10 {
+    slint_testing::mock_elapsed_time(5);
+    wheel(12.5, TouchPhase::Moved);
+}
+slint_testing::mock_elapsed_time(2);
+wheel(0., TouchPhase::Ended);
+slint_testing::mock_elapsed_time(35);
+let overscroll = instance.get_fli_content_y();
+assert!(overscroll > 20., "The content is still on its way back, received: {overscroll}");
+
+wheel(0., TouchPhase::Started);
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_fli_content_y(), overscroll, "The gesture holds the content");
+wheel(0., TouchPhase::Ended);
+slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back after the gesture");
+```
 */

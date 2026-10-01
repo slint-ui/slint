@@ -136,62 +136,20 @@ impl Item for Flickable {
                 let flick = flick.as_pin_ref();
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
 
-                let zero = LogicalLength::zero();
-                let vpx = flick.content_x();
-                let vpy = flick.content_y();
-                let x_out_of_bounds =
-                    vpx > zero || vpx < (geo.width_length() - flick.content_width()).min(zero);
-                let y_out_of_bounds =
-                    vpy > zero || vpy < (geo.height_length() - flick.content_height()).min(zero);
+                let (inside_bounds_x, inside_bounds_y) = inside_bounds(
+                    flick,
+                    LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
+                    &geo,
+                );
 
-                (x_out_of_bounds, y_out_of_bounds, geo)
+                (!inside_bounds_x, !inside_bounds_y, geo)
             },
             // Change event handler that puts the Flickable in bounds if it's not already
             |self_weak, (x_out_of_bounds, y_out_of_bounds, geo)| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
-                if !x_out_of_bounds && !*y_out_of_bounds {
-                    return;
-                }
-                let flick = flick.as_pin_ref();
-                let use_bounce_x =
-                    FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::X));
-                let use_bounce_y =
-                    FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::Y));
-                let vpx = flick.content_x();
-                let vpy = flick.content_y();
-                let p = ensure_in_bound(
-                    flick,
-                    LogicalPoint::from_lengths(vpx, vpy),
-                    geo,
-                    use_bounce_x,
-                    use_bounce_y,
-                );
-
-                let interacting = flick
-                    .data
-                    .inner
-                    .try_borrow()
-                    .map_or(true, |inner| inner.capture_events.is_some());
-                let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                if *x_out_of_bounds && !x.has_binding() {
-                    if !use_bounce_x {
-                        x.set(p.x_length());
-                    } else if !interacting && let Ok(mut inner) = flick.data.inner.try_borrow_mut()
-                    {
-                        inner.start_spring_back(flick, &flick_rc, Dimension::X);
-                    }
-                }
-
-                let y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                if *y_out_of_bounds && !y.has_binding() {
-                    if !use_bounce_y {
-                        y.set(p.y_length());
-                    } else if !interacting && let Ok(mut inner) = flick.data.inner.try_borrow_mut()
-                    {
-                        inner.start_spring_back(flick, &flick_rc, Dimension::Y);
-                    }
-                }
+                let Ok(mut inner) = flick.data.inner.try_borrow_mut() else { return };
+                inner.move_within_limits(&flick_rc, *x_out_of_bounds, *y_out_of_bounds, geo);
             },
         );
     }
@@ -782,10 +740,15 @@ impl FlickableDataInner {
                 }
             }
             TouchPhase::Ended => {
-                if self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove) {
+                let moved =
+                    self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove);
+                if moved {
                     self.animate(flick, flick_rc);
                 }
                 self.capture_events = None;
+                if !moved {
+                    self.move_within_limits_if_outside(flick, flick_rc);
+                }
                 return if self.should_capture_scroll(SHORT_SCROLL_FILTER_DURATION, position) {
                     InputEventResult::EventAccepted
                 } else {
@@ -875,6 +838,60 @@ impl FlickableDataInner {
         }
     }
 
+    fn move_within_limits(
+        &mut self,
+        flick_rc: &ItemRc,
+        x_out_of_bounds: bool,
+        y_out_of_bounds: bool,
+        geo: &LogicalRect,
+    ) {
+        let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
+        if !x_out_of_bounds && !y_out_of_bounds {
+            return;
+        }
+        let flick = flick.as_pin_ref();
+        let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::X));
+        let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::Y));
+        let vpx = flick.content_x();
+        let vpy = flick.content_y();
+        let p = ensure_in_bound(
+            flick,
+            LogicalPoint::from_lengths(vpx, vpy),
+            geo,
+            use_bounce_x,
+            use_bounce_y,
+        );
+
+        let interacting = self.capture_events.is_some();
+        let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
+        if x_out_of_bounds && !x.has_binding() {
+            if !use_bounce_x {
+                x.set(p.x_length());
+            } else if !interacting {
+                self.start_spring_back(flick, flick_rc, Dimension::X);
+            }
+        }
+
+        let y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
+        if y_out_of_bounds && !y.has_binding() {
+            if !use_bounce_y {
+                y.set(p.y_length());
+            } else if !interacting {
+                self.start_spring_back(flick, flick_rc, Dimension::Y);
+            }
+        }
+    }
+
+    fn move_within_limits_if_outside(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let (inside_bounds_x, inside_bounds_y) = inside_bounds(
+            flick,
+            LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
+            &geo,
+        );
+        self.move_within_limits(flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
+    }
+
     /// Springs the content back to the limit it is beyond
     fn spring_back(
         flick: Pin<&Flickable>,
@@ -920,13 +937,13 @@ impl FlickableDataInner {
 
     fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
         if self.capture_events.is_some() {
+            let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
                 flick,
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
-                flick_rc,
+                &geo,
             );
             let velocity_estimation = self.velocity_rb.estimate_velocity();
-            let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
             let x_simulation = if inside_bounds_x {
                 match velocity_estimation.as_ref() {
@@ -1084,6 +1101,7 @@ impl FlickableData {
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
                 } else {
+                    inner.move_within_limits_if_outside(flick, flick_rc);
                     InputEventFilterResult::ForwardEvent
                 }
             }
@@ -1245,6 +1263,7 @@ impl FlickableData {
                         InputEventResult::EventAccepted
                     } else if c == CaptureEvents::MouseStart {
                         inner.capture_events = None;
+                        inner.move_within_limits_if_outside(flick, flick_rc);
                         InputEventResult::EventAccepted
                     } else {
                         // an accepted wheel event is followed by an Exit, so the wheel states must survive it
@@ -1372,15 +1391,14 @@ fn ensure_in_bound(
     p
 }
 
-fn inside_bounds(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> (bool, bool) {
-    let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+fn inside_bounds(flick: Pin<&Flickable>, p: LogicalPoint, geo: &LogicalRect) -> (bool, bool) {
     let w = geo.width_length();
     let h = geo.height_length();
     let cw = flick.content_width();
     let ch = flick.content_height();
 
-    let inside_bounds_x = p.x >= (w - cw).get() && p.x <= 0 as Coord;
-    let inside_bounds_y = p.y >= (h - ch).get() && p.y <= 0 as Coord;
+    let inside_bounds_x = p.x >= (w - cw).get().min(0 as Coord) && p.x <= 0 as Coord;
+    let inside_bounds_y = p.y >= (h - ch).get().min(0 as Coord) && p.y <= 0 as Coord;
 
     (inside_bounds_x, inside_bounds_y)
 }
