@@ -490,7 +490,7 @@ export component DatePickerPopup inherits PopupWindow {
                 root.close();
                 root.canceled();
             } else if index == 1 {
-            root.accepted(root.date);
+                root.accepted(root.get_current_date());
             }
         }
 
