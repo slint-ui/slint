@@ -856,6 +856,9 @@ async fn handle_preview_to_lsp_message(
             crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, take_focus)
                 .await;
         }
+        M::ClearHighlight => {
+            tracing::debug!("Ignoring ClearHighlight from the preview");
+        }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
             ctx.session.primary_preview().to_preview.set_local_target(target)?;
