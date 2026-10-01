@@ -908,13 +908,10 @@ impl SoftwareRenderer {
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
-                    let gradient_covers_background = !matches!(background, Brush::SolidColor(_))
-                        && background.is_opaque()
-                        // A gradient without stops counts as opaque but draws nothing.
-                        && background.color().alpha() == 255;
-                    if !gradient_covers_background {
+                    let gradient_background = gradient_background(&background);
+                    if !gradient_background.is_some_and(Brush::is_opaque) {
                         let mut bg = TargetPixel::background();
-                        if matches!(background, Brush::SolidColor(_)) {
+                        if gradient_background.is_none() {
                             TargetPixel::blend(&mut bg, background.color().into());
                         }
                         renderer.actual_renderer.processor.foreach_ranges(
@@ -924,7 +921,9 @@ impl SoftwareRenderer {
                             },
                         );
                     }
-                    renderer.actual_renderer.draw_window_background_gradient(&background);
+                    if let Some(gradient) = gradient_background {
+                        renderer.actual_renderer.draw_window_background_gradient(gradient);
+                    }
                 }
 
                 let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
@@ -1635,12 +1634,13 @@ fn render_window_frame_by_line(
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
-    let mut scene = prepare_scene(window, size, &background, renderer);
+    let gradient_background = gradient_background(&background);
+    let mut scene = prepare_scene(window, size, gradient_background, renderer);
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
     let mut background_color = TargetPixel::background();
-    if matches!(background, Brush::SolidColor(_)) {
+    if gradient_background.is_none() {
         TargetPixel::blend(&mut background_color, background.color().into());
     }
 
@@ -1776,10 +1776,14 @@ fn render_window_frame_by_line(
     scene.dirty_region
 }
 
+fn gradient_background(background: &Brush) -> Option<&Brush> {
+    (!matches!(background, Brush::SolidColor(_))).then_some(background)
+}
+
 fn prepare_scene(
     window: &WindowInner,
     size: PhysicalSize,
-    background: &Brush,
+    gradient_background: Option<&Brush>,
     software_renderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
@@ -1808,7 +1812,9 @@ fn prepare_scene(
             size,
         );
 
-        renderer.actual_renderer.draw_window_background_gradient(background);
+        if let Some(gradient) = gradient_background {
+            renderer.actual_renderer.draw_window_background_gradient(gradient);
+        }
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
@@ -2538,13 +2544,10 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         }
     }
 
-    fn draw_window_background_gradient(&mut self, background: &Brush) {
-        if matches!(background, Brush::SolidColor(_)) {
-            return;
-        }
+    fn draw_window_background_gradient(&mut self, gradient: &Brush) {
         let screen = PhysicalRect::from_size(self.rotation.screen_size).transformed(self.rotation);
         let mut args =
-            target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), background.clone());
+            target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), gradient.clone());
         args.rotation = self.rotation.orientation;
         self.processor.process_rectangle(&args, screen);
     }
