@@ -2006,6 +2006,8 @@ impl Element {
             }
         }
 
+        validate_transition_directions(&r.borrow().transitions, diag);
+
         if r.borrow().base_type.to_smolstr() == "ListView" {
             let mut seen_for = false;
             for se in node.children() {
@@ -4136,6 +4138,17 @@ fn animation_element_from_node(
     }
 }
 
+fn catch_all_animation_element_from_node(
+    anim: &syntax_nodes::PropertyAnimation,
+    diag: &mut BuildDiagnostics,
+    tr: &TypeRegister,
+) -> ElementRc {
+    // `*` has no single property type, and every animatable type maps to the same element
+    let anim_type = tr.property_animation_type_for_property(Type::Int32);
+    debug_assert!(matches!(anim_type, ElementType::Builtin(..)));
+    build_animation_element(anim, anim_type, diag)
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct QualifiedTypeName {
     pub members: Vec<SmolStr>,
@@ -4486,6 +4499,9 @@ fn visit_element_expressions_excluding_repeater_model_dyn(
         for (_, _, a) in &mut t.property_animations {
             visit_element_expressions_simple(a, vis);
         }
+        if let Some((_, a)) = t.catch_all_property_animation.as_mut() {
+            visit_element_expressions_simple(a, vis);
+        }
     }
     elem.borrow_mut().transitions = transitions;
 
@@ -4768,6 +4784,7 @@ pub struct Transition {
     pub direction: TransitionDirection,
     pub state_id: SmolStr,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
+    pub catch_all_property_animation: Option<(SourceLocation, ElementRc)>,
     pub node: syntax_nodes::Transition,
 }
 
@@ -4778,13 +4795,34 @@ impl Transition {
         tr: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Transition {
-        if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("catch-all not yet implemented".into(), &star);
-        };
         let direction_text = trs
             .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
             .unwrap_or_default();
+
+        let mut property_animations = Vec::new();
+        let mut catch_all_property_animation: Option<(SourceLocation, _)> = None;
+        for pa in trs.PropertyAnimation() {
+            if let Some(star) = pa.child_token(SyntaxKind::Star) {
+                let star = star.to_source_location();
+                if let Some((first, _)) = &catch_all_property_animation {
+                    push_duplicate_catch_all_error(star, first.clone(), diag);
+                } else {
+                    catch_all_property_animation =
+                        Some((star, catch_all_animation_element_from_node(&pa, diag, tr)));
+                }
+                continue;
+            }
+            for qn in pa.QualifiedName() {
+                if let Some((ne, prop_type)) =
+                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag)
+                    && let Some(anim_element) =
+                        animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                {
+                    property_animations.push((ne, qn.to_source_location(), anim_element));
+                }
+            }
+        }
 
         Transition {
             direction: match direction_text.as_str() {
@@ -4800,21 +4838,43 @@ impl Transition {
                 .DeclaredIdentifier()
                 .and_then(|x| parser::identifier_text(&x))
                 .unwrap_or_default(),
-            property_animations: trs
-                .PropertyAnimation()
-                .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
-                .filter_map(|(pa, qn)| {
-                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag).and_then(
-                        |(ne, prop_type)| {
-                            animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                                .map(|anim_element| (ne, qn.to_source_location(), anim_element))
-                        },
-                    )
-                })
-                .collect(),
+            property_animations,
+            catch_all_property_animation,
             node: trs.clone(),
         }
     }
+}
+
+fn validate_transition_directions(transitions: &[Transition], diag: &mut BuildDiagnostics) {
+    let mut seen_catch_all = HashMap::<&SmolStr, [Option<&SourceLocation>; 2]>::new();
+    for t in transitions {
+        let Some((span, _)) = &t.catch_all_property_animation else { continue };
+        let claimed = seen_catch_all.entry(&t.state_id).or_default();
+        let directions: &[usize] = match t.direction {
+            TransitionDirection::In => &[0],
+            TransitionDirection::Out => &[1],
+            TransitionDirection::InOut => &[0, 1],
+        };
+        if let Some(first) = directions.iter().find_map(|&d| claimed[d]) {
+            push_duplicate_catch_all_error(span.clone(), first.clone(), diag);
+        } else {
+            for &d in directions {
+                claimed[d] = Some(span);
+            }
+        }
+    }
+}
+
+fn push_duplicate_catch_all_error(
+    span: SourceLocation,
+    first: SourceLocation,
+    diag: &mut BuildDiagnostics,
+) {
+    diag.push_error_with_span(
+        "Only one 'animate *' is allowed per state and direction".into(),
+        span,
+    );
+    diag.push_note_with_span("The first 'animate *' is here".into(), first);
 }
 
 #[derive(Clone, Debug, derive_more::Deref)]
