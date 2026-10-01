@@ -622,10 +622,10 @@ public class SlintAndroidJavaHelper {
         FutureTask<String> future = new FutureTask<>(() -> {
             ClipData clip = mActivity.getSystemService(ClipboardManager.class).getPrimaryClip();
             if (clip == null || clip.getItemCount() == 0) {
-                return "";
+                return null;
             }
             CharSequence text = clip.getItemAt(0).coerceToText(mActivity);
-            return text == null ? "" : text.toString();
+            return text == null ? null : text.toString();
         });
 
         mActivity.runOnUiThread(future);
@@ -633,10 +633,10 @@ public class SlintAndroidJavaHelper {
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return "";
+            return null;
         } catch (ExecutionException e) {
             Log.w("slint", "Failed to read the clipboard", e.getCause());
-            return "";
+            return null;
         }
     }
 

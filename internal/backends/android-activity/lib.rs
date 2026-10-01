@@ -166,12 +166,10 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
 
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         if clipboard == Clipboard::DefaultClipboard {
-            Some(
-                self.window
-                    .java_helper
-                    .get_clipboard()
-                    .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e)),
-            )
+            self.window
+                .java_helper
+                .get_clipboard()
+                .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e))
         } else {
             None
         }

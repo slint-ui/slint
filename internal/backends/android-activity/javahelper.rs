@@ -591,8 +591,11 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
-        self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
+    pub fn get_clipboard(&self) -> Result<Option<String>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let text = helper.get_clipboard(env)?;
+            Ok((!text.is_null()).then(|| text.to_string()))
+        })
     }
 
     /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
