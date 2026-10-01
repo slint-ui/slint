@@ -142,6 +142,7 @@ class SlintInputView extends View {
     private InputHandle mCursorHandle;
     private InputHandle mLeftHandle;
     private InputHandle mRightHandle;
+    private Integer mHandleColor;
     private final Rect mSelectionRect = new Rect();
     private ActionMode mCurrentActionMode;
 
@@ -261,6 +262,9 @@ class SlintInputView extends View {
         }
         if (handle == null) {
             handle = new InputHandle(this, id);
+            if (mHandleColor != null) {
+                handle.setHandleColor(mHandleColor);
+            }
         }
         handle.setPosition(x, y);
         return handle;
@@ -315,6 +319,7 @@ class SlintInputView extends View {
     }
 
     public void setHandleColor(int color) {
+        mHandleColor = color;
         for (InputHandle handle : new InputHandle[] { mCursorHandle, mLeftHandle, mRightHandle }) {
             if (handle != null) {
                 handle.setHandleColor(color);
