@@ -191,7 +191,7 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
             _ => i_slint_core::items::ColorScheme::Unknown,
         };
         ctx.set_color_scheme(color_scheme);
-        if let Ok(accent) = self.window.java_helper.accent_color() {
+        if let Ok(Some(accent)) = self.window.java_helper.accent_color() {
             ctx.set_accent_color(accent);
         }
         if let Ok(scale) = self.window.java_helper.font_scale()
