@@ -548,9 +548,11 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
-    pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
+    /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
+    pub fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+            let argb = helper.accent_color(env)? as u32;
+            Ok((argb != 0).then(|| Color::from_argb_encoded(argb)))
         })
     }
 
@@ -682,7 +684,7 @@ fn callback_set_night_mode<'local>(
             };
             let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
             ctx.set_color_scheme(scheme);
-            if let Ok(accent) = w.java_helper.accent_color() {
+            if let Ok(Some(accent)) = w.java_helper.accent_color() {
                 ctx.set_accent_color(accent);
             }
         }
