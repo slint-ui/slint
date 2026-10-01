@@ -5,10 +5,12 @@
 //!
 //! `android` and `ios` implement the platform-specific flick simulations that run after a release or a fling.
 //! `scroll_spring` settles content that already lies past its scroll limit back to the boundary.
+//! `rubber_band` maps between the drag distance past a limit and the displayed overscroll.
 //! `spring` holds the spring math the other two build on.
 
 pub mod android;
 pub mod ios;
+pub mod rubber_band;
 pub mod scroll_spring;
 pub mod spring;
 

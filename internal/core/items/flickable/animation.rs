@@ -12,6 +12,7 @@ use crate::Property;
 use crate::animations::Instant;
 use crate::animations::simulations::android::{AndroidFlick, AndroidFlickParameters};
 use crate::animations::simulations::ios::{IOsFlick, IOsFlickParameters};
+use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
@@ -19,8 +20,6 @@ use crate::lengths::{LogicalPoint, LogicalRect, LogicalVector, RectLengths};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 
-/// The coefficient of UIKit's rubber-band curve, see [`rubber_band_move_axis`].
-const RUBBER_BAND_COEFFICIENT: f32 = 0.55;
 /// `FlickAnimation::carried_momentum`'s growth curve: `carried = CARRY_SCALE *
 /// current_velocity.abs().powf(CARRY_EXPONENT)`. Fit by log-log least squares (R² = 0.76)
 /// against 112 real same-direction repeat flicks (a rapid flick starting while the previous
@@ -67,32 +66,27 @@ impl PositionSimulation for FlickAnimation {
 }
 
 /// Moves `pos` by the drag `delta` along one axis, rubber-banding the part outside
-/// `min_pos..=0`.
-/// The overscroll follows UIKit's rubber-band curve,
-/// `exposure = c * distance * viewport / (viewport + c * distance)`,
-/// where `distance` is how far the finger moved past the edge.
-pub(super) fn rubber_band_move_axis(pos: f32, delta: f32, min_pos: f32, viewport: f32) -> f32 {
-    if viewport <= 0. {
+/// `min_pos..=0` (see [`rubber_band`]).
+pub(super) fn rubber_band_move_axis(
+    pos: f32,
+    delta: f32,
+    min_pos: f32,
+    viewport_length: f32,
+) -> f32 {
+    if viewport_length <= 0. {
         return pos + delta;
     }
-    let uncompress = |exposure: f32| {
-        exposure * viewport / (RUBBER_BAND_COEFFICIENT * (viewport - exposure).max(0.001))
-    };
-    let compress = |distance: f32| {
-        RUBBER_BAND_COEFFICIENT * distance * viewport
-            / (viewport + RUBBER_BAND_COEFFICIENT * distance)
-    };
     let raw = if pos > 0. {
-        uncompress(pos)
+        rubber_band::uncompress(pos, viewport_length)
     } else if pos < min_pos {
-        min_pos - uncompress(min_pos - pos)
+        min_pos + rubber_band::uncompress(pos - min_pos, viewport_length)
     } else {
         pos
     } + delta;
     if raw > 0. {
-        compress(raw)
+        rubber_band::compress(raw, viewport_length)
     } else if raw < min_pos {
-        min_pos - compress(min_pos - raw)
+        min_pos + rubber_band::compress(raw - min_pos, viewport_length)
     } else {
         raw
     }
@@ -109,10 +103,10 @@ impl FlickAnimation {
         use_bounce_x: bool,
         use_bounce_y: bool,
     ) -> LogicalPoint {
-        let move_axis = |pos: f32, delta: f32, content: f32, viewport: f32, bounce: bool| {
-            let min_pos = (viewport - content).min(0.);
+        let move_axis = |pos: f32, delta: f32, content: f32, viewport_length: f32, bounce: bool| {
+            let min_pos = (viewport_length - content).min(0.);
             if bounce {
-                rubber_band_move_axis(pos, delta, min_pos, viewport)
+                rubber_band_move_axis(pos, delta, min_pos, viewport_length)
             } else {
                 (pos + delta).clamp(min_pos, 0.)
             }
@@ -218,8 +212,9 @@ impl FlickAnimation {
     pub fn create_spring_animation(
         start_value: f32,
         limit_value: Pin<Box<Property<f32>>>,
+        viewport_length: f32,
     ) -> SpringSimulation {
-        SpringSimulation::new_with_default_parameters(start_value, limit_value)
+        SpringSimulation::new_with_default_parameters(start_value, limit_value, viewport_length)
     }
 }
 
@@ -272,10 +267,13 @@ mod tests {
     /// to rubber-band against, so the delta passes through unresisted.
     #[test]
     fn non_positive_viewport_does_not_produce_nan_or_inf() {
-        for viewport in [0., -5.] {
+        for viewport_length in [0., -5.] {
             for delta in [-10., -1., 1., 10.] {
-                let result = rubber_band_move_axis(10., delta, -100., viewport);
-                assert!(result.is_finite(), "viewport {viewport}, delta {delta}: {result}");
+                let result = rubber_band_move_axis(10., delta, -100., viewport_length);
+                assert!(
+                    result.is_finite(),
+                    "viewport_length {viewport_length}, delta {delta}: {result}"
+                );
                 assert_eq!(result, 10. + delta);
             }
         }
