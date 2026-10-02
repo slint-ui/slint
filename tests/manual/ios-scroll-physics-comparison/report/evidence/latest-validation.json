@@ -1,0 +1,1438 @@
+{
+  "tested_engine_commit": "af6e8e7c357f7eec5e894cfaac8390c04fd104e3",
+  "replay_assumption": "Held native pulls only, zero release velocity",
+  "coefficients": {
+    "frequency": 10.67037,
+    "rate_min": 5.470122,
+    "rate_rise": 4.825567,
+    "half_distance": 165.8656,
+    "delay_s": 0.007
+  },
+  "error_window": "paired: 0\u20131.5 seconds; replay: every recorded post-release sample",
+  "replay_summary": {
+    "held_fit_distances": {
+      "callback": {
+        "count": 36,
+        "mean_curve_rms_pt": 0.3332876358477725,
+        "worst_gap_pt": 1.9298366465482957,
+        "within_0_5_pt": 0
+      },
+      "display_target": {
+        "count": 36,
+        "mean_curve_rms_pt": 1.8747958329797723,
+        "worst_gap_pt": 20.912994370135323,
+        "within_0_5_pt": 0
+      }
+    },
+    "held_validation_distances": {
+      "callback": {
+        "count": 24,
+        "mean_curve_rms_pt": 0.32994507711309323,
+        "worst_gap_pt": 1.805603873870055,
+        "within_0_5_pt": 0
+      },
+      "display_target": {
+        "count": 24,
+        "mean_curve_rms_pt": 1.581467838494819,
+        "worst_gap_pt": 15.538873439862215,
+        "within_0_5_pt": 0
+      }
+    }
+  },
+  "replay_curves": [
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.219500000000005,
+      "callback": {
+        "rms_pt": 0.27443271455734436,
+        "max_gap_pt": 0.9219238531292753,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.47246049948931773,
+        "max_gap_pt": 2.465187687173753,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.236000000000022,
+      "callback": {
+        "rms_pt": 0.21186226093262875,
+        "max_gap_pt": 0.7054835806708208,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.5344973234687389,
+        "max_gap_pt": 2.4125057577037907,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.203499999999975,
+      "callback": {
+        "rms_pt": 0.37597922546455037,
+        "max_gap_pt": 1.2407217819283147,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3963503957846954,
+        "max_gap_pt": 2.381283587316119,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.24400000000003,
+      "callback": {
+        "rms_pt": 0.1865067683590712,
+        "max_gap_pt": 0.881387926026342,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.8918903023746757,
+        "max_gap_pt": 3.6948851712813067,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.216000000000001,
+      "callback": {
+        "rms_pt": 0.1675080625686663,
+        "max_gap_pt": 0.8464992748444509,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.9115747043672157,
+        "max_gap_pt": 3.707398011344061,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.230499999999996,
+      "callback": {
+        "rms_pt": 0.24290781708739076,
+        "max_gap_pt": 0.7085355753140767,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7979212882265706,
+        "max_gap_pt": 3.791540545273527,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.244999999999948,
+      "callback": {
+        "rms_pt": 0.33857466215661214,
+        "max_gap_pt": 1.140655490937128,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.459045431524237,
+        "max_gap_pt": 5.121459073415934,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.230500000000003,
+      "callback": {
+        "rms_pt": 0.34978262610221317,
+        "max_gap_pt": 1.1804705139862222,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4712979509749378,
+        "max_gap_pt": 5.172837511848769,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.248000000000145,
+      "callback": {
+        "rms_pt": 0.3409932450501724,
+        "max_gap_pt": 1.125481401946388,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4612154358052027,
+        "max_gap_pt": 5.134188299873884,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.229999999999988,
+      "callback": {
+        "rms_pt": 0.3098770483123039,
+        "max_gap_pt": 1.0933248566388185,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.40541818387197354,
+        "max_gap_pt": 1.4318776370915742,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.232000000000005,
+      "callback": {
+        "rms_pt": 0.288924787439856,
+        "max_gap_pt": 1.0885190757592778,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3843668263403232,
+        "max_gap_pt": 1.3485669765961634,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.252499999999998,
+      "callback": {
+        "rms_pt": 0.3199151775051909,
+        "max_gap_pt": 1.2410690212910778,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.41552713566891974,
+        "max_gap_pt": 1.5271950113878008,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.228999999999973,
+      "callback": {
+        "rms_pt": 0.5994141196851116,
+        "max_gap_pt": 1.842973831569907,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1594594482932488,
+        "max_gap_pt": 7.381087768490204,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.232499999999922,
+      "callback": {
+        "rms_pt": 0.5866953757686123,
+        "max_gap_pt": 1.9298366465482957,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1680368382803645,
+        "max_gap_pt": 7.65326156422897,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.230000000000071,
+      "callback": {
+        "rms_pt": 0.4759260229595643,
+        "max_gap_pt": 1.5964200849177672,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.0415627546548705,
+        "max_gap_pt": 7.1521975741538455,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.246499999999935,
+      "callback": {
+        "rms_pt": 0.4485622547320132,
+        "max_gap_pt": 1.4437119120461546,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4300463450137078,
+        "max_gap_pt": 9.555940598304147,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.227000000000068,
+      "callback": {
+        "rms_pt": 0.4398551103606285,
+        "max_gap_pt": 1.376239257204361,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.420800809487981,
+        "max_gap_pt": 9.485679798082614,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.243999999999918,
+      "callback": {
+        "rms_pt": 0.2517948063278944,
+        "max_gap_pt": 1.0367701996272594,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.140475862374697,
+        "max_gap_pt": 8.247547495249478,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.241999999999972,
+      "callback": {
+        "rms_pt": 0.18958466411887714,
+        "max_gap_pt": 0.859787564910782,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.318273498780917,
+        "max_gap_pt": 1.8597489009694712,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.232500000000032,
+      "callback": {
+        "rms_pt": 0.22486590056829492,
+        "max_gap_pt": 0.8146854425617462,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.23804513741246555,
+        "max_gap_pt": 1.386391519631033,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.237999999999913,
+      "callback": {
+        "rms_pt": 0.179186763155161,
+        "max_gap_pt": 0.8043747401422117,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.37508658231344455,
+        "max_gap_pt": 1.7196732552336833,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.232000000000017,
+      "callback": {
+        "rms_pt": 0.3622998829341164,
+        "max_gap_pt": 1.1019969782695895,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.2317406973181484,
+        "max_gap_pt": 11.548379354993983,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.246500000000045,
+      "callback": {
+        "rms_pt": 0.5570414496743838,
+        "max_gap_pt": 1.5977814561933315,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.992180632245779,
+        "max_gap_pt": 10.547547730254365,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.254499999999998,
+      "callback": {
+        "rms_pt": 0.5399563274915051,
+        "max_gap_pt": 1.641170808670573,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1174778005433765,
+        "max_gap_pt": 11.703865233491854,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.234500000000063,
+      "callback": {
+        "rms_pt": 0.31134645237022146,
+        "max_gap_pt": 1.0567800081485075,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.6434817498770884,
+        "max_gap_pt": 13.566155470442311,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.227999999999986,
+      "callback": {
+        "rms_pt": 0.4203449160723728,
+        "max_gap_pt": 1.2891416842258963,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4784412745442683,
+        "max_gap_pt": 13.098723818640451,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.232000000000017,
+      "callback": {
+        "rms_pt": 0.3401980483892683,
+        "max_gap_pt": 1.04442594067514,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.5558038520771627,
+        "max_gap_pt": 13.160504576117091,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.225999999999956,
+      "callback": {
+        "rms_pt": 0.27672478563546865,
+        "max_gap_pt": 0.8131028363078485,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.890572435879308,
+        "max_gap_pt": 14.62711763683643,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.245500000000032,
+      "callback": {
+        "rms_pt": 0.28408430168350035,
+        "max_gap_pt": 0.8162240470077506,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.8811519916219748,
+        "max_gap_pt": 14.579046024137881,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.230000000000002,
+      "callback": {
+        "rms_pt": 0.28187296545558477,
+        "max_gap_pt": 0.7676025288744128,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.8796076586828314,
+        "max_gap_pt": 14.576132206604171,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.229500000000002,
+      "callback": {
+        "rms_pt": 0.5123225345522587,
+        "max_gap_pt": 1.688888430018725,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.40057271255736565,
+        "max_gap_pt": 2.698071178596713,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.225999999999956,
+      "callback": {
+        "rms_pt": 0.1714741499197902,
+        "max_gap_pt": 0.7751986886046538,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7132653490669791,
+        "max_gap_pt": 2.724663410290688,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.242999999999945,
+      "callback": {
+        "rms_pt": 0.3562605260213884,
+        "max_gap_pt": 1.2011735422543701,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.4456275896642154,
+        "max_gap_pt": 2.569270443756629,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.232999999999992,
+      "callback": {
+        "rms_pt": 0.40770274735273404,
+        "max_gap_pt": 1.3158353280116266,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7545037346961052,
+        "max_gap_pt": 4.131831324603894,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.238999999999997,
+      "callback": {
+        "rms_pt": 0.40679020331861787,
+        "max_gap_pt": 1.3033140868017306,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7613942853950135,
+        "max_gap_pt": 4.15243697872242,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.245500000000073,
+      "callback": {
+        "rms_pt": 0.5733022476496292,
+        "max_gap_pt": 1.805603873870055,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.6623088940046562,
+        "max_gap_pt": 4.193637651106343,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.230000000000071,
+      "callback": {
+        "rms_pt": 0.20591799004636574,
+        "max_gap_pt": 0.602961322277002,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.2933698374421025,
+        "max_gap_pt": 5.918463493637091,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.217000000000017,
+      "callback": {
+        "rms_pt": 0.2230661387054641,
+        "max_gap_pt": 0.7604222322288461,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4797911053121848,
+        "max_gap_pt": 5.790315164679839,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.250000000000036,
+      "callback": {
+        "rms_pt": 0.17521553872532902,
+        "max_gap_pt": 0.7484422310309764,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.3932818222295724,
+        "max_gap_pt": 5.846832572500773,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.236500000000008,
+      "callback": {
+        "rms_pt": 0.28999987496308566,
+        "max_gap_pt": 1.094759707637242,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3854943937899465,
+        "max_gap_pt": 1.3514791050628991,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.230000000000043,
+      "callback": {
+        "rms_pt": 0.28660886102651595,
+        "max_gap_pt": 1.0840278127888259,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.38181261338632355,
+        "max_gap_pt": 1.3419736877340989,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.247000000000005,
+      "callback": {
+        "rms_pt": 0.2579991020016543,
+        "max_gap_pt": 0.9905041174721321,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3518728899870372,
+        "max_gap_pt": 1.304646611697435,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.220000000000006,
+      "callback": {
+        "rms_pt": 0.5130782327898442,
+        "max_gap_pt": 1.6731606253458438,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4112198254920543,
+        "max_gap_pt": 9.24717613942795,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.218500000000018,
+      "callback": {
+        "rms_pt": 0.4373178885708399,
+        "max_gap_pt": 1.4055905719479256,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.3299172680487805,
+        "max_gap_pt": 8.942473840412305,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.233999999999964,
+      "callback": {
+        "rms_pt": 0.329054000439918,
+        "max_gap_pt": 1.044948050587152,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.183583724948129,
+        "max_gap_pt": 8.221751455109754,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.245999999999988,
+      "callback": {
+        "rms_pt": 0.22958774997965914,
+        "max_gap_pt": 0.8549280371493353,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.603545634784395,
+        "max_gap_pt": 10.634725960210687,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.240000000000068,
+      "callback": {
+        "rms_pt": 0.4380935882991932,
+        "max_gap_pt": 1.3916896088988864,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.920699098845218,
+        "max_gap_pt": 12.104266728616722,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.241500000000013,
+      "callback": {
+        "rms_pt": 0.17670698678939079,
+        "max_gap_pt": 0.7997119281695735,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.5738533284549607,
+        "max_gap_pt": 11.286872246493118,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.212500000000013,
+      "callback": {
+        "rms_pt": 0.21832994824642712,
+        "max_gap_pt": 0.7940150130650121,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.2575428109587385,
+        "max_gap_pt": 1.4264015730825612,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.23450000000009,
+      "callback": {
+        "rms_pt": 0.22114457847606175,
+        "max_gap_pt": 0.8168174146482237,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.254185913987511,
+        "max_gap_pt": 1.4105296855132146,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.241,
+      "callback": {
+        "rms_pt": 0.2595431416104164,
+        "max_gap_pt": 0.9027576569301807,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.25647979357846484,
+        "max_gap_pt": 1.5384303391768945,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.236000000000022,
+      "callback": {
+        "rms_pt": 0.2615962318176159,
+        "max_gap_pt": 0.7538657252499021,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.0209752980211166,
+        "max_gap_pt": 15.344419065793176,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.219000000000005,
+      "callback": {
+        "rms_pt": 0.24286926738379755,
+        "max_gap_pt": 0.8311278008820864,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.2607614718904987,
+        "max_gap_pt": 15.524990137698552,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.226999999999986,
+      "callback": {
+        "rms_pt": 0.23227549733932398,
+        "max_gap_pt": 0.9157986983908817,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.1385858927870203,
+        "max_gap_pt": 15.538873439862215,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.229999999999988,
+      "callback": {
+        "rms_pt": 0.3412245494811725,
+        "max_gap_pt": 1.4633939915586893,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.868052804394637,
+        "max_gap_pt": 18.71786582215836,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.228999999999994,
+      "callback": {
+        "rms_pt": 0.2676154565994261,
+        "max_gap_pt": 1.0831861715738569,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.791879701477676,
+        "max_gap_pt": 18.35230536904311,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.237999999999989,
+      "callback": {
+        "rms_pt": 0.16756885460072224,
+        "max_gap_pt": 0.7103935883976824,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.5681628055388654,
+        "max_gap_pt": 17.244682528357743,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.229500000000021,
+      "callback": {
+        "rms_pt": 0.49903735399375565,
+        "max_gap_pt": 1.6742342467233868,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.466777338593168,
+        "max_gap_pt": 20.912994370135323,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.233500000000062,
+      "callback": {
+        "rms_pt": 0.4452443508095702,
+        "max_gap_pt": 1.376264832151577,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.413270791865237,
+        "max_gap_pt": 20.852828929264405,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.222999999999981,
+      "callback": {
+        "rms_pt": 0.5930706068054992,
+        "max_gap_pt": 1.8539042886562385,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.541278532651041,
+        "max_gap_pt": 20.784346702493423,
+        "within_0_5_pt": false
+      }
+    }
+  ],
+  "paired_traces": [
+    {
+      "scenario": "latest-af6e8e-vp774-d50-v400-hold400-trial1",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 50,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 50.0,
+      "contact_ms": 1041.6616670554504,
+      "delivered_hold_ms": 408.3283341024071,
+      "release_pan_velocity_y": 64.0,
+      "uikit_release_exposure_pt": 21.333,
+      "slint_release_exposure_pt": 21.389,
+      "release_gap_pt": 0.05600000000000094,
+      "uikit_first_inward_0_5_pt_s": 0.02716041705571115,
+      "slint_first_inward_0_5_pt_s": 0.02716041705571115,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.46034495800267905,
+      "slint_settle_s": 0.4771299579879269,
+      "median_sampling_ms": 8.40275053633377,
+      "max_sample_gap_ms": 16.752916970290244,
+      "median_target_lead_ms": 5.701041896827519,
+      "post_release": {
+        "rms_pt": 0.227705974997855,
+        "max_gap_pt": 0.838000000000001,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.3126053489092384,
+        "max_gap_pt": 0.838000000000001,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d50-v400-hold400-trial2",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 50,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 50.0,
+      "contact_ms": 1041.6666669771075,
+      "delivered_hold_ms": 408.33333297632635,
+      "release_pan_velocity_y": 63.799,
+      "uikit_release_exposure_pt": 21.333,
+      "slint_release_exposure_pt": 21.389,
+      "release_gap_pt": 0.05600000000000094,
+      "uikit_first_inward_0_5_pt_s": 0.02441095793619752,
+      "slint_first_inward_0_5_pt_s": 0.02441095793619752,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.4685699159745127,
+      "slint_settle_s": 0.47695899999234825,
+      "median_sampling_ms": 8.306458010338247,
+      "max_sample_gap_ms": 13.153667096048594,
+      "median_target_lead_ms": 5.684042000211775,
+      "post_release": {
+        "rms_pt": 0.2721016323775759,
+        "max_gap_pt": 0.9740000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.3735745686383555,
+        "max_gap_pt": 0.9740000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d200-v400-hold400-trial1",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 200,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 200.0,
+      "contact_ms": 1041.311166016385,
+      "delivered_hold_ms": 407.9778330633417,
+      "release_pan_velocity_y": 240.0,
+      "uikit_release_exposure_pt": 92.0,
+      "slint_release_exposure_pt": 92.013,
+      "release_gap_pt": 0.01300000000000523,
+      "uikit_first_inward_0_5_pt_s": 0.026729166973382235,
+      "slint_first_inward_0_5_pt_s": 0.026729166973382235,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6267403330421075,
+      "slint_settle_s": 0.6215742500498891,
+      "median_sampling_ms": 8.306542003992945,
+      "max_sample_gap_ms": 18.0642920313403,
+      "median_target_lead_ms": 5.681167007423937,
+      "post_release": {
+        "rms_pt": 0.2430212118154816,
+        "max_gap_pt": 2.445999999999998,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.3329671061080959,
+        "max_gap_pt": 2.445999999999998,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d200-v400-hold400-trial2",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 200,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 200.0,
+      "contact_ms": 1041.0789580782875,
+      "delivered_hold_ms": 407.74562500882894,
+      "release_pan_velocity_y": 240.0,
+      "uikit_release_exposure_pt": 92.0,
+      "slint_release_exposure_pt": 92.013,
+      "release_gap_pt": 0.01300000000000523,
+      "uikit_first_inward_0_5_pt_s": 0.026092416024766862,
+      "slint_first_inward_0_5_pt_s": 0.026092416024766862,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6364929999690503,
+      "slint_settle_s": 0.6259551669936627,
+      "median_sampling_ms": 8.296792046166956,
+      "max_sample_gap_ms": 17.17420807108283,
+      "median_target_lead_ms": 2.4600414908491075,
+      "post_release": {
+        "rms_pt": 0.49550028628434206,
+        "max_gap_pt": 2.346999999999994,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.685145710897536,
+        "max_gap_pt": 2.346999999999994,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d600-v400-hold400-trial1",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 2249.999957974069,
+      "delivered_hold_ms": 400.46924992930144,
+      "release_pan_velocity_y": 244.774,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": 0.024274124996736646,
+      "slint_first_inward_0_5_pt_s": 0.024274124996736646,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6681704999646172,
+      "slint_settle_s": 0.6681704999646172,
+      "median_sampling_ms": 8.339792024344206,
+      "max_sample_gap_ms": 13.274624943733215,
+      "median_target_lead_ms": 5.847146036103368,
+      "post_release": {
+        "rms_pt": 0.4430887984742265,
+        "max_gap_pt": 4.655000000000001,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.6057932557812118,
+        "max_gap_pt": 4.655000000000001,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d600-v400-hold400-trial2",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 2249.999957974069,
+      "delivered_hold_ms": 399.99999990686774,
+      "release_pan_velocity_y": 235.47,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": 0.023797083995305002,
+      "slint_first_inward_0_5_pt_s": 0.023797083995305002,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6772953750332817,
+      "slint_settle_s": 0.6682806250173599,
+      "median_sampling_ms": 8.302874979563057,
+      "max_sample_gap_ms": 13.125666999258101,
+      "median_target_lead_ms": 5.667000019457191,
+      "post_release": {
+        "rms_pt": 0.4021085881533326,
+        "max_gap_pt": 3.6910000000000025,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.5495893353222928,
+        "max_gap_pt": 3.6910000000000025,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp387-d500-v400-hold400-trial1",
+      "hold_ms": 400,
+      "requested_viewport": 387,
+      "actual_viewport": 383,
+      "requested_distance_pt": 500,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 500.0,
+      "contact_ms": 1983.3332920679823,
+      "delivered_hold_ms": 400.00000002328306,
+      "release_pan_velocity_y": 240.0,
+      "uikit_release_exposure_pt": 158.333,
+      "slint_release_exposure_pt": 158.189,
+      "release_gap_pt": -0.14400000000000546,
+      "uikit_first_inward_0_5_pt_s": 0.02409941703081131,
+      "slint_first_inward_0_5_pt_s": 0.02409941703081131,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6546228750376031,
+      "slint_settle_s": 0.6546228750376031,
+      "median_sampling_ms": 8.339083986356854,
+      "max_sample_gap_ms": 13.81829206366092,
+      "median_target_lead_ms": 5.815875483676791,
+      "post_release": {
+        "rms_pt": 0.5493649262759887,
+        "max_gap_pt": 1.6620000000000061,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7516717618083045,
+        "max_gap_pt": 1.6620000000000061,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp387-d500-v400-hold400-trial2",
+      "hold_ms": 400,
+      "requested_viewport": 387,
+      "actual_viewport": 383,
+      "requested_distance_pt": 500,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 500.0,
+      "contact_ms": 1983.333291951567,
+      "delivered_hold_ms": 400.00000002328306,
+      "release_pan_velocity_y": 236.684,
+      "uikit_release_exposure_pt": 158.333,
+      "slint_release_exposure_pt": 158.189,
+      "release_gap_pt": -0.14400000000000546,
+      "uikit_first_inward_0_5_pt_s": 0.02544574998319149,
+      "slint_first_inward_0_5_pt_s": 0.02544574998319149,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_settle_s": 0.6518541669938713,
+      "slint_settle_s": 0.6518541669938713,
+      "median_sampling_ms": 8.326812530867755,
+      "max_sample_gap_ms": 16.43483294174075,
+      "median_target_lead_ms": 5.742874927818775,
+      "post_release": {
+        "rms_pt": 0.5340192238380294,
+        "max_gap_pt": 3.5209999999999866,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7204074729507829,
+        "max_gap_pt": 3.5209999999999866,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d100-v400-hold0-trial1",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 350.00000009313226,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.301000000000002,
+      "uikit_settle_s": 0.6103057500440627,
+      "slint_settle_s": 0.6103057500440627,
+      "median_sampling_ms": 8.309500466566533,
+      "max_sample_gap_ms": 12.790082953870296,
+      "median_target_lead_ms": 5.819333950057626,
+      "post_release": {
+        "rms_pt": 0.2850006300274125,
+        "max_gap_pt": 1.1439999999999984,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.3907279930889688,
+        "max_gap_pt": 1.1439999999999984,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d100-v400-hold0-trial2",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 349.44695804733783,
+      "delivered_hold_ms": 0.0313750933855772,
+      "release_pan_velocity_y": 406.034,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.3250000000000028,
+      "uikit_settle_s": 0.6018209579633549,
+      "slint_settle_s": 0.6098079999210313,
+      "median_sampling_ms": 8.27591703273356,
+      "max_sample_gap_ms": 16.271624946966767,
+      "median_target_lead_ms": 5.808832938782871,
+      "post_release": {
+        "rms_pt": 0.2918623724368122,
+        "max_gap_pt": 1.1679999999999993,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.39905393328053623,
+        "max_gap_pt": 1.1679999999999993,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d100-v1200-hold0-trial1",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 175.00000004656613,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1223.995,
+      "uikit_release_exposure_pt": 44.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 2.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 16.667,
+      "slint_extra_exposure_pt": 7.910000000000004,
+      "uikit_settle_s": 0.7021069580223411,
+      "slint_settle_s": 0.6769918330246583,
+      "median_sampling_ms": 8.343541994690895,
+      "max_sample_gap_ms": 13.488334021531045,
+      "median_target_lead_ms": 5.836396012455225,
+      "post_release": {
+        "rms_pt": 3.522222982562133,
+        "max_gap_pt": 12.04,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.822841491494753,
+        "max_gap_pt": 12.04,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "latest-af6e8e-vp774-d100-v1200-hold0-trial2",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 174.25945808645338,
+      "delivered_hold_ms": 0.06745802238583565,
+      "release_pan_velocity_y": 1248.905,
+      "uikit_release_exposure_pt": 45.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 1.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 14.667000000000002,
+      "slint_extra_exposure_pt": 7.977000000000004,
+      "uikit_settle_s": 0.7017039589118212,
+      "slint_settle_s": 0.6767321670195088,
+      "median_sampling_ms": 8.329458069056273,
+      "max_sample_gap_ms": 12.850459082983434,
+      "median_target_lead_ms": 5.976020474918187,
+      "post_release": {
+        "rms_pt": 2.931993443982363,
+        "max_gap_pt": 10.240000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.014601417534083,
+        "max_gap_pt": 10.240000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    }
+  ]
+}
