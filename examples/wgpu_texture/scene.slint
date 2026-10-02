@@ -17,6 +17,11 @@ export component App inherits Window {
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
     VerticalBox {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+
         Text {
             text: "This text is rendered using Slint. The rotating cube below is rendered into an WGPU texture.";
             wrap: word-wrap;

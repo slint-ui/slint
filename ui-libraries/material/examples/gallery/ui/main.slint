@@ -26,6 +26,10 @@ export component MainWindow inherits MaterialWindow {
     MainView {
         width: 100%;
         height: 100%;
+        safe-area-top: root.safe-area-insets.top;
+        safe-area-bottom: root.safe-area-insets.bottom;
+        safe-area-left: root.safe-area-insets.left;
+        safe-area-right: root.safe-area-insets.right;
     }
 
     changed width => {
