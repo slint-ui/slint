@@ -2022,8 +2022,6 @@ impl WindowAdapter for WinitWindowAdapter {
                     size: i_slint_core::api::LogicalSize::new(width, height),
                 })
                 .unwrap();
-            WindowInner::from_pub(self.window())
-                .set_window_item_safe_area(window_item.safe_area_insets());
         }
 
         let m = properties.is_fullscreen();

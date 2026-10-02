@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Passes the Window's struct properties whole, not field by field.
+
+component Inner {
+    in property <Edges> edges;
+    in property <Point> point;
+    in property <Size> size;
+}
+
+export component TestCase inherits Window {
+    inner := Inner {
+        edges: root.safe-area-insets;
+        point: root.virtual-keyboard-position;
+        size: root.virtual-keyboard-size;
+    }
+
+    out property <Edges> edges: inner.edges;
+    out property <Point> point: inner.point;
+    out property <Size> size: inner.size;
+    out property <Edges> window-edges: root.safe-area-insets;
+    out property <bool> test: inner.edges.top == 0 && inner.point.x == 0 && inner.size.width == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+i_slint_core::window::WindowInner::from_pub(instance.window())
+    .set_window_item_safe_area(i_slint_core::lengths::LogicalEdges::new(1., 2., 3., 4.));
+let edges = instance.get_edges();
+assert_eq!((edges.top, edges.bottom, edges.left, edges.right), (1., 2., 3., 4.));
+let edges = instance.get_window_edges();
+assert_eq!((edges.top, edges.bottom, edges.left, edges.right), (1., 2., 3., 4.));
+
+instance.window().set_virtual_keyboard(
+    slint::LogicalPosition::new(5., 6.),
+    slint::LogicalSize::new(7., 8.),
+    i_slint_core::InternalToken,
+);
+assert_eq!(instance.get_point(), slint::LogicalPosition::new(5., 6.));
+assert_eq!(instance.get_size(), slint::LogicalSize::new(7., 8.));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

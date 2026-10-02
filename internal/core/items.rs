@@ -1261,9 +1261,9 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub safe_area_insets: Property<crate::lengths::LogicalEdges>,
-    pub virtual_keyboard_position: Property<crate::lengths::LogicalPoint>,
-    pub virtual_keyboard_size: Property<crate::lengths::LogicalSize>,
+    pub safe_area_insets: Property<Edges>,
+    pub virtual_keyboard_position: Property<LogicalPosition>,
+    pub virtual_keyboard_size: Property<crate::api::LogicalSize>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
