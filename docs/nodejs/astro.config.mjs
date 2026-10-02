@@ -52,7 +52,8 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/HeaderNodeDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
                 Head: "@slint/common-files/src/components/Head.astro",
-                MarkdownContent: "@slint/common-files/src/components/MarkdownContent.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 starlightTypeDoc({
