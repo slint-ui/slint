@@ -148,6 +148,10 @@ export default defineConfig({
                             slug: "cmake-reference/scale-factor",
                         },
                         {
+                            label: "Reduced Motion for Microcontrollers",
+                            slug: "cmake-reference/reduced-motion",
+                        },
+                        {
                             label: "Bundle Translations",
                             slug: "cmake-reference/bundle-translations",
                         },

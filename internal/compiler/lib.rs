@@ -158,6 +158,11 @@ pub struct CompilerConfiguration {
     /// It will also be set as a const scale factor on the `slint::Window`.
     pub const_scale_factor: Option<f32>,
 
+    /// Compile time value of the operating system's reduced-motion setting. When set, animations
+    /// do not consult the `SlintContext` at run time and `SlintContext::set_motion_preference`
+    /// has no effect. Meant for environments without such a setting, such as microcontrollers.
+    pub const_reduced_motion: Option<bool>,
+
     /// Whether image sizes are known when a compiled component is instantiated.
     /// This is false when the generated code may run on the web, where the browser
     /// decodes images asynchronously and the size updates once an image is loaded,
@@ -317,6 +322,7 @@ impl CompilerConfiguration {
             resource_url_mapper: None,
             inline_all_elements,
             const_scale_factor,
+            const_reduced_motion: None,
             const_image_sizes,
             accessibility: true,
             enable_experimental,

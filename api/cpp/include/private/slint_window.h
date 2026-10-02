@@ -114,6 +114,10 @@ public:
     {
         slint_windowrc_set_const_scale_factor(&inner, value);
     }
+    void set_const_reduced_motion(bool reduced) const
+    {
+        slint_windowrc_set_const_reduced_motion(&inner, reduced);
+    }
 
     bool supports_native_menu_bar() const
     {

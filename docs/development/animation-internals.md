@@ -22,6 +22,12 @@ AnimationDriver
 └── update_animations(new_tick)                  // Called per frame by the backend
 ```
 
+## Reduced Motion
+
+A backend reports the operating system's reduced-motion setting through `SlintContext::set_motion_preference`, which stores a `MotionPreference` property on the context. The compiler folds `BuiltinFunction::ReducedMotion` into every animation's `enabled` binding in `lower_animation` (`internal/compiler/llr/lower_expression.rs`), so generated code, C++ and the interpreter all evaluate `enabled && !reduced_motion()` against the component's own context, reached through its window adapter (`i_slint_core::window::reduced_motion`). Animation details are computed when an animation starts, so a change of the setting applies to animations that start afterwards. `Flickable` reads the same property through its window adapter for wheel smoothing and the fling after release.
+
+Like `const_scale_factor`, `CompilerConfiguration::const_reduced_motion` (`with_reduced_motion` in `slint-build`, `--reduced-motion` on the CLI, `SLINT_REDUCED_MOTION` in CMake) fixes the value at compile time for environments without an operating-system setting: `lower_animation` then leaves `enabled` alone (or makes it `false`), so no generated code reads the context, and the window-creation code calls `SlintContext::set_const_motion_preference`, after which `set_motion_preference` is ignored.
+
 **Key components:**
 
 | Function/Type | Location | Purpose |

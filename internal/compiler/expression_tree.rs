@@ -103,6 +103,9 @@ pub enum BuiltinFunction {
     Oklch,
     ColorScheme,
     AccentColor,
+    /// Whether the user asked the operating system for less motion. Not reachable from
+    /// `.slint` code: the compiler folds it into every animation's `enabled` binding.
+    ReducedMotion,
     SupportsNativeMenuBar,
     /// Setup the menu bar
     ///
@@ -307,6 +310,7 @@ declare_builtin_function_types!(
         typeregister::BUILTIN.enums.ColorScheme.clone(),
     ),
     AccentColor: () -> Type::Color,
+    ReducedMotion: () -> Type::Bool,
     SupportsNativeMenuBar: () -> Type::Bool,
     // entries, sub-menu, activate. But the types here are not accurate.
     SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
@@ -368,6 +372,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::ColorScheme => false,
             BuiltinFunction::AccentColor => false,
+            BuiltinFunction::ReducedMotion => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
             BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::SetupSystemTrayIcon => false,
@@ -475,6 +480,7 @@ impl BuiltinFunction {
             BuiltinFunction::AnimationTick => true,
             BuiltinFunction::ColorScheme => true,
             BuiltinFunction::AccentColor => true,
+            BuiltinFunction::ReducedMotion => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
             BuiltinFunction::SetupMenuBar => false,
             BuiltinFunction::SetupSystemTrayIcon => false,

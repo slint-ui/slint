@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// When the user asks the operating system for less motion, the backend tells the
+// context, and every animation that starts lands on its target right away.
+
+export component TestCase inherits Window {
+    in-out property <bool> cond;
+    in-out property <bool> gate: true;
+    out property <float> eased: eased-rect.opacity;
+    out property <length> sprung: sprung-rect.x;
+    out property <length> delayed: delayed-rect.x;
+    out property <length> gated: gated-rect.x;
+
+    eased-rect := Rectangle {
+        opacity: cond ? 0 : 1;
+        animate opacity { duration: 1s; }
+    }
+    sprung-rect := Rectangle {
+        x: cond ? 100px : 0px;
+        animate x { duration: 1s; easing: spring(0.5); }
+    }
+    delayed-rect := Rectangle {
+        x: cond ? 100px : 0px;
+        animate x { delay: 1s; duration: 1s; }
+    }
+    gated-rect := Rectangle {
+        x: cond ? 100px : 0px;
+        animate x { duration: 1s; enabled: root.gate; }
+    }
+}
+
+/*
+```rust
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_eased(), 1.);
+assert_eq!(instance.get_sprung(), 0.);
+assert_eq!(instance.get_delayed(), 0.);
+assert_eq!(instance.get_gated(), 0.);
+
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+instance.set_cond(true);
+assert_eq!(instance.get_eased(), 0.);
+assert_eq!(instance.get_sprung(), 100.);
+assert_eq!(instance.get_delayed(), 100.);
+assert_eq!(instance.get_gated(), 100.);
+
+// Back to normal: the next change animates again.
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+instance.set_cond(false);
+assert_eq!(instance.get_eased(), 0.);
+assert_eq!(instance.get_delayed(), 100.);
+assert_eq!(instance.get_gated(), 100.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_eased(), 0.5);
+assert_eq!(instance.get_delayed(), 100.);
+assert_eq!(instance.get_gated(), 50.);
+slint_testing::mock_elapsed_time(1500);
+assert_eq!(instance.get_eased(), 1.);
+assert_eq!(instance.get_delayed(), 0.);
+assert_eq!(instance.get_gated(), 0.);
+```
+
+```rust
+// The setting changes while an animation runs: that animation finishes at its own pace,
+// the next one to start jumps.
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_eased(), 1.);
+instance.set_cond(true);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_eased(), 0.5);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_eased(), 0.25);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_eased(), 0.);
+instance.set_cond(false);
+assert_eq!(instance.get_eased(), 1.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
+// The animation's own `enabled` still wins: off stays off whatever the setting says.
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_gated(), 0.);
+instance.set_gate(false);
+instance.set_cond(true);
+assert_eq!(instance.get_gated(), 100.);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+instance.set_cond(false);
+assert_eq!(instance.get_gated(), 0.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+*/
