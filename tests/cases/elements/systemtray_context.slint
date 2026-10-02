@@ -9,6 +9,7 @@
 export component TestCase inherits SystemTrayIcon {
     in property <float> value: 1.5;
     out property <string> formatted: value;
+    out property <string> separator: Platform.decimal-separator;
 }
 
 /*
@@ -19,5 +20,6 @@ let ctx = i_slint_core::SlintContext::new(Box::new(
 ctx.set_locale("de_DE.UTF-8");
 let instance = TestCase::new_with_context(ctx).unwrap();
 assert_eq!(instance.get_formatted(), "1,5");
+assert_eq!(instance.get_separator(), ",");
 ```
 */
