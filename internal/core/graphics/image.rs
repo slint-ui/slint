@@ -54,6 +54,12 @@ OpaqueImageVTable_static! {
     pub static NINE_SLICE_VT for NineSliceImage
 }
 
+#[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
+OpaqueImageVTable_static! {
+    /// VTable for RC wrapped WGPU textures.
+    pub static WGPU_TEXTURE_VT for WGPUTexture
+}
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -556,7 +562,7 @@ pub enum ImageInner {
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
-    WGPUTexture(WGPUTexture) = 8,
+    WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
 }
 
 impl ImageInner {
@@ -1126,7 +1132,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-29")]
     pub fn to_wgpu_29_texture(&self) -> Option<wgpu_29::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU29Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU29Texture(texture) => Some(texture.clone()),
+                #[allow(unreachable_patterns)]
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -1139,7 +1149,11 @@ impl Image {
     #[cfg(feature = "unstable-wgpu-30")]
     pub fn to_wgpu_30_texture(&self) -> Option<wgpu_30::Texture> {
         match &self.0 {
-            ImageInner::WGPUTexture(WGPUTexture::WGPU30Texture(texture)) => Some(texture.clone()),
+            ImageInner::WGPUTexture(texture) => match &**texture {
+                WGPUTexture::WGPU30Texture(texture) => Some(texture.clone()),
+                #[allow(unreachable_patterns)]
+                _ => None,
+            },
             _ => None,
         }
     }
