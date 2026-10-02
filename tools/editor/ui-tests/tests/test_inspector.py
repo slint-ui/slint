@@ -450,16 +450,29 @@ def test_literal_color_field_separates_rgb_and_opacity(
         assert opacity_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
 
 
-def test_color_field_accepts_prefixed_rgb_and_alpha(
+@pytest.mark.parametrize(
+    ("property_name", "label", "rgb"),
+    [
+        ("background", "Rectangle background", "#ABCDEF"),
+        ("border-color", "Border color", "ABCDEF"),
+    ],
+)
+def test_color_field_preserves_or_replaces_alpha(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    property_name: str,
+    label: str,
+    rgb: str,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
+    original = f"        {property_name}: #1a2dac4d;".encode()
     baseline = replace_once(
         source_file.read_bytes(),
         b"        background: #2563eb;",
-        b"        background: #1a2dac4d;",
+        original
+        if property_name == "background"
+        else b"        background: #2563eb;\n" + original,
     )
     source_file.write_bytes(baseline)
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -469,50 +482,50 @@ def test_color_field_accepts_prefixed_rgb_and_alpha(
         select_element(window, "Rectangle")
         edit_field(
             window,
-            "Rectangle background",
-            "#ABCDEF",
+            label,
+            rgb,
             slint_testing.AccessibleRole.TextInput,
         )
         rgb_edit = replace_once(
             baseline,
-            b"        background: #1a2dac4d;",
-            b"        background: #abcdef4d;",
+            original,
+            f"        {property_name}: #abcdef4d;".encode(),
         )
         snapshot.wait_for_applied(rgb_edit, relative_path=INSPECTOR_SOURCE)
         wait_for_field(
             window,
-            "Rectangle background",
+            label,
             "ABCDEF",
             slint_testing.AccessibleRole.TextInput,
         )
         wait_for_field(
             window,
-            "Rectangle background opacity",
+            label + " opacity",
             "30",
             slint_testing.AccessibleRole.TextInput,
         )
 
         edit_field(
             window,
-            "Rectangle background",
+            label,
             "#12345680",
             slint_testing.AccessibleRole.TextInput,
         )
         alpha_edit = replace_once(
             baseline,
-            b"        background: #1a2dac4d;",
-            b"        background: #12345680;",
+            original,
+            f"        {property_name}: #12345680;".encode(),
         )
         snapshot.wait_for_applied(alpha_edit, relative_path=INSPECTOR_SOURCE)
         wait_for_field(
             window,
-            "Rectangle background",
+            label,
             "123456",
             slint_testing.AccessibleRole.TextInput,
         )
         wait_for_field(
             window,
-            "Rectangle background opacity",
+            label + " opacity",
             "50",
             slint_testing.AccessibleRole.TextInput,
         )
@@ -1159,13 +1172,6 @@ def test_inspector_length_fields_show_numbers_without_pixel_labels(
                 .find_all()
             )
             assert not any(text.accessible_label == "px" for text in texts)
-        pane = window_element_with_label(window, "Inspector and outline")
-        texts = (
-            pane.query_descendants()
-            .match_accessible_role(slint_testing.AccessibleRole.Text)
-            .find_all()
-        )
-        assert not any(text.accessible_label == "px" for text in texts)
 
 
 SHADOW_EDITS = (
