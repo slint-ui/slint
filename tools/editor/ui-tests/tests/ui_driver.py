@@ -4,16 +4,15 @@
 # cspell:ignore tobytes
 
 import contextlib
-import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TypeVar
 
 import slint_testing
 from editor_sync import EditorSync, current_editor_sync
 from PIL import Image
+from slint_testing import wait_until
 from ui_assertions import expect
 from ui_reporting import capture_failure, current_report, replay_stage
 
@@ -45,26 +44,6 @@ def press_key(window: slint_testing.Window, key: str) -> None:
 def press_keys(window: slint_testing.Window, text: str) -> None:
     for key in text:
         press_key(window, key)
-
-
-T = TypeVar("T")
-
-
-def wait_until(probe: Callable[[], T | None], timeout: float = 5) -> T:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            result = probe()
-        except slint_testing.RequestError:
-            # An element the probe reads was replaced, e.g. by a preview update. Probe again; the
-            # final attempt below lets the error through.
-            result = None
-        if result is not None:
-            return result
-        time.sleep(0.02)
-    result = probe()
-    assert result is not None
-    return result
 
 
 def first_window(
@@ -215,8 +194,9 @@ def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Elemen
 
     pane = element(window, "Element library")
     role = slint_testing.AccessibleRole.ListItem
-    top = pane.absolute_position.y
-    bottom = top + pane.size.height
+    rect = pane.absolute_rect
+    top = rect.y
+    bottom = top + rect.height
     position = slint_testing.LogicalPosition(x=center(pane).x, y=(top + bottom) / 2)
     step = max(1, (bottom - top) / 2)
     for delta in [0, 10000] + [-step] * 16:

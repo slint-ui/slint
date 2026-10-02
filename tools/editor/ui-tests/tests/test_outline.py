@@ -50,12 +50,7 @@ def wait_for_outline_state(
     window: slint_testing.Window,
     expected: list[tuple[str, str, bool]],
 ) -> None:
-    wait_until(
-        lambda: (
-            current if (current := known_outline_state(window)) == expected else None
-        ),
-        timeout=15,
-    )
+    wait_until(lambda: known_outline_state(window) == expected, timeout=15)
 
 
 def drop_position(
@@ -168,7 +163,7 @@ def test_outline_changes_element_parent_with_exact_source(
         window = first_window(editor)
         if source == "child-a":
             outline_row(window, "container").invoke_accessible_expand_action()
-            wait_until(lambda: True if not elements(window, "child-a") else None)
+            wait_until(lambda: not elements(window, "child-a"))
             outline_row(window, "container").invoke_accessible_expand_action()
             outline_row(window, "child-a")
             snapshot.assert_unchanged()
@@ -429,11 +424,7 @@ def test_outline_gap_matches_drop_destination(
             "after": ["container", "child-a", "child-b", "sibling-b", "sibling-a"],
         }[location]
         wait_until(
-            lambda: (
-                True
-                if [label for label, _, _ in known_outline_state(window)] == expected
-                else None
-            )
+            lambda: [label for label, _, _ in known_outline_state(window)] == expected
         )
         moved = outline_row(window, "sibling-b")
         assert moved.accessible_description == (
@@ -455,7 +446,7 @@ def test_outline_gap_matches_drop_destination(
         window.dispatch_event(
             slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(x=1, y=1))
         )
-        wait_until(lambda: not elements(window, "Hovered Image") or None)
+        wait_until(lambda: not elements(window, "Hovered Image"))
 
 
 def outline_image(

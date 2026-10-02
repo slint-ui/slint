@@ -47,9 +47,8 @@ def center(
     `size` is measured along the element's own axes.
     So the offset from that origin to the center has to be rotated as well.
     """
-    position = element.absolute_position
-    size = element.size
-    return offset_position(position, size.width / 2, size.height / 2, rotation)
+    rect = element.absolute_rect
+    return offset_position(rect.position, rect.width / 2, rect.height / 2, rotation)
 
 
 def offset_position(
@@ -70,9 +69,8 @@ def position_distance(
 
 
 def element_frame(element: slint_testing.Element) -> Frame:
-    position = element.absolute_position
-    size = element.size
-    return (position.x, position.y, size.width, size.height)
+    x, y, width, height = element.absolute_rect
+    return (x, y, width, height)
 
 
 def selection_frame(window: slint_testing.Window, kind: str) -> Frame:
@@ -327,13 +325,7 @@ def manual_radius_drag(
     tooltip = element(window, "Radius value", role=slint_testing.AccessibleRole.Text)
     initial_value = float(tooltip.accessible_value)
     window.dispatch_event(slint_testing.PointerMoveEvent(target))
-    wait_until(
-        lambda: (
-            value
-            if (value := float(tooltip.accessible_value)) != initial_value
-            else None
-        )
-    )
+    wait_until(lambda: float(tooltip.accessible_value) != initial_value)
     if check_preview is not None:
         check_preview()
     snapshot.assert_unchanged_now()
@@ -414,10 +406,8 @@ def center_canvas_selection(
     )
     wait_until(
         lambda: (
-            True
-            if abs(center(frame).x - target.x) < 0.01
+            abs(center(frame).x - target.x) < 0.01
             and abs(center(frame).y - target.y) < 0.01
-            else None
         )
     )
 

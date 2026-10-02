@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -20,10 +19,9 @@ class Element:
     accessible_enabled: bool = True
     accessible_item_selected: bool = False
     accessible_checked: bool = False
-    absolute_position: Any = field(
-        default_factory=lambda: SimpleNamespace(x=0.0, y=0.0)
+    absolute_rect: slint_testing.LogicalRect = field(
+        default_factory=lambda: slint_testing.LogicalRect(0.0, 0.0, 10.0, 10.0)
     )
-    size: Any = field(default_factory=lambda: SimpleNamespace(width=10.0, height=10.0))
     gone: bool = False
 
     @property
@@ -123,8 +121,7 @@ def test_counting_needs_a_query():
 def test_geometry_supports_approximate_values():
     element = Element(
         "Selection",
-        absolute_position=SimpleNamespace(x=20.1, y=24.0),
-        size=SimpleNamespace(width=100.2, height=80.0),
+        absolute_rect=slint_testing.LogicalRect(20.1, 24.0, 100.2, 80.0),
     )
     expect(cast(Any, Query([element]))).to_have_geometry(
         x=pytest.approx(20, abs=0.5),

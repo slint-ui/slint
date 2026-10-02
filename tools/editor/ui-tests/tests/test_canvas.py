@@ -231,7 +231,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
             y=artboard.absolute_position.y + artboard.size.height - 12,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(blank))
-        wait_until(lambda: True if not elements(window, f"Hovered {kind}") else None)
+        wait_until(lambda: not elements(window, f"Hovered {kind}"))
         snapshot.assert_unchanged()
 
         outside = slint_testing.LogicalPosition(
@@ -239,7 +239,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
             y=artboard.absolute_position.y - 12,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(outside))
-        wait_until(lambda: True if not elements(window, f"Hovered {kind}") else None)
+        wait_until(lambda: not elements(window, f"Hovered {kind}"))
         snapshot.assert_unchanged()
 
 
@@ -263,10 +263,8 @@ def test_overlapping_elements_update_hover_outline_to_topmost_item(
         window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
         wait_until(
             lambda: (
-                True
-                if elements(window, "Hovered Text")
+                elements(window, "Hovered Text")
                 and not elements(window, "Hovered Rectangle")
-                else None
             )
         )
         snapshot.assert_unchanged()
@@ -299,7 +297,7 @@ def test_overlapping_hover_does_not_intercept_selected_element_drag(
         window.dispatch_event(slint_testing.PointerMoveEvent(target))
         assert selection_frame(window, "Rectangle") != initial_frame
         assert not elements(window, "Selected Text")
-        wait_until(lambda: True if not elements(window, "Hovered Text") else None)
+        wait_until(lambda: not elements(window, "Hovered Text"))
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
@@ -538,9 +536,7 @@ def test_repeated_palette_drop_preserves_component_kind(
                 role=slint_testing.AccessibleRole.Text,
                 timeout=15,
             )
-            wait_until(
-                lambda: True if not elements(window, f"{kind} drag preview") else None
-            )
+            wait_until(lambda: not elements(window, f"{kind} drag preview"))
             button = slint_testing.PointerEventButton.Left
             window.dispatch_event(slint_testing.PointerPressEvent(target, button))
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
@@ -592,7 +588,7 @@ def test_component_palette_drag_over_rotated_element_does_not_crash(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(outside_artboard, button)
         )
-        wait_until(lambda: True if not elements(window, "Selected Rectangle") else None)
+        wait_until(lambda: not elements(window, "Selected Rectangle"))
         begin_palette_drag(window, "Rectangle", target)
         finish_palette_drag(window, target)
 
@@ -1914,9 +1910,7 @@ def test_rotation_continues_outside_window_and_commits_on_release(
             window.dispatch_event(slint_testing.PointerMoveEvent(target))
             wait_until(
                 lambda degrees=degrees: (
-                    True
-                    if abs(math.degrees(frame_rotation(window, "Text")) - degrees) < 1
-                    else None
+                    abs(math.degrees(frame_rotation(window, "Text")) - degrees) < 1
                 )
             )
             snapshot.assert_unchanged()
