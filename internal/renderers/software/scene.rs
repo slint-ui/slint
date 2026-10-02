@@ -658,3 +658,40 @@ pub struct ConicGradientCommand {
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
 }
+
+#[test]
+fn touches_corner() {
+    let clip =
+        |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| ShapeClip {
+            shape: RoundedShape {
+                radius,
+                left_clip: Length::new(left),
+                top_clip: Length::new(top),
+                right_clip: Length::new(right),
+                bottom_clip: Length::new(bottom),
+            },
+            opaque_border: PhysicalLength::new(0),
+        };
+    let size = PhysicalSize::new(10, 10);
+    let all = PhysicalBorderRadius::new_uniform(4);
+    // The whole shape.
+    assert!(clip(all, 0, 0, 0, 0).touches_corner(size));
+    // Exactly next to the top-left corner box, and one pixel into it.
+    let top_left = PhysicalBorderRadius::new(4, 0, 0, 0);
+    assert!(!clip(top_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    assert!(clip(top_left, 3, 0, 0, 0).touches_corner(PhysicalSize::new(7, 10)));
+    assert!(!clip(top_left, 0, 4, 0, 0).touches_corner(PhysicalSize::new(10, 6)));
+    // Each other corner on its own.
+    let top_right = PhysicalBorderRadius::new(0, 4, 0, 0);
+    assert!(clip(top_right, 0, 0, 0, 0).touches_corner(size));
+    assert!(!clip(top_right, 0, 0, 4, 0).touches_corner(PhysicalSize::new(6, 10)));
+    let bottom_right = PhysicalBorderRadius::new(0, 0, 4, 0);
+    assert!(!clip(bottom_right, 0, 0, 0, 4).touches_corner(PhysicalSize::new(10, 6)));
+    assert!(clip(bottom_right, 0, 0, 0, 3).touches_corner(PhysicalSize::new(10, 7)));
+    let bottom_left = PhysicalBorderRadius::new(0, 0, 0, 4);
+    assert!(!clip(bottom_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    // A command in the middle touches no corner.
+    assert!(!clip(all, 4, 4, 4, 4).touches_corner(PhysicalSize::new(2, 2)));
+    // Zero radii have no corner at all.
+    assert!(!clip(PhysicalBorderRadius::default(), 0, 0, 0, 0).touches_corner(size));
+}
