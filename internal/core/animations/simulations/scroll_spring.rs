@@ -32,11 +32,22 @@ const RETURN_RATE_RISE: f32 = 4.825567;
 /// The overscroll at which the initial return rate has risen halfway.
 const RETURN_RATE_HALF_DISTANCE: f32 = 165.8656;
 
-// Fitted to UIKit releases while still dragging outward, at 240–1250 pointer points per second.
+// Fitted to UIKit releases while still dragging outward, at 130–2030 pointer points per second
+// and 45–230 points past the edge.
 /// Up to this pointer speed, a release keeps the full initial return rate.
-const RETURN_RATE_FADE_START: f32 = 300.;
-/// From this pointer speed on, a release starts the return without an initial return rate.
-const RETURN_RATE_FADE_END: f32 = 1950.;
+const RETURN_RATE_FADE_START: f32 = 400.;
+/// The pointer speed at which the initial return rate has faded out, for a large overscroll.
+const RETURN_RATE_FADE_END_MAX: f32 = 3400.;
+/// The overscroll at which the fade's end has risen halfway to [`RETURN_RATE_FADE_END_MAX`].
+const RETURN_RATE_FADE_HALF_DISTANCE: f32 = 70.;
+
+/// The share of the initial return rate that a release keeps, `distance` past the edge.
+fn initial_return_rate_share(drag_speed: f32, distance: f32) -> f32 {
+    let squared = distance * distance;
+    let fade_length = (RETURN_RATE_FADE_END_MAX - RETURN_RATE_FADE_START) * squared
+        / (RETURN_RATE_FADE_HALF_DISTANCE * RETURN_RATE_FADE_HALF_DISTANCE + squared);
+    (1. - (drag_speed.abs() - RETURN_RATE_FADE_START) / fade_length.max(f32::EPSILON)).clamp(0., 1.)
+}
 
 fn initial_return_rate(distance: f32) -> f32 {
     let squared = distance * distance;
@@ -75,9 +86,7 @@ impl SpringSimulation {
         let return_rate_share = if release_velocity == 0. {
             1.
         } else {
-            ((RETURN_RATE_FADE_END - drag_speed.abs())
-                / (RETURN_RATE_FADE_END - RETURN_RATE_FADE_START))
-                .clamp(0., 1.)
+            initial_return_rate_share(drag_speed, distance)
         };
         let onset_velocity = -release_velocity
             - return_rate_share * onset_distance * initial_return_rate(onset_distance);
@@ -320,6 +329,14 @@ mod tests {
         };
         assert!(peak(1200.) > peak(400.) + 1., "{} <= {}", peak(1200.), peak(400.));
         assert_approx_eq!(peak(0.), peak(RETURN_RATE_FADE_START));
+    }
+
+    #[test]
+    fn initial_return_rate_fades_later_for_a_larger_overscroll() {
+        assert_approx_eq!(initial_return_rate_share(RETURN_RATE_FADE_START, 46.), 1.);
+        assert!(initial_return_rate_share(1000., 46.) < 0.5);
+        assert!(initial_return_rate_share(1000., 228.) > 0.75);
+        assert_approx_eq!(initial_return_rate_share(1000., 0.), 0.);
     }
 
     /// Steps the spring against UIKit samples of a release 100 points into a pull, read in the
