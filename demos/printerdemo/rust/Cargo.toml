@@ -43,6 +43,7 @@ target_sdk_version = 36
 
 [[package.metadata.android.application.activity]]
 name = "android.app.NativeActivity"
+orientation = "sensorLandscape"
 
 [[package.metadata.android.application.activity.meta_data]]
 name = "android.app.lib_name"
