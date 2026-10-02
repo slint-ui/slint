@@ -29,11 +29,29 @@ METHOD = """
         ]
         for (viewport, distance, speed, hold) in cases {
             for trial in 1...2 {
-                let name = "latest-af6e8e-vp\\(Int(viewport))-d\\(Int(distance))-v\\(Int(speed))"
+                let name = "validation-vp\\(Int(viewport))-d\\(Int(distance))-v\\(Int(speed))"
                     + "-hold\\(Int(hold * 1000))-trial\\(trial)"
                 captureOverscrollPull(name: name, distance: distance,
                     duration: hold > 0 ? max(0.5, distance / speed) : distance / speed,
                     holdDuration: hold, physicsVariant: "baseline", viewportHeight: viewport)
+            }
+        }
+    }
+
+    // Each pull keeps at least five synthesized moves, at 60 per second.
+    func testMurmeleReleaseSpeedSweep() {
+        let cases: [(Double, [Double])] = [
+            (100, [200, 300, 400, 500, 600, 800, 1000, 1200]),
+            (300, [200, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000]),
+            (600, [200, 400, 600, 800, 1000, 1200, 1500, 2000]),
+        ]
+        for (distance, speeds) in cases {
+            for speed in speeds {
+                for trial in 1...2 {
+                    let name = "sweep-vp774-d\\(Int(distance))-v\\(Int(speed))-hold0-trial\\(trial)"
+                    captureOverscrollPull(name: name, distance: distance, duration: distance / speed,
+                        holdDuration: 0, physicsVariant: "baseline", viewportHeight: 774)
+                }
             }
         }
     }
