@@ -32,6 +32,12 @@ const RETURN_RATE_RISE: f32 = 4.825567;
 /// The overscroll at which the initial return rate has risen halfway.
 const RETURN_RATE_HALF_DISTANCE: f32 = 165.8656;
 
+// Fitted to UIKit releases while still dragging outward, at 240–1250 pointer points per second.
+/// Up to this pointer speed, a release keeps the full initial return rate.
+const RETURN_RATE_FADE_START: f32 = 300.;
+/// From this pointer speed on, a release starts the return without an initial return rate.
+const RETURN_RATE_FADE_END: f32 = 1950.;
+
 fn initial_return_rate(distance: f32) -> f32 {
     let squared = distance * distance;
     RETURN_RATE_MIN
@@ -52,6 +58,8 @@ impl SpringSimulation {
     /// Springs from `start_value` back to `limit_value`, like UIKit's return after a pull.
     /// `velocity` is the content's velocity at the release; only motion away from
     /// `limit_value` carries over.
+    /// A faster `drag_speed`, the pointer's speed at the release, weakens that motion's
+    /// initial pull back.
     /// The content keeps that velocity until [`RETURN_DELAY`] after `start_time`, then the
     /// return starts.
     pub fn new_with_default_parameters(
@@ -59,12 +67,20 @@ impl SpringSimulation {
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         start_time: Instant,
         velocity: f32,
+        drag_speed: f32,
     ) -> Self {
         let distance = limit_value.as_ref().get() - start_value;
         let release_velocity = if velocity * distance < 0. { velocity } else { 0. };
         let onset_distance = distance - release_velocity * RETURN_DELAY.as_secs_f32();
-        let onset_velocity =
-            -release_velocity - onset_distance * initial_return_rate(onset_distance);
+        let return_rate_share = if release_velocity == 0. {
+            1.
+        } else {
+            ((RETURN_RATE_FADE_END - drag_speed.abs())
+                / (RETURN_RATE_FADE_END - RETURN_RATE_FADE_START))
+                .clamp(0., 1.)
+        };
+        let onset_velocity = -release_velocity
+            - return_rate_share * onset_distance * initial_return_rate(onset_distance);
         Self {
             start_time,
             traveled: 0.,
@@ -128,6 +144,7 @@ mod tests {
             test_limit_property(20.),
             start_time(),
             0.,
+            0.,
         );
         assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
         assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
@@ -143,6 +160,7 @@ mod tests {
             30.,
             test_limit_property(20.),
             start_time(),
+            0.,
             0.,
         );
         for millis in [50, 100, 300] {
@@ -161,6 +179,7 @@ mod tests {
             test_limit_property(20.),
             start_time(),
             0.,
+            0.,
         );
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
@@ -178,6 +197,7 @@ mod tests {
                 test_limit_property(0.),
                 start_time(),
                 velocity,
+                0.,
             );
             assert_approx_eq!(simulation.remaining_distance(Duration::ZERO), -start);
             for millis in [50, 100, 200, 500] {
@@ -195,8 +215,13 @@ mod tests {
     #[test]
     fn does_not_move_before_the_return_delay() {
         let start = start_time();
-        let mut simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), start, 0.);
+        let mut simulation = SpringSimulation::new_with_default_parameters(
+            30.,
+            test_limit_property(20.),
+            start,
+            0.,
+            0.,
+        );
         let mut position = 30.;
         simulation.step(&mut position, start + RETURN_DELAY);
         assert_approx_eq!(position, 30.);
@@ -214,8 +239,13 @@ mod tests {
     fn follows_a_measured_uikit_return() {
         let uikit_onset = Duration::from_nanos(16_827_855);
         let start = start_time();
-        let mut simulation =
-            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.), start, 0.);
+        let mut simulation = SpringSimulation::new_with_default_parameters(
+            92.,
+            test_limit_property(0.),
+            start,
+            0.,
+            0.,
+        );
         let mut position = 92.;
         for (millis, uikit) in
             [(17, 92.), (25, 87.), (50, 73.), (100, 50.), (150, 33.667), (200, 22.), (300, 10.)]
@@ -234,6 +264,7 @@ mod tests {
             test_limit_property(0.),
             start,
             600.,
+            0.,
         );
         assert_approx_eq!(simulation.remaining_velocity(Duration::ZERO), 600.);
         let mut position = 45.;
@@ -253,12 +284,14 @@ mod tests {
             test_limit_property(0.),
             start_time(),
             0.,
+            0.,
         );
         let inward = SpringSimulation::new_with_default_parameters(
             45.,
             test_limit_property(0.),
             start_time(),
             -600.,
+            0.,
         );
         for millis in [0, 5, 50, 200] {
             let t = Duration::from_millis(millis);
@@ -266,24 +299,76 @@ mod tests {
         }
     }
 
-    /// Samples of a UIKit return after a 100-point pull released at 194 points per second,
-    /// 45 points past the top, read in the `CADisplayLink` callback; on that clock the return
-    /// starts about 11 ms after the release.
     #[test]
-    fn follows_a_measured_uikit_moving_release() {
+    fn faster_drags_pull_back_less() {
+        let peak = |drag_speed: f32| {
+            let start = start_time();
+            let mut simulation = SpringSimulation::new_with_default_parameters(
+                45.,
+                test_limit_property(0.),
+                start,
+                600.,
+                drag_speed,
+            );
+            let mut position = 45.;
+            let mut peak = position;
+            for millis in (1..200).step_by(1) {
+                simulation.step(&mut position, start + Duration::from_millis(millis));
+                peak = peak.max(position);
+            }
+            peak
+        };
+        assert!(peak(1200.) > peak(400.) + 1., "{} <= {}", peak(1200.), peak(400.));
+        assert_approx_eq!(peak(0.), peak(RETURN_RATE_FADE_START));
+    }
+
+    /// Steps the spring against UIKit samples of a release 100 points into a pull, read in the
+    /// `CADisplayLink` callback; on that clock the return starts about 11 ms after the release.
+    fn assert_follows_uikit(
+        start_value: f32,
+        velocity: f32,
+        drag_speed: f32,
+        samples: &[(u64, f32)],
+        tolerance: f32,
+    ) {
         let uikit_onset = Duration::from_millis(11);
         let start = start_time();
         let mut simulation = SpringSimulation::new_with_default_parameters(
-            45.,
+            start_value,
             test_limit_property(0.),
             start,
-            194.,
+            velocity,
+            drag_speed,
         );
-        let mut position = 45.;
-        for (millis, uikit) in [(25, 45.), (50, 41.333), (100, 32.), (200, 16.333), (300, 7.333)] {
+        let mut position = start_value;
+        for &(millis, uikit) in samples {
             let since_onset = Duration::from_millis(millis).saturating_sub(uikit_onset);
             simulation.step(&mut position, start + RETURN_DELAY + since_onset);
-            assert!((position - uikit).abs() < 2.5, "{millis} ms: {position} != {uikit}");
+            assert!((position - uikit).abs() < tolerance, "{millis} ms: {position} != {uikit}");
         }
+    }
+
+    /// Released 45 points past the top with the pointer at 400 points per second and the content
+    /// at 194.
+    #[test]
+    fn follows_a_measured_uikit_slow_moving_release() {
+        let samples = [(25, 45.), (50, 41.333), (100, 32.), (200, 16.333), (300, 7.333)];
+        assert_follows_uikit(45., 194., 400., &samples, 2.5);
+    }
+
+    /// Released 44.3 points past the top with the pointer at 1224 points per second and the
+    /// content at 598.
+    #[test]
+    fn follows_a_measured_uikit_fast_moving_release() {
+        let samples = [
+            (25, 54.),
+            (50, 60.333),
+            (75, 61.),
+            (100, 57.333),
+            (150, 46.),
+            (200, 34.),
+            (300, 16.333),
+        ];
+        assert_follows_uikit(44.333, 598., 1224., &samples, 5.);
     }
 }

@@ -941,7 +941,11 @@ impl FlickableDataInner {
         Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
             content.set_physic_animation_value(weak.clone());
             RefCell::new(FlickAnimation::create_spring_animation(
-                curr_val, limit, start_time, velocity,
+                curr_val,
+                limit,
+                start_time,
+                velocity,
+                drag_velocity.abs(),
             ))
         })
     }
