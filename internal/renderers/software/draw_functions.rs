@@ -453,18 +453,25 @@ pub(super) fn draw_rounded_rectangle_line(
     let ((left_radius, left_y), (right_radius, right_y), y) =
         corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
+    // Coordinates are relative to the shape; see `ClipSpan`.
+    let left_offset = (shape.left_clip.get() + extra_left_clip) as u32;
+    let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(width);
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
         // line and the curve.
         // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
-        for x in x1.floor()..x2.ceil() {
-            process_pixel(x as usize, edge_coverage(x, x1, x2));
+        for x in x1.floor().max(left_offset)..x2.ceil() {
+            let index = (x - left_offset) as usize;
+            if index >= width {
+                break;
+            }
+            process_pixel(index, edge_coverage(x, x1, x2));
         }
     };
-    let rev = |x: Shifted| {
-        (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
-            .saturating_sub(x)
-    };
+    let shape_width = Shifted::new(
+        width as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32,
+    );
+    let rev = |x: Shifted| shape_width.saturating_sub(x);
     let calculate_xxxx = |r: i16, y: i16| {
         if r == 0 {
             return (Shifted::ZERO, Shifted::ZERO, border, border);
@@ -484,36 +491,24 @@ pub(super) fn draw_rounded_rectangle_line(
     };
     let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
     // A corner wider than half the rectangle reaches past the opposite side's border.
-    // `rev` gives line buffer positions, while the left side's are relative to the rectangle.
-    let left_clip = Shifted::new(shape.left_clip.get() + extra_left_clip);
-    let x4 = x4.min(x6 + left_clip);
+    let x4 = x4.min(x6);
     let x3 = x3.min(x4);
-    let x5 = x5.max(x3.saturating_sub(left_clip));
+    let x5 = x5.max(x3);
     let x6 = x6.max(x5);
-    anti_alias(
-        x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-        x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-        &mut |x, cov| {
-            if x >= width {
-                return;
-            }
-            let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
-            let col = PremultipliedRgbaColor {
-                alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
-                red: (((c.red as u32) * cov as u32) / 255) as u8,
-                green: (((c.green as u32) * cov as u32) / 255) as u8,
-                blue: (((c.blue as u32) * cov as u32) / 255) as u8,
-            };
-            line_buffer[x].blend(col);
-        },
-    );
+    anti_alias(x1, x2, &mut |x, cov| {
+        let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
+        let col = PremultipliedRgbaColor {
+            alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
+            red: (((c.red as u32) * cov as u32) / 255) as u8,
+            green: (((c.green as u32) * cov as u32) / 255) as u8,
+            blue: (((c.blue as u32) * cov as u32) / 255) as u8,
+        };
+        line_buffer[x].blend(col);
+    });
     if y < rr.width.get() {
         // up or down border (x2 .. x7)
-        let l = x2
-            .ceil()
-            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-            .min(width as u32) as usize;
-        let r = x7.floor().min(width as u32) as usize;
+        let l = to_buffer(x2.ceil());
+        let r = to_buffer(x7.floor());
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[l..r], rr.border_color)
         }
@@ -522,66 +517,40 @@ pub(super) fn draw_rounded_rectangle_line(
             // 3. draw the border (between x2 and x3)
             if Shifted::ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
-                    &mut line_buffer[x2
-                        .ceil()
-                        .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                        .min(width as u32) as usize
-                        ..x3.floor()
-                            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                            .min(width as u32) as usize],
+                    &mut line_buffer[to_buffer(x2.ceil())..to_buffer(x3.floor())],
                     rr.border_color,
                 )
             }
             // 4. anti-aliasing for the contents (x3 .. x4)
-            anti_alias(
-                x3.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-                x4.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
-                &mut |x, cov| {
-                    if x >= width {
-                        return;
-                    }
-                    let col = interpolate_color(cov, rr.border_color, rr.inner_color);
-                    line_buffer[x].blend(col);
-                },
-            );
+            anti_alias(x3, x4, &mut |x, cov| {
+                let col = interpolate_color(cov, rr.border_color, rr.inner_color);
+                line_buffer[x].blend(col);
+            });
         }
         if rr.inner_color.alpha > 0 {
             // 5. inside (x4 .. x5)
-            let begin = x4
-                .ceil()
-                .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
-                .min(width as u32);
-            let end = x5.floor().min(width as u32);
+            let begin = to_buffer(x4.ceil());
+            let end = to_buffer(x5.floor());
             if begin < end {
-                TargetPixel::blend_slice(
-                    &mut line_buffer[begin as usize..end as usize],
-                    rr.inner_color,
-                )
+                TargetPixel::blend_slice(&mut line_buffer[begin..end], rr.inner_color)
             }
         }
         if border > Shifted::ZERO {
             // 6. border anti-aliasing: x5..x6
             anti_alias(x5, x6, &mut |x, cov| {
-                if x >= width {
-                    return;
-                }
                 let col = interpolate_color(cov, rr.inner_color, rr.border_color);
                 line_buffer[x].blend(col)
             });
             // 7. border x6 .. x7
             if Shifted::ONE + x6 <= x7 {
                 TargetPixel::blend_slice(
-                    &mut line_buffer[x6.ceil().min(width as u32) as usize
-                        ..x7.floor().min(width as u32) as usize],
+                    &mut line_buffer[to_buffer(x6.ceil())..to_buffer(x7.floor())],
                     rr.border_color,
                 )
             }
         }
     }
     anti_alias(x7, x8, &mut |x, cov| {
-        if x >= width {
-            return;
-        }
         let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
         let col = PremultipliedRgbaColor {
             alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
@@ -1455,4 +1424,35 @@ fn rgb565_be_blend() {
     let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
     be.blend(color);
     assert_eq!(le.0.swap_bytes(), be.0);
+}
+
+#[test]
+fn rounded_rectangle_line_does_not_depend_on_split() {
+    let rr = super::RoundedRectangle {
+        shape: super::RoundedShape {
+            radius: super::PhysicalBorderRadius::new_uniform(16),
+            ..Default::default()
+        },
+        width: PhysicalLength::new(2),
+        border_color: PremultipliedRgbaColor { red: 255, green: 0, blue: 0, alpha: 255 },
+        inner_color: PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 },
+    };
+    const SIZE: i16 = 56;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    for line in 0..SIZE {
+        let line = PhysicalLength::new(line);
+        let mut whole = [PremultipliedRgbaColor::default(); SIZE as usize];
+        draw_rounded_rectangle_line(&rect, line, &rr, &mut whole, 0, 0);
+        for split in 1..SIZE {
+            let mut parts = [PremultipliedRgbaColor::default(); SIZE as usize];
+            let (left, right) = parts.split_at_mut(split as usize);
+            draw_rounded_rectangle_line(&rect, line, &rr, left, 0, SIZE - split);
+            draw_rounded_rectangle_line(&rect, line, &rr, right, split, 0);
+            assert_eq!(
+                bytemuck::cast_slice::<_, u8>(&whole),
+                bytemuck::cast_slice::<_, u8>(&parts),
+                "line {line:?} split at {split}"
+            );
+        }
+    }
 }
