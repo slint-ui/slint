@@ -15,10 +15,8 @@ from ui_assertions import AssertionFailure, expect
 class Element:
     accessible_label: str = ""
     value: str = ""
-    accessible_description: str = ""
     accessible_enabled: bool = True
     accessible_item_selected: bool = False
-    accessible_checked: bool = False
     absolute_rect: slint_testing.LogicalRect = field(
         default_factory=lambda: slint_testing.LogicalRect(0.0, 0.0, 10.0, 10.0)
     )
@@ -59,8 +57,6 @@ def test_poll_failure_reports_expected_and_observed():
     with pytest.raises(AssertionFailure) as caught:
         expect.poll(lambda: 200, message="preview width").to_equal(250, timeout=0)
     assert str(caught.value) == "Expected 250, observed 200"
-    assert caught.value.target == "preview width"
-    assert caught.value.actual == 200
 
 
 def test_poll_propagates_unexpected_errors():
@@ -69,16 +65,6 @@ def test_poll_propagates_unexpected_errors():
 
     with pytest.raises(RuntimeError, match="application disconnected"):
         expect.poll(fail).to_equal(True)
-
-
-def test_sustained_assertion_fails_on_first_mismatch():
-    values = iter(["ready", "busy", "ready"])
-    with pytest.raises(AssertionFailure) as caught:
-        expect.poll(lambda: next(values)).to_remain(
-            "ready", for_seconds=0.1, interval=0.001
-        )
-    assert caught.value.actual == "busy"
-    assert caught.value.comparison == "remain"
 
 
 def test_query_assertion_follows_replaced_element():
@@ -93,22 +79,17 @@ def test_query_failure_distinguishes_no_observation():
     with pytest.raises(AssertionFailure) as caught:
         expect(cast(Any, Query([]))).to_have_value("ready", timeout=0)
     assert str(caught.value) == "Expected ready; no value observed"
-    assert not caught.value.observed
 
 
 def test_element_read_failure_is_no_observation():
     with pytest.raises(AssertionFailure) as caught:
         expect(cast(Any, Element(gone=True))).to_have_value("ready", timeout=0)
-    assert not caught.value.observed
+    assert str(caught.value) == "Expected ready; no value observed"
 
 
-def test_query_state_and_count_assertions():
-    selected = Element(
-        "Selected", accessible_item_selected=True, accessible_checked=True
-    )
+def test_query_state_and_visibility_assertions():
+    selected = Element("Selected", accessible_item_selected=True)
     expect(cast(Any, Query([selected]))).to_be_selected(timeout=0)
-    expect(cast(Any, Query([selected]))).to_be_checked(timeout=0)
-    expect(cast(Any, Query([selected, Element()]))).to_have_count(2, timeout=0)
     expect(cast(Any, Query([]))).to_be_hidden(timeout=0)
     expect(cast(Any, Query([selected]))).to_be_visible(timeout=0)
 

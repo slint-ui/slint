@@ -51,7 +51,7 @@ expect(query(window, "Progress")).to_be_hidden()
 
 Each attempt reads the element again, and for a `query()`, looks up its only match again.
 This lets the assertion survive an item-tree rebuild when the replacement has the same role, name, or ID.
-Counting assertions (`to_have_count()`, `to_be_visible()`, `to_be_hidden()`) need a `query()`, since an element can't count matches.
+Counting assertions (`to_be_visible()`, `to_be_hidden()`) need a `query()`, since an element can't count matches.
 
 Use `expect.poll()` for state outside the element tree or state composed from several observations:
 
@@ -73,7 +73,7 @@ An eventual assertion can hide a transient wrong value when immediacy is part of
 
 `to_be_hidden()` proves that the testing query eventually has no match.
 It doesn't prove that an element never appeared.
-Use `to_remain()` to observe a value throughout a time interval.
+To observe a value throughout a time interval, assert it in a loop until the interval ends.
 
 Visibility means discoverability through the testing query.
 It doesn't prove that the element can receive pointer input or that another item doesn't cover it.
