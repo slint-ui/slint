@@ -14,12 +14,14 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
+    element,
     elements,
     first_window,
     launch_editor,
     press_key,
     press_keys,
     press_shortcut,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
@@ -64,7 +66,7 @@ def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
         original.assert_unchanged_now()
         screenshot(window).save(tmp_path / "partial-hex.png")
         press_key(window, keys.Escape)
-        assert not elements_with_label(window.root_element, "Close Custom")
+        expect(query(window, "Close Custom")).to_be_hidden()
         original.assert_unchanged()
         open_linear(window)
         assert (
@@ -193,29 +195,17 @@ def test_opacity_scrub_cancellation_preserves_exact_alpha(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         if outcome == "revert":
             window.dispatch_event(slint_testing.PointerMoveEvent(shifted(start, x=-20)))
-            wait_until(
-                lambda: (
-                    control(
-                        window,
-                        label + " opacity",
-                        slint_testing.AccessibleRole.TextInput,
-                    ).accessible_value
-                    == "30"
-                    or None
+            expect(
+                control(
+                    window, label + " opacity", slint_testing.AccessibleRole.TextInput
                 )
-            )
+            ).to_have_value("30")
             window.dispatch_event(slint_testing.PointerMoveEvent(start))
-            wait_until(
-                lambda: (
-                    control(
-                        window,
-                        label + " opacity",
-                        slint_testing.AccessibleRole.TextInput,
-                    ).accessible_value
-                    == "50"
-                    or None
+            expect(
+                control(
+                    window, label + " opacity", slint_testing.AccessibleRole.TextInput
                 )
-            )
+            ).to_have_value("50")
         window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
         original.assert_unchanged_now()
         if surface == "stop-picker":
@@ -238,7 +228,7 @@ def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
         )
         assert color.accessible_value == "264052"
         assert opacity.accessible_value == "100"
-        assert not elements_with_label(window.root_element, "Close Stop color")
+        assert not elements(window, "Close Stop color")
 
         color.invoke_accessible_default_action()
         press_key(window, keys.Delete)
@@ -249,7 +239,7 @@ def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
         opacity.accessible_value = "50"
         assert color.accessible_value == "12AB34"
         assert opacity.accessible_value == "50"
-        assert not elements_with_label(window.root_element, "Close Stop color")
+        assert not elements(window, "Close Stop color")
         original.assert_unchanged_now()
 
         click(window, "Close Custom")
@@ -272,10 +262,11 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
-        scrubber = control(
+        scrubber = element(
             window,
             "Stop 2 color opacity scrubber",
-            slint_testing.AccessibleRole.Slider,
+            role=slint_testing.AccessibleRole.Slider,
+            tracking=False,
         )
         start = center(scrubber)
         button = slint_testing.PointerEventButton.Left
@@ -285,17 +276,13 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
             window.dispatch_event(
                 slint_testing.PointerMoveEvent(shifted(start, x=delta))
             )
-            wait_until(
-                lambda delta=delta: (
-                    control(
-                        window,
-                        "Stop 2 color opacity",
-                        slint_testing.AccessibleRole.TextInput,
-                    ).accessible_value
-                    == str(100 + delta)
-                    or None
+            expect(
+                control(
+                    window,
+                    "Stop 2 color opacity",
+                    slint_testing.AccessibleRole.TextInput,
                 )
-            )
+            ).to_have_value(str(100 + delta))
             assert scrubber.is_valid
             original.assert_unchanged_now()
 
@@ -304,7 +291,7 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
             window.dispatch_event(
                 slint_testing.PointerReleaseEvent(shifted(start, x=-20), button)
             )
-            assert not elements_with_label(window.root_element, "Close Custom")
+            expect(query(window, "Close Custom")).to_be_hidden()
             original.assert_unchanged()
             return
 
@@ -312,17 +299,13 @@ def test_gradient_stop_opacity_scrub_keeps_capture(
         if outcome == "revert":
             end = start
             window.dispatch_event(slint_testing.PointerMoveEvent(end))
-            wait_until(
-                lambda: (
-                    control(
-                        window,
-                        "Stop 2 color opacity",
-                        slint_testing.AccessibleRole.TextInput,
-                    ).accessible_value
-                    == "100"
-                    or None
+            expect(
+                control(
+                    window,
+                    "Stop 2 color opacity",
+                    slint_testing.AccessibleRole.TextInput,
                 )
-            )
+            ).to_have_value("100")
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         original.assert_unchanged_now()
         click(window, "Close Custom")
