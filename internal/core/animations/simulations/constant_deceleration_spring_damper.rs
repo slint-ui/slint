@@ -10,7 +10,7 @@ use crate::animations::simulations::{Direction, Parameter, Simulation};
 use crate::animations::Instant;
 
 #[cfg(test)]
-use crate::animations::simulations::{assert_approx_eq, test_limit_property};
+use crate::animations::simulations::assert_approx_eq;
 
 /// Input parameters for the `ConstantDecelerationSpringDamper` simulation
 /// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
@@ -54,11 +54,7 @@ impl ConstantDecelerationSpringDamperParameters {
 #[cfg(test)]
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
-    fn simulation(
-        self,
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    ) -> Self::Output {
+    fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output {
         ConstantDecelerationSpringDamper::new(start_value, limit_value, self)
     }
 }
@@ -80,7 +76,7 @@ enum State {
 pub struct ConstantDecelerationSpringDamper {
     /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
     /// but at the end of the animation the limit shall not be exceeded
-    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+    limit_value: f32,
     curr_val_zeroed: f32,
     velocity: f32,
     data: ConstantDecelerationSpringDamperParameters,
@@ -100,7 +96,7 @@ pub struct ConstantDecelerationSpringDamper {
 impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         data: ConstantDecelerationSpringDamperParameters,
     ) -> Self {
         Self::new_internal(start_value, limit_value, data, crate::animations::current_tick())
@@ -108,13 +104,13 @@ impl ConstantDecelerationSpringDamper {
 
     fn new_internal(
         start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+        limit_value: f32,
         mut data: ConstantDecelerationSpringDamperParameters,
         start_time: Instant,
     ) -> Self {
         let mut initial_velocity = data.initial_velocity;
         let mut state = State::Deceleration;
-        let direction = if start_value == limit_value.as_ref().get() {
+        let direction = if start_value == limit_value {
             state = State::Done;
             if initial_velocity >= 0. {
                 data.deceleration = f32::abs(data.deceleration);
@@ -123,7 +119,7 @@ impl ConstantDecelerationSpringDamper {
                 data.deceleration = -f32::abs(data.deceleration);
                 Direction::Decreasing
             }
-        } else if start_value < limit_value.as_ref().get() {
+        } else if start_value < limit_value {
             data.deceleration = f32::abs(data.deceleration);
             assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
             initial_velocity = f32::abs(initial_velocity);
@@ -163,7 +159,7 @@ impl ConstantDecelerationSpringDamper {
     }
 
     fn new_value(&self) -> f32 {
-        self.limit_value.as_ref().get() + self.curr_val_zeroed
+        self.limit_value + self.curr_val_zeroed
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
@@ -178,7 +174,7 @@ impl ConstantDecelerationSpringDamper {
     }
 
     fn state_deceleration(&mut self, current: &mut f32, new_tick: Instant) -> bool {
-        let limit_value = self.limit_value.as_ref().get();
+        let limit_value = self.limit_value;
         let duration_unlimited = new_tick.duration_since(self.start_time);
         // We have to prevent go go beyond the limit where velocity gets zero
         let duration = f32::min(
@@ -262,7 +258,7 @@ impl ConstantDecelerationSpringDamper {
             * f32::sin(self.w_d * t + self.constant_phi);
         self.curr_val_zeroed = new_val; // relative value
 
-        let limit_value = self.limit_value.as_ref().get();
+        let limit_value = self.limit_value;
         let max_time = 2. * core::f32::consts::PI / self.w_d;
         let current_val = self.new_value();
         *current = current_val;
@@ -332,7 +328,7 @@ mod tests_spring_damper {
         let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            LIMIT_VALUE,
             parameters,
             time,
         );
@@ -357,12 +353,8 @@ mod tests_spring_damper {
         );
 
         let mut time = Instant::default();
-        let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            10.,
-            test_limit_property(2000.),
-            parameters,
-            time,
-        );
+        let mut simulation =
+            ConstantDecelerationSpringDamper::new_internal(10., 2000., parameters, time);
         let mut current = 10.;
 
         // Velocity does not become zero
@@ -411,7 +403,7 @@ mod tests_spring_damper {
         let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            LIMIT_VALUE,
             parameters,
             time,
         );
@@ -463,7 +455,7 @@ mod tests_spring_damper {
         let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            LIMIT_VALUE,
             parameters,
             time,
         );
@@ -508,7 +500,7 @@ mod tests_spring_damper {
         let mut time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            LIMIT_VALUE,
             parameters,
             time,
         );

@@ -1188,8 +1188,31 @@ fn lower_repeated_component(
 
     let listview = repeated.is_listview.as_ref().map(|lv| {
         let geom = component.root_element.borrow().geometry_props.clone().unwrap();
+        let content_y = ctx.map_property_reference(&lv.content_y);
+        // Derive the flickable reference from content_y by clearing the property name:
+        // when content_y resolves directly to a native item's own property, stripping
+        // prop_name gives a reference to that item. This only holds when content_y's
+        // canonical reference (after the remove_aliases pass) is still a native property
+        // on the Flickable itself; a duck-typed non-Flickable ListView, or a two-way
+        // binding that canonicalizes content_y to a property elsewhere (e.g. a global),
+        // resolves to some other `LocalMemberIndex` variant, so there is no Flickable to
+        // derive and this is `None`.
+        let flickable = {
+            let mut r = content_y.clone();
+            if let MemberReference::Relative { local_reference, .. } = &mut r {
+                if let LocalMemberIndex::Native { prop_name, .. } = &mut local_reference.reference {
+                    *prop_name = SmolStr::default();
+                    Some(r)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
         ListViewInfo {
-            content_y: ctx.map_property_reference(&lv.content_y),
+            flickable,
+            content_y,
             content_height: lv
                 .content_height
                 .as_ref()

@@ -2576,6 +2576,13 @@ fn generate_sub_component(
         ));
 
         if let Some(listview) = &repeated.listview {
+            let flickable = listview.flickable.as_ref().map_or_else(
+                || "nullptr".to_string(),
+                |f| {
+                    let f = access_member(f, &ctx).unwrap();
+                    format!("&{f}")
+                },
+            );
             let content_y = access_member(&listview.content_y, &ctx).unwrap();
             let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
             let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
@@ -2601,7 +2608,7 @@ fn generate_sub_component(
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
+                "_changed |= self->{repeater_id}.ensure_updated_listview({flickable}, self, {content_w}, {content_h}, &{content_y}, {lv_w}.get(), {lv_h}.get());"
             ));
         } else {
             children_visitor_cases.push(format!(

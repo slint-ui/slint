@@ -33,11 +33,7 @@ pub trait Simulation {
 /// All parameter objects must implement this trait!
 pub trait Parameter {
     type Output;
-    fn simulation(
-        self,
-        start_value: f32,
-        limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    ) -> Self::Output;
+    fn simulation(self, start_value: f32, limit_value: f32) -> Self::Output;
 }
 
 #[cfg(test)]
@@ -48,10 +44,3 @@ macro_rules! assert_approx_eq {
 }
 #[cfg(test)]
 pub(crate) use assert_approx_eq;
-
-#[cfg(test)]
-pub(crate) fn test_limit_property(
-    value: f32,
-) -> core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>> {
-    alloc::boxed::Box::pin(crate::Property::new(value))
-}

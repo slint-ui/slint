@@ -1518,6 +1518,8 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+        /// The snapping mode used to snap items to specific positions of the Flickable
+        in property <SnapMode> snap-mode: SnapMode.none;
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }

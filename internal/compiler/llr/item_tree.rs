@@ -392,6 +392,10 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
+    /// `None` when `content-y` doesn't resolve to a property directly on a native
+    /// `Flickable` item, e.g. a custom scroll container duck-typing as a ListView, or
+    /// a two-way binding that canonicalizes `content-y` to a property somewhere else.
+    pub flickable: Option<MemberReference>,
     pub content_y: MemberReference,
     /// `None` when the user explicitly sets `content-height` on the ListView;
     /// `Some` when the ListView computes it from the content.

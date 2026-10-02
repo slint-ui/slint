@@ -103,6 +103,10 @@ impl RepeaterOrConditional {
     /// doesn't expose a `Pin<&Property<Value>>` — so we go through the
     /// closure-based [`i_slint_core::model::ListViewProperties`] variant
     /// and let `load_property`/`store_property` route to rtti as needed.
+    /// The interpreter has no way to resolve a `MemberReference` down to a
+    /// concrete `Pin<&Flickable>`, so it passes `None` for the flickable
+    /// item: a ListView driven by the interpreter doesn't snap or adjust an
+    /// in-flight fling simulation when the content is resized.
     pub fn ensure_updated_listview_callback(
         &self,
         init: impl Fn() -> VRc<ItemTreeVTable, Instance> + 'static,
@@ -114,6 +118,7 @@ impl RepeaterOrConditional {
             Self::Repeater(r) => Pin::as_ref(r).ensure_updated_listview_callback(
                 init,
                 props,
+                None,
                 listview_width,
                 listview_height,
             ),
