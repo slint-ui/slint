@@ -80,13 +80,7 @@ def open_combo_and_accept(
 
 
 def assert_rendered_element(window: slint_testing.Window, element_id: str) -> None:
-    wait_until(
-        lambda: (
-            element
-            if (element := next(iter(elements(window, id=element_id)), None))
-            else None
-        )
-    )
+    wait_until(lambda: next(iter(elements(window, id=element_id)), None))
 
 
 def image_alignment_button(
@@ -138,18 +132,13 @@ def test_geometry_field_writes_exact_source(
         select_element(window, "Rectangle")
         rectangle = element(window, id="InspectorCases::inspect-rectangle")
 
-        def rendered_value():
-            geometry = (
-                rectangle.absolute_position
-                if property_name in ("x", "y")
-                else rectangle.size
-            )
-            return getattr(geometry, property_name)
+        def rendered_value() -> float:
+            return getattr(rectangle.absolute_rect, property_name)
 
         expected = float(value)
         if property_name in ("x", "y"):
             # Absolute positions include the preview's offset in the editor window.
-            preview_offset = wait_until(rendered_value) - original_value
+            preview_offset = rendered_value() - original_value
             expected += preview_offset
 
         edit_field(window, label, value, slint_testing.AccessibleRole.TextInput)
@@ -165,11 +154,7 @@ def test_geometry_field_writes_exact_source(
 
         # Source and field updates can precede preview replacement.
         # The existing rectangle must reflect the edit, not merely exist.
-        def geometry_matches():
-            actual = rendered_value()
-            return actual if actual == pytest.approx(expected) else None
-
-        wait_until(geometry_matches)
+        wait_until(lambda: rendered_value() == pytest.approx(expected))
 
 
 @pytest.mark.parametrize(

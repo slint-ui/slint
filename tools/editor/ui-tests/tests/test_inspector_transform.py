@@ -720,11 +720,9 @@ def test_deleted_selected_element_clears_inspector(
         source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
         wait_until(
             lambda: (
-                True
-                if not elements(
+                not elements(
                     window, "Selected Image", role=slint_testing.AccessibleRole.Region
                 )
-                else None
             )
         )
         assert not elements(window, "Image fit")

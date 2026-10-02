@@ -79,7 +79,7 @@ def test_hover_links_canvas_and_outline(
                 return (
                     row_background(window, label, image) != backgrounds[label]
                     and row_background(window, other, image) == backgrounds[other]
-                ) or None
+                )
 
             wait_until(hover_matches)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
@@ -113,10 +113,8 @@ def test_tree_hover_geometry_updates_after_reload(
 
         def moved():
             frame = element(window, "Hovered Rectangle")
-            return (
-                frame.absolute_position.x
-                == pytest.approx(artboard.absolute_position.x + 70)
-                or None
+            return frame.absolute_position.x == pytest.approx(
+                artboard.absolute_position.x + 70
             )
 
         wait_until(moved)

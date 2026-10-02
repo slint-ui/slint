@@ -131,10 +131,8 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
         wait_for_source(source, expected)
         wait_until(
             lambda: (
-                True
-                if elements(window, "Hovered Text")
+                elements(window, "Hovered Text")
                 and not elements(window, "Hovered Rectangle")
-                else None
             )
         )
 

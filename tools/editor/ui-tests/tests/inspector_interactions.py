@@ -26,10 +26,9 @@ def slider_track_position(
     slider: slint_testing.Element, progress: float
 ) -> slint_testing.LogicalPosition:
     track = element(slider, id="InspectorSlider::track")
-    position = track.absolute_position
-    size = track.size
+    rect = track.absolute_rect
     return slint_testing.LogicalPosition(
-        x=position.x + size.width * progress, y=position.y + size.height / 2
+        x=rect.x + rect.width * progress, y=rect.y + rect.height / 2
     )
 
 
@@ -41,9 +40,10 @@ def inspector_field(
     pane = element(
         window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
     )
+    pane_rect = pane.absolute_rect
     position = slint_testing.LogicalPosition(
-        x=pane.absolute_position.x + pane.size.width / 2,
-        y=pane.absolute_position.y + pane.size.height / 4,
+        x=pane_rect.x + pane_rect.width / 2,
+        y=pane_rect.y + pane_rect.height / 4,
     )
     divider = element(
         window, "Outline pane resize", role=slint_testing.AccessibleRole.Slider

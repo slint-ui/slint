@@ -56,11 +56,7 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
     ) as editor:
         window = first_window(editor)
         text = wait_until(
-            lambda: (
-                element
-                if (element := next(iter(elements(window, id="Main::root-text")), None))
-                else None
-            )
+            lambda: next(iter(elements(window, id="Main::root-text")), None)
         )
         target = slint_testing.LogicalPosition(
             x=text.absolute_position.x + text.size.width / 2,
@@ -117,7 +113,7 @@ def test_clear_canvas_selection_does_not_edit_source(
             window.dispatch_event(slint_testing.PointerPressEvent(target, button))
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
-            def selection_cleared() -> bool | None:
+            def selection_cleared() -> bool:
                 outline = element(
                     window,
                     "Current file outline",
@@ -129,8 +125,7 @@ def test_clear_canvas_selection_does_not_edit_source(
                     .find_all()
                 )
                 return (
-                    True
-                    if rows
+                    bool(rows)
                     and not any(row.accessible_item_selected for row in rows)
                     and not any(
                         elements(window, label)
@@ -140,7 +135,6 @@ def test_clear_canvas_selection_does_not_edit_source(
                             "Root background",
                         )
                     )
-                    else None
                 )
 
             wait_until(selection_cleared, timeout=15)
@@ -230,13 +224,11 @@ def test_delete_selected_element_writes_exact_source(
         snapshot.wait_for_applied(expected)
         wait_until(
             lambda: (
-                True
-                if not elements(
+                not elements(
                     window,
                     f"root-{element_type.lower()}",
                     role=slint_testing.AccessibleRole.ListItem,
                 )
-                else None
             ),
             timeout=15,
         )

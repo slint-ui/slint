@@ -96,7 +96,7 @@ def gallery(
             )
             wait_until(
                 lambda combo=combo, expected=expected: (
-                    True if combo.accessible_value == expected else None
+                    combo.accessible_value == expected
                 )
             )
         yield window
@@ -290,7 +290,7 @@ def test_gallery_properties_edit_component_values(gallery_binary, editor_environ
         slider = element(
             window, "Sample slider", role=slint_testing.AccessibleRole.Slider
         )
-        wait_until(lambda: True if float(slider.accessible_value) == 42 else None)
+        wait_until(lambda: float(slider.accessible_value) == 42)
         target = slider_track_position(slider, 0.6)
         gesture(window, target, target)
         expect(value).to_have_value("60")
@@ -311,7 +311,7 @@ def test_gallery_properties_edit_component_values(gallery_binary, editor_environ
         )
         expect(sample).to_have_value("From the sidebar")
         element(window, "Reset example").invoke_accessible_default_action()
-        wait_until(lambda: True if float(slider.accessible_value) == 24 else None)
+        wait_until(lambda: float(slider.accessible_value) == 24)
         expect(sample).to_have_value("Hello Slint")
 
 

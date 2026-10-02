@@ -62,14 +62,11 @@ def assert_visual(
     )
     actual: OrientedFrame | None = None
 
-    def matches() -> bool | None:
+    def matches() -> bool:
         nonlocal actual
         actual = oriented_selection_frame(window, "Rectangle")
-        return (
-            True
-            if actual is not None
-            and all(abs(a - b) < 1.5 for a, b in zip(actual, expected))
-            else None
+        return actual is not None and all(
+            abs(a - b) < 1.5 for a, b in zip(actual, expected)
         )
 
     try:
@@ -89,7 +86,7 @@ def assert_visual(
         return
     radius_handle(window, "top-left")
 
-    def radius_matches() -> bool | None:
+    def radius_matches() -> bool:
         a = rotated_handle_center(
             element(window, "Rectangle resize top-left"),
             values["rotation"],
@@ -105,9 +102,7 @@ def assert_visual(
             -dx * math.sin(angle) + dy * math.cos(angle),
         )
         expected_radius_offset = max(12, values["radius"])
-        return (
-            True if all(abs(v - expected_radius_offset) < 1.5 for v in local) else None
-        )
+        return all(abs(v - expected_radius_offset) < 1.5 for v in local)
 
     wait_until(radius_matches)
 

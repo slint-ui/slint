@@ -63,6 +63,11 @@ expect.poll(
 ```
 
 Use `wait_until()` when the operation must return a value for later steps.
+It's `slint_testing.wait_until()`: it calls the function until it returns a true value, and returns that value.
+A result like `0`, `""`, or `[]` counts as not met yet, so compare such values instead of returning them.
+
+Assertions and `wait_until()` retry with growing pauses of up to 200ms.
+Don't wait for a state that lasts shorter than that, such as an animation in progress; wait for the state that follows it, or act while the earlier state holds.
 Keep an ordinary `assert` when the result must be correct immediately.
 An eventual assertion can hide a transient wrong value when immediacy is part of the contract.
 

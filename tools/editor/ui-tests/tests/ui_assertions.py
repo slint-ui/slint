@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Callable
 from typing import Any
 
 import slint_testing
-from ui_wait import Deadline
 
 
 def _display(value: Any) -> str:
@@ -51,14 +51,10 @@ class AssertionFailure(AssertionError):
         self.comparison = comparison
 
 
-class ObservationUnavailable(Exception):
-    pass
-
-
 class Assertion:
     def __init__(
         self,
-        read: Callable[[Deadline], Any],
+        read: Callable[[], Any],
         label: str,
         *,
         target: str = "",
@@ -68,29 +64,32 @@ class Assertion:
         self.target = target or label
 
     def _compare(self, expected: Any, timeout: float, *, negate: bool) -> None:
-        deadline = Deadline.after(timeout)
         actual: Any = None
         observed = False
-        while True:
+
+        def matches() -> bool:
+            nonlocal actual, observed
             try:
-                actual = self.read(deadline)
-                observed = True
-                matches = actual != expected if negate else actual == expected
-                if matches:
-                    return
-            except ObservationUnavailable as error:
+                actual = self.read()
+            except slint_testing.RequestError as error:
+                # For example, the element was replaced; wait_until() tries again.
                 actual = str(error)
                 observed = False
-            if deadline.expired:
-                raise AssertionFailure(
-                    expected,
-                    actual,
-                    observed=observed,
-                    timeout=timeout,
-                    target=self.target,
-                    comparison="not_equal" if negate else "equal",
-                )
-            deadline.pause()
+                raise
+            observed = True
+            return actual != expected if negate else actual == expected
+
+        try:
+            slint_testing.wait_until(matches, timeout, message=self.label)
+        except slint_testing.WaitTimeoutError as error:
+            raise AssertionFailure(
+                expected,
+                actual,
+                observed=observed,
+                timeout=timeout,
+                target=self.target,
+                comparison="not_equal" if negate else "equal",
+            ) from error
 
     def to_equal(self, expected: Any, *, timeout: float = 5) -> None:
         self._compare(expected, timeout, negate=False)
@@ -111,9 +110,9 @@ class Assertion:
             or interval <= 0
         ):
             raise ValueError("observation interval must be finite and nonnegative")
-        deadline = Deadline.after(for_seconds)
+        end = time.monotonic() + for_seconds
         while True:
-            actual = self.read(deadline)
+            actual = self.read()
             if actual != expected:
                 raise AssertionFailure(
                     expected,
@@ -123,9 +122,10 @@ class Assertion:
                     target=self.target,
                     comparison="remain",
                 )
-            if deadline.expired:
+            remaining = end - time.monotonic()
+            if remaining <= 0:
                 return
-            deadline.pause(interval)
+            time.sleep(min(interval, remaining))
 
 
 class ElementAssertion:
@@ -134,7 +134,7 @@ class ElementAssertion:
     For a slint_testing.ElementQuery, every attempt looks up its only match and reads it, so the
     assertion follows replaced elements within its own timeout. For a slint_testing.Element, every
     attempt reads it directly; a read that fails because the element is gone counts as no
-    observation.
+    observation. Elements from tracking queries don't wait past the assertion's timeout.
     """
 
     def __init__(
@@ -148,23 +148,17 @@ class ElementAssertion:
     def _target(self, property_name: str) -> str:
         return f"{self.target!r} · {property_name}"
 
-    def _read(self, getter: Callable[[Any], Any], deadline: Deadline) -> Any:
-        del deadline
-        try:
-            element = (
-                self.target.find_one()
-                if isinstance(self.target, slint_testing.ElementQuery)
-                else self.target
-            )
-            return getter(element)
-        except slint_testing.RequestError as error:
-            raise ObservationUnavailable(str(error)) from error
+    def _read(self, getter: Callable[[Any], Any]) -> Any:
+        element = (
+            self.target.find_one()
+            if isinstance(self.target, slint_testing.ElementQuery)
+            else self.target
+        )
+        return getter(element)
 
     def _property(self, name: str, expected: Any, timeout: float) -> None:
         Assertion(
-            lambda deadline: self._read(
-                lambda element: getattr(element, name), deadline
-            ),
+            lambda: self._read(lambda element: getattr(element, name)),
             f"{self.message} {self.target!r}.{name}".strip(),
             target=self._target(name.removeprefix("accessible_").replace("_", " ")),
         ).to_equal(expected, timeout=timeout)
@@ -174,9 +168,7 @@ class ElementAssertion:
 
     def not_to_have_value(self, value: str, *, timeout: float = 5) -> None:
         Assertion(
-            lambda deadline: self._read(
-                lambda element: element.accessible_value, deadline
-            ),
+            lambda: self._read(lambda element: element.accessible_value),
             f"{self.message} {self.target!r}.accessible_value".strip(),
             target=self._target("value"),
         ).not_to_equal(value, timeout=timeout)
@@ -196,14 +188,10 @@ class ElementAssertion:
     def to_be_selected(self, selected: bool = True, *, timeout: float = 5) -> None:
         self._property("accessible_item_selected", selected, timeout)
 
-    def _count(self, deadline: Deadline) -> int:
-        del deadline
+    def _count(self) -> int:
         if not isinstance(self.target, slint_testing.ElementQuery):
             raise TypeError("counting needs a query, not an element")
-        try:
-            return len(self.target.find_all())
-        except slint_testing.RequestError as error:
-            raise ObservationUnavailable(str(error)) from error
+        return len(self.target.find_all())
 
     def to_have_count(self, count: int, *, timeout: float = 5) -> None:
         Assertion(
@@ -245,22 +233,12 @@ class ElementAssertion:
         if values.keys() - {"x", "y", "width", "height"}:
             raise ValueError("geometry uses x, y, width, and height")
 
-        def read(deadline: Deadline) -> dict[str, Any]:
-            def geometry(element: Any) -> dict[str, Any]:
-                position = element.absolute_position
-                size = element.size
-                actual = {
-                    "x": position.x,
-                    "y": position.y,
-                    "width": size.width,
-                    "height": size.height,
-                }
-                return {key: actual[key] for key in values}
-
-            return self._read(geometry, deadline)
+        def geometry(element: Any) -> dict[str, Any]:
+            rect = element.absolute_rect
+            return {key: getattr(rect, key) for key in values}
 
         Assertion(
-            read,
+            lambda: self._read(geometry),
             f"{self.message} {self.target!r} geometry".strip(),
             target=self._target("geometry"),
         ).to_equal(values, timeout=timeout)
@@ -280,7 +258,7 @@ class Expect:
         *,
         message: str = "custom condition",
     ) -> Assertion:
-        return Assertion(lambda _: read(), message)
+        return Assertion(read, message)
 
 
 expect = Expect()

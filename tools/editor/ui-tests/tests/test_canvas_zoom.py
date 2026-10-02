@@ -162,10 +162,8 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         press_shortcut(window, keys.Shift, "2")
         wait_until(
             lambda: (
-                True
-                if center(artboard).x == pytest.approx(target.x)
+                center(artboard).x == pytest.approx(target.x)
                 and center(artboard).y == pytest.approx(target.y)
-                else None
             )
         )
         assert canvas.accessible_value == "100%"

@@ -232,7 +232,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=11,<13" },
     { name = "pytest", specifier = ">=9,<10" },
     { name = "pytest-xdist", specifier = ">=3.8,<4" },
-    { name = "slint-testing", specifier = "==0.5", index = "https://testing.slint.dev/simple/" },
+    { name = "slint-testing", specifier = "==0.6.1", index = "https://testing.slint.dev/simple/" },
 ]
 
 [package.metadata.requires-dev]
@@ -243,13 +243,13 @@ dev = [
 
 [[package]]
 name = "slint-testing"
-version = "0.5"
+version = "0.6.1"
 source = { registry = "https://testing.slint.dev/simple/" }
 dependencies = [
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://testing.slint.dev/simple/slint-testing/slint_testing-0.5-py3-none-any.whl", hash = "sha256:840ca276ecd7818f78f006326cee025e50f967d9fcfe31a9ec15a1239f736343" },
+    { url = "https://testing.slint.dev/simple/slint-testing/slint_testing-0.6.1-py3-none-any.whl", hash = "sha256:d405aac5ca9e781206374ac68189f3f4b5e4bba46d1d705658044576f3869d42" },
 ]
 
 [[package]]
