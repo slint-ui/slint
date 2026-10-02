@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A global's init that needs the window gets the component's window.
+// The change handler evaluates `dark` during that init, and `Palette.color-scheme` creates the window.
+
+import { Palette } from "std-widgets.slint";
+
+export global Scheme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    changed dark => {}
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(
+    i_slint_backend_testing::TestingBackend::new(Default::default()),
+));
+ctx.set_color_scheme(i_slint_core::items::ColorScheme::Dark);
+
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
+assert!(instance.global::<Scheme<'_>>().get_dark());
+
+let adapter = ctx.create_window_adapter().unwrap();
+let instance = TestCase::new_with_existing_window(adapter.window()).unwrap();
+assert!(instance.global::<Scheme<'_>>().get_dark());
+assert!(core::ptr::eq(instance.window(), adapter.window()));
+```
+*/

@@ -407,7 +407,7 @@ fn generate_public_component(
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
             )),
-            quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
+            quote!(inner.globals.get().unwrap().window_adapter_ref()?;),
             Some(quote!(
                 let window = inner.globals.get().unwrap().window_adapter_ref()?;
                 sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
@@ -445,8 +445,7 @@ fn generate_public_component(
             #[cfg(#experimental)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new(sp::Some(sp::WindowInner::from_pub(window).context()))?;
-                inner.globals.get().unwrap().create_window_from_existing(window)?;
+                let inner = #inner_component_id::new(sp::Some(sp::WindowInner::from_pub(window).context()), sp::Some(window))?;
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
@@ -543,7 +542,7 @@ fn generate_public_component(
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new(sp::None)?;
+                let inner = #inner_component_id::new(sp::None, sp::None)?;
                 #eager_create_window
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
@@ -553,7 +552,7 @@ fn generate_public_component(
 
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
-                let inner = #inner_component_id::new(sp::Some(&ctx))?;
+                let inner = #inner_component_id::new(sp::Some(&ctx), sp::None)?;
                 #init_bundle_translations
 
                 #init_with_context
@@ -627,8 +626,6 @@ fn generate_shared_globals(
         .collect::<Vec<_>>();
     let pub_token = if compiler_config.library_name.is_some() { quote!(pub) } else { quote!() };
 
-    let experimental = compiler_config.enable_experimental;
-
     let (library_shared_globals_names, library_shared_globals_types): (Vec<_>, Vec<_>) = doc
         .imports
         .iter()
@@ -652,37 +649,13 @@ fn generate_shared_globals(
 
     let needs_window_adapter = llr.needs_window_adapter();
 
-    // `create_window_from_context` is only invoked from a Window-rooted
-    // public component's `new_with_context`, and `maybe_window_adapter_impl`
-    // is only invoked from per-tree `register_item_tree` / PinnedDrop hooks
-    // — both gated out for tray-only units. Emit them only when something
-    // actually calls them; otherwise `#![deny(warnings)]` builds (e.g.
-    // test-driver-rust with `--features build-time`) trip on dead_code.
-    // `window_adapter_impl` / `window_adapter_ref` are kept unconditionally
-    // because expression codegen (layout-info, font metrics) still
-    // references them on every tree.
+    // `maybe_window_adapter_impl` is only invoked from per-tree
+    // `register_item_tree` / PinnedDrop hooks, which are gated out for
+    // tray-only units. Emit it only when something calls it; otherwise
+    // `#![deny(warnings)]` builds (e.g. test-driver-rust with
+    // `--features build-time`) trip on dead_code.
     let optional_window_adapter_helpers = needs_window_adapter.then(|| {
         quote!(
-            #[cfg(#experimental)]
-            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
-                let adapter = ctx.create_window_adapter()?;
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                #apply_constant_scale_factor
-                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
-                sp::Ok(())
-            }
-
-            #[cfg(#experimental)]
-            fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
-                let adapter = sp::WindowInner::from_pub(window).window_adapter();
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                #apply_constant_scale_factor
-                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
-                sp::Ok(())
-            }
-
             fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
                 self.window_adapter.get().cloned()
             }
@@ -758,12 +731,24 @@ fn generate_shared_globals(
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
-                    let adapter = slint::private_unstable_api::create_window_adapter()?;
-                    let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                    sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                    #apply_constant_scale_factor
-                    ::core::result::Result::Ok(adapter)
+                    let adapter = match self.context.get() {
+                        sp::Some(ctx) => ctx.create_window_adapter()?,
+                        sp::None => slint::private_unstable_api::create_window_adapter()?,
+                    };
+                    ::core::result::Result::Ok(self.attach_window_adapter(adapter))
                 })
+            }
+
+            fn set_window_adapter(&self, adapter: sp::WindowAdapterRc) {
+                let adapter = self.attach_window_adapter(adapter);
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+            }
+
+            fn attach_window_adapter(&self, adapter: sp::WindowAdapterRc) -> sp::WindowAdapterRc {
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                adapter
             }
 
             #optional_window_adapter_helpers
@@ -2368,13 +2353,18 @@ fn generate_item_tree(
             if let sp::Some(context) = context {
                 globals.set_context(context);
             }
+            if let sp::Some(window) = window {
+                globals.set_window_adapter(sp::WindowInner::from_pub(window).window_adapter());
+            }
             globals.init_globals();
         )
     } else {
         quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
-    let context_arg = is_root_component.then(|| quote!(context: sp::Option<&sp::SlintContext>));
+    let root_args = is_root_component.then(
+        || quote!(context: sp::Option<&sp::SlintContext>, window: sp::Option<&slint::Window>),
+    );
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -2599,7 +2589,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg #root_args) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
