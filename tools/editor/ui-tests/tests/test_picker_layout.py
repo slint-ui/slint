@@ -17,6 +17,7 @@ from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -89,8 +90,10 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         point = shifted(center(remove), x=-8)
         assert top <= point.y < bottom.absolute_position.y
         gesture(window, point, point)
-        assert not window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name=f"Gradient stop {count + 1}"
-        ).all()
+        assert not elements(
+            window,
+            f"Gradient stop {count + 1}",
+            role=slint_testing.AccessibleRole.Slider,
+        )
         press_key(window, keys.Escape)
         original.assert_unchanged()

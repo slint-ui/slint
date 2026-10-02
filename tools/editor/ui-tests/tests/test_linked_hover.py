@@ -9,6 +9,8 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from PIL import Image
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     outline_row,
@@ -40,7 +42,7 @@ def test_hover_links_canvas_and_outline(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, original)
         window = first_window(editor)
-        artboard = window.get_by_accessible_name("Artboard")
+        artboard = element(window, "Artboard")
         away = slint_testing.LogicalPosition(x=1, y=1)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
         labels = ["root-rectangle", "root-text"]
@@ -64,7 +66,7 @@ def test_hover_links_canvas_and_outline(
                 )
             )
             window.dispatch_event(slint_testing.PointerMoveEvent(target))
-            frame = window.get_by_accessible_name("Hovered " + kind)
+            frame = element(window, "Hovered " + kind)
             assert frame.absolute_position.x == pytest.approx(
                 artboard.absolute_position.x + x
             )
@@ -80,9 +82,7 @@ def test_hover_links_canvas_and_outline(
 
             wait_until(hover_matches)
         window.dispatch_event(slint_testing.PointerMoveEvent(away))
-        wait_until(
-            lambda: not window.get_by_accessible_name("Hovered Text").all() or None
-        )
+        wait_until(lambda: not elements(window, "Hovered Text") or None)
         restored_image = screenshot(window)
         for label in labels:
             assert row_background(window, label, restored_image) == backgrounds[label]
@@ -99,19 +99,19 @@ def test_tree_hover_geometry_updates_after_reload(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
-        artboard = window.get_by_accessible_name("Artboard")
+        artboard = element(window, "Artboard")
         window.dispatch_event(
             slint_testing.PointerMoveEvent(
                 center(outline_row(window, "root-rectangle"))
             )
         )
-        window.get_by_accessible_name("Hovered Rectangle").wait_for()
+        element(window, "Hovered Rectangle")
         updated = source.read_bytes().replace(b"x: 40px;", b"x: 70px;", 1)
         source.write_bytes(updated)
         wait_for_source(source, updated)
 
         def moved():
-            frame = window.get_by_accessible_name("Hovered Rectangle")
+            frame = element(window, "Hovered Rectangle")
             return (
                 frame.absolute_position.x
                 == pytest.approx(artboard.absolute_position.x + 70)

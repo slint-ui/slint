@@ -14,6 +14,8 @@ from test_palette import begin_palette_drag, canvas_drop_position, release_palet
 from test_undo_redo import shortcut
 from ui_driver import (
     PALETTE_KINDS,
+    element,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -101,8 +103,8 @@ def test_palette_outline_insertion(
             outline_row(window, target).invoke_accessible_expand_action()
         position = drop_position(window, target, location)
         begin_palette_drag(window, kind, position)
-        window.get_by_accessible_name("Outline drag preview").wait_for()
-        assert not window.get_by_accessible_name(f"{kind} drag preview").all()
+        element(window, "Outline drag preview")
+        assert not elements(window, f"{kind} drag preview")
         snapshot.assert_unchanged_now()
         release_palette_drag(window, position)
         snapshot.wait_for_applied(expected.encode(), source.name)
@@ -139,18 +141,18 @@ def test_palette_preview_switches_between_canvas_and_outline_and_cancels(
         canvas = canvas_drop_position(window)
         outline = drop_position(window, "container", "onto")
         begin_palette_drag(window, kind, canvas)
-        window.get_by_accessible_name(f"{kind} drag preview").wait_for()
+        element(window, f"{kind} drag preview")
         window.dispatch_event(slint_testing.PointerMoveEvent(outline))
-        ghost = window.get_by_accessible_name("Outline drag preview")
-        assert not window.get_by_accessible_name(f"{kind} drag preview").all()
+        ghost = element(window, "Outline drag preview")
+        assert not elements(window, f"{kind} drag preview")
         assert ghost.size.height == 32
         window.dispatch_event(slint_testing.PointerMoveEvent(canvas))
-        window.get_by_accessible_name(f"{kind} drag preview").wait_for()
-        assert not window.get_by_accessible_name("Outline drag preview").all()
+        element(window, f"{kind} drag preview")
+        assert not elements(window, "Outline drag preview")
         window.dispatch_event(slint_testing.PointerMoveEvent(outline))
         press_key(window, keys.Escape)
         release_palette_drag(window, outline)
-        assert not window.get_by_accessible_name("Outline drag preview").all()
+        assert not elements(window, "Outline drag preview")
         snapshot.assert_unchanged()
 
 

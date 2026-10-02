@@ -19,6 +19,8 @@ from inspector_interactions import (
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     press_keys,
@@ -27,7 +29,6 @@ from ui_driver import (
     select_outline_row,
     wait_until,
 )
-from ui_locators import Locator, Window
 
 INSPECTOR_SOURCE = "InspectorCases.slint"
 ELEMENT_ROWS = {
@@ -37,15 +38,13 @@ ELEMENT_ROWS = {
 }
 
 
-def select_element(window: Window, kind: str) -> None:
+def select_element(window: slint_testing.Window, kind: str) -> None:
     select_outline_row(window, ELEMENT_ROWS[kind])
-    window.get_by_role(
-        slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-    ).wait_for()
+    element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
 
 
 def open_combo_and_accept(
-    window: Window,
+    window: slint_testing.Window,
     label: str,
     expected_options: tuple[str, ...],
     value: str,
@@ -80,17 +79,19 @@ def open_combo_and_accept(
     combo.accessible_value = value
 
 
-def assert_rendered_element(window: Window, element_id: str) -> None:
+def assert_rendered_element(window: slint_testing.Window, element_id: str) -> None:
     wait_until(
         lambda: (
             element
-            if (element := next(iter(window.get_by_id(element_id).all()), None))
+            if (element := next(iter(elements(window, id=element_id)), None))
             else None
         )
     )
 
 
-def image_alignment_button(window: Window, vertical: str, horizontal: str) -> Locator:
+def image_alignment_button(
+    window: slint_testing.Window, vertical: str, horizontal: str
+) -> slint_testing.Element:
     position = (
         "center"
         if vertical == horizontal == "center"
@@ -135,17 +136,15 @@ def test_geometry_field_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
-        rectangle = window.get_by_id("InspectorCases::inspect-rectangle")
+        rectangle = element(window, id="InspectorCases::inspect-rectangle")
 
         def rendered_value():
-            return rectangle.read(
-                lambda element: getattr(
-                    element.absolute_position
-                    if property_name in ("x", "y")
-                    else element.size,
-                    property_name,
-                )
+            geometry = (
+                rectangle.absolute_position
+                if property_name in ("x", "y")
+                else rectangle.size
             )
+            return getattr(geometry, property_name)
 
         expected = float(value)
         if property_name in ("x", "y"):
@@ -329,10 +328,9 @@ def test_root_background_field_writes_exact_source(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        outline = window.get_by_accessible_name("Current file outline")
+        outline = element(window, "Current file outline")
         root_row = (
-            outline.resolve()
-            .query_descendants()
+            outline.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.ListItem)
             .find_all()[0]
         )
@@ -401,9 +399,7 @@ def test_literal_color_field_separates_rgb_and_opacity(
             "Rectangle background opacity",
             slint_testing.AccessibleRole.TextInput,
         )
-        fill_labels = window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fill"
-        ).all()
+        fill_labels = elements(window, "Fill", role=slint_testing.AccessibleRole.Text)
         assert any(
             label.absolute_position.y < rgb.absolute_position.y for label in fill_labels
         )
@@ -547,8 +543,7 @@ def test_color_field_opacity_writes_exact_source(
             slint_testing.AccessibleRole.TextInput,
         )
         suffixes = (
-            opacity_field.resolve()
-            .query_descendants()
+            opacity_field.query_descendants()
             .match_id("InspectorTextFieldBase::fixed-suffix")
             .find_all()
         )
@@ -607,7 +602,7 @@ def test_opacity_suffix_scrubs_with_transient_preview(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Rectangle")
-        rectangle = window.get_by_id("InspectorCases::inspect-rectangle").all()[0]
+        rectangle = elements(window, id="InspectorCases::inspect-rectangle")[0]
         sample = (
             round(rectangle.absolute_position.x + rectangle.size.width / 2),
             round(rectangle.absolute_position.y + rectangle.size.height / 2),
@@ -709,15 +704,12 @@ def test_color_field_uses_resolved_and_symbolic_display_modes(
             ("conic", "Conic Gradient"),
         ):
             select_outline_row(window, element)
-            wait_until(
-                lambda label=label: next(
-                    iter(window.get_by_accessible_name(label).all()), None
-                )
+            wait_until(lambda label=label: next(iter(elements(window, label)), None))
+            assert not elements(
+                window,
+                "Rectangle background opacity",
+                role=slint_testing.AccessibleRole.TextInput,
             )
-            assert not window.get_by_role(
-                slint_testing.AccessibleRole.TextInput,
-                name="Rectangle background opacity",
-            ).all()
             inspector_field(
                 window,
                 "Rectangle background color picker",
@@ -731,9 +723,11 @@ def test_color_field_uses_resolved_and_symbolic_display_modes(
             "root.accent",
             slint_testing.AccessibleRole.TextInput,
         )
-        assert not window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name="Rectangle background opacity"
-        ).all()
+        assert not elements(
+            window,
+            "Rectangle background opacity",
+            role=slint_testing.AccessibleRole.TextInput,
+        )
 
 
 def test_shared_color_fields_expose_opacity_editor(
@@ -745,10 +739,9 @@ def test_shared_color_fields_expose_opacity_editor(
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        outline = window.get_by_accessible_name("Current file outline")
+        outline = element(window, "Current file outline")
         root_row = (
-            outline.resolve()
-            .query_descendants()
+            outline.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.ListItem)
             .find_all()[0]
         )
@@ -834,17 +827,13 @@ def test_image_alignment_grid_writes_both_properties(
         window = first_window(editor)
         select_element(window, "Image")
         assert (
-            window.get_by_role(
-                slint_testing.AccessibleRole.Text, name="Image source"
+            element(
+                window, "Image source", role=slint_testing.AccessibleRole.Text
             ).accessible_value
             == "checker.svg"
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Choose image file"
-        ).wait_for()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Alignment"
-        ).wait_for()
+        element(window, "Choose image file", role=slint_testing.AccessibleRole.Button)
+        element(window, "Alignment", role=slint_testing.AccessibleRole.Text)
         assert image_alignment_button(window, "center", "center").accessible_checked
         image_alignment_button(
             window, "center", "center"
@@ -884,9 +873,7 @@ def test_image_alignment_grid_writes_both_properties(
                     if vertical == horizontal == "center"
                     else f"{vertical.title() if vertical != 'center' else 'Middle'} {horizontal}"
                 )
-                window.get_by_role(
-                    slint_testing.AccessibleRole.Text, name=display
-                ).wait_for()
+                element(window, display, role=slint_testing.AccessibleRole.Text)
                 assert_rendered_element(window, "InspectorCases::inspect-image")
                 if vertical == "top" and horizontal == "left":
                     press_shortcut(window, keys.Control, "z")
@@ -919,7 +906,7 @@ def test_image_alignment_grid_replaces_custom_expression(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_element(window, "Image")
-        window.get_by_role(slint_testing.AccessibleRole.Text, name="Custom").wait_for()
+        element(window, "Custom", role=slint_testing.AccessibleRole.Text)
         assert not any(
             image_alignment_button(window, vertical, horizontal).accessible_checked
             for vertical in ("top", "center", "bottom")
@@ -963,9 +950,7 @@ def test_font_family_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Inspector text"
-        ).wait_for()
+        element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
 @pytest.mark.parametrize("weight", tuple(str(value) for value in range(100, 1000, 100)))
@@ -1018,9 +1003,7 @@ def test_each_font_weight_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Inspector text"
-        ).wait_for()
+        element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
 @pytest.mark.parametrize(
@@ -1056,9 +1039,7 @@ def test_numeric_and_expression_font_sizes_write_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Inspector text"
-        ).wait_for()
+        element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
 @pytest.mark.parametrize(
@@ -1102,7 +1083,7 @@ def test_text_content_writes_exact_source(
             ),
             relative_path=INSPECTOR_SOURCE,
         )
-        window.get_by_role(slint_testing.AccessibleRole.Text, name=rendered).wait_for()
+        element(window, rendered, role=slint_testing.AccessibleRole.Text)
 
 
 def test_invalid_text_content_does_not_change_source(
@@ -1129,9 +1110,7 @@ def test_invalid_text_content_does_not_change_source(
             '"Inspector text"',
             slint_testing.AccessibleRole.TextInput,
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Inspector text"
-        ).wait_for()
+        element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
 def test_inspector_length_fields_show_numbers_without_pixel_labels(
@@ -1152,16 +1131,14 @@ def test_inspector_length_fields_show_numbers_without_pixel_labels(
                 window, label, slint_testing.AccessibleRole.TextInput
             )
             texts = (
-                field.resolve()
-                .query_descendants()
+                field.query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.Text)
                 .find_all()
             )
             assert not any(text.accessible_label == "px" for text in texts)
-        pane = window.get_by_accessible_name("Inspector and outline")
+        pane = element(window, "Inspector and outline")
         texts = (
-            pane.resolve()
-            .query_descendants()
+            pane.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.Text)
             .find_all()
         )
@@ -1220,8 +1197,8 @@ def shadow_expected(source: bytes, family: str, control: str, value: str) -> byt
     )
 
 
-def artboard_pixels(window: Window) -> bytes:
-    artboard = window.get_by_accessible_name("Artboard")
+def artboard_pixels(window: slint_testing.Window) -> bytes:
+    artboard = element(window, "Artboard")
     image = screenshot(window)
     scale = image.width / window.root_element.size.width
     x, y = artboard.absolute_position.x, artboard.absolute_position.y
@@ -1547,9 +1524,7 @@ def test_invalid_or_empty_inspector_edit_does_not_change_source(
         edit_field(window, label, value, role)
         snapshot.assert_unchanged()
         wait_for_field(window, label, value_before, role)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-        ).wait_for()
+        element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
 
 
 def test_invalid_rectangle_color_does_not_change_source(
@@ -1588,6 +1563,4 @@ def test_invalid_rectangle_color_does_not_change_source(
             "100",
             slint_testing.AccessibleRole.TextInput,
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-        ).wait_for()
+        element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)

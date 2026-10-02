@@ -16,6 +16,8 @@ from inspector_interactions import FIELDS
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -54,11 +56,7 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         text = wait_until(
             lambda: (
                 element
-                if (
-                    element := next(
-                        iter(window.get_by_id("Main::root-text").all()), None
-                    )
-                )
+                if (element := next(iter(elements(window, id="Main::root-text")), None))
                 else None
             )
         )
@@ -69,16 +67,12 @@ def test_canvas_selection_synchronizes_outline_and_inspector(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-        row = window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="root-text"
-        )
+        row = element(window, "root-text", role=slint_testing.AccessibleRole.ListItem)
         wait_until(lambda: row if row.accessible_item_selected else None)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Text"
-        ).wait_for()
+        element(window, "Selected Text", role=slint_testing.AccessibleRole.Region)
         assert (
-            window.get_by_role(
-                slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
+            element(
+                window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput
             ).accessible_value
             == "180"
         )
@@ -100,22 +94,22 @@ def test_clear_canvas_selection_does_not_edit_source(
             select_fixture_element(window, "Rectangle")
             for label, value in ((FIELDS["x"], "40"), (FIELDS["width"], "180")):
                 assert (
-                    window.get_by_role(
-                        slint_testing.AccessibleRole.TextInput, name=label
+                    element(
+                        window, label, role=slint_testing.AccessibleRole.TextInput
                     ).accessible_value
                     == value
                 )
             snapshot.assert_unchanged()
             if outside:
-                window.get_by_accessible_name("Rectangle background").wait_for()
-                canvas = window.get_by_accessible_name("Editor canvas")
+                element(window, "Rectangle background")
+                canvas = element(window, "Editor canvas")
                 target = slint_testing.LogicalPosition(
                     x=canvas.absolute_position.x + 10, y=canvas.absolute_position.y + 10
                 )
                 window.dispatch_event(slint_testing.PointerMoveEvent(target))
             else:
-                artboard = window.get_by_role(
-                    slint_testing.AccessibleRole.Region, name="Artboard"
+                artboard = element(
+                    window, "Artboard", role=slint_testing.AccessibleRole.Region
                 )
                 target = slint_testing.LogicalPosition(
                     x=artboard.absolute_position.x + artboard.size.width - 12,
@@ -125,9 +119,11 @@ def test_clear_canvas_selection_does_not_edit_source(
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
             def selection_cleared() -> bool | None:
-                outline = window.get_by_role(
-                    slint_testing.AccessibleRole.List, name="Current file outline"
-                ).resolve()
+                outline = element(
+                    window,
+                    "Current file outline",
+                    role=slint_testing.AccessibleRole.List,
+                )
                 rows = (
                     outline.query_descendants()
                     .match_accessible_role(slint_testing.AccessibleRole.ListItem)
@@ -138,7 +134,7 @@ def test_clear_canvas_selection_does_not_edit_source(
                     if rows
                     and not any(row.accessible_item_selected for row in rows)
                     and not any(
-                        window.get_by_accessible_name(label).all()
+                        elements(window, label)
                         for label in (
                             "Selected Rectangle",
                             "Rectangle background",
@@ -151,14 +147,14 @@ def test_clear_canvas_selection_does_not_edit_source(
             wait_until(selection_cleared, timeout=15)
             snapshot.assert_unchanged()
         select_fixture_element(window, "Rectangle")
-        outline = window.get_by_accessible_name("Current file outline").resolve()
+        outline = element(window, "Current file outline")
         root_row = (
             outline.query_descendants()
             .match_accessible_role(slint_testing.AccessibleRole.ListItem)
             .find_all()[0]
         )
         root_row.invoke_accessible_default_action()
-        window.get_by_accessible_name("Root background").wait_for()
+        element(window, "Root background")
         snapshot.assert_unchanged()
 
 
@@ -176,9 +172,7 @@ def test_delete_without_element_selection_does_not_edit_source(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).wait_for()
+        element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
         press_key(window, key)
         snapshot.assert_unchanged()
 
@@ -198,8 +192,8 @@ def test_focused_inspector_field_consumes_delete_key(
     ) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
-        field = window.get_by_role(
-            slint_testing.AccessibleRole.TextInput, name=FIELDS["x"]
+        field = element(
+            window, FIELDS["x"], role=slint_testing.AccessibleRole.TextInput
         )
         target = slint_testing.LogicalPosition(
             x=field.absolute_position.x + field.size.width / 2,
@@ -209,9 +203,7 @@ def test_focused_inspector_field_consumes_delete_key(
         window.dispatch_event(slint_testing.PointerPressEvent(target, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
         press_key(window, key)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-        ).wait_for()
+        element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
         snapshot.assert_unchanged()
 
 
@@ -240,17 +232,18 @@ def test_delete_selected_element_writes_exact_source(
         wait_until(
             lambda: (
                 True
-                if not window.get_by_role(
-                    slint_testing.AccessibleRole.ListItem,
-                    name=f"root-{element_type.lower()}",
-                ).all()
+                if not elements(
+                    window,
+                    f"root-{element_type.lower()}",
+                    role=slint_testing.AccessibleRole.ListItem,
+                )
                 else None
             ),
             timeout=15,
         )
-        assert not window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {element_type}"
-        ).all()
+        assert not elements(
+            window, f"Selected {element_type}", role=slint_testing.AccessibleRole.Region
+        )
         if element_type == "Rectangle":
             assert not window.find_elements_by_id("Main::root-rectangle")
             wait_for_no_rectangle_hover(window)
@@ -260,5 +253,5 @@ def test_delete_selected_element_writes_exact_source(
                         center(fixture_element(window, "Image"))
                     )
                 )
-                window.get_by_accessible_name("Hovered Image").wait_for()
+                element(window, "Hovered Image")
                 wait_for_no_rectangle_hover(window)

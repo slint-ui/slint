@@ -28,6 +28,8 @@ from editor_sync import wait_for_source
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
+    element,
+    elements,
     file_row,
     first_window,
     launch_editor,
@@ -36,7 +38,6 @@ from ui_driver import (
     select_outline_row,
     wait_until,
 )
-from ui_locators import Window
 
 GOLDENS = Path(__file__).resolve().parents[1] / "goldens"
 CORNERS = ["top-left", "top-right", "bottom-right", "bottom-left"]
@@ -90,7 +91,7 @@ PALETTE_DROP_SIZES = {
 SELECTION_ACCENT = (11, 153, 254)
 
 
-def selection_outline_pixel_count(window: Window, kind: str) -> int:
+def selection_outline_pixel_count(window: slint_testing.Window, kind: str) -> int:
     x, y, width, height = selection_frame(window, kind)
     image = screenshot(window)
     scale = image.width / window.root_element.size.width
@@ -105,7 +106,9 @@ def selection_outline_pixel_count(window: Window, kind: str) -> int:
     return sum(pixel == SELECTION_ACCENT for pixel in outline.get_flattened_data())
 
 
-def finish_palette_drag(window: Window, target: slint_testing.LogicalPosition) -> None:
+def finish_palette_drag(
+    window: slint_testing.Window, target: slint_testing.LogicalPosition
+) -> None:
     window.dispatch_event(
         slint_testing.PointerReleaseEvent(target, slint_testing.PointerEventButton.Left)
     )
@@ -122,9 +125,7 @@ def test_component_palette_drop_can_extend_outside_artboard(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         target = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 8,
             y=artboard.absolute_position.y + 8,
@@ -155,9 +156,7 @@ def test_palette_preview_follows_rejected_pointer(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         first_rejected_position = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x - 60,
             y=artboard.absolute_position.y + 180,
@@ -168,8 +167,8 @@ def test_palette_preview_follows_rejected_pointer(
         )
 
         begin_palette_drag(window, "Rectangle", first_rejected_position)
-        preview = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Rectangle drag preview"
+        preview = element(
+            window, "Rectangle drag preview", role=slint_testing.AccessibleRole.Region
         )
         expected_width, expected_height = PALETTE_DROP_SIZES["Rectangle"]
         assert preview.size.width == pytest.approx(expected_width)
@@ -207,9 +206,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         hover = hover_fixture_element(window, kind)
         expected = {
             "Rectangle": (40, 40, 180, 120),
@@ -225,7 +222,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
         )
         assert hover.size.width == pytest.approx(width)
         assert hover.size.height == pytest.approx(height)
-        assert not window.get_by_accessible_name(f"Selected {kind}").all()
+        assert not elements(window, f"Selected {kind}")
         snapshot.assert_unchanged()
 
         blank = slint_testing.LogicalPosition(
@@ -233,13 +230,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
             y=artboard.absolute_position.y + artboard.size.height - 12,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(blank))
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name(f"Hovered {kind}").all()
-                else None
-            )
-        )
+        wait_until(lambda: True if not elements(window, f"Hovered {kind}") else None)
         snapshot.assert_unchanged()
 
         outside = slint_testing.LogicalPosition(
@@ -247,13 +238,7 @@ def test_unselected_element_shows_hover_outline_without_side_effects(
             y=artboard.absolute_position.y - 12,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(outside))
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name(f"Hovered {kind}").all()
-                else None
-            )
-        )
+        wait_until(lambda: True if not elements(window, f"Hovered {kind}") else None)
         snapshot.assert_unchanged()
 
 
@@ -266,22 +251,20 @@ def test_overlapping_elements_update_hover_outline_to_topmost_item(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         rectangle_only = center(fixture_element(window, "Rectangle"))
         overlapping = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 200,
             y=artboard.absolute_position.y + 80,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(rectangle_only))
-        window.get_by_accessible_name("Hovered Rectangle").wait_for()
+        element(window, "Hovered Rectangle")
         window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
         wait_until(
             lambda: (
                 True
-                if window.get_by_accessible_name("Hovered Text").all()
-                and not window.get_by_accessible_name("Hovered Rectangle").all()
+                if elements(window, "Hovered Text")
+                and not elements(window, "Hovered Rectangle")
                 else None
             )
         )
@@ -297,16 +280,14 @@ def test_overlapping_hover_does_not_intercept_selected_element_drag(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         select_fixture_element(window, "Rectangle")
         overlapping = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 200,
             y=artboard.absolute_position.y + 80,
         )
         window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
-        window.get_by_accessible_name("Hovered Text").wait_for()
+        element(window, "Hovered Text")
         initial_frame = selection_frame(window, "Rectangle")
         target = slint_testing.LogicalPosition(
             x=overlapping.x + 20,
@@ -316,14 +297,8 @@ def test_overlapping_hover_does_not_intercept_selected_element_drag(
         window.dispatch_event(slint_testing.PointerPressEvent(overlapping, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(target))
         assert selection_frame(window, "Rectangle") != initial_frame
-        assert not window.get_by_accessible_name("Selected Text").all()
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Hovered Text").all()
-                else None
-            )
-        )
+        assert not elements(window, "Selected Text")
+        wait_until(lambda: True if not elements(window, "Hovered Text") else None)
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
 
@@ -337,9 +312,7 @@ def test_overlapping_hover_selects_topmost_item_on_click(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         select_fixture_element(window, "Rectangle")
         overlapping = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 200,
@@ -347,14 +320,12 @@ def test_overlapping_hover_selects_topmost_item_on_click(
         )
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerMoveEvent(overlapping))
-        window.get_by_accessible_name("Hovered Text").wait_for()
+        element(window, "Hovered Text")
         window.dispatch_event(slint_testing.PointerPressEvent(overlapping, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(overlapping, button))
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Text"
-        ).wait_for()
-        window.get_by_accessible_name("Hovered Text").wait_for()
-        assert not window.get_by_accessible_name("Selected Rectangle").all()
+        element(window, "Selected Text", role=slint_testing.AccessibleRole.Region)
+        element(window, "Hovered Text")
+        assert not elements(window, "Selected Rectangle")
         snapshot.assert_unchanged()
 
 
@@ -370,11 +341,11 @@ def test_hover_outside_selected_element_can_select_and_drag_child(
         select_fixture_element(window, "Rectangle")
         start = center(fixture_element(window, "Text"))
         window.dispatch_event(slint_testing.PointerMoveEvent(start))
-        window.get_by_accessible_name("Hovered Text").wait_for()
+        element(window, "Hovered Text")
         target = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.get_by_accessible_name("Selected Text").wait_for()
+        element(window, "Selected Text")
         initial_frame = selection_frame(window, "Text")
         window.dispatch_event(slint_testing.PointerMoveEvent(target))
         assert selection_frame(window, "Text") != initial_frame
@@ -407,11 +378,9 @@ def test_unselected_element_click_selects_without_editing_source(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(below_threshold, button)
         )
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-        ).wait_for()
+        element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
         # Releasing a click restores hover without another pointer move.
-        window.get_by_accessible_name(f"Hovered {kind}").wait_for()
+        element(window, f"Hovered {kind}")
         snapshot.assert_unchanged()
         if kind == "Text" and jitter == 0:
             window.dispatch_event(
@@ -420,7 +389,7 @@ def test_unselected_element_click_selects_without_editing_source(
             select_fixture_element(window, "Rectangle")
             select_fixture_element(window, "Text")
             hover_fixture_element(window, "Text")
-            window.get_by_accessible_name("Selected Text").wait_for()
+            element(window, "Selected Text")
             snapshot.assert_unchanged()
 
 
@@ -449,9 +418,7 @@ def test_unselected_element_can_be_dragged_in_one_gesture(
         end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-        ).wait_for()
+        element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
         initial_frame = selection_frame(window, kind)
         for step in range(1, 4):
             fraction = step / 3
@@ -461,7 +428,7 @@ def test_unselected_element_can_be_dragged_in_one_gesture(
             )
             window.dispatch_event(slint_testing.PointerMoveEvent(position))
         assert selection_frame(window, kind) != initial_frame
-        assert not window.get_by_accessible_name(f"{kind} resize top-left").all()
+        assert not elements(window, f"{kind} resize top-left")
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
         snapshot.wait_for_exact(replace_once(baseline, original, updated))
@@ -481,11 +448,11 @@ def test_unselected_rectangle_direct_drag_starts_before_release(
         end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.get_by_accessible_name("Selected Rectangle").wait_for()
+        element(window, "Selected Rectangle")
         initial_frame = selection_frame(window, "Rectangle")
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
         assert selection_frame(window, "Rectangle") != initial_frame
-        assert not window.get_by_accessible_name("Rectangle resize top-left").all()
+        assert not elements(window, "Rectangle resize top-left")
         assert selection_outline_pixel_count(window, "Rectangle") == 0
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
@@ -508,26 +475,26 @@ def test_invisible_element_keeps_selection_outline_during_drag(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        element = wait_until(
+        dragged = wait_until(
             lambda: next(
-                iter(window.get_by_id(f"DragOutlineCases::{element_id}").all()),
+                iter(elements(window, id=f"DragOutlineCases::{element_id}")),
                 None,
             )
         )
         if direct_drag:
-            start = center(element)
+            start = center(dragged)
             window.dispatch_event(slint_testing.PointerMoveEvent(start))
-            window.get_by_accessible_name(f"Hovered {kind}").wait_for()
+            element(window, f"Hovered {kind}")
         else:
             select_outline_row(window, element_id)
-            start = center(window.get_by_accessible_name(f"{kind} move handle"))
+            start = center(element(window, f"{kind} move handle"))
         end = slint_testing.LogicalPosition(x=start.x + 20, y=start.y + 16)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         window.dispatch_event(slint_testing.PointerMoveEvent(end))
 
         assert selection_outline_pixel_count(window, kind) > 10
-        assert not window.get_by_accessible_name(f"{kind} resize top-left").all()
+        assert not elements(window, f"{kind} resize top-left")
         snapshot.assert_unchanged_now()
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
@@ -543,9 +510,7 @@ def test_repeated_palette_drop_preserves_component_kind(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Reload probe"
-        ).wait_for()
+        element(window, "Reload probe", role=slint_testing.AccessibleRole.Text)
         select_outline_row(window, "drop-target")
         x, y, width, height = selection_frame(window, "Rectangle")
         target = slint_testing.LogicalPosition(x=x + width / 2, y=y + height / 2)
@@ -561,31 +526,36 @@ def test_repeated_palette_drop_preserves_component_kind(
             reloaded = expected.replace(b"Reload probe", reload_label.encode(), 1)
             source_file.write_bytes(reloaded)
             wait_for_source(source_file, reloaded)
-            window.get_by_role(
-                slint_testing.AccessibleRole.Text, name=reload_label
-            ).wait_for(timeout=15)
+            element(
+                window, reload_label, role=slint_testing.AccessibleRole.Text, timeout=15
+            )
             source_file.write_bytes(expected)
             wait_for_source(source_file, expected)
-            window.get_by_role(
-                slint_testing.AccessibleRole.Text, name="Reload probe"
-            ).wait_for(timeout=15)
+            element(
+                window,
+                "Reload probe",
+                role=slint_testing.AccessibleRole.Text,
+                timeout=15,
+            )
             wait_until(
-                lambda: (
-                    True
-                    if not window.get_by_accessible_name(f"{kind} drag preview").all()
-                    else None
-                )
+                lambda: True if not elements(window, f"{kind} drag preview") else None
             )
             button = slint_testing.PointerEventButton.Left
             window.dispatch_event(slint_testing.PointerPressEvent(target, button))
             window.dispatch_event(slint_testing.PointerReleaseEvent(target, button))
-            window.get_by_role(
-                slint_testing.AccessibleRole.Region, name=f"Selected {kind}"
-            ).wait_for(timeout=15)
+            element(
+                window,
+                f"Selected {kind}",
+                role=slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
             select_outline_row(window, "drop-target")
-            window.get_by_role(
-                slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-            ).wait_for(timeout=15)
+            element(
+                window,
+                "Selected Rectangle",
+                role=slint_testing.AccessibleRole.Region,
+                timeout=15,
+            )
 
         element_types = {
             line.strip().split(maxsplit=1)[0]
@@ -607,13 +577,11 @@ def test_component_palette_drag_over_rotated_element_does_not_crash(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_outline_row(window, "rotated-free-rectangle")
-        rotated_rectangle = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Rectangle"
+        rotated_rectangle = element(
+            window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region
         )
         target = center(rotated_rectangle)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         outside_artboard = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x - 20,
             y=artboard.absolute_position.y,
@@ -623,13 +591,7 @@ def test_component_palette_drag_over_rotated_element_does_not_crash(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(outside_artboard, button)
         )
-        wait_until(
-            lambda: (
-                True
-                if not window.get_by_accessible_name("Selected Rectangle").all()
-                else None
-            )
-        )
+        wait_until(lambda: True if not elements(window, "Selected Rectangle") else None)
         begin_palette_drag(window, "Rectangle", target)
         finish_palette_drag(window, target)
 
@@ -648,9 +610,7 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
     baseline = source_file.read_bytes()
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         target = slint_testing.LogicalPosition(
             x=artboard.absolute_position.x + 260,
             y=artboard.absolute_position.y + 220,
@@ -664,13 +624,13 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
         asset_directory_row.single_click(slint_testing.PointerEventButton.Left)
         image_row = file_row(window, image_file)
         image_row.single_click(slint_testing.PointerEventButton.Left)
-        preview_tab = window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Preview"
+        preview_tab = element(
+            window, "Preview", role=slint_testing.AccessibleRole.Button
         )
         assert preview_tab.accessible_checked
-        assert not window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        ).all()
+        assert not elements(
+            window, "Artboard", role=slint_testing.AccessibleRole.Region
+        )
         assert (
             not window.root_element.query_descendants()
             .match_type_name("EditorCanvas")
@@ -679,9 +639,7 @@ def test_image_asset_mode_destroys_canvas_without_replaying_palette_drop(
 
         component_row = file_row(window, source_file)
         component_row.single_click(slint_testing.PointerEventButton.Left)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        ).wait_for()
+        element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         assert (
             len(
                 window.root_element.query_descendants()
@@ -828,16 +786,16 @@ def outside_resize_values(
 
 
 def radius_handle_positions(
-    window: Window,
+    window: slint_testing.Window,
 ) -> dict[str, slint_testing.LogicalPosition]:
     return {
-        corner: center(window.get_by_accessible_name(f"Rectangle radius {corner}"))
+        corner: center(element(window, f"Rectangle radius {corner}"))
         for corner in CORNERS
     }
 
 
 def assert_radius_handle_positions(
-    window: Window,
+    window: slint_testing.Window,
     initial_positions: dict[str, slint_testing.LogicalPosition],
     active_corner: str,
     radius_delta: float,
@@ -859,13 +817,13 @@ def assert_radius_handle_positions(
         assert position_distance(current_positions[corner], expected_position) < 1.5
 
 
-def wait_for_radius_tooltip(window: Window, radius: float) -> None:
+def wait_for_radius_tooltip(window: slint_testing.Window, radius: float) -> None:
     wait_until(
         lambda: (
             True
             if float(
-                window.get_by_role(
-                    slint_testing.AccessibleRole.Text, name="Radius value"
+                element(
+                    window, "Radius value", role=slint_testing.AccessibleRole.Text
                 ).accessible_value
             )
             == radius
@@ -894,7 +852,7 @@ def test_move_element_writes_exact_source_on_release(
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
         select_fixture_element(window, kind)
-        handle = window.get_by_accessible_name(f"{kind} move handle")
+        handle = element(window, f"{kind} move handle")
         dx, dy = 20, 16
         if outside_window:
             start = center(handle)
@@ -932,7 +890,7 @@ def test_move_rotated_element_writes_exact_source_on_release(
         select_outline_row(window, f"rotated-free-{kind.lower()}")
         manual_drag(
             window,
-            window.get_by_accessible_name(f"{kind} move handle"),
+            element(window, f"{kind} move handle"),
             dx,
             dy,
             snapshot,
@@ -959,7 +917,7 @@ def test_nested_rotated_element_move_writes_exact_local_source(
         select_outline_row(window, "nested-rotated-text")
         manual_drag(
             window,
-            window.get_by_accessible_name("Text move handle"),
+            element(window, "Text move handle"),
             20,
             16,
             snapshot,
@@ -994,7 +952,7 @@ def test_each_resize_handle_writes_exact_source_on_release(
         snapshot = SourceSnapshot.capture(fixture_project)
         manual_drag(
             window,
-            window.get_by_accessible_name(f"Rectangle resize {corner}"),
+            element(window, f"Rectangle resize {corner}"),
             *CORNER_DELTAS[corner],
             snapshot,
         )
@@ -1025,7 +983,7 @@ def test_each_edge_resizes_only_its_axis(
         fixed_label = f"Rectangle resize {OPPOSITE_EDGES[edge]}"
         fixed_center = manual_drag(
             window,
-            window.get_by_accessible_name(f"Rectangle resize {edge}"),
+            element(window, f"Rectangle resize {edge}"),
             *EDGE_DELTAS[edge],
             snapshot,
             fixed_handle_label=fixed_label,
@@ -1036,7 +994,7 @@ def test_each_edge_resizes_only_its_axis(
         assert fixed_center is not None
         assert (
             position_distance(
-                center(window.get_by_accessible_name(fixed_label)),
+                center(element(window, fixed_label)),
                 fixed_center,
             )
             < 1.5
@@ -1056,7 +1014,7 @@ def test_shift_edge_resize_stays_single_axis(
         snapshot = SourceSnapshot.capture(fixture_project)
         manual_drag(
             window,
-            window.get_by_accessible_name("Rectangle resize right"),
+            element(window, "Rectangle resize right"),
             20,
             0,
             snapshot,
@@ -1091,7 +1049,7 @@ def test_edge_click_and_tangential_drag_do_not_edit(
         else:
             select_fixture_element(window, "Rectangle")
         snapshot = SourceSnapshot.capture(fixture_project)
-        handle = window.get_by_accessible_name(f"Rectangle resize {edge}")
+        handle = element(window, f"Rectangle resize {edge}")
         start = center(handle, angle)
         initial_frame = selection_frame(window, "Rectangle")
         button = slint_testing.PointerEventButton.Left
@@ -1141,7 +1099,7 @@ def test_layout_selection_has_no_edge_resize_controls(
         window = first_window(editor)
         select_outline_row(window, "layout-rectangle")
         for edge in EDGES:
-            assert not window.get_by_accessible_name(f"Rectangle resize {edge}").all()
+            assert not elements(window, f"Rectangle resize {edge}")
 
 
 @pytest.mark.parametrize(
@@ -1167,15 +1125,15 @@ def test_small_selection_keeps_corners_instead_of_short_edges(
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
         for edge in hidden_edges:
-            assert not window.get_by_accessible_name(f"Rectangle resize {edge}").all()
+            assert not elements(window, f"Rectangle resize {edge}")
         for corner in CORNERS:
-            window.get_by_accessible_name(f"Rectangle resize {corner}").wait_for()
+            element(window, f"Rectangle resize {corner}")
 
         baseline = source_file.read_bytes()
         snapshot = SourceSnapshot.capture(fixture_project)
         manual_drag(
             window,
-            window.get_by_accessible_name("Rectangle resize top-left"),
+            element(window, "Rectangle resize top-left"),
             -16,
             -16,
             snapshot,
@@ -1203,7 +1161,7 @@ def test_shift_resize_is_proportional(
         snapshot = SourceSnapshot.capture(fixture_project)
         manual_drag(
             window,
-            window.get_by_accessible_name("Rectangle resize bottom-right"),
+            element(window, "Rectangle resize bottom-right"),
             20,
             16,
             snapshot,
@@ -1282,7 +1240,7 @@ def test_rotated_element_resize_writes_exact_source(
         opposite_label = f"{kind} resize {OPPOSITE_CORNERS[corner]}"
         fixed_handle_center = manual_drag(
             window,
-            window.get_by_accessible_name(f"{kind} resize {corner}"),
+            element(window, f"{kind} resize {corner}"),
             *CORNER_DELTAS[corner],
             snapshot,
             fixed_handle_label=opposite_label,
@@ -1302,7 +1260,7 @@ def test_rotated_element_resize_writes_exact_source(
         assert (
             position_distance(
                 center(
-                    window.get_by_accessible_name(opposite_label),
+                    element(window, opposite_label),
                     math.radians(ROTATED_FIXTURE_ANGLE),
                 ),
                 fixed_handle_center,
@@ -1338,7 +1296,7 @@ def test_rotated_element_edge_resize_writes_exact_source(
         fixed_label = f"{kind} resize {OPPOSITE_EDGES[edge]}"
         fixed_center = manual_drag(
             window,
-            window.get_by_accessible_name(f"{kind} resize {edge}"),
+            element(window, f"{kind} resize {edge}"),
             dx,
             dy,
             snapshot,
@@ -1356,7 +1314,7 @@ def test_rotated_element_edge_resize_writes_exact_source(
         assert (
             position_distance(
                 center(
-                    window.get_by_accessible_name(fixed_label),
+                    element(window, fixed_label),
                     math.radians(ROTATED_FIXTURE_ANGLE),
                 ),
                 fixed_center,
@@ -1386,9 +1344,7 @@ def run_canvas_boundary_case(
         select_outline_row(window, element_id)
 
         geometry = geometries[kind]
-        artboard = window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Artboard"
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         left = artboard.absolute_position.x
         top = artboard.absolute_position.y
         right = left + artboard.size.width
@@ -1417,7 +1373,7 @@ def run_canvas_boundary_case(
                 bottom + OUTSIDE_ARTBOARD_DISTANCE,
             ),
         }[target]
-        handle = window.get_by_accessible_name(label)
+        handle = element(window, label)
         start = center(handle)
         delta = (
             target_position[0] - start.x,
@@ -1489,7 +1445,7 @@ def test_rotation_starts_only_outside_resize_handle(
         else:
             select_outline_row(window, "layout-rectangle")
         snapshot = SourceSnapshot.capture(fixture_project)
-        handle = window.get_by_accessible_name(f"{kind} resize {corner}")
+        handle = element(window, f"{kind} resize {corner}")
         assert handle.accessible_enabled == resizable
         offset = 1 if outside else -1
         position = center(handle)
@@ -1502,9 +1458,9 @@ def test_rotation_starts_only_outside_resize_handle(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(position, button))
         if outside:
-            window.get_by_accessible_name("Rotation angle").wait_for()
+            element(window, "Rotation angle")
         else:
-            assert not window.get_by_accessible_name("Rotation angle").all()
+            assert not elements(window, "Rotation angle")
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
         snapshot.assert_unchanged()
 
@@ -1524,7 +1480,7 @@ def test_each_rotation_zone_writes_exact_source_on_release(
         window = first_window(editor)
         select_fixture_element(window, "Text")
         snapshot = SourceSnapshot.capture(fixture_project)
-        handle = window.get_by_accessible_name(f"Text rotate {corner}")
+        handle = element(window, f"Text rotate {corner}")
         manual_rotation_drag(
             window,
             handle,
@@ -1553,7 +1509,7 @@ def test_rotation_crosses_zero_with_exact_source(
         snapshot = SourceSnapshot.capture(fixture_project)
         manual_rotation_drag(
             window,
-            window.get_by_accessible_name("Text rotate top-left"),
+            element(window, "Text rotate top-left"),
             20,
             -20,
             snapshot,
@@ -1698,7 +1654,7 @@ def test_radius_tooltip_follows_handle_clear_of_corner(
         handle = radius_handle(window, "top-left")
         start = center(handle, rotation)
         corner = center(
-            window.get_by_accessible_name("Rectangle resize top-left"),
+            element(window, "Rectangle resize top-left"),
             rotation,
         )
         end = offset_position(start, 12, 4, rotation)
@@ -1708,12 +1664,12 @@ def test_radius_tooltip_follows_handle_clear_of_corner(
 
         dragged_radius = radius + 8
         wait_for_radius_tooltip(window, dragged_radius)
-        tooltip = window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Radius value"
+        tooltip = element(
+            window, "Radius value", role=slint_testing.AccessibleRole.Text
         )
         tip = tooltip.absolute_position
         control = center(
-            window.get_by_accessible_name("Rectangle radius top-left"),
+            element(window, "Rectangle radius top-left"),
             rotation,
         )
         extent = dragged_radius
@@ -1840,8 +1796,8 @@ def test_repeated_rectangles_show_radius_handles_only_on_primary_instance(
         window = first_window(editor)
         instances = wait_until(
             lambda: (
-                elements
-                if len(elements := window.get_by_id("Main::root-rectangle").all()) == 3
+                matches
+                if len(matches := elements(window, id="Main::root-rectangle")) == 3
                 else None
             )
         )
@@ -1854,9 +1810,11 @@ def test_repeated_rectangles_show_radius_handles_only_on_primary_instance(
             lambda: (
                 selected
                 if len(
-                    selected := window.get_by_role(
-                        slint_testing.AccessibleRole.Region, name="Selected Rectangle"
-                    ).all()
+                    selected := elements(
+                        window,
+                        "Selected Rectangle",
+                        role=slint_testing.AccessibleRole.Region,
+                    )
                 )
                 == 3
                 else None
@@ -1864,9 +1822,11 @@ def test_repeated_rectangles_show_radius_handles_only_on_primary_instance(
         )
 
         for corner in CORNERS:
-            handles = window.get_by_role(
-                slint_testing.AccessibleRole.Button, name=f"Rectangle radius {corner}"
-            ).all()
+            handles = elements(
+                window,
+                f"Rectangle radius {corner}",
+                role=slint_testing.AccessibleRole.Button,
+            )
             assert len(handles) == 1
             assert position_distance(center(handles[0]), target) < 100
         snapshot.assert_unchanged()
@@ -1914,7 +1874,7 @@ def test_resize_continues_outside_window_and_commits_on_release(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Rectangle")
-        handle = window.get_by_accessible_name("Rectangle resize bottom-right")
+        handle = element(window, "Rectangle resize bottom-right")
         start = center(handle)
         size = window.root_element.size
         dx = math.ceil(size.width + OUTSIDE_ARTBOARD_DISTANCE - start.x)
@@ -1939,7 +1899,7 @@ def test_rotation_continues_outside_window_and_commits_on_release(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         select_fixture_element(window, "Text")
-        handle = window.get_by_accessible_name("Text rotate top-left")
+        handle = element(window, "Text rotate top-left")
         start = rotation_start(handle)
         x, y, width, height = selection_frame(window, "Text")
         cx, cy = x + width / 2, y + height / 2
@@ -2016,7 +1976,7 @@ def test_handle_click_below_drag_threshold_does_not_edit_source(
         handle = (
             radius_handle(window, "top-left")
             if label == "Rectangle radius top-left"
-            else window.get_by_accessible_name(label)
+            else element(window, label)
         )
         before = selection_frame(window, "Rectangle")
         start = center(handle)
@@ -2030,9 +1990,7 @@ def test_handle_click_below_drag_threshold_does_not_edit_source(
             assert (
                 position_distance(
                     center(
-                        window.get_by_role(
-                            slint_testing.AccessibleRole.Button, name=label
-                        )
+                        element(window, label, role=slint_testing.AccessibleRole.Button)
                     ),
                     radius_position_before,
                 )
@@ -2054,12 +2012,10 @@ def test_disabled_manipulation_does_not_edit_source(
         window = first_window(editor)
         snapshot = SourceSnapshot.capture(fixture_project)
         select_outline_row(window, element_id)
-        window.get_by_accessible_name("Selected Rectangle").wait_for()
+        element(window, "Selected Rectangle")
         for corner in CORNERS:
-            assert not window.get_by_accessible_name(
-                f"Rectangle resize {corner}"
-            ).accessible_enabled
-        handle = window.get_by_accessible_name("Rectangle resize bottom-right")
+            assert not element(window, f"Rectangle resize {corner}").accessible_enabled
+        handle = element(window, "Rectangle resize bottom-right")
         target = center(handle)
         window.drag_and_drop(
             target,

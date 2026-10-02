@@ -15,6 +15,8 @@ from inspector_interactions import wait_for_field as wait_for_inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     press_keys,
@@ -55,9 +57,7 @@ def prepare(project: Path, values=(12, 12, 12, 12), rotation="32deg") -> bytes:
 
 def select_element(window, kind):
     select_outline_row(window, "inspect-" + kind.lower())
-    window.get_by_role(
-        slint_testing.AccessibleRole.TextInput, name="Rotation"
-    ).wait_for()
+    element(window, "Rotation", role=slint_testing.AccessibleRole.TextInput)
 
 
 def edit_field(window, label, value):
@@ -71,8 +71,8 @@ def wait_for_field(window, label, value):
 
 
 def action(window, label):
-    window.get_by_role(
-        slint_testing.AccessibleRole.Button, name=label
+    element(
+        window, label, role=slint_testing.AccessibleRole.Button
     ).invoke_accessible_default_action()
 
 
@@ -124,8 +124,8 @@ def test_rotation_prefix_scrubs_with_transient_preview(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        scrubber = window.get_by_role(
-            slint_testing.AccessibleRole.Slider, name="Rotation scrubber"
+        scrubber = element(
+            window, "Rotation scrubber", role=slint_testing.AccessibleRole.Slider
         )
         start = center(scrubber)
         end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
@@ -270,7 +270,7 @@ def test_knob_crosses_zero_with_transient_preview(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         assert knob.size.width == 32 and knob.size.height == 32
         start, end = point(knob, 350), point(knob, 10)
         window.dispatch_event(
@@ -344,7 +344,7 @@ def test_knob_keyboard_step(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start = point(knob, 32)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -377,7 +377,7 @@ def test_selection_change_cancels_knob_drag(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -552,7 +552,7 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 90), point(knob, 108)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -598,7 +598,7 @@ def test_source_reload_cancels_knob_gesture(
         window = first_window(app)
         wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -637,7 +637,7 @@ def test_text_input_undo_does_not_revert_document(
         edit_field(window, "Rotation", "40")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "40")
-        field = window.get_by_role(slint_testing.AccessibleRole.TextInput, name=label)
+        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
         field.single_click(slint_testing.PointerEventButton.Left)
         press_keys(window, text)
         wait_for_field(window, label, text)
@@ -667,7 +667,7 @@ def test_undo_while_dragging_cancels_release(
                 baseline.replace(b"32deg", b"42deg"), relative_path=SOURCE
             )
             wait_for_field(window, "Rotation", "42")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -715,21 +715,19 @@ def test_deleted_selected_element_clears_inspector(
     with launch_editor(editor_binary, editor_environment, source) as app:
         window = first_window(app)
         select_element(window, "Image")
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Selected Image"
-        ).wait_for()
+        element(window, "Selected Image", role=slint_testing.AccessibleRole.Region)
         original = source.read_text()
         source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
         wait_until(
             lambda: (
                 True
-                if not window.get_by_role(
-                    slint_testing.AccessibleRole.Region, name="Selected Image"
-                ).all()
+                if not elements(
+                    window, "Selected Image", role=slint_testing.AccessibleRole.Region
+                )
                 else None
             )
         )
-        assert not window.get_by_accessible_name("Image fit").all()
+        assert not elements(window, "Image fit")
 
 
 def test_rotation_release_keeps_preview_until_reload(
@@ -742,7 +740,7 @@ def test_rotation_release_keeps_preview_until_reload(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window.get_by_accessible_name("Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 90), point(knob, 108)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -760,8 +758,8 @@ def test_rotation_release_keeps_preview_until_reload(
         deadline = time.monotonic() + 0.5
         while time.monotonic() < deadline:
             assert (
-                window.get_by_role(
-                    slint_testing.AccessibleRole.TextInput, name="Rotation"
+                element(
+                    window, "Rotation", role=slint_testing.AccessibleRole.TextInput
                 ).accessible_value
                 == "50"
             )

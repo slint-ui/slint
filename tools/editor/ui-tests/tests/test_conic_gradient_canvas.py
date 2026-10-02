@@ -13,6 +13,7 @@ from gradient_interactions import around, center, click, control, gesture, shift
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -42,8 +43,8 @@ def open_conic(window):
     select_outline_row(window, "fill")
     click(window, "Rectangle background color picker")
     control(window, "Gradient rotation handle")
-    assert not window.get_by_accessible_name("Gradient angle degrees").all()
-    assert not window.get_by_accessible_name("Gradient center").all()
+    assert not elements(window, "Gradient angle degrees")
+    assert not elements(window, "Gradient center")
     control(window, "Add gradient stop")
 
 
@@ -129,9 +130,7 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         press_key(window, keys.Delete)
-        wait_until(
-            lambda: not window.get_by_accessible_name("Gradient stop 3").all() or None
-        )
+        wait_until(lambda: not elements(window, "Gradient stop 3") or None)
         control(window, "Gradient stop 2")
         press_key(window, keys.LeftArrow)
         assert float(
@@ -142,7 +141,7 @@ def test_conic_keyboard_and_seam_neighbor(
         press_key(window, keys.Backspace)
         press_key(window, keys.Delete)
         control(window, "Gradient stop 2")
-        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -156,9 +155,7 @@ def test_conic_swatch_delete_keeps_canvas_element(
         window = first_window(editor)
         open_conic(window)
         click(window, "Remove stop 3")
-        wait_until(
-            lambda: not window.get_by_accessible_name("Gradient stop 3").all() or None
-        )
+        wait_until(lambda: not elements(window, "Gradient stop 3") or None)
         position = control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
         )
@@ -186,7 +183,7 @@ def test_external_edit_invalidates_conic_session(
         external = original.replace("#7e3b66", "#abcdef")
         conic_scene.write_text(external)
         wait_for_source(conic_scene, external.encode())
-        assert not window.get_by_accessible_name("Gradient center handle").all()
+        assert not elements(window, "Gradient center handle")
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
@@ -368,7 +365,7 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
             ).accessible_value
         ) == pytest.approx(90, abs=0.01)
         press_key(window, keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        assert not elements(window, "Gradient stop 4")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -444,7 +441,7 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         window = first_window(editor)
         open_conic(window)
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
-        assert not window.get_by_accessible_name("Hex color").all()
+        assert not elements(window, "Hex color")
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         assert field.accessible_value == "#264052"
@@ -486,16 +483,16 @@ def test_conic_activation_from_solid(
         window = first_window(editor)
         select_outline_row(window, "fill")
         click(window, "Rectangle background color picker")
-        assert not window.get_by_accessible_name("Gradient rotation handle").all()
+        assert not elements(window, "Gradient rotation handle")
         click(window, "Gradient")
         control(
             window, "Gradient type", slint_testing.AccessibleRole.Combobox
         ).accessible_value = "Conic"
         control(window, "Gradient rotation handle")
-        assert not window.get_by_accessible_name("Gradient angle degrees").all()
+        assert not elements(window, "Gradient angle degrees")
         control(window, "Edit stop 1 color")
         click(window, "Solid")
-        assert not window.get_by_accessible_name("Gradient rotation handle").all()
+        assert not elements(window, "Gradient rotation handle")
         click(window, "Gradient")
         control(window, "Gradient rotation handle")
         press_key(window, keys.Escape)

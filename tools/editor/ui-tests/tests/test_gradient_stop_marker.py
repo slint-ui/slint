@@ -20,6 +20,7 @@ from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -93,7 +94,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         gesture(window, start, shifted(start, x=12))
         after = float(picker_field(window, "Stop 2 position").accessible_value)
         assert after != pytest.approx(before)
-        assert not window.get_by_accessible_name("Hex color").all()
+        assert not elements(window, "Hex color")
 
         press_key(window, keys.Escape)
         original.assert_unchanged()
