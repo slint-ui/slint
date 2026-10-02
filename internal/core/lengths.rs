@@ -125,7 +125,12 @@ pub struct LogicalEdges {
 
 impl From<LogicalEdges> for crate::items::Edges {
     fn from(edges: LogicalEdges) -> Self {
-        Self { left: edges.left, top: edges.top, right: edges.right, bottom: edges.bottom }
+        Self {
+            left: edges.left as Coord,
+            top: edges.top as Coord,
+            right: edges.right as Coord,
+            bottom: edges.bottom as Coord,
+        }
     }
 }
 

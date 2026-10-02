@@ -135,6 +135,28 @@ inline slint::LogicalSize from_slint_value(const slint::interpreter::Value &val,
                                 float(s.get_field("height").value().to_number().value()) });
 }
 
+inline slint::interpreter::Value into_slint_value(const slint::cbindgen_private::Edges &val)
+{
+    slint::interpreter::Struct s;
+    s.set_field("left", val.left);
+    s.set_field("top", val.top);
+    s.set_field("right", val.right);
+    s.set_field("bottom", val.bottom);
+    return s;
+}
+
+inline slint::cbindgen_private::Edges from_slint_value(const slint::interpreter::Value &val,
+                                                       const slint::cbindgen_private::Edges *)
+{
+    auto s = val.to_struct().value();
+    return slint::cbindgen_private::Edges {
+        .left = float(s.get_field("left").value().to_number().value()),
+        .top = float(s.get_field("top").value().to_number().value()),
+        .right = float(s.get_field("right").value().to_number().value()),
+        .bottom = float(s.get_field("bottom").value().to_number().value()),
+    };
+}
+
 class LiveReloadingComponent
 {
     const cbindgen_private::LiveReloadingComponentInner *inner;
