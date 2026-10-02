@@ -809,6 +809,7 @@ impl ComponentCompiler {
 pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,
+    reads_project_file: bool,
 }
 
 impl Default for Compiler {
@@ -816,7 +817,7 @@ impl Default for Compiler {
         let config = i_slint_compiler::CompilerConfiguration::new(
             i_slint_compiler::generator::OutputFormat::Interpreter,
         );
-        Self { config, overrides: Default::default() }
+        Self { config, overrides: Default::default(), reads_project_file: true }
     }
 }
 
@@ -824,6 +825,14 @@ impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Sets whether this compiler looks for a `slint-project.json` for the files it compiles.
+    /// The live preview turns this off, since the editor sends it the project's settings.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_reads_project_file(&mut self, reads_project_file: bool) {
+        self.reads_project_file = reads_project_file;
     }
 
     #[doc(hidden)]
@@ -964,11 +973,15 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
-        let (path, project_file) =
-            match i_slint_compiler::project_file::resolve_input(path.as_ref()) {
-                Ok(resolved) => resolved,
-                Err(message) => return project_file_error(message, path.as_ref()),
-            };
+        let resolved = if self.reads_project_file {
+            i_slint_compiler::project_file::resolve_input(path.as_ref())
+        } else {
+            Ok((path.as_ref().to_path_buf(), None))
+        };
+        let (path, project_file) = match resolved {
+            Ok(resolved) => resolved,
+            Err(message) => return project_file_error(message, path.as_ref()),
+        };
         let source = match i_slint_compiler::diagnostics::load_from_path(&path) {
             Ok(s) => s,
             Err(d) => {
@@ -1002,7 +1015,11 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        build_with_found_project_file(source_code, path, &self.config, &self.overrides).await
+        if self.reads_project_file {
+            build_with_found_project_file(source_code, path, &self.config, &self.overrides).await
+        } else {
+            build_with_project_file(source_code, path, None, &self.config, &self.overrides).await
+        }
     }
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
@@ -3013,6 +3030,29 @@ mod project_file_tests {
             assert_eq!(
                 definition.map(|definition| definition.name().to_string()),
                 Some("Main".into())
+            );
+        });
+    }
+
+    #[test]
+    #[cfg(feature = "internal")]
+    fn a_compiler_can_ignore_the_project_file() {
+        with_project(REJECTED_STYLE, |root| {
+            let mut compiler = Compiler::default();
+            compiler.set_reads_project_file(false);
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+
+            let from_path = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(!from_path.has_errors(), "{:?}", from_path.diagnostics().collect::<Vec<_>>());
+            let from_source = spin_on::spin_on(
+                compiler
+                    .build_from_source("export component Main inherits Window { }".into(), main),
+            );
+            assert!(
+                !from_source.has_errors(),
+                "{:?}",
+                from_source.diagnostics().collect::<Vec<_>>()
             );
         });
     }
