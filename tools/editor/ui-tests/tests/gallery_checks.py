@@ -15,14 +15,15 @@ from canvas_interactions import center
 from gradient_interactions import gesture
 from inspector_interactions import slider_track_position
 from slint_testing import keys
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    element,
     first_window,
     press_key,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 PAGES = {
@@ -68,14 +69,14 @@ def gallery(
         launch_timeout=30,
     ) as application:
         window = first_window(application)
-        preview = window_element_with_label(window, "Gallery preview")
+        preview = element(window, "Gallery preview")
         wait_until(
             lambda: (
                 preview if preview.size.width > 0 and preview.size.height > 0 else None
             )
         )
-        window_element_with_label(
-            window, PAGES[page][0], slint_testing.AccessibleRole.Button
+        element(
+            window, PAGES[page][0], role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         for label, index in [
             ("Gallery theme", ("system", "light", "dark").index(theme)),
@@ -83,9 +84,7 @@ def gallery(
         ]:
             if label == "Gallery state" and len(PAGES[page][1]) == 1:
                 continue
-            combo = window_element_with_label(
-                window, label, slint_testing.AccessibleRole.Combobox
-            )
+            combo = element(window, label, role=slint_testing.AccessibleRole.Combobox)
             combo.invoke_accessible_expand_action()
             for _ in range(index):
                 press_key(window, keys.DownArrow)
@@ -97,7 +96,7 @@ def gallery(
             )
             wait_until(
                 lambda combo=combo, expected=expected: (
-                    True if combo.accessible_value == expected else None
+                    combo.accessible_value == expected
                 )
             )
         yield window
@@ -110,11 +109,9 @@ def test_gallery_gradient_stop_marker_contrast(
     with gallery(
         gallery_binary, editor_environment, "picker", "Linear", theme
     ) as window:
-        window_element_with_label(
-            window, "Open color picker"
-        ).invoke_accessible_default_action()
-        marker = window_element_with_label(
-            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
+        element(window, "Open color picker").invoke_accessible_default_action()
+        marker = element(
+            window, "Gradient stop 1", role=slint_testing.AccessibleRole.Slider
         )
         assert marker.size.width == 40
         assert marker.size.height == 40
@@ -142,66 +139,46 @@ def test_gallery_outline_selection_expansion_and_reset(
 ):
     with gallery(gallery_binary, editor_environment, "outline") as window:
         title = select_outline_row(window, "title")
-        assert title.accessible_item_selected
-        main = window_element_with_label(
-            window, "Main", slint_testing.AccessibleRole.ListItem
-        )
+        expect(title).to_be_selected()
+        main = element(window, "Main", role=slint_testing.AccessibleRole.ListItem)
         main.invoke_accessible_expand_action()
-        wait_until(
-            lambda: (
-                True if not elements_with_label(window.root_element, "title") else None
-            )
-        )
-        window_element_with_label(
-            window, "Main", slint_testing.AccessibleRole.ListItem
+        expect(query(window, "title")).to_be_hidden()
+        element(
+            window, "Main", role=slint_testing.AccessibleRole.ListItem
         ).invoke_accessible_expand_action()
-        window_element_with_label(
-            window, "title", slint_testing.AccessibleRole.ListItem
-        )
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        assert window_element_with_label(
-            window, "Main", slint_testing.AccessibleRole.ListItem
-        ).accessible_item_selected
+        element(window, "title", role=slint_testing.AccessibleRole.ListItem)
+        element(window, "Reset example").invoke_accessible_default_action()
+        expect(
+            query(window, "Main", role=slint_testing.AccessibleRole.ListItem)
+        ).to_be_selected()
 
 
 def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "picker") as window:
-        window_element_with_label(
-            window, "Property fill color", slint_testing.AccessibleRole.TextInput
+        element(
+            window, "Property fill color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#ff9900"
 
         def open_picker():
-            window_element_with_label(
-                window, "Open color picker"
-            ).invoke_accessible_default_action()
-            field = window_element_with_label(
-                window, "Hex color", slint_testing.AccessibleRole.TextInput
+            element(window, "Open color picker").invoke_accessible_default_action()
+            field = element(
+                window, "Hex color", role=slint_testing.AccessibleRole.TextInput
             )
             gesture(window, center(field), center(field))
             return field
 
         original = open_picker().accessible_value
         assert original.lower().lstrip("#") == "ff9900"
-        window_element_with_label(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
+        element(
+            window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#ff0000"
         press_key(window, keys.Escape)
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "Close Custom")
-                else None
-            )
-        )
-        assert open_picker().accessible_value == original
-        window_element_with_label(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
+        expect(query(window, "Close Custom")).to_be_hidden()
+        expect(open_picker()).to_have_value(original)
+        element(
+            window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#00ff00"
-        window_element_with_label(
-            window, "Close Custom"
-        ).invoke_accessible_default_action()
+        element(window, "Close Custom").invoke_accessible_default_action()
         assert open_picker().accessible_value.lower().lstrip("#") == "00ff00"
 
 
@@ -210,15 +187,15 @@ def test_gallery_slider_drag_cancel_and_reset(
     gallery_binary, editor_environment, label
 ):
     with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
-        slider = window_element_with_label(
-            window, label, slint_testing.AccessibleRole.Slider
-        )
+        slider = element(window, label, role=slint_testing.AccessibleRole.Slider)
         original = float(slider.accessible_value)
         target = slider_track_position(slider, 0.75)
         gesture(window, target, target)
-        wait_until(lambda: True if float(slider.accessible_value) == 75 else None)
-        other = window_element_with_label(
-            window, "Rotation knob", slint_testing.AccessibleRole.Slider
+        expect.poll(
+            lambda: float(slider.accessible_value), message=f"{label} value"
+        ).to_equal(75)
+        other = element(
+            window, "Rotation knob", role=slint_testing.AccessibleRole.Slider
         )
         assert float(other.accessible_value) == 24
         press_key(window, keys.RightArrow)
@@ -229,7 +206,9 @@ def test_gallery_slider_drag_cancel_and_reset(
                 cancel_target, slint_testing.PointerEventButton.Left
             )
         )
-        wait_until(lambda: True if float(slider.accessible_value) == 40 else None)
+        expect.poll(
+            lambda: float(slider.accessible_value), message=f"{label} drag value"
+        ).to_equal(40)
         press_key(window, keys.Escape)
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(
@@ -237,27 +216,21 @@ def test_gallery_slider_drag_cancel_and_reset(
             )
         )
         assert float(slider.accessible_value) == 76
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        wait_until(
-            lambda: (
-                True
-                if float(
-                    window_element_with_label(
-                        window, label, slint_testing.AccessibleRole.Slider
-                    ).accessible_value
-                )
-                == original
-                else None
-            )
-        )
+        element(window, "Reset example").invoke_accessible_default_action()
+        expect.poll(
+            lambda: float(
+                element(
+                    window, label, role=slint_testing.AccessibleRole.Slider
+                ).accessible_value
+            ),
+            message=f"reset {label} value",
+        ).to_equal(original)
 
 
 def test_gallery_shadow_angle_drag(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
-        dial = window_element_with_label(
-            window, "Sample shadow angle", slint_testing.AccessibleRole.Slider
+        dial = element(
+            window, "Sample shadow angle", role=slint_testing.AccessibleRole.Slider
         )
         assert float(dial.accessible_value) == 90
         middle = center(dial)
@@ -265,122 +238,99 @@ def test_gallery_shadow_angle_drag(gallery_binary, editor_environment):
         start = slint_testing.LogicalPosition(middle.x, middle.y + radius)
         end = slint_testing.LogicalPosition(middle.x + radius, middle.y)
         gesture(window, start, end)
-        wait_until(lambda: True if float(dial.accessible_value) == 0 else None)
+        expect.poll(
+            lambda: float(dial.accessible_value), message="shadow angle"
+        ).to_equal(0)
 
 
 def test_gallery_basic_controls_pointer_targets(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "controls") as window:
         previous_right = 0
         for label in ["One", "Two", "Three"]:
-            button = window_element_with_label(
-                window, label, slint_testing.AccessibleRole.Button
-            )
+            button = element(window, label, role=slint_testing.AccessibleRole.Button)
             assert button.size.width >= 40
             assert button.absolute_position.x >= previous_right
             gesture(window, center(button), center(button))
             assert button.accessible_checked
             previous_right = button.absolute_position.x + button.size.width
-        visibility = window_element_with_label(
-            window, "Visibility", slint_testing.AccessibleRole.Button
+        visibility = element(
+            window, "Visibility", role=slint_testing.AccessibleRole.Button
         )
         gesture(window, center(visibility), center(visibility))
-        window_element_with_label(window, "Clicked visibility")
+        element(window, "Clicked visibility")
 
 
 def test_gallery_image_alignment_selection_and_reset(
     gallery_binary, editor_environment
 ):
     with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
-        center = window_element_with_label(
-            window, "Align image center", slint_testing.AccessibleRole.Button
+        center = element(
+            window, "Align image center", role=slint_testing.AccessibleRole.Button
         )
         assert center.accessible_checked
-        window_element_with_label(
-            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        element(
+            window, "Align image bottom right", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
-        assert window_element_with_label(
-            window, "Align image bottom right", slint_testing.AccessibleRole.Button
+        assert element(
+            window, "Align image bottom right", role=slint_testing.AccessibleRole.Button
         ).accessible_checked
-        window_element_with_label(
-            window, "Bottom right", slint_testing.AccessibleRole.Text
-        )
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        assert window_element_with_label(
-            window, "Align image center", slint_testing.AccessibleRole.Button
+        element(window, "Bottom right", role=slint_testing.AccessibleRole.Text)
+        element(window, "Reset example").invoke_accessible_default_action()
+        assert element(
+            window, "Align image center", role=slint_testing.AccessibleRole.Button
         ).accessible_checked
 
 
 def test_gallery_properties_edit_component_values(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "inspector-controls") as window:
-        value = window_element_with_label(
-            window, "Slider value", slint_testing.AccessibleRole.TextInput
+        value = element(
+            window, "Slider value", role=slint_testing.AccessibleRole.TextInput
         )
         value.accessible_value = "42"
-        slider = window_element_with_label(
-            window, "Sample slider", slint_testing.AccessibleRole.Slider
+        slider = element(
+            window, "Sample slider", role=slint_testing.AccessibleRole.Slider
         )
-        wait_until(lambda: True if float(slider.accessible_value) == 42 else None)
+        wait_until(lambda: float(slider.accessible_value) == 42)
         target = slider_track_position(slider, 0.6)
         gesture(window, target, target)
-        wait_until(lambda: True if float(value.accessible_value) == 60 else None)
+        expect(value).to_have_value("60")
         assert (
-            window_element_with_label(
-                window, "Sample numeric field", slint_testing.AccessibleRole.TextInput
+            element(
+                window,
+                "Sample numeric field",
+                role=slint_testing.AccessibleRole.TextInput,
             ).accessible_value
             == "24"
         )
-        text = window_element_with_label(
-            window, "Property sample text", slint_testing.AccessibleRole.TextInput
+        text = element(
+            window, "Property sample text", role=slint_testing.AccessibleRole.TextInput
         )
         text.accessible_value = "From the sidebar"
-        wait_until(
-            lambda: (
-                True
-                if window_element_with_label(
-                    window,
-                    "Sample editable field",
-                    slint_testing.AccessibleRole.TextInput,
-                ).accessible_value
-                == "From the sidebar"
-                else None
-            )
+        sample = element(
+            window, "Sample editable field", role=slint_testing.AccessibleRole.TextInput
         )
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        wait_until(lambda: True if float(slider.accessible_value) == 24 else None)
-        assert (
-            window_element_with_label(
-                window, "Sample editable field", slint_testing.AccessibleRole.TextInput
-            ).accessible_value
-            == "Hello Slint"
-        )
+        expect(sample).to_have_value("From the sidebar")
+        element(window, "Reset example").invoke_accessible_default_action()
+        wait_until(lambda: float(slider.accessible_value) == 24)
+        expect(sample).to_have_value("Hello Slint")
 
 
 def test_gallery_properties_resize_preview(gallery_binary, editor_environment):
     with gallery(gallery_binary, editor_environment, "foundations") as window:
-        preview = window_element_with_label(window, "Gallery preview")
+        preview = element(window, "Gallery preview")
         original_size = preview.size
         for label, value in [("Preview width", "680"), ("Preview height", "400")]:
-            window_element_with_label(
-                window, label, slint_testing.AccessibleRole.TextInput
+            element(
+                window, label, role=slint_testing.AccessibleRole.TextInput
             ).accessible_value = value
-        wait_until(
-            lambda: (
-                True
-                if preview.size.width == 680 and preview.size.height == 400
-                else None
-            )
-        )
-        sidebar = window_element_with_label(window, "Gallery properties")
+        expect(preview).to_have_geometry(width=680, height=400)
+        sidebar = element(window, "Gallery properties")
         assert (
             sidebar.absolute_position.x + sidebar.size.width
             <= window.root_element.size.width
         )
         assert preview.absolute_position.y < 200
-        window_element_with_label(
-            window, "Reset example"
-        ).invoke_accessible_default_action()
-        wait_until(lambda: True if preview.size == original_size else None)
+        element(window, "Reset example").invoke_accessible_default_action()
+        expect(preview).to_have_geometry(
+            width=original_size.width, height=original_size.height
+        )

@@ -3,6 +3,7 @@
 
 import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle } from "../style.slint";
 import { Api, EditorSurfaceMode } from "../api.slint";
+import { Diagnostics } from "../diagnostics.slint";
 import { Preview } from "../preview.slint";
 
 import { Project } from "../project.slint";
@@ -67,7 +68,7 @@ export component EditorTopBar inherits Rectangle {
     RunButton {
         x: parent.width - self.width - Metrics.space-large;
         y: (parent.height - self.height) / 2;
-        enabled: Preview.can-run && Api.preview-editable && Api.editor-surface-mode == EditorSurfaceMode.component;
+        enabled: Preview.can-run && Diagnostics.preview-editable && Api.editor-surface-mode == EditorSurfaceMode.component;
         running: Preview.is-running;
         clicked => { Preview.run(); }
     }

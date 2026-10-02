@@ -4,7 +4,8 @@
 import { CanvasView } from "canvas-view.slint";
 import { EditorGrid } from "editor-grid.slint";
 import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
-import { Api, DropMark, ElementKind, PreviewAvailability } from "../api.slint";
+import { Api, DropMark, ElementKind } from "../api.slint";
+import { Diagnostics, PreviewAvailability } from "../diagnostics.slint";
 import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 import { PreviewDiagnostics } from "preview-diagnostics.slint";
@@ -61,7 +62,7 @@ export component EditorCanvas inherits TouchArea {
     }
 
     canvas-chrome := Rectangle {
-        visible: Api.preview-editable || Api.preview-availability == PreviewAvailability.stale;
+        visible: Diagnostics.preview-editable || Diagnostics.preview-availability == PreviewAvailability.Stale;
         transform-origin: { x: 0px, y: 0px };
         transform-scale: CanvasView.zoom;
         x: root.canvas-origin.x;
@@ -97,7 +98,7 @@ export component EditorCanvas inherits TouchArea {
         height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
         DropArea {
             can-drop(event) => {
-                if !Api.preview-editable || AppState.palette-drag-cancelled {
+                if !Diagnostics.preview-editable || AppState.palette-drag-cancelled {
                     return DragAction.none;
                 }
                 if AppState.palette-drag-kind != ElementKind.none {
@@ -115,7 +116,7 @@ export component EditorCanvas inherits TouchArea {
                     ? DragAction.copy : DragAction.none;
             }
             dropped(event) => {
-                if !Api.preview-editable { return DragAction.none; }
+                if !Diagnostics.preview-editable { return DragAction.none; }
                 let preview = CanvasView.to-preview(event.position);
                 if AppState.palette-drag-kind != ElementKind.none {
                     let size = AppState.palette-drag-size;
@@ -147,7 +148,7 @@ export component EditorCanvas inherits TouchArea {
             accessible-label: "Canvas drop marker";
         }
 
-        if Api.preview-editable: CanvasInteractionLayer {
+        if Diagnostics.preview-editable: CanvasInteractionLayer {
             shift-pressed: root.shift-pressed;
             real-element-selected => { root.real-element-selected(); }
         }

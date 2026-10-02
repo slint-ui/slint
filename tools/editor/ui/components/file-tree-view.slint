@@ -6,6 +6,7 @@ import { FileTreeIcons } from "file-tree-icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
+import { Diagnostics, FileDiagnosticSummary } from "../diagnostics.slint";
 import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
@@ -28,7 +29,8 @@ component FileTreeRow inherits Rectangle {
     property <color> selected-guide-color: root.style.selected-guide;
     property <color> guide-color: root.style.file-guide;
     property <color> error-color: Colors.danger;
-    private property <string> diagnostic-description: node.error-count == 0 && node.warning-count == 0 ? "" : "\{node.error-count} errors, \{node.warning-count} warnings in the active preview";
+    private property <FileDiagnosticSummary> diagnostic-summary: Diagnostics.file-diagnostics(node.path);
+    private property <string> diagnostic-description: diagnostic-summary.error-count == 0 && diagnostic-summary.warning-count == 0 ? "" : "\{diagnostic-summary.error-count} errors, \{diagnostic-summary.warning-count} warnings in the active preview";
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -170,7 +172,7 @@ component FileTreeRow inherits Rectangle {
                             : FileTreeIcons.file-code;
                         colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
                     }
-                    if root.node.error-count > 0 || root.node.warning-count > 0: Rectangle {
+                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: Rectangle {
                         x: parent.width - self.width + 2px;
                         y: parent.height - self.height + 2px;
                         width: 11px;
@@ -181,7 +183,7 @@ component FileTreeRow inherits Rectangle {
                             source: FileTreeIcons.alert;
                             width: parent.width;
                             height: parent.height;
-                            colorize: root.node.error-count > 0 ? Colors.danger : Colors.warning;
+                            colorize: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
                         }
                     }
                 }

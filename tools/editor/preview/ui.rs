@@ -15,7 +15,7 @@ use slint::{
     ComponentHandle, LogicalPosition, LogicalSize, Model, ModelRc, SharedString, ToSharedString,
     VecModel,
 };
-use slint_interpreter::{DiagnosticLevel, PlatformError};
+use slint_interpreter::PlatformError;
 use smol_str::SmolStr;
 
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
@@ -62,10 +62,9 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-pub(super) mod diagnostics;
 pub(super) use brushes::{fill_brush, fill_expression};
+pub(super) mod diagnostics;
 pub(super) mod file_tree;
-pub mod log_messages;
 pub mod palette;
 mod property_view;
 pub mod search_model;
@@ -129,8 +128,6 @@ pub fn initialize_editor(
     let hover = editor_ui.global::<Hover>();
     let project = editor_ui.global::<Project>();
     let project_weak = <Project as slint::Global<'_, EditorUi>>::as_weak(&project);
-
-    diagnostics::setup(&api, api_weak.clone());
 
     // styles:
     let known_styles = once(&"native")
@@ -325,7 +322,7 @@ pub fn initialize_editor(
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&api);
-    log_messages::setup(&api);
+    diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
@@ -361,22 +358,6 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
 
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
-}
-
-pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
-    for diagnostic in diagnostics {
-        let location = diagnostic.source_file().map(|path| {
-            let (line, column) = diagnostic.line_column();
-            (path.to_string_lossy().to_string().into(), line, column)
-        });
-        let level = match diagnostic.level() {
-            DiagnosticLevel::Error => LogMessageLevel::Error,
-            DiagnosticLevel::Warning => LogMessageLevel::Warning,
-            DiagnosticLevel::Note => LogMessageLevel::Note,
-            _ => LogMessageLevel::Debug,
-        };
-        log_messages::append_log_message(api, level, location, diagnostic.message());
-    }
 }
 
 pub fn ui_set_known_components(
@@ -1677,6 +1658,9 @@ mod tests {
     fn rotated_edge_cursor_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -1748,6 +1732,9 @@ mod tests {
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),

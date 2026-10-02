@@ -4,6 +4,7 @@
 import { Style, Metrics, Colors, PaletteCardStyle } from "../style.slint";
 import { BodyLabel, ComponentPaletteRow, MutedLabel, SectionTitle, PrimerTextInput } from "index.slint";
 import { Api, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
+import { Diagnostics } from "../diagnostics.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
@@ -206,8 +207,8 @@ export component ElementPalette inherits Rectangle {
             ElementPaletteRows {
                 vertical-stretch: 1;
                 query: Api.element-library-normalize-query(search.text);
-                enabled: !root.image-mode && Api.preview-editable;
-                drag-enabled: Api.preview-editable && Api.known-components.length > 0;
+                enabled: !root.image-mode && Diagnostics.preview-editable;
+                drag-enabled: Diagnostics.preview-editable && Api.known-components.length > 0;
                 drag-started => { root.drag-started(); }
             }
         }

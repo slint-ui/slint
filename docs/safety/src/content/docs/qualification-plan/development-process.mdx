@@ -38,7 +38,7 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 
 * **Reporting and Tracking:** Planned work and bugs are tracked via GitHub Issues, labeled `a:slint-sc` ([https://github.com/slint-ui/slint/issues](https://github.com/slint-ui/slint/issues)).
 * **Authorization:** A change merges once a reviewer approves it, unless the change is trivial, in which case review can be skipped. Trusted members, including admins, can also push directly to `master` without a PR or review, for simple changes. These commits are still recorded in the repository history and are still covered by the full CI suite, run regularly independent of any single push.
-* **Traceability:** Every change lands in `master` as a commit, identified by its SHA-1 and retained permanently in history. Most commits are additionally linked to the pull request that introduced them, through GitHub's PR/commit linkage; some carry a `Fixes #NNN` reference to the issue they resolve in the commit message. There is no requirement for a change to be linked to a ticket.
+* **Traceability:** Every change lands in `master` as a commit, identified by its commit hash and retained permanently in history. Most commits are additionally linked to the pull request that introduced them, through GitHub's PR/commit linkage; some carry a `Fixes #NNN` reference to the issue they resolve in the commit message. There is no requirement for a change to be linked to a ticket.
 
 :::caution[TODO]
 No impact analysis is currently performed for changes (ISO 26262-8, 8.4.3.1 requires one per change request). Decide what form this should take and how it fits into the PR flow.

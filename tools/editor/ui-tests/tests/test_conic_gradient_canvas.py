@@ -12,12 +12,14 @@ from editor_sync import wait_for_source
 from gradient_interactions import around, center, click, control, gesture, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
     press_shortcut,
+    query,
     select_outline_row,
     wait_until,
 )
@@ -43,8 +45,8 @@ def open_conic(window):
     select_outline_row(window, "fill")
     click(window, "Rectangle background color picker")
     control(window, "Gradient rotation handle")
-    assert not elements_with_label(window.root_element, "Gradient angle degrees")
-    assert not elements_with_label(window.root_element, "Gradient center")
+    assert not elements(window, "Gradient angle degrees")
+    assert not elements(window, "Gradient center")
     control(window, "Add gradient stop")
 
 
@@ -130,11 +132,7 @@ def test_conic_keyboard_and_seam_neighbor(
         p = stop_center(window, 1, 0, start=211)
         gesture(window, p, p)
         press_key(window, keys.Delete)
-        wait_until(
-            lambda: (
-                not elements_with_label(window.root_element, "Gradient stop 3") or None
-            )
-        )
+        expect(query(window, "Gradient stop 3")).to_be_hidden()
         control(window, "Gradient stop 2")
         press_key(window, keys.LeftArrow)
         assert float(
@@ -145,7 +143,7 @@ def test_conic_keyboard_and_seam_neighbor(
         press_key(window, keys.Backspace)
         press_key(window, keys.Delete)
         control(window, "Gradient stop 2")
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -159,11 +157,7 @@ def test_conic_swatch_delete_keeps_canvas_element(
         window = first_window(editor)
         open_conic(window)
         click(window, "Remove stop 3")
-        wait_until(
-            lambda: (
-                not elements_with_label(window.root_element, "Gradient stop 3") or None
-            )
-        )
+        expect(query(window, "Gradient stop 3")).to_be_hidden()
         position = control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
         )
@@ -191,7 +185,7 @@ def test_external_edit_invalidates_conic_session(
         external = original.replace("#7e3b66", "#abcdef")
         conic_scene.write_text(external)
         wait_for_source(conic_scene, external.encode())
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
 
 
 @pytest.mark.parametrize("rotation", [0, 45, 90])
@@ -373,7 +367,7 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
             ).accessible_value
         ) == pytest.approx(90, abs=0.01)
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
+        assert not elements(window, "Gradient stop 4")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -449,16 +443,16 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         window = first_window(editor)
         open_conic(window)
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
-        assert not elements_with_label(window.root_element, "Hex color")
+        assert not elements(window, "Hex color")
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert field.accessible_value == "#264052"
+        expect(field).to_have_value("#264052")
         click(window, "Gradient stop 1")
-        wait_until(lambda: field if field.accessible_value == "#7e3b66" else None)
+        expect(field).to_have_value("#7e3b66")
         click(window, "Gradient stop 2")
-        wait_until(lambda: field if field.accessible_value == "#264052" else None)
+        expect(field).to_have_value("#264052")
         field.accessible_value = "#abcdef80"
-        wait_until(lambda: field if field.accessible_value == "#abcdef80" else None)
+        expect(field).to_have_value("#abcdef80")
         click(window, "Close Stop color")
         control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
@@ -491,16 +485,16 @@ def test_conic_activation_from_solid(
         window = first_window(editor)
         select_outline_row(window, "fill")
         click(window, "Rectangle background color picker")
-        assert not elements_with_label(window.root_element, "Gradient rotation handle")
+        assert not elements(window, "Gradient rotation handle")
         click(window, "Gradient")
         control(
             window, "Gradient type", slint_testing.AccessibleRole.Combobox
         ).accessible_value = "Conic"
         control(window, "Gradient rotation handle")
-        assert not elements_with_label(window.root_element, "Gradient angle degrees")
+        assert not elements(window, "Gradient angle degrees")
         control(window, "Edit stop 1 color")
         click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient rotation handle")
+        assert not elements(window, "Gradient rotation handle")
         click(window, "Gradient")
         control(window, "Gradient rotation handle")
         press_key(window, keys.Escape)

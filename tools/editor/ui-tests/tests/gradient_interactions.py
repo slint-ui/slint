@@ -6,11 +6,11 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
-from ui_driver import elements_with_label, select_outline_row, window_element_with_label
+from ui_driver import element, elements, select_outline_row
 
 
 def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window_element_with_label(window, label, role)
+    return element(window, label, role=role)
 
 
 def click(window, label):
@@ -50,8 +50,8 @@ def open_radial(window):
     select_outline_row(window, "fill")
     open_gradient(window)
     control(window, "Gradient center handle")
-    assert not elements_with_label(window.root_element, "Gradient center")
-    assert not elements_with_label(window.root_element, "Gradient radius mode")
+    assert not elements(window, "Gradient center")
+    assert not elements(window, "Gradient radius mode")
     control(window, "Add gradient stop")
 
 

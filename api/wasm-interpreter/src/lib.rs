@@ -343,10 +343,9 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     // Taking the `Vec` by value hands over the copy wasm-bindgen already made.
     let blob = fontique::Blob::new(std::sync::Arc::new(data));
 
-    let registered = i_slint_core::with_global_context(
-        || Err(i_slint_core::platform::PlatformError::NoPlatform),
-        |ctx| ctx.font_context().borrow_mut().collection.register_fonts(blob, None),
-    )?;
+    let registered = i_slint_core::with_existing_context(|ctx| {
+        ctx.font_context().borrow_mut().collection.register_fonts(blob, None)
+    })?;
 
     if registered.is_empty() {
         return Err("the data declares no font family, \

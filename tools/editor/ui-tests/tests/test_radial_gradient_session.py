@@ -10,7 +10,7 @@ from gradient_interactions import center, click, control, gesture, open_radial, 
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -79,7 +79,7 @@ def test_radial_keyboard_and_collapsed_radius(
         press_key(window, keys.Backspace)
         press_key(window, keys.Backspace)
         control(window, "Gradient stop 2")
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -98,8 +98,8 @@ def test_external_edit_invalidates_radial_session(
         external = original.replace("#7e3b66", "#abcdef")
         radial_scene.write_text(external)
         wait_for_source(radial_scene, external.encode())
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        assert not elements_with_label(window.root_element, "Close Custom")
+        assert not elements(window, "Gradient center handle")
+        assert not elements(window, "Close Custom")
         assert radial_scene.read_text() == external
         open_radial(window)
         click(window, "Edit stop 1 color")

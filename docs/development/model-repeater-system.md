@@ -212,10 +212,11 @@ The `Repeater<C>` manages instantiation of item trees based on model data. It (a
 
 - `Repeater<C>` is a newtype over a `ModelChangeListenerContainer<RepeaterTracker<C>>`.
 - `RepeaterTracker<C>` is what actually listens: the instances, the model property, an `is_dirty`
-  property set when the model becomes dirty, a separate `instance_generation` property marked
-  dirty by `ensure_updated()` once instances have actually been added or removed (layout and
-  visit code depend on that one, so they re-evaluate after the update pass rather than when the
-  model first changes), and a `PropertyTracker` for the ListView geometry.
+  property set when the model becomes dirty, a separate `instance_generation` property, and a
+  `PropertyTracker` for the ListView geometry.
+  `instance_generation` is marked dirty whenever the instance vector changes:
+  when rows are inserted or removed, and when `ensure_updated()` creates an instance, before its `init`.
+  Layout and visit code depend on it rather than on `is_dirty`, so a row's data change alone doesn't re-evaluate them.
 - `RepeaterInner<C>` holds the instance vector — each entry a `RepeatedInstanceState` and an
   optional item tree — plus the `RepeaterLayoutState`.
 - `RepeaterLayoutState` is the persistent ListView layout state: the model row index of the first

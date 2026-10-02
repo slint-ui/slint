@@ -1018,10 +1018,9 @@ impl ElementHandle {
 
     /// Simulates a double click (or touch tap) on the element at its center point.
     pub async fn double_click(&self, button: PointerEventButton) {
-        let Ok(click_interval) = i_slint_core::with_global_context(
-            || Err(i_slint_core::platform::PlatformError::NoPlatform),
-            |ctx| ctx.platform().click_interval(),
-        ) else {
+        let Ok(click_interval) =
+            i_slint_core::with_existing_context(|ctx| ctx.platform().click_interval())
+        else {
             return;
         };
         let Some(duration_recognized_as_double_click) =

@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore dalvik jboolean jfloat jint jlong
+#![allow(
+    deprecated,
+    reason = "jni's bind_java_type! calls AtomicBool::fetch_update: https://github.com/jni-rs/jni-rs/issues/846"
+)]
+
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
@@ -30,7 +35,7 @@ pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLen
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
 bind_java_type! {
-    SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
+    SlintAndroidJavaHelper => "dev.slint.android.SlintAndroidJavaHelper",
     type_map = {
         AndroidActivity => "android.app.Activity",
         AndroidRect => "android.graphics.Rect",
@@ -150,7 +155,7 @@ bind_java_type! {
                     cursor_position: jint,
                     anchor_position: jint,
                     preedit_start: jint,
-                    preedit_offset: jint
+                    preedit_end: jint
             ) -> (),
             fn = callback_update_text,
         },
@@ -543,10 +548,24 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
-    pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
+    /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
+    fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+            let argb = helper.accent_color(env)? as u32;
+            Ok((argb != 0).then(|| Color::from_argb_encoded(argb)))
         })
+    }
+
+    /// `night_mode` is a `Configuration.UI_MODE_NIGHT_*` value.
+    pub fn set_system_colors(&self, ctx: &i_slint_core::SlintContext, night_mode: i32) {
+        ctx.set_color_scheme(match night_mode {
+            0x10 => ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => ColorScheme::Unknown,
+        });
+        if let Ok(Some(accent)) = self.accent_color() {
+            ctx.set_accent_color(accent);
+        }
     }
 
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
@@ -584,8 +603,11 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
-        self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
+    pub fn get_clipboard(&self) -> Result<Option<String>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let text = helper.get_clipboard(env)?;
+            Ok((!text.is_null()).then(|| text.to_string()))
+        })
     }
 
     /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
@@ -669,17 +691,8 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            let scheme = match night_mode {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            };
             let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
-            ctx.set_color_scheme(scheme);
-            if let Ok(accent) = w.java_helper.accent_color() {
-                ctx.set_accent_color(accent);
-            }
+            w.java_helper.set_system_colors(ctx, night_mode);
         }
     })
     .unwrap();

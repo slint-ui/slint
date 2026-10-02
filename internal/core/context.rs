@@ -448,6 +448,31 @@ pub fn with_global_context<R>(
     })
 }
 
+/// Run `f` with this thread's context.
+///
+/// Unlike [`with_global_context`], this never creates a platform.
+/// It fails with [`SetPlatformError::AlreadySet`](crate::platform::SetPlatformError::AlreadySet)
+/// when another thread installed the event-loop proxy through [`set_platform`](crate::platform::set_platform),
+/// and with [`PlatformError::NoPlatform`] otherwise.
+pub fn with_existing_context<R>(f: impl FnOnce(&SlintContext) -> R) -> Result<R, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => Ok(f(ctx)),
+        None if crate::platform::with_event_loop_proxy(|proxy| proxy.is_some()) => {
+            Err(PlatformError::SetPlatformError(crate::platform::SetPlatformError::AlreadySet))
+        }
+        None => Err(PlatformError::NoPlatform),
+    })
+}
+
+#[test]
+#[cfg(feature = "std")]
+fn with_existing_context_never_creates_a_platform() {
+    assert!(matches!(with_existing_context(|_| ()), Err(PlatformError::NoPlatform)));
+
+    let _ctx = SlintContext::new(Box::new(crate::testing::NoWindowPlatform));
+    assert_eq!(with_existing_context(|_| 42).unwrap(), 42);
+}
+
 /// Internal function to set a hook that's invoked whenever a slint::Window is shown. This
 /// is used by the system testing module. Returns a previously set hook, if any.
 pub fn set_window_shown_hook(

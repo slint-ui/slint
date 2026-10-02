@@ -164,6 +164,7 @@ pub struct TestingBackendOptions {
 pub struct TestingBackend {
     context: std::cell::OnceCell<i_slint_core::SlintContextWeak>,
     clipboard: Mutex<Option<String>>,
+    selection_clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
@@ -177,12 +178,26 @@ impl TestingBackend {
         Self {
             context: Default::default(),
             clipboard: Mutex::default(),
+            selection_clipboard: Mutex::default(),
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
             debug_logs: Default::default(),
             #[cfg(supports_headless)]
             renderer_name: options.renderer_name,
+        }
+    }
+
+    fn select_clipboard(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+    ) -> Option<&Mutex<Option<String>>> {
+        match clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => Some(&self.clipboard),
+            i_slint_core::platform::Clipboard::SelectionClipboard => {
+                Some(&self.selection_clipboard)
+            }
+            _ => None,
         }
     }
 }
@@ -236,17 +251,13 @@ impl i_slint_core::platform::Platform for TestingBackend {
     }
 
     fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
-        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
-            *self.clipboard.lock().unwrap() = Some(text.into());
+        if let Some(slot) = self.select_clipboard(clipboard) {
+            *slot.lock().unwrap() = Some(text.into());
         }
     }
 
     fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
-        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
-            self.clipboard.lock().unwrap().clone()
-        } else {
-            None
-        }
+        self.select_clipboard(clipboard)?.lock().unwrap().clone()
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {

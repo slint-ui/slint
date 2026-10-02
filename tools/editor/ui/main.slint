@@ -6,6 +6,8 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
@@ -162,7 +164,7 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
-    private property <bool> preview-editable: Api.preview-editable;
+    private property <bool> preview-editable: Diagnostics.preview-editable;
     changed preview-editable => {
         if !root.preview-editable {
             AppState.cancel-active-drags();
@@ -221,7 +223,7 @@ export component EditorUi inherits Window {
         root.close-startup-wizard();
     }
     function apply-history(redo: bool) {
-        if !Api.preview-editable { return; }
+        if !Diagnostics.preview-editable { return; }
         FillSession.apply-history(redo);
     }
 
@@ -368,7 +370,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.preview-editable && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
                     return accept;
                 }

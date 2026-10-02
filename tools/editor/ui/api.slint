@@ -60,8 +60,6 @@ export struct InspectorNumberChange {
     value: float,
 }
 
-export enum PreviewAvailability { current, stale, unavailable, no-component }
-
 /// One device discovered as a possible remote-preview target.
 export struct RemoteViewerInfo {
     /// User-facing name, e.g. "Simon's iPhone".
@@ -394,27 +392,6 @@ export struct PaletteEntry {
     value: PropertyValue,
 }
 
-export enum LogMessageLevel {
-    Debug,
-    Warning,
-    Error,
-    Note,
-}
-
-export struct PreviewDiagnostic {
-    level: LogMessageLevel,
-    location: string,
-    message: string,
-}
-
-export struct LogMessage {
-    file: string,
-    line: int,
-    column: int,
-    message: string,
-    level: LogMessageLevel,
-}
-
 
 
 /// A node in the outline tree
@@ -455,8 +432,6 @@ export struct FileTreeNode {
     is-slint-file: bool,
     show-selected-guide: bool,
     kind: FileTreeNodeKind,
-    error-count: int,
-    warning-count: int,
 }
 
 export struct ImageAssetPreview {
@@ -489,19 +464,6 @@ export global Api {
     // The component currently viewed
     out property <ComponentItem> visible-component;
 
-    // ## Kinds of diagnostics seen in the last compiler run
-    in property <[PreviewDiagnostic]> preview-diagnostics;
-    in property <[PreviewDiagnostic]> preview-errors;
-    in property <[PreviewDiagnostic]> preview-warnings;
-    in property <int> preview-error-count;
-    in property <int> preview-warning-count;
-    in property <PreviewAvailability> preview-availability;
-    in property <string> preview-file;
-    out property <bool> preview-editable: self.preview-availability == PreviewAvailability.current;
-    callback copy-preview-diagnostics();
-    // status message text
-    in property <string> status-text;
-
     // ## Style:
     // All the known styles
     in property <[string]> known-styles;
@@ -509,10 +471,6 @@ export global Api {
     in-out property <int> current-style-index;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
-
-    // ## Log Output
-    in-out property <[LogMessage]> log-output;
-    in-out property <bool> auto-clear-console: true;
 
     // ## Element library
     in property <[ElementLibraryGroup]> element-library;
@@ -861,9 +819,6 @@ export global Api {
     pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
     pure callback is-css-color(code: string) -> bool;
 
-    // ## Console / LogMessages
-    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
-    callback clear-log-messages();
 
     // ## Undo/Redo
     callback undo();

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
@@ -11,7 +11,7 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{Image, Model, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
@@ -128,7 +128,6 @@ pub(in crate::preview) struct FileTreeController {
     expanded: HashSet<PathBuf>,
     selected_path: Option<PathBuf>,
     active_folder_path: PathBuf,
-    diagnostic_counts: HashMap<PathBuf, (i32, i32)>,
 }
 
 impl FileTreeController {
@@ -146,13 +145,7 @@ impl FileTreeController {
             .unwrap_or(&root)
             .to_path_buf();
 
-        Self {
-            root,
-            expanded,
-            selected_path,
-            active_folder_path,
-            diagnostic_counts: HashMap::new(),
-        }
+        Self { root, expanded, selected_path, active_folder_path }
     }
 
     fn open_from_file_tree(&mut self, path: &Path, api: &Api<'_>, project: &Project<'_>) {
@@ -252,18 +245,12 @@ impl FileTreeController {
     }
 
     fn publish(&self, project: &Project<'_>) {
-        let mut rows = build_file_tree_rows(
+        let rows = build_file_tree_rows(
             &self.root,
             &self.expanded,
             self.selected_path.as_deref(),
             &self.active_folder_path,
         );
-        for row in &mut rows {
-            let path = PathBuf::from(row.path.as_str());
-            let (errors, warnings) = self.diagnostic_counts.get(&path).copied().unwrap_or_default();
-            row.error_count = errors;
-            row.warning_count = warnings;
-        }
         project.set_file_tree(ModelRc::new(VecModel::from(rows)));
         project.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
@@ -274,55 +261,6 @@ impl FileTreeController {
         let path = std::fs::canonicalize(path).ok()?;
         (path == self.root || path.starts_with(&self.root)).then_some(path)
     }
-}
-
-pub(in crate::preview) fn set_diagnostics(
-    controller: &SharedFileTreeController,
-    project: &Project<'_>,
-    diagnostics: &[slint_interpreter::Diagnostic],
-) {
-    let mut controller = controller.borrow_mut();
-    let Some(tree) = controller.as_mut() else { return };
-    tree.diagnostic_counts = diagnostic_counts(
-        &tree.root,
-        diagnostics
-            .iter()
-            .filter_map(|diagnostic| Some((diagnostic.source_file()?, diagnostic.level()))),
-    );
-    let model = project.get_file_tree();
-    for (index, mut row) in model.iter().enumerate() {
-        let counts =
-            tree.diagnostic_counts.get(Path::new(row.path.as_str())).copied().unwrap_or_default();
-        if (row.error_count, row.warning_count) != counts {
-            (row.error_count, row.warning_count) = counts;
-            model.set_row_data(index, row);
-        }
-    }
-}
-
-fn diagnostic_counts<'a>(
-    root: &Path,
-    diagnostics: impl Iterator<Item = (&'a Path, slint_interpreter::DiagnosticLevel)>,
-) -> HashMap<PathBuf, (i32, i32)> {
-    use slint_interpreter::DiagnosticLevel;
-    let mut counts = HashMap::<PathBuf, (i32, i32)>::new();
-    for (path, level) in diagnostics {
-        let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-        if !path.starts_with(root)
-            || !matches!(level, DiagnosticLevel::Error | DiagnosticLevel::Warning)
-        {
-            continue;
-        }
-        for ancestor in path.ancestors().take_while(|ancestor| ancestor.starts_with(root)) {
-            let count = counts.entry(ancestor.to_path_buf()).or_default();
-            if level == DiagnosticLevel::Error {
-                count.0 += 1;
-            } else {
-                count.1 += 1;
-            }
-        }
-    }
-    counts
 }
 
 fn create_new_component_file(root: &Path) -> std::io::Result<PathBuf> {
@@ -523,7 +461,7 @@ fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
     }
 }
 
-pub(super) fn project_relative_path(root: &Path, path: &Path) -> String {
+fn project_relative_path(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
@@ -627,7 +565,6 @@ fn append_node(
         is_slint_file: !is_folder && is_slint_file(path),
         show_selected_guide: parent.is_some_and(|parent| parent == active_folder_path),
         kind: file_tree_node_kind(path, is_folder),
-        ..Default::default()
     });
 
     if !is_expanded {
@@ -766,34 +703,6 @@ mod tests {
 
     fn labels(rows: &[FileTreeNode]) -> Vec<String> {
         rows.iter().map(|row| row.label.to_string()).collect()
-    }
-
-    #[test]
-    fn diagnostics_aggregate_collapsed_folders_and_ignore_external_files() {
-        use slint_interpreter::DiagnosticLevel;
-        let tree = TempTree::new();
-        let root = fs::canonicalize(&tree.root).unwrap();
-        let card = tree.file("components/Card.slint");
-        let main = tree.file("Main.slint");
-        let external = TempTree::new();
-        let external_file = external.file("External.slint");
-        let counts = diagnostic_counts(
-            &root,
-            [
-                (card.as_path(), DiagnosticLevel::Error),
-                (card.as_path(), DiagnosticLevel::Error),
-                (main.as_path(), DiagnosticLevel::Warning),
-                (main.as_path(), DiagnosticLevel::Note),
-                (external_file.as_path(), DiagnosticLevel::Error),
-            ]
-            .into_iter(),
-        );
-        assert_eq!(counts.get(&root), Some(&(2, 1)));
-        assert_eq!(counts.get(&root.join("components")), Some(&(2, 0)));
-        assert_eq!(counts.get(&root.join("components/Card.slint")), Some(&(2, 0)));
-        assert_eq!(counts.get(&root.join("Main.slint")), Some(&(0, 1)));
-        assert!(!counts.contains_key(&external_file));
-        assert!(diagnostic_counts(&root, std::iter::empty()).is_empty());
     }
 
     #[test]

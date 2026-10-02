@@ -22,8 +22,10 @@ slotmap::new_key_type! {
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto;
 
-/// Maximum number of element handles kept in the arena before evicting the oldest.
+/// Maximum number of element handles kept in the arena before evicting the least recently used.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
+/// How far under the cap one eviction takes the arena, so the next new handle doesn't evict again.
+const ELEMENT_HANDLE_EVICTION_SLACK: usize = ELEMENT_HANDLE_CAP / 8;
 const EVENT_LOG_CAP: usize = 1024;
 
 fn bump(counter: &Cell<u64>) {
@@ -166,11 +168,17 @@ pub(crate) struct TrackedWindow {
     pub root_element_handle: ArenaIndex,
 }
 
+/// A tracked element, and the tick of the last reply or request that used its handle.
+pub(crate) struct TrackedElement {
+    pub element: ElementHandle,
+    last_used: Cell<u64>,
+}
+
 /// Shared introspection state: window and element handle arenas.
 pub(crate) struct IntrospectionState {
     pub windows: RefCell<SlotMap<ArenaIndex, TrackedWindow>>,
-    pub element_handles: RefCell<SlotMap<ArenaIndex, ElementHandle>>,
-    element_handle_order: RefCell<VecDeque<ArenaIndex>>,
+    pub element_handles: RefCell<SlotMap<ArenaIndex, TrackedElement>>,
+    element_handle_clock: Cell<u64>,
     /// Reverse lookup into `element_handles`, so an element that is mentioned again
     /// keeps its handle. `ElementHandle` compares by pointer and doesn't hash, so
     /// entries are bucketed by a hint that equal elements share.
@@ -188,7 +196,7 @@ impl IntrospectionState {
         Self {
             windows: Default::default(),
             element_handles: Default::default(),
-            element_handle_order: Default::default(),
+            element_handle_clock: Default::default(),
             element_handle_lookup: Default::default(),
             event_log: Default::default(),
             next_event_sequence: Default::default(),
@@ -278,27 +286,25 @@ impl IntrospectionState {
         }
 
         let mut arena = self.element_handles.borrow_mut();
-        let index = arena.insert(element);
+        let index = arena.insert(TrackedElement { element, last_used: Cell::new(self.tick()) });
         if let Some(hint) = hint {
             self.element_handle_lookup.borrow_mut().entry(hint).or_default().push(index);
         }
-        let mut order = self.element_handle_order.borrow_mut();
-        order.push_back(index);
         if arena.len() > ELEMENT_HANDLE_CAP {
             let root_indices: HashSet<ArenaIndex> =
                 self.windows.borrow().iter().map(|(_, w)| w.root_element_handle).collect();
-            let mut budget = order.len();
-            while arena.len() > ELEMENT_HANDLE_CAP && budget > 0 {
-                budget -= 1;
-                let Some(oldest) = order.pop_front() else { break };
-                if !arena.contains_key(oldest) {
-                    continue;
-                }
-                if root_indices.contains(&oldest) {
-                    order.push_back(oldest);
-                    continue;
-                }
-                if let Some(hint) = arena.remove(oldest).and_then(|e| e.identity_hint()) {
+            let mut candidates: Vec<(u64, ArenaIndex)> = arena
+                .iter()
+                .filter(|(index, _)| !root_indices.contains(index))
+                .map(|(index, tracked)| (tracked.last_used.get(), index))
+                .collect();
+            let excess = (arena.len() + ELEMENT_HANDLE_EVICTION_SLACK - ELEMENT_HANDLE_CAP)
+                .min(candidates.len());
+            if excess > 0 {
+                candidates.select_nth_unstable_by_key(excess - 1, |(last_used, _)| *last_used);
+            }
+            for &(_, oldest) in &candidates[..excess] {
+                if let Some(hint) = arena.remove(oldest).and_then(|t| t.element.identity_hint()) {
                     let mut lookup = self.element_handle_lookup.borrow_mut();
                     if let Some(bucket) = lookup.get_mut(&hint) {
                         bucket.retain(|candidate| *candidate != oldest);
@@ -312,16 +318,22 @@ impl IntrospectionState {
         index
     }
 
-    /// Returns the handle already tracking `element`, dropping lookup entries whose
-    /// slot was evicted or whose element is gone.
+    fn tick(&self) -> u64 {
+        bump(&self.element_handle_clock);
+        self.element_handle_clock.get()
+    }
+
+    /// Returns the handle already tracking `element` and marks it used,
+    /// dropping lookup entries whose slot was evicted or whose element is gone.
     fn tracked_handle(&self, element: &ElementHandle, hint: (u32, usize)) -> Option<ArenaIndex> {
         let arena = self.element_handles.borrow();
         let mut lookup = self.element_handle_lookup.borrow_mut();
         let bucket = lookup.get_mut(&hint)?;
         let mut tracked = None;
         bucket.retain(|candidate| match arena.get(*candidate) {
-            Some(tracked_element) if tracked_element.is_valid() => {
-                if tracked_element.is_same_element(element) {
+            Some(tracked_element) if tracked_element.element.is_valid() => {
+                if tracked_element.element.is_same_element(element) {
+                    tracked_element.last_used.set(self.tick());
                     tracked = Some(*candidate);
                 }
                 true
@@ -339,8 +351,11 @@ impl IntrospectionState {
             .element_handles
             .borrow()
             .get(index)
-            .ok_or_else(|| format!("Invalid element handle for {request}"))?
-            .clone();
+            .map(|tracked| {
+                tracked.last_used.set(self.tick());
+                tracked.element.clone()
+            })
+            .ok_or_else(|| format!("Invalid element handle for {request}"))?;
         if !element.is_valid() {
             self.element_handles.borrow_mut().remove(index);
             return Err(format!(
@@ -1203,6 +1218,96 @@ fn test_element_handle_is_recreated_after_eviction() {
 }
 
 #[test]
+fn test_element_handle_mentioned_again_survives_eviction() {
+    assert_kept_handle_survives_eviction(|state, kept, handle| {
+        assert_eq!(state.element_to_handle(kept.clone()), handle);
+    });
+}
+
+#[test]
+fn test_element_handle_used_in_a_request_survives_eviction() {
+    assert_kept_handle_survives_eviction(|state, _, handle| {
+        state.element("test", handle).unwrap();
+    });
+}
+
+#[test]
+fn test_element_handle_just_returned_survives_eviction() {
+    crate::init_no_event_loop();
+    let state = IntrospectionState::new();
+    let mut windows = Vec::new();
+    let mut minted = 0;
+    // Fill the arena to just under the cap with handles a client mentioned twice.
+    // A new handle is then the most recently used only because minting it counts as a use.
+    while state.element_handles.borrow().len() + 200 < ELEMENT_HANDLE_CAP {
+        let app = hundred_rectangles::App::new().unwrap();
+        minted += mention_window(&state, &app).len();
+        mention_window(&state, &app);
+        windows.push(app);
+    }
+    for _ in 0..2 {
+        let app = hundred_rectangles::App::new().unwrap();
+        let handles = mention_window(&state, &app);
+        minted += handles.len();
+        windows.push(app);
+        let arena = state.element_handles.borrow();
+        assert!(
+            handles.iter().all(|handle| arena.contains_key(*handle)),
+            "a handle the walk had just returned was evicted"
+        );
+    }
+    let kept = state.element_handles.borrow().len();
+    assert!(kept < minted && kept <= ELEMENT_HANDLE_CAP, "{kept} of {minted} handles kept");
+}
+
+/// Each round uses the kept element's handle through `use_kept`,
+/// then mentions every element of a new window.
+/// That's how a client walks a window whose rows are rebuilt between walks.
+#[cfg(test)]
+fn assert_kept_handle_survives_eviction(
+    use_kept: impl Fn(&IntrospectionState, &ElementHandle, ArenaIndex),
+) {
+    crate::init_no_event_loop();
+    let state = IntrospectionState::new();
+    let kept_app = hundred_rectangles::App::new().unwrap();
+    let kept = crate::ElementHandle::find_by_element_id(&kept_app, "App::kept").next().unwrap();
+    let handle = state.element_to_handle(kept.clone());
+
+    let mut others = Vec::new();
+    for round in 0..ELEMENT_HANDLE_CAP / 100 + 10 {
+        use_kept(&state, &kept, handle);
+        let app = hundred_rectangles::App::new().unwrap();
+        mention_window(&state, &app);
+        others.push(app);
+        assert!(
+            state.element_handles.borrow().contains_key(handle),
+            "round {round}: the kept element's handle was evicted while in use"
+        );
+    }
+}
+
+/// Mentions every element of `app`, as a walk of its tree does.
+#[cfg(test)]
+fn mention_window(state: &IntrospectionState, app: &hundred_rectangles::App) -> Vec<ArenaIndex> {
+    let tree = WindowInner::from_pub(slint::ComponentHandle::window(app)).component();
+    let elements = RootWrapper(&tree).root_element().query_descendants().find_all();
+    assert!(elements.len() > 100, "only {} elements to mention", elements.len());
+    elements.into_iter().map(|element| state.element_to_handle(element)).collect()
+}
+
+#[cfg(test)]
+mod hundred_rectangles {
+    slint::slint! {
+        export component App inherits Window {
+            width: 100px;
+            height: 50px;
+            kept := Rectangle { background: blue; }
+            for _ in 100: Rectangle { background: red; }
+        }
+    }
+}
+
+#[test]
 fn test_dispatch_element_properties_stale_handle() {
     let state = IntrospectionState::new();
     let err = dispatch::element_properties(&state, ArenaIndex::default()).unwrap_err();
@@ -1291,6 +1396,7 @@ fn test_handle_to_index_rejects_out_of_range_parts() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_filters_since_sequence_and_window() {
     let state = IntrospectionState::new();
     let mut window_indices = SlotMap::with_key();
@@ -1330,6 +1436,7 @@ fn test_event_log_filters_since_sequence_and_window() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_eviction_at_cap() {
     let state = IntrospectionState::new();
 
@@ -1361,6 +1468,7 @@ fn test_event_log_eviction_at_cap() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_pagination_cursor_advances_to_returned_page() {
     let state = IntrospectionState::new();
     for seq in 0..3 {
@@ -1382,6 +1490,7 @@ fn test_event_log_pagination_cursor_advances_to_returned_page() {
 }
 
 #[test]
+#[cfg(feature = "system-testing")]
 fn test_event_log_clear_keeps_sequence_monotonic() {
     let state = IntrospectionState::new();
     state.next_event_sequence.set(42);

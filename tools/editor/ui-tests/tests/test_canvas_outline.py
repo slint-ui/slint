@@ -8,10 +8,10 @@ import slint_testing
 from canvas_interactions import center
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
     first_window,
     launch_editor,
     select_outline_row,
-    window_element_with_label,
 )
 
 
@@ -25,9 +25,9 @@ def test_resize_starts_outside_visible_handle(
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = element(window, "Selected Rectangle")
         initial_width, initial_height = frame.size.width, frame.size.height
-        handle = window_element_with_label(window, "Rectangle resize bottom-right")
+        handle = element(window, "Rectangle resize bottom-right")
         position = center(handle)
         # Five pixels from the corner is outside the visible four-pixel half-width.
         start = slint_testing.LogicalPosition(x=position.x + 5, y=position.y + 5)

@@ -982,7 +982,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(self_rc)
         } else {
-            self.image_cache.release(self_rc);
+            self.layer_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }

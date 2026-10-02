@@ -12,8 +12,9 @@ from editor_sync import wait_for_source
 from gradient_interactions import center, click, control, gesture, open_radial, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -33,9 +34,9 @@ def test_radial_activation_preserves_the_actual_picker(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         click(window, "Rectangle background color picker")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         click(window, "Gradient")
         control(
             window, "Gradient type", slint_testing.AccessibleRole.Combobox
@@ -44,9 +45,9 @@ def test_radial_activation_preserves_the_actual_picker(
         control(window, "Gradient radius handle")
         control(window, "Gradient stop 1", slint_testing.AccessibleRole.Slider)
         control(window, "Edit stop 1 color")
-        assert not elements_with_label(window.root_element, "Hex color")
+        assert not elements(window, "Hex color")
         click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient center handle")
+        assert not elements(window, "Gradient center handle")
         control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         click(window, "Gradient")
         control(window, "Gradient center handle")
@@ -167,7 +168,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         window.dispatch_event(slint_testing.PointerReleaseEvent(p, button))
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert field.accessible_value == "#264052"
+        expect(field).to_have_value("#264052")
         field.accessible_value = "#abcdef80"
         click(window, "Close Stop color")
         c = center(control(window, "Gradient center handle"), 35)
@@ -177,7 +178,7 @@ def test_radial_stops_cross_insert_delete_and_color(
         gesture(window, p, p)
         control(window, "Gradient stop 4")
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
+        assert not elements(window, "Gradient stop 4")
         click(window, "Gradient stop 2")
         press_key(window, keys.Delete)
         press_key(window, keys.Delete)

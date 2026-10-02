@@ -19,8 +19,9 @@ from gradient_interactions import (
 from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -78,7 +79,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
             assert max(bottom_tick) < 48
             assert min(pointer) > 224
             marker.invoke_accessible_default_action()
-            assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+            expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
             click_picker_button(window, "Close Stop color")
             click_picker_button(window, "Close Custom")
             original.assert_unchanged()
@@ -86,7 +87,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
             marker = control(window, "Gradient stop 2", role)
         start = center(marker)
         gesture(window, start, start)
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        expect(picker_field(window, "Hex color")).to_have_value("#0000ff80")
         click_picker_button(window, "Close Stop color")
 
         before = float(picker_field(window, "Stop 2 position").accessible_value)
@@ -94,7 +95,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         gesture(window, start, shifted(start, x=12))
         after = float(picker_field(window, "Stop 2 position").accessible_value)
         assert after != pytest.approx(before)
-        assert not elements_with_label(window.root_element, "Hex color")
+        assert not elements(window, "Hex color")
 
         press_key(window, keys.Escape)
         original.assert_unchanged()

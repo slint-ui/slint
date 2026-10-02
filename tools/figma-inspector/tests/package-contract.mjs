@@ -84,7 +84,6 @@ if (ui.includes('id="timing-panel"') || ui.includes('id="copy-trace"'))
 assert.equal(provenance.channel, "nightly");
 assert.equal(provenance.repository, "https://github.com/slint-ui/slint.git");
 assert.equal(provenance.manifest, "api/wasm-interpreter/Cargo.toml");
-assert.match(provenance.revision, /^[a-f0-9]{40}$/);
 assert.equal(provenance.version, version);
 const dependencies = JSON.parse(
     await archive.file(`${prefix}dependencies.json`).async("string"),

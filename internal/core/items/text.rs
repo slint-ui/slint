@@ -951,6 +951,9 @@ impl Item for TextInput {
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
+                if self.read_only() {
+                    return InputEventResult::EventAccepted;
+                }
                 let (clicked_offset, clicked_affinity) =
                     self.byte_offset_for_position(*position, window_adapter, self_rc);
                 let clicked_offset = clicked_offset as i32;

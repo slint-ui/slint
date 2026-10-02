@@ -142,7 +142,7 @@ these as follow-up fixes:
 
 Finally, the PR is approved. As contributor, in your local branch, feel free to merge 4. into 1. and 5. into 2.:
 
-(commits are real, sha1s are just examples)
+(commits are real, hashes are just examples)
 
 As a first step, let's rebase our changes to make sure that there are no conflicts:
 

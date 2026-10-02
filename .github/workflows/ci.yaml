@@ -129,6 +129,14 @@ jobs:
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
+            # ty needs slint-testing installed, so this also needs the private package.
+            - name: Check visual editor UI tests
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              working-directory: tools/editor/ui-tests
+              run: |
+                  uv run --no-sync ty check
+                  uv run --no-sync ruff check
+                  uv run --no-sync ruff format --check
             - name: Build the visual editor UI test binary
               if: matrix.run_ui_tests
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings

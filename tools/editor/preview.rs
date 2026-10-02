@@ -277,6 +277,7 @@ pub struct PreviewState {
     current_previewed_component: Option<PreviewComponent>,
     last_successful_component: Option<PreviewComponent>,
     preview_blocked: bool,
+    diagnostics_generation: u64,
     current_project_root: Option<Url>,
     project_generation: u64,
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
@@ -404,15 +405,13 @@ fn reset_project_state(root: Url) {
         state.current_previewed_component = None;
         state.last_successful_component = None;
         state.preview_blocked = false;
+        state.diagnostics_generation = state.diagnostics_generation.wrapping_add(1);
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
     });
 
     if let Some(api) = api {
-        api.set_preview_availability(ui::PreviewAvailability::Current);
-        api.set_preview_file(Default::default());
-        ui::diagnostics::publish(&api, &[], None);
         api.set_current_element(Default::default());
         api.set_properties(Default::default());
         api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
@@ -424,6 +423,10 @@ fn reset_project_state(root: Url) {
         outline::reset_outline(&api, None);
     }
     if let Some(editor_ui) = editor_ui {
+        let diagnostics = editor_ui.global::<ui::Diagnostics>();
+        ui::diagnostics::clear(&diagnostics);
+        diagnostics.set_compiling(false);
+        diagnostics.set_preview_availability(ui::PreviewAvailability::Unavailable);
         editor_ui.global::<ui::Preview>().set_can_run(false);
     }
     inspector::invalidate_fill();
@@ -1914,8 +1917,28 @@ fn change_style() {
     load_preview(current, LoadBehavior::Reload);
 }
 
-fn start_parsing() {
-    set_status_text("Updating Preview...");
+fn start_parsing() -> u64 {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        state.diagnostics_generation = state.diagnostics_generation.wrapping_add(1);
+        if let Some(editor_ui) = &state.editor_ui {
+            let diagnostics = editor_ui.global::<ui::Diagnostics>();
+            ui::diagnostics::clear(&diagnostics);
+            diagnostics.set_compiling(true);
+            let same_preview = state
+                .last_successful_component
+                .as_ref()
+                .zip(state.current_component().as_ref())
+                .is_some_and(|(last, current)| {
+                    last.url == current.url
+                        && (current.component.is_none() || last.component == current.component)
+                });
+            if !same_preview {
+                diagnostics.set_preview_availability(ui::PreviewAvailability::Unavailable);
+                state.preview_blocked = true;
+            }
+        }
+        state.diagnostics_generation
+    })
 }
 
 fn extract_resources(
@@ -1945,8 +1968,15 @@ fn extract_resources(
     result
 }
 
-fn finish_parsing() {
-    set_status_text("");
+fn finish_parsing(generation: u64) {
+    PREVIEW_STATE.with_borrow(|state| {
+        if state.diagnostics_generation == generation
+            && !matches!(state.loading_state, PreviewFutureState::NeedsReload)
+            && let Some(editor_ui) = &state.editor_ui
+        {
+            editor_ui.global::<ui::Diagnostics>().set_compiling(false);
+        }
+    });
 }
 
 fn previewed_component_changed() {
@@ -2329,7 +2359,7 @@ async fn reload_preview_impl(
     config: PreviewConfig,
     project_generation: u64,
 ) -> Result<(), PlatformError> {
-    start_parsing();
+    let generation = start_parsing();
 
     if let Some(component_instance) = component_instance() {
         let live_preview_data = if behavior != LoadBehavior::LoadWithoutLiveData {
@@ -2382,6 +2412,7 @@ async fn reload_preview_impl(
 
     let current_sources = PREVIEW_STATE.with_borrow(|state| {
         !matches!(state.loading_state, PreviewFutureState::NeedsReload)
+            && state.diagnostics_generation == generation
             && state.current_component().as_ref() == Some(&component)
             && source_file_versions.borrow().iter().all(|(path, version)| {
                 Url::from_file_path(path)
@@ -2392,7 +2423,7 @@ async fn reload_preview_impl(
     });
     if !is_current_project_generation(project_generation) || !current_sources {
         tracing::debug!("Discarding preview compiled for an obsolete project or source snapshot");
-        finish_parsing();
+        finish_parsing(generation);
         return Ok(());
     }
 
@@ -2429,31 +2460,10 @@ async fn reload_preview_impl(
             last.component = loaded_component_name.clone();
             preview_state.last_successful_component = Some(last);
         }
-        if let Some(api) = preview_state.api.upgrade() {
-            let root = preview_state
-                .current_project_root
-                .as_ref()
-                .and_then(|root| root.to_file_path().ok());
-            ui::diagnostics::publish(&api, &diagnostics, root.as_deref());
-            let path = component
-                .url
-                .to_file_path()
-                .unwrap_or_else(|_| PathBuf::from(component.url.as_str()));
-            api.set_preview_file(ui::diagnostics::display_path(&path, root.as_deref()).into());
-            api.set_preview_availability(availability);
-            if api.get_auto_clear_console() {
-                ui::log_messages::clear_log_messages_impl(&api);
-            }
-            ui::set_diagnostics(&api, &diagnostics);
-            if let (Some(controller), Some(editor_ui)) =
-                (&preview_state.file_tree_controller, &preview_state.editor_ui)
-            {
-                ui::file_tree::set_diagnostics(
-                    controller,
-                    &editor_ui.global::<ui::Project>(),
-                    &diagnostics,
-                );
-            }
+        if let Some(editor_ui) = &preview_state.editor_ui {
+            let global = editor_ui.global::<ui::Diagnostics>();
+            ui::diagnostics::publish(&global, &diagnostics);
+            global.set_preview_availability(availability);
         }
         preview_state.to_lsp.borrow().clone().unwrap()
     });
@@ -2478,7 +2488,7 @@ async fn reload_preview_impl(
         }
     }
 
-    finish_parsing();
+    finish_parsing(generation);
     Ok(())
 }
 
@@ -2486,6 +2496,7 @@ async fn reload_preview_impl(
 fn set_preview_factory(
     editor_ui: &ui::EditorUi,
     api: &ui::Api<'_>,
+    generation: u64,
     compiled: ComponentDefinition,
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
@@ -2494,10 +2505,13 @@ fn set_preview_factory(
 
     let _ = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
         .context()
-        .set_log_message_handler(Some(Box::new(|log_message| {
+        .set_log_message_handler(Some(Box::new(move |log_message| {
             let message = log_message.message_arguments().to_string();
             let location = log_message.location();
             PREVIEW_STATE.with_borrow_mut(|state| {
+                if state.diagnostics_generation != generation {
+                    return;
+                }
                 let to_lsp = state.to_lsp.try_borrow();
                 let Some(to_lsp) = to_lsp.ok() else { return };
                 if let Some(to_lsp) = &*to_lsp {
@@ -2520,12 +2534,19 @@ fn set_preview_factory(
                 .map(|location| (location.path.to_shared_string(), location.line, location.column));
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
-                    if let Some(api) = preview_state.api.upgrade() {
-                        ui::log_messages::append_log_message(
-                            &api,
-                            ui::LogMessageLevel::Debug,
-                            location,
-                            &message,
+                    if preview_state.diagnostics_generation == generation
+                        && let Some(editor_ui) = &preview_state.editor_ui
+                    {
+                        let (file, line, column) = location.unwrap_or_default();
+                        ui::diagnostics::append(
+                            &editor_ui.global::<ui::Diagnostics>(),
+                            ui::Diagnostic {
+                                file,
+                                line: line as i32,
+                                column: column as i32,
+                                message: message.into(),
+                                level: ui::DiagnosticLevel::Debug,
+                            },
                         );
                     }
                 });
@@ -2867,19 +2888,6 @@ pub fn get_current_style() -> String {
     })
 }
 
-fn set_status_text(text: &str) {
-    let text = text.to_string();
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with_borrow(|preview_state| {
-            if let Some(api) = preview_state.api.upgrade() {
-                api.set_status_text(text.into());
-            }
-        });
-    })
-    .unwrap();
-}
-
 /// This ensure that the preview window is visible and runs `set_preview_factory`
 fn update_preview_area(
     compiled: Option<ComponentDefinition>,
@@ -2904,6 +2912,7 @@ fn update_preview_area(
             set_preview_factory(
                 editor_ui,
                 &api,
+                preview_state.diagnostics_generation,
                 compiled,
                 Box::new(move |instance| {
                     if let Some(rtl) = instance.definition().raw_type_loader() {
@@ -3026,6 +3035,7 @@ mod tests {
     use super::*;
     use i_slint_editor_preview::PreviewToLsp;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
+    use slint::Model;
     use std::fs;
     use std::{cell::RefCell, rc::Rc};
 
@@ -3046,6 +3056,46 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn recompilation_clears_entries_without_interrupting_the_current_preview() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let window = ui::create_ui().unwrap();
+        let diagnostics = window.global::<ui::Diagnostics>();
+        ui::diagnostics::setup(&diagnostics);
+        let component = PreviewComponent {
+            url: Url::parse("file:///project/Main.slint").unwrap(),
+            component: Some("Main".into()),
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.editor_ui = Some(window.clone_strong());
+            state.current_previewed_component = Some(component.clone());
+            state.last_successful_component = Some(component);
+        });
+        diagnostics.set_preview_availability(ui::PreviewAvailability::Current);
+        ui::diagnostics::append(
+            &diagnostics,
+            ui::Diagnostic { message: "Previous output".into(), ..Default::default() },
+        );
+        let first = start_parsing();
+        assert_eq!(diagnostics.get_entries().row_count(), 0);
+        assert!(diagnostics.get_compiling());
+        assert!(diagnostics.get_preview_editable());
+        let second = start_parsing();
+        finish_parsing(first);
+        assert!(diagnostics.get_compiling());
+        finish_parsing(second);
+        assert!(!diagnostics.get_compiling());
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.current_previewed_component.as_mut().unwrap().url =
+                Url::parse("file:///project/Other.slint").unwrap();
+        });
+        start_parsing();
+        assert_eq!(diagnostics.get_preview_availability(), ui::PreviewAvailability::Unavailable);
+        assert!(!diagnostics.get_preview_editable());
+        assert!(PREVIEW_STATE.with_borrow(|state| state.preview_blocked));
     }
 
     #[test]
