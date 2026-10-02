@@ -4,8 +4,8 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel, interpolate_color};
-use super::{AnyGradientCommand, PhysicalLength};
+use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel, interpolate_color};
+use super::{AnyGradientCommand, PhysicalLength, ShapeClip};
 use alloc::vec;
 use alloc::vec::Vec;
 use zeno::{Cap, Fill, Join, Mask, Stroke, Style};
@@ -71,6 +71,7 @@ fn render_path_with_style<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     paint: &Paint,
     style: zeno::Style,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
@@ -105,6 +106,8 @@ fn render_path_with_style<T: TargetPixel>(
         .size(path_width as u32, path_height as u32)
         .style(style)
         .render_into(&mut mask_buffer, None);
+    // A row's mask scaled by the rounded clips, for the rows that cross one of their corners.
+    let mut clipped_row = vec![0u8; if clips.is_empty() { 0 } else { x_end - x_start }];
 
     // Apply the mask only within the clipped region
     for screen_y in clip_y_start..clip_y_end {
@@ -115,7 +118,25 @@ fn render_path_with_style<T: TargetPixel>(
         }
 
         let row_start = mask_y as usize * path_width + mask_x;
-        let mask_row = &mask_buffer[row_start..row_start + (x_end - x_start)];
+        let mut mask_row = &mask_buffer[row_start..row_start + (x_end - x_start)];
+        if let Some(line_clip) = LineClip::new(
+            clip_geometry,
+            PhysicalLength::new(screen_y as i16),
+            clips,
+            x_end - x_start,
+            (x_start as isize - clip_geometry.min_x() as isize) as i16,
+            (clip_geometry.max_x() as isize - x_end as isize) as i16,
+        ) {
+            clipped_row.fill(0);
+            let inner = line_clip.inner.clone();
+            clipped_row[inner.clone()].copy_from_slice(&mask_row[inner]);
+            line_clip.for_each_edge_chunk(|chunk, coverage| {
+                for (x, c) in chunk.zip(coverage) {
+                    clipped_row[x] = (mask_row[x] as u16 * *c as u16 / 255) as u8;
+                }
+            });
+            mask_row = &clipped_row;
+        }
         let line = buffer.line_slice(screen_y);
 
         match paint {
@@ -207,12 +228,14 @@ fn blend_with_coverage<T: TargetPixel>(
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
+/// * `clips` - The rounded clips, relative to `clip_geometry`
 /// * `paint` - What to fill the path's coverage with
 /// * `buffer` - The target pixel buffer
 pub fn render_filled_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     paint: &Paint,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
@@ -220,6 +243,7 @@ pub fn render_filled_path<T: TargetPixel>(
         commands,
         path_geometry,
         clip_geometry,
+        clips,
         paint,
         zeno::Style::Fill(Fill::NonZero),
         buffer,
@@ -240,6 +264,7 @@ pub struct StrokeStyle<'a> {
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
+/// * `clips` - The rounded clips, relative to `clip_geometry`
 /// * `paint` - What to fill the path's coverage with
 /// * `stroke_width` - The width of the stroke
 /// * `buffer` - The target pixel buffer
@@ -247,6 +272,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     paint: &Paint,
     stroke_style: StrokeStyle<'_>,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
@@ -267,5 +293,5 @@ pub fn render_stroked_path<T: TargetPixel>(
         .dash(stroke_style.dash_array, stroke_style.dash_offset);
 
     let style = Style::Stroke(stroke);
-    render_path_with_style(commands, path_geometry, clip_geometry, paint, style, buffer);
+    render_path_with_style(commands, path_geometry, clip_geometry, clips, paint, style, buffer);
 }
