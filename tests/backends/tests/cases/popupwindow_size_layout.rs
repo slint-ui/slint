@@ -1,0 +1,202 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Check that the layout sizes are correct and the popup resizes when the layout changes
+// For the TextInput the text size must be determining using the scale factor so it is handled differently
+// than a normal rectangle
+
+#[satchel::test]
+fn popupwindow_size_layout() {
+    slint::slint! {
+
+        import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+        export global Properties {
+            in-out property <bool> popup-initialized: false;
+            in-out property <length> popup-height: -1px;
+
+            in-out property <length> button-height: -1px;
+            in-out property <length> text-height: -1px;
+
+            callback cb-popup-initialized();
+            callback cb-buttons-visible(int) -> bool;
+        }
+        export component MainWindow inherits Window {
+            width: 600px;
+            height: 400px;
+
+            in-out property <bool> show-buttons;
+            out property <length> reference-text-size: reference-text.preferred-height;
+            out property <length> reference-button-height: max(reference-button.preferred-height, reference-button.min-height);
+
+            // Used to determine the preferred text height
+            reference-text:= TextInput {
+                text: "Reference Text";
+            }
+
+            // Used to determine the button height, which depends on the style
+            reference-button:= Button {
+                text: "Reference Button";
+            }
+
+            Timer {
+                running: true;
+                interval: 100ms;
+                triggered => {
+                    self.running = false;
+                    popup.show();
+                }
+            }
+
+            show-buttons-timer:= Timer {
+                running: show-buttons;
+                interval: 100ms;
+
+                property<int> count: 0;
+                triggered => {
+                    self.running = Properties.cb-buttons-visible(count);
+                    count += 1;
+                }
+            }
+
+            VerticalBox {
+                Button {
+                    text: "Show popup";
+
+                    clicked => {
+                        popup.show();
+                    }
+                }
+            }
+
+            popup := PopupWindow {
+
+                changed height => {
+                    Properties.popup-height = self.height;
+                }
+
+                close-policy: PopupClosePolicy.no-auto-close;
+
+                init => {
+                    Properties.popup-initialized = true;
+                    Properties.popup-height = self.height;
+                    Properties.text-height = ti.preferred-height;
+                    Properties.button-height = max(btn.preferred-height, btn.min-height);
+                    Properties.cb-popup-initialized();
+                }
+
+                Timer {
+                    running: true;
+                    interval: 200ms;
+                    triggered => {
+                        self.running = false;
+                        root.show-buttons = true;
+                    }
+                }
+
+
+                VerticalBox {
+                    padding: 9px;
+                    spacing: 6px;
+                    ti:= TextInput {
+                        width: 100px;
+                        text: "Hello";
+
+                        init => {
+                            Properties.text-height = self.preferred-height;
+                        }
+                    }
+                    if root.show-buttons : HorizontalBox {
+                        padding: 9px;
+                        spacing: 6px;
+                        Button {
+                            text: "Button top";
+                        }
+
+                        Button {
+                            text: "Button top";
+                        }
+
+                        Button {
+                            text: "Button bottom";
+                        }
+                    }
+
+                    btn:= Button {
+                        text: root.show-buttons ? "Hide Buttons" : "Show buttons";
+
+                        clicked => {
+                            root.show-buttons = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let app = MainWindow::new().unwrap();
+    const PADDING: f32 = 9.;
+    const SPACING: f32 = 6.;
+
+    // app.invoke_show_popup(); // Opens the popup, but does not execute Winit backend update_window_properties()
+    assert_eq!(app.global::<Properties>().get_popup_initialized(), false);
+    app.global::<Properties>().on_cb_popup_initialized({
+        let app = app.as_weak();
+        move || {
+            let app = app.upgrade().unwrap();
+
+            // This is not constant depending on the system text font used
+            let text_height = app.get_reference_text_size();
+            let button_height = app.get_reference_button_height();
+
+            assert_eq!(app.global::<Properties>().get_text_height(), text_height);
+            assert_eq!(app.global::<Properties>().get_button_height(), button_height);
+            assert_eq!(
+                app.global::<Properties>().get_popup_height(),
+                PADDING + text_height + SPACING + button_height + PADDING
+            );
+        }
+    });
+
+    app.global::<Properties>().on_cb_buttons_visible({
+        let app = app.as_weak();
+        move |count: i32| {
+            let app = app.upgrade().unwrap();
+            // This is not constant depending on the system text font used
+            let text_height = app.get_reference_text_size();
+            let button_height = app.get_reference_button_height();
+            let horizontal_box_height = PADDING + button_height + PADDING;
+
+            let expected_text_height = text_height;
+            let text_height_test =
+                app.global::<Properties>().get_text_height() == expected_text_height;
+
+            let expected_button_height = button_height;
+            let button_height_test =
+                app.global::<Properties>().get_button_height() == expected_button_height;
+
+            let expected_popup_height = PADDING
+                + text_height
+                + SPACING
+                + horizontal_box_height
+                + SPACING
+                + button_height
+                + PADDING;
+            let total_height_test =
+                app.global::<Properties>().get_popup_height() == expected_popup_height;
+
+            if count < 3 && !(text_height_test && button_height_test && total_height_test) {
+                return true;
+            }
+
+            assert_eq!(app.global::<Properties>().get_text_height(), expected_text_height);
+            assert_eq!(app.global::<Properties>().get_button_height(), expected_button_height);
+            assert_eq!(app.global::<Properties>().get_popup_height(), expected_popup_height);
+
+            slint::quit_event_loop().unwrap();
+            return false;
+        }
+    });
+
+    app.run().unwrap();
+}

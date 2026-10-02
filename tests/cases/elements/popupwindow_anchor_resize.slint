@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A popup that overflows the window with only `resize` set must be shrunk to fit,
+// not just have its placement rectangle computed smaller.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <bool> popup-open: false;
+
+    callback show-popup();
+    show-popup => {
+        popup.show();
+    }
+
+    popup := PopupWindow {
+        x: 10px;
+        y: 250px;
+        width: 100px;
+        height: 200px;
+        close-policy: no-auto-close;
+
+        anchor: {
+            constraint-adjustment-y: { slide: false, flip: false, resize: true },
+        };
+
+        init => {
+            root.popup-open = true;
+        }
+
+        Rectangle {
+            background: red;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+
+const WINDOW_SIZE: u32 = 300;
+instance.window().set_size(slint::PhysicalSize::new(WINDOW_SIZE, WINDOW_SIZE));
+slint_testing::mock_elapsed_time(100);
+
+instance.invoke_show_popup();
+slint_testing::mock_elapsed_time(100);
+
+assert_eq!(instance.get_popup_open(), true);
+let popups = inner.active_popups.borrow();
+assert_eq!(popups.len(), 1, "We have one open popup");
+
+let popup = popups.first().unwrap();
+let geometry = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&popup.component)
+    .as_ref()
+    .item_geometry(0);
+if let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popup.location {
+    assert_eq!(loc.y, 250., "resize must not move the popup");
+    assert_eq!(
+        geometry.size.height,
+        WINDOW_SIZE as f32 - 250.,
+        "The popup was shrunk because otherwise it would overflow the window"
+    );
+} else {
+    assert!(false, "The popup is expected to be a ChildWindow");
+};
+```
+
+*/

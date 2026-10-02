@@ -606,6 +606,54 @@ macro_rules! for_each_enums {
                 AlwaysOn,
             }
 
+            /// This enum describes where a popup is placed relative to its anchor point.
+            /// Set it in the `gravity` field of `PopupAnchor`.
+            #[non_exhaustive]
+            pub enum PopupGravity {
+                /// Places the popup below and to the right of the anchor point.
+                BottomRight, // As first to make it the default
+                /// Centers the popup on the anchor point.
+                Center,
+                /// Places the popup above the anchor point, centered horizontally.
+                Top,
+                /// Places the popup below the anchor point, centered horizontally.
+                Bottom,
+                /// Places the popup to the left of the anchor point, centered vertically.
+                Left,
+                /// Places the popup to the right of the anchor point, centered vertically.
+                Right,
+                /// Places the popup above and to the left of the anchor point.
+                TopLeft,
+                /// Places the popup below and to the left of the anchor point.
+                BottomLeft,
+                /// Places the popup above and to the right of the anchor point.
+                TopRight,
+            }
+
+            /// This enum describes which point on the anchor rectangle is the popup's anchor point.
+            /// Set it in the `location` field of `PopupAnchor`.
+            #[non_exhaustive]
+            pub enum PopupAnchorLocation {
+                /// The anchor point is the top-left corner of the anchor rectangle.
+                TopLeft, // As first to make it the default
+                /// The anchor point is the center of the anchor rectangle.
+                Center,
+                /// The anchor point is the middle of the anchor rectangle's top edge.
+                Top,
+                /// The anchor point is the middle of the anchor rectangle's bottom edge.
+                Bottom,
+                /// The anchor point is the middle of the anchor rectangle's left edge.
+                Left,
+                /// The anchor point is the middle of the anchor rectangle's right edge.
+                Right,
+                /// The anchor point is the bottom-left corner of the anchor rectangle.
+                BottomLeft,
+                /// The anchor point is the top-right corner of the anchor rectangle.
+                TopRight,
+                /// The anchor point is the bottom-right corner of the anchor rectangle.
+                BottomRight,
+            }
+
             // This enum describes the close behavior of `PopupWindow`
             #[non_exhaustive]
             enum PopupClosePolicy {
