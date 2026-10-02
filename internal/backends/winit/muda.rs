@@ -144,6 +144,10 @@ impl MudaAdapter {
             if entry.is_separator {
                 Box::new(muda::PredefinedMenuItem::separator())
             } else if !entry.has_sub_menu {
+                if let Some(predefined) = resolve_predefined(entry) {
+                    return predefined;
+                }
+
                 let accelerator = keys_to_accelerator(&entry.shortcut);
 
                 let err_handler = |err| {
@@ -327,6 +331,60 @@ impl MudaAdapter {
     pub fn window_activation_changed(&self, is_active: bool) {
         if is_active && let Some(menu) = self.menu.as_ref() {
             menu.init_for_nsapp();
+        }
+    }
+}
+
+fn resolve_predefined(entry: &MenuEntry) -> Option<Box<dyn muda::IsMenuItem>> {
+    match entry.kind {
+        i_slint_core::items::StandardMenuItemKind::Empty => None,
+        i_slint_core::items::StandardMenuItemKind::Undo => {
+            Some(Box::new(muda::PredefinedMenuItem::undo(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Redo => {
+            Some(Box::new(muda::PredefinedMenuItem::redo(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Copy => {
+            Some(Box::new(muda::PredefinedMenuItem::copy(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Paste => {
+            Some(Box::new(muda::PredefinedMenuItem::paste(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Cut => {
+            Some(Box::new(muda::PredefinedMenuItem::cut(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::SelectAll => {
+            Some(Box::new(muda::PredefinedMenuItem::select_all(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Minimize => {
+            Some(Box::new(muda::PredefinedMenuItem::minimize(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Maximize => {
+            Some(Box::new(muda::PredefinedMenuItem::maximize(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Fullscreen => {
+            Some(Box::new(muda::PredefinedMenuItem::fullscreen(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Hide => {
+            Some(Box::new(muda::PredefinedMenuItem::hide(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::HideOthers => {
+            Some(Box::new(muda::PredefinedMenuItem::hide_others(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::ShowAll => {
+            Some(Box::new(muda::PredefinedMenuItem::show_all(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::CloseWindow => {
+            Some(Box::new(muda::PredefinedMenuItem::close_window(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Quit => {
+            Some(Box::new(muda::PredefinedMenuItem::quit(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::Services => {
+            Some(Box::new(muda::PredefinedMenuItem::services(None)))
+        }
+        i_slint_core::items::StandardMenuItemKind::BringAllToFront => {
+            Some(Box::new(muda::PredefinedMenuItem::bring_all_to_front(None)))
         }
     }
 }

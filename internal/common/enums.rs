@@ -143,6 +143,44 @@ macro_rules! for_each_enums {
                 Ignore,
             }
 
+            // todo: comment on `About` and `Separator`
+            enum StandardMenuItemKind {
+                /// Not used
+                Empty,
+                /// Copy
+                Copy,
+                /// Cut
+                Cut,
+                /// Paste
+                Paste,
+                /// SelectAll
+                SelectAll,
+                /// Undo
+                Undo,
+                /// Redo
+                Redo,
+                /// Minimize
+                Minimize,
+                /// Maximize
+                Maximize,
+                /// Fullscreen
+                Fullscreen,
+                /// Hide
+                Hide,
+                /// HideOthers
+                HideOthers,
+                /// ShowAll
+                ShowAll,
+                /// CloseWindow
+                CloseWindow,
+                /// Quit
+                Quit,
+                /// Services
+                Services,
+                /// BringAllToFront
+                BringAllToFront,
+            }
+
             /// This enum represents the value of the `dialog-button-role` property which can be added to
             /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
