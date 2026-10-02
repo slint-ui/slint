@@ -444,6 +444,9 @@ pub async fn build_from_source(
                 .to_string(),
         );
     }
+    if config.const_operating_system.is_none() {
+        config.const_operating_system = Some(i_slint_core::detect_operating_system().to_string());
+    }
     // Element inlining is off by default: the interpreter preserves
     // sub-components so `@children` and friends resolve at runtime via the
     // item tree. `SLINT_INLINING` forces it back on.
