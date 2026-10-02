@@ -28,6 +28,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsAnimation;
+import android.view.WindowInsetsController;
 import android.view.WindowMetrics;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
@@ -569,6 +570,25 @@ public class SlintAndroidJavaHelper {
 
     public void set_handle_color(int color) {
         mActivity.runOnUiThread(() -> mInputView.setHandleColor(color));
+    }
+
+    // Uses dark system bar icons when `light` is true, light ones otherwise.
+    public void set_light_system_bars(boolean light) {
+        mActivity.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                mActivity.getWindow().getInsetsController().setSystemBarsAppearance(light ? mask : 0, mask);
+                return;
+            }
+            int flags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            View decorView = mActivity.getWindow().getDecorView();
+            int visibility = decorView.getSystemUiVisibility();
+            decorView.setSystemUiVisibility(light ? visibility | flags : visibility & ~flags);
+        });
     }
 
     public int color_scheme() {

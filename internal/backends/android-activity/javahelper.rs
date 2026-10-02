@@ -101,6 +101,10 @@ bind_java_type! {
                 show_cursor_handles: jboolean
             ),
         },
+        fn set_light_system_bars {
+            name = "set_light_system_bars",
+            sig = (light: jboolean),
+        },
         fn show_action_menu {
             name = "show_action_menu",
             sig = (),
@@ -583,6 +587,10 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| {
             helper.set_handle_color(env, color.as_argb_encoded() as i32)
         })
+    }
+
+    pub fn set_light_system_bars(&self, light: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.set_light_system_bars(env, light))
     }
 
     pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
