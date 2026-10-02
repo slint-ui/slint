@@ -609,74 +609,55 @@ pub(super) trait LineCommand<T: TargetPixel> {
     );
 }
 
-impl<T: TargetPixel> LineCommand<T> for super::LinearGradientCommand {
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [T],
-        extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
-    }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
-    }
+macro_rules! impl_line_command {
+    ($ty:ty, |$cmd:ident, $rect:ident, $line:ident, $buffer:ident, $left:ident, $right:ident| $body:expr) => {
+        impl<T: TargetPixel> LineCommand<T> for $ty {
+            fn draw_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [T],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+            fn draw_scratch_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [PremultipliedRgbaColor],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+        }
+    };
 }
 
-impl<T: TargetPixel> LineCommand<T> for super::RadialGradientCommand {
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [T],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-}
+pub(super) struct SolidColor(pub PremultipliedRgbaColor);
 
-impl<T: TargetPixel> LineCommand<T> for super::ConicGradientCommand {
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [T],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-}
+impl_line_command!(SolidColor, |c, _rect, _line, buffer, _left, _right| {
+    TargetPixel::blend_slice(buffer, c.0)
+});
+impl_line_command!(super::RoundedRectangle, |rr, rect, line, buffer, left, right| {
+    draw_rounded_rectangle_line(rect, line, rr, buffer, left, right)
+});
+impl_line_command!(super::SceneTexture<'_>, |texture, rect, line, buffer, left, right| {
+    draw_texture_line(rect, line, texture, buffer, left, right)
+});
+impl_line_command!(super::LinearGradientCommand, |g, rect, line, buffer, left, _right| {
+    draw_linear_gradient(rect, line, g, buffer, left)
+});
+impl_line_command!(super::RadialGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_radial_gradient(rect, line, g, buffer, left, right)
+});
+impl_line_command!(super::ConicGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_conic_gradient(rect, line, g, buffer, left, right)
+});
 
 /// Where the arcs of one [`super::ShapeClip`] cross a line.
 /// The arcs are relative to the shape's left edge rather than the buffer,
@@ -794,6 +775,7 @@ pub(super) struct LineClip<'a> {
 
 impl<'a> LineClip<'a> {
     /// `None` if the run doesn't clip this line of `len` pixels.
+    #[inline]
     pub fn new(
         rect: &'a PhysicalRect,
         line: PhysicalLength,
@@ -802,6 +784,10 @@ impl<'a> LineClip<'a> {
         extra_left_clip: i16,
         extra_right_clip: i16,
     ) -> Option<Self> {
+        // The setup costs more than an MCU's fill of an unclipped line.
+        if clips.is_empty() {
+            return None;
+        }
         let mut this = Self {
             rect,
             line,
@@ -887,8 +873,11 @@ pub(super) fn draw_clipped_line<T: TargetPixel>(
     };
 
     let inner = line_clip.inner.clone();
-    let (left_clip, right_clip) = extra_clips(&inner);
-    cmd.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+    // `draw_texture_line` doesn't support an empty buffer.
+    if !inner.is_empty() {
+        let (left_clip, right_clip) = extra_clips(&inner);
+        cmd.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+    }
 
     let mut scratch = [PremultipliedRgbaColor::default(); EDGE_CHUNK];
     line_clip.for_each_edge_chunk(|chunk, coverage| {
@@ -1453,6 +1442,77 @@ fn rounded_rectangle_line_does_not_depend_on_split() {
                 bytemuck::cast_slice::<_, u8>(&parts),
                 "line {line:?} split at {split}"
             );
+        }
+    }
+}
+
+#[test]
+fn identical_clips_combine_to_one() {
+    let clip = super::ShapeClip {
+        shape: super::RoundedShape {
+            radius: super::PhysicalBorderRadius::new_uniform(16),
+            ..Default::default()
+        },
+        opaque_border: PhysicalLength::new(0),
+    };
+    const SIZE: i16 = 40;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    // More clips than are cached, so the spans are recomputed for each edge chunk.
+    let clips = [clip; CACHED_SPANS + 1];
+    for line in 0..SIZE {
+        let line = PhysicalLength::new(line);
+        let mut one = [PremultipliedRgbaColor::default(); SIZE as usize];
+        draw_clipped_line(&rect, line, &clips[..1], &color, &mut one, 0, 0);
+        for count in 2..=clips.len() {
+            let mut many = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, &clips[..count], &color, &mut many, 0, 0);
+            assert_eq!(
+                bytemuck::cast_slice::<_, u8>(&one),
+                bytemuck::cast_slice::<_, u8>(&many),
+                "line {line:?} with {count} clips"
+            );
+        }
+    }
+}
+
+#[test]
+fn clipped_line_does_not_depend_on_split() {
+    let clip = |radius, left, top, opaque_border| super::ShapeClip {
+        shape: super::RoundedShape {
+            radius,
+            left_clip: PhysicalLength::new(left),
+            right_clip: PhysicalLength::new(3),
+            top_clip: PhysicalLength::new(top),
+            bottom_clip: PhysicalLength::new(0),
+        },
+        opaque_border: PhysicalLength::new(opaque_border),
+    };
+    let asymmetric = super::PhysicalBorderRadius::new(13, 6, 17, 9);
+    let uniform = super::PhysicalBorderRadius::new_uniform(11);
+    let many: [_; CACHED_SPANS + 1] =
+        core::array::from_fn(|i| clip(uniform, i as i16, i as i16, 0));
+    let runs: [&[_]; 3] =
+        [&[clip(asymmetric, 2, 1, 0)], &[clip(uniform, 0, 0, 0), clip(asymmetric, 2, 1, 3)], &many];
+    const SIZE: i16 = 48;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    for (run, clips) in runs.iter().enumerate() {
+        for line in 0..SIZE {
+            let line = PhysicalLength::new(line);
+            let mut whole = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, clips, &color, &mut whole, 0, 0);
+            for split in 1..SIZE {
+                let mut parts = [PremultipliedRgbaColor::default(); SIZE as usize];
+                let (left, right) = parts.split_at_mut(split as usize);
+                draw_clipped_line(&rect, line, clips, &color, left, 0, SIZE - split);
+                draw_clipped_line(&rect, line, clips, &color, right, split, 0);
+                assert_eq!(
+                    bytemuck::cast_slice::<_, u8>(&whole),
+                    bytemuck::cast_slice::<_, u8>(&parts),
+                    "run {run}, line {line:?} split at {split}"
+                );
+            }
         }
     }
 }
