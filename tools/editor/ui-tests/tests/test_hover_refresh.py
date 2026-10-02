@@ -17,6 +17,8 @@ from inspector_interactions import FIELDS, edit_field
 from slint_testing import keys
 from source_snapshot import wait_for_source_change
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     press_shortcut,
@@ -44,7 +46,7 @@ def test_source_removal_clears_hover_without_pointer_motion(
         source.write_bytes(expected)
 
         wait_for_source(source, expected)
-        assert not window.get_by_id("Main::root-rectangle").all()
+        assert not elements(window, id="Main::root-rectangle")
         wait_for_no_rectangle_hover(window)
 
 
@@ -86,7 +88,7 @@ def test_undo_moves_hovered_element_away_from_stationary_pointer(
         else:
             press_shortcut(window, keys.Control, keys.Shift, "z")
         wait_for_source(source, moved)
-        window.get_by_accessible_name("Hovered Rectangle").wait_for()
+        element(window, "Hovered Rectangle")
 
 
 def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
@@ -107,8 +109,7 @@ def test_preview_reload_refreshes_hover_geometry_without_pointer_motion(
         wait_until(
             lambda: (
                 True
-                if window.get_by_accessible_name("Hovered Rectangle").size.width
-                == pytest.approx(100)
+                if element(window, "Hovered Rectangle").size.width == pytest.approx(100)
                 else None
             )
         )
@@ -133,8 +134,8 @@ def test_preview_reload_updates_hover_target_without_pointer_motion(
         wait_until(
             lambda: (
                 True
-                if window.get_by_accessible_name("Hovered Text").all()
-                and not window.get_by_accessible_name("Hovered Rectangle").all()
+                if elements(window, "Hovered Text")
+                and not elements(window, "Hovered Rectangle")
                 else None
             )
         )
@@ -159,7 +160,7 @@ def test_preview_reload_preserves_hover_suppression(
         hover_rectangle(window)
         button = slint_testing.PointerEventButton.Left
         if state == "outside":
-            artboard = window.get_by_accessible_name("Artboard")
+            artboard = element(window, "Artboard")
             position = slint_testing.LogicalPosition(
                 x=artboard.absolute_position.x - 12,
                 y=artboard.absolute_position.y - 12,
@@ -167,7 +168,7 @@ def test_preview_reload_preserves_hover_suppression(
         elif state == "pressed":
             position = center(fixture_element(window, "Rectangle"))
         else:
-            position = center(window.get_by_accessible_name("Rectangle " + state))
+            position = center(element(window, "Rectangle " + state))
         window.dispatch_event(slint_testing.PointerMoveEvent(position))
         if state == "pressed":
             window.dispatch_event(slint_testing.PointerPressEvent(position, button))

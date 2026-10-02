@@ -5,6 +5,8 @@ from pathlib import Path
 
 import slint_testing
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     wait_until,
@@ -17,19 +19,17 @@ def test_startup_page_shows_project_actions_without_editor_panes(
 ) -> None:
     with launch_editor(editor_binary, editor_environment) as editor:
         window = first_window(editor)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Region, name="Startup wizard"
-        ).wait_for()
-        assert not window.get_by_accessible_name("Editor canvas").all()
-        assert not window.get_by_accessible_name("Project and elements").all()
-        assert not window.get_by_accessible_name("Inspector and outline").all()
+        element(window, "Startup wizard", role=slint_testing.AccessibleRole.Region)
+        assert not elements(window, "Editor canvas")
+        assert not elements(window, "Project and elements")
+        assert not elements(window, "Inspector and outline")
 
-        create = window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Create New Project..."
+        create = element(
+            window, "Create New Project...", role=slint_testing.AccessibleRole.Button
         )
         assert create.accessible_enabled
-        open_existing = window.get_by_role(
-            slint_testing.AccessibleRole.Button, name="Open Existing Project..."
+        open_existing = element(
+            window, "Open Existing Project...", role=slint_testing.AccessibleRole.Button
         )
         assert open_existing.accessible_enabled
 
@@ -50,22 +50,18 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         window = first_window(editor)
         assert window.size.width > 0
         assert window.size.height > 0
-        window.get_by_role(
-            slint_testing.AccessibleRole.Main, name="Editor canvas"
-        ).wait_for()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Navigation, name="Project and elements"
-        ).wait_for()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Complementary, name="Inspector and outline"
-        ).wait_for()
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).wait_for()
-        window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name="root-text"
-        ).wait_for()
-        assert not window.get_by_accessible_name("Startup wizard").all()
+        element(window, "Editor canvas", role=slint_testing.AccessibleRole.Main)
+        element(
+            window, "Project and elements", role=slint_testing.AccessibleRole.Navigation
+        )
+        element(
+            window,
+            "Inspector and outline",
+            role=slint_testing.AccessibleRole.Complementary,
+        )
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        element(window, "root-text", role=slint_testing.AccessibleRole.ListItem)
+        assert not elements(window, "Startup wizard")
 
         def recent_project_was_saved() -> Path | None:
             settings_files = list(tmp_path.rglob("visual-editor-user-settings.json"))
@@ -78,24 +74,20 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
 
     with launch_editor(editor_binary, editor_environment) as editor:
         window = first_window(editor)
-        recent_row = window.get_by_role(
-            slint_testing.AccessibleRole.ListItem, name=fixture_project.name
+        recent_row = element(
+            window, fixture_project.name, role=slint_testing.AccessibleRole.ListItem
         )
         assert recent_row.accessible_description == str(fixture_project)
 
-        window.get_by_accessible_name("File").single_click(
-            slint_testing.PointerEventButton.Left
-        )
-        open_recent = window.get_by_accessible_name("Open Recent")
+        element(window, "File").single_click(slint_testing.PointerEventButton.Left)
+        open_recent = element(window, "Open Recent")
         open_recent.single_click(slint_testing.PointerEventButton.Left)
 
         def recent_menu_item() -> slint_testing.Element | None:
             return next(
                 (
                     element
-                    for element in window.get_by_accessible_name(
-                        fixture_project.name
-                    ).all()
+                    for element in elements(window, fixture_project.name)
                     if element.accessible_role != slint_testing.AccessibleRole.ListItem
                 ),
                 None,
@@ -103,6 +95,4 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
 
         recent_item = wait_until(recent_menu_item)
         recent_item.single_click(slint_testing.PointerEventButton.Left)
-        window.get_by_role(
-            slint_testing.AccessibleRole.Text, name="Fixture text"
-        ).wait_for()
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)

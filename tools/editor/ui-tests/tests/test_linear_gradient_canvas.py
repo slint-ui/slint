@@ -13,6 +13,7 @@ from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_driver import (
+    elements,
     first_window,
     launch_editor,
     press_key,
@@ -88,7 +89,7 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
             slint_testing.PointerReleaseEvent(destination(20), button)
         )
         press_key(window, keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -101,17 +102,17 @@ def test_linear_canvas_activation_and_colour(
         wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not window.get_by_accessible_name("Gradient start").all()
+        assert not elements(window, "Gradient start")
         click(window, "Rectangle background color picker")
         start = center(control(window, "Gradient start"))
         end = center(control(window, "Gradient end"))
         assert end.x - start.x == pytest.approx(200)
         assert end.y == pytest.approx(start.y)
-        assert not window.get_by_accessible_name("Gradient angle degrees").all()
+        assert not elements(window, "Gradient angle degrees")
         control(window, "Add gradient stop")
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
-        assert not window.get_by_accessible_name("Hex color").all()
-        assert not window.get_by_accessible_name("Close Stop color").all()
+        assert not elements(window, "Hex color")
+        assert not elements(window, "Close Stop color")
         click(window, "Edit stop 2 color")
         control(window, "Close Stop color")
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
@@ -143,7 +144,7 @@ def test_linear_canvas_activation_and_colour(
         ) == pytest.approx(71)
         original.assert_unchanged_now()
         click(window, "Solid")
-        assert not window.get_by_accessible_name("Gradient start").all()
+        assert not elements(window, "Gradient start")
         click(window, "Gradient")
         control(window, "Gradient start")
         original.assert_unchanged_now()
@@ -195,10 +196,10 @@ def test_linear_double_click_and_delete(
         axis.double_click(slint_testing.PointerEventButton.Left)
         control(window, "Gradient stop 4")
         press_key(window, keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 4").all()
+        assert not elements(window, "Gradient stop 4")
         click(window, "Gradient stop 2")
         press_key(window, keys.Delete)
-        assert not window.get_by_accessible_name("Gradient stop 3").all()
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Delete)
         control(window, "Gradient stop 2")
         control(window, "Gradient end")
@@ -328,17 +329,15 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#123456"
         other = wait_until(
-            lambda: next(
-                iter(window.get_by_id("LinearGradientScene::other").all()), None
-            )
+            lambda: next(iter(elements(window, id="LinearGradientScene::other")), None)
         )
         gesture(window, center(other), center(other))
         saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"#123456" in saved
         assert b"background: yellow" in saved
-        assert not window.get_by_accessible_name("Gradient start").all()
-        assert not window.get_by_accessible_name("Close Custom").all()
+        assert not elements(window, "Gradient start")
+        assert not elements(window, "Close Custom")
 
 
 def test_linear_external_edit_cancels_stale_draft(
@@ -357,8 +356,8 @@ def test_linear_external_edit_cancels_stale_draft(
         external = original.replace("#568fb8", "#abcdef")
         scene.write_text(external)
         wait_for_source(scene, external.encode())
-        assert not window.get_by_accessible_name("Gradient start").all()
-        assert not window.get_by_accessible_name("Close Custom").all()
+        assert not elements(window, "Gradient start")
+        assert not elements(window, "Close Custom")
         assert scene.read_text() == external
         open_linear(window)
         click(window, "Edit stop 1 color")
