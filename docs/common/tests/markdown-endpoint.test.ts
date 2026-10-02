@@ -10,7 +10,9 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+    markdownHref,
     markdownStaticPaths,
+    renderLlmsTxt,
     renderMarkdownResponse,
     type MarkdownDocEntry,
 } from "../src/utils/markdown-endpoint.ts";
@@ -260,4 +262,76 @@ test("angle-bracket types in a signature are decoded, not left as entities", asy
         /```cpp\nstd::optional< SharedPixelBuffer<Rgba8Pixel> > take_snapshot\(\)\n```/,
     );
     assert.doesNotMatch(text, /&#x|&lt;|&gt;/);
+});
+
+test("markdownHref matches the .md sibling's route, with or without a trailing slash", () => {
+    assert.equal(markdownHref("", "/docs/"), "/docs/index.md");
+    assert.equal(
+        markdownHref("guide/intro.mdx", "/docs"),
+        "/docs/guide/intro.md",
+    );
+    assert.equal(markdownHref("guide/intro", "/"), "/guide/intro.md");
+});
+
+test("llms.txt lists top-level pages first, and skips a description that repeats the title", async () => {
+    const response = renderLlmsTxt(
+        [
+            entry({
+                id: "reference/elements/text",
+                data: { title: "Text", description: "Text" },
+            }),
+            entry({
+                id: "index",
+                data: { title: "Overview", description: "Start here." },
+            }),
+            entry({
+                id: "language-integrations/rust",
+                data: { title: "Rust" },
+            }),
+        ],
+        {
+            title: "Slint Docs",
+            summary: "The Slint docs.",
+            basePath: "/docs/",
+            site: "https://example.com/docs/",
+        },
+    );
+    assert.equal(
+        response.headers.get("Content-Type"),
+        "text/markdown; charset=utf-8",
+    );
+    assert.equal(
+        await response.text(),
+        `# Slint Docs
+
+> The Slint docs.
+
+## Overview
+
+- [Overview](https://example.com/docs/index.md): Start here.
+
+## Language integrations
+
+- [Rust](https://example.com/docs/language-integrations/rust.md)
+
+## Reference
+
+- [Text](https://example.com/docs/reference/elements/text.md)
+`,
+    );
+});
+
+test("llms.txt links are root-relative without a site", async () => {
+    const response = renderLlmsTxt(
+        [entry({ id: "guide/intro", data: { title: "Intro" } })],
+        {
+            title: "T",
+            summary: "S",
+            basePath: "/docs/",
+        },
+    );
+    assert.match(
+        await response.text(),
+        /^- \[Intro\]\(\/docs\/guide\/intro\.md\)$/m,
+    );
 });
