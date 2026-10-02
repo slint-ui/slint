@@ -1,0 +1,49 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=132x68
+// ROTATION_THRESHOLD=50  - the border radius algorithm doesn't give the same result from every rotation
+// SKIP_LINE_BY_LINE  - Path not implemented in line-by-line mode
+
+// Filled and stroked paths that cross the corners of a rounded `clip: true` are cut to the rounded shape.
+
+component Cell inherits Rectangle {
+    width: 56px;
+    height: 56px;
+    background: blue;
+    border-radius: 16px;
+    clip: true;
+}
+
+export component TestCase inherits Window {
+    width: 132px;
+    height: 68px;
+    background: black;
+
+    Cell {
+        x: 6px;
+        y: 6px;
+        Path {
+            x: -8px;
+            y: -8px;
+            width: 72px;
+            height: 72px;
+            commands: "M 0 0 L 100 0 L 100 100 L 0 100 Z";
+            fill: #00800080;
+        }
+    }
+
+    Cell {
+        x: 70px;
+        y: 6px;
+        Path {
+            x: -4px;
+            y: -4px;
+            width: 64px;
+            height: 64px;
+            commands: "M 10 10 L 90 10 L 90 90 L 10 90 Z M 0 50 L 100 50";
+            stroke: yellow;
+            stroke-width: 6px;
+        }
+    }
+}

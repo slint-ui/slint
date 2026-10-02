@@ -5,8 +5,8 @@
 
 use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
 use super::{
-    Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, Transform,
-    target_pixel_buffer,
+    Fixed, PhysicalLength, PhysicalRect, PhysicalSize, ProcessScene, RotationInfo, RoundedClip,
+    Transform, target_pixel_buffer,
 };
 use alloc::vec::Vec;
 use i_slint_core::graphics::BorderRadius;
@@ -34,6 +34,7 @@ pub(super) fn process_drop_shadow(
     origin: euclid::Point2D<f32, PhysicalPx>,
     color: Color,
     clip: &PhysicalRect,
+    rounded_clips: &[RoundedClip],
     rotation: RotationInfo,
 ) {
     let Some((background, layout)) = &options.source else { return };
@@ -118,7 +119,7 @@ pub(super) fn process_drop_shadow(
             alpha: (weight * 255.).round() as u8,
             rotation: rotation.orientation,
         };
-        processor.process_rectangle(&args, *clip);
+        processor.process_rectangle(&args, *clip, rounded_clips);
         return;
     }
 
@@ -143,6 +144,7 @@ pub(super) fn process_drop_shadow(
     processor.process_box_shadow(
         geometry,
         BoxShadowCommand::new(geometry.size, shapes, sigma, color.into()),
+        rounded_clips,
     );
 }
 
@@ -999,6 +1001,7 @@ fn drop_shadow_stays_within_bounding_rect() {
                     (geometry.origin + offset) * scale_factor,
                     options.color,
                     &screen,
+                    &[],
                     rotation,
                 )
             });
@@ -1080,6 +1083,7 @@ fn drop_shadow_partial_render_is_identical() {
                 origin,
                 options.color,
                 clip,
+                &[],
                 RotationInfo { orientation: RenderingRotation::NoRotation, screen_size },
             )
         });
@@ -1101,6 +1105,7 @@ fn render_drop_shadow(
             origin,
             options.color,
             &screen,
+            &[],
             RotationInfo { orientation: RenderingRotation::NoRotation, screen_size },
         )
     })
