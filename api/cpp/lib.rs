@@ -43,6 +43,13 @@ pub fn with_platform<R>(
 }
 
 #[cfg(not(feature = "i-slint-backend-selector"))]
+fn with_global_context<R>(
+    f: impl FnOnce(&i_slint_core::SlintContext) -> R,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    i_slint_core::with_global_context(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
+}
+
+#[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
     f: impl FnOnce(
         &dyn i_slint_core::platform::Platform,
@@ -101,7 +108,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }

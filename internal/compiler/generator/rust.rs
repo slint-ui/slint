@@ -667,8 +667,7 @@ fn generate_shared_globals(
         quote!(
             #[cfg(#experimental)]
             fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
-                let adapter = ctx.platform().create_window_adapter()?;
-                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let adapter = ctx.create_window_adapter()?;
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor

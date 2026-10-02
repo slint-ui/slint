@@ -114,7 +114,7 @@ pub fn ensure_backend() -> Result<(), crate::PlatformError> {
 /// Creates a new window to render components in.
 pub fn create_window_adapter()
 -> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
-    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
+    i_slint_backend_selector::with_global_context(|ctx| ctx.create_window_adapter())?
 }
 
 /// Wrapper around `SlintContext::translate` for the generated code
