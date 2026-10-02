@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore dalvik jboolean jfloat jint jlong
+#![allow(
+    deprecated,
+    reason = "jni's bind_java_type! calls AtomicBool::fetch_update: https://github.com/jni-rs/jni-rs/issues/846"
+)]
+
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
