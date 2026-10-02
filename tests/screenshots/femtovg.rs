@@ -42,7 +42,7 @@ impl Platform for ScreenshotBackend {
     // Deterministic screenshots need a frozen clock: returning the current tick keeps every
     // animation at its start value instead of advancing with wall-clock time.
     fn duration_since_start(&self) -> core::time::Duration {
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+        i_slint_core::animations::current_tick().into()
     }
 }
 
