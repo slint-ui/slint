@@ -432,6 +432,9 @@ fn can_drop(
     target_offset: i32,
     location: ui::DropLocation,
 ) -> bool {
+    if preview::PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
+        return false;
+    }
     let Ok(data) = data.try_into() else {
         return false;
     };
