@@ -191,9 +191,11 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             #[cfg(feature = "unstable-wgpu-30")]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU30Texture(
-                texture,
-            )) => {
+            ImageInner::WGPUTexture(texture) => {
+                #[allow(irrefutable_let_patterns)]
+                let i_slint_core::graphics::WGPUTexture::WGPU30Texture(texture) = &**texture else {
+                    return None;
+                };
                 let texture = texture.clone();
                 let size = texture.size();
 
