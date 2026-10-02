@@ -1,0 +1,713 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore msaa tonemapping
+
+export struct JointData {
+    name: string,
+    unit: string,
+    minimum: float,
+    maximum: float,
+    step: float,
+    target: float,
+    current: float,
+}
+
+global Theme {
+    // Slint brand colors: blue #2379f4 and dark #151d21.
+    out property <color> background: #0f1518;
+    // Floating surfaces stay mostly opaque so text keeps its contrast over the scene.
+    out property <color> glass: #151d21cc;
+    out property <color> hairline: #ffffff1a;
+    out property <color> hairline-strong: #ffffff38;
+    out property <color> surface: #ffffff0a;
+    out property <color> surface-selected: #ffffff1c;
+    out property <color> surface-pressed: #ffffff26;
+    out property <color> text: #e6e9ee;
+    out property <color> text-muted: #8b95a2;
+    out property <color> text-faint: #5e6773;
+    out property <color> accent: #2379f4;
+    // A lighter tint of the accent for text and icons on dark surfaces.
+    out property <color> accent-text: #5b9cf8;
+    out property <color> moving: #4cc38a;
+    // Hit areas stay at least this big, even where the visuals are smaller.
+    out property <length> touch-target: 44px;
+    out property <length> radius: 10px;
+}
+
+component SectionLabel inherits Text {
+    color: Theme.text-faint;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+}
+
+// Path commands in a 16 x 16 box, drawn as 1.5 px strokes.
+global Icons {
+    out property <string> plus: "M 8 3 L 8 13 M 3 8 L 13 8";
+    out property <string> minus: "M 3 8 L 13 8";
+    out property <string> fit: "M 2 6 L 2 2 L 6 2 M 10 2 L 14 2 L 14 6 M 14 10 L 14 14 L 10 14 M 6 14 L 2 14 L 2 10";
+    out property <string> sliders: "M 2 4 L 14 4 M 2 8 L 14 8 M 2 12 L 14 12 M 5 2 L 5 6 M 11 6 L 11 10 M 7 10 L 7 14";
+}
+
+component Icon inherits Path {
+    in property <string> icon;
+    commands: root.icon;
+    width: 16px;
+    height: 16px;
+    viewbox-width: 16;
+    viewbox-height: 16;
+    stroke-width: 1.5px;
+    stroke-line-cap: round;
+}
+
+// The touch handling and accessibility that all buttons share.
+component ButtonBase inherits Rectangle {
+    in property <string> label;
+    in property <bool> checkable;
+    in property <bool> checked;
+    out property <bool> pressed: touch.pressed;
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component TouchButton inherits ButtonBase {
+    min-width: Theme.touch-target;
+    height: Theme.touch-target;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    background: root.pressed ? Theme.surface-pressed : Theme.surface;
+    animate background { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        Text {
+            text: root.label;
+            color: Theme.text;
+            font-size: 14px;
+            font-weight: 500;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// A round glass button with a line icon, for overlays on the 3D view.
+component IconButton inherits ButtonBase {
+    in property <string> icon;
+
+    width: Theme.touch-target;
+    height: Theme.touch-target;
+    border-radius: self.width / 2;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : Theme.hairline;
+    background: root.pressed ? Theme.surface-pressed : Theme.glass;
+    animate background, border-color { duration: 120ms; }
+
+    Icon {
+        icon: root.icon;
+        stroke: root.checked ? Theme.accent-text : Theme.text;
+    }
+}
+
+// An icon button without a frame, with a hit area bigger than its icon.
+component StepButton inherits ButtonBase {
+    in property <string> icon;
+
+    width: 36px;
+    height: Theme.touch-target;
+
+    Rectangle {
+        width: 32px;
+        height: 32px;
+        border-radius: self.width / 2;
+        background: root.pressed ? Theme.surface-pressed : transparent;
+    }
+
+    Icon {
+        icon: root.icon;
+        stroke: root.pressed ? Theme.text : Theme.text-muted;
+    }
+}
+
+component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in property <int> current;
+    callback selected(index: int);
+
+    height: Theme.touch-target;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    background: Theme.surface;
+
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 3px;
+        for option[index] in root.options: ButtonBase {
+            label: option;
+            checkable: true;
+            checked: index == root.current;
+            clicked => {
+                root.selected(index);
+            }
+            border-radius: Theme.radius - 3px;
+            background: self.checked ? Theme.surface-selected : self.pressed ? Theme.surface : transparent;
+            animate background { duration: 120ms; }
+
+            Text {
+                text: option;
+                color: index == root.current ? Theme.text : Theme.text-muted;
+                font-size: 14px;
+                font-weight: index == root.current ? 600 : 500;
+            }
+        }
+    }
+}
+
+// The thumb follows the finger (the target), the filled track shows where the joint is.
+component JointSlider inherits Rectangle {
+    in property <float> minimum;
+    in property <float> maximum;
+    in property <float> value;
+    in property <float> actual;
+    callback value-changed(value: float);
+
+    // Room at both ends for the thumb at its pressed size.
+    property <length> inset: 12px;
+    property <length> track-width: self.width - 2 * self.inset;
+    property <float> range: root.maximum - root.minimum;
+    property <float> zero-ratio: root.ratio-of(0);
+    property <float> actual-ratio: root.ratio-of(root.actual);
+
+    function ratio-of(v: float) -> float {
+        return clamp((v - root.minimum) / root.range, 0, 1);
+    }
+    function value-at(x: length) -> float {
+        return root.minimum + clamp((x - root.inset) / root.track-width, 0, 1) * root.range;
+    }
+
+    min-width: 120px;
+    height: Theme.touch-target;
+    accessible-role: slider;
+    accessible-value: round(root.value);
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+
+    Rectangle {
+        x: root.inset;
+        width: root.track-width;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.hairline;
+    }
+
+    if root.minimum < 0: Rectangle {
+        x: root.inset + root.track-width * root.zero-ratio - 0.5px;
+        width: 1px;
+        height: 10px;
+        background: Theme.hairline-strong;
+    }
+
+    Rectangle {
+        x: root.inset + root.track-width * min(root.actual-ratio, root.zero-ratio);
+        width: root.track-width * abs(root.actual-ratio - root.zero-ratio);
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+
+    Rectangle {
+        property <length> size: touch.pressed ? 24px : 16px;
+        x: root.inset + root.track-width * root.ratio-of(root.value) - self.size / 2;
+        width: self.size;
+        height: self.size;
+        border-radius: self.size / 2;
+        border-width: touch.pressed ? 2px : 0;
+        border-color: Theme.accent;
+        background: #f4f6f8;
+        animate size { duration: 120ms; easing: ease-out; }
+    }
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.value-changed(root.value-at(self.mouse-x));
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.value-changed(root.value-at(self.mouse-x));
+            }
+        }
+    }
+}
+
+component JointRow inherits VerticalLayout {
+    in property <JointData> joint;
+    callback value-changed(value: float);
+
+    function format(v: float) -> string {
+        return abs(v) < 0.5 ? "0" : round(v);
+    }
+
+    spacing: 0;
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        padding-left: 4px;
+        padding-right: 4px;
+        spacing: 4px;
+        Text {
+            text: root.joint.name;
+            color: Theme.text-muted;
+            font-size: 13px;
+            font-weight: 500;
+            vertical-alignment: bottom;
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.format(root.joint.current) + root.joint.unit;
+            color: Theme.text;
+            font-size: 17px;
+            font-weight: 500;
+            vertical-alignment: bottom;
+        }
+    }
+
+    HorizontalLayout {
+        StepButton {
+            icon: Icons.minus;
+            label: "Decrease " + root.joint.name;
+            clicked => {
+                root.value-changed(max(root.joint.minimum, root.joint.target - root.joint.step));
+            }
+        }
+
+        JointSlider {
+            accessible-label: root.joint.name;
+            minimum: root.joint.minimum;
+            maximum: root.joint.maximum;
+            value: root.joint.target;
+            actual: root.joint.current;
+            value-changed(v) => {
+                root.value-changed(v);
+            }
+        }
+
+        StepButton {
+            icon: Icons.plus;
+            label: "Increase " + root.joint.name;
+            clicked => {
+                root.value-changed(min(root.joint.maximum, root.joint.target + root.joint.step));
+            }
+        }
+    }
+}
+
+component Chip inherits Rectangle {
+    background: Theme.glass;
+    border-radius: self.height / 2;
+    border-width: 1px;
+    border-color: Theme.hairline;
+}
+
+export component AppWindow inherits Window {
+    in property <image> texture;
+
+    in property <[JointData]> joints;
+    in-out property <bool> auto-mode: true;
+    in property <bool> moving;
+    in property <string> fps-text;
+    in property <string> gpu-text;
+
+    property <int> render-scale-index: 1;
+    out property <float> render-scale: [0.5, 0.75, 1.0][root.render-scale-index];
+    property <int> msaa-index: 0;
+    property <int> shadows-index: 1;
+    property <bool> settings-open;
+    property <length> margin: 16px;
+    // The part of the window left of the panel, where the robot is framed.
+    property <length> scene-width: root.width - panel.width - 2 * root.margin;
+
+    callback joint-changed(index: int, value: float);
+    callback mode-changed(auto: bool);
+    callback preset(index: int);
+    // Camera orbit around the robot, angles in degrees, zoom as a factor.
+    // `shift` moves the robot left of the window's center, relative to half the window width.
+    callback view-changed(yaw: float, pitch: float, zoom: float, shift: float);
+    callback render-settings-changed(msaa: bool, shadows: bool);
+
+    property <float> home-yaw: 35;
+    property <float> home-pitch: 25;
+    property <float> cam-yaw: root.home-yaw;
+    property <float> cam-pitch: root.home-pitch;
+    property <float> cam-zoom: 1.0;
+    property <float> view-shift: (panel.width + 2 * root.margin) / root.width;
+    changed view-shift => {
+        root.update-view();
+    }
+
+    // Reports the initial view and settings to the host.
+    public function publish-settings() {
+        root.update-view();
+        root.update-render-settings();
+        root.mode-changed(root.auto-mode);
+    }
+    function update-view() {
+        root.view-changed(root.cam-yaw, root.cam-pitch, root.cam-zoom, root.view-shift);
+    }
+    function update-render-settings() {
+        root.render-settings-changed(root.msaa-index == 1, root.shadows-index == 1);
+    }
+    function reset-view() {
+        root.cam-yaw = root.home-yaw;
+        root.cam-pitch = root.home-pitch;
+        root.cam-zoom = 1.0;
+        root.update-view();
+    }
+    function zoom-by(factor: float) {
+        root.cam-zoom = clamp(root.cam-zoom * factor, 0.5, 2.5);
+        root.update-view();
+    }
+
+    title: "Slint & Bevy Robot Arm";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: Theme.background;
+    default-font-size: 16px;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+
+        Image {
+            source: root.texture;
+            width: 100%;
+            height: 100%;
+            image-fit: fill;
+        }
+
+        orbit := TouchArea {
+            property <float> start-yaw;
+            property <float> start-pitch;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down {
+                    self.start-yaw = root.cam-yaw;
+                    self.start-pitch = root.cam-pitch;
+                }
+            }
+            moved => {
+                if self.pressed {
+                    root.cam-yaw = self.start-yaw - (self.mouse-x - self.pressed-x) / 4px;
+                    root.cam-pitch = clamp(self.start-pitch + (self.mouse-y - self.pressed-y) / 4px, 5, 80);
+                    root.update-view();
+                }
+            }
+            double-clicked => {
+                root.reset-view();
+            }
+        }
+
+        ScaleRotateGestureHandler {
+            property <float> start-zoom;
+            started => {
+                self.start-zoom = root.cam-zoom;
+            }
+            updated => {
+                root.cam-zoom = clamp(self.start-zoom * self.scale, 0.5, 2.5);
+                root.update-view();
+            }
+        }
+
+        // Title and status
+        VerticalLayout {
+            x: 24px;
+            y: 20px;
+            width: self.preferred-width;
+            height: self.preferred-height;
+            spacing: 4px;
+
+            Text {
+                text: "Robot Cell";
+                color: Theme.text;
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+            Text {
+                text: "3D by Bevy, UI by Slint. Drag to orbit, pinch to zoom.";
+                color: Theme.text-muted;
+                font-size: 13px;
+            }
+
+            Rectangle {
+                height: 8px;
+            }
+
+            Chip {
+                width: status-row.preferred-width;
+                height: 30px;
+                status-row := HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+                    alignment: start;
+                    Rectangle {
+                        y: (parent.height - self.height) / 2;
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 4px;
+                        background: root.moving ? Theme.moving : Theme.text-faint;
+                    }
+
+                    Text {
+                        text: (root.auto-mode ? "Auto" : "Manual") + (root.moving ? " · Moving" : " · Idle");
+                        color: Theme.text;
+                        font-size: 13px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // Frame stats and settings
+        HorizontalLayout {
+            x: root.scene-width - self.width;
+            y: 20px;
+            width: self.preferred-width;
+            height: Theme.touch-target;
+            spacing: 10px;
+
+            Chip {
+                y: (parent.height - self.height) / 2;
+                height: 30px;
+                width: fps.preferred-width + 24px;
+                fps := Text {
+                    text: root.fps-text;
+                    color: Theme.text-muted;
+                    font-size: 13px;
+                }
+            }
+
+            IconButton {
+                icon: Icons.sliders;
+                label: "Settings";
+                checkable: true;
+                checked: root.settings-open;
+                clicked => {
+                    root.settings-open = !root.settings-open;
+                }
+            }
+        }
+
+        // Zoom and reset
+        VerticalLayout {
+            x: 20px;
+            y: parent.height - self.height - 20px;
+            width: self.preferred-width;
+            height: self.preferred-height;
+            spacing: 8px;
+
+            IconButton {
+                icon: Icons.plus;
+                label: "Zoom in";
+                clicked => {
+                    root.zoom-by(1.25);
+                }
+            }
+
+            IconButton {
+                icon: Icons.minus;
+                label: "Zoom out";
+                clicked => {
+                    root.zoom-by(0.8);
+                }
+            }
+
+            IconButton {
+                icon: Icons.fit;
+                label: "Reset view";
+                clicked => {
+                    root.reset-view();
+                }
+            }
+        }
+
+        Image {
+            source: @image-url("../../../../logo/MadeWithSlint-logo-dark.svg");
+            x: root.scene-width - self.width;
+            y: root.height - self.height - root.margin - 6px;
+            height: 34px;
+            accessible-label: "Made with Slint";
+        }
+
+        if root.settings-open: TouchArea {
+            clicked => {
+                root.settings-open = false;
+            }
+        }
+
+        if root.settings-open: Rectangle {
+            x: root.scene-width - self.width;
+            y: 20px + Theme.touch-target + 12px;
+            width: 320px;
+            height: settings-layout.preferred-height;
+            background: Theme.glass;
+            border-radius: Theme.radius + 4px;
+            border-width: 1px;
+            border-color: Theme.hairline;
+
+            // Swallow taps so they don't reach the dismiss area.
+            TouchArea { }
+
+            settings-layout := VerticalLayout {
+                padding: 16px;
+                spacing: 8px;
+
+                SectionLabel {
+                    text: "RENDER SCALE";
+                }
+
+                Segmented {
+                    options: ["50%", "75%", "100%"];
+                    current: root.render-scale-index;
+                    selected(index) => {
+                        root.render-scale-index = index;
+                        root.update-render-settings();
+                    }
+                }
+
+                SectionLabel {
+                    text: "ANTI-ALIASING";
+                }
+
+                Segmented {
+                    options: ["Off", "4× MSAA"];
+                    current: root.msaa-index;
+                    selected(index) => {
+                        root.msaa-index = index;
+                        root.update-render-settings();
+                    }
+                }
+
+                SectionLabel {
+                    text: "SHADOWS";
+                }
+
+                Segmented {
+                    options: ["Off", "On"];
+                    current: root.shadows-index;
+                    selected(index) => {
+                        root.shadows-index = index;
+                        root.update-render-settings();
+                    }
+                }
+
+                SectionLabel {
+                    text: "GPU";
+                }
+
+                Text {
+                    text: root.gpu-text;
+                    color: Theme.text-muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+
+    panel := Rectangle {
+        x: root.width - self.width - root.margin;
+        y: root.margin;
+        width: 360px;
+        height: root.height - 2 * root.margin;
+        background: Theme.glass;
+        border-radius: Theme.radius + 6px;
+        border-width: 1px;
+        border-color: Theme.hairline;
+
+        // Keep drags on the panel's empty areas from orbiting the camera.
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+
+            SectionLabel {
+                text: "MODE";
+            }
+
+            Segmented {
+                options: ["Manual", "Auto"];
+                current: root.auto-mode ? 1 : 0;
+                selected(index) => {
+                    root.auto-mode = index == 1;
+                    root.mode-changed(root.auto-mode);
+                }
+            }
+
+            SectionLabel {
+                text: "JOINTS";
+            }
+
+            for joint[index] in root.joints: JointRow {
+                joint: joint;
+                value-changed(value) => {
+                    root.auto-mode = false;
+                    root.joint-changed(index, value);
+                }
+            }
+
+            Rectangle { }
+
+            SectionLabel {
+                text: "POSES";
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                TouchButton {
+                    label: "Home";
+                    clicked => {
+                        root.auto-mode = false;
+                        root.preset(0);
+                    }
+                }
+
+                TouchButton {
+                    label: "Reach";
+                    clicked => {
+                        root.auto-mode = false;
+                        root.preset(1);
+                    }
+                }
+
+                TouchButton {
+                    label: "Fold";
+                    clicked => {
+                        root.auto-mode = false;
+                        root.preset(2);
+                    }
+                }
+            }
+        }
+    }
+}

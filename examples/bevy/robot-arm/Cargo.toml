@@ -1,0 +1,24 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "bevy-robot-arm"
+version = "1.19.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2024"
+publish = false
+license = "MIT"
+description = "Slint Bevy Robot Arm Demo for low-end GPUs"
+
+[[bin]]
+name = "bevy_robot_arm"
+path = "main.rs"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", features = ["renderer-skia", "unstable-wgpu-29"] }
+spin_on = { version = "0.1" }
+bevy = { version = "0.19", default-features = false, features = ["bevy_core_pipeline", "bevy_pbr", "bevy_window", "bevy_log", "multi_threaded"] }
+smol = { version = "2.0.0" }
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }

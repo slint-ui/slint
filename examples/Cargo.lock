@@ -735,6 +735,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-robot-arm"
+version = "1.19.0"
+dependencies = [
+ "bevy",
+ "slint",
+ "slint-build",
+ "smol",
+ "spin_on",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
