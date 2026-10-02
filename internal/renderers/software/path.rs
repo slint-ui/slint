@@ -4,7 +4,7 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel, blend_with_coverage};
+use super::draw_functions::{PremultipliedRgbaColor, TargetPixel, interpolate_color};
 use super::{AnyGradientCommand, PhysicalLength};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -175,6 +175,29 @@ fn render_path_with_style<T: TargetPixel>(
                     );
                 }
             }
+        }
+    }
+}
+
+/// `coverage(x)` is 0 to 255.
+/// `draw` draws the gradient for a sub-range of `range` into a cleared scratch buffer.
+fn blend_with_coverage<T: TargetPixel>(
+    buffer: &mut [T],
+    range: core::ops::Range<usize>,
+    mut draw: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
+    coverage: impl Fn(usize) -> u32,
+) {
+    // Bounds the stack scratch buffer.
+    const CHUNK: usize = 16;
+    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
+    for start in range.clone().step_by(CHUNK) {
+        let chunk = start..(start + CHUNK).min(range.end);
+        let scratch = &mut scratch[..chunk.len()];
+        scratch.fill(PremultipliedRgbaColor::default());
+        draw(scratch, chunk.clone());
+        for (x, color) in chunk.zip(scratch.iter()) {
+            let color = interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
+            buffer[x].blend(color);
         }
     }
 }
