@@ -398,6 +398,26 @@ pub fn slot_error_subject(name: &str) -> String {
     }
 }
 
+/// Reports the slot placeholders of `component` that are children of a `builtin` element,
+/// except in the root element.
+/// The passes that lower such builtins run before inlining, so they only see direct children.
+pub fn diagnose_slot_in_inner_builtin(
+    component: &Component,
+    builtin: &str,
+    diag: &mut BuildDiagnostics,
+) {
+    for (name, cip) in component.child_insertion_points.borrow().iter() {
+        let in_inner_builtin = !Rc::ptr_eq(&cip.parent, &component.root_element)
+            && matches!(&cip.parent.borrow().builtin_type(), Some(b) if b.name == builtin);
+        if in_inner_builtin {
+            diag.push_error(
+                format!("{} is not allowed as a child of '{builtin}'", slot_error_subject(name)),
+                &cip.node,
+            );
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),

@@ -28,6 +28,7 @@ pub async fn lower_tabwidget(
     let mut seen = HashSet::new();
     let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
+        diagnose_slot_in_inner_builtin(component, "TabWidget", diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
                 && seen.insert(Rc::as_ptr(elem))
