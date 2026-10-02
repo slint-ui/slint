@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A global's init runs on the context the component is created with.
+// The change handler evaluates `number` during that init.
+
+export global Formatted {
+    out property <string> number: 1.5;
+    changed number => {}
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(
+    i_slint_backend_testing::TestingBackend::new(Default::default()),
+));
+ctx.set_locale("de");
+let instance = TestCase::new_with_context(ctx).unwrap();
+assert_eq!(instance.global::<Formatted<'_>>().get_number(), "1,5");
+```
+*/
