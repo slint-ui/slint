@@ -28,8 +28,8 @@ This document describes the Slint release process
       - `sed --follow-symlinks -i 's/^\(slint.*\) = ".*"$/\1 = "1.16.0"/' **/*.rs **/*.md`
   - The `[dependencies.slint]` in mcu.md
 
-* Update the `zed` extension SHA-1 of the tree-sitter repo in editors/zed/extension.toml in the `grammars.slint` section.
-  Take the **commit** SHA-1 from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).
+* Update the `zed` extension commit hash of the tree-sitter repo in editors/zed/extension.toml in the `grammars.slint` section.
+  Take the **commit** hash from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).
   (Not the hash from the commit message, and from nightly because master tracks the previous release)
 
 * Refresh the Android viewer store screenshot so it shows the release version:
@@ -67,10 +67,10 @@ Bugfixes should first get submitted to the `master` branch using the normal proc
 PR and issue that should be backported can be tagged with the `candidate-for-bugfix-release` tag.
 
 The commits can then be cherry-picked into the branch by the release manager with the `-x` option
-to include a reference to the original sha1.
+to include a reference to the original commit.
 
 ```sh
-git cherry-pick -x <sha1>
+git cherry-pick -x <commit>
 ```
 
 In the mean time, the version in the master branch can be updated
