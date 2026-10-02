@@ -25,6 +25,7 @@ pub struct SceneVectors {
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
     pub box_shadows: Vec<BoxShadowCommand>,
+    pub clips: Vec<ShapeClip>,
 }
 
 pub struct Scene {
@@ -259,6 +260,9 @@ impl Scene {
 
     /// Whether drawing `item` overwrites every pixel it spans on the current line.
     pub fn covers_line(&self, item: &SceneItem) -> bool {
+        if item.clip_len != 0 {
+            return false;
+        }
         match &item.command {
             SceneCommand::Rectangle { color } => color.alpha == 255,
             SceneCommand::Texture { texture_index } => {
@@ -308,6 +312,14 @@ pub struct SceneItem {
     // this is the order of the item from which it is in the item tree
     pub z: u16,
     pub command: SceneCommand,
+    pub clip_start: u16,
+    pub clip_len: u16,
+}
+
+impl SceneItem {
+    pub fn clips<'a>(&self, vectors: &'a SceneVectors) -> &'a [ShapeClip] {
+        &vectors.clips[self.clip_start as usize..][..self.clip_len as usize]
+    }
 }
 
 /// Orders by `y` (top to bottom), then by `z` (front to back).
@@ -629,15 +641,41 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
+/// A rounded shape that clips a command.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GradientClip {
-    /// A zero radius means no clip.
+pub struct ShapeClip {
     pub shape: RoundedShape,
-    /// The width of the opaque border drawn over the gradient, or 0.
-    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// The width of an opaque border drawn over the command, or 0.
+    /// When set, the command is clipped without anti-aliasing to the border's inner edge.
     /// This keeps it from bleeding through the border's anti-aliased outer edge.
     pub opaque_border: PhysicalLength,
+}
+
+impl ShapeClip {
+    /// Whether a command of `size` reaches into one of the shape's rounded corners.
+    /// Outside of them, the clip has no effect.
+    pub fn touches_corner(&self, size: PhysicalSize) -> bool {
+        let s = &self.shape;
+        let left = s.left_clip.get() as i32;
+        let top = s.top_clip.get() as i32;
+        let right = left + size.width as i32;
+        let bottom = top + size.height as i32;
+        let width = right + s.right_clip.get() as i32;
+        let height = bottom + s.bottom_clip.get() as i32;
+        let touches = |r: i16, x: i32, y: i32| {
+            let r = r as i32;
+            r > 0 && x < right && x + r > left && y < bottom && y + r > top
+        };
+        let r = &s.radius;
+        touches(r.top_left, 0, 0)
+            || touches(r.top_right, width - r.top_right as i32, 0)
+            || touches(
+                r.bottom_right,
+                width - r.bottom_right as i32,
+                height - r.bottom_right as i32,
+            )
+            || touches(r.bottom_left, 0, height - r.bottom_left as i32)
+    }
 }
 
 #[derive(Debug)]
@@ -675,7 +713,6 @@ pub struct LinearGradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
-    pub clip: GradientClip,
 }
 
 pub(crate) type GradientPosition = Fixed<i32, 16>;
@@ -746,7 +783,6 @@ pub struct RadialGradientCommand {
     /// Radii in physical pixels. Always resolved (positive) before command construction.
     pub radius_x: f32,
     pub radius_y: f32,
-    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -764,7 +800,6 @@ pub struct ConicGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    pub clip: GradientClip,
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
 }
@@ -784,6 +819,8 @@ fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
         size: PhysicalSize::new(10, height),
         z,
         command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        clip_start: 0,
+        clip_len: 0,
     };
     // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
     let mut scene =
@@ -823,6 +860,8 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
             size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
             z,
             command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+            clip_start: 0,
+            clip_len: 0,
         })
         .collect();
 
