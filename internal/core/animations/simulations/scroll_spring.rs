@@ -23,8 +23,8 @@ const ZERO_TOLERANCE: f32 = 1e-3;
 // edge, captured on an iPhone 13 Pro Max with iOS 27.
 /// The natural frequency of the critically damped return.
 const RETURN_FREQUENCY: f32 = 10.67037;
-/// How long after the release UIKit's return starts moving.
-const RETURN_DELAY: Duration = Duration::from_nanos(16_827_855);
+/// How long after the release the return starts.
+const RETURN_DELAY: Duration = Duration::from_millis(7);
 /// The initial return speed relative to the overscroll, for a small overscroll.
 const RETURN_RATE_MIN: f32 = 5.470122;
 /// How much the initial return rate rises for a large overscroll.
@@ -188,10 +188,13 @@ mod tests {
         assert!(position < 30.);
     }
 
-    /// Samples of a UIKit return after a held 200-point pull, which ended 92 points past the top.
+    /// Samples of a UIKit return after a held 200-point pull, which ended 92 points past the top,
+    /// timed by `CADisplayLink.targetTimestamp`; on that clock the return starts 16.8 ms after
+    /// the release.
     /// UIKit reports positions in 1/3-point steps, with up to a frame of sampling jitter.
     #[test]
     fn follows_a_measured_uikit_return() {
+        let uikit_onset = Duration::from_nanos(16_827_855);
         let start = start_time();
         let mut simulation =
             SpringSimulation::new_with_default_parameters(92., test_limit_property(0.), start);
@@ -199,7 +202,8 @@ mod tests {
         for (millis, uikit) in
             [(17, 92.), (25, 87.), (50, 73.), (100, 50.), (150, 33.667), (200, 22.), (300, 10.)]
         {
-            simulation.step(&mut position, start + Duration::from_millis(millis));
+            let since_onset = Duration::from_millis(millis).saturating_sub(uikit_onset);
+            simulation.step(&mut position, start + RETURN_DELAY + since_onset);
             assert!((position - uikit).abs() < 1.5, "{millis} ms: {position} != {uikit}");
         }
     }
