@@ -113,14 +113,14 @@ To build on Windows, you will need Visual Studio installed. Cargo requires the `
 ### Install platform-tools
 
 ```bash
-${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
 ```
 
-### Add rust target and install cargo apk
+### Add rust target and install cargo-apk2
 
 ```bash
 rustup target add aarch64-linux-android
-cargo install cargo-apk
+cargo install cargo-apk2
 ```
 
 ### Setup Bindgen for Android
@@ -134,5 +134,5 @@ export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android30 --sysroot=$AND
 ### Run on android emulator or device
 
 ```bash
-cargo apk run --target aarch64-linux-android --lib
+cargo apk2 run --target aarch64-linux-android --lib
 ```

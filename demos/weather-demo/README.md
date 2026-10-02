@@ -62,7 +62,7 @@ To be able to compile the application for Android, you must follow an initial se
 To start the application, execute:
 
 ```
-cargo apk run --lib
+cargo apk2 run --lib
 ```
 
 ## WebAssembly
