@@ -7,6 +7,8 @@
     "email": "info@slint.dev"
   },
   "homepage": "https://slint.dev",
+  "privacyPolicyUrl": "https://slint.dev/imprint#privacy",
+  "icon": "./icon.svg",
   "repository": "https://github.com/slint-ui/slint",
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
   "lspServers": {
