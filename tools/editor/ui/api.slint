@@ -60,13 +60,6 @@ export struct InspectorNumberChange {
     value: float,
 }
 
-/// Some `Diagnostics` as raised by the compiler
-export enum DiagnosticSummary {
-    NothingDetected,
-    Warnings,
-    Errors,
-}
-
 /// One device discovered as a possible remote-preview target.
 export struct RemoteViewerInfo {
     /// User-facing name, e.g. "Simon's iPhone".
@@ -389,21 +382,6 @@ export struct PaletteEntry {
     value: PropertyValue,
 }
 
-export enum LogMessageLevel {
-    Debug,
-    Warning,
-    Error,
-    Note,
-}
-
-export struct LogMessage {
-    file: string,
-    line: int,
-    column: int,
-    message: string,
-    level: LogMessageLevel,
-}
-
 
 
 /// A node in the outline tree
@@ -473,11 +451,6 @@ export global Api {
     in property <[ComponentListItem]> known-components;
     callback library-search(string);
 
-    // ## Kinds of diagnostics seen in the last compiler run
-    in property <DiagnosticSummary> diagnostic-summary;
-    // status message text
-    in property <string> status-text;
-
     // ## Style:
     // All the known styles
     in property <[string]> known-styles;
@@ -485,10 +458,6 @@ export global Api {
     in-out property <int> current-style-index;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
-
-    // ## Log Output
-    in-out property <[LogMessage]> log-output;
-    in-out property <bool> auto-clear-console: true;
 
     // ## Element library
     in property <[ElementLibraryGroup]> element-library;
@@ -682,9 +651,6 @@ export global Api {
     pure callback filter-recent-fills(fills: [FillData], allow-gradient: bool) -> [FillData];
     pure callback is-css-color(code: string) -> bool;
 
-    // ## Console / LogMessages
-    pure callback filter-log-messages(messages: [LogMessage], pattern: string) -> [LogMessage];
-    callback clear-log-messages();
 
     // ## Undo/Redo
     callback undo();

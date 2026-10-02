@@ -99,6 +99,9 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_undo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
+            if state.preview_blocked {
+                return;
+            }
             if edit_pending(state) {
                 state.pending_history.push_back(false);
                 return;
@@ -133,6 +136,9 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_redo(|| {
         let Some(document_cache) = super::document_cache() else { return };
         super::PREVIEW_STATE.with_borrow_mut(|state| {
+            if state.preview_blocked {
+                return;
+            }
             if edit_pending(state) {
                 state.pending_history.push_back(true);
                 return;
@@ -173,7 +179,7 @@ pub(super) fn edit_pending(state: &super::PreviewState) -> bool {
 pub(super) fn apply_pending() {
     loop {
         let next = super::PREVIEW_STATE.with_borrow_mut(|state| {
-            if edit_pending(state) {
+            if state.preview_blocked || edit_pending(state) {
                 return None;
             }
             Some((state.api.upgrade()?, state.pending_history.pop_front()?))
@@ -189,8 +195,12 @@ pub(super) fn apply_pending() {
 
 pub fn set_undo_redo_enabled(state: &super::PreviewState) {
     if let Some(api) = state.api.upgrade() {
-        api.set_undo_enabled(!state.undo_redo_stack.undo_stack.is_empty());
-        api.set_redo_enabled(!state.undo_redo_stack.redo_stack.is_empty());
+        api.set_undo_enabled(
+            !state.preview_blocked && !state.undo_redo_stack.undo_stack.is_empty(),
+        );
+        api.set_redo_enabled(
+            !state.preview_blocked && !state.undo_redo_stack.redo_stack.is_empty(),
+        );
     }
 }
 
