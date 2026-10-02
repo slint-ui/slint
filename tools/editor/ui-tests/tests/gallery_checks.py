@@ -168,7 +168,7 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             return field
 
         original = open_picker().accessible_value
-        assert original.lower().lstrip("#") == "ff9900"
+        assert original == "FF9900"
         element(
             window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#ff0000"
@@ -179,7 +179,7 @@ def test_gallery_picker_cancel_and_commit(gallery_binary, editor_environment):
             window, "Hex color", role=slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#00ff00"
         element(window, "Close Custom").invoke_accessible_default_action()
-        assert open_picker().accessible_value.lower().lstrip("#") == "00ff00"
+        assert open_picker().accessible_value == "00FF00"
 
 
 @pytest.mark.parametrize("label", ["Sample slider", "All corner radii slider"])

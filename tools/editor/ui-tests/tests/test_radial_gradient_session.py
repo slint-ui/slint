@@ -107,5 +107,5 @@ def test_external_edit_invalidates_radial_session(
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
             ).accessible_value
-            == "#abcdef"
+            == "ABCDEF"
         )

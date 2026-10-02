@@ -222,15 +222,6 @@ export struct Range {
     end: int,
 }
 
-export struct ColorData {
-    r: int,
-    g: int,
-    b: int,
-    a: int,
-    text: string,
-    short-text: string,
-}
-
 export enum PropertyValueKind {
     boolean,
     brush,
@@ -285,8 +276,6 @@ export enum ColorFieldMode {
 export struct ColorFieldData {
     mode: ColorFieldMode,
     fill: FillData,
-    color-text: string,
-    opacity: int,
     label: string,
     unsupported: bool,
     allow-gradient: bool,
@@ -294,8 +283,14 @@ export struct ColorFieldData {
 
 export struct ColorFieldEdit {
     valid: bool,
+    color: color,
     expression: string,
     display: string,
+}
+
+export struct ColorValueData {
+    color-text: string,
+    opacity: int,
 }
 
 /// Data about the property value for use in "simple" mode
@@ -720,13 +715,11 @@ export global Api {
     // # Callbacks
 
     // ## Custom conversion functions:
-    pure callback string-is-color(string) -> bool;
-    pure callback string-to-color(string) -> color;
-    pure callback color-to-data(color) -> ColorData;
-    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
-    pure callback color-field-color-edit(fill: FillData, text: string) -> ColorFieldEdit;
-    pure callback color-field-opacity-edit(fill: FillData, text: string) -> ColorFieldEdit;
-    pure callback color-field-fill-with-opacity(fill: FillData, opacity: float) -> FillData;
+    pure callback color-value-data(color) -> ColorValueData;
+    pure callback color-value-color-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-opacity-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-with-opacity(color: color, opacity: float) -> color;
+    pure callback fill-with-color(fill: FillData, color: color) -> FillData;
 
     // ## Style:
     callback style-changed();

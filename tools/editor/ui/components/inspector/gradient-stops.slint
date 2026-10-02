@@ -5,6 +5,7 @@ import { Style, Metrics, Colors, Typography, GradientStopsStyle } from "../../st
 import { Api, FillData, BrushKind, GradientStop, GradientStopOrder } from "../../api.slint";
 import { FillSession } from "fill-session.slint";
 
+import { InspectorColorValueField } from "color-value-field.slint";
 import { InspectorSegment } from "segment.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
@@ -142,7 +143,7 @@ export component InspectorGradientStops inherits Rectangle {
             spacing: Metrics.space-compact;
             Text { text: "Position " + root.suffix; width: root.style.row.position-width; color: Colors.muted; font-size: Typography.caption.size; }
             Text { text: "Color"; horizontal-stretch: 1; color: Colors.muted; font-size: Typography.caption.size; }
-            Text { text: "Opacity"; width: root.style.row.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: "Opacity"; width: Style.color-field.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
             Rectangle { width: root.style.row.action-width; }
         }
         EditorScrollView {
@@ -173,45 +174,31 @@ export component InspectorGradientStops inherits Rectangle {
                                 return FillSession.move-stop-position(number.to-float() / root.units);
                             }
                         }
-                        Rectangle {
-                            color-focus := FocusScope {
-                                property <int> focus-generation: root.focus-generation;
-                                changed focus-generation => {
-                                    if root.selected-index == index {
-                                        self.focus();
-                                    }
-                                }
-                                key-pressed(event) => {
-                                    if event.text == Key.Delete || event.text == Key.Backspace {
-                                        FillSession.remove-stop(index);
-                                        return accept;
-                                    }
-                                    if event.text == Key.Return || event.text == Key.Space {
-                                        FillSession.edit-stop-color(index);
-                                        return accept;
-                                    }
-                                    return reject;
-                                }
-                                HorizontalLayout {
-                                    spacing: Metrics.space-compact;
-                                    cross-axis-alignment: center;
-                                    Rectangle { width: root.style.row.swatch-size; height: root.style.row.swatch-size; background: stop.color; border-radius: Metrics.radius-small; }
-                                    Text { text: Api.color-to-data(stop.color).short-text; color: Colors.foreground; font-size: Typography.caption.size; vertical-alignment: center; }
-                                }
-                                TouchArea {
-                                    accessible-role: button;
-                                    accessible-label: "Edit stop " + (index + 1) + " color";
-                                    clicked => {
-                                        parent.focus();
-                                        FillSession.edit-stop-color(index);
-                                    }
-                                    accessible-action-default => {
-                                        FillSession.edit-stop-color(index);
-                                    }
+                        stop-color-field := InspectorColorValueField {
+                            horizontal-stretch: 1;
+                            accessible-name: "Stop " + (index + 1) + " color";
+                            swatch-accessible-name: "Edit stop " + (index + 1) + " color";
+                            value: stop.color;
+                            enabled: FillSession.editable;
+                            live-edit: true;
+                            commit-key: root.session-key + ":" + index;
+                            private property <int> focus-generation: root.focus-generation;
+                            changed focus-generation => {
+                                if root.selected-index == index {
+                                    self.focus-swatch();
                                 }
                             }
+                            preview(color) => {
+                                root.selected-index = index;
+                                return FillSession.preview-color(color);
+                            }
+                            swatch-activated => {
+                                FillSession.edit-stop-color(index);
+                            }
+                            remove-requested => {
+                                FillSession.remove-stop(index);
+                            }
                         }
-                        Text { width: root.style.row.opacity-width; text: (stop.color.alpha * 100 / 255).to-fixed(0) + "%"; color: Colors.foreground; font-size: Typography.caption.size; vertical-alignment: center; }
                         if root.value.stops.length > 2: InspectorSegment {
                             width: root.style.row.action-width;
                             kind: "text";

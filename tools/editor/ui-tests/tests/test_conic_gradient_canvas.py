@@ -148,7 +148,7 @@ def test_conic_keyboard_and_seam_neighbor(
         original.assert_unchanged()
 
 
-def test_conic_swatch_delete_keeps_canvas_element(
+def test_conic_color_input_delete_keeps_canvas_element(
     editor_binary, editor_environment, conic_scene, tmp_path
 ):
     original = SourceSnapshot.capture(tmp_path)
@@ -158,14 +158,11 @@ def test_conic_swatch_delete_keeps_canvas_element(
         open_conic(window)
         click(window, "Remove stop 3")
         expect(query(window, "Gradient stop 3")).to_be_hidden()
-        position = control(
-            window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
-        )
-        gesture(window, center(position), center(position))
-        press_key(window, keys.Tab)
+        color = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        gesture(window, center(color), center(color))
         press_key(window, keys.Delete)
         original.assert_unchanged_now()
-        press_key(window, keys.Space)
+        click(window, "Edit stop 2 color")
         control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
         press_key(window, keys.Escape)
         original.assert_unchanged()
@@ -343,7 +340,7 @@ def test_conic_seam_handles_and_stop_crossing(
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
             ).accessible_value
-            == "#264052"
+            == "264052"
         )
         click(window, "Close Stop color")
         press_key(window, keys.Escape)
@@ -394,7 +391,10 @@ def test_conic_insertion_samples_straight_alpha(
         value = control(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value
-        assert value in ("#80008080", "#7f008080", "#80007f7f", "#7f00807f")
+        assert value in ("800080", "7F0080", "80007F")
+        assert control(
+            window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
+        ).accessible_value in ("50", "49")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -446,13 +446,13 @@ def test_conic_picker_and_canvas_share_selection_and_color(
         assert not elements(window, "Hex color")
         click(window, "Edit stop 2 color")
         field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        expect(field).to_have_value("#264052")
+        expect(field).to_have_value("264052")
         click(window, "Gradient stop 1")
-        expect(field).to_have_value("#7e3b66")
+        expect(field).to_have_value("7E3B66")
         click(window, "Gradient stop 2")
-        expect(field).to_have_value("#264052")
+        expect(field).to_have_value("264052")
         field.accessible_value = "#abcdef80"
-        expect(field).to_have_value("#abcdef80")
+        expect(field).to_have_value("ABCDEF")
         click(window, "Close Stop color")
         control(
             window, "Stop 2 position", slint_testing.AccessibleRole.TextInput
@@ -467,7 +467,13 @@ def test_conic_picker_and_canvas_share_selection_and_color(
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
             ).accessible_value
-            == "#abcdef80"
+            == "ABCDEF"
+        )
+        assert (
+            control(
+                window, "Hex color opacity", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "50"
         )
         press_key(window, keys.Escape)
         original.assert_unchanged()
