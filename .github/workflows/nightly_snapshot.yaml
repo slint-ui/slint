@@ -802,7 +802,7 @@ jobs:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            # cargo-apk2 does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
         steps:
@@ -810,20 +810,20 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-android-viewer-build
             - name: Install the Android API platform of the demos
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+            - name: Cache cargo-apk2
+              id: cargo-apk2-cache
               uses: actions/cache@v6
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
+                  path: ~/.cargo/bin/cargo-apk2
+                  key: cargo-apk2-1.4.2
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install --locked cargo-apk
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk2
+              if: steps.cargo-apk2-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk2@1.4.2
 
-            # Stable with arm64-v8a for the cargo-apk demos.
+            # Stable with arm64-v8a for the cargo-apk2 demos.
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
@@ -834,15 +834,15 @@ jobs:
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
             - name: Build energy-monitor example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
             - name: Build todo demo
-              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
+              run: cargo apk2 build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
             - name: Build weather-demo example
-              run: cargo apk build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
             - name: Build usecases demo
-              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
-              run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
+              run: cargo apk2 build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
             # Play Store accepts only AABs for new submissions; the per-ABI
             # APKs are for GitHub releases and F-Droid.
