@@ -1,0 +1,61 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The embed-assets pipeline renders pre-rasterized bitmap glyphs, which have no outline to stroke.
+//ignore:software-embed-assets
+
+// Skia font rendering is not consistent across platforms (see text.slint).
+//ignore:skia
+// SLINT_SCALE_FACTOR=1.3
+// SIZE=130x190
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 146px;
+    background: white;
+    VerticalLayout {
+        padding: 2px;
+        Text {
+            text: "Outside";
+            font-size: 20px;
+            color: yellow;
+            stroke: blue;
+            stroke-width: 2px;
+            stroke-style: outside;
+        }
+        Text {
+            text: "Center";
+            font-size: 20px;
+            font-weight: 900;
+            color: yellow;
+            stroke: blue;
+            stroke-width: 1px;
+            stroke-style: center;
+        }
+        Text {
+            text: "Hairline";
+            font-size: 20px;
+            color: yellow;
+            stroke: blue;
+            stroke-width: 0px;
+        }
+        Text {
+            text: "Alpha";
+            font-size: 20px;
+            color: #ff000080;
+            stroke: blue;
+            stroke-width: 2px;
+            stroke-style: outside;
+        }
+        Text {
+            // A font without an italic face, so the italic is synthesized by skewing the outline.
+            text: "●●●";
+            font-family: "Noto Sans Symbols 2";
+            font-size: 20px;
+            font-italic: true;
+            color: yellow;
+            stroke: blue;
+            stroke-width: 2px;
+        }
+    }
+}

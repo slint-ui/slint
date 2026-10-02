@@ -28,12 +28,27 @@ type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 /// UI text sizes while keeping the glyph cache small.
 pub(crate) const SUBPIXEL_BIN_COUNT: i32 = 4;
 
-/// Cache key includes blob id, font index, pixel size, glyph id, a hash of normalized
-/// variation coordinates (so different variable font instances produce distinct cache
-/// entries), the horizontal sub-pixel bin, and the faux-italic synthesis applied at render
-/// time. Without `skew_bits`, an upright and a synthetically-italicized glyph from the same
-/// font, size, and id would collide on the same cache entry and one of the two runs would
-/// silently render with the other's bitmap.
+/// Steps per physical pixel that a glyph stroke width is quantized to.
+/// Quantizing keeps an animated `stroke-width` from filling the glyph cache with
+/// one entry per frame.
+const STROKE_WIDTH_STEPS_PER_PIXEL: f32 = 8.;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct StrokeWidth(NonZeroU16);
+
+impl StrokeWidth {
+    /// Rounds `physical_width` to the nearest step. Zero, negative, and `NaN` widths become
+    /// the smallest step.
+    pub fn from_physical(physical_width: f32) -> Self {
+        let steps = (physical_width * STROKE_WIDTH_STEPS_PER_PIXEL).round() as u16;
+        Self(NonZeroU16::new(steps).unwrap_or(NonZeroU16::MIN))
+    }
+
+    fn to_physical(self) -> f32 {
+        self.0.get() as f32 / STROKE_WIDTH_STEPS_PER_PIXEL
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct GlyphCacheKey {
     /// Font blob id.
@@ -51,6 +66,8 @@ struct GlyphCacheKey {
     /// Faux-italic skew angle in degrees, bit-cast for `Eq`/`Hash`; `None` when the font has
     /// (or doesn't need) a real italic/oblique face.
     skew_bits: Option<u32>,
+    /// Outline stroke width; `None` for a filled glyph.
+    stroke_width: Option<StrokeWidth>,
 }
 
 struct RenderableGlyphWeightScale;
@@ -196,6 +213,7 @@ impl VectorFont {
         &self,
         glyph_id: core::num::NonZeroU16,
         subpixel_bin: u8,
+        stroke_width: Option<StrokeWidth>,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
@@ -211,6 +229,7 @@ impl VectorFont {
                 coords_hash: self.coords_hash,
                 subpixel_bin,
                 skew_bits: skew_degrees.map(f32::to_bits),
+                stroke_width,
             };
 
             if let Some(entry) = cache.get(&cache_key) {
@@ -240,11 +259,21 @@ impl VectorFont {
                         swash::zeno::Angle::ZERO,
                     )
                 });
-                let image = swash::scale::Render::new(&[swash::scale::Source::Outline])
+                let mut render = swash::scale::Render::new(&[swash::scale::Source::Outline]);
+                render
                     .format(swash::zeno::Format::Alpha)
                     .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
-                    .transform(transform)
-                    .render(&mut scaler, glyph_id.get())?;
+                    .transform(transform);
+                if let Some(stroke_width) = stroke_width {
+                    let mut stroke = swash::zeno::Stroke::new(stroke_width.to_physical());
+                    // Matches the Skia and FemtoVG text stroke.
+                    stroke
+                        .join(swash::zeno::Join::Miter)
+                        .miter_limit(10.)
+                        .cap(swash::zeno::Cap::Butt);
+                    render.style(stroke);
+                }
+                let image = render.render(&mut scaler, glyph_id.get())?;
 
                 let placement = image.placement;
                 let alpha_map: Rc<[u8]> = image.data.into();
@@ -341,14 +370,16 @@ impl super::GlyphRenderer for VectorFont {
         glyph_id: core::num::NonZeroU16,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
-        self.render_vector_glyph(glyph_id, 0, slint_context).map(|glyph| super::RenderableGlyph {
-            x: glyph.x,
-            y: glyph.y,
-            width: glyph.width,
-            height: glyph.height,
-            alpha_map: glyph.alpha_map.into(),
-            pixel_stride: glyph.pixel_stride,
-            sdf: false,
+        self.render_vector_glyph(glyph_id, 0, None, slint_context).map(|glyph| {
+            super::RenderableGlyph {
+                x: glyph.x,
+                y: glyph.y,
+                width: glyph.width,
+                height: glyph.height,
+                alpha_map: glyph.alpha_map.into(),
+                pixel_stride: glyph.pixel_stride,
+                sdf: false,
+            }
         })
     }
 
