@@ -903,9 +903,9 @@ fn build(l: &mut Loader) {
         in property <int> source-clip-x;
         ///
         in property <int> source-clip-y;
-        /// \default source.width - source.clip-x
+        /// \default source.width - source-clip-x
         in property <int> source-clip-width;
-        /// \default source.height - source.clip-y
+        /// \default source.height - source-clip-y
         in property <int> source-clip-height;
         //! Properties in source image coordinates that define the region of the source image that is rendered.
         //! By default the entire source image is visible:
