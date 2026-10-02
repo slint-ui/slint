@@ -58,7 +58,7 @@ def test_tree_indicators_scroll_without_losing_virtualization(
                 .find_all()
             ]
 
-        before = wait_until(lambda: row_labels() or None)
+        before = wait_until(row_labels)
         assert 0 < len(before) < 150
         assert vertical.computed_opacity == 0
         tree_size = tree.size
@@ -69,17 +69,14 @@ def test_tree_indicators_scroll_without_losing_virtualization(
             lambda: vertical.computed_opacity > 0.99,
             message="vertical scroll indicator is opaque",
         ).to_equal(True)
+        # Hover the thumb right away: it only reacts to hover while shown, and it starts to fade
+        # 700ms after scrolling stops. Hovering keeps it shown while the rows are read.
+        start = center(vertical)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
         expect.poll(
             row_labels, message="visible tree rows after scrolling"
         ).not_to_equal(before)
         assert tree.size == tree_size
-
-        start = center(vertical)
-        expect.poll(
-            lambda: 0 < vertical.computed_opacity < 1,
-            message="vertical scroll indicator is fading",
-        ).to_equal(True)
-        window.dispatch_event(slint_testing.PointerMoveEvent(start))
         expect.poll(
             lambda: vertical.computed_opacity,
             message="hover keeps the vertical scroll indicator opaque",
