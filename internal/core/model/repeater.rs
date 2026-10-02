@@ -314,7 +314,11 @@ pub trait ListViewProperties {
 }
 
 struct TypedListViewProps<'a> {
+    /// The content width if it was fixed on the flickable, otherwise None and it must be calculated
+    /// from the layout widths
     content_width: Option<Pin<&'a Property<LogicalLength>>>,
+    /// The content height if it was fixed on the flickable, otherwise None and it must be calculated
+    /// from the layout heights
     content_height: Option<Pin<&'a Property<LogicalLength>>>,
     content_y: Pin<&'a Property<LogicalLength>>,
 }
@@ -2712,6 +2716,42 @@ mod tests {
     //     repeater.as_ref().for_each_instance_z(&mut |row, _| rows.push(row));
     //     assert_eq!(rows, [0, 1, 2]);
     // }
+    //
+    #[test]
+    fn test_listview_scroll() {
+        let model = TestModel::new(100000);
+        let repeater = Box::pin(Repeater::<SimpleItem>::default());
+        let model_rc = ModelRc::from(model.clone());
+        repeater.set_model_binding(move || model_rc.clone());
+        let content_y = Box::pin(Property::new(LogicalLength::default()));
+        let listview_height = Box::pin(Property::new(LogicalLength::new(ITEM_HEIGHT * 3 as Coord)));
+        let update_listview = || {
+            repeater.as_ref().ensure_updated_listview(
+                new_item,
+                None,
+                None,
+                content_y.as_ref(),
+                LogicalLength::new(100 as Coord),
+                listview_height.as_ref(),
+            );
+        };
+
+        update_listview();
+        assert_eq!(state(&repeater).0, [Clean(0), Clean(1), Clean(2)]);
+
+        content_y.as_ref().set(LogicalLength::new(-ITEM_HEIGHT * 5 as Coord));
+        update_listview();
+        // Scrolled by 5 rows
+        // 3 and 4 are kept
+        assert_eq!(state(&repeater).0, [Clean(3), Clean(4), Clean(5), Clean(6), Clean(7)]);
+
+        content_y.as_ref().set(LogicalLength::new(ITEM_HEIGHT * 3 as Coord));
+
+        assert_eq!(
+            state(&repeater).0,
+            [Clean(2), Clean(3), Clean(4), Clean(5), Clean(6), Clean(7)]
+        );
+    }
 
     // #[test]
     // fn test_listview_scrolled_after_insert_at_front() {
