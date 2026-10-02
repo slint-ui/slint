@@ -95,7 +95,6 @@ export component InspectorPickerPanel inherits Rectangle {
         }
         close-button := InspectorIconButton {
             x: parent.width - self.width;
-            y: (parent.height - self.height) / 2;
             kind: "close";
             label: "Close " + root.title;
             clicked => { root.closed(); }
