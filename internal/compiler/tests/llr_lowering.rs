@@ -94,7 +94,6 @@ fn generate_rust(source: &str) {
 // "Failed to lookup property anchor". Remove the `#[ignore]` once that is fixed.
 #[cfg(feature = "rust")]
 #[test]
-#[ignore = "two-way binding on PopupWindow::anchor crashes the code generator"]
 fn popup_anchor_two_way_binding_to_global_does_not_crash() {
     generate_rust(
         r#"
