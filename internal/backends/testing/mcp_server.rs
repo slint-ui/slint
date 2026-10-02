@@ -978,14 +978,12 @@ async fn run_server(state: Rc<IntrospectionState>, port: u16) {
             Ok((stream, _peer)) => {
                 stream.set_nodelay(true).ok();
                 let state = state.clone();
-                let _ = i_slint_core::with_global_context(
-                    || panic!("uninitialized platform"),
-                    |context| {
-                        let _ = context.spawn_local(async move {
-                            handle_connection(&state, stream).await;
-                        });
-                    },
-                );
+                i_slint_core::with_existing_context(|context| {
+                    let _ = context.spawn_local(async move {
+                        handle_connection(&state, stream).await;
+                    });
+                })
+                .expect("uninitialized platform");
             }
             Err(e) => {
                 eprintln!("MCP server: accept error: {e}");
@@ -1045,19 +1043,16 @@ pub fn init() -> Result<(), EventLoopError> {
         }
 
         let state = state_clone.clone();
-        let spawn_result = i_slint_core::with_global_context(
-            || panic!("uninitialized platform"),
-            |context| context.spawn_local(async move { run_server(state, port).await }),
-        );
+        let spawn_result = i_slint_core::with_existing_context(|context| {
+            context.spawn_local(async move { run_server(state, port).await })
+        })
+        .expect("uninitialized platform");
         match spawn_result {
-            Ok(Ok(join_handle)) => {
+            Ok(join_handle) => {
                 let _ = server_started_clone.set(join_handle);
             }
             // spawn_local fails when no event-loop proxy is available yet. The hook
             // will fire again on the next window-show, so this is non-fatal.
-            Ok(Err(e)) => {
-                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
-            }
             Err(e) => {
                 i_slint_core::debug_log!("MCP server failed to start: {e:?}");
             }
