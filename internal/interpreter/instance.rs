@@ -716,7 +716,9 @@ impl Instance {
         let globals = Rc::new(GlobalStorage::new(&compilation_unit));
         let context = context.or_else(|| {
             window_adapter.as_ref().and_then(|adapter| {
-                i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+                i_slint_core::window::WindowInner::from_pub(adapter.window())
+                    .adopt_current_context()
+                    .cloned()
             })
         });
         if let Some(context) = context {

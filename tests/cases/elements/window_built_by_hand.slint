@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A window the application builds without a context takes the thread's when a component uses it.
+// The change handler evaluates `number` while the globals are initialized.
+
+export global Formatted {
+    out property <string> number: 1.5;
+    changed number => {}
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in property <float> value;
+    out property <string> text: value;
+}
+
+/*
+```rust
+use i_slint_core::platform::Platform;
+
+let adapter = i_slint_backend_testing::TestingBackend::new(Default::default())
+    .create_window_adapter()
+    .unwrap();
+assert!(i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().is_none());
+
+let instance = TestCase::new_with_existing_window(adapter.window()).unwrap();
+assert!(core::ptr::eq(instance.window(), adapter.window()));
+assert!(i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().is_some());
+assert_eq!(instance.global::<Formatted<'_>>().get_number(), "1.5");
+instance.set_value(2.5);
+assert_eq!(instance.get_text(), "2.5");
+```
+*/

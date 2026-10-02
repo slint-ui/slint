@@ -445,7 +445,7 @@ fn generate_public_component(
             #[cfg(#experimental)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new(sp::Some(sp::WindowInner::from_pub(window).context()), sp::Some(window))?;
+                let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).adopt_current_context(), sp::Some(window))?;
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated

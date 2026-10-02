@@ -50,6 +50,38 @@ fn reuse_window() {
     };
 }
 
+#[cfg(feature = "internal")]
+#[test]
+fn window_built_by_hand() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, ComponentHandle, SharedString, Value};
+    use i_slint_core::platform::Platform;
+    use i_slint_core::window::WindowInner;
+    let code = r#"
+        export global Formatted {
+            out property <string> number: 1.5;
+            changed number => {}
+        }
+        export component MainWindow inherits Window {
+            out property <string> number: Formatted.number;
+        }
+    "#;
+    let compiler = Compiler::default();
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+
+    let adapter = i_slint_backend_testing::TestingBackend::new(Default::default())
+        .create_window_adapter()
+        .unwrap();
+    assert!(WindowInner::from_pub(adapter.window()).try_context().is_none());
+
+    let instance = definition.create_with_existing_window(adapter.window()).unwrap();
+    assert!(core::ptr::eq(instance.window(), adapter.window()));
+    assert!(WindowInner::from_pub(adapter.window()).try_context().is_some());
+    assert_eq!(instance.get_property("number").unwrap(), Value::from(SharedString::from("1.5")));
+}
+
 #[test]
 fn set_wrong_struct() {
     i_slint_backend_testing::init_no_event_loop();

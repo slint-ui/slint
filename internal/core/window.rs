@@ -834,9 +834,8 @@ impl WindowInner {
     /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
     /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
     pub(crate) fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
-        crate::animations::update_animations(crate::animations::Instant::now(self.context()));
-
         let item_tree = self.try_component()?;
+        crate::animations::update_animations(crate::animations::Instant::now(self.context()));
         self.ensure_tree_instantiated();
 
         // If the focused item became invisible (e.g. a TabWidget switched away from
@@ -1285,12 +1284,15 @@ impl WindowInner {
             }
         }
 
-        if let Some(updated_modifier) = self.context().0.modifiers.get().state_update(
-            internal_key_event.event_type == KeyEventType::KeyPressed,
-            &internal_key_event.key_event.text,
-        ) {
+        let ctx = self.try_context();
+        if let Some(ctx) = ctx
+            && let Some(updated_modifier) = ctx.0.modifiers.get().state_update(
+                internal_key_event.event_type == KeyEventType::KeyPressed,
+                &internal_key_event.key_event.text,
+            )
+        {
             // Updates the key modifiers depending on the key code and pressed state.
-            self.context().0.modifiers.set(updated_modifier);
+            ctx.0.modifiers.set(updated_modifier);
 
             // If a drag is in flight, synthesize a Moved at the last drag position so
             // the new modifier state flows into `event.proposed-action` and the target's
@@ -1312,8 +1314,10 @@ impl WindowInner {
             }
         }
 
-        internal_key_event.key_event.modifiers =
-            self.context().0.modifiers.get().modifiers_for(&internal_key_event);
+        if let Some(ctx) = ctx {
+            internal_key_event.key_event.modifiers =
+                ctx.0.modifiers.get().modifiers_for(&internal_key_event);
+        }
 
         // Emulate macOS menubar behavior: The OS consumes the event before it reaches any
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
@@ -1716,8 +1720,8 @@ impl WindowInner {
 
         // If we lost focus due to for example a global shortcut, then when we regain focus
         // should not assume that the modifiers are in the same state.
-        if !have_focus {
-            self.context().0.modifiers.take();
+        if !have_focus && let Some(ctx) = self.try_context() {
+            ctx.0.modifiers.take();
         }
     }
 
@@ -1965,7 +1969,9 @@ impl WindowInner {
             .unwrap_or_default();
         self.set_window_item_safe_area(inset.to_logical(scale_factor));
         self.window_adapter().renderer().resize(size).unwrap();
-        if let Some(hook) = self.context().0.window_shown_hook.borrow_mut().as_mut() {
+        if let Some(ctx) = self.try_context()
+            && let Some(hook) = ctx.0.window_shown_hook.borrow_mut().as_mut()
+        {
             hook(&self.window_adapter());
         }
         Ok(())
@@ -2511,15 +2517,25 @@ impl WindowInner {
 
     /// Provides access to the Windows' Slint context.
     pub fn context(&self) -> &crate::SlintContext {
-        self.ctx
-            .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
+        self.ctx.get_or_init(|| {
+            debug_assert!(
+                false,
+                "the window has no context; create it with `SlintContext::create_window_adapter`"
+            );
+            crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone())
+        })
     }
 
-    /// Like [`Self::context`], but returns `None` instead of panicking when no context is
-    /// available yet.
+    /// Like [`Self::context`], but returns `None` when the window has no context yet.
     pub fn try_context(&self) -> Option<&crate::SlintContext> {
+        self.ctx.get()
+    }
+
+    /// Like [`Self::try_context`], but a window without a context first takes the thread's.
+    /// For a window the application built by hand, before a component is attached to it.
+    pub fn adopt_current_context(&self) -> Option<&crate::SlintContext> {
         if self.ctx.get().is_none()
-            && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned())
+            && let Some(ctx) = crate::SlintContext::current()
         {
             let _ = self.ctx.set(ctx);
         }
