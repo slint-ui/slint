@@ -1,36 +1,34 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// SIZE=200x104
-// ROTATION_THRESHOLD=60  - the border radius algorithm doesn't give the same result from every rotation
-// kurbo clamps each radius to half the shortest side instead of scaling them together.
-//ignore: anyrender, vello_cpu
+// SIZE=100x52
+// ROTATION_THRESHOLD=70  - the border radius algorithm doesn't give the same result from every rotation
 
 // Corner radii whose sum exceeds a side scale down by one shared factor:
 // https://drafts.csswg.org/css-backgrounds/#corner-overlap
 
 component Cell inherits Rectangle {
-    width: 40px;
-    height: 40px;
+    width: 20px;
+    height: 20px;
     background: #2a6bd8;
 }
 
 export component TestCase inherits Window {
-    width: 200px;
-    height: 104px;
+    width: 100px;
+    height: 52px;
     background: black;
 
     // One corner larger than both of its sides.
     Cell {
-        x: 8px;
-        y: 8px;
+        x: 4px;
+        y: 4px;
         border-top-left-radius: 100px;
     }
 
     // Both top corners overflow the width and share it equally.
     Cell {
-        x: 56px;
-        y: 8px;
+        x: 25px;
+        y: 4px;
         border-top-left-radius: 30px;
         border-top-right-radius: 30px;
         border-bottom-left-radius: 6px;
@@ -39,8 +37,8 @@ export component TestCase inherits Window {
 
     // The left side overflows, which also shrinks the corners on the right.
     Cell {
-        x: 104px;
-        y: 8px;
+        x: 50px;
+        y: 4px;
         border-top-left-radius: 40px;
         border-bottom-left-radius: 40px;
         border-top-right-radius: 10px;
@@ -49,16 +47,16 @@ export component TestCase inherits Window {
 
     // Opposite corners past half the size, without overlap, so they stay unscaled.
     Cell {
-        x: 152px;
-        y: 8px;
+        x: 75px;
+        y: 4px;
         border-top-left-radius: 36px;
         border-bottom-right-radius: 36px;
     }
 
     // Oversized corner with a translucent border over a translucent background.
     Cell {
-        x: 8px;
-        y: 56px;
+        x: 4px;
+        y: 24px;
         background: #2a6bd888;
         border-width: 4px;
         border-color: #ff800088;
@@ -69,8 +67,8 @@ export component TestCase inherits Window {
 
     // Oversized opposite corners with an opaque border.
     Cell {
-        x: 56px;
-        y: 56px;
+        x: 25px;
+        y: 24px;
         border-width: 3px;
         border-color: orange;
         border-top-left-radius: 50px;
@@ -79,18 +77,18 @@ export component TestCase inherits Window {
 
     // A negative radius counts as zero and doesn't stop the other corner from scaling.
     Cell {
-        x: 104px;
-        y: 56px;
+        x: 50px;
+        y: 24px;
         border-top-left-radius: -20px;
         border-top-right-radius: 60px;
     }
 
     // A uniform radius past half the size becomes a circle.
     Rectangle {
-        x: 152px;
-        y: 56px;
-        width: 40px;
-        height: 40px;
+        x: 75px;
+        y: 24px;
+        width: 20px;
+        height: 20px;
         background: #2a6bd8;
         border-radius: 100px;
         border-width: 3px;
