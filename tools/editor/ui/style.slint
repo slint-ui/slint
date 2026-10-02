@@ -287,6 +287,19 @@ export struct ArtboardStyle {
     border: brush,
 }
 
+export struct PreviewDiagnosticsStyle {
+    max-width: length = 520px,
+    margin: length = 24px,
+    padding: length = 24px,
+    max-details-height: length = 200px,
+    radius: length = 12px,
+    background: color,
+    foreground: color,
+    muted: color,
+    border: color,
+    veil: color,
+}
+
 export struct SelectionFrameStyle {
     outline-width: length = 1px,
     hover-width: length = 2px,
@@ -660,6 +673,7 @@ export struct ColorPalette {
     text-selection: color,
     on-accent: color,
     danger: color,
+    warning: color,
 }
 
 export enum ThemeKind { light, dark }
@@ -804,6 +818,7 @@ export global LightTheme {
         text-selection: root.accent.with-alpha(0.28),
         on-accent: #ffffff,
         danger: #cf222e,
+        warning: #9a6700,
     };
 
     out property <ShadowStyle> popup: { color: #64748b30, blur: 12px, offset-y: 4px };
@@ -1089,6 +1104,7 @@ export global DarkTheme {
         text-selection: root.accent.with-alpha(0.28),
         on-accent: #ffffff,
         danger: #ff7b72,
+        warning: #e3b341,
     };
 
     out property <ShadowStyle> popup: { color: #00000066, blur: 12px, offset-y: 4px };
@@ -1512,9 +1528,17 @@ export global Colors {
     out property <color> focus-background: Theme.colors.focus-background;
     out property <color> on-accent: Theme.colors.on-accent;
     out property <color> danger: Theme.colors.danger;
+    out property <color> warning: Theme.colors.warning;
 }
 
 export global Style {
+    out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        background: Colors.surface,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        border: Colors.border,
+        veil: Colors.background.with-alpha(0.72),
+    };
     out property <ScrollIndicatorStyle> scroll-indicator: {
         color: Colors.foreground.with-alpha(0.4),
         active-color: Colors.foreground.with-alpha(0.6),

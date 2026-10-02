@@ -3,6 +3,7 @@
 
 import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
 import { FillSession } from "../ui/components/inspector/index.slint";
+import { Diagnostics, PreviewAvailability } from "../ui/diagnostics.slint";
 
 export enum GalleryPage {
     foundations,
@@ -83,6 +84,7 @@ export global Gallery {
         Gallery.page = page;
         Gallery.scenario-index = scenario;
         Gallery.reset-generation += 1;
+        Diagnostics.preview-availability = Gallery.scenario == "Unavailable" ? PreviewAvailability.Unavailable : PreviewAvailability.Current;
         Api.editor-surface-mode = Gallery.scenario == "Unavailable" ? EditorSurfaceMode.image : EditorSurfaceMode.component;
         Api.current-element = { source-uri: "gallery" };
         Api.recent-fills = [];

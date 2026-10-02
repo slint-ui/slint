@@ -1,0 +1,180 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+import { Diagnostics, Diagnostic, PreviewAvailability } from "../diagnostics.slint";
+import { Project } from "../project.slint";
+import { Style, Colors, Metrics, Typography, PreviewDiagnosticsStyle } from "../style.slint";
+import { FileTreeIcons } from "file-tree-icons.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
+
+export component PreviewDiagnostics inherits Rectangle {
+    in property <PreviewDiagnosticsStyle> style: Style.preview-diagnostics;
+    private property <bool> blocked: !Diagnostics.preview-editable;
+    private property <bool> empty: Diagnostics.preview-availability == PreviewAvailability.NoComponent;
+    private property <bool> stale: Diagnostics.preview-availability == PreviewAvailability.Stale;
+    private property <bool> warnings-open;
+    private property <string> title: root.empty ? "Nothing to preview"
+        : root.stale ? "Preview paused" : "Couldn't preview this file";
+
+    if root.blocked: Rectangle {
+        background: root.style.veil;
+        TouchArea { }
+
+        card := Rectangle {
+            width: max(0px, min(root.style.max-width, root.width - 2 * root.style.margin));
+            height: min(content.preferred-height, max(0px, root.height - 2 * root.style.margin));
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: root.style.background;
+            border-color: root.empty ? root.style.border : Colors.danger.with-alpha(0.5);
+            border-width: Metrics.border-width;
+            border-radius: root.style.radius;
+            accessible-role: AccessibleRole.region;
+            accessible-label: root.empty ? "No component to preview" : root.stale ? "Stale preview" : "Preview unavailable";
+
+            content := VerticalLayout {
+                padding: root.style.padding;
+                spacing: Metrics.space-medium;
+                HorizontalLayout {
+                    spacing: Metrics.space-small;
+                    cross-axis-alignment: center;
+                    if !root.empty: Image {
+                        source: FileTreeIcons.alert;
+                        width: Metrics.icon-small;
+                        height: Metrics.icon-small;
+                        colorize: Colors.danger;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.title;
+                        color: root.style.foreground;
+                        font-size: Typography.body.size;
+                        font-weight: 600;
+                        wrap: word-wrap;
+                    }
+                }
+                Text {
+                    text: root.empty
+                        ? "No component is available for this preview. Select another file or component to continue."
+                        : root.stale
+                        ? "Showing the last successful render. Fix the errors below to resume editing."
+                        : "Fix the errors below. The preview will update automatically when the file compiles.";
+                    color: root.style.muted;
+                    font-size: Typography.body.size;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: Project.selected-project-file;
+                    color: root.style.muted;
+                    font-size: Typography.body.size;
+                    wrap: char-wrap;
+                }
+                if !root.empty: details := EditorScrollView {
+                    height: min(errors.preferred-height, root.style.max-details-height, max(40px, root.height - 260px));
+                    content-width: self.width;
+                    content-height: errors.preferred-height;
+                    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                    vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+                    errors := VerticalLayout {
+                        width: details.width;
+                        spacing: Metrics.space-medium;
+                        for index in min(3, Diagnostics.errors.length): VerticalLayout {
+                            private property <Diagnostic> diagnostic: Diagnostics.errors[index];
+                            spacing: Metrics.space-tight;
+                            Text {
+                                text: Diagnostics.format-location(diagnostic);
+                                color: root.style.muted;
+                                font-size: Typography.body.size;
+                                wrap: char-wrap;
+                            }
+                            Text {
+                                text: diagnostic.message;
+                                color: root.style.foreground;
+                                font-size: Typography.body.size;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+                if Diagnostics.errors.length > 3: Text {
+                    text: "\{Diagnostics.errors.length - 3} more errors. Copy diagnostics to see all messages.";
+                    color: root.style.muted;
+                    font-size: Typography.body.size;
+                    wrap: word-wrap;
+                }
+                if !root.empty: HorizontalLayout {
+                    alignment: start;
+                    Button {
+                        text: "Copy diagnostics";
+                        accessible-label: "Copy preview diagnostics";
+                        clicked => { Diagnostics.copy-to-clipboard(); }
+                    }
+                }
+            }
+        }
+    }
+
+    if !root.blocked && Diagnostics.warnings.length > 0: Rectangle {
+        width: min(root.style.max-width, root.width - 2 * root.style.margin);
+        height: warning-layout.preferred-height;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - root.style.margin;
+        background: root.style.background;
+        border-width: Metrics.border-width;
+        border-color: Colors.warning.with-alpha(0.6);
+        border-radius: root.style.radius;
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Preview warnings";
+        accessible-description: "Warnings do not prevent editing";
+        warning-layout := VerticalLayout {
+            padding: Metrics.space-medium;
+            spacing: Metrics.space-small;
+            HorizontalLayout {
+                spacing: Metrics.space-small;
+                cross-axis-alignment: center;
+                Text {
+                    horizontal-stretch: 1;
+                    text: "\{Diagnostics.warnings.length} \{Diagnostics.warnings.length == 1 ? "warning" : "warnings"} · Preview up to date";
+                    color: Colors.warning;
+                    font-size: Typography.body.size;
+                    wrap: word-wrap;
+                }
+                Button {
+                    text: root.warnings-open ? "Hide" : "Details";
+                    accessible-label: "Toggle preview warning details";
+                    clicked => { root.warnings-open = !root.warnings-open; }
+                }
+                Button {
+                    text: "Copy";
+                    accessible-label: "Copy preview diagnostics";
+                    clicked => { Diagnostics.copy-to-clipboard(); }
+                }
+            }
+            if root.warnings-open: warning-details := EditorScrollView {
+                height: min(warnings.preferred-height, root.style.max-details-height);
+                content-width: self.width;
+                content-height: warnings.preferred-height;
+                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+                warnings := VerticalLayout {
+                    width: warning-details.width;
+                    spacing: Metrics.space-small;
+                    for index in min(3, Diagnostics.warnings.length): Text {
+                        private property <Diagnostic> diagnostic: Diagnostics.warnings[index];
+                        text: Diagnostics.format-location(diagnostic) + "\n" + diagnostic.message;
+                        color: root.style.foreground;
+                        font-size: Typography.body.size;
+                        wrap: word-wrap;
+                    }
+                    if Diagnostics.warnings.length > 3: Text {
+                        text: "\{Diagnostics.warnings.length - 3} more warnings. Copy diagnostics to see all messages.";
+                        color: root.style.muted;
+                        font-size: Typography.body.size;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -3,6 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
@@ -29,6 +30,7 @@ export component InspectorPane inherits Rectangle {
     background: Colors.surface;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
+    accessible-enabled: Diagnostics.preview-editable;
     property <length> content-x: Metrics.border-width;
     in property <length> outline-pane-height: 0px;
     property <length> split-height: Style.panes.splitter-size;
@@ -1045,5 +1047,18 @@ export component InspectorPane inherits Rectangle {
         width: root.width - root.content-x;
         height: root.outline-height;
         drag-started => { root.outline-drag-started(); }
+    }
+    if !Diagnostics.preview-editable: Rectangle {
+        background: Colors.surface.with-alpha(0.75);
+        TouchArea { }
+        Text {
+            width: parent.width - 2 * root.style.padding;
+            text: "Editing paused until the preview is available";
+            color: Colors.muted;
+            font-size: Typography.body.size;
+            wrap: word-wrap;
+            accessible-role: AccessibleRole.text;
+            accessible-label: self.text;
+        }
     }
 }
