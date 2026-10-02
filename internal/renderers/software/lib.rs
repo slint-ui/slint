@@ -1390,9 +1390,10 @@ fn render_window_frame_by_line(
                                 let g =
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize];
 
-                                draw_functions::draw_gradient_line(
+                                draw_functions::draw_clipped_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
+                                    span.clips(&scene.vectors),
                                     g,
                                     range_buffer,
                                     extra_left_clip,
@@ -1402,9 +1403,10 @@ fn render_window_frame_by_line(
                             SceneCommand::RadialGradient { radial_gradient_index } => {
                                 let g =
                                     &scene.vectors.radial_gradients[radial_gradient_index as usize];
-                                draw_functions::draw_gradient_line(
+                                draw_functions::draw_clipped_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
+                                    span.clips(&scene.vectors),
                                     g,
                                     range_buffer,
                                     extra_left_clip,
@@ -1414,9 +1416,10 @@ fn render_window_frame_by_line(
                             SceneCommand::ConicGradient { conic_gradient_index } => {
                                 let g =
                                     &scene.vectors.conic_gradients[conic_gradient_index as usize];
-                                draw_functions::draw_gradient_line(
+                                draw_functions::draw_clipped_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
+                                    span.clips(&scene.vectors),
                                     g,
                                     range_buffer,
                                     extra_left_clip,
@@ -1538,9 +1541,24 @@ trait ProcessScene {
 
     fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
-    fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
-    fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
-    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_linear_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: LinearGradientCommand,
+        clip: Option<ShapeClip>,
+    );
+    fn process_radial_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: RadialGradientCommand,
+        clip: Option<ShapeClip>,
+    );
+    fn process_conic_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: ConicGradientCommand,
+        clip: Option<ShapeClip>,
+    );
     fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand);
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -1591,9 +1609,16 @@ fn process_rectangle_impl(
         PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
     let border =
         PhysicalLength::new(if border_color.alpha == 0 { 0 } else { args.border_width as _ });
-    let gradient_clip = GradientClip {
-        shape: rounded_shape,
-        opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
+    let gradient_clip = |rect: &PhysicalRect| {
+        Some(ShapeClip {
+            shape: rounded_shape,
+            opaque_border: if border_color.alpha == u8::MAX {
+                border
+            } else {
+                PhysicalLength::new(0)
+            },
+        })
+        .filter(|clip| clip.touches_corner(rect.size))
     };
     let fill = gradient_commands(
         &args.background,
@@ -1601,12 +1626,17 @@ fn process_rectangle_impl(
         args.rotation,
         geom,
         clipped,
-        gradient_clip,
         scale_factor,
         &mut |rect, gradient| match gradient {
-            AnyGradientCommand::Linear(g) => processor.process_linear_gradient(rect, g),
-            AnyGradientCommand::Radial(g) => processor.process_radial_gradient(rect, g),
-            AnyGradientCommand::Conic(g) => processor.process_conic_gradient(rect, g),
+            AnyGradientCommand::Linear(g) => {
+                processor.process_linear_gradient(rect, g, gradient_clip(&rect))
+            }
+            AnyGradientCommand::Radial(g) => {
+                processor.process_radial_gradient(rect, g, gradient_clip(&rect))
+            }
+            AnyGradientCommand::Conic(g) => {
+                processor.process_conic_gradient(rect, g, gradient_clip(&rect))
+            }
         },
     );
 
@@ -1700,7 +1730,6 @@ fn gradient_commands(
     rotation: RenderingRotation,
     gradient_box: euclid::Rect<f32, PhysicalPx>,
     draw_rect: euclid::Rect<f32, PhysicalPx>,
-    clip: GradientClip,
     scale_factor: ScaleFactor,
     sink: &mut dyn FnMut(PhysicalRect, AnyGradientCommand),
 ) -> BrushFill {
@@ -1817,7 +1846,6 @@ fn gradient_commands(
                     bottom_clip: clip_length(band_bottom - act.max_y()),
                     left_clip: clip_length(act.min_x() - band_left),
                     right_clip: clip_length(band_right - act.max_x()),
-                    clip,
                 };
                 sink(rect, AnyGradientCommand::Linear(gr));
                 true
@@ -1859,7 +1887,6 @@ fn gradient_commands(
                 center_y,
                 radius_x,
                 radius_y,
-                clip,
             };
 
             sink(rect, AnyGradientCommand::Radial(radial_grad));
@@ -1874,7 +1901,6 @@ fn gradient_commands(
                 ),
                 center_x,
                 center_y,
-                clip,
                 rotation: rotation.angle().to_radians(),
             };
 
@@ -2009,11 +2035,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         });
     }
 
-    fn process_linear_gradient(&mut self, geometry: PhysicalRect, g: LinearGradientCommand) {
+    fn process_linear_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        g: LinearGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_gradient_line(
+            draw_functions::draw_clipped_line(
                 &geometry,
                 PhysicalLength::new(line),
+                clip.as_slice(),
                 &g,
                 buffer,
                 extra_left_clip,
@@ -2021,11 +2053,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
-    fn process_radial_gradient(&mut self, geometry: PhysicalRect, g: RadialGradientCommand) {
+    fn process_radial_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        g: RadialGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_gradient_line(
+            draw_functions::draw_clipped_line(
                 &geometry,
                 PhysicalLength::new(line),
+                clip.as_slice(),
                 &g,
                 buffer,
                 extra_left_clip,
@@ -2033,11 +2071,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             );
         });
     }
-    fn process_conic_gradient(&mut self, geometry: PhysicalRect, g: ConicGradientCommand) {
+    fn process_conic_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        g: ConicGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_gradient_line(
+            draw_functions::draw_clipped_line(
                 &geometry,
                 PhysicalLength::new(line),
+                clip.as_slice(),
                 &g,
                 buffer,
                 extra_left_clip,
@@ -2095,27 +2139,33 @@ struct PrepareScene {
     scale_factor: ScaleFactor,
 }
 
-impl ProcessScene for PrepareScene {
-    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
-        let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
-        self.vectors.shared_buffers.push(command);
+impl PrepareScene {
+    fn push_item(&mut self, geometry: PhysicalRect, command: SceneCommand, clips: &[ShapeClip]) {
+        let clip_start = self.vectors.clips.len() as u16;
+        self.vectors.clips.extend_from_slice(clips);
+        debug_assert!(self.vectors.clips.len() <= u16::MAX as usize, "too many clips in the scene");
         self.items.push(SceneItem {
             pos: geometry.origin,
             size: geometry.size,
             z: self.items.len() as u16,
-            command: SceneCommand::SharedBuffer { shared_buffer_index },
+            command,
+            clip_start,
+            clip_len: clips.len() as u16,
         });
     }
+}
 
+impl ProcessScene for PrepareScene {
     fn process_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         let texture_index = self.vectors.textures.len() as u16;
         self.vectors.textures.push(texture);
-        self.items.push(SceneItem {
-            pos: geometry.origin,
-            size: geometry.size,
-            z: self.items.len() as u16,
-            command: SceneCommand::Texture { texture_index },
-        });
+        self.push_item(geometry, SceneCommand::Texture { texture_index }, &[]);
+    }
+
+    fn process_shared_buffer(&mut self, geometry: PhysicalRect, command: SharedBufferCommand) {
+        let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+        self.vectors.shared_buffers.push(command);
+        self.push_item(geometry, SceneCommand::SharedBuffer { shared_buffer_index }, &[]);
     }
 
     fn process_target_texture(
@@ -2162,78 +2212,72 @@ impl ProcessScene for PrepareScene {
     }
 
     fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
-        let size = geometry.size;
-        if !size.is_empty() {
-            let z = self.items.len() as u16;
-            let pos = geometry.origin;
-            self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
+        if !geometry.is_empty() {
+            self.push_item(geometry, SceneCommand::Rectangle { color }, &[]);
         }
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle) {
-        let size = geometry.size;
-        if !size.is_empty() {
+        if !geometry.is_empty() {
             let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
             self.vectors.rounded_rectangles.push(data);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::RoundedRectangle { rectangle_index },
-            });
+            self.push_item(geometry, SceneCommand::RoundedRectangle { rectangle_index }, &[]);
         }
     }
 
-    fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand) {
-        let size = geometry.size;
-        if !size.is_empty() {
-            let gradient_index = self.vectors.linear_gradients.len() as u16;
+    fn process_linear_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: LinearGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
+        if !geometry.is_empty() {
+            let linear_gradient_index = self.vectors.linear_gradients.len() as u16;
             self.vectors.linear_gradients.push(gradient);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::LinearGradient { linear_gradient_index: gradient_index },
-            });
+            self.push_item(
+                geometry,
+                SceneCommand::LinearGradient { linear_gradient_index },
+                clip.as_slice(),
+            );
         }
     }
-    fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand) {
-        let size = geometry.size;
-        if !size.is_empty() {
+    fn process_radial_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: RadialGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
+        if !geometry.is_empty() {
             let radial_gradient_index = self.vectors.radial_gradients.len() as u16;
             self.vectors.radial_gradients.push(gradient);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::RadialGradient { radial_gradient_index },
-            });
+            self.push_item(
+                geometry,
+                SceneCommand::RadialGradient { radial_gradient_index },
+                clip.as_slice(),
+            );
         }
     }
-    fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand) {
-        let size = geometry.size;
-        if !size.is_empty() {
+    fn process_conic_gradient(
+        &mut self,
+        geometry: PhysicalRect,
+        gradient: ConicGradientCommand,
+        clip: Option<ShapeClip>,
+    ) {
+        if !geometry.is_empty() {
             let conic_gradient_index = self.vectors.conic_gradients.len() as u16;
             self.vectors.conic_gradients.push(gradient);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::ConicGradient { conic_gradient_index },
-            });
+            self.push_item(
+                geometry,
+                SceneCommand::ConicGradient { conic_gradient_index },
+                clip.as_slice(),
+            );
         }
     }
     fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
-        let size = geometry.size;
-        if !size.is_empty() {
+        if !geometry.is_empty() {
             let box_shadow_index = self.vectors.box_shadows.len() as u16;
             self.vectors.box_shadows.push(shadow);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::BoxShadow { box_shadow_index },
-            });
+            self.push_item(geometry, SceneCommand::BoxShadow { box_shadow_index }, &[]);
         }
     }
 
@@ -3189,7 +3233,6 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 orientation,
                 gradient_box,
                 clipped_geom.cast(),
-                GradientClip::default(),
                 scale_factor,
                 &mut |rect, gradient| gradients.push((rect, gradient)),
             );
