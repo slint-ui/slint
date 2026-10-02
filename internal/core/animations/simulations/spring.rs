@@ -141,14 +141,6 @@ impl SpringRegime {
             }
         }
     }
-
-    pub(crate) fn current_position(&self, t: f32) -> f32 {
-        self.evaluate(t).0
-    }
-
-    pub(crate) fn current_velocity(&self, t: f32) -> f32 {
-        self.evaluate(t).1
-    }
 }
 
 #[cfg(test)]

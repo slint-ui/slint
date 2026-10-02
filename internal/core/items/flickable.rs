@@ -12,6 +12,7 @@ use super::{
 };
 use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
+use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
@@ -877,7 +878,7 @@ impl FlickableDataInner {
             if !use_bounce_x {
                 x.set(p.x_length());
             } else if !interacting {
-                self.start_spring_back(flick, flick_rc, Dimension::X);
+                self.start_spring_back(flick, flick_rc, Dimension::X, geo);
             }
         }
 
@@ -886,7 +887,7 @@ impl FlickableDataInner {
             if !use_bounce_y {
                 y.set(p.y_length());
             } else if !interacting {
-                self.start_spring_back(flick, flick_rc, Dimension::Y);
+                self.start_spring_back(flick, flick_rc, Dimension::Y, geo);
             }
         }
     }
@@ -908,12 +909,15 @@ impl FlickableDataInner {
         })
     }
 
-    /// Springs the content back to the limit it is beyond, starting at `start_time`
+    /// Springs the content back to the limit it is beyond, starting at `start_time`.
+    /// `drag_velocity` is the pointer's velocity at the release.
     fn spring_back(
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
         dimension: Dimension,
+        geo: &LogicalRect,
         start_time: Instant,
+        drag_velocity: f32,
     ) -> Rc<RefCell<dyn PositionSimulation>> {
         let content = match dimension {
             Dimension::X => Flickable::FIELD_OFFSETS.content_x(),
@@ -923,9 +927,22 @@ impl FlickableDataInner {
         let curr_val = content.get().0 as f32;
         // Spring back to whichever edge we're already past
         let limit = Self::flick_limits(flick_rc, curr_val, dimension);
+        let viewport_length = match dimension {
+            Dimension::X => geo.width_length().get(),
+            Dimension::Y => geo.height_length().get(),
+        } as f32;
+        let velocity = if viewport_length > 0. {
+            let overscroll =
+                rubber_band::uncompress(curr_val - limit.as_ref().get(), viewport_length);
+            drag_velocity * rubber_band::compress_slope(overscroll, viewport_length)
+        } else {
+            0.
+        };
         Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
             content.set_physic_animation_value(weak.clone());
-            RefCell::new(FlickAnimation::create_spring_animation(curr_val, limit, start_time))
+            RefCell::new(FlickAnimation::create_spring_animation(
+                curr_val, limit, start_time, velocity,
+            ))
         })
     }
 
@@ -938,8 +955,10 @@ impl FlickableDataInner {
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
         dimension: Dimension,
+        geo: &LogicalRect,
     ) {
-        let simulation = Self::spring_back(flick, flick_rc, dimension, Self::backend_now(flick_rc));
+        let simulation =
+            Self::spring_back(flick, flick_rc, dimension, geo, Self::backend_now(flick_rc), 0.);
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
             start_time: crate::animations::current_tick(),
             weak: flick_rc.downgrade(),
@@ -999,7 +1018,14 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                Some(Self::spring_back(flick, flick_rc, Dimension::X, release_time))
+                Some(Self::spring_back(
+                    flick,
+                    flick_rc,
+                    Dimension::X,
+                    &geo,
+                    release_time,
+                    velocity_estimation.as_ref().map_or(0., |estimate| estimate.velocity.x),
+                ))
             };
 
             let y_simulation = if inside_bounds_y {
@@ -1038,7 +1064,14 @@ impl FlickableDataInner {
                     _ => None,
                 }
             } else {
-                Some(Self::spring_back(flick, flick_rc, Dimension::Y, release_time))
+                Some(Self::spring_back(
+                    flick,
+                    flick_rc,
+                    Dimension::Y,
+                    &geo,
+                    release_time,
+                    velocity_estimation.as_ref().map_or(0., |estimate| estimate.velocity.y),
+                ))
             };
 
             if x_simulation.is_some() || y_simulation.is_some() {

@@ -522,4 +522,50 @@ wheel(0., TouchPhase::Ended);
 slint_testing::mock_elapsed_time(INFINITE_TIME_SPEND);
 assert_eq!(instance.get_fli_content_y(), 0., "Bounced back after the gesture");
 ```
+
+// Releasing past the edge while still dragging outward keeps the content moving outward first.
+// Holding still before the release starts the return without that outward motion.
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::LogicalPosition;
+use slint_testing::AutoBool;
+
+/// Drags from y = 5 to y = 130 in 50 ms, waits `hold_ms`, and releases.
+fn pull_down<Component: slint::ComponentHandle>(component: &Component, hold_ms: u64) {
+    let window = component.window();
+    let button = PointerEventButton::Left;
+    window.dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(5., 5.) });
+    window.dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(5., 5.), button });
+    for i in 1..=10 {
+        slint_testing::mock_elapsed_time(5);
+        let position = LogicalPosition::new(5., 5. + i as f32 * 12.5);
+        window.dispatch_event(WindowEvent::PointerMoved { position });
+    }
+    slint_testing::mock_elapsed_time(hold_ms);
+    window.dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(5., 130.), button });
+}
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_content_height(instance.get_fli_height() + 40.);
+
+pull_down(&instance, 2);
+let released = instance.get_fli_content_y();
+assert!(released > 20., "We scrolled beyond the limits, received: {released}");
+slint_testing::mock_elapsed_time(5);
+assert!(instance.get_fli_content_y() > released + 1., "Kept moving outward: {} after {released}", instance.get_fli_content_y());
+slint_testing::mock_elapsed_time(100000000);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back");
+
+pull_down(&instance, 100);
+let released = instance.get_fli_content_y();
+assert!(released > 20., "We scrolled beyond the limits, received: {released}");
+slint_testing::mock_elapsed_time(5);
+assert_eq!(instance.get_fli_content_y(), released, "Held still before the return");
+slint_testing::mock_elapsed_time(100000000);
+assert_eq!(instance.get_fli_content_y(), 0., "Bounced back");
+```
 */

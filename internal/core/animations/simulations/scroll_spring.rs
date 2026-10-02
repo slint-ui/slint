@@ -45,33 +45,48 @@ pub struct SpringSimulation {
     traveled: f32,
     data: SpringRegime,
     init_pos: f32,
+    release_velocity: f32,
 }
 
 impl SpringSimulation {
-    /// Springs from `start_value` back to `limit_value`, like UIKit's return after a held pull.
-    /// The return starts [`RETURN_DELAY`] after `start_time`.
+    /// Springs from `start_value` back to `limit_value`, like UIKit's return after a pull.
+    /// `velocity` is the content's velocity at the release; only motion away from
+    /// `limit_value` carries over.
+    /// The content keeps that velocity until [`RETURN_DELAY`] after `start_time`, then the
+    /// return starts.
     pub fn new_with_default_parameters(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
         start_time: Instant,
+        velocity: f32,
     ) -> Self {
         let distance = limit_value.as_ref().get() - start_value;
-        let velocity = -distance * initial_return_rate(distance);
+        let release_velocity = if velocity * distance < 0. { velocity } else { 0. };
+        let onset_distance = distance - release_velocity * RETURN_DELAY.as_secs_f32();
+        let onset_velocity =
+            -release_velocity - onset_distance * initial_return_rate(onset_distance);
         Self {
             start_time,
             traveled: 0.,
-            data: SpringRegime::new(distance, velocity, RETURN_FREQUENCY, 1.),
+            data: SpringRegime::new(onset_distance, onset_velocity, RETURN_FREQUENCY, 1.),
             init_pos: distance,
+            release_velocity,
         }
     }
 
-    fn spring_time(time_elapsed: Duration) -> f32 {
-        time_elapsed.saturating_sub(RETURN_DELAY).as_secs_f32()
+    /// The remaining distance to the limit and its rate of change.
+    fn evaluate(&self, time_elapsed: Duration) -> (f32, f32) {
+        match time_elapsed.checked_sub(RETURN_DELAY) {
+            Some(t) => self.data.evaluate(t.as_secs_f32()),
+            None => (
+                self.init_pos - self.release_velocity * time_elapsed.as_secs_f32(),
+                -self.release_velocity,
+            ),
+        }
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
-        let t = Self::spring_time(new_tick.duration_since(self.start_time));
-        let (new_pos, new_vel) = self.data.evaluate(t);
+        let (new_pos, new_vel) = self.evaluate(new_tick.duration_since(self.start_time));
         let new_traveled = self.init_pos - new_pos;
         *current += new_traveled - self.traveled;
         self.traveled = new_traveled;
@@ -88,14 +103,11 @@ impl Simulation for SpringSimulation {
 
 impl PositionSimulation for SpringSimulation {
     fn remaining_distance(&self, time_elapsed: Duration) -> f32 {
-        self.data.current_position(Self::spring_time(time_elapsed))
+        self.evaluate(time_elapsed).0
     }
 
     fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
-        if time_elapsed < RETURN_DELAY {
-            return 0.;
-        }
-        -self.data.current_velocity(Self::spring_time(time_elapsed))
+        -self.evaluate(time_elapsed).1
     }
 }
 
@@ -115,6 +127,7 @@ mod tests {
             30.,
             test_limit_property(20.),
             start_time(),
+            0.,
         );
         assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
         assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
@@ -130,6 +143,7 @@ mod tests {
             30.,
             test_limit_property(20.),
             start_time(),
+            0.,
         );
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
@@ -146,6 +160,7 @@ mod tests {
             10.,
             test_limit_property(20.),
             start_time(),
+            0.,
         );
         for millis in [50, 100, 300] {
             let t = core::time::Duration::from_millis(millis);
@@ -155,11 +170,14 @@ mod tests {
 
     #[test]
     fn remaining_velocity_matches_the_displayed_motion() {
-        for start in [-228.642, -92.069, 21.392, 228.642] {
+        for (start, velocity) in
+            [(-228.642, 0.), (-92.069, -600.), (21.392, 0.), (21.392, 600.), (228.642, 600.)]
+        {
             let simulation = SpringSimulation::new_with_default_parameters(
                 start,
                 test_limit_property(0.),
                 start_time(),
+                velocity,
             );
             assert_approx_eq!(simulation.remaining_distance(Duration::ZERO), -start);
             for millis in [50, 100, 200, 500] {
@@ -178,7 +196,7 @@ mod tests {
     fn does_not_move_before_the_return_delay() {
         let start = start_time();
         let mut simulation =
-            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), start);
+            SpringSimulation::new_with_default_parameters(30., test_limit_property(20.), start, 0.);
         let mut position = 30.;
         simulation.step(&mut position, start + RETURN_DELAY);
         assert_approx_eq!(position, 30.);
@@ -197,7 +215,7 @@ mod tests {
         let uikit_onset = Duration::from_nanos(16_827_855);
         let start = start_time();
         let mut simulation =
-            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.), start);
+            SpringSimulation::new_with_default_parameters(92., test_limit_property(0.), start, 0.);
         let mut position = 92.;
         for (millis, uikit) in
             [(17, 92.), (25, 87.), (50, 73.), (100, 50.), (150, 33.667), (200, 22.), (300, 10.)]
@@ -205,6 +223,67 @@ mod tests {
             let since_onset = Duration::from_millis(millis).saturating_sub(uikit_onset);
             simulation.step(&mut position, start + RETURN_DELAY + since_onset);
             assert!((position - uikit).abs() < 1.5, "{millis} ms: {position} != {uikit}");
+        }
+    }
+
+    #[test]
+    fn keeps_moving_outward_after_a_moving_release() {
+        let start = start_time();
+        let mut simulation = SpringSimulation::new_with_default_parameters(
+            45.,
+            test_limit_property(0.),
+            start,
+            600.,
+        );
+        assert_approx_eq!(simulation.remaining_velocity(Duration::ZERO), 600.);
+        let mut position = 45.;
+        let mut peak = position;
+        for millis in (8..2_000).step_by(8) {
+            simulation.step(&mut position, start + Duration::from_millis(millis));
+            peak = peak.max(position);
+        }
+        assert!(peak > 50., "{peak}");
+        assert!(position.abs() < 0.01, "{position}");
+    }
+
+    #[test]
+    fn ignores_release_velocity_toward_the_limit() {
+        let still = SpringSimulation::new_with_default_parameters(
+            45.,
+            test_limit_property(0.),
+            start_time(),
+            0.,
+        );
+        let inward = SpringSimulation::new_with_default_parameters(
+            45.,
+            test_limit_property(0.),
+            start_time(),
+            -600.,
+        );
+        for millis in [0, 5, 50, 200] {
+            let t = Duration::from_millis(millis);
+            assert_approx_eq!(inward.remaining_distance(t), still.remaining_distance(t));
+        }
+    }
+
+    /// Samples of a UIKit return after a 100-point pull released at 194 points per second,
+    /// 45 points past the top, read in the `CADisplayLink` callback; on that clock the return
+    /// starts about 11 ms after the release.
+    #[test]
+    fn follows_a_measured_uikit_moving_release() {
+        let uikit_onset = Duration::from_millis(11);
+        let start = start_time();
+        let mut simulation = SpringSimulation::new_with_default_parameters(
+            45.,
+            test_limit_property(0.),
+            start,
+            194.,
+        );
+        let mut position = 45.;
+        for (millis, uikit) in [(25, 45.), (50, 41.333), (100, 32.), (200, 16.333), (300, 7.333)] {
+            let since_onset = Duration::from_millis(millis).saturating_sub(uikit_onset);
+            simulation.step(&mut position, start + RETURN_DELAY + since_onset);
+            assert!((position - uikit).abs() < 2.5, "{millis} ms: {position} != {uikit}");
         }
     }
 }
