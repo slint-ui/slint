@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cSpell: ignore hunter
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    VerticalLayout {
+        alignment: start;
+
+        plain := LineEdit {
+            text: "plain";
+        }
+
+        secret := LineEdit {
+            input-type: password;
+            text: "hunter2";
+        }
+
+        target := LineEdit {
+            text: "";
+        }
+    }
+
+    in-out property <string> plain-text <=> plain.text;
+    in-out property <string> secret-text <=> secret.text;
+    in-out property <string> target-text <=> target.text;
+
+    public function select-all-plain() { plain.focus(); plain.select-all(); }
+    public function select-all-secret() { secret.focus(); secret.select-all(); }
+    public function focus-target() { target.focus(); }
+}
+
+/*
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(500);
+
+let open_menu = |id: &str| {
+    let field = ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+    field.mock_single_click(PointerEventButton::Right);
+    slint_testing::mock_elapsed_time(500);
+};
+let click_entry = |title: &str| {
+    let entry = ElementHandle::find_by_accessible_label(&instance, title)
+        .next()
+        .unwrap_or_else(|| panic!("no '{title}' entry in the context menu"));
+    entry.mock_single_click(PointerEventButton::Left);
+    slint_testing::mock_elapsed_time(50);
+};
+
+// A plain LineEdit cuts through the context menu. This also proves the clicks below
+// would activate an enabled entry.
+instance.invoke_select_all_plain();
+open_menu("TestCase::plain");
+click_entry("Cut");
+assert_eq!(instance.get_plain_text(), "", "Cut must remove the selection of a plain LineEdit");
+
+// Paste puts it back, so the clipboard now holds "plain".
+instance.invoke_focus_target();
+open_menu("TestCase::target");
+click_entry("Paste");
+assert_eq!(instance.get_target_text(), "plain", "Paste must insert the clipboard content");
+
+// Cut is disabled on a password field: the selection survives.
+instance.invoke_select_all_secret();
+open_menu("TestCase::secret");
+click_entry("Cut");
+assert_eq!(instance.get_secret_text(), "hunter2", "Cut must not empty a password LineEdit");
+
+// Copy is disabled too, so the clipboard still holds "plain" and not the password.
+click_entry("Copy");
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(slint::platform::Key::Escape));
+slint_testing::mock_elapsed_time(50);
+
+instance.set_target_text("".into());
+instance.invoke_focus_target();
+open_menu("TestCase::target");
+click_entry("Paste");
+assert_eq!(instance.get_target_text(), "plain", "Copy must not put a password on the clipboard");
+```
+*/
