@@ -684,7 +684,7 @@ fn lower_menu_items(
                         .into(),
                     );
                 }
-                // Menu/MenuSeparator -> MenuItem
+                // Menu/MenuSeparator/StandardMenuItem -> MenuItem
                 element.borrow_mut().base_type = components.menu_item_element.clone();
             }
             false
