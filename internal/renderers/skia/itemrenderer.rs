@@ -239,18 +239,34 @@ impl<'a> SkiaItemRenderer<'a> {
             scale_factor,
         )?;
 
+        fn skia_color_space(
+            color_space: i_slint_core::graphics::GradientColorSpace,
+        ) -> skia_safe::gradient::interpolation::ColorSpace {
+            match color_space {
+                i_slint_core::graphics::GradientColorSpace::Srgb => {
+                    skia_safe::gradient::interpolation::ColorSpace::SRGB
+                }
+                i_slint_core::graphics::GradientColorSpace::Oklch => {
+                    skia_safe::gradient::interpolation::ColorSpace::OKLCH
+                }
+                i_slint_core::graphics::GradientColorSpace::Oklab => {
+                    skia_safe::gradient::interpolation::ColorSpace::OKLab
+                }
+                i_slint_core::graphics::GradientColorSpace::Hsl => {
+                    skia_safe::gradient::interpolation::ColorSpace::HSL
+                }
+            }
+        }
+
         fn gradient<'g>(
             colors: &'g [skia_safe::Color4f],
             pos: &'g [f32],
             in_premul: skia_safe::gradient::interpolation::InPremul,
+            color_space: skia_safe::gradient::interpolation::ColorSpace,
         ) -> skia_safe::gradient::Gradient<'g> {
             skia_safe::gradient::Gradient::new(
                 crate::gradient_colors(colors, pos),
-                skia_safe::gradient::Interpolation {
-                    in_premul,
-                    color_space: skia_safe::gradient::interpolation::ColorSpace::SRGB,
-                    ..Default::default()
-                },
+                skia_safe::gradient::Interpolation { in_premul, color_space, ..Default::default() },
             )
         }
 
@@ -267,7 +283,12 @@ impl<'a> SkiaItemRenderer<'a> {
                         skia_safe::Point::new(g.start.x, g.start.y),
                         skia_safe::Point::new(g.end.x, g.end.y),
                     ),
-                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
+                    &gradient(
+                        &colors,
+                        &pos,
+                        skia_safe::gradient::interpolation::InPremul::Yes,
+                        skia_color_space(g.color_space),
+                    ),
                     None,
                 )
             }
@@ -280,7 +301,12 @@ impl<'a> SkiaItemRenderer<'a> {
                 local_matrix.post_translate((g.center.x, g.center.y));
                 skia_safe::gradient::shaders::radial_gradient(
                     (skia_safe::Point::new(0., 0.), 1.),
-                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::Yes),
+                    &gradient(
+                        &colors,
+                        &pos,
+                        skia_safe::gradient::interpolation::InPremul::Yes,
+                        skia_color_space(g.color_space),
+                    ),
                     &local_matrix,
                 )
             }
@@ -295,7 +321,12 @@ impl<'a> SkiaItemRenderer<'a> {
                 skia_safe::gradient::shaders::sweep_gradient(
                     center,
                     (0.0, 360.0),
-                    &gradient(&colors, &pos, skia_safe::gradient::interpolation::InPremul::No),
+                    &gradient(
+                        &colors,
+                        &pos,
+                        skia_safe::gradient::interpolation::InPremul::No,
+                        skia_color_space(g.color_space),
+                    ),
                     &skia_safe::Matrix::rotate_deg_pivot(-90.0, center),
                 )
             }

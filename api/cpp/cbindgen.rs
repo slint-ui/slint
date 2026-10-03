@@ -696,8 +696,8 @@ fn gen_corelib(
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
-                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "GradientColorSpace", "slint_conic_gradient_normalize_stops",
+                 "slint_conic_gradient_apply_rotation", "slint_brush_compare_equal"],
             "slint_brush_internal.h",
             "",
         ),
@@ -823,6 +823,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             // Handwritten in private/slint_color.h
             "Rgb565Pixel",
+            "GradientColorSpace",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
