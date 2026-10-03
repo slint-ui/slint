@@ -84,7 +84,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
         invalidate_fill();
     }
     clear_fill_refresh();
-    PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
+    PREVIEW_STATE.with_borrow(undo_redo::publish_edit_state);
     undo_redo::apply_pending();
 }
 
