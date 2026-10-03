@@ -195,7 +195,10 @@ pub fn evaluate_property(
     let mut property = ui::map_value_and_type_to_property_value(ty, &value, "");
     property.value_resolved = value.is_some();
     if matches!(ty, langtype::Type::Color | langtype::Type::Brush) {
-        property.fill = ui::brushes::fill_from_brush(property.value_brush.clone());
+        match ui::brushes::fill_from_brush(property.value_brush.clone()) {
+            Some(fill) => property.fill = fill,
+            None => property.value_resolved = false,
+        }
         if let Some(expression) = &expression
             && property.value_resolved
         {

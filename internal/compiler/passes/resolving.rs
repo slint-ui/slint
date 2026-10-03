@@ -969,7 +969,7 @@ impl Expression {
             },
             Radial {
                 center: Option<(Box<Expression>, Box<Expression>)>,
-                radius: Option<Box<Expression>>,
+                shape: RadialGradientShape,
             },
             Conic {
                 from_angle: Box<Expression>,
@@ -1041,36 +1041,92 @@ impl Expression {
             );
             (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
-            if !all_subs.first().is_some_and(|n| {
-                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "circle")
-            }) {
-                ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
-                return Expression::Invalid;
-            }
-            // CSS syntax: `circle [<radius>] [at <x> <y>]` — radius before center, no keyword.
+            let is_ellipse = match all_subs.first() {
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "ellipse" => {
+                    true
+                }
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "circle" => {
+                    false
+                }
+                _ => {
+                    ctx.diag.push_error("Expected 'circle' or 'ellipse'".into(), &node);
+                    return Expression::Invalid;
+                }
+            };
+            // CSS syntax: `circle [<radius>] [at <x> <y>]` or `ellipse [<rx> <ry>] [at <x> <y>]`
+            // — radius before center, no keyword.
             let mut idx = 1;
 
-            // Parse optional radius (a length expression that is not the "at" keyword).
             // Only consume the node when it actually resolves to a length-compatible type;
             // a colour keyword like `blue` must not silently become a failed conversion.
-            let radius = if all_subs.get(idx).is_some_and(|n| {
-                n.kind() == SyntaxKind::Expression
-                    && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
-            }) {
-                let r = all_subs.get(idx).unwrap();
-                let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
-                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
-                if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
-                    let radius = Box::new(
-                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag, &ctx.symbol_counters),
-                    );
-                    idx += 1;
-                    Some(radius)
-                } else {
-                    None
+            // A percentage is returned as `Err`, so the caller can word the error.
+            let parse_radius =
+                |idx: usize,
+                 ctx: &mut LookupCtx|
+                 -> Option<Result<Box<Expression>, syntax_nodes::Expression>> {
+                    let n = all_subs.get(idx)?;
+                    if n.kind() != SyntaxKind::Expression
+                        || matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+                    {
+                        return None;
+                    }
+                    let n_syn = syntax_nodes::Expression::from(n.as_node().unwrap().clone());
+                    let expr = Expression::from_expression_node(n_syn.clone(), ctx);
+                    match expr.ty() {
+                        Type::LogicalLength | Type::Float32 | Type::Int32 => {
+                            Some(Ok(Box::new(expr.maybe_convert_to(
+                                Type::LogicalLength,
+                                &n_syn,
+                                ctx.diag,
+                                &ctx.symbol_counters,
+                            ))))
+                        }
+                        Type::Percent => Some(Err(n_syn)),
+                        _ => None,
+                    }
+                };
+            let percent_error = if is_ellipse {
+                "'ellipse' radii must be lengths such as '50px', not percentages"
+            } else {
+                "'circle' radius must be a length such as '50px', not a percentage"
+            };
+            let parse_length_radius = |idx: usize, ctx: &mut LookupCtx| {
+                parse_radius(idx, ctx).map(|r| {
+                    r.unwrap_or_else(|n| {
+                        ctx.diag.push_error(percent_error.into(), &n);
+                        Box::new(Expression::Invalid)
+                    })
+                })
+            };
+
+            let radius = parse_length_radius(idx, ctx);
+            if radius.is_some() {
+                idx += 1;
+            }
+            let shape = if is_ellipse {
+                match radius {
+                    Some(rx) => {
+                        let Some(ry) = parse_length_radius(idx, ctx) else {
+                            ctx.diag.push_error(
+                                "'ellipse' needs a horizontal and a vertical radius, use 'circle' for a single radius".into(),
+                                &all_subs[idx - 1],
+                            );
+                            return Expression::Invalid;
+                        };
+                        idx += 1;
+                        RadialGradientShape::Ellipse(Some((rx, ry)))
+                    }
+                    None => RadialGradientShape::Ellipse(None),
                 }
             } else {
-                None
+                if radius.is_some() && parse_radius(idx, ctx).is_some() {
+                    ctx.diag.push_error(
+                        "'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius".into(),
+                        &all_subs[idx],
+                    );
+                    return Expression::Invalid;
+                }
+                RadialGradientShape::Circle(radius)
             };
 
             // Parse optional "at <x> <y>".
@@ -1097,7 +1153,11 @@ impl Expression {
                 idx + 1
             } else {
                 if idx == 1 {
-                    let message = "'circle' must be followed by a comma, a radius, or 'at'".into();
+                    let shape_text = if is_ellipse { "ellipse" } else { "circle" };
+                    let radius_text = if is_ellipse { "two radii" } else { "a radius" };
+                    let message = format!(
+                        "'{shape_text}' must be followed by a comma, {radius_text}, or 'at'"
+                    );
                     if let Some(error_node) = all_subs.get(idx) {
                         ctx.diag.push_error(message, error_node);
                     } else {
@@ -1109,7 +1169,7 @@ impl Expression {
                 }
                 return Expression::Invalid;
             };
-            (GradKind::Radial { center, radius }, stops_start)
+            (GradKind::Radial { center, shape }, stops_start)
         } else if grad_text.starts_with("conic") {
             // Parse optional "from <angle>" and/or "at <x> <y>" before the comma
             let mut idx = 0usize;
@@ -1282,8 +1342,8 @@ impl Expression {
 
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
-            GradKind::Radial { center, radius } => {
-                Expression::RadialGradient { center, radius, stops }
+            GradKind::Radial { center, shape } => {
+                Expression::RadialGradient { center, shape, stops }
             }
             GradKind::Conic { from_angle, center } => {
                 // Normalize stop angles to 0-1 range by dividing by 360deg

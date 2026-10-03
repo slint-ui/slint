@@ -1391,7 +1391,7 @@ fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<Co
                 ("markdown(..)", "markdown(\"$1\")"),
                 ("image-url(..)", "image-url(\"$1\")"),
                 ("linear-gradient(..)", "linear-gradient($1)"),
-                ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                ("radial-gradient(..)", "radial-gradient(${1|circle,ellipse|}, $2)"),
                 ("conic-gradient(..)", "conic-gradient($1)"),
             ]
             .into_iter()
