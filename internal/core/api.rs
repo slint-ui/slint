@@ -795,10 +795,9 @@ impl Window {
         Ok(dispatch_result)
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
+    /// Returns true if an animation is still changing what this window renders.
     pub fn has_active_animations(&self) -> bool {
-        // TODO make it really per window.
-        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
+        self.0.has_active_animations()
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
