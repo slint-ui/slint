@@ -816,14 +816,21 @@ fn lower_sub_component(
         None,
     )
     .into();
-    // A root no layout sizes measures at its preferred width,
+    // A root no layout sizes measures at its fixed or preferred width,
     // or an unsized Image gets an infinite height (#12139).
     // A layout cell reads the width it's given, or a wrapping Text measures one line (#13655).
     let root_elem = &component.root_element;
-    let measure_at_preferred_width = root_elem.borrow().layout_info_v_with_constraint.is_some()
+    let measure_at_root_width = root_elem.borrow().layout_info_v_with_constraint.is_some()
         && !root_elem.borrow().child_of_layout;
-    let v_cross_constraint = measure_at_preferred_width
-        .then(|| super::lower_layout_expression::default_cross_axis_constraint(root_elem))
+    let v_cross_constraint = measure_at_root_width
+        .then(|| {
+            super::lower_layout_expression::fixed_size(
+                &component.root_constraints.borrow(),
+                crate::layout::Orientation::Horizontal,
+            )
+            .map(|w| crate::expression_tree::Expression::PropertyReference(w.clone()))
+            .or_else(|| super::lower_layout_expression::default_cross_axis_constraint(root_elem))
+        })
         .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
         root_elem,
@@ -1665,5 +1672,14 @@ mod tests {
         assert_eq!(names("width: 300px; height: 300px;"), (false, false));
         assert_eq!(names("width: 300px;"), (false, true));
         assert_eq!(names("height: 300px;"), (true, false));
+    }
+
+    #[test]
+    fn fixed_width_root_measures_height_without_folding_width() {
+        let names = root_property_names(
+            "export component Main inherits Window { width: 300px; \
+             VerticalLayout { Text { wrap: word-wrap; text: \"a b\"; } } }",
+        );
+        assert!(!names.iter().any(|n| n == "root-1_layoutinfo-h"), "{names:?}");
     }
 }
