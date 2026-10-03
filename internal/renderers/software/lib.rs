@@ -2019,10 +2019,9 @@ fn process_rectangle_impl(
         let radial_grad = RadialGradientCommand {
             stops: g
                 .stops()
-                .map(|s| {
-                    let mut stop = *s;
-                    stop.color = alpha_color(stop.color, args.alpha);
-                    stop
+                .map(|s| PremultipliedGradientStop {
+                    color: alpha_color(s.color, args.alpha).into(),
+                    position: s.position,
                 })
                 .collect(),
             center_x,
