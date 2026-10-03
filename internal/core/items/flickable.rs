@@ -20,7 +20,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths, RectLengths,
+    PointLengths, RectLengths, SizeLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -107,7 +107,12 @@ impl Item for Flickable {
                 let flick = flick.as_pin_ref();
                 let vpx = flick.content_x();
                 let vpy = flick.content_y();
-                let p = ensure_in_bound(flick, LogicalPoint::from_lengths(vpx, vpy), &flick_rc);
+                let visible_geometry_size = Self::geometry_without_virtual_keyboard(&flick_rc).size;
+                let p = ensure_in_bound(
+                    flick,
+                    LogicalPoint::from_lengths(vpx, vpy),
+                    visible_geometry_size,
+                );
 
                 let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 if *x_out_of_bounds && !x.has_binding() {
@@ -518,7 +523,8 @@ impl FlickableDataInner {
             }
         }
 
-        let new_pos = ensure_in_bound(flick, current_pos + delta, flick_rc);
+        let visible_geometry_size = Flickable::geometry_without_virtual_keyboard(flick_rc).size;
+        let new_pos = ensure_in_bound(flick, current_pos + delta, visible_geometry_size);
         delta = new_pos - current_pos;
 
         if phase != TouchPhase::Ended {
@@ -612,21 +618,20 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
         flick_velocity: LogicalVector,
     ) -> [Pin<Box<Property<f32>>>; 2] {
+        let visible_geometry_size = Flickable::geometry_without_virtual_keyboard(flick_rc).size;
+
         let flick_weak = flick_rc.downgrade();
         let calculate_limits = move || {
-            flick_weak
-                .upgrade()
-                .and_then(|flick_rc| {
-                    flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
-                })
-                .map(|(flick_rc, flick)| {
+            flick_weak.upgrade().and_then(|flick_rc| flick_rc.downcast::<Flickable>()).map(
+                |flick| {
                     let flick = flick.as_pin_ref();
                     ensure_in_bound(
                         flick,
                         LogicalPoint::from_lengths(-flick.content_width(), -flick.content_height()),
-                        &flick_rc,
+                        visible_geometry_size,
                     )
-                })
+                },
+            )
         };
 
         let limit_x = if flick_velocity.x < 0 as Coord {
@@ -915,8 +920,10 @@ impl FlickableData {
                         // ListView will continuously update it.
                         // So we cannot calculate the delta in content coordinates.
                         let new_content_position = current_content_position + mouse_delta;
+                        let visible_geometry_size =
+                            Flickable::geometry_without_virtual_keyboard(flick_rc).size;
                         let new_content_position =
-                            ensure_in_bound(flick, new_content_position, flick_rc);
+                            ensure_in_bound(flick, new_content_position, visible_geometry_size);
 
                         content_x.set(new_content_position.x_length());
                         content_y.set(new_content_position.y_length());
@@ -976,10 +983,13 @@ fn abs(l: LogicalLength) -> LogicalLength {
 }
 
 /// Make sure that the point is within the bounds
-fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> LogicalPoint {
-    let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-    let w = geo.width_length();
-    let h = geo.height_length();
+fn ensure_in_bound(
+    flick: Pin<&Flickable>,
+    p: LogicalPoint,
+    visible_geometry_size: LogicalSize,
+) -> LogicalPoint {
+    let w = visible_geometry_size.width_length();
+    let h = visible_geometry_size.height_length();
     let cw = (Flickable::FIELD_OFFSETS.content_width()).apply_pin(flick).get();
     let ch = (Flickable::FIELD_OFFSETS.content_height()).apply_pin(flick).get();
 
