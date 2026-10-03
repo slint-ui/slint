@@ -699,7 +699,7 @@ public:
         cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window.
+    /// Returns true if an animation is still changing what this window renders.
     bool has_active_animations() const
     {
         private_api::assert_main_thread();

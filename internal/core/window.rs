@@ -648,6 +648,8 @@ pub struct WindowInner {
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
     mouse_input_state: Cell<MouseInputState>,
     touch_state: RefCell<TouchState>,
+    /// Whether the last call to `draw_contents` evaluated an active animation.
+    has_active_animations: Cell<bool>,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -715,6 +717,7 @@ impl WindowInner {
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
             touch_state: Default::default(),
+            has_active_animations: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
                 window_properties_tracker,
@@ -1875,32 +1878,46 @@ impl WindowInner {
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);
         };
-        Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
-            || {
-                if !self
-                    .active_popups
-                    .borrow()
-                    .iter()
-                    .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
-                {
-                    render_components(&[(component_weak, LogicalPoint::default())], &post_render)
-                } else {
-                    let borrow = self.active_popups.borrow();
-                    let mut item_trees = Vec::with_capacity(borrow.len() + 1);
-                    item_trees.push((component_weak, LogicalPoint::default()));
-                    for popup in borrow.iter() {
-                        // If the popup is not a real window and does not have its own coordinate system.
-                        // We have to draw the popup and consider the location for subelements because everything must
-                        // be rendered relative to the main window position
-                        if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
+        let render = || {
+            self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
+                || {
+                    if !self
+                        .active_popups
+                        .borrow()
+                        .iter()
+                        .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
+                    {
+                        render_components(
+                            &[(component_weak, LogicalPoint::default())],
+                            &post_render,
+                        )
+                    } else {
+                        let borrow = self.active_popups.borrow();
+                        let mut item_trees = Vec::with_capacity(borrow.len() + 1);
+                        item_trees.push((component_weak, LogicalPoint::default()));
+                        for popup in borrow.iter() {
+                            // If the popup is not a real window and does not have its own coordinate system.
+                            // We have to draw the popup and consider the location for subelements because everything must
+                            // be rendered relative to the main window position
+                            if let PopupWindowLocation::ChildWindow(location) = &popup.location {
+                                item_trees
+                                    .push((ItemTreeRc::downgrade(&popup.component), *location));
+                            }
                         }
+                        drop(borrow);
+                        render_components(&item_trees, &post_render)
                     }
-                    drop(borrow);
-                    render_components(&item_trees, &post_render)
-                }
-            },
-        ))
+                },
+            )
+        };
+        let (result, has_active_animations) = crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.track_active_animations(render));
+        self.has_active_animations.set(has_active_animations);
+        Some(result)
+    }
+
+    pub(crate) fn has_active_animations(&self) -> bool {
+        self.has_active_animations.get()
     }
 
     /// Draws the source `DragArea`'s `drag-image` under the cursor when a drag is in flight.

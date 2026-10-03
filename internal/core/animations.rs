@@ -303,6 +303,18 @@ impl AnimationDriver {
     pub fn set_has_active_animations(&self) {
         self.active_animations.set(true);
     }
+
+    /// Runs `f` and returns whether it evaluated an active animation.
+    pub(crate) fn track_active_animations<R>(&self, f: impl FnOnce() -> R) -> (R, bool) {
+        let was_active = self.active_animations.replace(false);
+        let result = f();
+        let active = self.active_animations.get();
+        if was_active {
+            self.active_animations.set(true);
+        }
+        (result, active)
+    }
+
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
     pub fn current_tick(&self) -> Instant {
