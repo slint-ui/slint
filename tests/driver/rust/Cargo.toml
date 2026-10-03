@@ -18,6 +18,12 @@ publish = false
 path = "main.rs"
 name = "test-driver-rust"
 
+# The qt widget tests need the main thread, so they run through
+# test_driver_lib::fork_harness; see tests/widgets-qt.rs.
+[[test]]
+name = "widgets-qt"
+harness = false
+
 [features]
 default = ["backend-qt"]
 
@@ -35,6 +41,12 @@ spin_on = { workspace = true }
 
 [target.'cfg(not(target_os = "wasm"))'.dependencies]
 i-slint-backend-qt = { workspace = true }
+
+# cSpell: ignore linkme
+[dev-dependencies]
+linkme = "0.3"
+satchel = "0.3"
+test_driver_lib = { path = "../driverlib", features = ["fork-harness"] }
 
 [build-dependencies]
 i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "bundle-translations", "renderer-software"], optional = true }

@@ -45,7 +45,10 @@ fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>>
     for file in std::fs::read_dir(tests_folder)? {
         let file = file?.path();
         let base = file.file_stem().expect("Missing file name!");
-        validate_test_file(base, &file)?;
+        // widgets-qt.rs carries its own main, see the file.
+        if base != "widgets-qt" {
+            validate_test_file(base, &file)?;
+        }
 
         let generated_path =
             PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
@@ -166,6 +169,10 @@ fn process_case(
         ""
     };
 
+    // The widgets-qt target runs its tests through test_driver_lib::fork_harness,
+    // which collects them with satchel instead of libtest.
+    let main_thread = testcase.requested_style == Some("qt");
+
     let mut output = BufWriter::new(File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
     )?);
@@ -173,7 +180,7 @@ fn process_case(
     output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
 
     #[cfg(not(feature = "build-time"))]
-    if !generate_macro(&source, &mut output, testcase)? {
+    if !generate_macro(&source, &mut output, testcase, main_thread)? {
         output.flush()?;
         return Ok(module_line);
     }
@@ -184,9 +191,29 @@ fn process_case(
         .filter(|x| x.language_id == "rust")
         .enumerate()
     {
-        write!(
-            output,
-            r"
+        if main_thread {
+            write!(
+                output,
+                r"
+#[rust_analyzer::skip]
+#[satchel::test] {} fn t_{}() {{
+    (|| -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
+        use i_slint_backend_testing as slint_testing;
+        slint_testing::init_no_event_loop();
+        slint_testing::configure_test_fonts();
+        {}
+        Ok(())
+    }})()
+    .unwrap()
+}}",
+                ignored,
+                i,
+                x.source.replace('\n', "\n        ")
+            )?;
+        } else {
+            write!(
+                output,
+                r"
 #[rust_analyzer::skip]
 #[test] {} fn t_{}() -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
@@ -195,10 +222,11 @@ fn process_case(
     {}
     Ok(())
 }}",
-            ignored,
-            i,
-            x.source.replace('\n', "\n    ")
-        )?;
+                ignored,
+                i,
+                x.source.replace('\n', "\n    ")
+            )?;
+        }
     }
 
     output.flush()?;
@@ -210,14 +238,16 @@ fn generate_macro(
     source: &str,
     output: &mut dyn Write,
     testcase: &test_driver_lib::TestCase,
+    main_thread: bool,
 ) -> Result<bool, std::io::Error> {
+    let test_attribute = if main_thread { "#[satchel::test]" } else { "#[test]" };
     if source.contains("\\{") {
         // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
-        output.write_all(b"#[test] #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
+        writeln!(output, "{test_attribute} #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }
     if testcase.is_ignored("rust-macro") {
-        output.write_all(b"#[test] #[ignore = \"testcase ignored for the slint! macro\"] fn ignored_for_macro() {}")?;
+        writeln!(output, "{test_attribute} #[ignore = \"testcase ignored for the slint! macro\"] fn ignored_for_macro() {{}}")?;
         return Ok(false);
     }
     // to silence all the warnings in .slint files that would be turned into errors
