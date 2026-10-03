@@ -667,7 +667,7 @@ fn build(l: &mut Loader) {
         //! ### drop-shadow-spread
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
-        //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
+        //! Equivalent to the spread radius in CSS `box-shadow`. Not supported by the FemtoVG and Qt renderers.
         //!
         //! ## Inner Shadows
         //!

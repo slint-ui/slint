@@ -23,6 +23,7 @@ mod minimal_software_window;
 mod path;
 mod scene;
 
+use self::draw_functions::BoxShadowCommand;
 use self::fonts::GlyphRenderer;
 pub use self::minimal_software_window::MinimalSoftwareWindow;
 use self::scene::*;
@@ -31,11 +32,13 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::Length;
+use euclid::num::Zero;
 use fixed::Fixed;
 #[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
@@ -1754,6 +1757,16 @@ fn render_window_frame_by_line(
                                     extra_right_clip,
                                 );
                             }
+                            SceneCommand::BoxShadow { box_shadow_index } => {
+                                let shadow = &scene.vectors.box_shadows[box_shadow_index as usize];
+                                draw_functions::draw_box_shadow_line(
+                                    &PhysicalRect { origin: span.pos, size: span.size },
+                                    scene.current_line,
+                                    shadow,
+                                    range_buffer,
+                                    extra_left_clip,
+                                );
+                            }
                         }
                     }
                 },
@@ -1856,6 +1869,7 @@ trait ProcessScene {
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, gradient: LinearGradientCommand);
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, gradient: RadialGradientCommand);
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, gradient: ConicGradientCommand);
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand);
     #[cfg(feature = "path")]
     fn process_filled_path(
         &mut self,
@@ -2130,6 +2144,68 @@ fn process_rectangle_impl(
     }
 }
 
+/// Draws the drop shadow described by `options`,
+/// with `origin` the physical position of the element plus the shadow's offset,
+/// before the panel rotation.
+///
+/// `color` is the shadow color with the opacity applied, and `clip` is in rotated coordinates.
+fn process_drop_shadow(
+    processor: &mut dyn ProcessScene,
+    options: &BoxShadowOptions,
+    origin: euclid::Point2D<f32, PhysicalPx>,
+    color: Color,
+    clip: &PhysicalRect,
+    rotation: RotationInfo,
+) {
+    let shape_size = options.shape_size();
+    if color.alpha() == 0 || shape_size.is_empty() {
+        return;
+    }
+    let spread = options.spread.get();
+    let shape = euclid::Rect::new(origin - euclid::vec2(spread, spread), shape_size);
+    let radius = options
+        .outer_radius()
+        .min(BorderRadius::from_length(shape.width_length() / 2.))
+        .min(BorderRadius::from_length(shape.height_length() / 2.))
+        .transformed(rotation);
+    let shape = shape.transformed(rotation);
+    let blur = options.blur.get();
+
+    if blur <= 0. {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            x: shape.origin.x,
+            y: shape.origin.y,
+            width: shape.size.width,
+            height: shape.size.height,
+            top_left_radius: radius.top_left,
+            top_right_radius: radius.top_right,
+            bottom_right_radius: radius.bottom_right,
+            bottom_left_radius: radius.bottom_left,
+            border_width: 0.,
+            background: Brush::SolidColor(color),
+            border: Brush::default(),
+            alpha: 255,
+            rotation: rotation.orientation,
+        };
+        processor.process_rectangle(&args, *clip);
+        return;
+    }
+
+    let support = shape.inflate(blur, blur).round_out();
+    let Some(geometry) = support.intersection(&clip.cast()).and_then(|r| r.try_cast::<i16>())
+    else {
+        return;
+    };
+    // The shadow is point sampled at pixel centers, which aliases once σ nears a pixel.
+    // Adding the variance of a pixel's box filter, 1/12 px², keeps the edges anti-aliased.
+    let sigma = (options.blur_sigma().powi(2) + 1. / 12.).sqrt();
+    let shape = shape.translate(-geometry.origin.cast::<f32>().to_vector());
+    processor.process_box_shadow(
+        geometry,
+        BoxShadowCommand::new(geometry.size, shape, radius, sigma, color.into()),
+    );
+}
+
 struct RenderToBuffer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
@@ -2281,6 +2357,17 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
                 buffer,
                 extra_left_clip,
                 extra_right_clip,
+            );
+        });
+    }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
+            draw_functions::draw_box_shadow_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &shadow,
+                buffer,
+                extra_left_clip,
             );
         });
     }
@@ -2452,6 +2539,19 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::ConicGradient { conic_gradient_index },
+            });
+        }
+    }
+    fn process_box_shadow(&mut self, geometry: PhysicalRect, shadow: BoxShadowCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let box_shadow_index = self.vectors.box_shadows.len() as u16;
+            self.vectors.box_shadows.push(shadow);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::BoxShadow { box_shadow_index },
             });
         }
     }
@@ -3353,11 +3453,42 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
     fn draw_box_shadow(
         &mut self,
-        _box_shadow: Pin<&i_slint_core::items::BoxShadow>,
-        _: &ItemRc,
-        _size: LogicalSize,
+        box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
     ) {
-        // TODO
+        if box_shadow.inset() {
+            return;
+        }
+        let offset = LogicalVector::from_lengths(box_shadow.offset_x(), box_shadow.offset_y());
+        let (blur, spread) = (box_shadow.blur(), box_shadow.spread());
+        if offset == LogicalVector::zero()
+            && blur == LogicalLength::zero()
+            && spread == LogicalLength::zero()
+        {
+            return;
+        }
+        if !self.should_draw(&drop_shadow_bounding_rect(size.into(), offset, blur, spread)) {
+            return;
+        }
+        let Some(options) = BoxShadowOptions::new(self_rc, box_shadow, self.scale_factor) else {
+            return;
+        };
+        let color = self.alpha_color(options.color);
+        let clip =
+            (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
+                * self.scale_factor)
+                .round()
+                .cast()
+                .transformed(self.rotation);
+        process_drop_shadow(
+            &mut self.processor,
+            &options,
+            (self.current_state.offset + offset).cast() * self.scale_factor,
+            color,
+            &clip,
+            self.rotation,
+        );
     }
 
     fn combine_clip(&mut self, other: LogicalRect, _radius: LogicalBorderRadius) -> bool {
@@ -3716,4 +3847,292 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             self.processor.process_target_texture(&t, clipped_target.cast());
         }
     }
+}
+
+#[test]
+fn drop_shadow_stays_within_bounding_rect() {
+    use euclid::{point2, size2, vec2};
+    let screen_size = PhysicalSize::new(120, 100);
+    let geometry = LogicalRect::new(point2(30., 30.), size2(40., 20.));
+    // (offset, blur, spread, radius) in logical pixels, and the scale factor
+    for (offset, blur, spread, radius, scale_factor) in [
+        (vec2(0., 0.), 10., 0., 0., 1.),
+        (vec2(5.3, -3.7), 7.3, 4.6, 6., 1.5),
+        (vec2(-2., 4.1), 5.1, -3.2, 20., 1.3),
+        (vec2(3.3, 2.9), 0., 2.5, 8., 1.7),
+    ] {
+        for orientation in [
+            RenderingRotation::NoRotation,
+            RenderingRotation::Rotate90,
+            RenderingRotation::Rotate180,
+            RenderingRotation::Rotate270,
+        ] {
+            let rotation = RotationInfo { orientation, screen_size };
+            let scale_factor = ScaleFactor::new(scale_factor);
+            let options = BoxShadowOptions {
+                width: geometry.width_length() * scale_factor,
+                height: geometry.height_length() * scale_factor,
+                color: Color::from_rgb_u8(255, 255, 255),
+                blur: LogicalLength::new(blur) * scale_factor,
+                radius: LogicalBorderRadius::new_uniform(radius) * scale_factor,
+                spread: LogicalLength::new(spread) * scale_factor,
+                ..Default::default()
+            };
+
+            let rotated_size = screen_size.transformed(rotation);
+            let screen = PhysicalRect::from_size(rotated_size);
+            let data = render_region(rotated_size, &[screen], scale_factor, |processor| {
+                process_drop_shadow(
+                    processor,
+                    &options,
+                    (geometry.origin + offset) * scale_factor,
+                    options.color,
+                    &screen,
+                    rotation,
+                )
+            });
+
+            // The dirty region the partial renderer uses for the shadow.
+            let bounding_rect = (drop_shadow_bounding_rect(
+                geometry,
+                offset,
+                LogicalLength::new(blur),
+                LogicalLength::new(spread),
+            ) * scale_factor)
+                .round_out()
+                .cast::<i16>()
+                .transformed(rotation);
+            let mut drawn = false;
+            for (i, pixel) in data.iter().enumerate() {
+                let p = PhysicalPoint::new(
+                    (i % rotated_size.width as usize) as i16,
+                    (i / rotated_size.width as usize) as i16,
+                );
+                drawn |= pixel.alpha > 0;
+                assert!(
+                    pixel.alpha == 0 || bounding_rect.contains(p),
+                    "{p:?} outside {bounding_rect:?}, blur {blur}, spread {spread}, {orientation:?}"
+                );
+            }
+            assert!(drawn, "nothing drawn, blur {blur}, spread {spread}, {orientation:?}");
+        }
+    }
+}
+
+/// Renders `draw` into a buffer of `screen_size`, limited to the dirty `region`.
+#[cfg(test)]
+fn render_region(
+    screen_size: PhysicalSize,
+    region: &[PhysicalRect],
+    scale_factor: ScaleFactor,
+    draw: impl FnOnce(&mut dyn ProcessScene),
+) -> Vec<PremultipliedRgbaColor> {
+    let pixel_count = screen_size.width as usize * screen_size.height as usize;
+    let mut data = alloc::vec![PremultipliedRgbaColor::default(); pixel_count];
+    let mut buffer = TargetPixelSlice { data: &mut data, pixel_stride: screen_size.width as usize };
+    let mut rectangles = [euclid::Box2D::default(); PHYSICAL_REGION_MAX_SIZE];
+    for (r, dst) in region.iter().zip(rectangles.iter_mut()) {
+        *dst = r.to_box2d();
+    }
+    let mut processor = RenderToBuffer {
+        buffer: &mut buffer,
+        dirty_range_cache: Vec::new(),
+        dirty_region: PhysicalRegion { rectangles, count: region.len() },
+        scale_factor,
+    };
+    draw(&mut processor);
+    data
+}
+
+/// Asserts that `draw` renders the same pixels within `clip` and the dirty `region`
+/// as it does unclipped on the whole screen.
+#[cfg(test)]
+fn assert_partial_render_is_identical(
+    screen_size: PhysicalSize,
+    clip: PhysicalRect,
+    region: &[PhysicalRect],
+    draw: impl Fn(&mut dyn ProcessScene, &PhysicalRect),
+) {
+    let screen = PhysicalRect::from_size(screen_size);
+    let scale_factor = ScaleFactor::new(1.);
+    let full =
+        render_region(screen_size, &[screen], scale_factor, |processor| draw(processor, &screen));
+    let partial =
+        render_region(screen_size, region, scale_factor, |processor| draw(processor, &clip));
+    let mut drawn = false;
+    for (i, (a, b)) in full.iter().zip(partial.iter()).enumerate() {
+        let p = PhysicalPoint::new(
+            (i % screen_size.width as usize) as i16,
+            (i / screen_size.width as usize) as i16,
+        );
+        if clip.contains(p) && region.iter().any(|r| r.contains(p)) {
+            assert_eq!(bytemuck::bytes_of(a), bytemuck::bytes_of(b), "{p:?}");
+            drawn |= a.alpha > 0;
+        }
+    }
+    assert!(drawn);
+}
+
+#[test]
+fn rounded_rectangle_partial_render_is_identical() {
+    let screen_size = PhysicalSize::new(100, 80);
+    // The clip and the regions cut through the anti-aliasing of the corner curves.
+    let clip = euclid::rect(17, 5, 60, 70);
+    let region = [euclid::rect(12, 8, 21, 19), euclid::rect(48, 33, 31, 30)];
+    for border_width in [0., 4.3] {
+        let args = target_pixel_buffer::DrawRectangleArgs {
+            x: 10.,
+            y: 11.,
+            width: 62.,
+            height: 45.,
+            top_left_radius: 17.,
+            top_right_radius: 9.5,
+            bottom_right_radius: 21.2,
+            bottom_left_radius: 6.,
+            border_width,
+            background: Brush::SolidColor(Color::from_argb_u8(200, 10, 20, 30)),
+            border: Brush::SolidColor(Color::from_argb_u8(230, 200, 100, 0)),
+            alpha: 255,
+            rotation: RenderingRotation::NoRotation,
+        };
+        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+            processor.process_rectangle(&args, *clip)
+        });
+    }
+}
+
+#[test]
+fn drop_shadow_partial_render_is_identical() {
+    let options = |blur: f32, width: f32, height: f32, radius| BoxShadowOptions {
+        width: euclid::Length::new(width),
+        height: euclid::Length::new(height),
+        color: Color::from_argb_u8(200, 10, 20, 30),
+        blur: euclid::Length::new(blur),
+        radius,
+        spread: euclid::Length::new(1.7),
+        ..Default::default()
+    };
+    // Each region cuts through the corner curves and the blur on every side.
+    let cases = [
+        (
+            PhysicalSize::new(100, 80),
+            options(9.3, 50., 30., BorderRadius::new(14., 3., 22., 0.)),
+            euclid::point2(23.4, 21.8),
+            None,
+            [euclid::rect(13, 9, 31, 17), euclid::rect(52, 40, 29, 33)],
+        ),
+        // A blur large enough for the coverage to be interpolated between samples, with an
+        // item clip that moves the origin of the drawn geometry.
+        (
+            PhysicalSize::new(360, 300),
+            options(64.3, 170., 120., BorderRadius::new(34., 3., 52., 0.)),
+            euclid::point2(100.4, 90.8),
+            Some(euclid::rect(71, 57, 250, 200)),
+            [euclid::rect(40, 30, 101, 57), euclid::rect(222, 180, 121, 103)],
+        ),
+        // Square corners, so every row is drawn from the straight-row profile,
+        // with an item clip through its left ramp.
+        (
+            PhysicalSize::new(200, 160),
+            options(12.2, 120., 90., BorderRadius::default()),
+            euclid::point2(40.3, 30.6),
+            Some(euclid::rect(50, 20, 140, 130)),
+            [euclid::rect(30, 40, 40, 60), euclid::rect(140, 10, 50, 40)],
+        ),
+    ];
+    for (screen_size, options, origin, clip, region) in cases {
+        let clip = clip.unwrap_or(PhysicalRect::from_size(screen_size));
+        assert_partial_render_is_identical(screen_size, clip, &region, |processor, clip| {
+            process_drop_shadow(
+                processor,
+                &options,
+                origin,
+                options.color,
+                clip,
+                RotationInfo { orientation: RenderingRotation::NoRotation, screen_size },
+            )
+        });
+    }
+}
+
+/// Renders the drop shadow of `options` at `origin` on a `screen_size` buffer.
+#[cfg(test)]
+fn render_drop_shadow(
+    screen_size: PhysicalSize,
+    options: &BoxShadowOptions,
+    origin: euclid::Point2D<f32, PhysicalPx>,
+) -> Vec<PremultipliedRgbaColor> {
+    let screen = PhysicalRect::from_size(screen_size);
+    render_region(screen_size, &[screen], ScaleFactor::new(1.), |processor| {
+        process_drop_shadow(
+            processor,
+            options,
+            origin,
+            options.color,
+            &screen,
+            RotationInfo { orientation: RenderingRotation::NoRotation, screen_size },
+        )
+    })
+}
+
+#[test]
+fn drop_shadow_with_sub_pixel_blur_is_anti_aliased() {
+    let screen_size = PhysicalSize::new(40, 40);
+    // How much of the pixel at `p` lies within `start..end`, along one axis.
+    let overlap = |p: f32, start: f32, end: f32| (end.min(p + 1.) - start.max(p)).clamp(0., 1.);
+    for fract in [0., 0.25, 0.5, 0.8] {
+        let (x, y) = (10. + fract, 10. + fract / 2.);
+        let options = BoxShadowOptions {
+            width: euclid::Length::new(20.),
+            height: euclid::Length::new(20.),
+            color: Color::from_rgb_u8(255, 255, 255),
+            blur: euclid::Length::new(0.01),
+            ..Default::default()
+        };
+        let data = render_drop_shadow(screen_size, &options, euclid::point2(x, y));
+        for (i, pixel) in data.iter().enumerate() {
+            let (px, py) = ((i % 40) as f32, (i / 40) as f32);
+            let expected = overlap(px, x, x + 20.) * overlap(py, y, y + 20.) * 255.;
+            // The Gaussian standing in for the pixel's box filter is off by up to 15/255 per
+            // edge, compounding at a corner.
+            let difference = (pixel.alpha as f32 - expected).abs();
+            assert!(
+                difference <= 24.,
+                "fract {fract}, ({px}, {py}): {} vs {expected}",
+                pixel.alpha
+            );
+        }
+    }
+}
+
+#[test]
+fn drop_shadow_of_huge_shape_matches_a_smaller_one() {
+    let screen_size = PhysicalSize::new(60, 60);
+    let options = |width, height, blur| BoxShadowOptions {
+        width: euclid::Length::new(width),
+        height: euclid::Length::new(height),
+        color: Color::from_rgb_u8(255, 255, 255),
+        blur: euclid::Length::new(blur),
+        radius: BorderRadius::new(0., 8., 0., 0.),
+        ..Default::default()
+    };
+    // Only the top right corner is within reach of the screen. The huge shape's left edge is
+    // exactly representable, so both shapes share the same right edge.
+    let render = |left: f32, height: f32| {
+        render_drop_shadow(
+            screen_size,
+            &options(50. - left, height, 6.),
+            euclid::point2(left, 20.5),
+        )
+    };
+    let small = render(-500., 500.);
+    let huge = render(-16777216., 16777216.);
+    for (i, (a, b)) in small.iter().zip(huge.iter()).enumerate() {
+        assert_eq!(bytemuck::bytes_of(a), bytemuck::bytes_of(b), "pixel {i}");
+    }
+    assert!(small.iter().any(|p| p.alpha > 0));
+
+    let huge_blur =
+        render_drop_shadow(screen_size, &options(3e7, 3e7, 3e7), euclid::point2(-1e7, -1e7));
+    assert!(huge_blur.iter().any(|p| p.alpha > 0));
 }

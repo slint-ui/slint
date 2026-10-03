@@ -1,0 +1,96 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=300x240
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=45  - the border radius algorithm doesn't give the same result from every rotation
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 240px;
+    background: white;
+
+    // Smaller than the blur, so the corner curves overlap within one row's reach
+    Rectangle {
+        x: 20px;
+        y: 24px;
+        width: 16px;
+        height: 16px;
+        background: skyblue;
+        border-radius: 6px;
+        drop-shadow-color: #000000c0;
+        drop-shadow-blur: 10px;
+    }
+
+    // Radii larger than half a side
+    Rectangle {
+        x: 60px;
+        y: 20px;
+        width: 90px;
+        height: 44px;
+        background: skyblue;
+        border-top-left-radius: 40px;
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 40px;
+        border-bottom-left-radius: 8px;
+        drop-shadow-color: #000000c0;
+        drop-shadow-blur: 8px;
+        drop-shadow-offset-x: 4px;
+        drop-shadow-offset-y: 4px;
+    }
+
+    // The same radii without blur
+    Rectangle {
+        x: 180px;
+        y: 20px;
+        width: 90px;
+        height: 44px;
+        background: skyblue;
+        border-top-left-radius: 40px;
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 40px;
+        border-bottom-left-radius: 8px;
+        drop-shadow-color: #0000ff80;
+        drop-shadow-offset-x: 8px;
+        drop-shadow-offset-y: 8px;
+    }
+
+    // Negative spread shrinks the shadow to nothing
+    Rectangle {
+        x: 20px;
+        y: 120px;
+        width: 20px;
+        height: 20px;
+        background: skyblue;
+        drop-shadow-color: #000000c0;
+        drop-shadow-blur: 6px;
+        drop-shadow-spread: -12px;
+    }
+
+    // The opacity of an ancestor applies to the shadow
+    Rectangle {
+        x: 70px;
+        y: 110px;
+        width: 60px;
+        height: 40px;
+        opacity: 0.5;
+        Rectangle {
+            background: skyblue;
+            drop-shadow-color: black;
+            drop-shadow-blur: 8px;
+            drop-shadow-offset-y: 4px;
+        }
+    }
+
+    // A blur large enough to cap the number of bands
+    Rectangle {
+        x: 200px;
+        y: 130px;
+        width: 40px;
+        height: 40px;
+        background: skyblue;
+        border-radius: 20px;
+        drop-shadow-color: #ff0000c0;
+        drop-shadow-blur: 32px;
+    }
+}

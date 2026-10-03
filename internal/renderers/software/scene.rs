@@ -3,6 +3,7 @@
 
 //! This is the module contain data structures for a scene of items that can be rendered
 
+use super::draw_functions::BoxShadowCommand;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
@@ -22,6 +23,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub box_shadows: Vec<BoxShadowCommand>,
 }
 
 pub struct Scene {
@@ -311,6 +313,10 @@ pub enum SceneCommand {
     /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
     ConicGradient {
         conic_gradient_index: u16,
+    },
+    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    BoxShadow {
+        box_shadow_index: u16,
     },
 }
 
