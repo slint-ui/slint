@@ -3,55 +3,46 @@
 
 // cSpell: ignore signum underdamped
 
-#[cfg(test)]
-use crate::animations::simulations::{Direction, Parameter, Simulation};
-
-#[cfg(test)]
 use crate::animations::Instant;
+use crate::animations::simulations::spring::{SpringParameters, SpringRegime};
+use crate::animations::simulations::{Direction, Parameter, Simulation};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 #[cfg(test)]
 use crate::animations::simulations::{assert_approx_eq, test_limit_property};
 
-/// Input parameters for the `ConstantDecelerationSpringDamper` simulation
-/// [1] https://www.maplesoft.com/content/EngineeringFundamentals/6/MapleDocument_32/Free%20Response%20Part%202.pdf
-#[cfg(test)]
+/// Position epsilon (in the simulated property's units) below which the spring phase is
+/// considered settled at the limit.
+const SPRING_POSITION_EPSILON: f32 = 0.5;
+/// Velocity epsilon below which the spring phase is considered settled at the limit.
+const SPRING_VELOCITY_EPSILON: f32 = 5.0;
+/// Safety cap on the spring phase's duration, in case the settling checks above never trigger
+const SPRING_MAX_DURATION: f32 = 2.0;
+
+/// Input parameters for the `ConstantDecelerationSpringDamper` simulation.
 #[derive(Debug, Clone)]
 pub struct ConstantDecelerationSpringDamperParameters {
     pub initial_velocity: f32,
     pub deceleration: f32,
-    pub mass: f32,                // [1] parameter m
-    pub spring_constant: f32,     // [1] parameter k
-    pub damping_coefficient: f32, // [1] parameter c
+    /// Whether the simulation starts already past `limit_value`, rather than approaching it.
+    pub already_out_of_bounds: bool,
+    w_n: f32,
+    zeta: f32,
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
-    /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
-    /// It is more comfortable to use than specifying the parameters manually because here the parameter calculation
-    /// is done based on the `half_period_time` parameter
-    ///
-    /// * `initial_velocity` - the initial velocity of the point
-    /// * `deceleration` - the constant deceleration of the point
-    /// * `half_period_time` - the time of the simulation when the limit value got exceeded to return back to it
-    pub fn new(initial_velocity: f32, deceleration: f32, half_period_time: f32) -> Self {
-        let (mass, spring_constant, damping_coefficient) =
-            Self::calculate_parameters(half_period_time);
-
-        Self { initial_velocity, deceleration, mass, spring_constant, damping_coefficient }
-    }
-
-    fn calculate_parameters(half_period_time: f32) -> (f32, f32, f32) {
-        // [1] eq 13
-        const MASS: f32 = 1.;
-        const DAMPING_COEFFICIENT: f32 = 1.;
-        let w_d = 2. * core::f32::consts::PI * 1. / (2. * half_period_time);
-        let spring_constant = w_d.powi(2) + DAMPING_COEFFICIENT.powi(2) / (4. * MASS.powi(2));
-
-        (MASS, spring_constant, DAMPING_COEFFICIENT)
+    pub fn new(
+        initial_velocity: f32,
+        deceleration: f32,
+        already_out_of_bounds: bool,
+        spring: impl SpringParameters,
+    ) -> Self {
+        let (w_n, zeta) = spring.to_natural_frequency_and_damping_ratio();
+        Self { initial_velocity, deceleration, already_out_of_bounds, w_n, zeta }
     }
 }
 
-#[cfg(test)]
 impl Parameter for ConstantDecelerationSpringDamperParameters {
     type Output = ConstantDecelerationSpringDamper;
     fn simulation(
@@ -63,40 +54,36 @@ impl Parameter for ConstantDecelerationSpringDamperParameters {
     }
 }
 
-#[cfg(test)]
 #[derive(Debug, PartialEq)]
 enum State {
     Deceleration,
-    SpringDamper,
+    Spring,
     Done,
 }
 
-/// This simulation simulates a constant deceleration of a point starting at position `start_value` with
-/// an initial velocity of `initial_velocity`. When the point reaches the limit value `limit_value` before
-/// the velocity reaches zero, the system simulates a spring damper system to go shortly beyond the limit
-/// value and returning then back
-#[cfg(test)]
+/// Simulates a constant deceleration of a point starting at `start_value` with an initial
+/// velocity, like `ConstantDeceleration`. But instead of clamping at `limit_value`, it lets the
+/// point cross it and springs it back, so it settles at `limit_value` rather than stopping dead
+/// against it.
 #[derive(Debug)]
 pub struct ConstantDecelerationSpringDamper {
-    /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
-    /// but at the end of the animation the limit shall not be exceeded
+    /// The value the simulation settles at; may keep changing over the simulation's lifetime,
+    /// e.g. if the content driving it is resized mid-flight.
     limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-    curr_val_zeroed: f32,
     velocity: f32,
-    data: ConstantDecelerationSpringDamperParameters,
+    deceleration: f32,
     direction: Direction,
     start_time: Instant,
     state: State,
-    damping_ratio: f32,
-    /// Undamped natural frequency
     w_n: f32,
-    /// Damped natural frequency
-    w_d: f32,
-    constant_a: f32,
-    constant_phi: f32,
+    zeta: f32,
+    /// Only set once `state` is `Spring`.
+    spring: Option<SpringRegime>,
+    /// The sign the spring phase's relative position started on; it's finished once that sign
+    /// flips (or the position/velocity settle near zero, for a spring that never crosses back).
+    spring_away_sign: f32,
 }
 
-#[cfg(test)]
 impl ConstantDecelerationSpringDamper {
     pub fn new(
         start_value: f32,
@@ -109,69 +96,58 @@ impl ConstantDecelerationSpringDamper {
     fn new_internal(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
-        mut data: ConstantDecelerationSpringDamperParameters,
+        data: ConstantDecelerationSpringDamperParameters,
         start_time: Instant,
     ) -> Self {
-        let mut initial_velocity = data.initial_velocity;
-        let mut state = State::Deceleration;
-        let direction = if start_value == limit_value.as_ref().get() {
-            state = State::Done;
-            if initial_velocity >= 0. {
-                data.deceleration = f32::abs(data.deceleration);
-                Direction::Increasing
-            } else {
-                data.deceleration = -f32::abs(data.deceleration);
-                Direction::Decreasing
-            }
-        } else if start_value < limit_value.as_ref().get() {
-            data.deceleration = f32::abs(data.deceleration);
-            assert!(initial_velocity >= 0.); // Makes no sense yet that the velocity goes into the other direction
-            initial_velocity = f32::abs(initial_velocity);
-            Direction::Increasing
-        } else {
-            data.deceleration = -f32::abs(data.deceleration);
-            initial_velocity = -f32::abs(initial_velocity);
-            assert!(initial_velocity <= 0.);
-            Direction::Decreasing
+        let limit = limit_value.as_ref().get();
+
+        let mut this = Self {
+            limit_value,
+            velocity: data.initial_velocity,
+            deceleration: data.deceleration,
+            direction: Direction::Increasing,
+            start_time,
+            state: State::Deceleration,
+            w_n: data.w_n,
+            zeta: data.zeta,
+            spring: None,
+            spring_away_sign: 0.,
         };
 
-        assert!(data.mass > 0.);
-        assert!(data.spring_constant >= 0.);
-
-        let c_cr = 2. * f32::sqrt(data.mass * data.spring_constant); // Critical damping coefficient
-        let damping_ratio = data.damping_coefficient / c_cr;
-        assert!(damping_ratio > 0.);
-        assert!(damping_ratio < 1.); // Currently we support only the underdamped motion, because we wanna return to the `limit_value`
-
-        let w_n = c_cr / (2. * data.mass);
-        let w_d = w_n * f32::sqrt(1. - damping_ratio.powi(2));
-
-        Self {
-            limit_value,
-            curr_val_zeroed: 0.,
-            velocity: initial_velocity,
-            data,
-            direction,
-            start_time,
-            state,
-            damping_ratio,
-            w_n,
-            w_d,
-            constant_a: 0., // Calculated when transitioning to the damper spring state
-            constant_phi: 0., // Calculated when transitioning to the damper spring state
+        if start_value == limit {
+            this.state = State::Done;
+        } else if data.already_out_of_bounds {
+            this.enter_spring(start_value - limit, data.initial_velocity);
+        } else {
+            debug_assert!(
+                data.initial_velocity != 0.,
+                "a simulation that starts in bounds and isn't moving has nothing to animate"
+            );
+            if data.initial_velocity >= 0. {
+                this.direction = Direction::Increasing;
+                this.deceleration = f32::abs(data.deceleration);
+            } else {
+                this.direction = Direction::Decreasing;
+                this.deceleration = -f32::abs(data.deceleration);
+            }
         }
+
+        this
     }
 
-    fn new_value(&self) -> f32 {
-        self.limit_value.as_ref().get() + self.curr_val_zeroed
+    /// Switches to the spring phase, with `x_rel` and `velocity` relative to `limit_value`.
+    fn enter_spring(&mut self, x_rel: f32, velocity: f32) {
+        self.spring_away_sign = if x_rel != 0. { x_rel.signum() } else { velocity.signum() };
+        self.spring = Some(SpringRegime::new(x_rel, velocity, self.w_n, self.zeta));
+        self.state = State::Spring;
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         match self.state {
             State::Deceleration => self.state_deceleration(current, new_tick),
-            State::SpringDamper => self.state_spring_damper(current, new_tick),
+            State::Spring => self.state_spring(current, new_tick),
             State::Done => {
-                *current = self.new_value();
+                *current = self.limit_value.as_ref().get();
                 true
             }
         }
@@ -180,16 +156,15 @@ impl ConstantDecelerationSpringDamper {
     fn state_deceleration(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         let limit_value = self.limit_value.as_ref().get();
         let duration_unlimited = new_tick.duration_since(self.start_time);
-        // We have to prevent go go beyond the limit where velocity gets zero
-        let duration = f32::min(
-            duration_unlimited.as_secs_f32(),
-            f32::abs(self.velocity / self.data.deceleration),
-        );
+
+        // We have to prevent going beyond the limit where velocity gets zero.
+        let duration =
+            f32::min(duration_unlimited.as_secs_f32(), f32::abs(self.velocity / self.deceleration));
 
         self.start_time = new_tick;
 
-        let new_velocity = self.velocity - (duration * self.data.deceleration);
-        let new_val = *current + (duration * (self.velocity + new_velocity) / 2.); // Trapezoidal integration
+        let new_velocity = self.velocity - duration * self.deceleration;
+        let new_val = *current + duration * (self.velocity + new_velocity) / 2.; // Trapezoidal integration
 
         enum S {
             LimitReached,
@@ -204,44 +179,36 @@ impl ConstantDecelerationSpringDamper {
             Direction::Decreasing if new_velocity >= 0. => S::VelocityZero,
             _ => S::None,
         };
+
         match s {
             S::LimitReached => {
-                self.state = State::SpringDamper;
-
-                // time when reaching the limit
-                // solving p_limit = p_old + v_old * dt - 0.5 * a * dt^2
+                // Solve for the time within this step at which the limit was crossed:
+                // p_limit = p_old + v_old * dt - 0.5 * a * dt^2
                 let root = f32::sqrt(
-                    self.velocity.powi(2) - self.data.deceleration * (limit_value - *current),
+                    self.velocity.powi(2) - 2. * self.deceleration * (limit_value - *current),
                 );
-                // The smaller is the relevant. The larger is when the initial velocity got zero and due to the constant acceleration we turn
+                // The smaller root is the relevant crossing; the larger one is where the
+                // (unclamped) parabola would turn around and cross again.
                 let dt = f32::min(
-                    (self.velocity - root) / self.data.deceleration,
-                    (self.velocity + root) / self.data.deceleration,
-                );
-
-                self.velocity -= dt * self.data.deceleration; // Velocity at limit value point. Solved `new_val` equation for new_velocity
-                self.curr_val_zeroed = 0.;
-                *current = limit_value;
-
-                const X0: f32 = 0.; // Relative point
-                self.constant_a = self.velocity.signum()
-                    * f32::sqrt(
-                        (self.w_d.powi(2) * X0.powi(2)
-                            + (self.velocity + self.damping_ratio * self.w_n * 0.).powi(2))
-                            / self.w_d.powi(2),
-                    );
-                self.constant_phi =
-                    f32::atan(self.w_d * X0 / (self.velocity + self.damping_ratio * self.w_n * X0));
-                self.state_spring_damper(
-                    current,
-                    new_tick
-                        + (duration_unlimited
-                            - core::time::Duration::from_millis((dt * 1000.) as u64)),
+                    (self.velocity - root) / self.deceleration,
+                    (self.velocity + root) / self.deceleration,
                 )
+                .clamp(0., duration_unlimited.as_secs_f32());
+
+                let velocity_at_crossing = self.velocity - dt * self.deceleration;
+                *current = limit_value;
+                self.enter_spring(0., velocity_at_crossing);
+
+                // Simulate the remainder of this tick's duration in the spring phase right away,
+                // instead of losing it until the next tick.
+                self.start_time =
+                    new_tick - (duration_unlimited - core::time::Duration::from_secs_f32(dt));
+                self.state_spring(current, new_tick)
             }
             S::VelocityZero => {
                 self.velocity = 0.;
                 *current = new_val;
+                self.state = State::Done;
                 true
             }
             S::None => {
@@ -252,41 +219,30 @@ impl ConstantDecelerationSpringDamper {
         }
     }
 
-    fn state_spring_damper(&mut self, current: &mut f32, new_tick: Instant) -> bool {
-        // Here we use absolute time because it simplifies the equation
-        let t = (new_tick - self.start_time).as_secs_f32();
-        // Underdamped spring damper equation
-        assert!(self.damping_ratio < 1.);
-        let new_val = self.constant_a
-            * f32::exp(-self.damping_ratio * self.w_n * t)
-            * f32::sin(self.w_d * t + self.constant_phi);
-        self.curr_val_zeroed = new_val; // relative value
-
+    fn state_spring(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         let limit_value = self.limit_value.as_ref().get();
-        let max_time = 2. * core::f32::consts::PI / self.w_d;
-        let current_val = self.new_value();
-        *current = current_val;
-        let finished = match self.direction {
-            Direction::Increasing => {
-                // We are coming back from a value higher than the limit
-                current_val < limit_value || t > max_time
-            }
-            Direction::Decreasing => {
-                // We are coming back from a value lower than the limit
-                current_val > limit_value || t > max_time
-            }
-        };
-        if finished {
-            self.velocity = 0.;
+        let t = new_tick.duration_since(self.start_time).as_secs_f32();
+        let spring = self.spring.as_ref().expect("state_spring requires an active spring");
+        let (x_rel, velocity) = spring.evaluate(t);
+
+        let crossed_back = x_rel * self.spring_away_sign <= 0.;
+        let settled = f32::abs(x_rel) < SPRING_POSITION_EPSILON
+            && f32::abs(velocity) < SPRING_VELOCITY_EPSILON;
+        let timed_out = t > SPRING_MAX_DURATION;
+
+        if crossed_back || settled || timed_out {
             *current = limit_value;
-            self.curr_val_zeroed = 0.;
+            self.velocity = 0.;
             self.state = State::Done;
+            true
+        } else {
+            *current = limit_value + x_rel;
+            self.velocity = velocity;
+            false
         }
-        finished
     }
 }
 
-#[cfg(test)]
 impl Simulation for ConstantDecelerationSpringDamper {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         self.step_internal(current, new_tick)
@@ -294,69 +250,34 @@ impl Simulation for ConstantDecelerationSpringDamper {
 }
 
 #[cfg(test)]
-mod tests_spring_damper {
+mod tests {
     use super::*;
-    use core::{f32::consts::PI, time::Duration};
+    use crate::animations::simulations::spring::SpringDurationBounceParameters;
+    use core::time::Duration;
+
+    const SPRING: SpringDurationBounceParameters =
+        SpringDurationBounceParameters { duration_secs: 0.3, bounce: 0.15 };
 
     #[test]
-    fn calculate_parameters() {
-        const INITIAL_VELOCITY: f32 = 50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 100e-3;
-        let res = super::ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        let w_n = f32::sqrt(res.spring_constant * res.mass) / res.mass;
-        let damping_ratio = res.damping_coefficient / (2. * res.mass * w_n);
-        let w_d = w_n * f32::sqrt(1. - damping_ratio.powi(2));
-        assert_approx_eq!(w_d, 2. * PI * 1. / (2. * HALF_PERIOD_TIME));
-    }
-
-    #[test]
-    fn constant_deceleration_start_eq_limit() {
-        const START_VALUE: f32 = 10.;
-        const LIMIT_VALUE: f32 = 10.;
-        const INITIAL_VELOCITY: f32 = 50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 100e-3;
-        let parameters = ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        assert_eq!(START_VALUE, LIMIT_VALUE);
+    fn start_eq_limit_is_done_immediately() {
+        let parameters = ConstantDecelerationSpringDamperParameters::new(50., 20., false, SPRING);
         let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            10.,
+            test_limit_property(10.),
             parameters,
             time,
         );
-        let mut current = START_VALUE;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(current, START_VALUE);
-        assert_eq!(finished, true);
-        assert_eq!(simulation.state, State::Done);
+        let mut current = 10.;
+        let finished = simulation.step(&mut current, time + Duration::from_hours(10));
+        assert!(finished);
+        assert_eq!(current, 10.);
     }
 
-    /// The velocity becomes zero before we are reaching the limit
-    /// start_value < limit_value
     #[test]
-    fn constant_deceleration_increasing_limit_not_reached() {
-        const INITIAL_VELOCITY: f32 = 50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 100e-3;
-        let parameters = ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        let mut time = Instant::default();
+    fn velocity_zero_before_limit_reached_stays_in_bound() {
+        let parameters = ConstantDecelerationSpringDamperParameters::new(50., 20., false, SPRING);
+        let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
             10.,
             test_limit_property(2000.),
@@ -364,174 +285,74 @@ mod tests_spring_damper {
             time,
         );
         let mut current = 10.;
-
-        // Velocity does not become zero
-        let mut duration = Duration::from_secs(1);
-        assert!(DECELERATION * duration.as_secs_f32() < INITIAL_VELOCITY);
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_approx_eq!(
-            current,
-            10. + 50. * duration.as_secs_f32()
-                - 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
-        );
-
-        // Now the velocity becomes zero and we don't do any further calculations
-        duration = Duration::from_hours(10);
-        assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, true);
-        assert_approx_eq!(
-            current,
-            10. + 50. * INITIAL_VELOCITY / DECELERATION
-                - 0.5 * DECELERATION * (INITIAL_VELOCITY / DECELERATION).powi(2)
-        );
-
-        assert!(current < 2000.); // We reached velocity zero before we reached the position limit
+        let finished = simulation.step(&mut current, time + Duration::from_hours(10));
+        assert!(finished);
+        assert!(current < 2000.);
     }
 
-    /// We don't reach the position limit. Before the velocity gets zero
-    /// start_value > limit_value
     #[test]
-    fn constant_deceleration_decreasing_limit_not_reached() {
-        const START_VALUE: f32 = 2000.;
-        const LIMIT_VALUE: f32 = 10.;
-        const INITIAL_VELOCITY: f32 = -50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 100e-3;
-
-        let parameters = ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        let mut time = Instant::default();
+    fn overshoot_bounces_back_to_the_limit() {
+        let parameters = ConstantDecelerationSpringDamperParameters::new(50., 20., false, SPRING);
+        let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            10.,
+            test_limit_property(20.),
             parameters,
             time,
         );
-        let mut current = START_VALUE;
+        let mut current = 10.;
 
-        let mut duration = Duration::from_secs(1);
-        assert!(f32::abs(DECELERATION * duration.as_secs_f32()) < f32::abs(INITIAL_VELOCITY));
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_eq!(
-            current,
-            START_VALUE + INITIAL_VELOCITY * duration.as_secs_f32()
-                - INITIAL_VELOCITY.signum() * 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
-        );
-
-        duration = Duration::from_hours(10);
-        assert!(Duration::from_secs((INITIAL_VELOCITY / DECELERATION) as u64) < duration);
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, true);
-        assert_eq!(
-            current,
-            START_VALUE + INITIAL_VELOCITY * f32::abs(INITIAL_VELOCITY / DECELERATION)
-                - 0.5
-                    * INITIAL_VELOCITY.signum()
-                    * DECELERATION
-                    * (INITIAL_VELOCITY / DECELERATION).powi(2)
-        );
-
-        assert!(current > LIMIT_VALUE); // We reached velocity zero before we reached the position limit
+        // Crosses the limit (10 units away, decelerating from 50 units/s at 20 units/s^2) well
+        // before the velocity would naturally reach zero (at 2.5s): step in small increments and
+        // check it passes through the spring phase, overshooting past 20, before settling there.
+        let mut saw_spring_overshoot = false;
+        let mut t = Duration::ZERO;
+        loop {
+            t += Duration::from_millis(5);
+            let finished = simulation.step(&mut current, time + t);
+            if simulation.state == State::Spring && current > 20. {
+                saw_spring_overshoot = true;
+            }
+            if finished {
+                break;
+            }
+            assert!(t < Duration::from_secs(10), "simulation should have settled by now");
+        }
+        assert!(saw_spring_overshoot);
+        assert_approx_eq!(current, 20.);
     }
 
-    /// We reach the position limit before the velocity got zero and so we run into the spring damper system
-    /// Increasing case: start_value < limit_value
     #[test]
-    fn constant_deceleration_spring_damper_increasing_limit_reached() {
-        const INITIAL_VELOCITY: f32 = 50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 10.;
-        const START_VALUE: f32 = 10.;
-        const LIMIT_VALUE: f32 = 70.;
-        let parameters = super::ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        let mut time = Instant::default();
+    fn already_out_of_bounds_springs_back_regardless_of_velocity_direction() {
+        // Released while still drifting further out of bounds: the spring must still pull it back.
+        let parameters = ConstantDecelerationSpringDamperParameters::new(-5., 20., true, SPRING);
+        let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            -120.,
+            test_limit_property(-100.),
             parameters,
             time,
         );
-        let mut current = START_VALUE;
-
-        let duration = Duration::from_secs(1);
-        assert!(f32::abs(DECELERATION) * duration.as_secs_f32() < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_eq!(simulation.state, State::Deceleration);
-        assert!(current < LIMIT_VALUE); // We are still in the constant deceleration state
-
-        time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_eq!(simulation.state, State::SpringDamper);
-        assert!(current > LIMIT_VALUE);
-
-        time += Duration::from_hours(10);
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, true);
-        assert_eq!(simulation.state, State::Done);
-        assert_eq!(current, LIMIT_VALUE);
+        assert_eq!(simulation.state, State::Spring);
+        let mut current = -120.;
+        let finished = simulation.step(&mut current, time + Duration::from_secs(10));
+        assert!(finished);
+        assert_approx_eq!(current, -100.);
     }
 
-    /// We reach the position limit before the velocity got zero and so we run into the spring damper system
-    /// Decreasing case. limit_value < start_value
     #[test]
-    fn constant_deceleration_spring_damper_decreasing_limit_reached() {
-        const INITIAL_VELOCITY: f32 = -50.;
-        const DECELERATION: f32 = 20.;
-        const HALF_PERIOD_TIME: f32 = 10.;
-        const START_VALUE: f32 = 70.;
-        const LIMIT_VALUE: f32 = 10.;
-        let parameters = super::ConstantDecelerationSpringDamperParameters::new(
-            INITIAL_VELOCITY,
-            DECELERATION,
-            HALF_PERIOD_TIME,
-        );
-
-        let mut time = Instant::default();
+    fn already_out_of_bounds_at_rest_springs_back() {
+        let parameters = ConstantDecelerationSpringDamperParameters::new(0., 20., true, SPRING);
+        let time = Instant::default();
         let mut simulation = ConstantDecelerationSpringDamper::new_internal(
-            START_VALUE,
-            test_limit_property(LIMIT_VALUE),
+            -120.,
+            test_limit_property(-100.),
             parameters,
             time,
         );
-        let mut current = START_VALUE;
-
-        let duration = Duration::from_secs(1);
-        assert!(f32::abs(DECELERATION) * duration.as_secs_f32() < f32::abs(INITIAL_VELOCITY)); // We don't reach the limit where the velocity gets zero
-        time += duration;
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_eq!(simulation.state, State::Deceleration);
-        assert!(current > LIMIT_VALUE); // We are still in the constant deceleration state
-
-        time += Duration::from_secs((HALF_PERIOD_TIME / 2.) as u64);
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, false);
-        assert_eq!(simulation.state, State::SpringDamper);
-        assert!(current < LIMIT_VALUE);
-
-        time += Duration::from_hours(10);
-        let finished = simulation.step(&mut current, time);
-        assert_eq!(finished, true);
-        assert_eq!(simulation.state, State::Done);
-        assert_eq!(current, LIMIT_VALUE);
+        let mut current = -120.;
+        let finished = simulation.step(&mut current, time + Duration::from_secs(10));
+        assert!(finished);
+        assert_approx_eq!(current, -100.);
     }
 }
