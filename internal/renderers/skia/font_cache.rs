@@ -17,11 +17,17 @@ pub struct FontCache {
     // preventing eviction from fontique's shared cache (see commit 30a03cf).
     // The u64 is a hash of variation settings (0 for base typefaces).
     fonts: CLruCache<(HashedBlob, u32, u64), Option<skia_safe::Typeface>>,
+    // Blobs handed to Skia without copying. Typefaces can outlive their LRU entry.
+    shared_blobs: std::collections::HashSet<HashedBlob>,
 }
 
 impl Default for FontCache {
     fn default() -> Self {
-        Self { font_mgr: skia_safe::FontMgr::new(), fonts: CLruCache::new(FONT_CACHE_CAPACITY) }
+        Self {
+            font_mgr: skia_safe::FontMgr::new(),
+            fonts: CLruCache::new(FONT_CACHE_CAPACITY),
+            shared_blobs: Default::default(),
+        }
     }
 }
 
@@ -76,11 +82,13 @@ impl FontCache {
         typeface
     }
 
-    fn load_typeface_internal(&self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
-        let typeface = self.font_mgr.new_from_data(
-            skia_safe::Data::new_copy(font.data.as_ref()),
-            if font.index > 0 { Some(font.index as _) } else { None },
-        );
+    fn load_typeface_internal(&mut self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
+        self.shared_blobs.insert(font.data.clone().into());
+        // SAFETY: the blob is retained in `shared_blobs` for the lifetime of the cache.
+        let data = unsafe { skia_safe::Data::new_bytes(font.data.as_ref()) };
+        let typeface = self
+            .font_mgr
+            .new_from_data(data, if font.index > 0 { Some(font.index as _) } else { None });
 
         // Due to  https://issues.skia.org/issues/310510989, fonts from true type collections
         // with an index > 0 fail to load on macOS. As a workaround, we manually extract the font from the
