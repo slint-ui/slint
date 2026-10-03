@@ -30,6 +30,6 @@ On Windows:
 
 For Android:
 
- - Set up Rust, cargo-apk, etc. as per https://docs.slint.dev/latest/docs/rust/slint/android/#building-and-deploying
+ - Set up Rust, cargo-apk2, etc. as per https://docs.slint.dev/latest/docs/rust/slint/android/#building-and-deploying
  - Set `CARGO_NDK_SYSROOT_PATH=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/darwin-x86_64/sysroot` (replace `darwin-x86_64` with the tuple suitable for your host OS)
- - Build the `apk` with `cargo apk build --target aarch64-linux-android --lib`
+ - Build the `apk` with `cargo apk2 build --target aarch64-linux-android --lib`
