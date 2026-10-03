@@ -17,10 +17,22 @@
 
 <body>
   <div class="loader" id="loader" style="z-index: 1000; position: absolute">
+    <div class="loader-glow loader-glow-a"></div>
+    <div class="loader-glow loader-glow-b"></div>
     <div class="loader-content">
-      <img class="loader-logo" src="static/loader.svg" alt="Slint" />
-      <label class="loader-message" id="loader-message" for="loader-progress">Loading…</label>
-      <progress class="loader-progress" id="loader-progress"></progress>
+      <div class="loader-logo" aria-hidden="true">
+        <svg viewBox="0 0 30 42" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5.49 41.62 28.6 25.5s1.04-.6 1.04-1.55c0-1.27-1.32-1.68-1.32-1.68L15.61 17.2c-.45-.18-1.08.32-.49.96l4.2 4.24s1.17 1.16 1.17 1.92c0 .76-.72 1.43-.72 1.43L4.46 40.65c-.55.53.19 1.49 1.03.97Z" />
+          <path d="M24.15.76 1.04 16.88S0 17.48 0 18.43c0 1.27 1.32 1.68 1.32 1.68l12.71 5.07c.46.17 1.08-.33.5-.97l-4.21-4.25s-1.17-1.16-1.17-1.92c0-.76.72-1.43.72-1.43L25.17 1.73c.56-.53-.18-1.49-1.02-.97Z" />
+        </svg>
+      </div>
+      <div class="loader-strip">
+        <progress class="loader-progress" id="loader-progress"></progress>
+        <label class="loader-message" id="loader-message" for="loader-progress">Loading…</label>
+      </div>
+      <p class="loader-tagline">
+        Build the UI once. Run it <span class="loader-grad">on everything.</span>
+      </p>
     </div>
   </div>
 </body>
