@@ -49,8 +49,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// @children
-/// @deprecated property alias <=> two.way;
-/// @shadowable @deprecated in-out property <int> yyy <=> two.way;
+/// @deprecated("") property alias <=> two.way;
+/// @shadowable @deprecated("") in-out property <int> yyy <=> two.way;
 /// @deprecated("Use 'foobar' instead") callback old_callback <=> foobar;
 /// @shadowable public function foo() {}
 /// double_binding <=> element.property;
@@ -142,6 +142,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                                     p.error("Error: Expected '{'");
                                     had_parse_error = true;
                                 }
+                                p.consume();
                                 break;
                             }
                             _ => i += 1,
@@ -444,6 +445,7 @@ fn parse_case_inner(p: &mut impl Parser, after: &str) {
 /// ```test,Binding
 /// foo: bar;
 /// foo: {}
+/// foo: {};
 /// ```
 fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
@@ -458,10 +460,17 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// expression ;
 /// {expression }
 /// {object: 42};
+/// {};
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+    // Tell a code block from an object literal, which is '{};' or '{ identifier:'
+    if p.nth(0).kind() == SyntaxKind::LBrace
+        && !matches!(
+            (p.nth(1).kind(), p.nth(2).kind()),
+            (_, SyntaxKind::Colon) | (SyntaxKind::RBrace, SyntaxKind::Semicolon)
+        )
+    {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
         true
@@ -632,7 +641,7 @@ fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkp
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// @deprecated
+/// @deprecated("")
 /// @deprecated("Some message")
 /// @shadowable
 /// ```
@@ -655,17 +664,21 @@ fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
         if duplicated {
             p.error(format!("Duplicated @{name} attribute"));
         }
-        if is_deprecated && p.test(SyntaxKind::LParent) {
-            let peek = p.peek();
-            if peek.kind() != SyntaxKind::StringLiteral
-                || !peek.as_str().starts_with('"')
-                || !peek.as_str().ends_with('"')
-            {
-                p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
-                p.until(SyntaxKind::RParent);
+        if is_deprecated {
+            if !p.test(SyntaxKind::LParent) {
+                p.error("@deprecated requires a message in parentheses. Use '@deprecated(\"\")' to deprecate without advising on a replacement");
             } else {
-                p.expect(SyntaxKind::StringLiteral);
-                p.expect(SyntaxKind::RParent);
+                let peek = p.peek();
+                if peek.kind() != SyntaxKind::StringLiteral
+                    || !peek.as_str().starts_with('"')
+                    || !peek.as_str().ends_with('"')
+                {
+                    p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
+                    p.until(SyntaxKind::RParent);
+                } else {
+                    p.expect(SyntaxKind::StringLiteral);
+                    p.expect(SyntaxKind::RParent);
+                }
             }
         }
     }

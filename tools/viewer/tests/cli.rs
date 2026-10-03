@@ -285,17 +285,9 @@ fn check_conflicts_with_screenshot() {
 // then verify that the viewer's `--screenshot` output matches both.
 const SCREENSHOT_CASES: &[&str] = &["rgb", "linear-gradients", "radial-gradients"];
 
-#[cfg(any(
-    feature = "renderer-skia",
-    feature = "renderer-skia-opengl",
-    feature = "renderer-skia-vulkan"
-))]
+#[cfg(enable_skia)]
 const REFERENCE_RENDERER: &str = "skia";
-#[cfg(not(any(
-    feature = "renderer-skia",
-    feature = "renderer-skia-opengl",
-    feature = "renderer-skia-vulkan"
-)))]
+#[cfg(not(enable_skia))]
 const REFERENCE_RENDERER: &str = "software";
 
 #[test]

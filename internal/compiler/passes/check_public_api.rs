@@ -73,11 +73,17 @@ pub fn check_public_api(
                 true
             }
         }),
-        // Only keep the component with the given name
+        // Only keep the component with the given name, which may be one it is exported under
         ComponentSelection::Named(name) => {
+            let selected = doc.exports.iter().find_map(|(export_name, item)| match item {
+                Either::Left(c) if !c.is_global() && (c.id == *name || export_name.name == *name) => {
+                    Some(c.clone())
+                }
+                _ => None,
+            });
             doc.exports.retain(|export| {
                 if let Either::Left(c) = &export.1 {
-                    c.is_global() || c.id == name
+                    c.is_global() || selected.as_ref().is_some_and(|s| Rc::ptr_eq(s, c))
                 } else {
                     true
                 }
@@ -131,4 +137,25 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
             );
         }
     });
+}
+
+#[test]
+fn component_selected_by_either_of_its_names() {
+    fn selected(name: &str) -> Option<smol_str::SmolStr> {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.components_to_generate = ComponentSelection::Named(name.into());
+        let mut diags = BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            "component Foo inherits Window { } export { Foo as Bob }".into(),
+            Some(std::path::Path::new("test.slint")),
+            &mut diags,
+        );
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
+        doc.last_exported_component().map(|c| c.id.clone())
+    }
+
+    assert_eq!(selected("Foo").as_deref(), Some("Foo"));
+    assert_eq!(selected("Bob").as_deref(), Some("Foo"));
 }

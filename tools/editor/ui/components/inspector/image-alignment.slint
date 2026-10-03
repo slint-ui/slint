@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Colors, Metrics } from "../../style.slint";
+
+component AlignmentPoint inherits FocusScope {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+
+    width: 30px;
+    height: 30px;
+    accessible-role: AccessibleRole.button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.activated(); }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space {
+            root.activated();
+            return accept;
+        }
+        return reject;
+    }
+
+    Rectangle {
+        border-radius: 15px;
+        background: root.selected || touch.has-hover ? Colors.focus-background : transparent;
+        border-width: root.has-focus ? Metrics.focus-width * 0.75 : 0px;
+        border-color: Colors.focus;
+
+        Rectangle {
+            x: 7.5px;
+            y: 7.5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 7.5px;
+            background: root.selected ? Colors.accent : Colors.surface;
+            border-width: root.selected ? 0px : Metrics.border-width * 0.75;
+            border-color: Colors.border;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.focus();
+            root.activated();
+        }
+    }
+}
+
+export component InspectorImageAlignment inherits Rectangle {
+    in property <int> selected-column: -1;
+    in property <int> selected-row: -1;
+    out property <string> selected-label: root.position-label(root.selected-row, root.selected-column);
+    callback chosen(int, int);
+
+    horizontal-stretch: 1;
+    height: 120px;
+
+    pure function position-label(row: int, column: int) -> string {
+        if row < 0 || row > 2 || column < 0 || column > 2 {
+            return "";
+        }
+        if row == 0 {
+            return column == 0 ? @tr("Top left") : column == 1 ? @tr("Top center") : @tr("Top right");
+        }
+        if row == 1 {
+            return column == 0 ? @tr("Middle left") : column == 1 ? @tr("Center") : @tr("Middle right");
+        }
+        return column == 0 ? @tr("Bottom left") : column == 1 ? @tr("Bottom center") : @tr("Bottom right");
+    }
+
+    pure function point-label(row: int, column: int) -> string {
+        if row == 1 && column == 1 {
+            return @tr("Align image center");
+        }
+        let vertical = row == 0 ? @tr("top") : row == 1 ? @tr("middle") : @tr("bottom");
+        let horizontal = column == 0 ? @tr("left") : column == 1 ? @tr("center") : @tr("right");
+        return @tr("Align image {} {}", vertical, horizontal);
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        width: 120px;
+        height: 120px;
+
+        for line in 3: Rectangle {
+            x: 15px;
+            y: 15px + line * 45px;
+            width: 90px;
+            height: Metrics.border-width * 0.75;
+            background: Colors.subtle-border;
+        }
+
+        for line in 3: Rectangle {
+            x: 15px + line * 45px;
+            y: 15px;
+            width: Metrics.border-width * 0.75;
+            height: 90px;
+            background: Colors.subtle-border;
+        }
+
+        for row in 3: Rectangle {
+            y: row * 45px;
+            width: 120px;
+            height: 30px;
+
+            for column in 3: AlignmentPoint {
+                x: column * 45px;
+                label: root.point-label(row, column);
+                selected: root.selected-row == row && root.selected-column == column;
+                activated => { root.chosen(column, row); }
+            }
+        }
+    }
+}

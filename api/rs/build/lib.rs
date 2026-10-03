@@ -208,7 +208,7 @@ impl CompilerConfiguration {
         path: impl Into<std::path::PathBuf>,
     ) -> CompilerConfiguration {
         let mut config = self.config;
-        config.translation_path_bundle = Some(path.into());
+        config.bundled_translations_path = Some(path.into());
         Self { config }
     }
 
@@ -299,7 +299,7 @@ impl CompilerConfiguration {
             to_absolute_path(path);
         }
 
-        if let Some(path) = config.translation_path_bundle.as_mut() {
+        if let Some(path) = config.bundled_translations_path.as_mut() {
             to_absolute_path(path);
         }
 
@@ -533,7 +533,7 @@ pub fn compile_with_config(
         }
     }
     // Cargo scans a directory dependency recursively, so this also catches an added language.
-    if let Some(bundle_path) = &config.config.translation_path_bundle {
+    if let Some(bundle_path) = &config.config.bundled_translations_path {
         println!("cargo:rerun-if-changed={}", bundle_path.display());
     }
 

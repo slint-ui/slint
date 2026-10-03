@@ -112,7 +112,6 @@ pub(crate) fn should_materialize(
     let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
-        ElementType::Native(n) => n.lookup_property(prop).is_some(),
         ElementType::Global | ElementType::Interface | ElementType::Error => false,
     };
 
@@ -148,7 +147,6 @@ pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
     match &elem.base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
-        ElementType::Native(n) => n.lookup_property(prop).is_some(),
         ElementType::Global | ElementType::Interface | ElementType::Error => false,
     }
 }

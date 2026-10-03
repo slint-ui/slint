@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "4:1",
+    "nodeName": "Hug Button"
+  },
+  "root": {
+    "kind": "frame",
+    "id": "4:1",
+    "name": "Hug Button",
+    "x": 20,
+    "y": 20,
+    "width": 240,
+    "height": 64,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": "fixed",
+    "layoutSizingVertical": "fixed",
+    "fills": [
+      {
+        "kind": "solid",
+        "color": {
+          "r": 0.1,
+          "g": 0.12,
+          "b": 0.18,
+          "a": 1
+        },
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "autoLayout": {
+      "direction": "horizontal",
+      "paddingLeft": 16,
+      "paddingRight": 16,
+      "paddingTop": 12,
+      "paddingBottom": 12,
+      "itemSpacing": 10,
+      "primaryAlignment": "center",
+      "counterAlignment": "center",
+      "wrap": false,
+      "counterAxisSpacing": 10,
+      "counterAxisAlignContent": "start"
+    },
+    "children": [
+      {
+        "kind": "rectangle",
+        "id": "4:2",
+        "name": "Icon",
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 24,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": "hug",
+        "layoutSizingVertical": "fixed",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": {
+              "r": 0.98,
+              "g": 0.65,
+              "b": 0.18,
+              "a": 1
+            },
+            "opacity": 1
+          }
+        ],
+        "strokes": [],
+        "layoutPositioning": "auto",
+        "cornerRadii": [
+          6,
+          6,
+          6,
+          6
+        ],
+        "clipsContent": false,
+        "containerKind": "native",
+        "layoutFallback": "freeform",
+        "shadows": []
+      },
+      {
+        "kind": "text",
+        "id": "4:3",
+        "name": "Label",
+        "x": 0,
+        "y": 0,
+        "width": 96,
+        "height": 24,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": "hug",
+        "layoutSizingVertical": "hug",
+        "characters": "Continue",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "opacity": 1
+          }
+        ],
+        "fontFamily": "Inter",
+        "fontStyle": "Regular",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "textAutoResize": "width-and-height",
+        "horizontalAlign": "CENTER",
+        "verticalAlign": "CENTER",
+        "layoutPositioning": "auto",
+        "italic": false,
+        "letterSpacing": 0,
+        "lineHeightFactor": null,
+        "wrap": false,
+        "overflow": "clip",
+        "maxLines": null,
+        "runs": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      12,
+      12,
+      12,
+      12
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}

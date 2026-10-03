@@ -191,6 +191,10 @@ fn icon_to_winit(
             .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
             .collect(),
         SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(pixels) => {
+            pixels.as_slice().iter().flat_map(|p| [p.red(), p.green(), p.blue(), 255]).collect()
+        }
         SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
             .as_bytes()
             .chunks(4)
@@ -202,9 +206,37 @@ fn icon_to_winit(
                     .chain(std::iter::once(alpha as u8))
             })
             .collect(),
+        #[cfg(feature = "image-pixel-format-gray8")]
+        SharedImageBuffer::Gray8(pixels) => {
+            pixels.as_bytes().iter().flat_map(|g| [*g, *g, *g, 255]).collect()
+        }
     };
 
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
+}
+
+/// Images without a cache key, such as ones made from a pixel buffer, compare by identity (#13609).
+fn is_same_icon(previous: &Image, next: &Image) -> bool {
+    let (previous, next): (&ImageInner, &ImageInner) = (previous.into(), next.into());
+    match (ImageCacheKey::new(previous), ImageCacheKey::new(next)) {
+        (Some(previous_key), Some(next_key)) => previous_key == next_key,
+        (None, None) => {
+            matches!((previous, next), (ImageInner::None, ImageInner::None)) || previous == next
+        }
+        _ => false,
+    }
+}
+
+#[test]
+fn test_is_same_icon() {
+    let pixels = || Image::from_rgba8(SharedPixelBuffer::new(16, 16));
+    let icon = pixels();
+
+    assert!(is_same_icon(&Image::default(), &Image::default()));
+    assert!(!is_same_icon(&Image::default(), &icon));
+    assert!(!is_same_icon(&icon, &Image::default()));
+    assert!(is_same_icon(&icon, &icon.clone()));
+    assert!(!is_same_icon(&icon, &pixels()));
 }
 
 fn window_is_resizable(
@@ -450,7 +482,7 @@ pub struct WinitWindowAdapter {
 
     /// Winit's window_icon API has no way of checking if the window icon is
     /// the same as a previously set one, so keep track of that here.
-    window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+    window_icon: RefCell<Image>,
 
     custom_cursor_source: Cell<Option<CustomCursorSource>>,
 
@@ -510,7 +542,7 @@ impl WinitWindowAdapter {
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
-            window_icon_cache_key: Default::default(),
+            window_icon: Default::default(),
             custom_cursor_source: Cell::new(None),
             cursor_pos: Default::default(),
             pressed: Default::default(),
@@ -642,8 +674,8 @@ impl WinitWindowAdapter {
         // current scheme to this fresh winit window so its CSDs render correctly.
         // Otherwise winit exposes the system Light/Dark setting directly on the
         // new window, and the OS-specific query yields the accent color.
-        cfg_if::cfg_if! {
-            if #[cfg(xdg_desktop_settings)] {
+        core::cfg_select! {
+            xdg_desktop_settings => {
                 let scheme = WindowInner::from_pub(self.window()).context().color_scheme(None);
                 winit_window.set_theme(match scheme {
                     ColorScheme::Dark => Some(winit::window::Theme::Dark),
@@ -651,7 +683,8 @@ impl WinitWindowAdapter {
                     ColorScheme::Unknown => None,
                     _ => None,
                 });
-            } else {
+            }
+            _ => {
                 let initial_scheme = winit_window.theme().map_or(ColorScheme::Unknown, |theme| match theme {
                     winit::window::Theme::Dark => ColorScheme::Dark,
                     winit::window::Theme::Light => ColorScheme::Light,
@@ -845,6 +878,9 @@ impl WinitWindowAdapter {
 
         self.pending_redraw.set(false);
 
+        #[cfg(target_os = "windows")]
+        self.mark_windows_update_region_dirty();
+
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             // on macOS we sometimes don't get a resize event after calling
             // request_inner_size(), it returning None (promising a resize event), and then delivering RedrawRequested. To work around this,
@@ -1037,8 +1073,8 @@ impl WinitWindowAdapter {
     }
 
     fn query_system_accent_color() -> Color {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "windows")] {
+        core::cfg_select! {
+            target_os = "windows" => {
                 use windows::Win32::Graphics::{
                     Dwm::DwmGetColorizationColor,
                     Gdi::{GetSysColor, COLOR_HIGHLIGHT},
@@ -1059,7 +1095,8 @@ impl WinitWindowAdapter {
                 let g = ((colorref >> 8) & 0xFF) as u8;
                 let b = ((colorref >> 16) & 0xFF) as u8;
                 Color::from_argb_u8(255, r, g, b)
-            } else if #[cfg(target_os = "macos")] {
+            }
+            target_os = "macos" => {
                 use objc2::ClassType;
                 use objc2_app_kit::{NSColor, NSColorType};
                 // controlAccentColor is only available on macOS 10.14 and later.
@@ -1076,9 +1113,11 @@ impl WinitWindowAdapter {
                     let a = c.alphaComponent() as f32;
                     Color::from_argb_f32(a, r, g, b)
                 }).unwrap_or_default()
-            } else if #[cfg(target_arch = "wasm32")] {
+            }
+            target_arch = "wasm32" => {
                 query_wasm_accent_color()
-            } else {
+            }
+            _ => {
                 // Linux: set by XDG settings watcher; other platforms: not available
                 Color::default()
             }
@@ -1124,6 +1163,36 @@ impl WinitWindowAdapter {
     #[cfg(target_os = "ios")]
     pub fn set_platform_default_font_size(&self, size: i_slint_core::lengths::LogicalLength) {
         WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
+    }
+
+    /// Windows invalidates what a window shows when its scale factor changes, which the buffer
+    /// age a software surface reports doesn't account for. winit hands over the redraw before it
+    /// validates the region, so it can still be read here.
+    #[cfg(target_os = "windows")]
+    fn mark_windows_update_region_dirty(&self) {
+        use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        use windows::Win32::Foundation::{HWND, RECT};
+        use windows::Win32::Graphics::Gdi::GetUpdateRect;
+
+        let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
+        let Ok(window_handle) = winit_window.window_handle() else { return };
+        let RawWindowHandle::Win32(win32_handle) = window_handle.as_raw() else { return };
+        let hwnd = HWND(win32_handle.hwnd.get() as *mut core::ffi::c_void);
+
+        let mut update_rect = RECT::default();
+        if !unsafe { GetUpdateRect(hwnd, Some(&mut update_rect), false) }.as_bool() {
+            return;
+        }
+
+        let physical_rect = euclid::Box2D::<i32, PhysicalPx>::new(
+            euclid::point2(update_rect.left, update_rect.top),
+            euclid::point2(update_rect.right, update_rect.bottom),
+        )
+        .to_rect()
+        .cast::<Coord>();
+        let logical_rect: LogicalRect =
+            physical_rect / ScaleFactor::new(self.window().scale_factor());
+        self.renderer().as_core_renderer().mark_dirty_region(logical_rect.into());
     }
 
     pub fn window_state_event(&self) {
@@ -1537,6 +1606,8 @@ impl WinitWindowAdapter {
                         id: finger_id,
                         position,
                         phase: winit_touch_phase(touch.phase),
+                        event_time: None,
+                        history: Default::default(),
                     });
                 }
             }
@@ -1869,9 +1940,8 @@ impl WindowAdapter for WinitWindowAdapter {
 
         // Update the icon only if it changes, to avoid flashing.
         let icon_image = window_item.icon();
-        let icon_image_cache_key = ImageCacheKey::new((&icon_image).into());
-        if *self.window_icon_cache_key.borrow() != icon_image_cache_key {
-            *self.window_icon_cache_key.borrow_mut() = icon_image_cache_key;
+        if !is_same_icon(&self.window_icon.borrow(), &icon_image) {
+            *self.window_icon.borrow_mut() = icon_image.clone();
             winit_window_or_none.set_window_icon(icon_to_winit(
                 icon_image,
                 i_slint_core::lengths::LogicalSize::new(64., 64.) * ScaleFactor::new(sf),

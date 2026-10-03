@@ -98,12 +98,14 @@ pub fn assign_unique_declared_type_names(doc: &mut Document) {
     // as a deprecated alias.
     let export_names: BTreeSet<SmolStr> =
         doc.exports.iter().map(|(name, _)| name.name.clone()).collect();
+    let mut renamed_on_export = BTreeSet::new();
     let mut deprecated_type_aliases = Vec::new();
     for (export_name, component_or_type) in doc.exports.iter() {
         if let itertools::Either::Right(ty) = component_or_type
             && let Some((type_name, id)) = declared_name_and_identity(ty)
             && type_name != export_name.name
             && !export_names.contains(&type_name)
+            && renamed_on_export.insert(id.clone())
         {
             renames.insert(id, export_name.name.clone());
             deprecated_type_aliases.push((type_name, export_name.name.clone()));

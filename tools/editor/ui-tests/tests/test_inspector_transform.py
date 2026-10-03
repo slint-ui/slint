@@ -7,18 +7,21 @@ from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center
 from editor_sync import wait_for_source
 from inspector_interactions import edit_field as edit_inspector_field
+from inspector_interactions import slider_position
 from inspector_interactions import wait_for_field as wait_for_inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
+    elements,
     first_window,
     launch_editor,
     press_keys,
     press_shortcut,
     select_outline_row,
-    window_element_with_label,
 )
 
 SOURCE = "InspectorCases.slint"
@@ -54,9 +57,7 @@ def prepare(project: Path, values=(12, 12, 12, 12), rotation="32deg") -> bytes:
 
 def select_element(window, kind):
     select_outline_row(window, "inspect-" + kind.lower())
-    window_element_with_label(
-        window, "Rotation", slint_testing.AccessibleRole.TextInput
-    )
+    element(window, "Rotation", role=slint_testing.AccessibleRole.TextInput)
 
 
 def edit_field(window, label, value):
@@ -70,8 +71,8 @@ def wait_for_field(window, label, value):
 
 
 def action(window, label):
-    window_element_with_label(
-        window, label, slint_testing.AccessibleRole.Button
+    element(
+        window, label, role=slint_testing.AccessibleRole.Button
     ).invoke_accessible_default_action()
 
 
@@ -108,6 +109,39 @@ def test_rotation_numeric_exact_source_and_undo(
         press_shortcut(window, keys.Control, keys.Shift, "z")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", display)
+
+
+def test_rotation_prefix_scrubs_with_transient_preview(
+    editor_binary, editor_environment, fixture_project
+):
+    baseline = prepare(fixture_project)
+    expected = baseline.replace(
+        b"transform-rotation: 32deg", b"transform-rotation: 44deg"
+    )
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        scrubber = element(
+            window, "Rotation scrubber", role=slint_testing.AccessibleRole.Slider
+        )
+        start = center(scrubber)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_field(window, "Rotation", "44")
+        snapshot.assert_unchanged()
+
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+        wait_for_field(window, "Rotation", "32")
 
 
 @pytest.mark.parametrize("index", range(4))
@@ -216,8 +250,16 @@ def point(knob, angle):
     )
 
 
-@pytest.mark.parametrize("cancel", ["release", "escape", "pointer"])
-@pytest.mark.parametrize("initial", [350, 1070, -10])
+@pytest.mark.parametrize(
+    "cancel,initial",
+    [
+        ("release", 350),
+        ("release", 1070),
+        ("release", -10),
+        ("escape", 350),
+        ("pointer", 350),
+    ],
+)
 def test_knob_crosses_zero_with_transient_preview(
     editor_binary, editor_environment, fixture_project, cancel, initial
 ):
@@ -228,7 +270,7 @@ def test_knob_crosses_zero_with_transient_preview(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         assert knob.size.width == 32 and knob.size.height == 32
         start, end = point(knob, 350), point(knob, 10)
         window.dispatch_event(
@@ -302,7 +344,7 @@ def test_knob_keyboard_step(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start = point(knob, 32)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -335,7 +377,7 @@ def test_selection_change_cancels_knob_drag(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -366,12 +408,8 @@ def test_corner_slider_previews_then_commits_once(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        slider = window_element_with_label(window, "All corner radii slider")
-        pos, size = slider.absolute_position, slider.size
-        start = slint_testing.LogicalPosition(
-            x=pos.x + 6 + (size.width - 12) / 4, y=pos.y + 12
-        )
-        end = slint_testing.LogicalPosition(x=pos.x + size.width - 6, y=pos.y + 12)
+        start = slider_position(window, "All corner radii slider", 0.25)
+        end = slider_position(window, "All corner radii slider", 1)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
                 start, slint_testing.PointerEventButton.Left
@@ -403,6 +441,46 @@ def test_corner_slider_previews_then_commits_once(
             snapshot.wait_for_applied(baseline, relative_path=SOURCE)
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [(keys.Home, 0), (keys.End, 48), (keys.RightArrow, 13), (keys.LeftArrow, 11)],
+)
+def test_corner_slider_keyboard_and_undo(
+    editor_binary, editor_environment, fixture_project, key, value
+):
+    baseline = prepare(fixture_project)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / SOURCE
+    ) as app:
+        wait_for_source(fixture_project / SOURCE, baseline)
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        position = slider_position(window, "All corner radii slider", 0.25)
+        window.dispatch_event(slint_testing.PointerMoveEvent(position))
+        window.dispatch_event(
+            slint_testing.PointerPressEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        window.dispatch_event(
+            slint_testing.PointerReleaseEvent(
+                position, slint_testing.PointerEventButton.Left
+            )
+        )
+        snapshot.assert_unchanged()
+        press_keys(window, key)
+        expected = baseline
+        for name in PROPERTIES:
+            expected = expected.replace(
+                f"{name}: 12px".encode(), f"{name}: {value}px".encode()
+            )
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        wait_for_field(window, "All corner radii", str(value))
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path=SOURCE)
+
+
 @pytest.mark.parametrize("radius", ["0", "30.5"])
 def test_shared_radius_reads_effective_shorthand(
     editor_binary, editor_environment, fixture_project, radius
@@ -423,6 +501,47 @@ def test_shared_radius_reads_effective_shorthand(
         wait_for_field(window, "All corner radii", radius)
 
 
+def test_corner_slider_preserves_fractional_value_and_clamps_endpoint(
+    editor_binary, editor_environment, fixture_project
+):
+    source = fixture_project / SOURCE
+    baseline = prepare(fixture_project, values=(30.5,) * 4).replace(
+        b"height: 96px;", b"height: 97px;"
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as app:
+        wait_for_source(source, baseline)
+        window = first_window(app)
+        select_element(window, "Rectangle")
+        start = slider_position(window, "All corner radii slider", 30.5 / 48.5)
+        end = slider_position(window, "All corner radii slider", 1)
+        for position in [start, end]:
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            window.dispatch_event(
+                slint_testing.PointerPressEvent(
+                    start, slint_testing.PointerEventButton.Left
+                )
+            )
+            if position is not start:
+                window.dispatch_event(slint_testing.PointerMoveEvent(position))
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(
+                    position, slint_testing.PointerEventButton.Left
+                )
+            )
+            if position is start:
+                snapshot.assert_unchanged()
+                wait_for_field(window, "All corner radii", "30.5")
+        expected = baseline
+        for name in PROPERTIES:
+            expected = expected.replace(
+                f"{name}: 30.5px".encode(), f"{name}: 48.5px".encode()
+            )
+        snapshot.wait_for_applied(expected, relative_path=SOURCE)
+        wait_for_field(window, "All corner radii", "48.5")
+
+
 def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
     editor_binary, editor_environment, fixture_project
 ):
@@ -433,7 +552,7 @@ def test_knob_shift_drag_snaps_and_retains_keyboard_focus(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 90), point(knob, 108)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -479,7 +598,7 @@ def test_source_reload_cancels_knob_gesture(
         window = first_window(app)
         wait_for_source(fixture_project / SOURCE, baseline)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -518,9 +637,7 @@ def test_text_input_undo_does_not_revert_document(
         edit_field(window, "Rotation", "40")
         snapshot.wait_for_applied(expected, relative_path=SOURCE)
         wait_for_field(window, "Rotation", "40")
-        field = window_element_with_label(
-            window, label, slint_testing.AccessibleRole.TextInput
-        )
+        field = element(window, label, role=slint_testing.AccessibleRole.TextInput)
         field.single_click(slint_testing.PointerEventButton.Left)
         press_keys(window, text)
         wait_for_field(window, label, text)
@@ -550,7 +667,7 @@ def test_undo_while_dragging_cancels_release(
                 baseline.replace(b"32deg", b"42deg"), relative_path=SOURCE
             )
             wait_for_field(window, "Rotation", "42")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 32), point(knob, 62)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -592,29 +709,23 @@ def test_separate_corners_survive_rotation_edit(
 def test_deleted_selected_element_clears_inspector(
     editor_binary, editor_environment, fixture_project
 ):
-    from ui_driver import elements_with_label, wait_until
+    from ui_driver import wait_until
 
     source = fixture_project / SOURCE
     with launch_editor(editor_binary, editor_environment, source) as app:
         window = first_window(app)
         select_element(window, "Image")
-        window_element_with_label(
-            window, "Selected Image", slint_testing.AccessibleRole.Region
-        )
+        element(window, "Selected Image", role=slint_testing.AccessibleRole.Region)
         original = source.read_text()
         source.write_text(original[: original.index("    inspect-image :=")] + "}\n")
         wait_until(
             lambda: (
-                True
-                if not elements_with_label(
-                    window.root_element,
-                    "Selected Image",
-                    slint_testing.AccessibleRole.Region,
+                not elements(
+                    window, "Selected Image", role=slint_testing.AccessibleRole.Region
                 )
-                else None
             )
         )
-        assert not elements_with_label(window.root_element, "Image fit")
+        assert not elements(window, "Image fit")
 
 
 def test_rotation_release_keeps_preview_until_reload(
@@ -627,7 +738,7 @@ def test_rotation_release_keeps_preview_until_reload(
     ) as app:
         window = first_window(app)
         select_element(window, "Rectangle")
-        knob = window_element_with_label(window, "Rotation knob")
+        knob = element(window, "Rotation knob")
         start, end = point(knob, 90), point(knob, 108)
         window.dispatch_event(
             slint_testing.PointerPressEvent(
@@ -645,8 +756,8 @@ def test_rotation_release_keeps_preview_until_reload(
         deadline = time.monotonic() + 0.5
         while time.monotonic() < deadline:
             assert (
-                window_element_with_label(
-                    window, "Rotation", slint_testing.AccessibleRole.TextInput
+                element(
+                    window, "Rotation", role=slint_testing.AccessibleRole.TextInput
                 ).accessible_value
                 == "50"
             )

@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component Demo inherits Window {
+    width: 320px;
+    height: 180px;
+    background: transparent;
+    Rectangle {
+        border-top-left-radius: 4px;
+        Rectangle {
+            drop-shadow-color: #00000033;
+        }
+        Rectangle {
+            drop-shadow-color: #00000040;
+            drop-shadow-blur: 4px;
+            drop-shadow-offset-y: 2px;
+        }
+        Rectangle {
+            y: 0px;
+            height: 2px;
+            background: #3399FF;
+        }
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            background: #3399FF;
+        }
+    }
+    Text {
+        x: 24px;
+        y: 68px;
+        width: 272px;
+        height: 44px;
+        color: #FFFFFF;
+        text: "Defaults";
+        font-family: "Inter";
+        font-size: 20px;
+        font-weight: 400;
+        horizontal-alignment: left;
+    }
+}

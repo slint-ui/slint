@@ -34,7 +34,7 @@ pub(crate) fn install_color_scheme_observer(
     view: &UIView,
     adapter: Weak<WinitWindowAdapter>,
 ) -> Option<TraitChangeObserver> {
-    install_trait_change_observer(view, UITraitUserInterfaceStyle::class(), move |env| {
+    install_trait_change_observer(view, UITraitUserInterfaceStyle::class, move |env| {
         let Some(adapter) = adapter.upgrade() else { return };
         let scheme = style_to_color_scheme(unsafe { env.traitCollection().userInterfaceStyle() });
         adapter.set_color_scheme(scheme);

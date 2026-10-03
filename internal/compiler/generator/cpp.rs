@@ -2177,17 +2177,7 @@ fn generate_item_tree(
         #[cfg(feature = "bundle-translations")]
         if let Some(translations) = &root.translations {
             let lang_len = translations.languages.len();
-            create_code.push(format!(
-                "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
-                translations
-                    .languages
-                    .iter()
-                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
-                    .join(", ")
-            ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
-                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
-                                                                                                     translations.languages.len()));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -3259,6 +3249,9 @@ fn generate_grid_layout_input_decl(
         let templates = root_sc.row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
         let auto_val = i_slint_common::ROW_COL_AUTO;
+        let auto_cell = format!(
+            "slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }}"
+        );
         // When static children are present: fill them via the compiled expression into a temp
         // array, then interleave with inner-repeater cells in declaration order.
         // When there are no static children: skip the array/index variables entirely to avoid
@@ -3294,15 +3287,20 @@ fn generate_grid_layout_input_decl(
                 llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                     // Let the inner cell report its own col/row/colspan/rowspan.
+                    // An empty slot keeps its position, like in `layout_item_info` (#13726).
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
+                         for (size_t i = 0; i < {inner_rep_id}.len(); ++i) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 if (auto sub_comp = {inner_rep_id}.typed_instance_at(i)) {{\n\
+                                     sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 }} else {{\n\
+                                     result[write_idx] = {auto_cell};\n\
+                                 }}\n\
                              }}\n\
                              ++write_idx;\n\
-                         }});\n"
+                         }}\n"
                     )
                     .unwrap();
                 }
@@ -3313,7 +3311,7 @@ fn generate_grid_layout_input_decl(
         write!(
             fill_code,
             "while (write_idx < result.size()) {{\n\
-                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                 result[write_idx] = {auto_cell};\n\
                  ++write_idx;\n\
              }}\n"
         )
@@ -4482,7 +4480,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
-            let mut path = "self".to_string();
+            let mut owner = MemberAccess::Direct("self".to_string());
             let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
                 unreachable!()
             };
@@ -4492,7 +4490,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 par = x.parent;
                 repeater_index = x.repeater_index;
                 sc = x.sub_component;
-                write!(path, "->parent.lock().value()").unwrap();
+                owner = owner.and_then(|x| format!("{x}->parent.lock()"));
             }
             let repeater_index = repeater_index.unwrap();
             let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index]
@@ -4502,8 +4500,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let index_prop =
                 llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
-            format!("{path}.model_set_row_data({index_access}, {value})")
+            owner.then_named("model_owner", |path| {
+                format!(
+                    "{path}->repeater_{}.model_set_row_data({index_access}, {value})",
+                    usize::from(repeater_index)
+                )
+            })
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -6304,16 +6306,21 @@ fn generate_translation(
             ..Default::default()
         }));
     }
+    // The runtime keeps this array by reference, so it must have static storage duration.
     declarations.push(Declaration::Var(Var {
-        ty: "uint32_t".into(),
-        name: "slint_translation_bundle_decimal_separators".into(),
+        ty: "const slint::cbindgen_private::TranslationsBundled".into(),
+        name: "slint_translation_bundle_languages".into(),
         array_size: Some(translations.languages.len()),
         init: Some(format!(
             "{{ {} }}",
             translations
                 .languages
                 .iter()
-                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
+                .map(|(l, s)| format_smolstr!(
+                    "{{ slint::private_api::string_to_slice({:?}), {} }}",
+                    l.as_str(),
+                    *s as u32
+                ))
                 .join(", ")
         )),
         ..Default::default()

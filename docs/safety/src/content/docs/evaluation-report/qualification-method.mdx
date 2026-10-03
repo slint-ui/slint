@@ -1,30 +1,43 @@
 ---
 title: Qualification Method
-description: How the Slint compiler and the slint-sc runtime are qualified.
+description: How the tools of Slint SC are qualified.
 ---
+
+**Addresses:** ISO 26262-8 11.4.4.1 f, 11.4.9
+
+This chapter states how each tool reaches the confidence level its [classification](/evaluation-report/tool-classification/) asks for.
+The runtime isn't a tool; its qualification is in the [Component Qualification Plan](/qualification-plan/component-qualification/).
+
+:::caution[TODO]
+At ASIL B, Tables 4 and 5 of ISO 26262-8 highly recommend increased confidence from use (11.4.7) and evaluation of the tool development process (11.4.8).
+They only recommend validation (11.4.9), the method chosen here.
+Decide whether 11.4.8 is also claimed.
+If it is, 11.4.8.3 wants the evaluation based on a recognized standard, such as Automotive SPICE, the ISO/IEC 33000 series, or CMMI, so say which.
+:::
 
 ## Slint Compiler
 
-The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 Clause 11.
+The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 11.4.9.
 
 Validation means writing test cases that cover each language feature of Slint SC, and verifying that the generated Rust code is correct for each.
-Every paragraph of the [Language Specification](/language/) carries an identifier, and every identifier is traced to at least one test, so the coverage of the feature set is measured rather than asserted.
-See the [Traceability Matrix](/qualification-report/traceability-matrix/).
+Every paragraph of the [Language Specification](/reference/language/) carries an identifier, and every identifier is traced to at least one test, so the coverage of the feature set is measured rather than asserted.
 
-The confidence level this has to reach is in [Tool Classification](/evaluation-report/tool-classification/).
+| 11.4.9.2 asks for | How |
+| --- | --- |
+| a) Evidence that the tool complies with its specified requirements | The [Traceability Matrix](/qualification-report/traceability-matrix/) |
+| b) Analysis of malfunctions found during validation | [Known Problems](/user-manual/known-problems/) |
+| c) Reaction to anomalous operating conditions | The [compiler syntax tests](/qualification-plan/test-suites/#compiler-syntax-tests) assert that everything outside the qualified subset is rejected with a diagnostic |
 
-## slint-sc Runtime
+## slint-sc-coverage
 
-The runtime is qualified as a software component, per ISO 26262-8 Clause 12, so it's verified rather than validated as a tool.
-
-Two measures back it:
-
-* Every paragraph of the [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/) is traced to at least one test.
-* The runtime is held at complete line, function, and region coverage. See [Test Coverage](/qualification-report/test-coverage/).
+`slint-sc-coverage` is qualified by validation too.
+Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement.
+See [Coverage Tool Verification](/qualification-plan/slint-coverage/).
 
 ## Test Suites
 
 The suites that produce this evidence are described in [Test Suites](/qualification-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).
 
-(TODO: give each suite an identifier, so the potential errors can be traced to
-the suites that cover them.)
+:::caution[TODO]
+Give each suite an identifier, so the potential errors can be traced to the suites that cover them.
+:::

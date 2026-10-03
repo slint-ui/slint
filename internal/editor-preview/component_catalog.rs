@@ -39,7 +39,7 @@ impl Position {
 /// Information about an available element type.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct ComponentInformation {
-    /// The name of the type.
+    /// The name of the type, normalized.
     pub name: String,
     /// A broad category used to group types.
     pub category: String,
@@ -95,7 +95,7 @@ fn import_file_name_for_url(
 /// Information about an exported struct or enum.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TypeInformation {
-    /// The exported name of the type.
+    /// The exported name of the type, normalized.
     pub name: String,
     /// The URL of the file where this type is defined.
     pub defined_at: Option<lsp_types::Url>,

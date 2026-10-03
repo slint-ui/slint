@@ -4,7 +4,7 @@
 import { Style, Metrics, Colors, Typography, CornerModeStyle, CornerEditorStyle } from "../../style.slint";
 
 import { InspectorValueField } from "value-field.slint";
-import { InspectorRadiusSlider } from "radius-slider.slint";
+import { InspectorSlider } from "slider.slint";
 
 component CornerMode inherits FocusScope {
     in property <CornerModeStyle> style: Style.corner-mode;
@@ -76,7 +76,8 @@ export component InspectorCornerEditor inherits Rectangle {
         }
         if !root.separate: HorizontalLayout {
             spacing: Metrics.space-regular;
-            slider := InspectorRadiusSlider {
+            slider := InspectorSlider {
+                accessible-name: "All corner radii slider";
                 style: root.style.slider;
                 value: root.values[0]; maximum: root.maximum; commit-key: root.commit-key;
                 preview(value) => { return root.preview(value); }
@@ -87,7 +88,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 style: root.style.field;
                 width: root.style.field-width;
                 accessible-name: "All corner radii";
-                prefix: "px";
+                prefix: "";
                 value: "\{slider.visual-value}";
                 commit-key: root.commit-key;
                 accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(-1, text.to-float()); }

@@ -17,39 +17,12 @@ from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
-    elements_with_label,
+    elements,
     first_window,
     launch_editor,
     press_key,
     select_outline_row,
 )
-
-
-@pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
-def test_fixed_picker_controls_keep_their_width(
-    editor_binary, editor_environment, tmp_path, kind
-):
-    prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
-    stops = (
-        "red 0deg, lime 180deg, blue 360deg" if kind == "conic" else "red, lime, blue"
-    )
-    file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
-    original = SourceSnapshot.capture(tmp_path)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
-        wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
-        open_gradient(window)
-        assert control(window, "Add gradient stop").size.width == 24
-        for index in range(1, 4):
-            assert control(window, f"Remove stop {index}").size.width == 24
-        assert control(window, "Close Custom").size.width == 48
-        click_picker_button(window, "Edit stop 2 color")
-        assert control(window, "Close Stop color").size.width == 48
-        (tmp_path / f"picker-{kind}.png").write_bytes(window.grab_window_as_png())
-        click_picker_button(window, "Close Stop color")
-        click_picker_button(window, "Close Custom")
-        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("kind", ["linear", "radial", "conic"])
@@ -64,12 +37,35 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         for index in range(count)
     )
     file = gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {stops})")
+    full_source = file.read_bytes()
+    if count == 32:
+        compact_stops = (
+            "red 0deg, lime 180deg, blue 360deg"
+            if kind == "conic"
+            else "red, lime, blue"
+        )
+        gradient_document(tmp_path, f"@{kind}-gradient({prefix}, {compact_stops})")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+        if count == 32:
+            assert control(window, "Add gradient stop").size.width == 24
+            for index in range(1, 4):
+                assert control(window, f"Remove stop {index}").size.width == 24
+            assert control(window, "Close Custom").size.width == 48
+            click_picker_button(window, "Edit stop 2 color")
+            assert control(window, "Close Stop color").size.width == 48
+            click_picker_button(window, "Close Stop color")
+            click_picker_button(window, "Close Custom")
+            original.assert_unchanged()
+            file.write_bytes(full_source)
+            wait_for_source(file, full_source)
+            original = SourceSnapshot.capture(tmp_path)
+            select_outline_row(window, "fill")
+            open_gradient(window)
         first = picker_field(window, "Stop 1 position")
         top = first.absolute_position.y
         scroll_point = center(first)
@@ -83,9 +79,6 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
             assert first.absolute_position.y == top
-        (tmp_path / f"picker-{kind}-{count}-stops.png").write_bytes(
-            window.grab_window_as_png()
-        )
         click_picker_button(window, "Add gradient stop")
         control(
             window, f"Gradient stop {count + 1}", slint_testing.AccessibleRole.Slider
@@ -97,10 +90,10 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         point = shifted(center(remove), x=-8)
         assert top <= point.y < bottom.absolute_position.y
         gesture(window, point, point)
-        assert not elements_with_label(
-            window.root_element,
+        assert not elements(
+            window,
             f"Gradient stop {count + 1}",
-            slint_testing.AccessibleRole.Slider,
+            role=slint_testing.AccessibleRole.Slider,
         )
         press_key(window, keys.Escape)
         original.assert_unchanged()

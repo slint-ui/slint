@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CanvasView } from "canvas-view.slint";
+
+export component CanvasPanArea inherits TouchArea {
+    in property <bool> component-visible;
+    callback started();
+    enabled: root.component-visible && CanvasView.navigation-enabled
+        && (CanvasView.space-pressed || CanvasView.panning);
+    mouse-cursor: CanvasView.panning ? grabbing : grab;
+    accessible-role: AccessibleRole.region;
+    accessible-label: "Canvas pan area";
+    private property <Point> start-pan;
+
+    public function cancel() {
+        if CanvasView.panning { CanvasView.pan = root.start-pan; }
+        CanvasView.panning = false;
+        CanvasView.space-pressed = false;
+    }
+    changed pressed => {
+        if root.pressed {
+            root.start-pan = CanvasView.pan;
+            CanvasView.panning = true;
+            root.started();
+        } else {
+            CanvasView.panning = false;
+        }
+    }
+    moved => {
+        if root.pressed && CanvasView.panning {
+            CanvasView.pan = {
+                x: root.start-pan.x + root.mouse-x - root.pressed-x,
+                y: root.start-pan.y + root.mouse-y - root.pressed-y,
+            };
+        }
+    }
+    scroll-event(event) => { return CanvasView.scroll({ x: event.delta-x, y: event.delta-y }); }
+}

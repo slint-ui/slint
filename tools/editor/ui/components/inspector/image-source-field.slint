@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, FieldStyle, Metrics } from "../../style.slint";
+
+import { InspectorIconButton } from "icon-button.slint";
+
+export component InspectorImageSourceField inherits Rectangle {
+    in property <FieldStyle> style: Style.inspector-field;
+    in property <string> value;
+    callback browse;
+
+    height: root.style.height;
+
+    HorizontalLayout {
+        spacing: Metrics.space-small;
+
+        InspectorIconButton {
+            kind: "folder";
+            label: "Choose image file";
+            focus-on-click: false;
+            clicked => { root.browse(); }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            border-radius: root.style.radius;
+            background: root.style.appearance.normal.background;
+            accessible-role: AccessibleRole.text;
+            accessible-label: "Image source";
+            accessible-value: root.value;
+
+            HorizontalLayout {
+                padding-left: root.style.padding-inline;
+                padding-right: root.style.padding-inline;
+
+                Text {
+                    text: root.value;
+                    color: root.style.appearance.normal.foreground;
+                    font-size: root.style.text.size;
+                    font-weight: root.style.text.weight;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

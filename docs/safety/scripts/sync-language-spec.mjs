@@ -3,7 +3,8 @@
 
 // Sync the language-specification chapters from their canonical location in
 // the main Slint docs (docs/astro/src/content/docs/reference/language/) into
-// this site's src/content/docs/language/ directory, which is gitignored.
+// this site's src/content/docs/reference/language/ directory, which is
+// gitignored.
 // Only chapters that opt into the SC subset with `SC: true` in their
 // frontmatter are brought over, and only the content they wrap in <SC>.
 //
@@ -21,10 +22,11 @@ import { fileURLToPath } from "node:url";
 // Links that leave the specification directory: canonical (docs/astro) form
 // on the left, safety-manual form on the right.
 const LINK_MAP = new Map([
-    ["](../overview/)", "](../reference/)"],
+    // The manual's reference overview is the section's landing page.
+    ["](../overview/)", "](../)"],
     // The manual serves the element reference flat, without the groups the
     // main documentation sorts it into.
-    ["](../../gestures/toucharea/", "](../../reference/toucharea/"],
+    ["](../../gestures/toucharea/", "](../../toucharea/"],
 ]);
 
 function isSC(content) {
@@ -139,7 +141,7 @@ function syncDir(sourceDir, targetDir, accept, transform = (c) => c) {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, "../../astro/src/content/docs/reference/language");
-const target = join(here, "../src/content/docs/language");
+const target = join(here, "../src/content/docs/reference/language");
 
 mkdirSync(target, { recursive: true });
 
@@ -159,7 +161,7 @@ for (const entry of readdirSync(source)) {
     for (const [from, to] of LINK_MAP) {
         content = content.replaceAll(from, to);
     }
-    content = linksFromRoot(keepOnlySC(content), pageUrl("/language/", entry));
+    content = linksFromRoot(keepOnlySC(content), pageUrl("/reference/language/", entry));
     const targetFile = join(target, entry);
     if (!existsSync(targetFile) || readFileSync(targetFile, "utf-8") !== content) {
         writeFileSync(targetFile, content);

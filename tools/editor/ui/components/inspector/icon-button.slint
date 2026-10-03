@@ -8,6 +8,7 @@ export component InspectorIconButton inherits Rectangle {
     in property <string> kind;
     in property <string> label: root.kind;
     in property <bool> selected: false;
+    in property <bool> focus-on-click: true;
     callback clicked;
     private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
         : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
@@ -91,10 +92,23 @@ export component InspectorIconButton inherits Rectangle {
         Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
     }
 
+    if root.kind == "folder": Image {
+        x: 3px;
+        y: 3px;
+        width: 13px;
+        height: 13px;
+        source: @image-url("../../assets/primer-folder-open.svg");
+        colorize: root.paint.foreground;
+    }
+
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            button-focus.focus();
+            if root.focus-on-click {
+                button-focus.focus();
+            } else {
+                button-focus.clear-focus();
+            }
             root.clicked();
         }
     }

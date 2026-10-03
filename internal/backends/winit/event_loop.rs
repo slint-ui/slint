@@ -311,14 +311,15 @@ impl EventLoopState {
             .ok_or_else(|| PlatformError::from("Nested event loops are not supported"))?;
         let mut winit_loop = not_running_loop_instance;
 
-        cfg_if::cfg_if! {
-            if #[cfg(any(target_arch = "wasm32", ios_and_friends))] {
+        core::cfg_select! {
+            any(target_arch = "wasm32", ios_and_friends) => {
                 winit_loop
                     .run_app(&mut self)
                     .map_err(|e| format!("Error running winit event loop: {e}"))?;
                 // This can't really happen, as run() doesn't return
                 Ok(Self::new(self.shared_backend_data.clone(), None))
-            } else {
+            }
+            _ => {
                 use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
                 winit_loop
                     .run_app_on_demand(&mut self)

@@ -134,10 +134,10 @@ export component StandardTableView {
     in-out property <length> content-height <=> scroll-view.content-height;
     in-out property <length> content-x <=> scroll-view.content-x;
     in-out property <length> content-y <=> scroll-view.content-y;
-    @deprecated in-out property <length> viewport-width <=> content-width;
-    @deprecated in-out property <length> viewport-height <=> content-height;
-    @deprecated in-out property <length> viewport-x <=> content-x;
-    @deprecated in-out property <length> viewport-y <=> content-y;
+    @deprecated("Please use 'content-width' instead") in-out property <length> viewport-width <=> content-width;
+    @deprecated("Please use 'content-height' instead") in-out property <length> viewport-height <=> content-height;
+    @deprecated("Please use 'content-x' instead") in-out property <length> viewport-x <=> content-x;
+    @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
 

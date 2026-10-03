@@ -3,7 +3,13 @@
 
 # cSpell: ignore AFAICT ARGN endwhile GENEX REALPATH
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
-set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
+# A web page can't read files from the build machine
+if(EMSCRIPTEN)
+    set(_slint_default_embed_resources embed-files)
+else()
+    set(_slint_default_embed_resources as-absolute-path)
+endif()
+set(DEFAULT_SLINT_EMBED_RESOURCES ${_slint_default_embed_resources} CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
 set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
     "as-absolute-path" "embed-files" "embed-for-software-renderer" "embed-for-software-renderer-with-sdf")

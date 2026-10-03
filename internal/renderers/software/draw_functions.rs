@@ -205,6 +205,26 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => {
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let p: &[u8] = &data[pos(2).0..][..2];
+                        *pix = TargetPixel::from_rgb565(u16::from_ne_bytes([p[0], p[1]]));
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let b: &[u8] = &data[pos(2).0..][..2];
+                        let p = Rgb565Pixel(u16::from_ne_bytes([b[0], b[1]]));
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            p.red(),
+                            p.green(),
+                            p.blue(),
+                        )))
+                    }
+                }
+            }
             TexturePixelFormat::Rgba => {
                 if color.alpha() == 0 {
                     for pix in line_buffer {
@@ -279,6 +299,24 @@ pub(super) fn draw_texture_line(
                         color.blue(),
                     ));
                     pix.blend(c);
+                }
+            }
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => {
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
+                        *pix = TargetPixel::from_rgb(v, v, v);
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha, v, v, v,
+                        )));
+                    }
                 }
             }
             TexturePixelFormat::SignedDistanceField => {
@@ -691,10 +729,7 @@ pub(super) fn draw_radial_gradient(
         // Find the two gradient stops to interpolate between
         let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
 
-        for window in g.stops.windows(2) {
-            let stop1 = &window[0];
-            let stop2 = &window[1];
-
+        for [stop1, stop2] in g.stops.array_windows() {
             if position >= stop1.position && position <= stop2.position {
                 // Interpolate between the two stops
                 let t = if stop2.position == stop1.position {
@@ -766,10 +801,7 @@ pub(super) fn draw_conic_gradient(
         // Find the two gradient stops to interpolate between
         let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
 
-        for window in g.stops.windows(2) {
-            let stop1 = &window[0];
-            let stop2 = &window[1];
-
+        for [stop1, stop2] in g.stops.array_windows() {
             if position >= stop1.position && position <= stop2.position {
                 // Interpolate between the two stops
                 let t = if stop2.position == stop1.position {
@@ -852,6 +884,16 @@ pub trait TargetPixel: Sized + Copy {
     /// Create a pixel from the red, gree, blue component in the range 0..=255
     fn from_rgb(red: u8, green: u8, blue: u8) -> Self;
 
+    /// Create a pixel from a 16-bit RGB565 value in native byte order
+    /// (5 red bits, 6 green bits, 5 blue bits).
+    ///
+    /// The default implementation expands the components. RGB565 pixel
+    /// types override this and use the value as-is.
+    fn from_rgb565(value: u16) -> Self {
+        let pixel = Rgb565Pixel(value);
+        Self::from_rgb(pixel.red(), pixel.green(), pixel.blue())
+    }
+
     /// Pixel which will be filled as the background in case the slint view has transparency
     fn background() -> Self {
         Self::from_rgb(0, 0, 0)
@@ -890,35 +932,11 @@ impl TargetPixel for PremultipliedRgbaColor {
     }
 }
 
-/// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Rgb565Pixel(pub u16);
+pub use i_slint_core::graphics::Rgb565Pixel;
 
-impl Rgb565Pixel {
-    const R_MASK: u16 = 0b1111_1000_0000_0000;
-    const G_MASK: u16 = 0b0000_0111_1110_0000;
-    const B_MASK: u16 = 0b0000_0000_0001_1111;
-
-    /// Return the red component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn red(self) -> u8 {
-        ((self.0 & Self::R_MASK) >> 8) as u8
-    }
-    /// Return the green component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn green(self) -> u8 {
-        ((self.0 & Self::G_MASK) >> 3) as u8
-    }
-    /// Return the blue component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn blue(self) -> u8 {
-        ((self.0 & Self::B_MASK) << 3) as u8
-    }
-}
+const R_MASK: u16 = 0b1111_1000_0000_0000;
+const G_MASK: u16 = 0b0000_0111_1110_0000;
+const B_MASK: u16 = 0b0000_0000_0001_1111;
 
 impl TargetPixel for Rgb565Pixel {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
@@ -927,8 +945,7 @@ impl TargetPixel for Rgb565Pixel {
         let a = (a + 4) >> 3;
 
         // 00000ggg_ggg00000_rrrrr000_000bbbbb
-        let expanded = (self.0 & (Self::R_MASK | Self::B_MASK)) as u32
-            | (((self.0 & Self::G_MASK) as u32) << 16);
+        let expanded = (self.0 & (R_MASK | B_MASK)) as u32 | (((self.0 & G_MASK) as u32) << 16);
 
         // gggggggg_000rrrrr_rrr000bb_bbbbbb00
         let c =
@@ -938,24 +955,16 @@ impl TargetPixel for Rgb565Pixel {
 
         let res = expanded * a + c;
 
-        self.0 = ((res >> 21) as u16 & Self::G_MASK)
-            | ((res >> 5) as u16 & (Self::R_MASK | Self::B_MASK));
+        self.0 = ((res >> 21) as u16 & G_MASK) | ((res >> 5) as u16 & (R_MASK | B_MASK));
     }
 
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
+        // This calls the inherent from_rgb, not this trait method.
+        Rgb565Pixel::from_rgb(r, g, b)
     }
-}
 
-impl From<Rgb8Pixel> for Rgb565Pixel {
-    fn from(p: Rgb8Pixel) -> Self {
-        Self::from_rgb(p.r, p.g, p.b)
-    }
-}
-
-impl From<Rgb565Pixel> for Rgb8Pixel {
-    fn from(p: Rgb565Pixel) -> Self {
-        Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+    fn from_rgb565(value: u16) -> Self {
+        Self(value)
     }
 }
 
@@ -1009,6 +1018,11 @@ impl TargetPixel for Rgb565BigEndianPixel {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(Rgb565Pixel::from_rgb(r, g, b).0.to_be())
     }
+
+    fn from_rgb565(value: u16) -> Self {
+        // Same 565 bit layout, only the byte order differs.
+        Self(value.to_be())
+    }
 }
 
 impl From<Rgb8Pixel> for Rgb565BigEndianPixel {
@@ -1035,6 +1049,28 @@ fn rgb565() {
 }
 
 #[test]
+fn rgb565_full_component_expands_to_255() {
+    // The C++ Rgb565Pixel accessors replicate the high bits the same way, so an RGB565 image
+    // has to reach pure white on every renderer, not #f8fcf8.
+    let white = Rgb565Pixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white.red(), 0xff);
+    assert_eq!(white.green(), 0xff);
+    assert_eq!(white.blue(), 0xff);
+
+    let black = Rgb565Pixel::from_rgb(0, 0, 0);
+    assert_eq!(black.red(), 0);
+    assert_eq!(black.green(), 0);
+    assert_eq!(black.blue(), 0);
+
+    assert_eq!(Rgb8Pixel::from_rgb565(white.0), Rgb8Pixel { r: 0xff, g: 0xff, b: 0xff });
+
+    let white_be = Rgb565BigEndianPixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white_be.red(), 0xff);
+    assert_eq!(white_be.green(), 0xff);
+    assert_eq!(white_be.blue(), 0xff);
+}
+
+#[test]
 fn rgb565_be() {
     // BE should be byte-swapped LE for any color
     for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0xff, 0), (0, 0, 0xff)] {
@@ -1051,6 +1087,24 @@ fn rgb565_be() {
     let pix_be = Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix_be.into();
     assert_eq!(pix_be, pix888.into());
+}
+
+#[test]
+fn target_pixel_from_rgb565() {
+    let value = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3).0;
+
+    // Native-endian 565 targets take the value as-is.
+    assert_eq!(Rgb565Pixel::from_rgb565(value), Rgb565Pixel(value));
+
+    // Big-endian 565 targets only swap the bytes.
+    let be = Rgb565BigEndianPixel::from_rgb565(value);
+    assert_eq!(be.0, value.to_be());
+    assert_eq!(be, Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3));
+
+    // The default implementation expands like the accessors.
+    let p = Rgb565Pixel(value);
+    let rgb8 = Rgb8Pixel::from_rgb565(value);
+    assert_eq!(rgb8, Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() });
 }
 
 #[test]

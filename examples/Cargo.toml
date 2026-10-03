@@ -54,16 +54,16 @@ homepage = "https://slint.dev"
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
-rust-version = "1.92"
-version = "1.18.1"
+rust-version = "1.95"
+version = "1.19.0"
 
 [workspace.dependencies]
 # These are path dependencies on workspace members. The `version` pin is required
 # by `cargo xtask check_license_headers` (REUSE compliance), which enforces that
 # every slint/i-slint path dependency specifies `version = "=<workspace version>"`.
-i-slint-backend-testing = { version = "=1.18.1", path = "../internal/backends/testing", default-features = false }
-i-slint-core = { version = "=1.18.1", path = "../internal/core", default-features = false }
-i-slint-renderer-software = { version = "=1.18.1", path = "../internal/renderers/software", default-features = false }
+i-slint-backend-testing = { version = "=1.19.0", path = "../internal/backends/testing", default-features = false }
+i-slint-core = { version = "=1.19.0", path = "../internal/core", default-features = false }
+i-slint-renderer-software = { version = "=1.19.0", path = "../internal/renderers/software", default-features = false }
 
 bytemuck = { version = "1.13.1" }
 cfg_aliases = { version = "0.2.2" }

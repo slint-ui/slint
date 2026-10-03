@@ -26,9 +26,8 @@ impl PlatformTray {
     pub fn rebuild_menu(
         &self,
         _menu: vtable::VRef<'_, MenuVTable>,
-        entries_out: &mut alloc::vec::Vec<MenuEntry>,
+        _entries_out: &mut alloc::vec::Vec<MenuEntry>,
     ) {
-        entries_out.clear();
     }
 
     pub fn set_visible(&self, _visible: bool) {}

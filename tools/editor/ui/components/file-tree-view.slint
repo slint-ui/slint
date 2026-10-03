@@ -7,6 +7,7 @@ import { FileTreeIcons } from "file-tree-icons.slint";
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
 import { ListView } from "std-widgets.slint";
+import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
 component FileTreeRow inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
@@ -253,7 +254,7 @@ component FileTreeRow inherits Rectangle {
     }
 }
 
-export component FileTreeView inherits ListView {
+export component FileTreeView inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
     in property <length> rename-right-extension;
     private property <string> hovered-row-key: "";
@@ -267,32 +268,50 @@ export component FileTreeView inherits ListView {
     accessible-role: AccessibleRole.tree;
     accessible-label: "Files";
 
-    for row in Project.file-tree: FileTreeRow {
-        style: root.style;
-        width: root.visible-width - root.rename-right-extension;
-        node: row;
-        tree-has-hover: root.tree-has-hover;
-        keyboard-current: row.path == root.focused-row-key;
-        editing: row.path == root.editing-row-key;
-        rename-right-extension: root.rename-right-extension;
-        rename-name <=> root.rename-name;
-        rename-error: row.path == root.editing-row-key ? root.rename-error : "";
-        row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
-        row-focus-requested(path) => {
-            if root.editing-row-key != "" && root.editing-row-key != path {
-                root.submit-rename();
+    tree := ListView {
+        width: parent.width;
+        height: parent.height;
+        accessible-role: AccessibleRole.none;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        for row in Project.file-tree: FileTreeRow {
+            style: root.style;
+            width: tree.visible-width - root.rename-right-extension;
+            node: row;
+            tree-has-hover: root.tree-has-hover;
+            keyboard-current: row.path == root.focused-row-key;
+            editing: row.path == root.editing-row-key;
+            rename-right-extension: root.rename-right-extension;
+            rename-name <=> root.rename-name;
+            rename-error: row.path == root.editing-row-key ? root.rename-error : "";
+            row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
+            row-focus-requested(path) => {
+                if root.editing-row-key != "" && root.editing-row-key != path {
+                    root.submit-rename();
+                }
+                root.focused-row-key = path;
             }
-            root.focused-row-key = path;
+            rename-started(path) => {
+                root.rename-error = "";
+                root.editing-row-key = path;
+            }
+            rename-finished => {
+                root.rename-error = "";
+                root.editing-row-key = "";
+            }
+            rename-submitted => { root.submit-rename(); }
         }
-        rename-started(path) => {
-            root.rename-error = "";
-            root.editing-row-key = path;
-        }
-        rename-finished => {
-            root.rename-error = "";
-            root.editing-row-key = "";
-        }
-        rename-submitted => { root.submit-rename(); }
+    }
+
+    scroll-indicators := EditorScrollIndicators {
+        content-width: tree.content-width;
+        content-height: tree.content-height;
+        visible-width: tree.visible-width;
+        visible-height: tree.visible-height;
+        content-x <=> tree.content-x;
+        content-y <=> tree.content-y;
+        scrolled => { tree.scrolled(); }
     }
 
     function submit-rename() {

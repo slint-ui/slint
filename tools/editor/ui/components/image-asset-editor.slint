@@ -5,9 +5,8 @@ import { EditorGrid } from "editor-grid.slint";
 import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, ButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
 // cspell:ignore nesw
 
-import { Api } from "../api.slint";
-import { CanvasCorner } from "common.slint";
-import { ScrollView } from "std-widgets.slint";
+import { Api, CanvasCorner } from "../api.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 enum ImageAssetEditorMode {
     preview,
@@ -140,7 +139,7 @@ component FloatingSyntaxField inherits Rectangle {
     accessible-role: AccessibleRole.text;
     accessible-value: root.value;
 
-    syntax-scroll := ScrollView {
+    syntax-scroll := EditorScrollView {
         x: root.style.padding-inline;
         y: root.style.padding-block;
         width: parent.width - 2 * root.style.padding-inline;

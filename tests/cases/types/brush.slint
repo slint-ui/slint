@@ -59,6 +59,20 @@ assert_eq!(t.get_color_brush().color(), green);
 
 ```
 
+```d.ts
+export interface Test {
+    color_brush: slint.Brush | string;
+    conditional: slint.Brush | string;
+    lighter: slint.Brush | string;
+    r2_col: slint.Brush | slint.RgbaColor | string;
+    seethru: slint.Brush | string;
+    readonly test: boolean;
+    readonly test_rgb: boolean;
+}
+
+export declare const Test: { new(properties?: Partial<Test>): Test & slint.ComponentHandle };
+```
+
 ```js
 var t = new slint.Test({});
 assert.equal(t.color_brush.toString(), "#0000ff");

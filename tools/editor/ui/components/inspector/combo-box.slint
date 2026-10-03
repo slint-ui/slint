@@ -3,9 +3,9 @@
 
 import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
 import { InspectorComboOption } from "control-data.slint";
-import { EditorIcons } from "../common.slint";
+import { EditorIcons } from "../index.slint";
 
-import { ScrollView } from "std-widgets.slint";
+import { EditorScrollView } from "../editor-scroll-view.slint";
 
 export component InspectorComboBox inherits Rectangle {
     in property <ComboMenuStyle> menu-style: Style.combo-menu;
@@ -220,7 +220,7 @@ export component InspectorComboBox inherits Rectangle {
                 return reject;
             }
 
-            options-scroll := ScrollView {
+            options-scroll := EditorScrollView {
                 x: root.popup-padding;
                 y: root.popup-padding;
                 width: parent.width - 2 * root.popup-padding;

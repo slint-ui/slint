@@ -174,7 +174,7 @@ pub struct CompilerConfiguration {
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
-    pub translation_path_bundle: Option<std::path::PathBuf>,
+    pub bundled_translations_path: Option<std::path::PathBuf>,
     /// Default translation context
     pub default_translation_context: DefaultTranslationContext,
 
@@ -220,6 +220,19 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn absolute_bundled_translations_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.bundled_translations_path.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
@@ -319,7 +332,7 @@ impl CompilerConfiguration {
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
-            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+            bundled_translations_path: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
             library_name: None,

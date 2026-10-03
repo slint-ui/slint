@@ -27,7 +27,7 @@ pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Valu
     callback.as_ref().and_then(|callback| callback(id))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
 pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};

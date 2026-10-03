@@ -51,7 +51,7 @@ You can select the style by setting the `style` property in [`LoadFileOptions`](
 
 ```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile("main.slint", { style: "fluent" });
+let ui = slint.loadFile(new URL("main.slint", import.meta.url), { style: "fluent" });
 let main = new ui.Main();
 main.greeting = "Hello friends";
 ```

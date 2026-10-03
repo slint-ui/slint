@@ -63,6 +63,7 @@ getrandom = { version = "0.2", features = ["js"], optional = true }
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1.48.0", features = ["test-util"] }
+i-slint-backend-testing = { path = "../backends/testing" }
 
 [lib]
 path = "lib.rs"
@@ -82,7 +83,7 @@ protocol = [
   "dep:getrandom",
 ]
 file-watcher = ["dep:notify", "dep:i-slint-compiler"]
-live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core"]
+live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core", "slint-interpreter/bundle-translations"]
 ffi = ["live-component", "slint-interpreter/ffi"]
 preview-session = [
   "protocol",

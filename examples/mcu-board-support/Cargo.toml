@@ -16,13 +16,13 @@ resolver = "3"
 edition = "2024"
 
 [workspace.dependencies]
-i-slint-core = { version = "=1.18.1", path = "../../internal/core", default-features = false }
-i-slint-renderer-software = { version = "=1.18.1", path = "../../internal/renderers/software", default-features = false }
+i-slint-core = { version = "=1.19.0", path = "../../internal/core", default-features = false }
+i-slint-renderer-software = { version = "=1.19.0", path = "../../internal/renderers/software", default-features = false }
 derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 
 [package]
 name = "mcu-board-support"
-version = "1.18.1"
+version = "1.19.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 license = "MIT"
@@ -236,9 +236,9 @@ stm32u5g9j-dk2 = [
 ]
 
 [dependencies]
-slint = { version = "=1.18.1", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
+slint = { version = "=1.19.0", path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software"] }
 i-slint-core = { workspace = true }
-i-slint-core-macros = { version = "=1.18.1", path = "../../internal/core-macros" }
+i-slint-core-macros = { version = "=1.19.0", path = "../../internal/core-macros" }
 i-slint-renderer-software = { workspace = true, optional = true }
 
 derive_more = { workspace = true }
@@ -246,7 +246,6 @@ embedded-graphics = { version = "0.8", optional = true }
 once_cell = { version = "1.9", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
-cfg-if = "1"
 
 log = "0.4.27"
 
@@ -304,4 +303,3 @@ ft3x68-rs = { version = "0.1.2", optional = true }
 rand_core = { version = "0.6.3", optional = true }
 
 [build-dependencies]
-cfg-if = "1.0.0"

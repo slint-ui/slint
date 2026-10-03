@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Colors, Typography, TreeStyle } from "../style.slint";
-import { Api, Hover, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../api.slint";
+import { Api, Hover, DropLocation, EditorSurfaceMode, ElementKind, OutlineTreeNode } from "../api.slint";
 import { DragPreview } from "drag-preview.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 
-import { AppState, ElementKind, SectionTitle } from "common.slint";
+import { AppState, SectionTitle } from "index.slint";
 
 export component OutlinePane inherits Rectangle {
     in property <TreeStyle> style: Style.tree;
@@ -68,6 +68,7 @@ export component OutlinePane inherits Rectangle {
                         x: self.absolute-position.x + event.position.x,
                         y: self.absolute-position.y + event.position.y,
                     });
+                    outline-tree.clear-drop-target();
                     return DragAction.none;
                 }
                 dropped(event) => {
@@ -87,119 +88,122 @@ export component OutlinePane inherits Rectangle {
             tree-hover-touch := TouchArea {
                 width: parent.width;
                 height: parent.height;
-            }
+                VerticalLayout {
+                    root-drop-target := Rectangle {
+                        horizontal-stretch: 1;
+                        vertical-stretch: 0;
+                        height: root-drop-area.has-drag ? Metrics.control-small : root.style.root-drop-height;
+                        border-radius: root.style.row.radius;
+                        border-width: root-drop-area.has-drag && self.drop-allowed
+                            ? root.style.drop-border-width
+                            : 0px;
+                        border-color: root.style.row.accent;
+                        background: root-drop-area.has-drag && self.drop-allowed
+                            ? root.style.drop-background
+                            : transparent;
+                        property <bool> drop-allowed: false;
+                        accessible-role: AccessibleRole.list-item;
+                        accessible-label: "Outline root drop target";
 
-            VerticalLayout {
-                root-drop-target := Rectangle {
-                    horizontal-stretch: 1;
-                    vertical-stretch: 0;
-                    height: root-drop-area.has-drag ? Metrics.control-small : root.style.root-drop-height;
-                    border-radius: root.style.row.radius;
-                    border-width: root-drop-area.has-drag && self.drop-allowed
-                        ? root.style.drop-border-width
-                        : 0px;
-                    border-color: root.style.row.accent;
-                    background: root-drop-area.has-drag && self.drop-allowed
-                        ? root.style.drop-background
-                        : transparent;
-                    property <bool> drop-allowed: false;
-                    accessible-role: AccessibleRole.list-item;
-                    accessible-label: "Outline root drop target";
-
-                    root-drop-area := DropArea {
-                        width: parent.width;
-                        height: parent.height;
-                        can-drop(event) => {
-                            if AppState.drag-cancelled() {
-                                root-drop-target.drop-allowed = false;
-                                return DragAction.none;
+                        root-drop-area := DropArea {
+                            width: parent.width;
+                            height: parent.height;
+                            can-drop(event) => {
+                                if AppState.drag-cancelled() {
+                                    root-drop-target.drop-allowed = false;
+                                    return DragAction.none;
+                                }
+                                AppState.update-outline-drag-position({
+                                    x: self.absolute-position.x + event.position.x,
+                                    y: self.absolute-position.y + event.position.y,
+                                });
+                                root-drop-target.drop-allowed = Api.outline-can-drop(
+                                    event.data,
+                                    root.outline-data[0].uri,
+                                    root.outline-data[0].offset,
+                                    DropLocation.onto,
+                                );
+                                return root-drop-target.drop-allowed
+                                    ? event.proposed-action
+                                    : DragAction.none;
                             }
-                            AppState.update-outline-drag-position({
-                                x: self.absolute-position.x + event.position.x,
-                                y: self.absolute-position.y + event.position.y,
-                            });
-                            root-drop-target.drop-allowed = Api.outline-can-drop(
-                                event.data,
-                                root.outline-data[0].uri,
-                                root.outline-data[0].offset,
-                                DropLocation.onto,
-                            );
-                            return root-drop-target.drop-allowed
+                            dropped(event) => {
+                                if AppState.drag-cancelled() {
+                                    root-drop-target.drop-allowed = false;
+                                    AppState.finish-outline-drag();
+                                    return DragAction.none;
+                                }
+                                AppState.update-outline-drag-position({
+                                    x: self.absolute-position.x + event.position.x,
+                                    y: self.absolute-position.y + event.position.y,
+                                });
+                                root-drop-target.drop-allowed = false;
+                                Api.outline-drop(
+                                    event.data,
+                                    root.outline-data[0].uri,
+                                    root.outline-data[0].offset,
+                                    DropLocation.onto,
+                                );
+                                AppState.finish-outline-drag();
+                                return event.proposed-action;
+                            }
+                        }
+
+                        Text {
+                            visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
+                            x: root.style.row.padding-inline;
+                            width: parent.width - 2 * self.x;
+                            text: "Drop as child of root";
+                            color: root.style.row.foreground;
+                            font-size: Typography.control.size;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+
+                    outline-tree := EditorTreeView {
+                        horizontal-stretch: 1;
+                        vertical-stretch: 1;
+                        accessible-name: "Current file outline";
+                        rows: root.outline-data;
+                        current-source-uri: Api.current-element.source-uri;
+                        current-offset: Api.current-element.offset;
+                        max-gutter-columns: 12;
+                        content-has-hover: tree-hover-touch.has-hover;
+                        pointer-position: {
+                            x: tree-hover-touch.absolute-position.x + tree-hover-touch.mouse-x,
+                            y: tree-hover-touch.absolute-position.y + tree-hover-touch.mouse-y,
+                        };
+                        hovered-source-uri: Hover.element.valid ? Hover.element.source-uri : "";
+                        hovered-offset: Hover.element.element-offset;
+                        row-hovered(uri, offset, type-name) => {
+                            Hover.tree-source-uri = uri;
+                            Hover.tree-offset = offset;
+                            Hover.tree-type-name = type-name;
+                        }
+                        make-row-drag-data(uri, offset) => {
+                            return Api.move-element-instance-data(uri, offset);
+                        }
+                        row-can-drop(event, uri, offset, location) => {
+                            return Api.outline-can-drop(event.data, uri, offset, location)
                                 ? event.proposed-action
                                 : DragAction.none;
                         }
-                        dropped(event) => {
-                            if AppState.drag-cancelled() {
-                                root-drop-target.drop-allowed = false;
-                                AppState.finish-outline-drag();
-                                return DragAction.none;
-                            }
-                            AppState.update-outline-drag-position({
-                                x: self.absolute-position.x + event.position.x,
-                                y: self.absolute-position.y + event.position.y,
-                            });
-                            root-drop-target.drop-allowed = false;
-                            Api.outline-drop(
-                                event.data,
-                                root.outline-data[0].uri,
-                                root.outline-data[0].offset,
-                                DropLocation.onto,
-                            );
-                            AppState.finish-outline-drag();
+                        row-dropped(event, uri, offset, location) => {
+                            Api.outline-drop(event.data, uri, offset, location);
                             return event.proposed-action;
                         }
-                    }
-
-                    Text {
-                        visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
-                        x: root.style.row.padding-inline;
-                        width: parent.width - 2 * self.x;
-                        text: "Drop as child of root";
-                        color: root.style.row.foreground;
-                        font-size: Typography.control.size;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        overflow: elide;
-                    }
-                }
-
-                outline-tree := EditorTreeView {
-                    horizontal-stretch: 1;
-                    vertical-stretch: 1;
-                    accessible-name: "Current file outline";
-                    rows: root.outline-data;
-                    current-source-uri: Api.current-element.source-uri;
-                    current-offset: Api.current-element.offset;
-                    max-gutter-columns: 12;
-                    content-has-hover: tree-hover-touch.has-hover;
-                    hovered-source-uri: Hover.element.valid ? Hover.element.source-uri : "";
-                    hovered-offset: Hover.element.element-offset;
-                    row-hovered(uri, offset, type-name) => {
-                        Hover.tree-source-uri = uri;
-                        Hover.tree-offset = offset;
-                        Hover.tree-type-name = type-name;
-                    }
-                    make-row-drag-data(uri, offset) => {
-                        return Api.move-element-instance-data(uri, offset);
-                    }
-                    row-can-drop(event, uri, offset, location) => {
-                        return Api.outline-can-drop(event.data, uri, offset, location)
-                            ? event.proposed-action
-                            : DragAction.none;
-                    }
-                    row-dropped(event, uri, offset, location) => {
-                        Api.outline-drop(event.data, uri, offset, location);
-                        return event.proposed-action;
-                    }
-                    row-current-requested(uri, offset) => {
-                        Api.outline-select-element(uri, offset, true);
-                    }
-                    row-expanded-changed(row-index, expanded) => {
-                        Api.outline-set-expanded(row-index, expanded);
-                    }
-                    drag-started => {
-                        Hover.tree-source-uri = "";
-                        root.drag-started();
+                        row-current-requested(uri, offset) => {
+                            Api.outline-select-element(uri, offset, true);
+                        }
+                        row-expanded-changed(row-index, expanded) => {
+                            Api.outline-set-expanded(row-index, expanded);
+                        }
+                        drag-started => {
+                            Hover.tree-source-uri = "";
+                            root.drag-started();
+                        }
                     }
                 }
             }

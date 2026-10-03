@@ -165,7 +165,7 @@ jobs:
                     - "https://github.com/mooofin/Thalix"
 
                     # from ecosystem survey (added 2026-07)
-                    - "https://github.com/jeff141/meatshell"
+                    #- "https://github.com/yituorou/meatshell" # only builds against its vendored Slint fork
                     - "https://github.com/qarmin/szyszka"
                     - "https://github.com/rodgtr1/profit-first-income-calculator-desktop"
                     - "https://github.com/waydeerwm/layer-shika"
@@ -286,7 +286,8 @@ jobs:
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
@@ -807,7 +808,8 @@ jobs:
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
@@ -831,7 +833,7 @@ jobs:
             fail-fast: false
             matrix:
                 git_url:
-                    - "https://github.com/0hgawa/Clipo"
+                    #- "https://github.com/0hgawa/Clipo" # the 0hgawa account is gone
                     - "https://github.com/MelDxKviel/zapret-ui"
                     - "https://github.com/kirinonakar/ocr_trans"
                     - "https://github.com/WardLordRuby/elden_mod_loader_gui"
@@ -849,7 +851,7 @@ jobs:
                     #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
-                    - git_url: "https://github.com/0hgawa/vayou-slint"
+                    #- git_url: "https://github.com/0hgawa/vayou-slint" # the 0hgawa account is gone
                     # servicemanager-win32 has no Linux implementation
                     - git_url: "https://github.com/chstc/NGSM"
                       sub_path: "crates/servicemanager-gui"
@@ -912,7 +914,8 @@ jobs:
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd "./${{ matrix.sub_path || '.' }}"
                   ${{ matrix.extra_commands || 'cargo update' }}
                   # A project that pins or vendors a released Slint resolves it from crates.io despite the

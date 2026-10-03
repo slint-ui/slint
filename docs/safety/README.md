@@ -1,6 +1,7 @@
 # Slint SC Safety Manual
 
-Astro Starlight site for the Slint SC Safety Manual and Qualification Plan.
+Astro Starlight site for the Slint SC Safety Manual: the User Manual, the
+Qualification Plan, and the other documents of the qualification package.
 
 Hand-written content lives in `src/content/docs/`. Everything under
 `src/content/docs/generated/` is produced by `slint-doc-generator` and
@@ -11,7 +12,7 @@ the API reference of the items annotated with `\sc` in
 traceability matrix. The pages set their own `slug`, so their location under
 `generated/` doesn't affect their URL.
 
-The language specification under `src/content/docs/language/` is also
+The language specification under `src/content/docs/reference/language/` is also
 gitignored: its canonical source is the main Slint docs
 (`docs/astro/src/content/docs/reference/language/`), from which
 `scripts/sync-language-spec.mjs` copies it on every `pnpm dev`/`pnpm build`.

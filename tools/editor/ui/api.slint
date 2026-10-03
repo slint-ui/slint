@@ -55,6 +55,11 @@ export struct ComponentListItem {
     components: [ComponentItem]
 }
 
+export struct InspectorNumberChange {
+    name: string,
+    value: float,
+}
+
 /// Some `Diagnostics` as raised by the compiler
 export enum DiagnosticSummary {
     NothingDetected,
@@ -85,6 +90,9 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and is being redialed. Connecting elsewhere
+    /// replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for it to be
     /// typed in here.
     PairingRequired,
@@ -214,15 +222,6 @@ export struct Range {
     end: int,
 }
 
-export struct ColorData {
-    r: int,
-    g: int,
-    b: int,
-    a: int,
-    text: string,
-    short-text: string,
-}
-
 export enum PropertyValueKind {
     boolean,
     brush,
@@ -266,6 +265,32 @@ export struct FillData {
     center-y: float,
     custom-radius: bool,
     radius: float,
+}
+
+export enum ColorFieldMode {
+    source,
+    solid,
+    gradient,
+}
+
+export struct ColorFieldData {
+    mode: ColorFieldMode,
+    fill: FillData,
+    label: string,
+    unsupported: bool,
+    allow-gradient: bool,
+}
+
+export struct ColorFieldEdit {
+    valid: bool,
+    color: color,
+    expression: string,
+    display: string,
+}
+
+export struct ColorValueData {
+    color-text: string,
+    opacity: int,
 }
 
 /// Data about the property value for use in "simple" mode
@@ -654,6 +679,9 @@ export global Api {
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;
     pure callback current-property-value(property-name: string, fallback: string) -> string;
+    pure callback current-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback image-source-file-name(source: string) -> string;
+    callback choose-image-file(source-uri: string) -> string;
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
@@ -687,10 +715,11 @@ export global Api {
     // # Callbacks
 
     // ## Custom conversion functions:
-    pure callback string-is-color(string) -> bool;
-    pure callback string-to-color(string) -> color;
-    pure callback color-to-data(color) -> ColorData;
-    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
+    pure callback color-value-data(color) -> ColorValueData;
+    pure callback color-value-color-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-opacity-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-with-opacity(color: color, opacity: float) -> color;
+    pure callback fill-with-color(fill: FillData, color: color) -> FillData;
 
     // ## Style:
     callback style-changed();
@@ -710,7 +739,7 @@ export global Api {
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
-    callback persist-selected-element-geometry();
+    callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
@@ -750,6 +779,8 @@ export global Api {
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
+    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);

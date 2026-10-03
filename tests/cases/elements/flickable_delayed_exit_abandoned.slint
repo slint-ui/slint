@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <bool> show-flickable: true;
+    out property <bool> sibling-hover <=> sibling.has-hover;
+    callback open-popup();
+    open-popup => { popup.show(); }
+
+    if root.show-flickable: Flickable {
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+        content-width: 200px;
+        content-height: 200px;
+        Rectangle { width: 200px; height: 200px; background: blue; }
+    }
+    sibling := TouchArea {
+        y: 0px;
+        x: 101px;
+        width: 3px;
+        height: 100px;
+    }
+    popup := PopupWindow {
+        x: 200px;
+        y: 100px;
+        width: 50px;
+        height: 50px;
+        close-policy: no-auto-close;
+    }
+}
+
+/*
+```rust
+// A popup outside the pointer must clear queued hover from the main window.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(0);
+instance.window().set_size(slint::LogicalSize::new(300.0, 200.0));
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(99.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 50.0) });
+assert!(instance.get_sibling_hover());
+instance.invoke_open_popup();
+assert_eq!(slint_testing::WindowInner::from_pub(instance.window()).active_popups.borrow().len(), 1);
+assert!(instance.get_sibling_hover(), "opening the popup does not dispatch the queued exit");
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(106.0, 50.0) });
+assert!(!instance.get_sibling_hover());
+```
+
+```rust
+// Destroying the delaying item must still clear queued hover when its timer fires.
+use slint::{platform::{WindowEvent, PointerEventButton}, LogicalPosition};
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(0);
+instance.window().set_size(slint::LogicalSize::new(300.0, 200.0));
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(99.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 50.0) });
+assert!(instance.get_sibling_hover());
+instance.set_show_flickable(false);
+// Materialize the conditional removal without dispatching another pointer event.
+i_slint_core::window::WindowInner::from_pub(instance.window()).ensure_tree_instantiated();
+assert!(instance.get_sibling_hover(), "the exit is still queued during the delay");
+slint_testing::mock_elapsed_time(150);
+assert!(!instance.get_sibling_hover());
+```
+*/

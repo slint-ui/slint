@@ -3,6 +3,19 @@
 
 import { Palette } from "std-widgets.slint";
 
+export struct ScrollIndicatorStyle {
+    thickness: length = 6px,
+    active-thickness: length = 8px,
+    hit-width: length = 12px,
+    inset: length = 2px,
+    minimum-length: length = 24px,
+    idle-duration: duration = 700ms,
+    reveal-duration: duration = 80ms,
+    fade-duration: duration = 200ms,
+    color: color,
+    active-color: color,
+}
+
 export struct TextStyle {
     size: length,
     weight: int = FontWeight.normal,
@@ -271,7 +284,6 @@ export struct ArtboardStyle {
     padding: length = 1px,
     top-minimum: length = 40px,
     background: color,
-    shadow: ShadowStyle,
     border: brush,
 }
 
@@ -287,7 +299,7 @@ export struct SelectionFrameStyle {
 
 export struct RadiusHandleStyle {
     size: length = 10px,
-    inset: length = 10px,
+    inset: length = 12px,
 }
 
 export struct TransparencyGridStyle {
@@ -297,10 +309,20 @@ export struct TransparencyGridStyle {
 }
 
 export struct GradientMarkerStyle {
-    inactive: color,
-    active: color = #0c8ce9,
-    size: length = 24px,
-    radius: length = 5px,
+    inactive: color = #7d8793,
+    active: color = #176fe8,
+    size: length = 40px,
+    pointer-width: length = 12px,
+    pointer-height: length = 10px,
+    indicator-size: length = 24px,
+    inner-ring-width: length = 2px,
+    inactive-ring-width: length = 1px,
+    active-ring-width: length = 2px,
+    tick-length: length = 4px,
+    tick-width: length = 2px,
+    tick-keyline-width: length = 1px,
+    keyline-light: color = #ffffff,
+    keyline-dark: color = #171717,
     checker: TransparencyGridStyle,
 }
 
@@ -423,33 +445,9 @@ export struct FillPickerStyle {
 export struct EffectSliderStyle {
     height: length = 34px,
     label-width: length = 48px,
-    track-width: length = 62px,
-    track-height: length = 3px,
-    thumb-size: length = 11px,
-    value-width: length = 44px,
-    plain-value-width: length = 52px,
-    suffix-width: length = 12px,
-    pressed-thumb: color,
-    shadow: ShadowStyle,
-    track: brush,
-    fill: color,
-    thumb: color,
+    value-width: length = 52px,
     control-height: length,
-    border: color,
     foreground: color,
-    suffix-text: TextStyle,
-}
-
-export struct RadiusSliderStyle {
-    thumb-size: length = 10px,
-    track-height: length = 2px,
-    inset: length = 6px,
-    fill: color,
-    thumb: color,
-    track: color,
-    height: length,
-    min-width: length,
-    focus-border: brush,
 }
 
 export struct RotationDialStyle {
@@ -466,6 +464,23 @@ export struct RotationDialStyle {
     dot-border: color,
     shadow: ShadowStyle,
     focus-border: brush,
+}
+
+export struct InspectorSliderStyle {
+    thumb-width: length = 22px,
+    thumb-height: length = 14px,
+    track-height: length = 10px,
+    fill-height: length = 2px,
+    zero-height: length = 6px,
+    dot-size: length = 3px,
+    fill: color,
+    track: brush,
+    track-border: color,
+    zero: color,
+    hover-border: color,
+    dial: RotationDialStyle,
+    height: length,
+    min-width: length,
 }
 
 export struct ComboMenuStyle {
@@ -495,11 +510,6 @@ export struct ColorSliderStyle {
     radius: length,
 }
 
-export struct ColorHexStyle {
-    width: length = 78px,
-    input-width: length = 58px,
-}
-
 export struct GradientRampStyle {
     height: length,
     inset: length,
@@ -509,9 +519,7 @@ export struct GradientRampStyle {
 export struct GradientStopRowStyle {
     action-width: length = 24px,
     position-width: length = 66px,
-    opacity-width: length = 48px,
     height: length = 28px,
-    swatch-size: length = 14px,
 }
 
 export struct InfoIconStyle {
@@ -579,7 +587,6 @@ export struct SidebarToggleStyle {
 export struct ColorControlsStyle {
     plane: ColorPlaneStyle,
     slider: ColorSliderStyle,
-    hex: ColorHexStyle,
     row-height: length,
     gap: length,
 }
@@ -616,13 +623,16 @@ export struct CornerEditorStyle {
     field-width: length = 72px,
     gap: length,
     mode: CornerModeStyle,
-    slider: RadiusSliderStyle,
+    slider: InspectorSliderStyle,
     field: FieldStyle,
 }
 
 export struct ColorFieldStyle {
-    decorative: color,
+    checker: TransparencyGridStyle,
+    divider: color,
     field: FieldStyle,
+    opacity-width: length = 52px,
+    swatch-size: length = 16px,
     swatch-border: color,
 }
 
@@ -681,14 +691,11 @@ struct OverlayTheme {
     tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
     floating-panel: PaintStyle,
-    marker-inactive: color,
 }
 
 struct InspectorTheme {
     divider: color,
     fill-picker: FillPickerStyle,
-    effect-slider: EffectSliderStyle,
-    radius-slider: RadiusSliderStyle,
     rotation-dial: RotationDialStyle,
     combo-menu: ComboMenuStyle,
 }
@@ -878,7 +885,6 @@ export global LightTheme {
 
     out property <ArtboardStyle> artboard: {
         background: #ffffff,
-        shadow: { color: #64748b30, blur: 30px, offset-y: 18px },
         border: LightTheme.colors.border,
     };
 
@@ -903,30 +909,12 @@ export global LightTheme {
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #b5ccdd;
-
     out property <color> divider: #e5e5e5;
 
     out property <FillPickerStyle> fill-picker: {
         shadow: { color: #64748b35, blur: 18px, offset-y: 8px },
         background: LightTheme.colors.surface,
         border: LightTheme.divider,
-    };
-
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: LightTheme.colors.accent.with-alpha(0.88),
-        track: LightTheme.inspector-field.normal.background,
-        fill: LightTheme.colors.accent,
-        thumb: LightTheme.colors.accent,
-        border: LightTheme.colors.surface,
-        foreground: LightTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: transparent,
-        thumb: LightTheme.colors.muted,
-        track: LightTheme.divider,
-        focus-border: LightTheme.colors.accent,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -1069,7 +1057,7 @@ export global LightTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: LightTheme.colors.muted.with-alpha(0.35),
+        divider: LightTheme.colors.subtle-border,
         swatch-border: LightTheme.colors.muted,
     };
 }
@@ -1182,7 +1170,6 @@ export global DarkTheme {
 
     out property <ArtboardStyle> artboard: {
         background: #f7f8fb,
-        shadow: { color: #00000055, blur: 30px, offset-y: 18px },
         border: DarkTheme.colors.border,
     };
 
@@ -1207,30 +1194,12 @@ export global DarkTheme {
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #3f3f3f;
-
     out property <color> divider: #414141;
 
     out property <FillPickerStyle> fill-picker: {
         shadow: { color: #00000080, blur: 18px, offset-y: 8px },
         background: DarkTheme.colors.surface,
         border: DarkTheme.divider,
-    };
-
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: DarkTheme.colors.accent.with-alpha(0.88),
-        track: DarkTheme.inspector-field.normal.background,
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        border: DarkTheme.colors.surface,
-        foreground: DarkTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        track: DarkTheme.divider,
-        focus-border: DarkTheme.colors.accent,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -1373,7 +1342,7 @@ export global DarkTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: DarkTheme.colors.muted.with-alpha(0.35),
+        divider: DarkTheme.colors.subtle-border,
         swatch-border: DarkTheme.colors.muted,
     };
 }
@@ -1438,28 +1407,22 @@ export global Theme {
         tooltip-paint: DarkTheme.tooltip-paint,
         drag-preview: DarkTheme.drag-preview,
         floating-panel: DarkTheme.floating-panel,
-        marker-inactive: DarkTheme.marker-inactive,
     } : {
         gradient-overlay: LightTheme.gradient-overlay,
         slice-label-border: LightTheme.slice-label-border,
         tooltip-paint: LightTheme.tooltip-paint,
         drag-preview: LightTheme.drag-preview,
         floating-panel: LightTheme.floating-panel,
-        marker-inactive: LightTheme.marker-inactive,
     };
 
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
         divider: DarkTheme.divider,
         fill-picker: DarkTheme.fill-picker,
-        effect-slider: DarkTheme.effect-slider,
-        radius-slider: DarkTheme.radius-slider,
         rotation-dial: DarkTheme.rotation-dial,
         combo-menu: DarkTheme.combo-menu,
     } : {
         divider: LightTheme.divider,
         fill-picker: LightTheme.fill-picker,
-        effect-slider: LightTheme.effect-slider,
-        radius-slider: LightTheme.radius-slider,
         rotation-dial: LightTheme.rotation-dial,
         combo-menu: LightTheme.combo-menu,
     };
@@ -1544,6 +1507,11 @@ export global Colors {
 }
 
 export global Style {
+    out property <ScrollIndicatorStyle> scroll-indicator: {
+        color: Colors.foreground.with-alpha(0.4),
+        active-color: Colors.foreground.with-alpha(0.6),
+    };
+
     out property <ShellStyle> shell;
 
     out property <PanesStyle> panes;
@@ -1690,7 +1658,6 @@ export global Style {
 
     out property <ArtboardStyle> artboard: {
         background: Theme.canvas.artboard.background,
-        shadow: Theme.canvas.artboard.shadow,
         border: Theme.canvas.artboard.border,
     };
 
@@ -1734,7 +1701,6 @@ export global Style {
 
     private property <GradientMarkerStyle> gradient-marker: {
         checker: root.transparency-grid,
-        inactive: Theme.overlay.marker-inactive,
     };
 
     out property <InspectorStyle> inspector-layout: {
@@ -1755,24 +1721,19 @@ export global Style {
     };
 
     out property <EffectSliderStyle> effect-slider: {
-        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
         control-height: root.inspector-field.height,
-        suffix-text: { size: 9px },
-        pressed-thumb: Theme.inspector.effect-slider.pressed-thumb,
-        track: Theme.inspector.effect-slider.track,
-        fill: Theme.inspector.effect-slider.fill,
-        thumb: Theme.inspector.effect-slider.thumb,
-        border: Theme.inspector.effect-slider.border,
-        foreground: Theme.inspector.effect-slider.foreground,
+        foreground: Colors.foreground,
     };
 
-    out property <RadiusSliderStyle> radius-slider: {
+    out property <InspectorSliderStyle> inspector-slider: {
         height: Metrics.control-compact,
         min-width: Metrics.control-medium,
-        fill: Theme.inspector.radius-slider.fill,
-        thumb: Theme.inspector.radius-slider.thumb,
-        track: Theme.inspector.radius-slider.track,
-        focus-border: Theme.inspector.radius-slider.focus-border,
+        fill: Colors.accent.with-alpha(0.65),
+        track: Theme.fields.inspector-field.normal.background,
+        track-border: Theme.fields.inspector-field.normal.border,
+        zero: Colors.muted.with-alpha(0.55),
+        hover-border: Colors.muted,
+        dial: root.rotation-dial,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -2011,13 +1972,16 @@ export global Style {
     out property <CornerEditorStyle> corner-editor: {
         gap: Metrics.space-compact,
         mode: root.corner-mode,
-        slider: root.radius-slider,
+        slider: root.inspector-slider,
         field: root.inspector-field,
     };
 
     out property <ColorFieldStyle> color-field: {
         field: root.inspector-field,
-        decorative: Theme.fields.color-field.decorative,
+        checker: root.transparency-grid,
+        divider: Theme.fields.color-field.divider,
+        opacity-width: Theme.fields.color-field.opacity-width,
+        swatch-size: Theme.fields.color-field.swatch-size,
         swatch-border: Theme.fields.color-field.swatch-border,
     };
 }

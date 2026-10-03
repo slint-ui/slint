@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 #[cfg(test)]
 use std::sync::Arc;
+use std::time::Duration;
 
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -386,14 +387,14 @@ i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {
-        Value::Number(value.0 as _)
+        Value::Number(value.as_millis() as f64)
     }
 }
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
         match v {
-            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
+            Value::Number(x) => Ok(Duration::from_millis(x as u64).into()),
             _ => Err(()),
         }
     }
@@ -976,6 +977,17 @@ impl Compiler {
         self.config.default_translation_context = default_translation_context;
     }
 
+    /// Bundle the translations found in the given directory into the compiled components, so that
+    /// `slint::select_bundled_translation` can switch between the languages at runtime.
+    ///
+    /// The translation files must be in the gettext `.po` format and follow this pattern:
+    /// `<path>/<lang>/LC_MESSAGES/<domain>.po`, where the domain is set with
+    /// [`Self::set_translation_domain`].
+    #[cfg(feature = "bundle-translations")]
+    pub fn set_bundled_translations_path(&mut self, path: PathBuf) {
+        self.config.bundled_translations_path = Some(path);
+    }
+
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the
@@ -1097,6 +1109,97 @@ async fn build_compilation_result(
     }
 }
 
+/// A [`CompilationResult`] that can be sent to another thread.
+///
+/// A `CompilationResult` is not `Send`: it shares its compilation unit between
+/// its components with an `Rc`. Convert one with
+/// [`CompilationResult::into_send()`], move it to the thread that will
+/// instantiate the components, and convert it back with `From`. That way a
+/// component can be compiled on a worker thread and instantiated on the thread
+/// running the event loop.
+///
+/// ```rust
+/// # i_slint_backend_testing::init_no_event_loop();
+/// let source = "export component App inherits Window { out property <int> v: 42; }".into();
+/// let sent = std::thread::spawn(move || {
+///     let compiler = slint_interpreter::Compiler::default();
+///     spin_on::spin_on(compiler.build_from_source(source, Default::default())).into_send()
+/// })
+/// .join()
+/// .unwrap();
+/// let result = slint_interpreter::CompilationResult::from(sent);
+/// let instance = result.component("App").unwrap().create().unwrap();
+/// # assert_eq!(instance.get_property("v").unwrap(), slint_interpreter::Value::Number(42.));
+/// ```
+pub struct CompilationResultSend {
+    /// `None` when the compilation produced no component.
+    compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
+    /// The index of each component within the unit, by name.
+    components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
+    diagnostics: Vec<Diagnostic>,
+    #[cfg(feature = "internal")]
+    watch_paths: Vec<PathBuf>,
+    #[cfg(feature = "internal")]
+    structs_and_enums: Vec<LangType>,
+}
+
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<CompilationResultSend>();
+};
+
+impl CompilationResultSend {
+    /// Returns true if the compilation failed.
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| d.level() == DiagnosticLevel::Error)
+    }
+
+    /// The diagnostics (errors and warnings) the compilation produced.
+    pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
+        self.diagnostics.iter().cloned()
+    }
+
+    /// Print the diagnostics to stderr, in the same style as rustc errors.
+    #[cfg(feature = "display-diagnostics")]
+    pub fn print_diagnostics(&self) {
+        print_diagnostics(&self.diagnostics)
+    }
+}
+
+impl From<CompilationResultSend> for CompilationResult {
+    fn from(sent: CompilationResultSend) -> Self {
+        let CompilationResultSend {
+            compilation_unit,
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        } = sent;
+        let compilation_unit = compilation_unit.map(std::rc::Rc::new);
+        let components = components
+            .into_iter()
+            .filter_map(|(name, public_index)| {
+                let inner = std::rc::Rc::new(crate::component::ComponentDefinitionInner {
+                    compilation_unit: compilation_unit.clone()?,
+                    public_index,
+                    type_loaders: Default::default(),
+                });
+                Some((name, ComponentDefinition { inner }))
+            })
+            .collect();
+        Self {
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        }
+    }
+}
+
 /// The result of a compilation
 ///
 /// If [`Self::has_errors()`] is true, then the compilation failed.
@@ -1149,6 +1252,47 @@ impl CompilationResult {
     /// Returns an iterator over the compiled components.
     pub fn components(&self) -> impl Iterator<Item = ComponentDefinition> + '_ {
         self.components.values().cloned()
+    }
+
+    /// Consume the result so that it can be sent to another thread.
+    pub fn into_send(self) -> CompilationResultSend {
+        let Self {
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        } = self;
+
+        // Every definition of one result was built from the same unit.
+        let mut unit = None::<std::rc::Rc<i_slint_compiler::llr::CompilationUnit>>;
+        let components = components
+            .into_iter()
+            .map(|(name, definition)| {
+                let public_index = definition.inner.public_index;
+                match &unit {
+                    Some(u) => {
+                        debug_assert!(std::rc::Rc::ptr_eq(u, &definition.inner.compilation_unit))
+                    }
+                    None => unit = Some(definition.inner.compilation_unit.clone()),
+                }
+                (name, public_index)
+            })
+            .collect();
+        // The definitions are dropped by now, so the unit is only cloned when
+        // the caller kept one of them, or an instance, alive.
+        let compilation_unit = unit.map(std::rc::Rc::unwrap_or_clone);
+
+        CompilationResultSend {
+            compilation_unit,
+            components,
+            diagnostics,
+            #[cfg(feature = "internal")]
+            watch_paths,
+            #[cfg(feature = "internal")]
+            structs_and_enums,
+        }
     }
 
     /// Returns the names of the components that were compiled.
@@ -1207,16 +1351,19 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
-        // Skip the eager window creation and tree instantiation for them.
-        if !instance.is_system_tray_rooted() {
-            // Make sure the window adapter is created so call to `window()` do not panic later.
-            instance.inner.window_adapter_ref()?;
-            // Eagerly instantiate repeaters and conditionals so that layout
-            // bindings can see all instances without calling ensure_updated.
-            i_slint_core::window::WindowInner::from_pub(instance.window())
-                .ensure_tree_instantiated();
-        }
+        instance.finish_creation()?;
+        Ok(instance)
+    }
+
+    /// Creates a new instance of the component that uses `context` instead of the thread's.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn create_with_context(
+        &self,
+        context: i_slint_core::SlintContext,
+    ) -> Result<ComponentInstance, PlatformError> {
+        let instance = self.create_with_options(WindowOptions::WithContext(context))?;
+        instance.finish_creation()?;
         Ok(instance)
     }
 
@@ -1255,6 +1402,7 @@ impl ComponentDefinition {
             WindowOptions::Embed { parent_item_tree, parent_item_tree_index } => {
                 self.inner.create_embedded(parent_item_tree, parent_item_tree_index)
             }
+            WindowOptions::WithContext(context) => self.inner.create_with_context(context),
         };
         Ok(ComponentInstance { inner: instance })
     }
@@ -1274,6 +1422,7 @@ pub(crate) enum WindowOptions {
         parent_item_tree: i_slint_core::item_tree::ItemTreeWeak,
         parent_item_tree_index: u32,
     },
+    WithContext(i_slint_core::SlintContext),
 }
 
 impl ComponentDefinition {
@@ -1472,6 +1621,20 @@ impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
         ComponentDefinition { inner: std::rc::Rc::new(self.inner.definition()) }
+    }
+
+    /// Create the window and the whole item tree up front, like the generated `new()` does.
+    fn finish_creation(&self) -> Result<(), PlatformError> {
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !self.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            self.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(self.window()).ensure_tree_instantiated();
+        }
+        Ok(())
     }
 
     fn is_system_tray_rooted(&self) -> bool {

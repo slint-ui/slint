@@ -402,3 +402,117 @@ def test_model_handoff_during_model_call() -> None:
     # row_count() re-assigns the model to the property while being called.
     assert instance.get_property("test-value").row_count() == 3
     assert instance.get_property("test-value").row_data(1) == 2
+
+
+def test_map_model_cycle_is_collectable() -> None:
+    """A MapModel whose map function refers back to the MapModel does not leak."""
+
+    class SelfReferencingModel(slint.MapModel[int, int]):
+        def __init__(self, source: slint.Model[int]) -> None:
+            super().__init__(source, self.transform)
+
+        def transform(self, value: int) -> int:
+            return value
+
+    model: SelfReferencingModel | None = SelfReferencingModel(slint.ListModel([1]))
+    model_weak = weakref.ref(model)
+    model = None
+
+    gc.collect()
+
+    assert model_weak() is None
+
+
+def test_map_model_subclass_released_by_refcount() -> None:
+    """A MapModel subclass implementing map_row() is freed without the cyclic collector."""
+
+    class Doubled(slint.MapModel[int, int]):
+        def map_row(self, row_data: int) -> int:
+            return row_data * 2
+
+    model: Doubled | None = Doubled(slint.ListModel([1]))
+    assert model is not None
+    assert model[0] == 2
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None
+
+
+def test_reverse_model_released_by_refcount() -> None:
+    """A ReverseModel is freed without the cyclic collector, and releases its source."""
+
+    source: slint.ListModel[int] | None = slint.ListModel([1, 2])
+    model: slint.ReverseModel[int] | None = slint.ReverseModel(source)
+    assert model is not None
+    assert model[0] == 2
+    source_weak = weakref.ref(source)
+    model_weak = weakref.ref(model)
+    source = None
+    model = None
+
+    assert model_weak() is None
+    assert source_weak() is None
+
+
+def test_filter_model_subclass_released_by_refcount() -> None:
+    """A FilterModel subclass implementing filter_row() is freed without the cyclic collector."""
+
+    class Positive(slint.FilterModel[int]):
+        def filter_row(self, row_data: int) -> bool:
+            return row_data > 0
+
+    model: Positive | None = Positive(slint.ListModel([-1, 1]))
+    assert model is not None
+    assert list(model) == [1]
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None
+
+
+def test_sort_model_subclass_released_by_refcount() -> None:
+    """A SortModel subclass implementing sort_key() is freed without the cyclic collector."""
+
+    class Descending(slint.SortModel[int]):
+        def sort_key(self, row_data: int) -> int:
+            return -row_data
+
+    model: Descending | None = Descending(slint.ListModel([1, 2]))
+    assert model is not None
+    assert list(model) == [2, 1]
+    model_weak = weakref.ref(model)
+    model = None
+
+    assert model_weak() is None
+
+
+def test_adapter_cycle_through_unbound_source_is_collectable() -> None:
+    """A source that Slint no longer holds, in a cycle with its adapter, is freed."""
+
+    instance = make_instance(
+        """
+        export component Test {
+            in property <[int]> values;
+        }
+    """
+    )
+
+    class Source(slint.ListModel[int]):
+        adapter: slint.MapModel[int, int] | None = None
+
+    source: Source | None = Source([1])
+    assert source is not None
+    adapter: slint.MapModel[int, int] | None = slint.MapModel(source, lambda v: v)
+    instance.set_property("values", source)
+    instance.set_property("values", slint.ListModel([]))
+    source.adapter = adapter
+
+    source_weak = weakref.ref(source)
+    adapter_weak = weakref.ref(adapter)
+    source = None
+    adapter = None
+    gc.collect()
+
+    assert source_weak() is None
+    assert adapter_weak() is None

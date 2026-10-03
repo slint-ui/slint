@@ -53,6 +53,9 @@ export component TestCase inherits Window {
     in property <bool> some-variable: true;
     VerticalLayout {
         for string in Glob.model: Rectangle {
+            // The repeated Button constrains its row, so without a fixed height the rows
+            // shrink to the font-dependent text height and the clicks below miss.
+            height: 100px;
             if Glob.condition: Button {
                 text: string;
                 enabled: some-variable;

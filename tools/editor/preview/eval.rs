@@ -20,6 +20,20 @@ struct EvalLocalContext {
     window_adapter: Option<Rc<dyn slint::platform::WindowAdapter>>,
 }
 
+impl EvalLocalContext {
+    /// The decimal separator of the preview window, or the thread's if there is no window.
+    fn decimal_separator(&self) -> char {
+        self.window_adapter
+            .as_ref()
+            .and_then(|adapter| {
+                i_slint_core::window::WindowInner::from_pub(adapter.window())
+                    .try_context()
+                    .map(|ctx| ctx.locale_decimal_separator())
+            })
+            .unwrap_or_else(i_slint_core::string::current_decimal_separator)
+    }
+}
+
 /// If we only care about a specified field
 ///
 /// For example, if we need to evaluate `<expression>.foo.bar` we would have something like
@@ -73,9 +87,9 @@ fn eval_expression(
             let v = eval_expression(from, local_context, field_filter);
             match (v, to) {
                 (Value::Number(n), langtype::Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), langtype::Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
-                }
+                (Value::Number(n), langtype::Type::String) => Value::String(
+                    i_slint_core::string::format_number(local_context.decimal_separator(), n),
+                ),
                 (Value::Number(n), langtype::Type::Color) => {
                     slint::Color::from_argb_encoded(n as u32).into()
                 }
@@ -429,7 +443,11 @@ fn handle_builtin_function(
             let digits: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
+            Value::String(i_slint_core::string::format_number_fixed(
+                local_context.decimal_separator(),
+                n,
+                digits,
+            ))
         }
         BuiltinFunction::ToPrecision => {
             let n: f64 =
@@ -437,7 +455,11 @@ fn handle_builtin_function(
             let precision: i32 =
                 eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
             let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+            Value::String(i_slint_core::string::format_number_precision(
+                local_context.decimal_separator(),
+                n,
+                precision,
+            ))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let n: f64 =

@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A link that wraps across several lines must be clickable on every line, not only the last one.
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    st := StyledText {
+        x: 0;
+        y: 0;
+        width: 100px;
+        default-font-size: 20px;
+        text: @markdown("[aaaa bbbb cccc dddd](https://slint.dev)");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    out property <length> text-height: st.preferred-height;
+    out property <bool> test: true;
+    in-out property <string> clicked_link_url: "";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// The link must span more than one line for this test to be meaningful.
+let height = instance.get_text_height();
+assert!(height > 40.0, "expected the link to wrap into several lines, but the text is only {height}px high");
+
+// Click on the last line of the link.
+slint_testing::send_mouse_click(&instance, 10.0, height - 10.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
+
+// Click on the first line of the link.
+instance.set_clicked_link_url("".into());
+slint_testing::send_mouse_click(&instance, 10.0, 10.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+float height = instance.get_text_height();
+assert(height > 40.0);
+
+slint_testing::send_mouse_click(&instance, 10., height - 10.);
+assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
+
+instance.set_clicked_link_url("");
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
+```
+*/

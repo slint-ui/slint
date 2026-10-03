@@ -136,9 +136,6 @@ impl NamedReference {
                 ElementType::Builtin(b) => {
                     return b.properties.get(self.name()).is_none_or(|pi| !pi.is_native_output());
                 }
-                ElementType::Native(n) => {
-                    return n.properties.get(self.name()).is_none_or(|pi| !pi.is_native_output());
-                }
                 crate::langtype::ElementType::Error
                 | crate::langtype::ElementType::Global
                 | crate::langtype::ElementType::Interface => {

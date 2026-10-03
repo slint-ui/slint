@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, Button } from "std-widgets.slint";
+import { Palette, Button, Spinner } from "std-widgets.slint";
 import { LicensesPage, AttributionItem } from "licenses.slint";
 
 export enum RemoteViewerState {
@@ -9,6 +9,8 @@ export enum RemoteViewerState {
     waiting-for-connection,
     /// An editor is connected but no preview has been requested yet.
     connected,
+    /// A preview build is in progress.
+    compiling,
     /// A user component is shown; this window is hidden.
     previewing,
     /// The last build failed; `message` holds the error text.
@@ -44,10 +46,27 @@ export component RemoteViewerWindow inherits Window {
     property <bool> has-name: name != "";
     property <bool> showing-name: true;
 
-    /// Whether the name/address screen is the one on show. The other states
-    /// each take the whole window.
+    /// Whether the name/address screen is the one on show. The other states each
+    /// take the whole window, and a build in flight fades it out.
     property <bool> showing-idle-screen: root.state != RemoteViewerState.preview-error
-        && root.state != RemoteViewerState.pairing;
+        && root.state != RemoteViewerState.pairing
+        && root.compile-fade < 1;
+
+    /// Cross-fades the address screen out and the spinner in while a build is in
+    /// flight. The delay keeps a build that comes back right away off the screen.
+    property <float> compile-fade;
+
+    states [
+        compiling when root.state == RemoteViewerState.compiling: {
+            compile-fade: 1;
+            in {
+                animate compile-fade { delay: 60ms; duration: 200ms; easing: ease-out; }
+            }
+            out {
+                animate compile-fade { duration: 60ms; easing: ease-out; }
+            }
+        }
+    ]
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     property <bool> landscape-layout: root.width > root.height;
@@ -139,6 +158,7 @@ export component RemoteViewerWindow inherits Window {
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
         visible: root.showing-idle-screen;
+        opacity: 1 - root.compile-fade;
         VerticalLayout {
             alignment: start;
             spacing: 8px;
@@ -318,6 +338,33 @@ export component RemoteViewerWindow inherits Window {
             font-weight: 400;
             horizontal-alignment: center;
             opacity: 0.6;
+        }
+    }
+
+    // Follows the fade rather than the state, so the spinner can fade out. Leaving
+    // it in the tree at `opacity: 0` would not do: `Opacity::need_layer` draws a
+    // layout with children into a layer at full alpha, spinning the idle screen.
+    if root.compile-fade > 0: VerticalLayout {
+        opacity: root.compile-fade;
+        alignment: center;
+        spacing: 16px;
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        HorizontalLayout {
+            alignment: center;
+            Spinner {
+                indeterminate: true;
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        Text {
+            text: @tr("Compiling…");
+            horizontal-alignment: center;
+            font-size: 1.1rem;
+            opacity: 0.9;
         }
     }
 

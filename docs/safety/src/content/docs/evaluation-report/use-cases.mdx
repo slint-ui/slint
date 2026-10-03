@@ -1,28 +1,22 @@
 ---
 title: Use Cases
-description: The use cases of Slint SC that the evaluation analyzes.
+description: How the tools of Slint SC are used in a project.
 ---
 
-## Use Cases (ISO 26262-8 11.4.5.1)
+**Addresses:** ISO 26262-8 11.4.5.1
 
-### Using Slint SC in a project
+This chapter lists how each tool of Slint SC is used in a project.
+The [potential errors](/evaluation-report/potential-errors/) and the [tool classification](/evaluation-report/tool-classification/) are derived from these use cases.
+How the runtime is added to a project is in the [Component Documentation](/component-documentation/#integration).
 
-* **ID** : UC_ADD_SLINT_SC_TO_PROJECT
-* **Input** : Cargo.toml file in the root of a rust project file tree
-* **Output** : Modified Cargo.toml file that includes Slint SC as a dependency
-* **Environment Constraints**: (TODO)
+## Compiling a .slint File Into Rust
 
-When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
-To add it to a project, one simply adds Slint SC as a dependency in `Cargo.toml`.
-
-(TODO - show example)
-
-### Compiling a .slint file into Rust
-
-* **ID** : UC_COMPILE_SLINT_FILE
-* **Input** : a .slint file
-* **Output** : Rust code that can be compiled into the final executable.
-* **Environment Constraints**: (TODO)
+* **ID**: UC_COMPILE_SLINT_FILE
+* **Tool**: Slint compiler
+* **Purpose**: Generate source code for the product.
+* **Input**: A `.slint` file
+* **Output**: Rust code that can be compiled into the final executable
+* **Environment Constraints**: Not stated yet
 
 The `slint-compiler` binary, invoked with `--slint-sc`, translates the `.slint` file into Rust code:
 
@@ -32,5 +26,17 @@ slint-compiler --slint-sc -o main_file.rs mainFile.slint
 
 The generated code is then compiled and linked into the application together with the `slint-sc` runtime crate.
 
-(TODO: `slint_build` doesn't support Slint SC yet, so there's no build-script
-integration. When it gains one, this use case grows a `build.rs` variant.)
+:::caution[TODO]
+State the environment constraints.
+:::
+
+## Measuring the Coverage of Slint Code
+
+* **ID**: UC_MEASURE_SLINT_COVERAGE
+* **Tool**: `slint-sc-coverage`
+* **Purpose**: Report which parts of the `.slint` code the tests of the application reached, as verification evidence.
+* **Input**: The `.slintcov` maps the compiler writes with `--coverage`, and the `llvm-cov` export of the instrumented test run
+* **Output**: The coverage of the `.slint` code, per coverage point
+* **Environment Constraints**: The test program runs on the host, where the LLVM profiler runtime is available
+
+[Coverage of Slint Code](/user-manual/slint-coverage/) describes the usage procedure.

@@ -582,6 +582,8 @@ impl Snapshotter {
             expression: self.snapshot_expression(&binding_expression.expression),
             span: binding_expression.span.clone(),
             priority: binding_expression.priority,
+            from_state: binding_expression.from_state,
+            from_source: binding_expression.from_source,
             animation: binding_expression.animation.as_ref().map(|pa| match pa {
                 object_tree::PropertyAnimation::Static(element) => {
                     object_tree::PropertyAnimation::Static(
@@ -1130,7 +1132,33 @@ impl TypeLoader {
                     &import.file,
                 ) {
                     import.file = path.to_string_lossy().into_owned();
-                };
+                } else if crate::pathutils::is_font_file(&import.file) {
+                    let importing_file = import.import_uri_token.source_file.path();
+                    let file = Path::new(&import.file);
+                    // Slint ≤ 1.18 resolved also font files relative to the file itself by accident. Still support it with a warning.
+                    let path = if let Some(too_deep) =
+                        crate::pathutils::join(importing_file, file).filter(|path| path.exists())
+                    {
+                        let suggested = import
+                            .file
+                            .strip_prefix("..")
+                            .and_then(|rest| rest.strip_prefix(['/', '\\']))
+                            .unwrap_or(&import.file);
+                        state.borrow_mut().diag.push_warning(
+                            format!(
+                                "Loading \"{}\" relative to the importing file rather than its directory is deprecated. \
+                                 Files should be imported relative to their import location, as \"{}\"",
+                                import.file, suggested
+                            ),
+                            &import.import_uri_token,
+                        );
+                        too_deep
+                    } else {
+                        crate::pathutils::join(&crate::pathutils::dirname(importing_file), file)
+                            .unwrap_or_else(|| file.to_path_buf())
+                    };
+                    import.file = path.to_string_lossy().into_owned();
+                }
                 imports.push(import);
                 continue;
             }
@@ -2479,6 +2507,82 @@ import { LibraryHelperType } from "@libdir/library_helper_type.slint";
     ));
     assert!(!test_diags.has_errors());
     assert!(!build_diagnostics.has_errors());
+}
+
+#[test]
+fn test_library_import_of_resources() {
+    // The library prefix resolves an image and a font too, not just a `.slint` file (#7086).
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let compile = |source: &str| {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.library_paths = HashMap::from([
+            ("images".into(), manifest_dir.join("../../logo")),
+            ("fonts".into(), manifest_dir.join("../common/sharedfontique")),
+        ]);
+        compiler_config.style = Some("fluent".into());
+        // Embed the image, so that a path that didn't resolve is reported rather than carried
+        // as a string nothing reads.
+        compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
+
+        let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            source.into(),
+            Some(&manifest_dir.join("test.slint")),
+            &mut test_diags,
+        );
+        assert!(!test_diags.has_errors());
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config))
+    };
+
+    let (document, diagnostics, _) = compile(
+        r#"
+import "@fonts/Inter-VariableFont.ttf";
+
+export component Test inherits Window {
+    Image { source: @image-url("@images/slint-logo-square-light.png"); }
+}
+"#,
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let font = document.custom_fonts.first().expect("the font is imported");
+    let font_path = std::path::Path::new(font.0.as_str());
+    assert_eq!(font_path.file_name(), Some("Inter-VariableFont.ttf".as_ref()), "{}", font.0);
+    assert_eq!(
+        font_path.parent().and_then(std::path::Path::file_name),
+        Some("sharedfontique".as_ref()),
+        "the font kept the library path: {}",
+        font.0
+    );
+
+    // A file the library doesn't provide is reported, so the two assertions above say the
+    // prefix resolved rather than that nothing ever looked.
+    let (_, diagnostics, _) = compile(
+        r#"
+export component Test inherits Window {
+    Image { source: @image-url("@images/no-such-image.png"); }
+}
+"#,
+    );
+    let errors = diagnostics.to_string_vec();
+    assert!(
+        errors.iter().any(|e| e.contains("Cannot find image file") && e.contains("logo")),
+        "{errors:?}"
+    );
+
+    let (_, diagnostics, _) = compile(
+        r#"
+import "@fonts/no-such-font.ttf";
+
+export component Test inherits Window { }
+"#,
+    );
+    let errors = diagnostics.to_string_vec();
+    assert!(
+        errors.iter().any(|e| e.contains("no-such-font.ttf") && e.contains("not found")),
+        "{errors:?}"
+    );
 }
 
 #[test]
