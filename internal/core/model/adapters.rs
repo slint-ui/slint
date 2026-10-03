@@ -968,7 +968,11 @@ where
     type Data = M::Data;
 
     fn row_count(&self) -> usize {
-        self.0.wrapped_model.row_count()
+        if self.0.sorted_rows_dirty.get() {
+            self.0.wrapped_model.row_count()
+        } else {
+            self.0.mapping.borrow().len()
+        }
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
@@ -982,6 +986,9 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
+        // The sort mapping is built lazily (unlike FilterModel's, built eagerly
+        // in `new`); build it here too, or a fresh SortModel that's never had
+        // its rows read yet would index into an empty mapping.
         self.0.build_mapping_vec();
         let wrapped_row = self.0.mapping.borrow()[row];
         self.0.wrapped_model.set_row_data(wrapped_row, data);
@@ -1211,6 +1218,32 @@ mod sort_tests {
         assert_eq!(model.row_data(7), None);
 
         assert!(Rc::ptr_eq(model.source_model(), &wrapped_rc));
+    }
+
+    #[test]
+    fn test_sorted_model_set_row_data_before_first_read() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        sorted_model.set_row_data(0, 10);
+
+        assert_eq!(wrapped_rc.row_data(1), Some(10));
+        assert_eq!(sorted_model.row_data(0), Some(2));
+        assert_eq!(sorted_model.row_data(1), Some(3));
+        assert_eq!(sorted_model.row_data(2), Some(10));
+    }
+
+    #[test]
+    fn test_sorted_model_row_count_follows_mapping() {
+        let wrapped_rc = BrokenModel::new(std::vec![Some(3), Some(1), Some(2)]);
+        let sorted_model = SortModel::new_ascending(wrapped_rc.clone());
+        assert_eq!(sorted_model.row_data(0), Some(1));
+
+        // Grow the source without notifying, so the mapping isn't rebuilt.
+        wrapped_rc.data.borrow_mut().push(Some(4));
+
+        assert_eq!(sorted_model.row_count(), 3);
+        assert_eq!(sorted_model.row_data(3), None);
     }
 }
 
