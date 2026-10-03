@@ -609,9 +609,9 @@ pub fn compile_with_output_path(
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
-    for x in &diag.all_loaded_files {
+    for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         if x.is_absolute() {
-            dependencies.push(x.clone());
+            dependencies.push(x.to_path_buf());
         }
     }
 
@@ -626,10 +626,8 @@ pub fn compile_with_output_path(
     dependencies.push(input_slint_file_path.as_ref().to_path_buf());
 
     for er in doc.embedded_file_resources.borrow().iter() {
-        if let Some(resource) = er.path.as_deref()
-            && !resource.starts_with("builtin:")
-        {
-            dependencies.push(Path::new(resource).to_path_buf());
+        if let Some(resource) = er.path.as_ref().and_then(|p| p.as_native_path()) {
+            dependencies.push(resource.to_path_buf());
         }
     }
 

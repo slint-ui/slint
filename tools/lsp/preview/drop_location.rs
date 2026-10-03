@@ -9,6 +9,7 @@ use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -19,9 +20,6 @@ use i_slint_editor_preview::editing::import_edit;
 use i_slint_live_preview::protocol::VersionedUrl;
 
 use crate::preview::ext::ElementRcNodeExt;
-
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 
 pub fn placeholder() -> String {
     format!(
@@ -348,7 +346,7 @@ pub fn insert_position_at_end(
             (format!("\n{indent}    "), format!("{indent}    "), indent, closing_brace_offset, 0)
         };
 
-        let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
+        let url = node.source_file.path().to_url()?;
         let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
         Some(InsertInformation {
@@ -406,7 +404,7 @@ pub fn insert_position_before_child(
                 (format!("\n{indent}    "), format!("{indent}    "))
             };
 
-            let url = lsp_types::Url::from_file_path(child_node.source_file.path()).ok()?;
+            let url = child_node.source_file.path().to_url()?;
             let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
             return Some(InsertInformation {
@@ -433,7 +431,7 @@ fn insert_position_before_first_component(
     document: &syntax_nodes::Document,
 ) -> Option<InsertInformation> {
     let url = {
-        let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
+        let url = document.source_file.path().to_url()?;
         let version = document_cache.document_version_by_path(document.source_file.path());
         VersionedUrl::new(url, version)
     };
@@ -561,7 +559,7 @@ pub fn add_new_component(
         );
 
     let source_file = document.source_file.clone();
-    let path = source_file.path().to_path_buf();
+    let path = source_file.path().clone();
 
     let start_pos = util::text_size_to_lsp_position(
         &source_file,
@@ -667,9 +665,9 @@ fn find_drop_location(
         .borrow()
         .debug
         .first()
-        .map(|info| info.node.source_file.path().to_owned());
+        .map(|info| info.node.source_file.path().clone());
     let filter = Box::new(move |e: &editor_preview::ElementRcNode| {
-        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
+        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_ref())
     });
     let mark = Box::new(move |_: &editor_preview::ElementRcNode| false);
     find_filtered_location(component_instance, position, filter, mark, component_type)
@@ -928,7 +926,7 @@ pub struct DropData {
     /// The offset to select next. This is different from the insert position
     /// due to indentation, etc.
     pub selection_offset: TextSize,
-    pub path: std::path::PathBuf,
+    pub path: SourcePath,
 }
 
 fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
@@ -1119,7 +1117,7 @@ pub fn create_drop_element_workspace_edit(
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
     let mut edits = Vec::with_capacity(3);
-    let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
+    let import_file = component.import_file_name(&path.to_url());
     if let Some(edit) =
         import_edit::create_import_edit(doc, &component.name, &import_file, document_cache.format)
     {
@@ -1269,7 +1267,7 @@ pub fn create_swap_element_workspace_edit(
     let remove_me = element.with_decorated_node(|node| {
         node_removal_text_edit(&document_cache, &node, placeholder_text)
     })?;
-    if remove_me.url.to_file_path().as_ref().map(|p| p.as_path()) == Ok(source_file.path()) {
+    if source_file.path().to_url().as_ref() == Some(&remove_me.url) {
         selection_offset =
             text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file, format)
                 .adjust(selection_offset);
@@ -1277,8 +1275,7 @@ pub fn create_swap_element_workspace_edit(
     edits.push(remove_me);
 
     if let Some(component_info) = preview::get_component_info(&component_type) {
-        let import_file =
-            component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
+        let import_file = component_info.import_file_name(&path.to_url());
         if let Some(edit) =
             import_edit::create_import_edit(doc, &component_type, &import_file, format)
         {
@@ -1370,7 +1367,7 @@ pub fn move_element_to(
 #[cfg(test)]
 mod tests {
     use i_slint_compiler::parser::{TextRange, TextSize};
-    use lsp_types::Url;
+    use i_slint_compiler::source_path::SourcePath;
 
     use std::collections::HashMap;
 
@@ -1413,10 +1410,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     ) -> (editor_preview::DocumentCache, lsp_types::WorkspaceEdit) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                DEMO_CODE.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), DEMO_CODE.to_string())]),
             false,
         );
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -1557,10 +1551,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     fn add_component_test(input: &str, output: &str, selection_offset: u32) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                input.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), input.to_string())]),
             true,
         );
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -1571,7 +1562,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].url.to_file_path().unwrap(), test::main_test_file_name());
+        assert_eq!(SourcePath::from_url(&result[0].url), test::main_test_file_name());
         assert_eq!(&result[0].contents, output);
 
         assert_eq!(drop_data.path, test::main_test_file_name());

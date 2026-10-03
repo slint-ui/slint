@@ -4,24 +4,18 @@
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    future::Future,
-    path::{Path, PathBuf},
-    pin::Pin,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, future::Future, path::PathBuf, pin::Pin, rc::Rc};
 
-use crate::{ElementRcNode, Result, file_to_uri, uri_to_file};
+use crate::{ElementRcNode, Result};
 use std::collections::HashSet;
 
-pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
+pub type SourceFileVersionMap = HashMap<SourcePath, SourceFileVersion>;
 
 fn default_cc() -> i_slint_compiler::CompilerConfiguration {
     let mut cc = i_slint_compiler::CompilerConfiguration::new(
@@ -36,7 +30,7 @@ fn default_cc() -> i_slint_compiler::CompilerConfiguration {
 /// This is i_slint_compiler::OpenImportCallback with version information
 pub type OpenImportCallback = Rc<
     dyn Fn(
-        String,
+        SourcePath,
     )
         -> Pin<Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>>,
 >;
@@ -113,21 +107,18 @@ impl DocumentCache {
     ) -> (Option<OpenImportCallback>, Rc<RefCell<SourceFileVersionMap>>) {
         let source_versions = source_file_versions.clone();
         if let Some(open_import_callback) = open_import_callback.clone() {
-            compiler_config.open_import_callback = Some(Rc::new(move |file_name: String| {
-                let open_import = open_import_callback(file_name.clone());
+            compiler_config.open_import_callback = Some(Rc::new(move |path: SourcePath| {
+                let open_import = open_import_callback(path.clone());
                 let source_versions = source_versions.clone();
                 Box::pin(async move {
-                    open_import.await.map(|r| {
-                        let path = PathBuf::from(file_name);
-                        match r {
-                            Ok((v, c)) => {
-                                source_versions.borrow_mut().insert(path, v);
-                                Ok(c)
-                            }
-                            Err(e) => {
-                                source_versions.borrow_mut().remove(&path);
-                                Err(e)
-                            }
+                    open_import.await.map(|r| match r {
+                        Ok((v, c)) => {
+                            source_versions.borrow_mut().insert(path, v);
+                            Ok(c)
+                        }
+                        Err(e) => {
+                            source_versions.borrow_mut().remove(&path);
+                            Err(e)
                         }
                     })
                 })
@@ -183,21 +174,20 @@ impl DocumentCache {
         &self,
         import_token: Option<&i_slint_compiler::parser::NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
+    ) -> Option<SourcePath> {
         self.type_loader.resolve_import_path(import_token, maybe_relative_path_or_url)
     }
 
     pub fn document_version(&self, target_uri: &Url) -> SourceFileVersion {
-        self.document_version_by_path(&uri_to_file(target_uri).unwrap_or_default())
+        self.document_version_by_path(&SourcePath::from_url(target_uri))
     }
 
-    pub fn document_version_by_path(&self, path: &Path) -> SourceFileVersion {
+    pub fn document_version_by_path(&self, path: &SourcePath) -> SourceFileVersion {
         self.source_file_versions.borrow().get(path).and_then(|v| *v)
     }
 
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
-        let path = uri_to_file(url)?;
-        self.type_loader.get_document(&path)
+        self.type_loader.get_document(&SourcePath::from_url(url))
     }
 
     /// Iterator over every fully-loaded `object_tree::Document` in the cache.
@@ -205,12 +195,12 @@ impl DocumentCache {
         self.type_loader.all_documents()
     }
 
-    fn uses_widgets_impl(&self, doc_path: PathBuf, dedup: &mut HashSet<PathBuf>) -> bool {
+    fn uses_widgets_impl(&self, doc_path: SourcePath, dedup: &mut HashSet<SourcePath>) -> bool {
         if dedup.contains(&doc_path) {
             return false;
         }
 
-        if doc_path.starts_with("builtin:/") && doc_path.ends_with("std-widgets.slint") {
+        if doc_path.is_builtin() && doc_path.file_name() == Some("std-widgets.slint") {
             return true;
         }
 
@@ -218,9 +208,9 @@ impl DocumentCache {
             return false;
         };
 
-        dedup.insert(doc_path.to_path_buf());
+        dedup.insert(doc_path);
 
-        for import in doc.imports.iter().map(|i| PathBuf::from(&i.file)) {
+        for import in doc.imports.iter().filter_map(|i| i.resolved.clone()) {
             if self.uses_widgets_impl(import, dedup) {
                 return true;
             }
@@ -231,16 +221,10 @@ impl DocumentCache {
 
     /// Returns true if doc_url uses (possibly indirectly) widgets from "std-widgets.slint"
     pub fn uses_widgets(&self, doc_url: &Url) -> bool {
-        let Some(doc_path) = uri_to_file(doc_url) else {
-            return false;
-        };
-
-        let mut dedup = HashSet::new();
-
-        self.uses_widgets_impl(doc_path, &mut dedup)
+        self.uses_widgets_impl(SourcePath::from_url(doc_url), &mut HashSet::new())
     }
 
-    pub fn get_document_by_path<'a>(&'a self, path: &'_ Path) -> Option<&'a Document> {
+    pub fn get_document_by_path<'a>(&'a self, path: &'_ SourcePath) -> Option<&'a Document> {
         self.type_loader.get_document(path)
     }
 
@@ -267,19 +251,15 @@ impl DocumentCache {
     }
 
     pub fn all_url_documents(&self) -> impl Iterator<Item = (Url, &syntax_nodes::Document)> + '_ {
-        self.type_loader.all_file_documents().filter_map(|(p, d)| Some((file_to_uri(p)?, d)))
+        self.type_loader.all_file_documents().filter_map(|(p, d)| Some((p.to_url()?, d)))
     }
 
     pub fn all_urls(&self) -> impl Iterator<Item = Url> + '_ {
-        self.type_loader.all_files().filter_map(|p| file_to_uri(p))
+        self.type_loader.all_files().filter_map(SourcePath::to_url)
     }
 
     pub fn all_urls_to_watch(&self) -> HashSet<Url> {
-        self.type_loader
-            .all_files_to_watch()
-            .into_iter()
-            .filter_map(|path| file_to_uri(&path))
-            .collect()
+        self.type_loader.all_files_to_watch().into_iter().filter_map(|path| path.to_url()).collect()
     }
 
     pub fn global_type_registry(&self) -> std::cell::Ref<'_, TypeRegister> {
@@ -359,16 +339,14 @@ impl DocumentCache {
         content: String,
         diag: &mut BuildDiagnostics,
     ) -> Result<()> {
-        let path =
-            uri_to_file(url).ok_or_else(|| format!("Failed to convert path for loading: {url}"))?;
-        self.type_loader.load_file(&path, &path, content, false, diag).await;
+        let path = SourcePath::from_url(url);
+        self.type_loader.load_file(&path, content, false, diag).await;
         self.source_file_versions.borrow_mut().insert(path, version);
         Ok(())
     }
 
     pub async fn reload_cached_file(&mut self, url: &Url, diag: &mut BuildDiagnostics) {
-        let Some(path) = uri_to_file(url) else { return };
-        self.type_loader.reload_cached_file(&path, diag).await;
+        self.type_loader.reload_cached_file(&SourcePath::from_url(url), diag).await;
     }
 
     /// Drop a document from the cache.
@@ -377,17 +355,8 @@ impl DocumentCache {
     /// Compared to [Self::invalidate_url], this actually causes the document to be reloaded from
     /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
-        let Some(path) = uri_to_file(url) else {
-            // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
-            tracing::error!("Failed to convert path for dropping document: {url}");
-            return Ok(Default::default());
-        };
-        Ok(self
-            .type_loader
-            .drop_document(&path)?
-            .iter()
-            .filter_map(|path| file_to_uri(path))
-            .collect())
+        let path = SourcePath::from_url(url);
+        Ok(self.type_loader.drop_document(&path)?.iter().filter_map(|path| path.to_url()).collect())
     }
 
     /// Invalidate a document and all its dependencies.
@@ -396,11 +365,10 @@ impl DocumentCache {
     /// Compared to [Self::drop_document], the CST remains in the cache, and only the type
     /// information is dropped from the cache, which causes the document to be re-analyzed.
     pub fn invalidate_url(&mut self, url: &Url) -> HashSet<Url> {
-        let Some(path) = uri_to_file(url) else { return HashSet::new() };
         self.type_loader
-            .invalidate_document(&path)
+            .invalidate_document(&SourcePath::from_url(url))
             .into_iter()
-            .filter_map(|x| file_to_uri(&x))
+            .filter_map(|x| x.to_url())
             .collect()
     }
 
@@ -476,7 +444,7 @@ impl DocumentCache {
         self.element_at_document_and_offset(doc, offset)
     }
 
-    pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
+    pub fn all_paths_to_watch(&self) -> HashSet<SourcePath> {
         self.type_loader.all_files_to_watch()
     }
 }

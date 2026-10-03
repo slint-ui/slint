@@ -31,7 +31,7 @@ pub use server_notifier::{OutgoingRequestQueue, ServerNotifier, complete_request
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, FileChangeType, InitializeParams, Url,
+    DidOpenTextDocumentParams, FileChangeType, InitializeParams,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
         DidOpenTextDocument, Notification,
@@ -40,6 +40,7 @@ use lsp_types::{
 use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
+use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
@@ -372,7 +373,7 @@ impl LspFileWatcherImpl {
             .into_iter()
             .filter_map(|event| {
                 tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
-                editor_preview::uri_to_file(&event.uri).and_then(|path| {
+                SourcePath::from_url(&event.uri).into_native_path().and_then(|path| {
                     let ty = match event.typ {
                         FileChangeType::DELETED => FileChangeKind::Deleted,
                         FileChangeType::CREATED => FileChangeKind::Created,
@@ -451,9 +452,9 @@ async fn run_main_loop(
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read().map(std::borrow::Cow::into_owned);
+                if let Some(url) = path.as_native_path().and(path.to_url()) {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),
@@ -579,7 +580,7 @@ async fn run_main_loop(
             }
             file_event = file_watcher_receiver.recv() => {
                 if let Some(file_event) = file_event
-                    && let Some(uri) = editor_preview::file_to_uri(&file_event.path)
+                    && let Ok(uri) = lsp_types::Url::from_file_path(&file_event.path)
                     && let Ok(diagnostics) =
                         ctx.session.trigger_file_watcher(uri, file_event.kind).await
                 {
@@ -616,7 +617,13 @@ fn sync_file_watcher_if_needed(
     }
 
     watcher
-        .update_watched_paths(ctx.session.document_cache.all_paths_to_watch())
+        .update_watched_paths(
+            ctx.session
+                .document_cache
+                .all_paths_to_watch()
+                .into_iter()
+                .filter_map(SourcePath::into_native_path),
+        )
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())

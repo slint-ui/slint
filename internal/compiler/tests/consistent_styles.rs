@@ -154,7 +154,7 @@ fn load_style(style_name: String) -> Style {
     }
 
     let doc = loader
-        .get_document(&loader.resolve_import_path(None, "std-widgets.slint").unwrap().0)
+        .get_document(&loader.resolve_import_path(None, "std-widgets.slint").unwrap())
         .unwrap();
 
     let mut style = Style::default();

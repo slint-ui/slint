@@ -8,8 +8,6 @@ use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_
 use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
@@ -86,7 +84,7 @@ pub(crate) fn completion_at(
     if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
-                token.source_file()?.path(),
+                token.source_file()?.path().as_native_path()?,
                 token.text(),
                 offset.checked_sub(token.text_range().start())?,
             )
@@ -389,12 +387,10 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::ImportIdentifierList {
         let import = syntax_nodes::ImportSpecifier::new(node.parent()?)?;
 
-        let path = document_cache
-            .resolve_import_path(
-                Some(&token.into()),
-                import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
-            )?
-            .0;
+        let path = document_cache.resolve_import_path(
+            Some(&token.into()),
+            import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
+        )?;
         let doc = document_cache.get_document_by_path(&path)?;
         return Some(
             doc.exports
@@ -1288,8 +1284,7 @@ pub fn build_component_import_statements_edits(
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let exported_types = {
         let mut tmp = Vec::new();
@@ -1351,8 +1346,7 @@ pub fn build_type_import_statements_edits(
         TextEdit,
     ),
 ) -> Option<()> {
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let mut exported_types = Vec::new();
     all_exported_types(document_cache, filter, &mut exported_types);
@@ -2672,7 +2666,6 @@ mod tests {
         main_file_with_cursor: &str,
     ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
-        use lsp_types::Url;
 
         const CURSOR_EMOJI: char = '🔺';
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
@@ -2682,8 +2675,7 @@ mod tests {
         let mut diagnostics = BuildDiagnostics::default();
 
         let types_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(types_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(types_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
             Some(1),
@@ -2692,8 +2684,7 @@ mod tests {
         ));
 
         let main_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(main_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(main_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &main_url,
             Some(2),

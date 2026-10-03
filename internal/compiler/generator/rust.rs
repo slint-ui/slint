@@ -28,6 +28,7 @@ use crate::llr::{
     ParentScope, TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::source_path::SourcePath;
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
 use proc_macro2::{Ident, TokenStream, TokenTree};
@@ -3599,12 +3600,12 @@ impl quote::ToTokens for crate::expression_tree::ImageReference {
             crate::expression_tree::ImageReference::None => {
                 quote!(sp::Image::default())
             }
-            crate::expression_tree::ImageReference::Path(path) => {
-                let path = path.as_str();
+            crate::expression_tree::ImageReference::Source(SourcePath::File(path)) => {
+                let path = path.to_string_lossy();
                 quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
             }
-            crate::expression_tree::ImageReference::Url(url) => {
-                let url = url.as_str();
+            crate::expression_tree::ImageReference::Source(url) => {
+                let url = url.to_string();
                 // URL image references only work on the web, where the browser fetches them.
                 quote!({
                     #[cfg(target_arch = "wasm32")]
@@ -6119,14 +6120,17 @@ fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenSt
     quote!(#component_id::FIELD_OFFSETS.#field())
 }
 
-fn embedded_file_tokens(path: &str) -> TokenStream {
-    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-    match file.builtin_contents {
-        Some(static_data) => {
-            let literal = proc_macro2::Literal::byte_string(static_data);
+fn embedded_file_tokens(path: &SourcePath) -> TokenStream {
+    match path {
+        SourcePath::File(path) => {
+            let path = path.to_string_lossy();
+            quote!(::core::include_bytes!(#path))
+        }
+        // The embedding pass ensured that the file exists
+        _ => {
+            let literal = proc_macro2::Literal::byte_string(&path.read().unwrap());
             quote!(#literal)
         }
-        None => quote!(::core::include_bytes!(#path)),
     }
 }
 
@@ -6152,7 +6156,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     unreachable!("slint-sc resources in the Rust generator")
                 },
                 crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-                    let data = embedded_file_tokens(er.path.as_deref().unwrap());
+                    let data = embedded_file_tokens(er.path.as_ref().unwrap());
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {

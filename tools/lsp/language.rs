@@ -20,12 +20,11 @@ pub mod test;
 use crate::editor_preview::EditorSession;
 use crate::{editor_preview, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
@@ -653,12 +652,10 @@ pub fn show_preview_command(
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url = editor_preview::uri_to_file(&url)
-        .and_then(|u| Url::from_file_path(u).ok())
-        .ok_or_else(|| LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "invalid document url".into(),
-        })?;
+    let url = SourcePath::from(url).to_url().ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "invalid document url".into(),
+    })?;
 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
@@ -1081,7 +1078,7 @@ fn get_code_actions(
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
-    let uri = Url::from_file_path(token.source_file.path()).ok()?;
+    let uri = token.source_file.path().to_url()?;
     let mut result = Vec::new();
 
     let component = syntax_nodes::Component::new(node.clone())
@@ -1787,7 +1784,7 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
 
     let diagnostics = editor_preview::editor_session::collect_diagnostics(
         &ctx.session.document_cache,
-        &all_files.iter().filter_map(editor_preview::uri_to_file).collect(),
+        &all_files.iter().map(SourcePath::from_url).collect(),
         diag,
     );
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -2666,10 +2663,8 @@ export component TestWindow inherits Window {
 }
 "#;
 
-        let types_url =
-            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
-        let main_url =
-            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();
@@ -2760,10 +2755,8 @@ export component My_Component { }
     My_Component { }
 }
 "#;
-        let types_url =
-            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
-        let main_url =
-            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
 
         let mut dc = test::empty_document_cache();
         let mut diagnostics = BuildDiagnostics::default();

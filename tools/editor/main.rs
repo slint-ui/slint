@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview as editor_preview;
 use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
@@ -377,12 +378,12 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 
     let open_import_callback = {
         let to_previews = to_previews.clone();
-        Rc::new(move |path: String| {
+        Rc::new(move |path: SourcePath| {
             let to_previews = to_previews.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read().map(std::borrow::Cow::into_owned);
+                if let Some(url) = path.as_native_path().and(path.to_url()) {
                     for to_preview in &to_previews {
                         if let Ok(contents) = &contents {
                             to_preview.send(&LspToPreviewMessage::SetContents {
@@ -459,17 +460,15 @@ fn sync_file_watcher_if_needed(
             .chain(
                 session
                     .document_cache
-                    .all_urls_to_watch()
+                    .all_paths_to_watch()
                     .into_iter()
-                    // filter out builtins
-                    .filter(|url| url.scheme() == "file")
-                    .filter_map(|url| editor_preview::uri_to_file(&url)),
+                    .filter_map(SourcePath::into_native_path),
             )
             .chain(session.previews.iter().filter_map(|preview| {
                 preview
                     .to_show
                     .as_ref()
-                    .and_then(|component| editor_preview::uri_to_file(&component.url))
+                    .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             })),
     )?;
     *watch_paths_revision = Some(current_revision);
@@ -606,7 +605,7 @@ async fn open_initial_preview(
 ) -> Result<()> {
     watcher.update_watched_paths(
         std::iter::once(project_root.to_path_buf())
-            .chain(editor_preview::uri_to_file(&component.url)),
+            .chain(SourcePath::from_url(&component.url).into_native_path()),
     )?;
     open_project(session, PRIMARY_PREVIEW_INDEX, project_root)?;
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await
@@ -685,7 +684,7 @@ fn open_project(
 fn canonical_preview_component(
     component: &PreviewComponent,
 ) -> Option<(PreviewComponent, PathBuf)> {
-    let path = editor_preview::uri_to_file(&component.url)?;
+    let path = SourcePath::from_url(&component.url).into_native_path()?;
     let path = std::fs::canonicalize(path).ok()?;
     let url = Url::from_file_path(&path).ok()?;
     Some((PreviewComponent { url, component: component.component.clone() }, path))
@@ -700,7 +699,7 @@ fn handle_workspace_edit(
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
-                match editor_preview::uri_to_file(&url) {
+                match SourcePath::from_url(&url).into_native_path() {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
                             applied = false;
@@ -835,7 +834,7 @@ mod tests {
 
     fn component(file_name: &str, name: &str) -> PreviewComponent {
         PreviewComponent {
-            url: Url::from_file_path(editor_preview::test::test_file_name(file_name)).unwrap(),
+            url: editor_preview::test::test_file_name(file_name).to_url().unwrap(),
             component: Some(name.into()),
         }
     }
@@ -1108,8 +1107,7 @@ mod tests {
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
-                file: Url::from_file_path(editor_preview::test::test_file_name("run.slint"))
-                    .unwrap(),
+                file: editor_preview::test::test_file_name("run.slint").to_url().unwrap(),
                 selection: Default::default(),
                 take_focus: false,
             },

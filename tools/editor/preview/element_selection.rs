@@ -1,14 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use i_slint_compiler::{
     object_tree::ElementRc,
     parser::{SyntaxKind, TextSize},
+    source_path::SourcePath,
 };
 use i_slint_core::{lengths::LogicalPoint, properties::ChangeTracker};
 use slint::{Model, ModelTracker, VecModel};
@@ -18,7 +16,7 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
 }
@@ -38,7 +36,8 @@ impl ElementSelection {
         let debug_index = {
             let e = element.borrow();
             e.debug.iter().position(|d| {
-                d.node.source_file.path() == self.path && d.node.text_range().start() == self.offset
+                d.node.source_file.path() == &self.path
+                    && d.node.text_range().start() == self.offset
             })
         };
 
@@ -61,7 +60,7 @@ fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
 fn lsp_element_node_position(
     element: &i_slint_editor_preview::ElementRcNode,
     format: i_slint_editor_preview::ByteFormat,
-) -> Option<(String, lsp_types::Range)> {
+) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -74,7 +73,7 @@ fn lsp_element_node_position(
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-    Some((f, Range::new(start, end)))
+    Some((f.to_url()?, Range::new(start, end)))
 }
 
 fn element_covers_point(
@@ -98,7 +97,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
@@ -117,7 +116,7 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
@@ -157,7 +156,7 @@ struct HighlightPositionsModel {
 }
 
 impl HighlightPositionsModel {
-    fn new(component_instance: ComponentInstance, path: PathBuf, offset: u32) -> Rc<Self> {
+    fn new(component_instance: ComponentInstance, path: SourcePath, offset: u32) -> Rc<Self> {
         let rows = i_slint_core::properties::evaluate_no_tracking(|| {
             selection_rectangles(&component_instance, &path, offset)
         });
@@ -216,7 +215,7 @@ impl Model for HighlightPositionsModel {
 
 fn selection_rectangles(
     component_instance: &ComponentInstance,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<ui::SelectionRectangle> {
     component_instance
@@ -251,10 +250,7 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = lsp_types::Url::parse(source_uri.as_str())
-        .ok()
-        .and_then(|u| i_slint_editor_preview::uri_to_file(&u))
-    else {
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str()).ok().map(SourcePath::from) else {
         return Default::default();
     };
     HighlightPositionsModel::new(component_instance, path, offset as u32).into()
@@ -279,7 +275,7 @@ fn select_element_node(
 
     if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        to_lsp.ask_editor_to_show_document(&document_position.0, document_position.1, false).ok();
+        to_lsp.ask_editor_to_show_document(document_position.0, document_position.1, false).ok();
     }
 }
 
@@ -345,7 +341,7 @@ fn collect_all_element_nodes_covering_impl(
     {
         for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
             if !i_slint_editor_preview::is_element_node_ignored(&d.node)
-                && !d.node.source_file.path().starts_with("builtin:/")
+                && !d.node.source_file.path().is_builtin()
             {
                 // All nodes have the same geometry
                 result.push(SelectionCandidate {
@@ -361,14 +357,14 @@ fn collect_all_element_nodes_covering_impl(
 }
 
 fn assign_is_in_root_component(candidates: &mut [SelectionCandidate]) {
-    let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
+    let mut root_anchor: Option<(SourcePath, i_slint_compiler::parser::TextRange)> = None;
     for sc in candidates.iter_mut().rev() {
         let Some(en) = sc.as_element_node() else {
             continue;
         };
 
         let (node_path, node_text_range) =
-            en.with_element_node(|n| (n.source_file.path().to_path_buf(), n.text_range()));
+            en.with_element_node(|n| (n.source_file.path().clone(), n.text_range()));
         if let Some((rp, rtr)) = &root_anchor {
             sc.is_in_root_component = &node_path == rp && rtr.contains_range(node_text_range);
         } else {
@@ -487,10 +483,8 @@ fn hovered_element_at_impl(
         valid: true,
         is_selected,
         is_over_selected_element,
-        source_uri: i_slint_editor_preview::file_to_uri(&path)
-            .map(|uri| uri.to_string().into())
-            .unwrap_or_default(),
-        element_path: path.to_string_lossy().to_string().into(),
+        source_uri: path.to_url().map(|uri| uri.to_string().into()).unwrap_or_default(),
+        element_path: path.to_string().into(),
         element_offset: i32::try_from(u32::from(offset)).unwrap_or_default(),
         type_name: type_name(&element_node).into(),
         geometry: Rc::new(VecModel::from(selection_rectangles(
@@ -539,8 +533,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
         (known_components, selected)
     });
 
-    let mut longest_path_prefix = PathBuf::new();
-
     let mut result = collect_all_element_nodes_covering(position, component_instance)
         .iter()
         .filter(|sn| filter_nodes_for_selection(sn, true).is_some())
@@ -549,6 +541,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 .as_element_node()
                 .map(|en| {
                     let (path, offset) = en.path_and_offset();
+                    let path = path.to_string();
                     let offset: u32 = offset.into();
 
                     let is_selected = if selected.is_none() {
@@ -601,18 +594,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 })
                 .unwrap_or_default();
 
-            if path.strip_prefix("/@").is_err() && path != PathBuf::new() {
-                if longest_path_prefix == PathBuf::new() {
-                    longest_path_prefix = path.clone();
-                } else {
-                    longest_path_prefix =
-                        std::iter::zip(longest_path_prefix.components(), path.components())
-                            .take_while(|(l, p)| l == p)
-                            .map(|(l, _)| l)
-                            .collect();
-                }
-            }
-
             let root_geo = root_geometry.rect;
             let sc_geom = sc.geometry.rect;
             let width = (sc_geom.size.width / root_geo.size.width) * 100.0;
@@ -636,28 +617,25 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 is_layout,
                 is_interactive,
                 type_name: type_name.into(),
-                file_name: path.to_string_lossy().to_string().into(),
-                element_path: path.to_string_lossy().to_string().into(),
+                file_name: path.as_str().into(),
+                element_path: path.into(),
                 element_offset: offset as i32,
                 id: id.into(),
             }
         })
         .collect::<Vec<_>>();
 
+    let common_directory = i_slint_editor_preview::util::common_directory(
+        result.iter().map(|frame| frame.file_name.as_str()).filter(|name| !name.starts_with("/@")),
+    );
     for frame in result.iter_mut() {
-        let file_name = PathBuf::from(frame.file_name.to_string());
-        let new_file_name = {
-            if let Some(library) = file_name.to_string_lossy().strip_prefix("/@") {
-                format!("@{library:?}")
-            } else if file_name == longest_path_prefix {
-                file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                file_name
-                    .strip_prefix(&longest_path_prefix)
-                    .unwrap_or(&file_name)
-                    .to_string_lossy()
-                    .to_string()
-            }
+        let new_file_name = match frame.file_name.strip_prefix("/@") {
+            Some(library) => format!("@{library:?}"),
+            None => frame
+                .file_name
+                .strip_prefix(common_directory.as_str())
+                .unwrap_or(&frame.file_name)
+                .to_string(),
         };
         frame.file_name = new_file_name.into();
     }
@@ -795,9 +773,8 @@ pub fn reselect_element() {
 mod tests {
     use i_slint_editor_preview::test;
 
-    use std::path::PathBuf;
-
     use i_slint_compiler::parser::TextSize;
+    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::lengths::LogicalPoint;
     use slint::Model;
     use slint_interpreter::ComponentInstance;
@@ -841,7 +818,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Remove the "button" implementation details. They must be at the start:
-        let button_path = PathBuf::from("builtin:/fluent/button.slint");
+        let button_path = SourcePath::new("builtin:/fluent/button.slint");
         let first_non_button = covers_center
             .iter()
             .position(|sc| {
@@ -857,7 +834,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
-            assert_eq!(&path, &test_file);
+            assert_eq!(path, test_file);
             assert_eq!(offset, (*expected_offset).into());
         }
 
@@ -1101,7 +1078,7 @@ export component Demo inherits Window {{
     }}
 }}
 "#,
-            controls = controls_path.to_string_lossy()
+            controls = controls_path
         );
 
         let controls_source = r#"component InputBlocker {
@@ -1155,7 +1132,7 @@ export component MyInput {
         let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
 
         assert!(hovered.valid);
-        assert_eq!(hovered.element_path, expected_path_and_offset.0.to_string_lossy());
+        assert_eq!(hovered.element_path, expected_path_and_offset.0.to_string());
         assert_eq!(
             hovered.element_offset,
             i32::try_from(u32::from(expected_path_and_offset.1)).unwrap()
@@ -1201,7 +1178,7 @@ export component Demo inherits Window {{
     }}
 }}
 "#,
-            controls = controls_path.to_string_lossy()
+            controls = controls_path
         );
         let controls_source = r#"export component MyInput {
     width: 100%;
@@ -1220,7 +1197,7 @@ export component Demo inherits Window {{
         let hovered = super::hovered_element_at_impl(&component_instance, position, false, None);
 
         assert!(hovered.valid);
-        assert_eq!(PathBuf::from(hovered.element_path.to_string()), main_path);
+        assert_eq!(SourcePath::new(hovered.element_path.as_str()), main_path);
     }
 
     #[test]
@@ -1260,7 +1237,7 @@ export component Demo inherits Window {{
         assert_ne!(first.geometry.row_data(0).unwrap().x, first.geometry.row_data(1).unwrap().x);
 
         let selection = super::ElementSelection {
-            path: PathBuf::from(first.element_path.to_string()),
+            path: SourcePath::new(first.element_path.as_str()),
             offset: TextSize::from(first.element_offset as u32),
             instance_index: 1,
         };

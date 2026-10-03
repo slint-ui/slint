@@ -20,6 +20,7 @@ use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
+use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
@@ -884,27 +885,18 @@ impl Expression {
         let resource_ref = if s.starts_with("data:") {
             ImageReference::DataUri(s)
         } else {
-            let absolute_source_path = {
-                let path = std::path::Path::new(&s);
-                if crate::pathutils::is_absolute(path) {
-                    s
-                } else {
-                    ctx.type_loader
-                        .and_then(|loader| {
-                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                        })
-                        .map(|i| i.0.to_string_lossy().into())
-                        .unwrap_or_else(|| {
-                            crate::pathutils::join(
-                                &crate::pathutils::dirname(node.source_file.path()),
-                                path,
-                            )
-                            .map(|p| p.to_string_lossy().into())
-                            .unwrap_or(s.clone())
-                        })
+            let is_absolute = crate::source_path::is_absolute(&s);
+            let resolved = ctx
+                .type_loader
+                .filter(|_| !is_absolute)
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s));
+            let path = match resolved {
+                Some(path) => path,
+                None => {
+                    node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            ImageReference::Source(path)
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
@@ -914,7 +906,9 @@ impl Expression {
             ImageReference::DataUri(_) => {
                 ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
             }
-            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            ImageReference::Source(path) if path.as_native_path().is_none() => {
+                ctx.diag.slint_sc_error("URLs in @image-url() are", &node)
+            }
             _ => {}
         }
 

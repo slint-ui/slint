@@ -14,12 +14,9 @@ use i_slint_live_preview::{
 use itertools::Itertools;
 use lsp_types::Url;
 
+use i_slint_compiler::source_path::SourcePath;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 use std::rc::Rc;
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 /// Diagnostics paired with the document version for which they were computed.
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
@@ -91,7 +88,7 @@ impl EditorSession {
         let Some(preview) = self.preview(preview_index) else { return };
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-        let mut fonts_sent = HashSet::<PathBuf>::new();
+        let mut fonts_sent = HashSet::<SourcePath>::new();
         for (url, node) in self.document_cache.all_url_documents() {
             if url.scheme() == "builtin" {
                 continue;
@@ -138,7 +135,7 @@ impl EditorSession {
     ) {
         let Some(preview) = self.preview(preview_index) else { return };
         #[cfg(feature = "preview-remote")]
-        let mut fonts_sent = HashSet::<PathBuf>::new();
+        let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
             if let Some(node) =
                 self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
@@ -193,25 +190,21 @@ impl EditorSession {
         &self,
         preview: &PreviewConnection,
         doc_url: &Url,
-        sent: &mut HashSet<PathBuf>,
+        sent: &mut HashSet<SourcePath>,
     ) {
         let Some(remote) = preview.to_preview.remote() else { return };
         let Some(doc) = self.document_cache.get_document(doc_url) else { return };
         // `custom_fonts` holds the resolved path of every font import that
         // passed the compiler's existence check, plus remote URLs.
         for (font_path, _) in &doc.custom_fonts {
-            let font_path = PathBuf::from(font_path.as_str());
-            if i_slint_compiler::pathutils::is_url(&font_path) {
+            if font_path.as_native_path().is_none() || !sent.insert(font_path.clone()) {
                 continue;
             }
-            if !sent.insert(font_path.clone()) {
-                continue;
-            }
-            let Ok(font_url) = Url::from_file_path(&font_path) else {
-                tracing::warn!("Cannot convert font path to URL: {}", font_path.display());
+            let Some(font_url) = font_path.to_url() else {
+                tracing::warn!("Cannot convert font path to URL: {font_path}");
                 continue;
             };
-            match std::fs::read(&font_path) {
+            match font_path.read() {
                 Ok(contents) => {
                     tracing::debug!(
                         "Sending font {} ({} bytes) to remote viewer",
@@ -220,11 +213,11 @@ impl EditorSession {
                     );
                     remote.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(font_url, None),
-                        contents,
+                        contents: contents.into_owned(),
                     });
                 }
                 Err(err) => {
-                    tracing::warn!("Failed to read font {}: {err}", font_path.display());
+                    tracing::warn!("Failed to read font {font_path}: {err}");
                 }
             }
         }
@@ -244,7 +237,7 @@ impl EditorSession {
         content: String,
         url: lsp_types::Url,
         version: Option<i32>,
-    ) -> (HashSet<PathBuf>, BuildDiagnostics) {
+    ) -> (HashSet<SourcePath>, BuildDiagnostics) {
         enum FileAction {
             ProcessContent(String),
             IgnoreFile,
@@ -253,11 +246,11 @@ impl EditorSession {
 
         tracing::trace!("Loading document: {url} (version: {version:?})");
 
-        let Some(path) = crate::uri_to_file(&url) else { return Default::default() };
+        let path = SourcePath::from_url(&url);
         // Normalize the URL
-        let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
+        let Some(url) = path.to_url() else { return Default::default() };
 
-        let action = if path.extension().is_some_and(|e| e == "rs") {
+        let action = if path.extension() == Some("rs") {
             match i_slint_compiler::lexer::extract_rust_macro(content) {
                 Some(content) => FileAction::ProcessContent(content),
                 // A rust file without a rust macro, just ignore it
@@ -286,12 +279,10 @@ impl EditorSession {
                 // already; seed the sent set with them so only fonts added by this
                 // edit are transferred.
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                let fonts_sent: HashSet<PathBuf> = self
+                let fonts_sent: HashSet<SourcePath> = self
                     .document_cache
                     .get_document(&url)
-                    .map(|doc| {
-                        doc.custom_fonts.iter().map(|(p, _)| PathBuf::from(p.as_str())).collect()
-                    })
+                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| p.clone()).collect())
                     .unwrap_or_default();
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
@@ -315,11 +306,8 @@ impl EditorSession {
             }
         }
 
-        let extra_files = dependencies
-            .iter()
-            .filter_map(crate::uri_to_file)
-            .chain(core::iter::once(path))
-            .collect();
+        let extra_files =
+            dependencies.iter().map(SourcePath::from_url).chain(core::iter::once(path)).collect();
 
         (extra_files, diag)
     }
@@ -372,22 +360,18 @@ impl EditorSession {
 
             self.document_cache.reload_cached_file(&url, &mut diagnostics).await;
             let mut extra_files = HashSet::new();
-            extra_files.extend(crate::uri_to_file(&url));
+            extra_files.insert(SourcePath::from_url(&url));
 
             Ok(collect_diagnostics(&self.document_cache, &extra_files, diagnostics))
         } else {
             tracing::trace!("Document not in cache, loading from disk: {url}");
 
-            let Some(path) = crate::uri_to_file(&url) else {
-                // The file was likely deleted, log and move on
-                tracing::debug!("Failed to locate file: {url}");
-                return Ok(Default::default());
-            };
-            match std::fs::read_to_string(&path) {
+            let path = SourcePath::from_url(&url);
+            match path.read_to_string() {
                 Ok(content) => self.load_document(content, url, None).await,
                 // The file was likely deleted, log and move on
                 Err(err) => {
-                    tracing::debug!("Failed to read {} from disk: {err}", path.display());
+                    tracing::debug!("Failed to read {path} from disk: {err}");
                     Ok(Default::default())
                 }
             }
@@ -468,24 +452,25 @@ impl EditorSession {
 }
 
 pub fn convert_diagnostics(
-    extra_files: &HashSet<PathBuf>,
+    extra_files: &HashSet<SourcePath>,
     diag: BuildDiagnostics,
     format: crate::ByteFormat,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
         .iter()
-        .chain(diag.all_loaded_files.iter())
-        .filter_map(|p| Url::from_file_path(p).ok())
+        .filter_map(SourcePath::to_url)
+        .chain(diag.all_loaded_files.iter().filter_map(SourcePath::to_url))
         .map(|uri| (uri, Default::default()))
         .collect();
 
     for d in diag.into_iter() {
-        #[cfg(not(target_arch = "wasm32"))]
-        if d.source_file().unwrap().is_relative() {
+        // A relative path, as in a test, has no URL.
+        let Some(uri) =
+            i_slint_compiler::diagnostics::Spanned::source_file(&d).and_then(|f| f.path().to_url())
+        else {
             continue;
-        }
-        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
+        };
         lsp_diags
             .entry(uri)
             .or_default()
@@ -497,7 +482,7 @@ pub fn convert_diagnostics(
 
 pub fn collect_diagnostics(
     document_cache: &crate::DocumentCache,
-    extra_files: &HashSet<PathBuf>,
+    extra_files: &HashSet<SourcePath>,
     diag: BuildDiagnostics,
 ) -> crate::VersionedDiagnostics {
     let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
@@ -541,7 +526,7 @@ mod tests {
     fn primary_preview_accessors_return_the_first_connection() {
         let (mut session, _) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("primary.slint")).unwrap(),
+            url: crate::test::test_file_name("primary.slint").to_url().unwrap(),
             component: Some("Primary".into()),
         };
 
@@ -555,7 +540,7 @@ mod tests {
     fn invalid_preview_indexes_are_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("missing.slint")).unwrap(),
+            url: crate::test::test_file_name("missing.slint").to_url().unwrap(),
             component: None,
         };
 
@@ -573,10 +558,8 @@ mod tests {
     #[test]
     fn shared_messages_are_broadcast_to_every_preview() {
         let (mut session, messages) = session_with_recording_previews();
-        let invalidated_url =
-            Url::from_file_path(crate::test::test_file_name("invalidated.slint")).unwrap();
-        let deleted_url =
-            Url::from_file_path(crate::test::test_file_name("deleted.slint")).unwrap();
+        let invalidated_url = crate::test::test_file_name("invalidated.slint").to_url().unwrap();
+        let deleted_url = crate::test::test_file_name("deleted.slint").to_url().unwrap();
 
         spin_on::spin_on(session.load_document_impl(
             "export component Shared {}".into(),

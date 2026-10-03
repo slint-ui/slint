@@ -308,7 +308,11 @@ fn compile_and_generate(
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.to_owned(),
+        Some(source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.enable_experimental = true;
     compiler_config.include_paths = include_paths;

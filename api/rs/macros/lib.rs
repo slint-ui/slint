@@ -342,8 +342,9 @@ fn extract_compiler_config(
 fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
     diag.all_loaded_files
         .iter()
+        .filter_map(|path| path.as_native_path())
         .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
-        .cloned()
+        .map(std::path::Path::to_path_buf)
         .collect()
 }
 
@@ -425,7 +426,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return stream;
     }
 
-    let source_file = diagnostics::SourceFileInner::from_path_only(source_path);
+    let source_file = diagnostics::SourceFileInner::from_path_only(
+        i_slint_compiler::source_path::SourcePath::new(source_path),
+    );
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
     if diag.has_errors() {

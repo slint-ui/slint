@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use i_slint_compiler::source_path::SourcePath;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
@@ -17,8 +18,6 @@ use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
-#[cfg(target_arch = "wasm32")]
-use crate::protocol::wasm_prelude::*;
 use crate::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
     SourceFileVersion,
@@ -222,7 +221,7 @@ impl PreviewSession {
                 if !is_supported(url.url()) {
                     return true;
                 }
-                if i_slint_compiler::pathutils::is_font_file(url.url().path()) {
+                if i_slint_compiler::fileaccess::is_font_file(url.url().path()) {
                     event_handler(PreviewSessionEvent::RegisterFont {
                         url: url.url().clone(),
                         contents: contents.into(),
@@ -319,28 +318,28 @@ impl PreviewSession {
         let mut compiler = slint_interpreter::Compiler::new();
 
         let file_loader_session = Rc::downgrade(self);
-        compiler.set_file_loader(move |path: &std::path::Path| {
-            let url = path_to_url(path);
-            let path_display = path.display().to_string();
-            let session = file_loader_session.clone();
-            Box::pin(async move {
-                let Some(session) = session.upgrade() else {
-                    return Some(Err(std::io::Error::new(
-                        std::io::ErrorKind::BrokenPipe,
-                        "Preview session is no longer available",
-                    )));
-                };
-                let Some(url) = url else {
-                    return Some(Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("Not an absolute file path: {path_display}"),
-                    )));
-                };
-                Some(session.request_file(url).await.map(|file_content| {
-                    String::from_utf8_lossy(&file_content.contents).to_string()
-                }))
-            })
-        });
+        compiler.compiler_configuration(InternalToken).open_import_callback =
+            Some(Rc::new(move |path: SourcePath| {
+                let url = path.to_url();
+                let session = file_loader_session.clone();
+                Box::pin(async move {
+                    let Some(session) = session.upgrade() else {
+                        return Some(Err(std::io::Error::new(
+                            std::io::ErrorKind::BrokenPipe,
+                            "Preview session is no longer available",
+                        )));
+                    };
+                    let Some(url) = url else {
+                        return Some(Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!("Not an absolute file path: {path}"),
+                        )));
+                    };
+                    Some(session.request_file(url).await.map(|file_content| {
+                        String::from_utf8_lossy(&file_content.contents).to_string()
+                    }))
+                })
+            }));
 
         let mapper_session = Rc::downgrade(self);
         compiler.compiler_configuration(InternalToken).resource_url_mapper =
@@ -379,10 +378,7 @@ impl PreviewSession {
     }
 
     pub async fn compile_component(&self, component: &PreviewComponent) -> PreviewCompilation {
-        let Some(path) = url_to_path(&component.url) else {
-            tracing::error!("Not a file URL: {}", component.url);
-            return PreviewCompilation::Unavailable;
-        };
+        let path = SourcePath::from_url(&component.url);
         let file = match self.request_file(component.url.clone()).await {
             Ok(file) => file,
             Err(error) => {
@@ -398,14 +394,18 @@ impl PreviewSession {
         // refuses every build that follows.
         let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
         let compilation_result = compiler
-            .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
+            .build_from_source_path(
+                String::from_utf8_lossy(&file.contents).into_owned(),
+                path,
+                InternalToken,
+            )
             .await;
         drop(compiler);
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
-            .filter_map(|path| path_to_url(path))
+            .filter_map(SourcePath::to_url)
             .collect();
 
         if compilation_result.has_errors() {
@@ -470,23 +470,6 @@ impl PreviewSession {
         };
         self.send_to_editor(&message).ok();
     }
-}
-
-/// Converts a `file:` URL from the editor into the path the compiler loads it under.
-///
-/// The editor may run on another OS than the viewer, so a URL that isn't a native path here,
-/// such as a POSIX path on Windows (#13674), stays a URL.
-/// The compiler resolves imports and images against such a path on any host.
-fn url_to_path(url: &Url) -> Option<PathBuf> {
-    if url.scheme() != "file" {
-        return None;
-    }
-    Some(url.to_file_path().unwrap_or_else(|()| url.as_str().into()))
-}
-
-/// The inverse of [`url_to_path`].
-fn path_to_url(path: &Path) -> Option<Url> {
-    Url::from_file_path(path).ok().or_else(|| Url::parse(path.to_str()?).ok())
 }
 
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {

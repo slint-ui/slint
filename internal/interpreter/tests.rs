@@ -3,6 +3,8 @@
 
 // cSpell: ignore descendents dontcrash
 
+#[cfg(feature = "internal")]
+use i_slint_compiler::source_path::SourcePath;
 #[allow(unused_imports)]
 use i_slint_core::api::ComponentHandle;
 
@@ -141,7 +143,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
 
         spin_on::spin_on(compiler.build_static_from_source(
             code.into(),
-            std::path::PathBuf::from("test.slint"),
+            SourcePath::new("test.slint"),
             InternalToken,
         ))
     } else {
@@ -816,7 +818,7 @@ fn root_component_resolves_to_the_right_document() {
     let root = definition.root_component();
     assert_eq!(
         root.root_element.borrow().debug.first().unwrap().node.source_file.path(),
-        std::path::Path::new("main.slint")
+        &SourcePath::new("main.slint")
     );
 }
 

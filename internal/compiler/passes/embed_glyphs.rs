@@ -53,9 +53,10 @@ pub fn read_custom_fonts<'a>(
     let mut fonts = Vec::new();
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            match std::fs::read(font_path.as_str()) {
+            match font_path.read() {
                 Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
-                Ok(bytes) => fonts.push((font_path.as_str().into(), bytes)),
+                Ok(bytes) => fonts
+                    .extend(font_path.as_native_path().map(|p| (p.to_owned(), bytes.into_owned()))),
             }
         }
     }
@@ -258,7 +259,7 @@ pub fn embed_glyphs(
     let register_embedded_font = |path: &std::path::Path, embedded_bitmap_font: BitmapFont| {
         let resource_id = doc.embedded_file_resources.borrow_mut().push_and_get_key(
             crate::embedded_resources::EmbeddedResources {
-                path: Some(path.to_string_lossy().as_ref().into()),
+                path: Some(crate::source_path::SourcePath::File(path.to_owned())),
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
                     embedded_bitmap_font,
                 ),
