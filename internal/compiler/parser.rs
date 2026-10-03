@@ -366,22 +366,26 @@ declare_syntax! {
         MatchCase -> [ Expression, ?SubElement ],
         /// *: Elem { }
         WildcardMatchCase -> [ ?SubElement ],
-        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
-        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
+        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
-        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// `@deprecated` or `@deprecated("message")` prefixing a member declaration.
         /// The optional message is a StringLiteral token child.
         PropertyDeprecation -> [],
         /// `@shadowable` prefixing a property, callback or function declaration: a component
         /// inheriting from this one may declare a member of the same name, shadowing this one.
         ShadowableAttribute -> [],
+        /// `@testable` prefixing a property declaration: the property is guaranteed to appear
+        /// in the testable-property introspection channel, regardless of its visibility or
+        /// whether anything else in the document reads it.
+        TestableAttribute -> [],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier

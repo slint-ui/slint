@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `@testable` guarantees a property's entry in the testable-property introspection table.
+// Globals have no element-property table and interfaces have no runtime element to
+// introspect, so a property declared there is rejected rather than silently accepted.
+// Callbacks and functions have no value to read, so they're rejected too.
+
+global G {
+    @testable in-out property <int> val;
+//  >       <error{'@testable' is not supported on global properties}
+}
+
+interface I {
+    @testable in-out property <int> val;
+//  >       <error{'@testable' is not supported on interface properties}
+}
+
+export component Test {
+    implement I <=> self;
+    in-out property <int> val;
+
+    @testable callback c();
+//  >       <error{'@testable' is only supported on properties}
+    @testable public function f() { }
+//  >       <error{'@testable' is only supported on properties}
+}

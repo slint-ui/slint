@@ -793,6 +793,10 @@ pub struct PropertyDeclaration {
     pub shadowed_name: Option<SmolStr>,
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
+    /// Declared `@testable`: the property is guaranteed to appear in the testable-property
+    /// introspection channel (see [`crate::llr::TestableProperty`]), regardless of its
+    /// visibility or whether the document reads it.
+    pub testable: bool,
     /// The name the declaration had on the element it was moved from, when the
     /// move_declarations pass hoisted it onto the root element from another
     /// element of the component, under a name of its own making. What the
@@ -836,6 +840,15 @@ fn shadowable_attribute(
     diag: &mut BuildDiagnostics,
 ) -> bool {
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+}
+
+/// The `@testable` attribute (an experimental feature), if the declaration has one.
+fn testable_attribute(
+    node: Option<syntax_nodes::TestableAttribute>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Option<syntax_nodes::TestableAttribute> {
+    node.filter(|node| !reject_experimental_feature(diag, tr, "@testable", node))
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
@@ -1171,6 +1184,12 @@ pub struct Element {
     /// Members that shadow an inherited one, mapping the source name to the mangled key in
     /// `property_declarations`.
     pub shadowing_members: BTreeMap<SmolStr, SmolStr>,
+
+    /// For each declaration the move_declarations pass hoisted off this element:
+    /// the name as declared in the source, and the root-element key it lives under now.
+    /// Debug info uses it to attribute a component's properties back to the declaring
+    /// element (see `SubComponent::testable_properties` in the LLR).
+    pub moved_property_declarations: Vec<(SmolStr, SmolStr)>,
 
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
@@ -2026,6 +2045,7 @@ impl Element {
             tr.empty_type()
         };
         let is_interface = base_type == ElementType::Interface;
+        let is_global = base_type == ElementType::Global;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -2156,6 +2176,19 @@ impl Element {
 
             let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
 
+            let testable = testable_attribute(prop_decl.TestableAttribute(), tr, diag);
+            if let Some(node) = &testable
+                && (is_global || is_interface)
+            {
+                diag.push_error(
+                    format!(
+                        "'@testable' is not supported on {} properties",
+                        if is_global { "global" } else { "interface" }
+                    ),
+                    node,
+                );
+            }
+
             r.property_declarations.insert(
                 prop_name.clone(),
                 PropertyDeclaration {
@@ -2165,6 +2198,7 @@ impl Element {
                     shadowed_name,
                     shadowable: shadowable_attribute(prop_decl.ShadowableAttribute(), tr, diag),
                     deprecated,
+                    testable: testable.is_some(),
                     ..Default::default()
                 },
             );
@@ -2287,6 +2321,9 @@ impl Element {
                 continue;
             }
             let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
+            if let Some(node) = testable_attribute(sig_decl.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
+            }
             let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
             let source_name = name;
             let name =
@@ -2418,6 +2455,10 @@ impl Element {
                     "Function declarations in an interface must be public".into(),
                     &func,
                 );
+            }
+
+            if let Some(node) = testable_attribute(func.TestableAttribute(), tr, diag) {
+                diag.push_error("'@testable' is only supported on properties".into(), &node);
             }
 
             let declaration = PropertyDeclaration {
