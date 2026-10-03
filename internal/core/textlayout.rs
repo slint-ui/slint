@@ -732,7 +732,9 @@ fn test_no_line_separators_characters_rendered() {
         )
         .unwrap();
 
-    assert_eq!(lines.len(), 2);
+    // The text ends with a separator, so it ends on an empty line.
+    // That line renders nothing, which is what this test is about.
+    assert_eq!(lines.len(), 3);
     let rendered_text = lines
         .iter()
         .map(|glyphs_per_line| {
@@ -746,7 +748,7 @@ fn test_no_line_separators_characters_rendered() {
                 .collect::<std::string::String>()
         })
         .collect::<Vec<_>>();
-    debug_assert_eq!(rendered_text, std::vec!["Hello", "World"]);
+    debug_assert_eq!(rendered_text, std::vec!["Hello", "World", ""]);
 }
 
 #[test]
