@@ -1,0 +1,210 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: MIT
+
+import { CheckBox } from "std-widgets.slint";
+
+export interface SliderSurface {
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    callback seek(position: float);
+}
+
+export component HeadlessSlider {
+    in property <bool> enabled: true;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    in-out property <float> value;
+    callback changed(value: float);
+    slot <SliderSurface> surface;
+
+    forward-focus: keys;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: root.step;
+    accessible-action-increment => { root.set-value(root.value + root.step); }
+    accessible-action-decrement => { root.set-value(root.value - root.step); }
+    accessible-action-set-value(value) => { root.set-value(value.to-float()); }
+
+    public function set-value(requested: float) {
+        if !root.enabled { return; }
+        let upper = max(root.minimum, root.maximum);
+        let bounded = clamp(requested, root.minimum, upper);
+        let snapped = root.step > 0 && bounded > root.minimum && bounded < upper
+            ? root.minimum + round((bounded - root.minimum) / root.step) * root.step : bounded;
+        let next = clamp(snapped, root.minimum, upper);
+        if next != root.value {
+            root.value = next;
+            root.changed(next);
+        }
+    }
+
+    surface {
+        enabled: root.enabled;
+        focused: keys.has-focus;
+        position: root.maximum > root.minimum
+            ? clamp((root.value - root.minimum) / (root.maximum - root.minimum), 0, 1) : 0;
+        seek(position) => {
+            if root.enabled {
+                keys.focus();
+                root.set-value(root.minimum + clamp(position, 0, 1) * max(0, root.maximum - root.minimum));
+            }
+        }
+    }
+    keys := FocusScope {
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if !root.enabled { return reject; }
+            if event.text == Key.RightArrow || event.text == Key.UpArrow {
+                root.set-value(root.value + root.step);
+            } else if event.text == Key.LeftArrow || event.text == Key.DownArrow {
+                root.set-value(root.value - root.step);
+            } else if event.text == Key.Home {
+                root.set-value(root.minimum);
+            } else if event.text == Key.End {
+                root.set-value(root.maximum);
+            } else { return reject; }
+            return accept;
+        }
+    }
+}
+
+export component StraightSurface {
+    implement SliderSurface <=> self;
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    callback seek(position: float);
+    in property <color> accent: #2563eb;
+    preferred-width: 260px;
+    preferred-height: 180px;
+    property <length> inset: 14px;
+    property <length> travel: max(1px, root.width - 2 * root.inset);
+
+    Rectangle {
+        x: root.inset;
+        y: (root.height - self.height) / 2;
+        width: root.travel;
+        height: 6px;
+        border-radius: 3px;
+        background: #cbd5e1;
+        Rectangle {
+            x: 0px;
+            width: parent.width * root.position;
+            background: root.enabled ? root.accent : #94a3b8;
+            border-radius: 3px;
+        }
+    }
+    Rectangle {
+        x: root.inset + root.position * root.travel - self.width / 2;
+        y: (root.height - self.height) / 2;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: root.enabled ? root.accent : #94a3b8;
+        border-width: root.focused ? 3px : 0px;
+        border-color: #0f172a;
+    }
+    pointer := TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.seek((self.mouse-x - root.inset) / root.travel);
+            }
+        }
+        moved => {
+            if self.pressed { root.seek((self.mouse-x - root.inset) / root.travel); }
+        }
+    }
+}
+
+export component CircularSurface {
+    implement SliderSurface <=> self;
+    in property <bool> enabled;
+    in property <float> position;
+    in property <bool> focused;
+    callback seek(position: float);
+    in property <color> accent: #2563eb;
+    preferred-width: 220px;
+    preferred-height: 180px;
+    property <length> radius: max(1px, min(root.width, root.height) / 2 - 14px);
+    property <angle> thumb-angle: 135deg + root.position * 270deg;
+
+    for dot in 55: Rectangle {
+        x: root.width / 2 + cos(135deg + dot * 5deg) * root.radius - 3px;
+        y: root.height / 2 + sin(135deg + dot * 5deg) * root.radius - 3px;
+        width: 6px;
+        height: 6px;
+        border-radius: 3px;
+        background: !root.enabled ? #94a3b8 : dot / 54 <= root.position ? root.accent : #cbd5e1;
+    }
+    Rectangle {
+        x: root.width / 2 + cos(root.thumb-angle) * root.radius - self.width / 2;
+        y: root.height / 2 + sin(root.thumb-angle) * root.radius - self.height / 2;
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: root.enabled ? root.accent : #94a3b8;
+        border-width: root.focused ? 3px : 0px;
+        border-color: #0f172a;
+    }
+    function seek-pointer(x: length, y: length) {
+        let dx = (x - root.width / 2) / 1px;
+        let dy = (y - root.height / 2) / 1px;
+        if dx * dx + dy * dy < 16 { return; }
+        let angle = atan2(dy, dx);
+        let around = angle < 90deg ? angle + 360deg : angle;
+        root.seek((around - 135deg) / 270deg);
+    }
+    TouchArea {
+        enabled: root.enabled;
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.seek-pointer(self.mouse-x, self.mouse-y);
+            }
+        }
+        moved => {
+            if self.pressed { root.seek-pointer(self.mouse-x, self.mouse-y); }
+        }
+    }
+}
+
+export component SliderDemo inherits Window {
+    title: "One slider, two interaction surfaces";
+    width: 580px;
+    height: 310px;
+    in-out property <float> value: 50;
+    in-out property <bool> sliders-enabled: true;
+    out property <int> changes;
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+        Text { text: "Shared value, range, step, and keyboard behavior"; }
+        CheckBox { text: "Enable sliders"; checked <=> root.sliders-enabled; }
+        HorizontalLayout {
+            spacing: 24px;
+            HeadlessSlider {
+                accessible-label: "Straight slider";
+                enabled: root.sliders-enabled;
+                value <=> root.value;
+                surface << StraightSurface { }
+                changed(value) => { root.changes += 1; }
+            }
+            HeadlessSlider {
+                accessible-label: "Circular slider";
+                enabled: root.sliders-enabled;
+                value <=> root.value;
+                surface << CircularSurface { }
+                changed(value) => { root.changes += 1; }
+            }
+        }
+        Text { text: "Value: \{root.value} · Step: 1 · Changes: \{root.changes}"; }
+        Text { text: "Click or drag either slider. Use arrows, Home, or End."; }
+    }
+}

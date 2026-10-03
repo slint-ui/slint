@@ -33,6 +33,7 @@ use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
 mod interfaces;
+mod typed_slots;
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
@@ -436,6 +437,7 @@ pub struct ChildrenInsertionPoint {
 
 #[derive(Clone, Debug)]
 pub struct DeclaredSlot {
+    pub interface: Option<Rc<Component>>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
     has_rejected_placeholder: bool,
@@ -1263,6 +1265,9 @@ pub struct Element {
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
     pub slot_target: Option<SmolStr>,
 
+    pub typed_slot_interface: Option<Rc<Component>>,
+    pub implemented_interfaces: Vec<ElementRc>,
+
     /// Slot forwarding mappings declared on this element: `target: source;`
     pub forwarded_slots: Vec<SlotForwarding>,
 
@@ -1567,11 +1572,22 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let Some((r, implemented_interfaces, child_implements)) =
-            Self::element_without_children(&node, id, parent_type, is_legacy_syntax, diag, tr)
-        else {
+        let Some((r, implemented_interfaces, child_implements)) = Self::element_without_children(
+            &node,
+            id,
+            parent_type,
+            is_legacy_syntax,
+            diag,
+            tr,
+            None,
+        ) else {
             return ElementRc::default();
         };
+
+        for declaration in node.SlotDeclaration() {
+            Self::assert_experimental_slots(diag, &declaration, "named slots");
+            declared_slots.push(typed_slots::declaration(declaration, tr, diag));
+        }
 
         for se in node.children() {
             if se.kind() != SyntaxKind::SlotForwarding {
@@ -1601,11 +1617,7 @@ impl Element {
 
             match &r.borrow().base_type {
                 ElementType::Component(component)
-                    if !component
-                        .declared_slots
-                        .borrow()
-                        .iter()
-                        .any(|slot| slot.name == target) =>
+                    if typed_slots::lookup_slot(component, &target).is_none() =>
                 {
                     diag.push_error(
                         format!("Unknown slot '{target}' in '{}'", component.id),
@@ -1642,6 +1654,18 @@ impl Element {
                     ),
                     &expression_node,
                 );
+                continue;
+            }
+
+            if typed_slots::create_forwarding(
+                &r,
+                &target,
+                &source,
+                &expression_node,
+                component_child_insertion_points,
+                declared_slots,
+                diag,
+            ) {
                 continue;
             }
 
@@ -1683,13 +1707,30 @@ impl Element {
             );
         }
 
-        let mut assigned_slots = HashSet::new();
+        let mut assigned_slots: HashSet<SmolStr> = r
+            .borrow()
+            .children
+            .iter()
+            .filter_map(|child| child.borrow().slot_target.clone())
+            .collect();
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 if let Some(slot_name) =
                     Self::sub_element_slot_placeholder_name(&se, declared_slots)
                 {
+                    if typed_slots::create_placeholder(
+                        &se,
+                        &slot_name,
+                        &r,
+                        component_child_insertion_points,
+                        declared_slots,
+                        is_legacy_syntax,
+                        diag,
+                        tr,
+                    ) {
+                        continue;
+                    }
                     Self::register_slot_placeholder(
                         &se,
                         slot_name,
@@ -1787,16 +1828,6 @@ impl Element {
                         },
                     );
                 }
-            } else if se.kind() == SyntaxKind::SlotDeclaration {
-                Self::assert_experimental_slots(diag, &se, "named slots");
-                let decl: syntax_nodes::SlotDeclaration = se.into();
-                let name_node = decl.DeclaredIdentifier();
-                let name = parser::identifier_text(&name_node).unwrap_or_default();
-                declared_slots.push(DeclaredSlot {
-                    name,
-                    name_node,
-                    has_rejected_placeholder: false,
-                });
             } else if se.kind() == SyntaxKind::SlotAssignment {
                 if !Self::assert_experimental_slots(diag, &se, "named slots") {
                     continue;
@@ -1821,11 +1852,7 @@ impl Element {
                 let parent_type = r.borrow().base_type.clone();
                 match &parent_type {
                     ElementType::Component(component)
-                        if !component
-                            .declared_slots
-                            .borrow()
-                            .iter()
-                            .any(|slot| slot.name == name) =>
+                        if typed_slots::lookup_slot(component, &name).is_none() =>
                     {
                         diag.push_error(
                             format!("Unknown slot '{name}' in '{}'", component.id),
@@ -1840,6 +1867,15 @@ impl Element {
                         );
                     }
                 }
+                let parent_type = match &parent_type {
+                    ElementType::Component(component)
+                        if typed_slots::lookup_slot(component, &name)
+                            .is_some_and(|slot| slot.interface.is_some()) =>
+                    {
+                        tr.empty_type()
+                    }
+                    _ => parent_type,
+                };
                 let element = Element::from_sub_element_node(
                     sub_element_node.into(),
                     parent_type,
@@ -1849,6 +1885,9 @@ impl Element {
                     diag,
                     tr,
                 );
+                if let ElementType::Component(component) = &r.borrow().base_type {
+                    typed_slots::validate_assignment(component, &name, &element, diag);
+                }
                 element.borrow_mut().slot_target = Some(name);
                 r.borrow_mut().children.push(element);
             }
@@ -1924,6 +1963,11 @@ impl Element {
             }
         }
 
+        r.borrow_mut().implemented_interfaces = implemented_interfaces
+            .iter()
+            .chain(child_implements.iter())
+            .map(|i| i.interface.clone())
+            .collect();
         interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
         interfaces::apply_child_implement_statements(&r, child_implements, diag);
 
@@ -1937,13 +1981,16 @@ impl Element {
         is_legacy_syntax: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
+        slot_interface: Option<Rc<Component>>,
     ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
         // A child element's parent_type is the type of its parent; the root
         // gets a sentinel from Component::from_node
         #[cfg(feature = "slint-sc")]
         let is_component_root =
             !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
-        let base_type = if let Some(base_node) = node.QualifiedName() {
+        let base_type = if let Some(interface) = slot_interface {
+            ElementType::Component(interface)
+        } else if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
             match parent_type.lookup_type_for_child_element(&base_string, tr) {
@@ -2748,15 +2795,20 @@ impl Element {
             return None;
         }
         let element = node.child_node(SyntaxKind::Element)?;
-        if element.children().any(|c| c.kind() != SyntaxKind::QualifiedName) {
-            return None;
-        }
+
         let qualified_name = element.child_node(SyntaxKind::QualifiedName)?;
         if qualified_name.child_token(SyntaxKind::Dot).is_some() {
             return None;
         }
         let name = parser::identifier_text(&qualified_name)?;
-        declared_slots.iter().any(|slot| slot.name == name).then_some(name)
+        declared_slots
+            .iter()
+            .any(|slot| {
+                slot.name == name
+                    && (slot.interface.is_some()
+                        || !element.children().any(|c| c.kind() != SyntaxKind::QualifiedName))
+            })
+            .then_some(name)
     }
 
     fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {

@@ -44,8 +44,9 @@ export component App inherits Rectangle {
 }
 ```
 
-Assigning a slot is optional.
-An unassigned slot renders nothing.
+Assigning an untyped slot is optional.
+An unassigned untyped slot renders nothing.
+[Typed slots](#typed-slots) require a supplied component.
 
 ## Referencing a slot
 
@@ -104,6 +105,73 @@ export component App inherits Window {
         footer << Text { text: "Footer"; }
     }
 }
+```
+
+## Typed Slots
+
+Declare `slot <InterfaceName> name;` when a component needs to interact with supplied content through an [interface](./interface).
+Enable this experimental feature with `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1`.
+
+The host can bind interface inputs, read outputs, modify `in-out` properties, call public functions, and connect callbacks.
+Members outside the interface aren't available through the host's slot reference.
+
+```slint
+interface Action {
+    in property <bool> enabled;
+    callback activated();
+}
+
+component ActionHost inherits Rectangle {
+    in property <bool> enabled: true;
+    callback activated();
+
+    slot <Action> action;
+    action {
+        enabled: root.enabled;
+        activated => { root.activated(); }
+    }
+}
+
+component PointerAction {
+    implement Action <=> self;
+    in property <bool> enabled;
+    callback activated();
+
+    Text { text: "Click me"; }
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.activated(); }
+    }
+}
+
+export component App inherits Window {
+    width: 200px;
+    height: 80px;
+
+    ActionHost {
+        action << PointerAction { }
+        activated => { debug("Activated"); }
+    }
+}
+```
+
+The supplied component must explicitly implement the interface, inherit a component's implementation, or delegate it with `implement Action <=> child`.
+Matching member names alone aren't enough.
+
+A typed slot requires exactly one component when its host is instantiated.
+A derived component can leave the slot open for its caller.
+When forwarding between two typed slots, both must declare the same interface.
+
+Typed placeholders accept property bindings, callback connections, and property change handlers, but not child elements or new declarations.
+Defining handlers for the same callback in both the placeholder and supplied component is an error.
+Property bindings follow the existing priorities; more local bindings take precedence.
+
+For straight and circular surfaces sharing headless slider behavior, see [the typed-slot demo](https://github.com/slint-ui/slint/tree/master/examples/slots).
+In a checkout containing this feature, run:
+
+```sh
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+cargo run --bin slint-viewer -- examples/slots/sliders.slint
 ```
 
 ## Current limitations

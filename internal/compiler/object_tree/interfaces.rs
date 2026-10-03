@@ -70,7 +70,7 @@ impl ImplementBinding {
 
 pub(super) struct ImplementedInterface {
     node: syntax_nodes::ImplementStatement,
-    interface: ElementRc,
+    pub(super) interface: ElementRc,
     interface_name: SmolStr,
     binding: ImplementBinding,
 }
@@ -322,7 +322,7 @@ struct MemberViolation {
     anchor: DeclarationAnchor,
 }
 
-fn validate_interface_implementation(
+pub(super) fn validate_interface_implementation(
     element: &Element,
     interface: &ElementRc,
     interface_name: &SmolStr,

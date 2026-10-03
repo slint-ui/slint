@@ -1,0 +1,111 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction {
+    in property <bool> enabled;
+    in-out property <int> value;
+    out property <bool> pressed;
+    callback activated(value: int);
+    public function activate();
+    public pure function doubled() -> int;
+    public pure function scaled(factor: int) -> int;
+}
+
+component InteractionImpl {
+    implement Interaction <=> self;
+    in property <bool> enabled: true;
+    in-out property <int> value: 3;
+    out property <bool> pressed;
+    callback activated(value: int);
+    public function activate() {
+        if (root.enabled) {
+            root.pressed = true;
+            root.activated(root.value);
+        }
+    }
+    public pure function doubled() -> int { root.value * 2 }
+    public pure function scaled(factor: int) -> int { root.value * factor }
+}
+
+component InheritedInteraction inherits InteractionImpl { }
+
+component DelegatedInteraction {
+    implement Interaction <=> inner;
+    inner := InteractionImpl { }
+}
+
+component Host {
+    in property <bool> enabled: true;
+    out property <int> count;
+    out property <int> last-value;
+    out property <int> scaled: control.scaled(3);
+    out property <int> observed: control.value;
+    out property <bool> pressed: control.pressed;
+    out property <int> doubled: control.doubled();
+    public function activate() { control.activate(); }
+    public function set-value(value: int) { control.value = value; }
+    slot <Interaction> control;
+    HorizontalLayout {
+        control {
+            enabled: root.enabled;
+            activated(value) => { root.count += 1; root.last-value = value; }
+        }
+    }
+}
+
+component InheritedHost inherits Host { }
+
+component ForwardingHost {
+    slot <Interaction> input;
+    out property <int> count: inner.count;
+    out property <bool> pressed: input.pressed;
+    public function activate() { input.activate(); }
+    inner := Host { control << input; }
+}
+
+component OuterForwardingHost {
+    slot <Interaction> input;
+    out property <int> count: inner.count;
+    out property <bool> pressed: input.pressed;
+    public function activate() { input.activate(); }
+    inner := ForwardingHost { input << input; }
+}
+
+export component TestCase inherits Window {
+    first := Host { control << InteractionImpl { } }
+    second := InheritedHost { control << InheritedInteraction { value: 5; } }
+    third := Host { control << DelegatedInteraction { } }
+    forwarded := OuterForwardingHost { input << InteractionImpl { } }
+
+    out property <bool> test: first.observed == 3 && first.doubled == 6
+        && second.observed == 5 && second.doubled == 10 && third.observed == 3;
+
+    public function exercise() -> bool {
+        first.activate();
+        second.activate();
+        third.activate();
+        forwarded.activate();
+        first.set-value(9);
+        first.enabled = false;
+        first.activate();
+        return first.count == 1 && first.pressed && first.observed == 9
+            && first.doubled == 18 && first.scaled == 27 && first.last-value == 3
+            && second.last-value == 5 && second.count == 1 && second.observed == 5
+            && third.count == 1 && third.pressed
+            && forwarded.count == 1 && forwarded.pressed;
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert!(instance.invoke_exercise());
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+assert(instance->invoke_exercise());
+```
+*/

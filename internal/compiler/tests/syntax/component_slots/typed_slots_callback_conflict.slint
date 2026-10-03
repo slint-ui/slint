@@ -1,0 +1,17 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction { callback activated(); }
+component Input {
+    implement Interaction <=> self;
+    callback activated();
+    activated => { debug("input"); }
+}
+component Host {
+    slot <Interaction> control;
+    control { activated => { debug("host"); } }
+//  >      <error{Callback 'activated' has handlers in both the typed slot and its supplied component}
+}
+export component Test inherits Window {
+    Host { control << Input { } }
+}

@@ -191,6 +191,22 @@ impl Snapshotter {
     }
 
     fn finalize(&mut self) {
+        for (source, target) in &self.keep_alive {
+            for (name, point) in source.child_insertion_points.borrow().iter() {
+                if let Some(copied) = target.child_insertion_points.borrow_mut().get_mut(name) {
+                    copied.parent = self.use_element(&point.parent);
+                }
+            }
+            for (original, copied) in source
+                .declared_slots
+                .borrow()
+                .iter()
+                .zip(target.declared_slots.borrow_mut().iter_mut())
+            {
+                copied.interface =
+                    original.interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+            }
+        }
         let mut elements = std::mem::take(&mut self.keep_alive_elements);
 
         while !elements.is_empty() {
@@ -467,6 +483,12 @@ impl Snapshotter {
         let elem = element.borrow();
 
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
+        target_element.slot_target = elem.slot_target.clone();
+        target_element.forwarded_slots = elem.forwarded_slots.clone();
+        target_element.typed_slot_interface =
+            elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
+        target_element.implemented_interfaces =
+            elem.implemented_interfaces.iter().map(|e| self.use_element(e)).collect();
 
         target_element.transitions = elem
             .transitions
