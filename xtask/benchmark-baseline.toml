@@ -1,0 +1,29 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Median wall-clock times in nanoseconds and per-iteration allocated bytes,
+# compared by `cargo xtask check_benchmarks`.
+#
+# The values are measured by the `benchmarks` job in full CI on ubuntu-22.04.
+# Seed or refresh them from that job's `benchmark-results` artifact:
+#
+#   cargo xtask check_benchmarks --from-results benchmark-results.toml --save-baseline
+#
+# Refresh after intentional performance changes, otherwise the next full CI run
+# fails once a value exceeds its entry by the tolerance.
+
+[settings]
+# Fail when a median exceeds its baseline value by more than this factor.
+tolerance = 1.2
+# Fail when peak or total allocated bytes exceed their baseline by more than
+# this factor. Allocation sizes are deterministic, hence the tighter default.
+memory_tolerance = 1.1
+# Ignore time differences below this many nanoseconds. The core crate's
+# nanosecond-scale benchmarks drift more than the tolerance on shared runners.
+min_time_delta_ns = 100.0
+
+[medians]
+
+[max_alloc_bytes]
+
+[alloc_bytes]

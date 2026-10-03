@@ -78,7 +78,10 @@ impl SharedString {
     }
 
     /// Replace in this string characters equal to `from` with the character `to` `count` times
-    pub(crate) fn replace_characters(&mut self, from: char, to: char, count: usize) {
+    ///
+    /// Not part of the public API: the benchmark in `benches/string.rs` needs it.
+    #[doc(hidden)]
+    pub fn replace_characters(&mut self, from: char, to: char, count: usize) {
         let mut from_buffer = [0u8; 4];
         let mut to_buffer = [0u8; 4];
         self.inner.replace_range(
