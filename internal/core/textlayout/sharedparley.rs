@@ -54,6 +54,10 @@ impl FontContext {
     pub fn clear_registered_static_fonts(&mut self) {
         self.registered_static_fonts.clear();
     }
+
+    pub fn set_default_font_family(&mut self, family_name: &str) -> bool {
+        sharedfontique::set_default_font_family(&mut self.inner.collection, family_name)
+    }
 }
 
 pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
