@@ -34,17 +34,19 @@ export component PropertyView inherits VerticalLayout {
 
         content-layer := VerticalLayout {
 
-            if !root.element-loaded: Text {
-                text: @tr("Select an Element");
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                vertical-stretch: 1;
-            }
-            if root.element-loaded: groups := VerticalLayout {
+            groups := VerticalLayout {
                 alignment: start;
                 spacing: EditorSpaceSettings.default-spacing;
                 padding-top: EditorSpaceSettings.default-padding;
-                if element-information.id != "root": VerticalLayout {
+
+                if !root.element-loaded: Text {
+                    text: @tr("Select an Element");
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    vertical-stretch: 1;
+                }
+
+                if element-information.id != "root" && root.element-loaded: VerticalLayout {
                     padding: EditorSpaceSettings.default-padding;
                     spacing: EditorSpaceSettings.default-spacing / 4;
                     Text {
@@ -73,6 +75,7 @@ export component PropertyView inherits VerticalLayout {
                         }
                     }
                 }
+
                 for group in root.properties: VerticalLayout {
 
                     eg := ExpandableGroup {
