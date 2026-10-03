@@ -499,6 +499,8 @@ macro_rules! for_each_enums {
                 /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
                 /// This is automatically applied to `TextInput` elements.
                 TextInput,
+                /// The element is similar to the scroll bar in a `ScrollView`.
+                ScrollBar,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
                 /// The element is an item in a `ListView`.
