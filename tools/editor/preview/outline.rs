@@ -299,7 +299,12 @@ pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
         let Ok(drag_item) = DragItem::try_from(data) else { return };
         let is_new = matches!(drag_item, DragItem::NewComponent { .. });
         if let Some((edit, drop_data)) = drop_edit(drag_item, target_uri, target_offset, location)
-            && preview::send_workspace_edit("Drop element".to_string(), edit, true)
+            && preview::document_edit::submit(
+                "Drop element".to_string(),
+                edit,
+                preview::document_edit::ValidationPolicy::Compile,
+            )
+            .accepted()
             && is_new
         {
             super::element_selection::select_element_at_source_code_position(

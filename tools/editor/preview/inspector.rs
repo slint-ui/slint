@@ -16,76 +16,11 @@ pub(super) struct Edit {
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
 }
 
-pub(super) struct FillRefresh {
-    pub(super) expected: text_edit::EditedText,
-    pub(super) submitted_edit: lsp_types::WorkspaceEdit,
-    pub(super) fill: ui::FillData,
-    pub(super) undo: Option<undo_redo::EditItem>,
-}
-
-pub(super) fn fill_contents_changed(url: &Url, content: &str) -> bool {
-    PREVIEW_STATE.with_borrow_mut(|state| {
-        let changed = state.source_code.get(url).is_none_or(|source| source.code != content);
-        let Some(refresh) = state.fill_refresh.as_mut() else { return false };
-        if refresh.expected.url != *url {
-            return false;
-        }
-        if refresh.expected.contents != content {
-            if changed {
-                refresh.undo = None;
-            }
-            return false;
-        }
-        true
-    })
-}
-
-fn clear_fill_refresh() {
-    let api = PREVIEW_STATE.with_borrow_mut(|state| {
-        state.fill_refresh = None;
-        state.api.upgrade()
-    });
-    if let Some(api) = api {
-        api.set_inspector_fill_refresh_pending(false);
-    }
-}
-
 pub(super) fn invalidate_fill() {
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
         api.set_inspector_fill_generation(api.get_inspector_fill_generation().wrapping_add(1));
     }
-}
-
-pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
-    let result = PREVIEW_STATE.with_borrow_mut(|state| {
-        let refresh = state.fill_refresh.as_mut()?;
-        if refresh.submitted_edit != edit {
-            return None;
-        }
-        let fill = refresh.fill.clone();
-        if !applied {
-            state.workspace_edit_sent = false;
-        } else {
-            if let Some(undo) = refresh.undo.take() {
-                state.undo_redo_stack.push_item(undo);
-            }
-            state.inspector_edit.take();
-        }
-        Some((state.api.upgrade(), fill))
-    });
-    let Some((api, fill)) = result else { return };
-    if applied {
-        if let Some(api) = api {
-            api.invoke_add_recent_fill(fill);
-        }
-    } else {
-        cancel();
-        invalidate_fill();
-    }
-    clear_fill_refresh();
-    PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
-    undo_redo::apply_pending();
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -281,13 +216,15 @@ pub(super) fn commit_shadow(
             )
         })
         .collect();
-    let accepted = property_edit(node, url, version, changes)
-        .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
-    if accepted {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.inspector_edit.take();
-        });
-    } else {
+    let accepted = property_edit(node, url, version, changes).is_some_and(|edit| {
+        document_edit::submit_inspector(
+            "Changing shadow".into(),
+            edit,
+            document_edit::ValidationPolicy::Compile,
+        )
+        .accepted()
+    });
+    if !accepted {
         cancel();
     }
     accepted
@@ -370,7 +307,13 @@ pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::Fill
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
+    let accepted = document_edit::submit_fill(
+        "Editing fill".into(),
+        edit,
+        document_edit::ValidationPolicy::Compile,
+        value,
+    )
+    .accepted();
     if !accepted {
         cancel();
     }
@@ -388,7 +331,7 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
         .collect::<Vec<_>>();
     let edit = property_edit(node, url, version, changes);
     let accepted = edit.is_some_and(|edit| {
-        send_workspace_edit(
+        document_edit::submit_inspector(
             if name == "transform-rotation" {
                 "Rotating element"
             } else {
@@ -396,14 +339,11 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
             }
             .into(),
             edit,
-            true,
+            document_edit::ValidationPolicy::Compile,
         )
+        .accepted()
     });
-    if accepted {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.inspector_edit.take();
-        });
-    } else {
+    if !accepted {
         cancel();
     }
     accepted
