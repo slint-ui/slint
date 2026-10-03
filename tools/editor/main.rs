@@ -406,28 +406,21 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
         }) as OpenImportCallback
     };
     let compiler_config = CompilerConfiguration {
-        style: Some("fluent".into()),
         open_import_callback: Some(open_import_callback),
         format: editor_preview::ByteFormat::Utf8,
         ..Default::default()
     };
 
-    editor_preview::EditorSession {
-        document_cache: editor_preview::DocumentCache::new(compiler_config),
-        preview_config: i_slint_live_preview::protocol::PreviewConfig {
-            style: "fluent".into(),
-            ..Default::default()
-        },
-        open_urls: Default::default(),
-        previews: to_previews
+    editor_preview::EditorSession::with_previews(
+        editor_preview::DocumentCache::new(compiler_config),
+        to_previews
             .into_iter()
             .map(|to_preview| editor_preview::PreviewConnection {
                 to_preview,
                 to_show: Default::default(),
             })
             .collect(),
-        pending_recompile: Default::default(),
-    }
+    )
 }
 
 async fn trigger_editor_file_watcher(
@@ -470,7 +463,8 @@ fn sync_file_watcher_if_needed(
                     .to_show
                     .as_ref()
                     .and_then(|component| editor_preview::uri_to_file(&component.url))
-            })),
+            }))
+            .chain(session.active_project_file_paths().map(Path::to_path_buf)),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
@@ -753,16 +747,10 @@ mod tests {
         let source = root.join("Initial.slint");
         std::fs::write(&source, "export component Initial inherits Window { broken }").unwrap();
         let url = Url::from_file_path(&source).unwrap();
-        let mut session = editor_preview::EditorSession {
-            document_cache: editor_preview::DocumentCache::new(Default::default()),
-            preview_config: Default::default(),
-            open_urls: Default::default(),
-            previews: vec![editor_preview::PreviewConnection {
-                to_preview: LspToPreviews::with_one(RepairOnPreview(source.clone())),
-                to_show: None,
-            }],
-            pending_recompile: Default::default(),
-        };
+        let mut session = editor_preview::EditorSession::new(
+            editor_preview::DocumentCache::new(Default::default()),
+            LspToPreviews::with_one(RepairOnPreview(source.clone())),
+        );
         let (tx, rx) = std::sync::mpsc::channel();
         let (error_tx, error_rx) = std::sync::mpsc::channel();
         let mut watcher = FileWatcher::start(
@@ -817,13 +805,10 @@ mod tests {
             })
             .collect();
         let messages = captures.map(|(_, messages)| messages);
-        let session = editor_preview::EditorSession {
-            document_cache: editor_preview::test::empty_document_cache(),
-            preview_config: Default::default(),
-            open_urls: Default::default(),
+        let session = editor_preview::EditorSession::with_previews(
+            editor_preview::test::empty_document_cache(),
             previews,
-            pending_recompile: Default::default(),
-        };
+        );
         (session, messages)
     }
 

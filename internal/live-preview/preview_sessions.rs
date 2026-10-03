@@ -317,6 +317,7 @@ impl PreviewSession {
 
     fn create_compiler(self: &Rc<Self>) -> slint_interpreter::Compiler {
         let mut compiler = slint_interpreter::Compiler::new();
+        compiler.set_reads_project_file(false);
 
         let file_loader_session = Rc::downgrade(self);
         compiler.set_file_loader(move |path: &std::path::Path| {

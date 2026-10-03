@@ -592,14 +592,17 @@ pub fn generate(
         struct_or_enum.generate_aliases(&mut file);
     }
 
-    let main_file = std::path::absolute(
-        doc.node
-            .as_ref()
-            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
-            .source_file
-            .path(),
-    )
-    .unwrap();
+    let main_file = match &compiler_config.input_project_file {
+        Some(project_file) => std::path::absolute(project_file).unwrap(),
+        None => std::path::absolute(
+            doc.node
+                .as_ref()
+                .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
+                .source_file
+                .path(),
+        )
+        .unwrap(),
+    };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
         std::fs::canonicalize(maybe_relative_destination_path)

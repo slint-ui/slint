@@ -226,8 +226,8 @@ Reference them with the same prefix, as in `@image-url("@mylibrary/logo.png")`
 or `import "@mylibrary/MyFont.ttf";`.
 
 The path to each library, as file or directory, must be defined separately at compilation time.
-Use one of the following methods to help the Slint compiler resolve libraries to the correct
-path on disk:
+To define them for your build and your editor at once, set `library-paths` in a [project file](../../../tooling/project-file/).
+Otherwise, use one of the following methods:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">

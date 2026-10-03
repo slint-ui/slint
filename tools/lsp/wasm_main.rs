@@ -245,16 +245,7 @@ pub fn create(
 
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
-            session: crate::editor_preview::EditorSession {
-                document_cache,
-                preview_config: Default::default(),
-                open_urls: Default::default(),
-                previews: vec![crate::editor_preview::PreviewConnection {
-                    to_preview,
-                    to_show: Default::default(),
-                }],
-                pending_recompile: Default::default(),
-            },
+            session: crate::editor_preview::EditorSession::new(document_cache, to_preview),
             init_param,
             server_notifier,
             host_language_rename_dont_ask_again: Default::default(),
@@ -416,7 +407,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .open_document(content, uri.clone(), Some(version))
+            .open_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -434,7 +425,7 @@ impl SlintServer {
         let uri: Url = serde_wasm_bindgen::from_value(uri)?;
         let diagnostics = ctx
             .session
-            .load_document(content, uri.clone(), Some(version))
+            .load_document(content, uri, Some(version))
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);

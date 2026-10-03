@@ -4,17 +4,10 @@
 use slint_build::CompilerConfiguration;
 
 fn main() {
-    // Safety: there are no other threads at this point
-    unsafe {
-        // Make the compiler handle ComponentContainer:
-        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
-    }
-
     // Some tests use the ElementHandle API, which requires debug info
     slint_build::compile_with_config(
-        "ui/main.slint",
+        "slint-project.json",
         CompilerConfiguration::new().with_debug_info(true),
     )
     .unwrap();
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 }
