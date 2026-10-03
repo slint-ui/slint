@@ -1,0 +1,96 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 48.6603,
+                "y": -8.8564
+              },
+              "start": {
+                "x": 15.3397,
+                "y": 48.8564
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.5333
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L64,0 L64,40 L0,40 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            1.0,
+            0.0,
+            0.6667
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,0 L20,0 L20,16 L0,16 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        16.0,
+        12.0
+      ]
+    }
+  }
+]
