@@ -1,0 +1,3694 @@
+{
+  "tested_engine_commit": "49e48476397b3498d2313812c707b45f637d0584",
+  "replay_assumption": "Held native pulls only, zero release velocity",
+  "coefficients": {
+    "frequency": 10.67037,
+    "rate_min": 5.470122,
+    "rate_rise": 4.825567,
+    "half_distance": 165.8656,
+    "delay_s": 0.007
+  },
+  "error_window": "paired: 0\u20131.5 seconds; replay: every recorded post-release sample",
+  "replay_summary": {
+    "held_fit_distances": {
+      "callback": {
+        "count": 36,
+        "mean_curve_rms_pt": 0.3332876358477725,
+        "worst_gap_pt": 1.9298366465482957,
+        "within_0_5_pt": 0
+      },
+      "display_target": {
+        "count": 36,
+        "mean_curve_rms_pt": 1.8747958329797723,
+        "worst_gap_pt": 20.912994370135323,
+        "within_0_5_pt": 0
+      }
+    },
+    "held_validation_distances": {
+      "callback": {
+        "count": 24,
+        "mean_curve_rms_pt": 0.32994507711309323,
+        "worst_gap_pt": 1.805603873870055,
+        "within_0_5_pt": 0
+      },
+      "display_target": {
+        "count": 24,
+        "mean_curve_rms_pt": 1.581467838494819,
+        "worst_gap_pt": 15.538873439862215,
+        "within_0_5_pt": 0
+      }
+    }
+  },
+  "replay_curves": [
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.219500000000005,
+      "callback": {
+        "rms_pt": 0.27443271455734436,
+        "max_gap_pt": 0.9219238531292753,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.47246049948931773,
+        "max_gap_pt": 2.465187687173753,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.236000000000022,
+      "callback": {
+        "rms_pt": 0.21186226093262875,
+        "max_gap_pt": 0.7054835806708208,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.5344973234687389,
+        "max_gap_pt": 2.4125057577037907,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d100-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 44.0,
+      "median_target_lead_ms": 9.203499999999975,
+      "callback": {
+        "rms_pt": 0.37597922546455037,
+        "max_gap_pt": 1.2407217819283147,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3963503957846954,
+        "max_gap_pt": 2.381283587316119,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.24400000000003,
+      "callback": {
+        "rms_pt": 0.1865067683590712,
+        "max_gap_pt": 0.881387926026342,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.8918903023746757,
+        "max_gap_pt": 3.6948851712813067,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.216000000000001,
+      "callback": {
+        "rms_pt": 0.1675080625686663,
+        "max_gap_pt": 0.8464992748444509,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.9115747043672157,
+        "max_gap_pt": 3.707398011344061,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d150-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 64.0,
+      "median_target_lead_ms": 9.230499999999996,
+      "callback": {
+        "rms_pt": 0.24290781708739076,
+        "max_gap_pt": 0.7085355753140767,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7979212882265706,
+        "max_gap_pt": 3.791540545273527,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.244999999999948,
+      "callback": {
+        "rms_pt": 0.33857466215661214,
+        "max_gap_pt": 1.140655490937128,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.459045431524237,
+        "max_gap_pt": 5.121459073415934,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.230500000000003,
+      "callback": {
+        "rms_pt": 0.34978262610221317,
+        "max_gap_pt": 1.1804705139862222,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4712979509749378,
+        "max_gap_pt": 5.172837511848769,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d200-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 82.0,
+      "median_target_lead_ms": 9.248000000000145,
+      "callback": {
+        "rms_pt": 0.3409932450501724,
+        "max_gap_pt": 1.125481401946388,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4612154358052027,
+        "max_gap_pt": 5.134188299873884,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.229999999999988,
+      "callback": {
+        "rms_pt": 0.3098770483123039,
+        "max_gap_pt": 1.0933248566388185,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.40541818387197354,
+        "max_gap_pt": 1.4318776370915742,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.232000000000005,
+      "callback": {
+        "rms_pt": 0.288924787439856,
+        "max_gap_pt": 1.0885190757592778,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3843668263403232,
+        "max_gap_pt": 1.3485669765961634,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d25-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.252499999999998,
+      "callback": {
+        "rms_pt": 0.3199151775051909,
+        "max_gap_pt": 1.2410690212910778,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.41552713566891974,
+        "max_gap_pt": 1.5271950113878008,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.228999999999973,
+      "callback": {
+        "rms_pt": 0.5994141196851116,
+        "max_gap_pt": 1.842973831569907,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1594594482932488,
+        "max_gap_pt": 7.381087768490204,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.232499999999922,
+      "callback": {
+        "rms_pt": 0.5866953757686123,
+        "max_gap_pt": 1.9298366465482957,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1680368382803645,
+        "max_gap_pt": 7.65326156422897,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d300-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 112.667,
+      "median_target_lead_ms": 9.230000000000071,
+      "callback": {
+        "rms_pt": 0.4759260229595643,
+        "max_gap_pt": 1.5964200849177672,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.0415627546548705,
+        "max_gap_pt": 7.1521975741538455,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.246499999999935,
+      "callback": {
+        "rms_pt": 0.4485622547320132,
+        "max_gap_pt": 1.4437119120461546,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4300463450137078,
+        "max_gap_pt": 9.555940598304147,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.227000000000068,
+      "callback": {
+        "rms_pt": 0.4398551103606285,
+        "max_gap_pt": 1.376239257204361,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.420800809487981,
+        "max_gap_pt": 9.485679798082614,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d400-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 137.333,
+      "median_target_lead_ms": 9.243999999999918,
+      "callback": {
+        "rms_pt": 0.2517948063278944,
+        "max_gap_pt": 1.0367701996272594,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.140475862374697,
+        "max_gap_pt": 8.247547495249478,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.241999999999972,
+      "callback": {
+        "rms_pt": 0.18958466411887714,
+        "max_gap_pt": 0.859787564910782,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.318273498780917,
+        "max_gap_pt": 1.8597489009694712,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.232500000000032,
+      "callback": {
+        "rms_pt": 0.22486590056829492,
+        "max_gap_pt": 0.8146854425617462,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.23804513741246555,
+        "max_gap_pt": 1.386391519631033,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d50-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 20.667,
+      "median_target_lead_ms": 9.237999999999913,
+      "callback": {
+        "rms_pt": 0.179186763155161,
+        "max_gap_pt": 0.8043747401422117,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.37508658231344455,
+        "max_gap_pt": 1.7196732552336833,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.232000000000017,
+      "callback": {
+        "rms_pt": 0.3622998829341164,
+        "max_gap_pt": 1.1019969782695895,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.2317406973181484,
+        "max_gap_pt": 11.548379354993983,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.246500000000045,
+      "callback": {
+        "rms_pt": 0.5570414496743838,
+        "max_gap_pt": 1.5977814561933315,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.992180632245779,
+        "max_gap_pt": 10.547547730254365,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d500-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 158.333,
+      "median_target_lead_ms": 9.254499999999998,
+      "callback": {
+        "rms_pt": 0.5399563274915051,
+        "max_gap_pt": 1.641170808670573,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.1174778005433765,
+        "max_gap_pt": 11.703865233491854,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.234500000000063,
+      "callback": {
+        "rms_pt": 0.31134645237022146,
+        "max_gap_pt": 1.0567800081485075,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.6434817498770884,
+        "max_gap_pt": 13.566155470442311,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.227999999999986,
+      "callback": {
+        "rms_pt": 0.4203449160723728,
+        "max_gap_pt": 1.2891416842258963,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4784412745442683,
+        "max_gap_pt": 13.098723818640451,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d600-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 175.667,
+      "median_target_lead_ms": 9.232000000000017,
+      "callback": {
+        "rms_pt": 0.3401980483892683,
+        "max_gap_pt": 1.04442594067514,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.5558038520771627,
+        "max_gap_pt": 13.160504576117091,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.225999999999956,
+      "callback": {
+        "rms_pt": 0.27672478563546865,
+        "max_gap_pt": 0.8131028363078485,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.890572435879308,
+        "max_gap_pt": 14.62711763683643,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.245500000000032,
+      "callback": {
+        "rms_pt": 0.28408430168350035,
+        "max_gap_pt": 0.8162240470077506,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.8811519916219748,
+        "max_gap_pt": 14.579046024137881,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp387-d700-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 190.667,
+      "median_target_lead_ms": 9.230000000000002,
+      "callback": {
+        "rms_pt": 0.28187296545558477,
+        "max_gap_pt": 0.7676025288744128,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.8796076586828314,
+        "max_gap_pt": 14.576132206604171,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.229500000000002,
+      "callback": {
+        "rms_pt": 0.5123225345522587,
+        "max_gap_pt": 1.688888430018725,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.40057271255736565,
+        "max_gap_pt": 2.698071178596713,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.225999999999956,
+      "callback": {
+        "rms_pt": 0.1714741499197902,
+        "max_gap_pt": 0.7751986886046538,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7132653490669791,
+        "max_gap_pt": 2.724663410290688,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d100-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 46.667,
+      "median_target_lead_ms": 9.242999999999945,
+      "callback": {
+        "rms_pt": 0.3562605260213884,
+        "max_gap_pt": 1.2011735422543701,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.4456275896642154,
+        "max_gap_pt": 2.569270443756629,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.232999999999992,
+      "callback": {
+        "rms_pt": 0.40770274735273404,
+        "max_gap_pt": 1.3158353280116266,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7545037346961052,
+        "max_gap_pt": 4.131831324603894,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.238999999999997,
+      "callback": {
+        "rms_pt": 0.40679020331861787,
+        "max_gap_pt": 1.3033140868017306,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.7613942853950135,
+        "max_gap_pt": 4.15243697872242,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d150-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 70.0,
+      "median_target_lead_ms": 9.245500000000073,
+      "callback": {
+        "rms_pt": 0.5733022476496292,
+        "max_gap_pt": 1.805603873870055,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.6623088940046562,
+        "max_gap_pt": 4.193637651106343,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.230000000000071,
+      "callback": {
+        "rms_pt": 0.20591799004636574,
+        "max_gap_pt": 0.602961322277002,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.2933698374421025,
+        "max_gap_pt": 5.918463493637091,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.217000000000017,
+      "callback": {
+        "rms_pt": 0.2230661387054641,
+        "max_gap_pt": 0.7604222322288461,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.4797911053121848,
+        "max_gap_pt": 5.790315164679839,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d200-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 92.0,
+      "median_target_lead_ms": 9.250000000000036,
+      "callback": {
+        "rms_pt": 0.17521553872532902,
+        "max_gap_pt": 0.7484422310309764,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 1.3932818222295724,
+        "max_gap_pt": 5.846832572500773,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.236500000000008,
+      "callback": {
+        "rms_pt": 0.28999987496308566,
+        "max_gap_pt": 1.094759707637242,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3854943937899465,
+        "max_gap_pt": 1.3514791050628991,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.230000000000043,
+      "callback": {
+        "rms_pt": 0.28660886102651595,
+        "max_gap_pt": 1.0840278127888259,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.38181261338632355,
+        "max_gap_pt": 1.3419736877340989,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d25-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 8.0,
+      "median_target_lead_ms": 9.247000000000005,
+      "callback": {
+        "rms_pt": 0.2579991020016543,
+        "max_gap_pt": 0.9905041174721321,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.3518728899870372,
+        "max_gap_pt": 1.304646611697435,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.220000000000006,
+      "callback": {
+        "rms_pt": 0.5130782327898442,
+        "max_gap_pt": 1.6731606253458438,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.4112198254920543,
+        "max_gap_pt": 9.24717613942795,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.218500000000018,
+      "callback": {
+        "rms_pt": 0.4373178885708399,
+        "max_gap_pt": 1.4055905719479256,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.3299172680487805,
+        "max_gap_pt": 8.942473840412305,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d300-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 132.0,
+      "median_target_lead_ms": 9.233999999999964,
+      "callback": {
+        "rms_pt": 0.329054000439918,
+        "max_gap_pt": 1.044948050587152,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.183583724948129,
+        "max_gap_pt": 8.221751455109754,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.245999999999988,
+      "callback": {
+        "rms_pt": 0.22958774997965914,
+        "max_gap_pt": 0.8549280371493353,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.603545634784395,
+        "max_gap_pt": 10.634725960210687,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.240000000000068,
+      "callback": {
+        "rms_pt": 0.4380935882991932,
+        "max_gap_pt": 1.3916896088988864,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.920699098845218,
+        "max_gap_pt": 12.104266728616722,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d400-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 167.667,
+      "median_target_lead_ms": 9.241500000000013,
+      "callback": {
+        "rms_pt": 0.17670698678939079,
+        "max_gap_pt": 0.7997119281695735,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 2.5738533284549607,
+        "max_gap_pt": 11.286872246493118,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.212500000000013,
+      "callback": {
+        "rms_pt": 0.21832994824642712,
+        "max_gap_pt": 0.7940150130650121,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.2575428109587385,
+        "max_gap_pt": 1.4264015730825612,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.23450000000009,
+      "callback": {
+        "rms_pt": 0.22114457847606175,
+        "max_gap_pt": 0.8168174146482237,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.254185913987511,
+        "max_gap_pt": 1.4105296855132146,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d50-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 21.333,
+      "median_target_lead_ms": 9.241,
+      "callback": {
+        "rms_pt": 0.2595431416104164,
+        "max_gap_pt": 0.9027576569301807,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 0.25647979357846484,
+        "max_gap_pt": 1.5384303391768945,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-1",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.236000000000022,
+      "callback": {
+        "rms_pt": 0.2615962318176159,
+        "max_gap_pt": 0.7538657252499021,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.0209752980211166,
+        "max_gap_pt": 15.344419065793176,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-2",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.219000000000005,
+      "callback": {
+        "rms_pt": 0.24286926738379755,
+        "max_gap_pt": 0.8311278008820864,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.2607614718904987,
+        "max_gap_pt": 15.524990137698552,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d500-speed400-hold400-trial-3",
+      "split": "held_validation_distances",
+      "starting_exposure_pt": 199.667,
+      "median_target_lead_ms": 9.226999999999986,
+      "callback": {
+        "rms_pt": 0.23227549733932398,
+        "max_gap_pt": 0.9157986983908817,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.1385858927870203,
+        "max_gap_pt": 15.538873439862215,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.229999999999988,
+      "callback": {
+        "rms_pt": 0.3412245494811725,
+        "max_gap_pt": 1.4633939915586893,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.868052804394637,
+        "max_gap_pt": 18.71786582215836,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.228999999999994,
+      "callback": {
+        "rms_pt": 0.2676154565994261,
+        "max_gap_pt": 1.0831861715738569,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.791879701477676,
+        "max_gap_pt": 18.35230536904311,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d600-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 228.333,
+      "median_target_lead_ms": 9.237999999999989,
+      "callback": {
+        "rms_pt": 0.16756885460072224,
+        "max_gap_pt": 0.7103935883976824,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 3.5681628055388654,
+        "max_gap_pt": 17.244682528357743,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-1",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.229500000000021,
+      "callback": {
+        "rms_pt": 0.49903735399375565,
+        "max_gap_pt": 1.6742342467233868,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.466777338593168,
+        "max_gap_pt": 20.912994370135323,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-2",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.233500000000062,
+      "callback": {
+        "rms_pt": 0.4452443508095702,
+        "max_gap_pt": 1.376264832151577,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.413270791865237,
+        "max_gap_pt": 20.852828929264405,
+        "within_0_5_pt": false
+      }
+    },
+    {
+      "scenario": "return-vp774-d700-speed400-hold400-trial-3",
+      "split": "held_fit_distances",
+      "starting_exposure_pt": 254.333,
+      "median_target_lead_ms": 9.222999999999981,
+      "callback": {
+        "rms_pt": 0.5930706068054992,
+        "max_gap_pt": 1.8539042886562385,
+        "within_0_5_pt": false
+      },
+      "display_target": {
+        "rms_pt": 4.541278532651041,
+        "max_gap_pt": 20.784346702493423,
+        "within_0_5_pt": false
+      }
+    }
+  ],
+  "paired_traces": [
+    {
+      "scenario": "sweep-vp774-d100-v1000-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1000,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 191.66666606906801,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 953.877,
+      "finger_speed_last_25_ms": 986.6799990810815,
+      "uikit_release_exposure_pt": 44.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 1.8429999999999964,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 11.665999999999997,
+      "slint_extra_exposure_pt": 8.016000000000005,
+      "uikit_peak_pt": 56.333,
+      "uikit_peak_s": 0.060303709004074335,
+      "slint_peak_pt": 54.526,
+      "slint_peak_s": 0.043420208035968244,
+      "uikit_settle_s": 0.6938718750607222,
+      "slint_settle_s": 0.677013500011526,
+      "median_sampling_ms": 8.387416950426996,
+      "max_sample_gap_ms": 12.73129100445658,
+      "median_target_lead_ms": 6.321249937172979,
+      "post_release": {
+        "rms_pt": 1.575447936302561,
+        "max_gap_pt": 6.217999999999996,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.1568933532977463,
+        "max_gap_pt": 6.217999999999996,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v1000-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1000,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 191.50066701695323,
+      "delivered_hold_ms": 0.05012494511902332,
+      "release_pan_velocity_y": 1029.112,
+      "finger_speed_last_25_ms": 985.0710252577398,
+      "uikit_release_exposure_pt": 44.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 1.8429999999999964,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 10.332999999999998,
+      "slint_extra_exposure_pt": 8.059000000000005,
+      "uikit_peak_pt": 55.0,
+      "uikit_peak_s": 0.051690957974642515,
+      "slint_peak_pt": 54.569,
+      "slint_peak_s": 0.043729166965931654,
+      "uikit_settle_s": 0.6937560839578509,
+      "slint_settle_s": 0.678989207954146,
+      "median_sampling_ms": 8.34016699809581,
+      "max_sample_gap_ms": 12.136042001657188,
+      "median_target_lead_ms": 6.1119794845581055,
+      "post_release": {
+        "rms_pt": 1.1098619158355791,
+        "max_gap_pt": 5.362000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.519201390396722,
+        "max_gap_pt": 5.362000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v1200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 175.00000004656613,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1223.995,
+      "finger_speed_last_25_ms": 1186.6799988948171,
+      "uikit_release_exposure_pt": 44.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 2.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 16.667,
+      "slint_extra_exposure_pt": 12.157000000000004,
+      "uikit_peak_pt": 61.0,
+      "uikit_peak_s": 0.05996179103385657,
+      "slint_peak_pt": 58.667,
+      "slint_peak_s": 0.05163933301810175,
+      "uikit_settle_s": 0.7129911660449579,
+      "slint_settle_s": 0.6934047490358353,
+      "median_sampling_ms": 8.384375018067658,
+      "max_sample_gap_ms": 12.99187506083399,
+      "median_target_lead_ms": 6.2352914828807116,
+      "post_release": {
+        "rms_pt": 1.6393487612802566,
+        "max_gap_pt": 6.475000000000001,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.2442784846508395,
+        "max_gap_pt": 6.475000000000001,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v1200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 174.73779094871134,
+      "delivered_hold_ms": 0.0737080117687583,
+      "release_pan_velocity_y": 1233.74,
+      "finger_speed_last_25_ms": 1209.514344893036,
+      "uikit_release_exposure_pt": 44.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 2.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 16.334000000000003,
+      "slint_extra_exposure_pt": 12.165,
+      "uikit_peak_pt": 60.667,
+      "uikit_peak_s": 0.0598235409706831,
+      "slint_peak_pt": 58.675,
+      "slint_peak_s": 0.05155854194890708,
+      "uikit_settle_s": 0.7105375829851255,
+      "slint_settle_s": 0.6935506250010803,
+      "median_sampling_ms": 8.352541015483439,
+      "max_sample_gap_ms": 12.574124033562839,
+      "median_target_lead_ms": 6.167291488964111,
+      "post_release": {
+        "rms_pt": 1.5556407808002748,
+        "max_gap_pt": 6.471000000000004,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.1296296797604666,
+        "max_gap_pt": 6.471000000000004,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 200,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 632.5889580184594,
+      "delivered_hold_ms": 0.10137504432350397,
+      "release_pan_velocity_y": 124.518,
+      "finger_speed_last_25_ms": 153.4262001747836,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.4370000000000047,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.002801917027682066,
+      "slint_peak_pt": 46.947,
+      "slint_peak_s": 0.009756374987773597,
+      "uikit_settle_s": 0.5540118759963661,
+      "slint_settle_s": 0.586344875046052,
+      "median_sampling_ms": 8.310229517519474,
+      "max_sample_gap_ms": 13.193125021643937,
+      "median_target_lead_ms": 5.856000003404915,
+      "post_release": {
+        "rms_pt": 1.3622831501620614,
+        "max_gap_pt": 4.207999999999998,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.8704855987149431,
+        "max_gap_pt": 4.207999999999998,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 200,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 633.3333329530433,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 120.0,
+      "finger_speed_last_25_ms": 133.3599998757967,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.4130000000000038,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.0024652499705553055,
+      "slint_peak_pt": 46.923,
+      "slint_peak_s": 0.0153836669633165,
+      "uikit_settle_s": 0.5436051249271259,
+      "slint_settle_s": 0.5855062080081552,
+      "median_sampling_ms": 8.345520473085344,
+      "max_sample_gap_ms": 14.287333004176617,
+      "median_target_lead_ms": 5.749625037424266,
+      "post_release": {
+        "rms_pt": 1.3630762150209361,
+        "max_gap_pt": 4.1640000000000015,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.871574935604592,
+        "max_gap_pt": 4.1640000000000015,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v300-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 300,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 474.6926670195535,
+      "delivered_hold_ms": 8.69925005827099,
+      "release_pan_velocity_y": 316.922,
+      "finger_speed_last_25_ms": 222.06746187078335,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -1.6670000000000016,
+      "slint_extra_exposure_pt": 0.8659999999999997,
+      "uikit_peak_pt": 45.0,
+      "uikit_peak_s": 0.0027565000345930457,
+      "slint_peak_pt": 47.376,
+      "slint_peak_s": 0.016499125049449503,
+      "uikit_settle_s": 0.5801343750208616,
+      "slint_settle_s": 0.6021230419864878,
+      "median_sampling_ms": 8.296395011711866,
+      "max_sample_gap_ms": 13.742625014856458,
+      "median_target_lead_ms": 5.918000009842217,
+      "post_release": {
+        "rms_pt": 1.2470469870238665,
+        "max_gap_pt": 3.7590000000000003,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.712217768714015,
+        "max_gap_pt": 3.7590000000000003,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v300-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 300,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 474.84699997585267,
+      "delivered_hold_ms": 8.180333068594337,
+      "release_pan_velocity_y": 312.0,
+      "finger_speed_last_25_ms": 218.24593066780778,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -1.6670000000000016,
+      "slint_extra_exposure_pt": 0.865000000000002,
+      "uikit_peak_pt": 45.0,
+      "uikit_peak_s": 0.0030869999900460243,
+      "slint_peak_pt": 47.375,
+      "slint_peak_s": 0.010544166900217533,
+      "uikit_settle_s": 0.5795094169443473,
+      "slint_settle_s": 0.601954499958083,
+      "median_sampling_ms": 8.349791052751243,
+      "max_sample_gap_ms": 12.605334050022066,
+      "median_target_lead_ms": 5.752353987190872,
+      "post_release": {
+        "rms_pt": 1.3573737326175133,
+        "max_gap_pt": 4.0760000000000005,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.8585606858310189,
+        "max_gap_pt": 4.0760000000000005,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v400-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 349.99999997671694,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "finger_speed_last_25_ms": 400.01949994853265,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.3350000000000009,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.0038306249771267176,
+      "slint_peak_pt": 47.845,
+      "slint_peak_s": 0.009360249969176948,
+      "uikit_settle_s": 0.6021520419744775,
+      "slint_settle_s": 0.618100457941182,
+      "median_sampling_ms": 8.307583048008382,
+      "max_sample_gap_ms": 16.433791955932975,
+      "median_target_lead_ms": 5.809041496831924,
+      "post_release": {
+        "rms_pt": 0.4296034282399939,
+        "max_gap_pt": 1.3100000000000023,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.5878292339900538,
+        "max_gap_pt": 1.3100000000000023,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v400-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 349.99999997671694,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "finger_speed_last_25_ms": 393.7201637882853,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.3019999999999996,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.002753084059804678,
+      "slint_peak_pt": 47.812,
+      "slint_peak_s": 0.010148125002160668,
+      "uikit_settle_s": 0.6017493340186775,
+      "slint_settle_s": 0.6190007920376956,
+      "median_sampling_ms": 8.348687435500324,
+      "max_sample_gap_ms": 12.87129195407033,
+      "median_target_lead_ms": 5.847749998793006,
+      "post_release": {
+        "rms_pt": 0.5476712124131387,
+        "max_gap_pt": 1.6410000000000018,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7516767160266882,
+        "max_gap_pt": 1.6410000000000018,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v500-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 500,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 299.9999999301508,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 491.913,
+      "finger_speed_last_25_ms": 493.3599995405217,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.6580000000000013,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.0029901249799877405,
+      "slint_peak_pt": 48.168,
+      "slint_peak_s": 0.009890499990433455,
+      "uikit_settle_s": 0.6350958329858258,
+      "slint_settle_s": 0.6267884579719976,
+      "median_sampling_ms": 8.312541991472244,
+      "max_sample_gap_ms": 12.242584023624659,
+      "median_target_lead_ms": 5.936979490797967,
+      "post_release": {
+        "rms_pt": 0.2724388922308998,
+        "max_gap_pt": 1.5009999999999977,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.37219863368457756,
+        "max_gap_pt": 1.5009999999999977,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v500-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 500,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 299.9999999301508,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 534.051,
+      "finger_speed_last_25_ms": 500.01000535521115,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.6720000000000041,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.0028574590105563402,
+      "slint_peak_pt": 48.182,
+      "slint_peak_s": 0.01042958302423358,
+      "uikit_settle_s": 0.6354750420432538,
+      "slint_settle_s": 0.6269832079997286,
+      "median_sampling_ms": 8.338041021488607,
+      "max_sample_gap_ms": 12.91854097507894,
+      "median_target_lead_ms": 5.934374989010394,
+      "post_release": {
+        "rms_pt": 0.30789704267642615,
+        "max_gap_pt": 1.6750000000000043,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.42084425315865587,
+        "max_gap_pt": 1.6750000000000043,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v600-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 600,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 266.15812501404434,
+      "delivered_hold_ms": 0.041792052797973156,
+      "release_pan_velocity_y": 631.919,
+      "finger_speed_last_25_ms": 477.93294020666417,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 1.0,
+      "slint_extra_exposure_pt": 2.230000000000004,
+      "uikit_peak_pt": 47.667,
+      "uikit_peak_s": 0.026689500082284212,
+      "slint_peak_pt": 48.74,
+      "slint_peak_s": 0.020920000039041042,
+      "uikit_settle_s": 0.6352569580776617,
+      "slint_settle_s": 0.6436673749703914,
+      "median_sampling_ms": 8.425291045568883,
+      "max_sample_gap_ms": 12.650832999497652,
+      "median_target_lead_ms": 5.731249984819442,
+      "post_release": {
+        "rms_pt": 0.3638475947731715,
+        "max_gap_pt": 1.928999999999995,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.49741093214430493,
+        "max_gap_pt": 1.928999999999995,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v600-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 600,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 266.6666670702398,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 677.154,
+      "finger_speed_last_25_ms": 586.6790132243382,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 1.3329999999999984,
+      "slint_extra_exposure_pt": 2.2319999999999993,
+      "uikit_peak_pt": 48.0,
+      "uikit_peak_s": 0.026570332935079932,
+      "slint_peak_pt": 48.742,
+      "slint_peak_s": 0.01847925002221018,
+      "uikit_settle_s": 0.6438454579329118,
+      "slint_settle_s": 0.6438454579329118,
+      "median_sampling_ms": 8.348540985025465,
+      "max_sample_gap_ms": 12.552541913464665,
+      "median_target_lead_ms": 5.815937940496951,
+      "post_release": {
+        "rms_pt": 0.5387033248665005,
+        "max_gap_pt": 2.7220000000000013,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7371051485371678,
+        "max_gap_pt": 2.7220000000000013,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v800-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 800,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 216.66666702367365,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 776.0,
+      "finger_speed_last_25_ms": 707.834669492459,
+      "uikit_release_exposure_pt": 45.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 1.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 3.334000000000003,
+      "slint_extra_exposure_pt": 3.6499999999999986,
+      "uikit_peak_pt": 48.667,
+      "uikit_peak_s": 0.03491445793770254,
+      "slint_peak_pt": 50.16,
+      "slint_peak_s": 0.026851666974835098,
+      "uikit_settle_s": 0.6602610829286277,
+      "slint_settle_s": 0.6518612499348819,
+      "median_sampling_ms": 8.330312499310821,
+      "max_sample_gap_ms": 16.79874991532415,
+      "median_target_lead_ms": 5.940707982517779,
+      "post_release": {
+        "rms_pt": 0.5483712144403786,
+        "max_gap_pt": 3.700000000000003,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7481041176422794,
+        "max_gap_pt": 3.700000000000003,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d100-v800-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 800,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 216.66666702367365,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 760.068,
+      "finger_speed_last_25_ms": 695.6488142604456,
+      "uikit_release_exposure_pt": 45.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 1.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 3.0,
+      "slint_extra_exposure_pt": 3.666000000000004,
+      "uikit_peak_pt": 48.333,
+      "uikit_peak_s": 0.03463020804338157,
+      "slint_peak_pt": 50.176,
+      "slint_peak_s": 0.026365833007730544,
+      "uikit_settle_s": 0.6517575830221176,
+      "slint_settle_s": 0.6517575830221176,
+      "median_sampling_ms": 8.35050002206117,
+      "max_sample_gap_ms": 12.818208080716431,
+      "median_target_lead_ms": 5.9685209998860955,
+      "post_release": {
+        "rms_pt": 0.49284502860658175,
+        "max_gap_pt": 3.6529999999999987,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.6740750298248213,
+        "max_gap_pt": 3.6529999999999987,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1000-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1000,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 416.6666669771075,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 605.597,
+      "finger_speed_last_25_ms": 664.10767044862,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.9000000000000057,
+      "uikit_peak_pt": 130.333,
+      "uikit_peak_s": 0.002834749990142882,
+      "slint_peak_pt": 134.03,
+      "slint_peak_s": 0.009692499996162951,
+      "uikit_settle_s": 0.6941499580862001,
+      "slint_settle_s": 0.7104367080610245,
+      "median_sampling_ms": 8.362499997019768,
+      "max_sample_gap_ms": 13.49579100497067,
+      "median_target_lead_ms": 6.228791491594166,
+      "post_release": {
+        "rms_pt": 2.620672836633117,
+        "max_gap_pt": 7.426000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.5880910953225995,
+        "max_gap_pt": 7.426000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1000-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1000,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 415.868042036891,
+      "delivered_hold_ms": 0.05020899698138237,
+      "release_pan_velocity_y": 629.775,
+      "finger_speed_last_25_ms": 758.174905957473,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.9190000000000111,
+      "uikit_peak_pt": 130.333,
+      "uikit_peak_s": 0.0026102500269189477,
+      "slint_peak_pt": 134.049,
+      "slint_peak_s": 0.009654541965574026,
+      "uikit_settle_s": 0.6948753750184551,
+      "slint_settle_s": 0.7101649580290541,
+      "median_sampling_ms": 8.314499980770051,
+      "max_sample_gap_ms": 12.870207894593477,
+      "median_target_lead_ms": 5.94612502027303,
+      "post_release": {
+        "rms_pt": 2.7472627255749194,
+        "max_gap_pt": 7.798000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.761443633544618,
+        "max_gap_pt": 7.798000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1200,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 350.00000009313226,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1224.0,
+      "finger_speed_last_25_ms": 1185.2833078125577,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 3.091000000000008,
+      "uikit_peak_pt": 130.333,
+      "uikit_peak_s": 0.002816749969497323,
+      "slint_peak_pt": 135.221,
+      "slint_peak_s": 0.009723499999381602,
+      "uikit_settle_s": 0.7312678759917617,
+      "slint_settle_s": 0.7434577089734375,
+      "median_sampling_ms": 8.3057910669595,
+      "max_sample_gap_ms": 13.378832954913378,
+      "median_target_lead_ms": 6.147083477117121,
+      "post_release": {
+        "rms_pt": 2.9076745786892237,
+        "max_gap_pt": 8.052999999999997,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.9808613952154457,
+        "max_gap_pt": 8.052999999999997,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1200,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 349.99999997671694,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1224.0,
+      "finger_speed_last_25_ms": 1186.6799988948171,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 3.1170000000000186,
+      "uikit_peak_pt": 130.333,
+      "uikit_peak_s": 0.0026367499958723783,
+      "slint_peak_pt": 135.247,
+      "slint_peak_s": 0.009782625013031065,
+      "uikit_settle_s": 0.7274467500392348,
+      "slint_settle_s": 0.7435656670713797,
+      "median_sampling_ms": 8.354082936421037,
+      "max_sample_gap_ms": 12.648792006075382,
+      "median_target_lead_ms": 6.035062484443188,
+      "post_release": {
+        "rms_pt": 2.9779920798715667,
+        "max_gap_pt": 8.147999999999996,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.077156646845528,
+        "max_gap_pt": 8.147999999999996,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1500-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1500,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 300.00000004656613,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1536.0,
+      "finger_speed_last_25_ms": 1479.9999986216426,
+      "uikit_release_exposure_pt": 131.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.1299999999999955,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.6670000000000016,
+      "slint_extra_exposure_pt": 5.704000000000008,
+      "uikit_peak_pt": 131.667,
+      "uikit_peak_s": 0.018868374987505376,
+      "slint_peak_pt": 137.834,
+      "slint_peak_s": 0.02665833302307874,
+      "uikit_settle_s": 0.7355081239948049,
+      "slint_settle_s": 0.7599351659882814,
+      "median_sampling_ms": 8.317542029544711,
+      "max_sample_gap_ms": 15.97979199141264,
+      "median_target_lead_ms": 6.466104474384338,
+      "post_release": {
+        "rms_pt": 3.147073937928138,
+        "max_gap_pt": 8.435000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.284462730076744,
+        "max_gap_pt": 8.435000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v1500-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 1500,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 300.00000004656613,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1473.135,
+      "finger_speed_last_25_ms": 1479.9999986216426,
+      "uikit_release_exposure_pt": 131.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.1299999999999955,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 1.0,
+      "slint_extra_exposure_pt": 5.718000000000018,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.01797270798124373,
+      "slint_peak_pt": 137.848,
+      "slint_peak_s": 0.026189583004452288,
+      "uikit_settle_s": 0.7351849579717964,
+      "slint_settle_s": 0.7598746239673346,
+      "median_sampling_ms": 8.283770002890378,
+      "max_sample_gap_ms": 14.847457990981638,
+      "median_target_lead_ms": 6.40129204839468,
+      "post_release": {
+        "rms_pt": 2.971351989927261,
+        "max_gap_pt": 7.923000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.056485314181067,
+        "max_gap_pt": 7.923000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 200,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 1849.9999589985237,
+      "delivered_hold_ms": 0.002084067091345787,
+      "release_pan_velocity_y": 120.082,
+      "finger_speed_last_25_ms": 133.3599998757967,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.07699999999999818,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.002583832945674658,
+      "slint_peak_pt": 132.207,
+      "slint_peak_s": 0.002583832945674658,
+      "uikit_settle_s": 0.6181753339478746,
+      "slint_settle_s": 0.6518304169876501,
+      "median_sampling_ms": 8.373499964363873,
+      "max_sample_gap_ms": 12.888874975033104,
+      "median_target_lead_ms": 5.849687498994172,
+      "post_release": {
+        "rms_pt": 2.9791337303540653,
+        "max_gap_pt": 8.950000000000003,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.079238268864257,
+        "max_gap_pt": 8.950000000000003,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 200,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 1849.7455839533359,
+      "delivered_hold_ms": 0.04099996294826269,
+      "release_pan_velocity_y": 117.106,
+      "finger_speed_last_25_ms": 129.69104048884134,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.08199999999999363,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.002766165998764336,
+      "slint_peak_pt": 132.212,
+      "slint_peak_s": 0.002766165998764336,
+      "uikit_settle_s": 0.6105131240328774,
+      "slint_settle_s": 0.6516808740561828,
+      "median_sampling_ms": 8.28183302655816,
+      "max_sample_gap_ms": 12.665709014981985,
+      "median_target_lead_ms": 5.881166493054479,
+      "post_release": {
+        "rms_pt": 2.832673834030314,
+        "max_gap_pt": 8.241,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.8786845184611236,
+        "max_gap_pt": 8.241,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v2000-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 2000,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 241.2631659535691,
+      "delivered_hold_ms": 0.03645801916718483,
+      "release_pan_velocity_y": 2005.58,
+      "finger_speed_last_25_ms": 2024.516793166291,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 9.0,
+      "slint_extra_exposure_pt": 15.727000000000004,
+      "uikit_peak_pt": 139.333,
+      "uikit_peak_s": 0.038510123966261744,
+      "slint_peak_pt": 147.857,
+      "slint_peak_s": 0.04302608303260058,
+      "uikit_settle_s": 0.7706587909488007,
+      "slint_settle_s": 0.7852221239591017,
+      "median_sampling_ms": 8.32854094915092,
+      "max_sample_gap_ms": 12.237166985869408,
+      "median_target_lead_ms": 6.379457481671125,
+      "post_release": {
+        "rms_pt": 3.4133367732730058,
+        "max_gap_pt": 9.001000000000005,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 4.672677542551664,
+        "max_gap_pt": 9.001000000000005,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v2000-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 2000,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 241.26329191494733,
+      "delivered_hold_ms": 0.04091695882380009,
+      "release_pan_velocity_y": 1906.564,
+      "finger_speed_last_25_ms": 2024.509113540255,
+      "uikit_release_exposure_pt": 130.333,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.796999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 10.334000000000003,
+      "slint_extra_exposure_pt": 15.619,
+      "uikit_peak_pt": 140.667,
+      "uikit_peak_s": 0.04353662405628711,
+      "slint_peak_pt": 147.749,
+      "slint_peak_s": 0.04353662405628711,
+      "uikit_settle_s": 0.7686208740342408,
+      "slint_settle_s": 0.7855919579742476,
+      "median_sampling_ms": 8.298375061713159,
+      "max_sample_gap_ms": 13.414000044576824,
+      "median_target_lead_ms": 6.501687574200332,
+      "post_release": {
+        "rms_pt": 2.7873767426660425,
+        "max_gap_pt": 7.479000000000013,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.8152817146968325,
+        "max_gap_pt": 7.479000000000013,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v300-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 300,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 1249.1542500210926,
+      "delivered_hold_ms": 0.08145906031131744,
+      "release_pan_velocity_y": 285.649,
+      "finger_speed_last_25_ms": 225.74778074620417,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.4200000000000159,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.0030019578989595175,
+      "slint_peak_pt": 132.55,
+      "slint_peak_s": 0.00975662493146956,
+      "uikit_settle_s": 0.6371611249633133,
+      "slint_settle_s": 0.6603207919979468,
+      "median_sampling_ms": 8.33758304361254,
+      "max_sample_gap_ms": 12.892332975752652,
+      "median_target_lead_ms": 6.0462504625320435,
+      "post_release": {
+        "rms_pt": 2.262211900625875,
+        "max_gap_pt": 6.6640000000000015,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.097495061537629,
+        "max_gap_pt": 6.6640000000000015,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v300-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 300,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 1249.572500004433,
+      "delivered_hold_ms": 7.905833073891699,
+      "release_pan_velocity_y": 310.03,
+      "finger_speed_last_25_ms": 222.87841728066232,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -8.332999999999998,
+      "slint_extra_exposure_pt": 0.18000000000000682,
+      "uikit_peak_pt": 123.667,
+      "uikit_peak_s": 0.0032608750043436885,
+      "slint_peak_pt": 132.31,
+      "slint_peak_s": 0.0032608750043436885,
+      "uikit_settle_s": 0.6191035000374541,
+      "slint_settle_s": 0.6604000000515953,
+      "median_sampling_ms": 8.337834035046399,
+      "max_sample_gap_ms": 12.10099901072681,
+      "median_target_lead_ms": 5.9559165383689106,
+      "post_release": {
+        "rms_pt": 3.7495113940944957,
+        "max_gap_pt": 11.096999999999994,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 5.134130639853581,
+        "max_gap_pt": 11.096999999999994,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v400-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 983.3333339774981,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "finger_speed_last_25_ms": 399.99999962747097,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.5600000000000023,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.0030587080400437117,
+      "slint_peak_pt": 132.69,
+      "slint_peak_s": 0.009843999985605478,
+      "uikit_settle_s": 0.6435797919984907,
+      "slint_settle_s": 0.6689172079786658,
+      "median_sampling_ms": 8.38354101870209,
+      "max_sample_gap_ms": 13.00420903135091,
+      "median_target_lead_ms": 6.117958459071815,
+      "post_release": {
+        "rms_pt": 2.1808827710610927,
+        "max_gap_pt": 6.218999999999994,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.986075134408599,
+        "max_gap_pt": 6.218999999999994,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v400-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 983.3333330461755,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "finger_speed_last_25_ms": 399.99999962747097,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.5490000000000066,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.0027522919699549675,
+      "slint_peak_pt": 132.679,
+      "slint_peak_s": 0.009911666973493993,
+      "uikit_settle_s": 0.6434804999735206,
+      "slint_settle_s": 0.6684194169938564,
+      "median_sampling_ms": 8.318459033034742,
+      "max_sample_gap_ms": 12.775375042110682,
+      "median_target_lead_ms": 5.939062510151416,
+      "post_release": {
+        "rms_pt": 2.1705867473514573,
+        "max_gap_pt": 6.1640000000000015,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.9719757142065166,
+        "max_gap_pt": 6.1640000000000015,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v500-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 500,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 791.6666669771075,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 304.0,
+      "finger_speed_last_25_ms": 333.3599996895322,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.592000000000013,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.0028260829858481884,
+      "slint_peak_pt": 132.722,
+      "slint_peak_s": 0.009858916979283094,
+      "uikit_settle_s": 0.6435108330333605,
+      "slint_settle_s": 0.6687018329976127,
+      "median_sampling_ms": 8.35050002206117,
+      "max_sample_gap_ms": 17.458666930906475,
+      "median_target_lead_ms": 5.8330000611022115,
+      "post_release": {
+        "rms_pt": 2.515775025246421,
+        "max_gap_pt": 7.3559999999999945,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.4350892789222613,
+        "max_gap_pt": 7.3559999999999945,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v500-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 500,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 791.6666669771075,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 304.0,
+      "finger_speed_last_25_ms": 333.3599996895322,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.6090000000000089,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.003196332952938974,
+      "slint_peak_pt": 132.739,
+      "slint_peak_s": 0.009712291997857392,
+      "uikit_settle_s": 0.6518107920419425,
+      "slint_settle_s": 0.6685558339813724,
+      "median_sampling_ms": 8.345875074155629,
+      "max_sample_gap_ms": 12.92775000911206,
+      "median_target_lead_ms": 5.875937000382692,
+      "post_release": {
+        "rms_pt": 2.1585642193108106,
+        "max_gap_pt": 6.301000000000002,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.9555102016544175,
+        "max_gap_pt": 6.301000000000002,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v600-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 600,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 633.3333340007812,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 368.0,
+      "finger_speed_last_25_ms": 399.99999962747097,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.7800000000000011,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.00281054200604558,
+      "slint_peak_pt": 132.91,
+      "slint_peak_s": 0.010134750045835972,
+      "uikit_settle_s": 0.656213500071317,
+      "slint_settle_s": 0.6772524999687448,
+      "median_sampling_ms": 8.333167061209679,
+      "max_sample_gap_ms": 12.632958008907735,
+      "median_target_lead_ms": 5.837124946992844,
+      "post_release": {
+        "rms_pt": 2.2118859298496085,
+        "max_gap_pt": 6.491,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.0284879753214584,
+        "max_gap_pt": 6.491,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v600-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 600,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 633.3333330694586,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 368.0,
+      "finger_speed_last_25_ms": 399.99999962747097,
+      "uikit_release_exposure_pt": 132.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 0.12999999999999545,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.8269999999999982,
+      "uikit_peak_pt": 132.0,
+      "uikit_peak_s": 0.0028589169960469007,
+      "slint_peak_pt": 132.957,
+      "slint_peak_s": 0.010157041950151324,
+      "uikit_settle_s": 0.6550516670104116,
+      "slint_settle_s": 0.6768881250172853,
+      "median_sampling_ms": 8.32502101548016,
+      "max_sample_gap_ms": 16.05658303014934,
+      "median_target_lead_ms": 5.975082982331514,
+      "post_release": {
+        "rms_pt": 2.207256081160777,
+        "max_gap_pt": 6.430000000000007,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.01373989179834,
+        "max_gap_pt": 6.430000000000007,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v800-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 800,
+      "trial": 1,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 466.66666702367365,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 816.0,
+      "finger_speed_last_25_ms": 759.9999992921948,
+      "uikit_release_exposure_pt": 131.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.1299999999999955,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.7309999999999945,
+      "uikit_peak_pt": 131.0,
+      "uikit_peak_s": 0.002569040982052684,
+      "slint_peak_pt": 133.861,
+      "slint_peak_s": 0.010130957933142781,
+      "uikit_settle_s": 0.6940912909340113,
+      "slint_settle_s": 0.7106355830328539,
+      "median_sampling_ms": 8.319957996718585,
+      "max_sample_gap_ms": 14.010790968313813,
+      "median_target_lead_ms": 6.099937541875988,
+      "post_release": {
+        "rms_pt": 2.5920779062794823,
+        "max_gap_pt": 7.3629999999999995,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.5489576433322885,
+        "max_gap_pt": 7.3629999999999995,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d300-v800-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 300,
+      "requested_speed_setting": 800,
+      "trial": 2,
+      "delivered_distance_pt": 300.0,
+      "contact_ms": 465.7749159960076,
+      "delivered_hold_ms": 0.08704105857759714,
+      "release_pan_velocity_y": 857.742,
+      "finger_speed_last_25_ms": 799.8646379489581,
+      "uikit_release_exposure_pt": 131.0,
+      "slint_release_exposure_pt": 132.13,
+      "release_gap_pt": 1.1299999999999955,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.7959999999999923,
+      "uikit_peak_pt": 131.0,
+      "uikit_peak_s": 0.0030316670890897512,
+      "slint_peak_pt": 133.926,
+      "slint_peak_s": 0.009583375067450106,
+      "uikit_settle_s": 0.6938031250610948,
+      "slint_settle_s": 0.7110504580195993,
+      "median_sampling_ms": 8.341916021890938,
+      "max_sample_gap_ms": 12.91791710536927,
+      "median_target_lead_ms": 5.920291470829397,
+      "post_release": {
+        "rms_pt": 2.336656573920191,
+        "max_gap_pt": 6.611999999999995,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.199164811256734,
+        "max_gap_pt": 6.611999999999995,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1000-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1000,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 791.6666659293696,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 608.0,
+      "finger_speed_last_25_ms": 740.0100079256632,
+      "uikit_release_exposure_pt": 227.0,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": 1.2920000000000016,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.7889999999999873,
+      "uikit_peak_pt": 227.0,
+      "uikit_peak_s": 0.0026740010362118483,
+      "slint_peak_pt": 229.081,
+      "slint_peak_s": 0.010662417043931782,
+      "uikit_settle_s": 0.720111042028293,
+      "slint_settle_s": 0.7434935420751572,
+      "median_sampling_ms": 8.31995892804116,
+      "max_sample_gap_ms": 13.153749983757734,
+      "median_target_lead_ms": 6.247166485991329,
+      "post_release": {
+        "rms_pt": 4.583255776919576,
+        "max_gap_pt": 13.259999999999991,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 6.275482950372558,
+        "max_gap_pt": 13.259999999999991,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1000-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1000,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 791.666666045785,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 608.0,
+      "finger_speed_last_25_ms": 666.679999379107,
+      "uikit_release_exposure_pt": 227.667,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": 0.625,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.8419999999999845,
+      "uikit_peak_pt": 227.667,
+      "uikit_peak_s": 0.0029500420205295086,
+      "slint_peak_pt": 229.134,
+      "slint_peak_s": 0.009838375961408019,
+      "uikit_settle_s": 0.7102097499882802,
+      "slint_settle_s": 0.7438122499734163,
+      "median_sampling_ms": 8.311000070534647,
+      "max_sample_gap_ms": 13.238791027106345,
+      "median_target_lead_ms": 6.060521001927555,
+      "post_release": {
+        "rms_pt": 4.531648626297303,
+        "max_gap_pt": 13.046999999999997,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 6.204811180144809,
+        "max_gap_pt": 13.046999999999997,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1200,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 633.3333329530433,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 728.0,
+      "finger_speed_last_25_ms": 799.9999992549419,
+      "uikit_release_exposure_pt": 227.0,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 1.2909999999999968,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.1990000000000123,
+      "uikit_peak_pt": 227.0,
+      "uikit_peak_s": 0.0022088750265538692,
+      "slint_peak_pt": 229.49,
+      "slint_peak_s": 0.01608466694597155,
+      "uikit_settle_s": 0.7273887919727713,
+      "slint_settle_s": 0.7516198339872062,
+      "median_sampling_ms": 8.293958962894976,
+      "max_sample_gap_ms": 13.87579191941768,
+      "median_target_lead_ms": 6.3123334548436105,
+      "post_release": {
+        "rms_pt": 5.576264759376716,
+        "max_gap_pt": 16.145999999999987,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 7.63518046133052,
+        "max_gap_pt": 16.145999999999987,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1200,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 633.3333340007812,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 728.0,
+      "finger_speed_last_25_ms": 890.0099846656027,
+      "uikit_release_exposure_pt": 227.0,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 1.2909999999999968,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.1550000000000011,
+      "uikit_peak_pt": 227.0,
+      "uikit_peak_s": 0.0029369170079007745,
+      "slint_peak_pt": 229.446,
+      "slint_peak_s": 0.00993929198011756,
+      "uikit_settle_s": 0.7204234580276534,
+      "slint_settle_s": 0.7522881249897182,
+      "median_sampling_ms": 8.317707921378314,
+      "max_sample_gap_ms": 13.562000007368624,
+      "median_target_lead_ms": 6.218187510967255,
+      "post_release": {
+        "rms_pt": 5.2514751409061775,
+        "max_gap_pt": 15.224999999999994,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 7.190431381211886,
+        "max_gap_pt": 15.224999999999994,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1500-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1500,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 525.0000000232831,
+      "delivered_hold_ms": 9.092416963540018,
+      "release_pan_velocity_y": 940.863,
+      "finger_speed_last_25_ms": 749.9999844585549,
+      "uikit_release_exposure_pt": 226.667,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 1.6239999999999952,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -9.0,
+      "slint_extra_exposure_pt": 1.742999999999995,
+      "uikit_peak_pt": 217.667,
+      "uikit_peak_s": 0.002712166984565556,
+      "slint_peak_pt": 230.034,
+      "slint_peak_s": 0.010158624965697527,
+      "uikit_settle_s": 0.7357056670589373,
+      "slint_settle_s": 0.7775353749748319,
+      "median_sampling_ms": 8.345042006112635,
+      "max_sample_gap_ms": 12.270665960386395,
+      "median_target_lead_ms": 6.369145994540304,
+      "post_release": {
+        "rms_pt": 9.849798825920818,
+        "max_gap_pt": 28.289999999999992,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 13.487036080606565,
+        "max_gap_pt": 28.289999999999992,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v1500-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 1500,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 524.9722079606727,
+      "delivered_hold_ms": 8.305541006848216,
+      "release_pan_velocity_y": 912.0,
+      "finger_speed_last_25_ms": 750.6258486352971,
+      "uikit_release_exposure_pt": 226.0,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 2.290999999999997,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -9.0,
+      "slint_extra_exposure_pt": 1.7290000000000134,
+      "uikit_peak_pt": 217.0,
+      "uikit_peak_s": 0.002746916958130896,
+      "slint_peak_pt": 230.02,
+      "slint_peak_s": 0.010690207942388952,
+      "uikit_settle_s": 0.7360609159804881,
+      "slint_settle_s": 0.7771902499953285,
+      "median_sampling_ms": 8.323458954691887,
+      "max_sample_gap_ms": 12.640832923352718,
+      "median_target_lead_ms": 6.347562477458268,
+      "post_release": {
+        "rms_pt": 9.838610490477471,
+        "max_gap_pt": 28.447000000000003,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 13.471720936449927,
+        "max_gap_pt": 28.447000000000003,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v200-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 200,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 3458.235749974847,
+      "delivered_hold_ms": 0.0435409601777792,
+      "release_pan_velocity_y": 201.551,
+      "finger_speed_last_25_ms": 158.46267206155588,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": -0.04200000000000159,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.06100000000000705,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.002438041032291949,
+      "slint_peak_pt": 228.352,
+      "slint_peak_s": 0.002438041032291949,
+      "uikit_settle_s": 0.662018375005573,
+      "slint_settle_s": 0.6768745420267805,
+      "median_sampling_ms": 8.326791925355792,
+      "max_sample_gap_ms": 12.962582986801863,
+      "median_target_lead_ms": 5.8936040150001645,
+      "post_release": {
+        "rms_pt": 2.2882231170349914,
+        "max_gap_pt": 16.127999999999986,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.133073913241328,
+        "max_gap_pt": 16.127999999999986,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v200-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 200,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 3458.333291928284,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 200.0,
+      "finger_speed_last_25_ms": 199.99999981373549,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": -0.04200000000000159,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.06399999999999295,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.0025829169899225235,
+      "slint_peak_pt": 228.355,
+      "slint_peak_s": 0.0025829169899225235,
+      "uikit_settle_s": 0.6605954590486363,
+      "slint_settle_s": 0.6767219169996679,
+      "median_sampling_ms": 8.38970800396055,
+      "max_sample_gap_ms": 12.10149994585663,
+      "median_target_lead_ms": 6.001375033520162,
+      "post_release": {
+        "rms_pt": 2.281998377397416,
+        "max_gap_pt": 16.216999999999985,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 3.1245506576946376,
+        "max_gap_pt": 16.216999999999985,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v2000-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 2000,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 416.66666592936963,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1216.0,
+      "finger_speed_last_25_ms": 1333.359998758214,
+      "uikit_release_exposure_pt": 225.333,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 2.9579999999999984,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 3.1040000000000134,
+      "uikit_peak_pt": 225.333,
+      "uikit_peak_s": 0.002715333946980536,
+      "slint_peak_pt": 231.395,
+      "slint_peak_s": 0.010148291941732168,
+      "uikit_settle_s": 0.7723149999510497,
+      "slint_settle_s": 0.8030569169204682,
+      "median_sampling_ms": 8.381666033528745,
+      "max_sample_gap_ms": 13.387124985456467,
+      "median_target_lead_ms": 6.457875017076731,
+      "post_release": {
+        "rms_pt": 10.250272092323533,
+        "max_gap_pt": 29.50399999999999,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 14.035202246642784,
+        "max_gap_pt": 29.50399999999999,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v2000-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 2000,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 416.6666669771075,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1176.987,
+      "finger_speed_last_25_ms": 1291.0168137395178,
+      "uikit_release_exposure_pt": 227.0,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": 1.2909999999999968,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 3.084000000000003,
+      "uikit_peak_pt": 227.0,
+      "uikit_peak_s": 0.0029580839909613132,
+      "slint_peak_pt": 231.375,
+      "slint_peak_s": 0.009864834020845592,
+      "uikit_settle_s": 0.7601808760082349,
+      "slint_settle_s": 0.8021617090562358,
+      "median_sampling_ms": 8.36095807608217,
+      "max_sample_gap_ms": 12.816207949072123,
+      "median_target_lead_ms": 6.467166997026652,
+      "post_release": {
+        "rms_pt": 8.633725406798622,
+        "max_gap_pt": 24.824000000000012,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 11.821556276653398,
+        "max_gap_pt": 24.824000000000012,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v400-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 1849.9999579507858,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 240.587,
+      "finger_speed_last_25_ms": 266.6799997516361,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.12000000000000455,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.0027682079235091805,
+      "slint_peak_pt": 228.412,
+      "slint_peak_s": 0.0027682079235091805,
+      "uikit_settle_s": 0.6767985000042245,
+      "slint_settle_s": 0.6853539169533178,
+      "median_sampling_ms": 8.360458072274923,
+      "max_sample_gap_ms": 13.005541986785829,
+      "median_target_lead_ms": 5.9934789896942675,
+      "post_release": {
+        "rms_pt": 1.754071999029053,
+        "max_gap_pt": 15.337999999999994,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.4015457977623496,
+        "max_gap_pt": 15.337999999999994,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v400-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 1849.9999579507858,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 233.909,
+      "finger_speed_last_25_ms": 259.82495462797556,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.1279999999999859,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.003157750004902482,
+      "slint_peak_pt": 228.42,
+      "slint_peak_s": 0.003157750004902482,
+      "uikit_settle_s": 0.6689245420275256,
+      "slint_settle_s": 0.6852854590397328,
+      "median_sampling_ms": 8.371207979507744,
+      "max_sample_gap_ms": 13.172958046197891,
+      "median_target_lead_ms": 6.052187003660947,
+      "post_release": {
+        "rms_pt": 1.2904647203408721,
+        "max_gap_pt": 3.8739999999999952,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.7666081259955004,
+        "max_gap_pt": 3.8739999999999952,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v600-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 600,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 1250.0,
+      "delivered_hold_ms": 8.333333884365857,
+      "release_pan_velocity_y": 624.0,
+      "finger_speed_last_25_ms": 436.2452052765398,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": -0.04200000000000159,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -14.0,
+      "slint_extra_exposure_pt": 0.2259999999999991,
+      "uikit_peak_pt": 214.333,
+      "uikit_peak_s": 0.0027706660330295563,
+      "slint_peak_pt": 228.517,
+      "slint_peak_s": 0.0027706660330295563,
+      "uikit_settle_s": 0.6940935830352828,
+      "slint_settle_s": 0.719018041039817,
+      "median_sampling_ms": 8.379291044548154,
+      "max_sample_gap_ms": 13.192165992222726,
+      "median_target_lead_ms": 6.3210209482349455,
+      "post_release": {
+        "rms_pt": 5.819025023337004,
+        "max_gap_pt": 17.17500000000001,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 7.967833220466319,
+        "max_gap_pt": 17.17500000000001,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v600-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 600,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 1250.0,
+      "delivered_hold_ms": 8.333332953043282,
+      "release_pan_velocity_y": 624.0,
+      "finger_speed_last_25_ms": 399.99999962747097,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.291,
+      "release_gap_pt": -0.04200000000000159,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": -14.0,
+      "slint_extra_exposure_pt": 0.242999999999995,
+      "uikit_peak_pt": 214.333,
+      "uikit_peak_s": 0.0029280419694259763,
+      "slint_peak_pt": 228.534,
+      "slint_peak_s": 0.0029280419694259763,
+      "uikit_settle_s": 0.6967667500721291,
+      "slint_settle_s": 0.7187750419834629,
+      "median_sampling_ms": 8.40799999423325,
+      "max_sample_gap_ms": 12.45150004979223,
+      "median_target_lead_ms": 6.221354007720947,
+      "post_release": {
+        "rms_pt": 5.9698851589549955,
+        "max_gap_pt": 17.550999999999988,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 8.174411569673786,
+        "max_gap_pt": 17.550999999999988,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v800-hold0-trial1",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 800,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 983.3333339774981,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 796.524,
+      "finger_speed_last_25_ms": 786.6799992673483,
+      "uikit_release_exposure_pt": 227.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": 0.9590000000000032,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.953000000000003,
+      "uikit_peak_pt": 227.333,
+      "uikit_peak_s": 0.0029932080069556832,
+      "slint_peak_pt": 229.245,
+      "slint_peak_s": 0.009765124996192753,
+      "uikit_settle_s": 0.71010370797012,
+      "slint_settle_s": 0.735304957954213,
+      "median_sampling_ms": 8.377749007195234,
+      "max_sample_gap_ms": 12.379584019072354,
+      "median_target_lead_ms": 6.273249513469636,
+      "post_release": {
+        "rms_pt": 4.29127483907107,
+        "max_gap_pt": 12.426999999999992,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 5.875661585976226,
+        "max_gap_pt": 12.426999999999992,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "sweep-vp774-d600-v800-hold0-trial2",
+      "campaign": "sweep",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 800,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 982.9516250174493,
+      "delivered_hold_ms": 0.06745802238583565,
+      "release_pan_velocity_y": 832.66,
+      "finger_speed_last_25_ms": 638.8842079549801,
+      "uikit_release_exposure_pt": 227.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": 0.9590000000000032,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.0660000000000025,
+      "uikit_peak_pt": 227.333,
+      "uikit_peak_s": 0.003091291058808565,
+      "slint_peak_pt": 229.358,
+      "slint_peak_s": 0.009712415980175138,
+      "uikit_settle_s": 0.7184435410890728,
+      "slint_settle_s": 0.7361165410839021,
+      "median_sampling_ms": 8.327688032295555,
+      "max_sample_gap_ms": 16.84070797637105,
+      "median_target_lead_ms": 6.350915995426476,
+      "post_release": {
+        "rms_pt": 4.477745263238866,
+        "max_gap_pt": 12.890999999999991,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 6.113953071152084,
+        "max_gap_pt": 12.890999999999991,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp387-d500-v400-hold400-trial1",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 387,
+      "actual_viewport": 383,
+      "requested_distance_pt": 500,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 500.0,
+      "contact_ms": 1983.3332920679823,
+      "delivered_hold_ms": 400.00000002328306,
+      "release_pan_velocity_y": 240.0,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 158.333,
+      "slint_release_exposure_pt": 158.189,
+      "release_gap_pt": -0.14400000000000546,
+      "uikit_first_inward_0_5_pt_s": 0.02339662506710738,
+      "slint_first_inward_0_5_pt_s": 0.02339662506710738,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 158.333,
+      "uikit_peak_s": 0.005721708992496133,
+      "slint_peak_pt": 158.189,
+      "slint_peak_s": 0.005721708992496133,
+      "uikit_settle_s": 0.6505964590469375,
+      "slint_settle_s": 0.6505964590469375,
+      "median_sampling_ms": 8.373290998861194,
+      "max_sample_gap_ms": 12.906874995678663,
+      "median_target_lead_ms": 5.8891664375551045,
+      "post_release": {
+        "rms_pt": 0.7519041827254318,
+        "max_gap_pt": 2.263999999999996,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.0291572452335287,
+        "max_gap_pt": 2.263999999999996,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp387-d500-v400-hold400-trial2",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 387,
+      "actual_viewport": 383,
+      "requested_distance_pt": 500,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 500.0,
+      "contact_ms": 1983.3332910202444,
+      "delivered_hold_ms": 400.00000002328306,
+      "release_pan_velocity_y": 240.0,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 158.333,
+      "slint_release_exposure_pt": 158.189,
+      "release_gap_pt": -0.14400000000000546,
+      "uikit_first_inward_0_5_pt_s": 0.023454375099390745,
+      "slint_first_inward_0_5_pt_s": 0.023454375099390745,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 158.333,
+      "uikit_peak_s": 0.006154000060632825,
+      "slint_peak_pt": 158.189,
+      "slint_peak_s": 0.006154000060632825,
+      "uikit_settle_s": 0.6424352080794051,
+      "slint_settle_s": 0.6507933750981465,
+      "median_sampling_ms": 8.33099998999387,
+      "max_sample_gap_ms": 13.050125096924603,
+      "median_target_lead_ms": 5.6851450353860855,
+      "post_release": {
+        "rms_pt": 0.6659229309762505,
+        "max_gap_pt": 1.945999999999998,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.9113706767373344,
+        "max_gap_pt": 1.945999999999998,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d100-v1200-hold0-trial1",
+      "campaign": "validation",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 174.9999999301508,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1223.995,
+      "finger_speed_last_25_ms": 1150.9878693468982,
+      "uikit_release_exposure_pt": 44.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 2.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 15.0,
+      "slint_extra_exposure_pt": 12.064,
+      "uikit_peak_pt": 59.333,
+      "uikit_peak_s": 0.06010674999561161,
+      "slint_peak_pt": 58.574,
+      "slint_peak_s": 0.051776083069853485,
+      "uikit_settle_s": 0.7015794579638168,
+      "slint_settle_s": 0.6931205419823527,
+      "median_sampling_ms": 8.331957971677184,
+      "max_sample_gap_ms": 12.837250949814916,
+      "median_target_lead_ms": 6.004020513501018,
+      "post_release": {
+        "rms_pt": 1.1641586351428992,
+        "max_gap_pt": 6.355000000000004,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 1.593397153751485,
+        "max_gap_pt": 6.355000000000004,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d100-v1200-hold0-trial2",
+      "campaign": "validation",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 1200,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 175.00000004656613,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 1223.995,
+      "finger_speed_last_25_ms": 1186.6799988948171,
+      "uikit_release_exposure_pt": 44.333,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": 2.1769999999999996,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 16.667,
+      "slint_extra_exposure_pt": 11.823,
+      "uikit_peak_pt": 61.0,
+      "uikit_peak_s": 0.05982599896378815,
+      "slint_peak_pt": 58.333,
+      "slint_peak_s": 0.053704916033893824,
+      "uikit_settle_s": 0.7018477079691365,
+      "slint_settle_s": 0.6936539580347016,
+      "median_sampling_ms": 8.3313740324229,
+      "max_sample_gap_ms": 12.536291964352131,
+      "median_target_lead_ms": 6.181604519952089,
+      "post_release": {
+        "rms_pt": 1.7854373989461392,
+        "max_gap_pt": 6.649999999999999,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 2.4443674497028196,
+        "max_gap_pt": 6.649999999999999,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d100-v400-hold0-trial1",
+      "campaign": "validation",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 349.99999997671694,
+      "delivered_hold_ms": 0.0,
+      "release_pan_velocity_y": 400.0,
+      "finger_speed_last_25_ms": 393.18995092576705,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.3290000000000006,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.003216666984371841,
+      "slint_peak_pt": 47.839,
+      "slint_peak_s": 0.009904625941999257,
+      "uikit_settle_s": 0.6021856250008568,
+      "slint_settle_s": 0.6182391250040382,
+      "median_sampling_ms": 8.36425053421408,
+      "max_sample_gap_ms": 16.34225097950548,
+      "median_target_lead_ms": 5.788083071820438,
+      "post_release": {
+        "rms_pt": 0.5846790171304471,
+        "max_gap_pt": 1.725999999999999,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7980610422037485,
+        "max_gap_pt": 1.725999999999999,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d100-v400-hold0-trial2",
+      "campaign": "validation",
+      "hold_ms": 0,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 100,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 100.0,
+      "contact_ms": 349.2604170460254,
+      "delivered_hold_ms": 0.03766699228435755,
+      "release_pan_velocity_y": 432.311,
+      "finger_speed_last_25_ms": 409.0963079939454,
+      "uikit_release_exposure_pt": 46.667,
+      "slint_release_exposure_pt": 46.51,
+      "release_gap_pt": -0.15700000000000358,
+      "uikit_first_inward_0_5_pt_s": null,
+      "slint_first_inward_0_5_pt_s": null,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 1.3070000000000022,
+      "uikit_peak_pt": 46.667,
+      "uikit_peak_s": 0.002504875068552792,
+      "slint_peak_pt": 47.817,
+      "slint_peak_s": 0.009920375072397292,
+      "uikit_settle_s": 0.6102612500544637,
+      "slint_settle_s": 0.6182837079977617,
+      "median_sampling_ms": 8.327666495461017,
+      "max_sample_gap_ms": 13.245458947494626,
+      "median_target_lead_ms": 5.794083932414651,
+      "post_release": {
+        "rms_pt": 0.29322468898788895,
+        "max_gap_pt": 1.1499999999999986,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.40200766991024767,
+        "max_gap_pt": 1.1499999999999986,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d200-v400-hold400-trial1",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 200,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 200.0,
+      "contact_ms": 1041.6666669771075,
+      "delivered_hold_ms": 408.33333297632635,
+      "release_pan_velocity_y": 235.466,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 92.0,
+      "slint_release_exposure_pt": 92.013,
+      "release_gap_pt": 0.01300000000000523,
+      "uikit_first_inward_0_5_pt_s": 0.026521041989326477,
+      "slint_first_inward_0_5_pt_s": 0.026521041989326477,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 92.0,
+      "uikit_peak_s": 0.007537166005931795,
+      "slint_peak_pt": 92.013,
+      "slint_peak_s": 0.007537166005931795,
+      "uikit_settle_s": 0.6264043749542907,
+      "slint_settle_s": 0.6206770410062745,
+      "median_sampling_ms": 8.363208500668406,
+      "max_sample_gap_ms": 17.577041988261044,
+      "median_target_lead_ms": 5.834916955791414,
+      "post_release": {
+        "rms_pt": 0.32102116933345853,
+        "max_gap_pt": 2.5450000000000017,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.44024871048457764,
+        "max_gap_pt": 2.5450000000000017,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d200-v400-hold400-trial2",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 200,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 200.0,
+      "contact_ms": 1041.6666659293696,
+      "delivered_hold_ms": 408.33333297632635,
+      "release_pan_velocity_y": 240.0,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 92.0,
+      "slint_release_exposure_pt": 92.013,
+      "release_gap_pt": 0.01300000000000523,
+      "uikit_first_inward_0_5_pt_s": 0.02565716695971787,
+      "slint_first_inward_0_5_pt_s": 0.02565716695971787,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 92.0,
+      "uikit_peak_s": 0.006854209001176059,
+      "slint_peak_pt": 92.013,
+      "slint_peak_s": 0.006854209001176059,
+      "uikit_settle_s": 0.6179255839670077,
+      "slint_settle_s": 0.6179255839670077,
+      "median_sampling_ms": 8.3543750224635,
+      "max_sample_gap_ms": 17.309749964624643,
+      "median_target_lead_ms": 5.750417010858655,
+      "post_release": {
+        "rms_pt": 0.40192342801701725,
+        "max_gap_pt": 1.8269999999999982,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.551438355953471,
+        "max_gap_pt": 1.8269999999999982,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d50-v400-hold400-trial1",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 50,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 50.0,
+      "contact_ms": 1041.6666670935228,
+      "delivered_hold_ms": 408.33333309274167,
+      "release_pan_velocity_y": 64.33,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 21.333,
+      "slint_release_exposure_pt": 21.389,
+      "release_gap_pt": 0.05600000000000094,
+      "uikit_first_inward_0_5_pt_s": 0.021698500029742718,
+      "slint_first_inward_0_5_pt_s": 0.021698500029742718,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 21.333,
+      "uikit_peak_s": 0.006273000035434961,
+      "slint_peak_pt": 21.389,
+      "slint_peak_s": 0.006273000035434961,
+      "uikit_settle_s": 0.4616319159977138,
+      "slint_settle_s": 0.4768944999668747,
+      "median_sampling_ms": 8.355562458746135,
+      "max_sample_gap_ms": 12.412584037519991,
+      "median_target_lead_ms": 5.7790420250967145,
+      "post_release": {
+        "rms_pt": 0.22496037711276673,
+        "max_gap_pt": 0.827,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.30883463752198087,
+        "max_gap_pt": 0.827,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d50-v400-hold400-trial2",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 50,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 50.0,
+      "contact_ms": 1041.6666669771075,
+      "delivered_hold_ms": 408.33333297632635,
+      "release_pan_velocity_y": 63.956,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 21.333,
+      "slint_release_exposure_pt": 21.389,
+      "release_gap_pt": 0.05600000000000094,
+      "uikit_first_inward_0_5_pt_s": 0.023826332995668054,
+      "slint_first_inward_0_5_pt_s": 0.023826332995668054,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 21.333,
+      "uikit_peak_s": 0.007407750003039837,
+      "slint_peak_pt": 21.389,
+      "slint_peak_s": 0.007407750003039837,
+      "uikit_settle_s": 0.46828366606496274,
+      "slint_settle_s": 0.47668383305426687,
+      "median_sampling_ms": 8.337625011336058,
+      "max_sample_gap_ms": 14.941500034183264,
+      "median_target_lead_ms": 5.889166961424053,
+      "post_release": {
+        "rms_pt": 0.26428021709763155,
+        "max_gap_pt": 1.0020000000000007,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.36283303667113886,
+        "max_gap_pt": 1.0020000000000007,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d600-v400-hold400-trial1",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 1,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 2249.999957974069,
+      "delivered_hold_ms": 399.99999990686774,
+      "release_pan_velocity_y": 241.35,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": 0.026862208964303136,
+      "slint_first_inward_0_5_pt_s": 0.026862208964303136,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.006627666996791959,
+      "slint_peak_pt": 228.292,
+      "slint_peak_s": 0.006627666996791959,
+      "uikit_settle_s": 0.6685801249695942,
+      "slint_settle_s": 0.6685801249695942,
+      "median_sampling_ms": 8.334646001458168,
+      "max_sample_gap_ms": 15.930374967865646,
+      "median_target_lead_ms": 5.6772499810904264,
+      "post_release": {
+        "rms_pt": 0.6624472615247767,
+        "max_gap_pt": 7.665999999999997,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.9039525533732399,
+        "max_gap_pt": 7.665999999999997,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    },
+    {
+      "scenario": "validation-vp774-d600-v400-hold400-trial2",
+      "campaign": "validation",
+      "hold_ms": 400,
+      "requested_viewport": 774,
+      "actual_viewport": 770,
+      "requested_distance_pt": 600,
+      "requested_speed_setting": 400,
+      "trial": 2,
+      "delivered_distance_pt": 600.0,
+      "contact_ms": 2249.999957974069,
+      "delivered_hold_ms": 399.99999990686774,
+      "release_pan_velocity_y": 240.0,
+      "finger_speed_last_25_ms": 0.0,
+      "uikit_release_exposure_pt": 228.333,
+      "slint_release_exposure_pt": 228.292,
+      "release_gap_pt": -0.04099999999999682,
+      "uikit_first_inward_0_5_pt_s": 0.024464708054438233,
+      "slint_first_inward_0_5_pt_s": 0.024464708054438233,
+      "uikit_extra_exposure_pt": 0.0,
+      "slint_extra_exposure_pt": 0.0,
+      "uikit_peak_pt": 228.333,
+      "uikit_peak_s": 0.006478291004896164,
+      "slint_peak_pt": 228.292,
+      "slint_peak_s": 0.006478291004896164,
+      "uikit_settle_s": 0.6682804580777884,
+      "slint_settle_s": 0.6682804580777884,
+      "median_sampling_ms": 8.325958042405546,
+      "max_sample_gap_ms": 14.884124975651503,
+      "median_target_lead_ms": 5.774709046818316,
+      "post_release": {
+        "rms_pt": 0.5338251482357207,
+        "max_gap_pt": 4.967000000000013,
+        "within_0_5_pt": false
+      },
+      "first_0_8_s": {
+        "rms_pt": 0.7301985959883338,
+        "max_gap_pt": 4.967000000000013,
+        "within_0_5_pt": false
+      },
+      "issues": []
+    }
+  ]
+}

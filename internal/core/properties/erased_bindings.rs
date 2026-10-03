@@ -44,6 +44,8 @@ fn set_property_binding_impl<T: Clone + Default + 'static, VT: VTableMetaDropInP
 
 /// Like [`set_property_binding_erased`], for an animated binding.
 /// The component must outlive the binding.
+///
+/// `compute_animation_details` returns the time the animation started, if it isn't now.
 #[inline]
 pub fn set_animated_property_binding_erased<
     T: Clone + super::InterpolatedPropertyValue + 'static,
