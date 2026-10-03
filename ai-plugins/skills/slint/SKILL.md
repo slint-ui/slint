@@ -57,6 +57,7 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
 | [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
 | [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [web-embedding.md](reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
 ## `.slint` in 30 seconds

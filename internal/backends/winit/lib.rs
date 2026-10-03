@@ -977,6 +977,10 @@ impl i_slint_core::platform::Platform for Backend {
         struct Proxy(winit::event_loop::EventLoopProxy<SlintEvent>, Arc<AtomicUsize>);
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), EventLoopError> {
+                if cfg!(target_family = "wasm") {
+                    // winit destroys its event loop when it exits, and can't run another one.
+                    return Ok(());
+                }
                 let generation = self.1.load(std::sync::atomic::Ordering::Relaxed);
                 self.0
                     .send_event(SlintEvent(CustomEvent::Exit(generation)))
