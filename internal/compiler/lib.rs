@@ -164,6 +164,10 @@ pub struct CompilerConfiguration {
     /// so that expressions using an image size stay in bindings.
     pub const_image_sizes: bool,
 
+    /// The `OperatingSystemType` value (such as `"macos"`) that `Platform.os` evaluates to.
+    /// When `None`, the generated code detects the operating system at run time.
+    pub const_operating_system: Option<String>,
+
     /// expose the accessible role and properties
     pub accessibility: bool,
 
@@ -318,6 +322,7 @@ impl CompilerConfiguration {
             inline_all_elements,
             const_scale_factor,
             const_image_sizes,
+            const_operating_system: None,
             accessibility: true,
             enable_experimental,
             translation_domain: None,
