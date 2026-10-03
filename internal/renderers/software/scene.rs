@@ -527,20 +527,37 @@ pub fn compute_range_in_buffer(
     start..end
 }
 
-#[derive(Debug)]
-pub struct RoundedRectangle {
+/// The outline of a rounded rectangle relative to the rectangle a command draws in.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct RoundedShape {
     pub radius: PhysicalBorderRadius,
-    /// the border's width
-    pub width: PhysicalLength,
-    pub border_color: PremultipliedRgbaColor,
-    pub inner_color: PremultipliedRgbaColor,
     /// The clips is the amount of pixels of the rounded rectangle that is clipped away.
-    /// For example, if left_clip > width, then the left border will not be visible, and
+    /// For example, if left_clip > border width, then the left border will not be visible, and
     /// if left_clip > radius, then no radius will be seen in the left side
     pub left_clip: PhysicalLength,
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+}
+
+/// The clip of a gradient drawn below a [`RoundedRectangle`].
+#[derive(Debug, Default, Clone, Copy)]
+pub struct GradientClip {
+    /// A zero radius means no clip.
+    pub shape: RoundedShape,
+    /// The width of the opaque border drawn over the gradient, or 0.
+    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// This keeps it from bleeding through the border's anti-aliased outer edge.
+    pub opaque_border: PhysicalLength,
+}
+
+#[derive(Debug)]
+pub struct RoundedRectangle {
+    pub shape: RoundedShape,
+    /// the border's width
+    pub width: PhysicalLength,
+    pub border_color: PremultipliedRgbaColor,
+    pub inner_color: PremultipliedRgbaColor,
 }
 
 /// Goes from color 1 to color2
@@ -563,6 +580,7 @@ pub struct LinearGradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+    pub clip: GradientClip,
 }
 
 /// Radial gradient that interpolates colors from the center outward
@@ -580,6 +598,7 @@ pub struct RadialGradientCommand {
     pub center_y: f32,
     /// Explicit radius in physical pixels. Always resolved (non-negative) before command construction.
     pub radius: f32,
+    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -597,4 +616,5 @@ pub struct ConicGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
+    pub clip: GradientClip,
 }

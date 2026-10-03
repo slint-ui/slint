@@ -349,6 +349,93 @@ pub(super) fn draw_texture_line(
     }
 }
 
+/// This is an integer shifted by 4 bits.
+/// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
+/// the shifted integer
+#[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
+struct Shifted(u32);
+impl Shifted {
+    const ONE: Self = Shifted(1 << 4);
+    const ZERO: Self = Shifted(0);
+    #[track_caller]
+    #[inline]
+    fn new(value: impl TryInto<u32> + core::fmt::Debug + Copy) -> Self {
+        Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
+    }
+    #[inline(always)]
+    fn floor(self) -> u32 {
+        self.0 >> 4
+    }
+    #[inline(always)]
+    fn ceil(self) -> u32 {
+        (self.0 + Self::ONE.0 - 1) >> 4
+    }
+    #[inline(always)]
+    fn saturating_sub(self, other: Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+    #[inline(always)]
+    fn sqrt(self) -> Self {
+        Self(self.0.isqrt())
+    }
+}
+impl core::ops::Mul for Shifted {
+    type Output = Shifted;
+    #[inline(always)]
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(self.0 * rhs.0)
+    }
+}
+
+/// The radius of the left and right corner that `line` crosses (0 if none),
+/// and the distance of `line` from the nearest horizontal edge of `shape`.
+fn corner_radii_on_line(
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    shape: &super::RoundedShape,
+) -> (i16, i16, i16) {
+    let y1 = (line - span.origin.y_length()) + shape.top_clip;
+    let y2 = (span.origin.y_length() + span.size.height_length() - line) + shape.bottom_clip
+        - PhysicalLength::new(1);
+    let y = y1.min(y2);
+    debug_assert!(y.get() >= 0);
+    let r = &shape.radius;
+    let left = if y1.get() < r.top_left {
+        r.top_left
+    } else if y2.get() < r.bottom_left {
+        r.bottom_left
+    } else {
+        0
+    };
+    let right = if y1.get() < r.top_right {
+        r.top_right
+    } else if y2.get() < r.bottom_right {
+        r.bottom_right
+    } else {
+        0
+    };
+    (left, right, y.get())
+}
+
+/// Where a pixel line crosses a circle of radius `circle`,
+/// centered `r` in from both edges of a corner.
+/// Returns `(x1, x2)` measured from the vertical edge,
+/// at the line's sides nearer to and farther from the center.
+/// `y` is `r` minus the line's distance from the horizontal edge.
+/// Each crossing is `r - √(circle² - y²)`, from the circle equation.
+fn arc_crossing(r: Shifted, circle: Shifted, y: Shifted) -> (Shifted, Shifted) {
+    let x1 = r - (circle * circle).saturating_sub((y - Shifted::ONE) * (y - Shifted::ONE)).sqrt();
+    let x2 = r - (circle * circle).saturating_sub(y * y).sqrt();
+    (x1, x2)
+}
+
+/// Coverage, between 0 and 255, of pixel `x` by a shape whose edge goes from `x1` to `x2`
+/// across the pixel line, with the shape to the right of the edge.
+/// This interpolates linearly, which isn't exact, but good enough.
+fn edge_coverage(x: u32, x1: Shifted, x2: Shifted) -> u32 {
+    ((Shifted::ONE + Shifted::new(x) - x1).0 << 8) / (Shifted::ONE + x2 - x1).0
+}
+
 /// draw one line of the rounded rectangle in the line buffer
 #[allow(clippy::unnecessary_cast)] // Coord
 pub(super) fn draw_rounded_rectangle_line(
@@ -359,111 +446,45 @@ pub(super) fn draw_rounded_rectangle_line(
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
-    /// This is an integer shifted by 4 bits.
-    /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
-    /// the shifted integer
-    #[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
-    struct Shifted(u32);
-    impl Shifted {
-        const ONE: Self = Shifted(1 << 4);
-        #[track_caller]
-        #[inline]
-        pub fn new(value: impl TryInto<u32> + core::fmt::Debug + Copy) -> Self {
-            Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
-        }
-        #[inline(always)]
-        pub fn floor(self) -> u32 {
-            self.0 >> 4
-        }
-        #[inline(always)]
-        pub fn ceil(self) -> u32 {
-            (self.0 + Self::ONE.0 - 1) >> 4
-        }
-        #[inline(always)]
-        pub fn saturating_sub(self, other: Self) -> Self {
-            Self(self.0.saturating_sub(other.0))
-        }
-        #[inline(always)]
-        pub fn sqrt(self) -> Self {
-            Self(self.0.isqrt())
-        }
-    }
-    impl core::ops::Mul for Shifted {
-        type Output = Shifted;
-        #[inline(always)]
-        fn mul(self, rhs: Self) -> Self::Output {
-            Self(self.0 * rhs.0)
-        }
-    }
     let width = line_buffer.len();
-    let y1 = (line - span.origin.y_length()) + rr.top_clip;
-    let y2 = (span.origin.y_length() + span.size.height_length() - line) + rr.bottom_clip
-        - PhysicalLength::new(1);
-    let y = y1.min(y2);
-    debug_assert!(y.get() >= 0,);
+    let shape = &rr.shape;
+    let (left_radius, right_radius, y) = corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
-    const ONE: Shifted = Shifted::ONE;
-    const ZERO: Shifted = Shifted(0);
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
         // line and the curve.
         // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
-        // This algorithm just go linearly which is not perfect, but good enough.
         for x in x1.floor()..x2.ceil() {
-            // the coverage is basically how much of the pixel should be used
-            let cov = ((ONE + Shifted::new(x) - x1).0 << 8) / (ONE + x2 - x1).0;
-            process_pixel(x as usize, cov);
+            process_pixel(x as usize, edge_coverage(x, x1, x2));
         }
     };
     let rev = |x: Shifted| {
-        (Shifted::new(width) + Shifted::new(rr.right_clip.get() + extra_right_clip))
+        (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
             .saturating_sub(x)
     };
-    let calculate_xxxx = |r: i16, y: i16| {
+    let calculate_xxxx = |r: i16| {
+        if r == 0 {
+            return (Shifted::ZERO, Shifted::ZERO, border, border);
+        }
         let r = Shifted::new(r);
-        // `y` is how far away from the center of the circle the current line is.
         let y = r - Shifted::new(y);
-        // Circle equation: x = √(r² - y²)
-        // Coordinate from the left edge: x' = r - x
-        let x2 = r - (r * r).saturating_sub(y * y).sqrt();
-        let x1 = r - (r * r).saturating_sub((y - ONE) * (y - ONE)).sqrt();
-        let r2 = r.saturating_sub(border);
-        let x4 = r - (r2 * r2).saturating_sub(y * y).sqrt();
-        let x3 = r - (r2 * r2).saturating_sub((y - ONE) * (y - ONE)).sqrt();
+        let (x1, x2) = arc_crossing(r, r, y);
+        let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
         (x1, x2, x3, x4)
     };
 
-    let (x1, x2, x3, x4, x5, x6, x7, x8) = if let Some(r) = rr.radius.as_uniform() {
-        let (x1, x2, x3, x4) =
-            if y.get() < r { calculate_xxxx(r, y.get()) } else { (ZERO, ZERO, border, border) };
-        (x1, x2, x3, x4, rev(x4), rev(x3), rev(x2), rev(x1))
-    } else {
-        let (x1, x2, x3, x4) = if y1 < PhysicalLength::new(rr.radius.top_left) {
-            calculate_xxxx(rr.radius.top_left, y.get())
-        } else if y2 < PhysicalLength::new(rr.radius.bottom_left) {
-            calculate_xxxx(rr.radius.bottom_left, y.get())
-        } else {
-            (ZERO, ZERO, border, border)
-        };
-        let (x5, x6, x7, x8) = if y1 < PhysicalLength::new(rr.radius.top_right) {
-            let x = calculate_xxxx(rr.radius.top_right, y.get());
-            (x.3, x.2, x.1, x.0)
-        } else if y2 < PhysicalLength::new(rr.radius.bottom_right) {
-            let x = calculate_xxxx(rr.radius.bottom_right, y.get());
-            (x.3, x.2, x.1, x.0)
-        } else {
-            (border, border, ZERO, ZERO)
-        };
-        (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
-    };
+    let (x1, x2, x3, x4) = calculate_xxxx(left_radius);
+    let (x8, x7, x6, x5) =
+        if right_radius == left_radius { (x1, x2, x3, x4) } else { calculate_xxxx(right_radius) };
+    let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
     anti_alias(
-        x1.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-        x2.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+        x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
+        x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
         &mut |x, cov| {
             if x >= width {
                 return;
             }
-            let c = if border == ZERO { rr.inner_color } else { rr.border_color };
+            let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
             let col = PremultipliedRgbaColor {
                 alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
                 red: (((c.red as u32) * cov as u32) / 255) as u8,
@@ -473,35 +494,35 @@ pub(super) fn draw_rounded_rectangle_line(
             line_buffer[x].blend(col);
         },
     );
-    if y < rr.width {
+    if y < rr.width.get() {
         // up or down border (x2 .. x7)
         let l = x2
             .ceil()
-            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
             .min(width as u32) as usize;
         let r = x7.floor().min(width as u32) as usize;
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[l..r], rr.border_color)
         }
     } else {
-        if border > ZERO {
+        if border > Shifted::ZERO {
             // 3. draw the border (between x2 and x3)
-            if ONE + x2 <= x3 {
+            if Shifted::ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
                     &mut line_buffer[x2
                         .ceil()
-                        .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                        .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                         .min(width as u32) as usize
                         ..x3.floor()
-                            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                             .min(width as u32) as usize],
                     rr.border_color,
                 )
             }
             // 4. anti-aliasing for the contents (x3 .. x4)
             anti_alias(
-                x3.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-                x4.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+                x3.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
+                x4.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
                 &mut |x, cov| {
                     if x >= width {
                         return;
@@ -515,7 +536,7 @@ pub(super) fn draw_rounded_rectangle_line(
             // 5. inside (x4 .. x5)
             let begin = x4
                 .ceil()
-                .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                 .min(width as u32);
             let end = x5.floor().min(width as u32);
             if begin < end {
@@ -525,7 +546,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 )
             }
         }
-        if border > ZERO {
+        if border > Shifted::ZERO {
             // 6. border anti-aliasing: x5..x6
             anti_alias(x5, x6, &mut |x, cov| {
                 if x >= width {
@@ -535,7 +556,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 line_buffer[x].blend(col)
             });
             // 7. border x6 .. x7
-            if ONE + x6 <= x7 {
+            if Shifted::ONE + x6 <= x7 {
                 TargetPixel::blend_slice(
                     &mut line_buffer[x6.ceil().min(width as u32) as usize
                         ..x7.floor().min(width as u32) as usize],
@@ -548,7 +569,7 @@ pub(super) fn draw_rounded_rectangle_line(
         if x >= width {
             return;
         }
-        let c = if border == ZERO { rr.inner_color } else { rr.border_color };
+        let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
         let col = PremultipliedRgbaColor {
             alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
             red: (((c.red as u32) * (255 - cov) as u32) / 255) as u8,
@@ -586,7 +607,192 @@ fn interpolate_color(
     }
 }
 
-pub(super) fn draw_linear_gradient(
+/// Taken as `dyn` by [`draw_gradient_line`] so it's only instantiated once per pixel type.
+pub(super) trait GradientCommand<T: TargetPixel> {
+    fn clip(&self) -> &super::GradientClip;
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    );
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    );
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::LinearGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        _extra_right_clip: i16,
+    ) {
+        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        _extra_right_clip: i16,
+    ) {
+        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+    }
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::RadialGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::ConicGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+}
+
+/// Draw one line of a gradient, clipped to its rounded shape with anti-aliased corners.
+pub(super) fn draw_gradient_line<T: TargetPixel>(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    g: &dyn GradientCommand<T>,
+    buffer: &mut [T],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+) {
+    let clip = g.clip();
+    let shape = &clip.shape;
+    let (left_radius, right_radius, y) =
+        if shape.radius.is_zero() { (0, 0, 0) } else { corner_radii_on_line(rect, line, shape) };
+    if left_radius == 0 && right_radius == 0 {
+        g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
+        return;
+    }
+
+    let len = buffer.len();
+    // The edges are computed relative to the shape's left edge rather than the buffer,
+    // so the coverage doesn't depend on where the dirty region splits the line.
+    let left_offset = (shape.left_clip.get() + extra_left_clip) as u32;
+    let shape_width =
+        Shifted::new(len as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32);
+    let border = Shifted::new(clip.opaque_border.get());
+    let arc = |r: i16| {
+        if r == 0 {
+            return (Shifted::ZERO, Shifted::ZERO);
+        }
+        let r = Shifted::new(r);
+        arc_crossing(r, r.saturating_sub(border), r - Shifted::new(y))
+    };
+    let (l1, l2) = arc(left_radius);
+    let (r2, r1) = if right_radius == left_radius { (l1, l2) } else { arc(right_radius) };
+    let (r1, r2) = (shape_width.saturating_sub(r1), shape_width.saturating_sub(r2));
+
+    let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);
+    let begin = to_buffer(l1.floor());
+    let end = to_buffer(r2.ceil());
+    let clips = |range: &core::ops::Range<usize>| {
+        (extra_left_clip + range.start as i16, extra_right_clip + (len - range.end) as i16)
+    };
+
+    if border > Shifted::ZERO {
+        // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
+        // span, so the gradient must have full coverage in it.
+        let inner = begin..end.max(begin);
+        let (left_clip, right_clip) = clips(&inner);
+        g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+        return;
+    }
+
+    let inner_begin = to_buffer(l2.ceil()).clamp(begin, end);
+    let inner_end = to_buffer(r1.floor()).clamp(inner_begin, end);
+
+    let inner = inner_begin..inner_end;
+    let (left_clip, right_clip) = clips(&inner);
+    g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+
+    // On a narrow shape both arcs can cross the same pixel, so take the smaller coverage.
+    let coverage = |x: usize| {
+        let x = x as u32 + left_offset;
+        let left = if x >= l2.ceil() { 255 } else { edge_coverage(x, l1, l2) };
+        let right = if x < r1.floor() { 255 } else { 255 - edge_coverage(x, r1, r2) };
+        left.min(right)
+    };
+    // Bounds the stack scratch buffer. Most edges fit in one chunk;
+    // the flat top of a large corner takes several.
+    const CHUNK: usize = 16;
+    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
+    for edge in [begin..inner_begin, inner_end..end] {
+        for start in edge.clone().step_by(CHUNK) {
+            let chunk = start..(start + CHUNK).min(edge.end);
+            let scratch = &mut scratch[..chunk.len()];
+            scratch.fill(PremultipliedRgbaColor::default());
+            let (left_clip, right_clip) = clips(&chunk);
+            g.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
+            for (x, color) in chunk.zip(scratch.iter()) {
+                let color =
+                    interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
+                buffer[x].blend(color);
+            }
+        }
+    }
+}
+
+fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::LinearGradientCommand,
@@ -695,7 +901,7 @@ pub(super) fn draw_linear_gradient(
 }
 
 /// Draw a radial gradient on a line
-pub(super) fn draw_radial_gradient(
+fn draw_radial_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::RadialGradientCommand,
@@ -758,7 +964,7 @@ pub(super) fn draw_radial_gradient(
 }
 
 /// Draw a conic gradient on a line
-pub(super) fn draw_conic_gradient(
+fn draw_conic_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::ConicGradientCommand,
