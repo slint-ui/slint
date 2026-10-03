@@ -2390,15 +2390,15 @@ impl WindowInner {
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.safe_area_insets.set(inset);
+                window_item.safe_area_insets.set(inset.into());
             }
         }
     }
 
     pub(crate) fn set_window_item_virtual_keyboard(
         &self,
-        origin: crate::lengths::LogicalPoint,
-        size: crate::lengths::LogicalSize,
+        origin: crate::api::LogicalPosition,
+        size: crate::api::LogicalSize,
     ) {
         let Some(component_rc) = self.try_component() else {
             return;
@@ -2418,13 +2418,13 @@ impl WindowInner {
     // Get geometry of the virtual keyboard if available
     pub(crate) fn window_item_virtual_keyboard(
         &self,
-    ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
+    ) -> Option<(crate::api::LogicalPosition, crate::api::LogicalSize)> {
         let component_rc = self.try_component()?;
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
         let keyboard_size = window_item.virtual_keyboard_size();
-        if keyboard_size.width == 0. as Coord || keyboard_size.height == 0. as Coord {
+        if keyboard_size.width == 0. || keyboard_size.height == 0. {
             None
         } else {
             Some((window_item.virtual_keyboard_position(), keyboard_size))

@@ -607,7 +607,7 @@ impl Window {
         size: LogicalSize,
         _: crate::InternalToken,
     ) {
-        self.0.set_window_item_virtual_keyboard(origin.to_euclid(), size.to_euclid());
+        self.0.set_window_item_virtual_keyboard(origin, size);
     }
 
     #[doc(hidden)]
@@ -615,9 +615,7 @@ impl Window {
         &self,
         _: crate::InternalToken,
     ) -> Option<(LogicalPosition, LogicalSize)> {
-        self.0.window_item_virtual_keyboard().map(|(origin, size)| {
-            (LogicalPosition::from_euclid(origin), LogicalSize::from_euclid(size))
-        })
+        self.0.window_item_virtual_keyboard()
     }
 
     /// Dispatch a window event to the scene.
