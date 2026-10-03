@@ -1,0 +1,128 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A state allows one `animate *` per direction, across all of its blocks.
+
+export component DuplicateInCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+//                      ^note{The first 'animate *' is here}
+            }
+            in {
+                animate * { duration: 200ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
+            }
+        }
+    ]
+}
+
+export component DuplicateOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            out {
+                animate * { duration: 100ms; }
+//                      ^note{The first 'animate *' is here}
+            }
+            out {
+                animate * { duration: 200ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
+            }
+        }
+    ]
+}
+
+export component InPlusInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+//                      ^note{The first 'animate *' is here}
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
+            }
+        }
+    ]
+}
+
+export component OutPlusInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            out {
+                animate * { duration: 100ms; }
+//                      ^note{The first 'animate *' is here}
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
+            }
+        }
+    ]
+}
+
+export component DuplicateInOutCatchAll inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in-out {
+                animate * { duration: 100ms; }
+//                      ^note{The first 'animate *' is here}
+            }
+            in-out {
+                animate * { duration: 200ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
+            }
+        }
+    ]
+}
+
+export component InPlusOutCatchAllFine inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    states [
+        checked when checked: {
+            border: 42;
+            in {
+                animate * { duration: 100ms; }
+            }
+            out {
+                animate * { duration: 200ms; }
+            }
+        }
+    ]
+}
+
+export component MultipleNamedOnlyBlocksFine inherits Rectangle {
+    in-out property <bool> checked;
+    in-out property <int> border;
+    in-out property <int> other;
+    states [
+        checked when checked: {
+            border: 42;
+            other: 1;
+            in {
+                animate border { duration: 100ms; }
+            }
+            in {
+                animate other { duration: 200ms; }
+            }
+        }
+    ]
+}
