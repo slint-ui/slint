@@ -10,6 +10,8 @@ import { ScrollView } from "./scrollview.slint";
 export component ComboBox {
     in property <[string]> model <=> base.model;
     in property <bool> enabled <=> base.enabled;
+    in property <string> font-family;
+    in property <bool> font-italic;
     out property <bool> has-focus <=> base.has-focus;
     in-out property <int> current-index <=> base.current-index;
     in-out property <string> current-value <=> base.current-value;
@@ -80,6 +82,8 @@ export component ComboBox {
             // font-family: MaterialFontSettings.body-large.font;
             font-size: MaterialFontSettings.body-large.font-size;
             font-weight: MaterialFontSettings.body-large.font-weight;
+            font-family: root.font-family;
+            font-italic: root.font-italic;
             overflow: elide;
             accessible-role: none;
         }
@@ -125,6 +129,8 @@ export component ComboBox {
 
                     for value[index] in root.model: ListItem {
                         item: { text: value };
+                        font-family: root.font-family;
+                        font-italic: root.font-italic;
                         is-selected: index == root.current-index;
                         has-hover: touch-area.has-hover;
                         pressed: touch-area.pressed;
