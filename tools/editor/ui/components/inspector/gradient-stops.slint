@@ -184,7 +184,7 @@ export component InspectorGradientStops inherits Rectangle {
                             commit-key: root.session-key + ":" + index;
                             private property <int> focus-generation: root.focus-generation;
                             changed focus-generation => {
-                                if root.selected-index == index {
+                                if !FillSession.request.target.canvas && root.selected-index == index {
                                     self.focus-swatch();
                                 }
                             }

@@ -18,7 +18,7 @@ export struct FillSessionRequest {
     unsupported: bool,
     allow-gradient: bool,
     anchor-position: Point,
-    anchor-width: length,
+    anchor-size: Size,
 }
 
 export global FillSession {
@@ -31,6 +31,7 @@ export global FillSession {
     private property <bool> radius-initialized;
     out property <BrushKind> last-gradient: BrushKind.linear;
     out property <bool> open;
+    out property <int> opening-generation;
 
     private property <FillData> draft;
     out property <FillData> working-fill;
@@ -262,6 +263,7 @@ export global FillSession {
         FillSession.session-active = true;
         FillSession.reset-axis();
         FillSession.open = true;
+        FillSession.opening-generation += 1;
     }
 
     public function close-picker(accept: bool, return-focus: bool) {

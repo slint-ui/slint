@@ -36,6 +36,13 @@ export component InspectorIconButton inherits Rectangle {
         }
     }
 
+    if root.kind == "close": Image {
+        width: root.style.height;
+        height: self.width;
+        source: @image-url("../../../../lsp/ui/assets/close.svg");
+        colorize: root.paint.foreground;
+    }
+
     if root.kind == "eye": Rectangle {
         x: 3.5px;
         y: 5.5px;
