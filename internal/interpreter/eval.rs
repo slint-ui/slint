@@ -2029,16 +2029,9 @@ fn call_builtin_function(
         BuiltinFunction::DefaultWindowTitle => {
             Value::String(i_slint_core::window::default_window_title())
         }
-        BuiltinFunction::DecimalSeparator => Value::String(
-            find_window_adapter(ctx)
-                .map(|adapter| {
-                    i_slint_core::window::WindowInner::from_pub(adapter.window())
-                        .context()
-                        .locale_decimal_separator()
-                })
-                .unwrap_or_default()
-                .into(),
-        ),
+        BuiltinFunction::DecimalSeparator => {
+            Value::String(context_or_global(ctx).locale_decimal_separator().into())
+        }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
