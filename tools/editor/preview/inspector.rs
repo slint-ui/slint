@@ -414,8 +414,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let geometry =
-            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let (path, offset) = node.path_and_offset();
+        let geometry = instance
+            .component_positions(&path, offset.into())
+            .get(selected.instance_index)
+            .copied()?;
         let radii = geometry.corner_radii;
         Some(vec![
             geometry.transform_rotation,
