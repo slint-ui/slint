@@ -2398,6 +2398,26 @@ fn build(l: &mut Loader) {
         ///  - `accessible-value: text;`
         ///  - `accessible-enabled: enabled;`
         ///  - `accessible-read-only: read-only; `
+        ///
+        /// Set `accessible-role: none` when the element around the `TextInput` takes the
+        /// `text-input` or `spinbox` role itself.
+        /// Both of them describe the text of the same input otherwise,
+        /// so a screen reader is given that text twice.
+        /// The compiler warns when both of them keep the role.
+        ///
+        /// ```slint
+        /// component CustomLineEdit {
+        ///     in-out property <string> text <=> input.text;
+        ///
+        ///     accessible-role: text-input;
+        ///     accessible-value <=> root.text;
+        ///
+        ///     input := TextInput {
+        ///         // The component around it describes this input
+        ///         accessible-role: none;
+        ///     }
+        /// }
+        /// ```
         /// \group:keyboard-input
         @accepts_focus @expands_to_parent_geometry
         TextInput: TextInput
