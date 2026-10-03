@@ -9,7 +9,6 @@ use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, P
 use i_slint_core::graphics::ApproxEq;
 use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
-use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures,
@@ -17,8 +16,8 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
+    LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique};
 use i_slint_core::window::WindowInner;
@@ -112,26 +111,58 @@ impl<'a> SkiaItemRenderer<'a> {
             skia_safe::AlphaType::Premul,
         );
 
-        let rounded_rect = to_skia_rrect(
-            &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
-            &shadow_options.outer_radius(),
-        );
-
-        let mut paint = crate::solid_paint(&shadow_options.color);
-        paint.set_anti_alias(true);
+        let (background, layout) = shadow_options.source.as_ref()?;
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let source_canvas = surface.canvas();
+        source_canvas.clear(skia_safe::Color::TRANSPARENT);
+        let pad = shadow_options.blur.get() + shadow_options.spread.get();
+        source_canvas.translate((pad, pad));
+        let paint_for = |brush: Brush| {
+            let (mut paint, shader) = Self::brush_to_shader(
+                skia_safe::Paint::default(),
+                brush,
+                layout.brush_size.width_length(),
+                layout.brush_size.height_length(),
+                shadow_options.scale_factor,
+            )?;
+            paint.set_shader(shader);
+            paint.set_anti_alias(true);
+            Some(paint)
+        };
+        if !layout.background_rect.is_empty()
+            && let Some(paint) = paint_for(background.clone())
+        {
+            source_canvas.draw_rrect(
+                to_skia_rrect(&layout.background_rect, &layout.background_radius),
+                &paint,
+            );
+        }
+        if layout.border_width.get() > 0.
+            && let Some(mut paint) = paint_for(layout.border_color.clone())
+        {
+            paint.set_style(skia_safe::PaintStyle::Stroke);
+            paint.set_stroke_width(layout.border_width.get());
+            source_canvas
+                .draw_rrect(to_skia_rrect(&layout.border_rect, &layout.border_radius), &paint);
+        }
+        let source = surface.image_snapshot();
+        let mut output = canvas.new_surface(&image_info, None)?;
+        output.canvas().clear(skia_safe::Color::TRANSPARENT);
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color_filter(skia_safe::color_filters::blend(
+            crate::solid_paint(&shadow_options.color).color(),
+            skia_safe::BlendMode::SrcIn,
+        ));
         if shadow_options.blur.get() > 0. {
-            paint.set_mask_filter(skia_safe::MaskFilter::blur(
-                skia_safe::BlurStyle::Normal,
-                shadow_options.blur_sigma(),
+            paint.set_image_filter(skia_safe::image_filters::blur(
+                (shadow_options.blur_sigma(), shadow_options.blur_sigma()),
+                None,
+                None,
                 None,
             ));
         }
-
-        let mut surface = canvas.new_surface(&image_info, None)?;
-        let surface_canvas = surface.canvas();
-        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
-        surface_canvas.draw_rrect(rounded_rect, &paint);
-        Some(surface.image_snapshot())
+        output.canvas().draw_image(source, (0., 0.), Some(&paint));
+        Some(output.image_snapshot())
     }
 
     fn render_inset_shadow_image(
@@ -777,16 +808,6 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let inset = box_shadow.inset();
         let spread = box_shadow.spread() * self.scale_factor;
 
-        // Drop shadow with no offset / blur / spread is invisible.
-        if !inset
-            && offset.x == 0.
-            && offset.y == 0.
-            && box_shadow.blur() == LogicalLength::zero()
-            && spread == PhysicalLength::zero()
-        {
-            return;
-        }
-
         let cached_shadow_image = self.box_shadow_cache.get_box_shadow(
             self_rc,
             self.image_cache,
@@ -815,7 +836,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             );
         } else {
             let blur = box_shadow.blur() * self.scale_factor;
-            let pad = blur.get() + spread.get().max(0.);
+            let pad = blur.get() + spread.get();
+
             self.canvas.draw_image(
                 cached_shadow_image,
                 to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),

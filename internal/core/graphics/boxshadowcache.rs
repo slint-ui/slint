@@ -6,10 +6,8 @@ This module contains a cache helper for caching box shadow textures.
 */
 
 use alloc::boxed::Box;
-use std::{
-    cell::{Cell, RefCell},
-    collections::BTreeMap,
-};
+use alloc::vec::Vec;
+use std::cell::{Cell, RefCell};
 
 use crate::items::ItemRc;
 use crate::{
@@ -20,6 +18,10 @@ use crate::{
 /// Struct to store options affecting the rendering of a box shadow
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct BoxShadowOptions {
+    /// The source paint and geometry for non-inset shadows.
+    pub source: Option<(crate::Brush, crate::item_rendering::BorderRectLayout)>,
+    /// Scale used to resolve absolute gradient coordinates.
+    pub scale_factor: ScaleFactor,
     /// The width of the box shadow texture in physical pixels.
     pub width: euclid::Length<f32, PhysicalPx>,
     /// The height of the box shadow texture in physical pixels.
@@ -41,59 +43,6 @@ pub struct BoxShadowOptions {
     pub offset_y_inset: f32,
 }
 
-impl Eq for BoxShadowOptions {}
-impl Ord for BoxShadowOptions {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let lhs = (
-            self.width,
-            self.height,
-            self.color,
-            self.blur,
-            self.radius.top_left.to_bits(),
-            self.radius.top_right.to_bits(),
-            self.radius.bottom_right.to_bits(),
-            self.radius.bottom_left.to_bits(),
-            self.spread,
-            self.inset,
-            self.offset_x_inset.to_bits(),
-            self.offset_y_inset.to_bits(),
-        );
-        let rhs = (
-            other.width,
-            other.height,
-            other.color,
-            other.blur,
-            other.radius.top_left.to_bits(),
-            other.radius.top_right.to_bits(),
-            other.radius.bottom_right.to_bits(),
-            other.radius.bottom_left.to_bits(),
-            other.spread,
-            other.inset,
-            other.offset_x_inset.to_bits(),
-            other.offset_y_inset.to_bits(),
-        );
-        if rhs < lhs {
-            std::cmp::Ordering::Less
-        } else if lhs < rhs {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    }
-}
-
-impl PartialOrd for BoxShadowOptions {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-/// The geometry of a box shadow, derived from [`BoxShadowOptions`].
-///
-/// The CSS rules the renderers agree on: the shadow shape is the element's geometry
-/// grown by the spread, its corner radii grow with it, and the texture it is rendered
-/// into is padded by the blur on every side so the Gaussian can fade out to
-/// transparency within it.
 impl BoxShadowOptions {
     /// The size of the shadow shape: the element's size grown by the spread on each
     /// side. A negative spread shrinks it, down to nothing.
@@ -157,7 +106,33 @@ impl BoxShadowOptions {
         } else {
             (0., 0.)
         };
+        let source = if inset {
+            None
+        } else {
+            let mut layout = crate::item_rendering::BorderRectLayout::new(
+                box_shadow,
+                geometry.size,
+                scale_factor,
+            )?;
+            let spread = (box_shadow.spread() * scale_factor).get();
+            if spread != 0. {
+                // Fill under the border before spreading it. An opaque border normally
+                // lets us inset the fill, but shrinking both independently opens a gap.
+                layout.background_rect =
+                    euclid::Rect::from_size(layout.brush_size).inflate(spread, spread);
+                layout.background_radius = (layout.outer_radius
+                    + PhysicalBorderRadius::new_uniform(spread))
+                .max(Default::default());
+            }
+            if layout.border_width.get() > 0. {
+                layout.border_width =
+                    euclid::Length::new((layout.border_width.get() + 2. * spread).max(0.));
+            }
+            Some((box_shadow.background(), layout))
+        };
         Some(Self {
+            source,
+            scale_factor,
             width,
             height,
             color,
@@ -182,7 +157,7 @@ struct CacheEntry<ImageType> {
 
 /// Cache to hold box textures for given box shadow options.
 pub struct BoxShadowCache<ImageType> {
-    entries: RefCell<BTreeMap<BoxShadowOptions, CacheEntry<ImageType>>>,
+    entries: RefCell<Vec<(BoxShadowOptions, CacheEntry<ImageType>)>>,
     access_counter: Cell<u64>,
     /// Track if the window scale factor changes; used to clear the cache if necessary.
     window_scale_factor_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
@@ -229,27 +204,28 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
         item_cache.get_or_update_cache_entry(item_rc, || {
             let shadow_options = BoxShadowOptions::new(item_rc, box_shadow, scale_factor)?;
             let mut entries = self.entries.borrow_mut();
-            // Shadow options that change on every frame (an animated blur for example) would grow
-            // the cache without bounds, so evict the least recently used entry when it gets too big.
-            // Note that evicted images may still be alive through the per-item cache; eviction only
-            // means that the shadow has to be re-rendered on the next per-item cache miss.
-            if entries.len() >= MAX_CACHED_SHADOWS
-                && !entries.contains_key(&shadow_options)
-                && let Some(least_recently_used) = entries
-                    .iter()
-                    .min_by_key(|(_, entry)| entry.last_used)
-                    .map(|(options, _)| options.clone())
-            {
-                entries.remove(&least_recently_used);
-            }
             let stamp = self.access_counter.get() + 1;
             self.access_counter.set(stamp);
-            let entry = entries.entry(shadow_options.clone()).or_insert_with(|| CacheEntry {
-                image: shadow_render_fn(&shadow_options),
-                last_used: stamp,
-            });
-            entry.last_used = stamp;
-            entry.image.clone()
+            if let Some((_, entry)) =
+                entries.iter_mut().find(|(options, _)| *options == shadow_options)
+            {
+                entry.last_used = stamp;
+                return entry.image.clone();
+            }
+            // Brushes have no total ordering. A bounded linear search also keeps gradient
+            // paint in the cache key without reducing it to a single alpha value.
+            if entries.len() >= MAX_CACHED_SHADOWS {
+                let oldest = entries
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|(_, (_, entry))| entry.last_used)
+                    .map(|(index, _)| index)
+                    .unwrap();
+                entries.swap_remove(oldest);
+            }
+            let image = shadow_render_fn(&shadow_options);
+            entries.push((shadow_options, CacheEntry { image: image.clone(), last_used: stamp }));
+            image
         })
     }
 }

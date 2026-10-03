@@ -29,6 +29,8 @@ default = ["skia", "software", "software-embed-assets"]
 # (parley) and runtime-decoded images. `configure_test_fonts()` makes that deterministic.
 software = ["slint/renderer-software", "dep:i-slint-compiler", "dep:i-slint-backend-testing"]
 skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
+# Offscreen GPU tests for the shared FemtoVG shadow rendering path.
+femtovg = ["dep:i-slint-renderer-femtovg", "dep:wgpu-30", "dep:slint-interpreter", "dep:spin_on"]
 # Snapshot-tests the command stream recorded by i-slint-renderer-anyrender
 # against JSON goldens in `references/anyrender/`; renders mismatches to PNG
 # via the wgpu-free anyrender_vello_cpu backend.
@@ -52,10 +54,13 @@ slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
 i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-femtovg = { workspace = true, optional = true, features = ["unstable-wgpu-30"] }
+wgpu-30 = { package = "wgpu", version = "30", optional = true }
+spin_on = { workspace = true, optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }
 anyrender = { version = "0.13", optional = true }
 anyrender_serialize = { version = "0.7", optional = true }
-anyrender_vello_cpu = { version = "0.16", optional = true }
+anyrender_vello_cpu = { version = "0.16", optional = true, features = ["filters"] }
 kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }

@@ -81,8 +81,10 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let mut compiler = slint_interpreter::Compiler::default();
     compiler.set_style("fluent".into());
-    let compiled =
-        poll_once(compiler.build_from_source(source, testcase.absolute_path.clone())).unwrap();
+    let compiled = crate::testing::poll_once(
+        compiler.build_from_source(source, testcase.absolute_path.clone()),
+    )
+    .unwrap();
 
     if compiled.has_errors() {
         compiled.print_diagnostics();
@@ -115,15 +117,6 @@ pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     Ok(())
-}
-
-fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    let mut ctx = std::task::Context::from_waker(std::task::Waker::noop());
-    let future = std::pin::pin!(future);
-    match future.poll(&mut ctx) {
-        std::task::Poll::Ready(result) => Some(result),
-        std::task::Poll::Pending => None,
-    }
 }
 
 // Compare renders within one run so font rasterization differences between platforms don't need golden images.
@@ -168,8 +161,10 @@ fn text_alignment_anchor_stays_fixed() {
                 );
                 let mut compiler = slint_interpreter::Compiler::default();
                 compiler.set_style("fluent".into());
-                let result =
-                    poll_once(compiler.build_from_source(source, Default::default())).unwrap();
+                let result = crate::testing::poll_once(
+                    compiler.build_from_source(source, Default::default()),
+                )
+                .unwrap();
                 assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
                 let definition = result.components().last().unwrap();
                 for scale_factor in [1.0, 1.25, 1.5, 2.0] {
@@ -207,4 +202,16 @@ fn text_alignment_anchor_stays_fixed() {
             }
         }
     }
+}
+
+#[test]
+fn shadow_tracks_source_paint() {
+    init_skia();
+    crate::shadow::assert_shadow_tracks_source_paint();
+}
+
+#[test]
+fn shadow_spread_preserves_adjusted_corner_radii() {
+    init_skia();
+    crate::shadow::assert_shadow_spread_preserves_adjusted_corner_radii();
 }
