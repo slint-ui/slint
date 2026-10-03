@@ -221,7 +221,7 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         let image_data = self.item_image_cache.get_or_update_cache_entry(item_rc, || {
             load_image(
                 image.source(),
-                &|| image.target_size(),
+                &|| item_rc.scale_size_to_item_tree(image.target_size(), item_rc.item_tree()),
                 resolve_image_fit(),
                 self.scale_factor,
                 self.image_cache,

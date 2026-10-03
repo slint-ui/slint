@@ -350,7 +350,7 @@ impl<'a> SkiaItemRenderer<'a> {
             let image = item.source();
             super::cached_image::as_skia_image(
                 image,
-                &|| item.target_size(),
+                &|| item_rc.scale_size_to_item_tree(item.target_size(), item_rc.item_tree()),
                 if tiling != Default::default() { ImageFit::Preserve } else { item.image_fit() },
                 self.scale_factor,
                 self.canvas,
