@@ -5,12 +5,14 @@
 export component TestCase inherits Window {
     width: 300px;
     height: 300px;
+    in property <float> line-height-factor: 1;
 
     st := StyledText {
         x: 0;
         y: 0;
         width: 100px;
         default-font-size: 20px;
+        default-style: { line-height-factor: root.line-height-factor };
         text: @markdown("[aaaa bbbb cccc dddd](https://slint.dev)");
         link-clicked(url) => {
             clicked_link_url = url;
@@ -39,6 +41,15 @@ assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
 instance.set_clicked_link_url("".into());
 slint_testing::send_mouse_click(&instance, 10.0, 10.0);
 assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
+
+instance.set_line_height_factor(2.0);
+let spaced_height = instance.get_text_height();
+assert!((spaced_height - 2.0 * height).abs() < 2.0);
+instance.set_clicked_link_url("".into());
+slint_testing::send_mouse_click(&instance, 10.0, spaced_height - 10.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev");
+instance.set_line_height_factor(1.0);
+assert_eq!(instance.get_text_height(), height);
 ```
 
 ```cpp
@@ -55,5 +66,14 @@ assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
 instance.set_clicked_link_url("");
 slint_testing::send_mouse_click(&instance, 10., 10.);
 assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
+
+instance.set_line_height_factor(2.f);
+float spaced_height = instance.get_text_height();
+assert(std::abs(spaced_height - 2.f * height) < 2.f);
+instance.set_clicked_link_url("");
+slint_testing::send_mouse_click(&instance, 10., spaced_height - 10.);
+assert_eq(instance.get_clicked_link_url(), "https://slint.dev");
+instance.set_line_height_factor(1.f);
+assert(instance.get_text_height() == height);
 ```
 */
