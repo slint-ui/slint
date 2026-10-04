@@ -1518,6 +1518,7 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("text")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-family")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("default-font-size")).into(), N);
+            // See `RenderString::line_height_factor`.
             if orientation == Orientation::Vertical {
                 vis(&NamedReference::new(item, SmolStr::new_static("default-style")).into(), N);
             }
