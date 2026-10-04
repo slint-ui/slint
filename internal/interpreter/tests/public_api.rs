@@ -22,6 +22,42 @@ fn send_mouse_click(instance: &ComponentInstance, x: f32, y: f32) {
     i_slint_backend_testing::testing_backend::send_mouse_click(x, y, &adapter);
 }
 
+#[test]
+fn styled_text_style_defaults_and_updates() {
+    let instance = compile(
+        r#"
+            export component TestCase inherits Window {
+                default-font-family: "FixedTestFont";
+                default-font-size: 10px;
+                in-out property <RichTextStyle> style <=> styled.default-style;
+                out property <length> text-height: styled.preferred-height;
+                styled := StyledText { text: @markdown("One\nTwo"); }
+            }
+        "#,
+        "TestCase",
+    );
+    let style = i_slint_core::items::RichTextStyle::default();
+    assert_eq!(instance.get_property("style").unwrap(), Value::from(style.clone()));
+    assert_eq!(instance.get_property("text-height").unwrap(), Value::Number(20.));
+    let mut spaced = style.clone();
+    spaced.line_height_factor = 2.;
+    instance.set_property("style", spaced.into()).unwrap();
+    assert_eq!(instance.get_property("text-height").unwrap(), Value::Number(40.));
+
+    instance.set_property("style", Value::Struct(Default::default())).unwrap();
+    assert_eq!(instance.get_property("style").unwrap(), Value::from(style));
+    assert_eq!(instance.get_property("text-height").unwrap(), Value::Number(20.));
+    let invalid = slint_interpreter::Struct::from_iter([(
+        "line-height-factor".into(),
+        Value::String("invalid".into()),
+    )]);
+    assert_eq!(
+        instance.set_property("style", invalid.into()),
+        Err(slint_interpreter::SetPropertyError::WrongType)
+    );
+    assert_eq!(instance.get_property("text-height").unwrap(), Value::Number(20.));
+}
+
 /// Callbacks with arguments set from the host, and invoking a function that
 /// returns a struct.
 #[test]
