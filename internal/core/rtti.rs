@@ -57,6 +57,7 @@ macro_rules! declare_ValueType {
             crate::items::Edges,
             crate::items::FontMetrics,
             crate::items::InputMethodHints,
+            crate::items::RichTextStyle,
             crate::items::MenuEntry,
             crate::items::DropEvent,
             crate::model::ModelRc<crate::items::MenuEntry>,
