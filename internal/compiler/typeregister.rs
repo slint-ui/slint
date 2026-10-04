@@ -717,6 +717,7 @@ pub mod builtin_structs {
         () => { None };
         (true) => { Some(ConstantExpression::BoolLiteral(true)) };
         (false) => { Some(ConstantExpression::BoolLiteral(false)) };
+        ($number:literal) => { Some(ConstantExpression::NumberLiteral($number as f64, crate::expression_tree::Unit::None)) };
         ($enum:ident :: $value:ident) => {
             Some(ConstantExpression::EnumerationValue(
                 BUILTIN.enums.$enum.clone()

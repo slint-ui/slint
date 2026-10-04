@@ -246,6 +246,7 @@ pub struct StyledTextItem {
     pub default_color: Property<Brush>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_family: Property<SharedString>,
+    pub default_style: Property<super::RichTextStyle>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub max_lines: Property<i32>,
@@ -409,6 +410,9 @@ impl HasFont for StyledTextItem {
 impl RenderString for StyledTextItem {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Styled(self.text())
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(self.default_style().line_height_factor)
     }
 
     fn max_lines(self: Pin<&Self>) -> i32 {
