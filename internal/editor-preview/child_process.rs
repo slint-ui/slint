@@ -16,7 +16,6 @@ use tokio::{
 struct ChildProcessLspToPreviewInner {
     communication_handle: JoinHandle<Result<(), String>>,
     to_child_sender: mpsc::UnboundedSender<String>,
-    stop_sender: tokio::sync::oneshot::Sender<()>,
 }
 
 pub struct ChildProcessLspToPreview {
@@ -35,7 +34,7 @@ impl ChildProcessLspToPreview {
         Self { inner: RefCell::new(None), executable, arguments, preview_to_lsp_channel }
     }
 
-    pub(crate) fn preview_is_running(&self) -> bool {
+    fn preview_is_running(&self) -> bool {
         self.inner.borrow().as_ref().is_some_and(|inner| !inner.communication_handle.is_finished())
     }
 
@@ -44,79 +43,40 @@ impl ChildProcessLspToPreview {
             return Ok(());
         }
         self.inner.borrow_mut().take();
+
         let mut child = tokio::process::Command::new(&self.executable)
             .args(&self.arguments)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .kill_on_drop(true)
             .spawn()?;
+
+        tracing::debug!("Preview process spawned (PID {:?})", child.id());
+
         let from_child = child.stdout.take().expect("Child has no stdout");
         let mut to_child = child.stdin.take().expect("Child has no stdin");
+
         let channel = self.preview_to_lsp_channel.clone();
-        let (to_child_sender, mut to_child_receiver) = mpsc::unbounded_channel::<String>();
-        let writer_handle = tokio::spawn(async move {
-            while let Some(message) = to_child_receiver.recv().await {
-                if to_child.write_all((message + "\n").as_bytes()).await.is_err() {
-                    break;
-                }
-            }
-        });
-        let stop_messages = to_child_sender.clone();
-        let (stop_sender, mut stop_receiver) = tokio::sync::oneshot::channel();
+
         let communication_handle = tokio::spawn(async move {
             let _exited_guard = scopeguard::guard(channel.clone(), |channel| {
                 channel.send(PreviewToLspMessage::Exited).ok();
             });
-            let mut lines = tokio::io::BufReader::new(from_child).lines();
-            let mut output_open = true;
-            let mut stopping = false;
-            let mut stop_deadline = None;
-            let result = loop {
-                tokio::select! {
-                    _ = &mut stop_receiver, if !stopping => {
-                        stopping = true;
-                        stop_deadline = Some(tokio::time::Instant::now() + std::time::Duration::from_secs(2));
-                        let quit = serde_json::to_string(&LspToPreviewMessage::Quit).unwrap();
-                        let _ = stop_messages.send(quit);
-                    }
-                    line = lines.next_line(), if output_open => {
-                        match line {
-                            Ok(Some(line)) => {
-                                if let Ok(message) = serde_json::from_str(&line) {
-                                    let _ = channel.send(message);
-                                }
-                            }
-                            Ok(None) | Err(_) => output_open = false,
-                        }
-                    }
-                    status = child.wait() => {
-                        if output_open {
-                            let _ = tokio::time::timeout(std::time::Duration::from_millis(100), async {
-                                while let Ok(Some(line)) = lines.next_line().await {
-                                    if let Ok(message) = serde_json::from_str(&line) {
-                                        let _ = channel.send(message);
-                                    }
-                                }
-                            }).await;
-                        }
-                        break status.map_err(|error| error.to_string());
-                    }
-                    _ = async {
-                        match stop_deadline {
-                            Some(deadline) => tokio::time::sleep_until(deadline).await,
-                            None => std::future::pending().await,
-                        }
-                    } => {
-                        let _ = child.start_kill();
-                        break child.wait().await.map_err(|error| error.to_string());
-                    }
+            let reader = tokio::io::BufReader::new(from_child);
+            let mut lines = reader.lines();
+            while let Some(line) = lines.next_line().await.map_err(|error| error.to_string())? {
+                if let Ok(message) = serde_json::from_str(&line) {
+                    let _ = channel.send(message);
                 }
-            };
-            writer_handle.abort();
-            let _ = writer_handle.await;
-            if !stopping && result.as_ref().map_or(true, |status| !status.success()) {
-                let message = "The Slint live preview crashed! Please open a bug on the [Slint bug tracker](https://github.com/slint-ui/slint/issues).".to_string();
+            }
+
+            let exit_status = child.wait().await.map_err(|error| error.to_string());
+
+            if exit_status.map(|exit_status| !exit_status.success()).unwrap_or(true) {
+                let message =
+                    "The Slint live preview crashed! Please open a bug on the [Slint bug tracker](https://github.com/slint-ui/slint/issues)."
+                        .to_string();
                 tracing::error!("{message}");
+
                 let _ = channel.send(PreviewToLspMessage::SendShowMessage {
                     message: lsp_types::ShowMessageParams {
                         typ: lsp_types::MessageType::ERROR,
@@ -124,13 +84,23 @@ impl ChildProcessLspToPreview {
                     },
                 });
             }
-            result.map(|_| ())
+            Ok(())
         });
-        *self.inner.borrow_mut() = Some(ChildProcessLspToPreviewInner {
-            communication_handle,
-            to_child_sender,
-            stop_sender,
+
+        let (to_child_sender, mut to_child_receiver) = mpsc::unbounded_channel::<String>();
+        tokio::spawn(async move {
+            while let Some(mut message) = to_child_receiver.recv().await {
+                message.push('\n');
+                if let Err(error) = to_child.write_all(message.as_bytes()).await {
+                    tracing::error!("Failed writing to preview child process: {error}");
+                    break;
+                }
+            }
         });
+
+        *self.inner.borrow_mut() =
+            Some(ChildProcessLspToPreviewInner { communication_handle, to_child_sender });
+
         Ok(())
     }
 
@@ -141,22 +111,13 @@ impl ChildProcessLspToPreview {
             }
         }
     }
-
-    pub(crate) fn stop_preview(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()>>> {
-        let inner = self.inner.borrow_mut().take();
-        Box::pin(async move {
-            if let Some(inner) = inner {
-                let _ = inner.stop_sender.send(());
-                let _ = inner.communication_handle.await;
-            }
-        })
-    }
 }
 
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
-            let _ = inner.stop_sender.send(());
+            let message = serde_json::to_string(&LspToPreviewMessage::Quit).unwrap();
+            let _ = inner.to_child_sender.send(message);
         }
     }
 }
@@ -174,10 +135,6 @@ impl crate::LspToPreview for ChildProcessLspToPreview {
 
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::ChildProcess
-    }
-
-    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
-        self.stop_preview()
     }
 }
 
@@ -350,41 +307,6 @@ pub(crate) mod tests {
 
     #[test]
     #[ignore]
-    fn delayed_child() {
-        if !fixture_started() {
-            return;
-        }
-        for line in std::io::stdin().lock().lines() {
-            if matches!(serde_json::from_str(&line.unwrap()), Ok(LspToPreviewMessage::Quit)) {
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                println!(
-                    "{}",
-                    serde_json::to_string(&PreviewToLspMessage::DebugMessage {
-                        location: None,
-                        message: "stale".into(),
-                    })
-                    .unwrap()
-                );
-                println!("{}", serde_json::to_string(&PreviewToLspMessage::Exited).unwrap());
-                std::io::stdout().flush().unwrap();
-                std::process::exit(0);
-            }
-        }
-    }
-
-    #[test]
-    #[ignore]
-    fn unresponsive_child() {
-        if !fixture_started() {
-            return;
-        }
-        loop {
-            std::thread::sleep(std::time::Duration::from_secs(60));
-        }
-    }
-
-    #[test]
-    #[ignore]
     fn crashing_child() {
         if !fixture_started() {
             return;
@@ -435,9 +357,9 @@ pub(crate) mod tests {
         assert!(
             matches!(serde_json::from_str(&message), Ok(LspToPreviewMessage::ShowPreview(current)) if current == component())
         );
-        transport.shutdown().await;
-        assert_reaped(process_id);
+        transport.send(&LspToPreviewMessage::Quit);
         assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
+        assert_reaped(process_id);
         transport.send_running(&LspToPreviewMessage::ShowPreview(component()));
         assert!(receiver.try_recv().is_err());
         assert!(!transport.preview_is_running());
@@ -456,52 +378,18 @@ pub(crate) mod tests {
         assert_eq!(message.typ, lsp_types::MessageType::ERROR);
         assert!(message.message.contains("https://github.com/slint-ui/slint/issues"));
         assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
-        transport.shutdown().await;
         assert_reaped(process_id);
     }
 
     #[tokio::test]
-    async fn shutdown_kills_and_reaps_with_backpressure() {
-        let (executable, arguments) = fixture_config("unresponsive_child");
-        let (sender, mut receiver) = mpsc::unbounded_channel();
-        let transport = ChildProcessLspToPreview::new(executable, arguments, sender);
-        transport.start_preview().unwrap();
-        let process_id = started(&mut receiver).await;
-        let contents = vec![b'x'; 1024 * 1024];
-        for _ in 0..8 {
-            transport.send(&LspToPreviewMessage::SetContents {
-                url: i_slint_live_preview::protocol::VersionedUrl::new(
-                    lsp_types::Url::parse("file:///backpressure.slint").unwrap(),
-                    None,
-                ),
-                contents: contents.clone(),
-            });
-        }
-        let before = tokio::time::Instant::now();
-        tokio::time::timeout(std::time::Duration::from_secs(4), transport.shutdown())
-            .await
-            .unwrap();
-        assert!(before.elapsed() >= std::time::Duration::from_secs(2));
-        assert_reaped(process_id);
-        while let Ok(message) = receiver.try_recv() {
-            assert!(!matches!(message, PreviewToLspMessage::SendShowMessage { .. }));
-        }
-    }
-
-    #[tokio::test]
-    async fn automatic_start_and_final_stdout_survive() {
-        let (executable, arguments) = fixture_config("delayed_child");
+    async fn automatic_start_and_quit_on_drop() {
+        let (executable, arguments) = fixture_config("echo_child");
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let transport = ChildProcessLspToPreview::new(executable, arguments, sender);
         transport.send(&LspToPreviewMessage::ShowPreview(component()));
         let process_id = started(&mut receiver).await;
-        transport.shutdown().await;
+        drop(transport);
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
         assert_reaped(process_id);
-        assert!(
-            matches!(receive(&mut receiver).await, PreviewToLspMessage::DebugMessage { message, .. } if message == "stale")
-        );
-        while let Ok(message) = receiver.try_recv() {
-            assert!(!matches!(message, PreviewToLspMessage::SendShowMessage { .. }));
-        }
     }
 }
