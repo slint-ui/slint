@@ -17,11 +17,6 @@ If we can detect it, a detection measure covers it and a test proves the detecti
 If we can't, it becomes a constraint on the integrator, because only they can rule it out.
 The errors of the tools are in the [Tool Evaluation Report](/evaluation-report/potential-errors/).
 
-:::caution[TODO]
-Write up the analysis method, in accordance with ISO 26262-9 Clause 8.
-Until then this chapter is seeded from the rules in the rendering specification, and the traceability to tests isn't generated yet.
-:::
-
 ## Potential Errors
 
 Half of these are the rules of the [rendering model](/reference/rendering/) turned upside down.
@@ -36,10 +31,6 @@ Each one names the rule it violates, so the two stay in step.
 | `slint.runtime.err.wrong-clip` | An element is clipped when it shouldn't be, against `sls.paint.no-parent-clip`. | A truncated reading, so `120` displays as `12`. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
 | `slint.runtime.err.stale-property` | A dependent value isn't recomputed after the value it depends on changes. | The display shows a reading that was correct a moment ago and is wrong now. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
 | `slint.runtime.err.eval-order` | Bindings evaluate in an order that shows a combination of values that never existed. | A single frame of a state the system was never in. | [`slint.runtime.avd.spec-tests`](#slint.runtime.avd.spec-tests) | Yes |
-| `slint.runtime.err.stack-overflow` | Recursion or deep nesting exhausts the stack. The runtime has no allocator, so storage failures are a stack concern rather than a heap one. | The application aborts, so the display freezes or goes blank. | TODO | Not decided yet |
-| `slint.runtime.err.frame-overrun` | A frame takes longer to render than the display refresh interval. | The display freezes on old content, which is indistinguishable from a working one. | TODO | No |
-| `slint.runtime.err.data-race` | The component is accessed from another thread while a render is in progress. | Any display error, including a partly drawn frame. | TODO | No |
-| `slint.runtime.err.miscompiled` | The integrator's Rust toolchain miscompiles the runtime or the generated code. The runtime ships as source, so the final binary isn't built by us. | Any display error, and none of Slint SC's evidence covers it. | TODO | No |
 
 ## Detection Measures and Usage Restrictions
 

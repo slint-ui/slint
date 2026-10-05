@@ -26,16 +26,6 @@ The [Component Qualification](/qualification-report/component-qualification/) ch
 | f) Configuration | The crate has no features and no dependencies, so it has one configuration |
 | g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/qualification-plan/architecture/#properties) |
 | h) Application manual | [User Manual](/user-manual/) |
-| i) Integration instructions | [Integration](#integration) below |
+| i) Integration instructions | [Add the Runtime](/user-manual/get-started/installation/#add-the-runtime) in the User Manual |
 | j) Reactions under anomalous operating conditions | [Safety Analysis](/component-documentation/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |
 | k) Known anomalies and workarounds | [Known Problems](/user-manual/known-problems/) |
-
-## Integration
-
-When Slint SC is available, it will be a crate on [crates.io](https://crates.io/).
-To add it to a project, add Slint SC as a dependency in `Cargo.toml`.
-The generated code of the application's `.slint` files depends on it; see [Compiling a .slint File Into Rust](/evaluation-report/use-cases/#compiling-a-slint-file-into-rust).
-
-:::caution[TODO]
-Show an example, and state the configuration of the Rust toolchain the integration requires, as 12.4.2.1 i asks.
-:::

@@ -7,7 +7,7 @@ description: How the tools of Slint SC are used in a project.
 
 This chapter lists how each tool of Slint SC is used in a project.
 The [potential errors](/evaluation-report/potential-errors/) and the [tool classification](/evaluation-report/tool-classification/) are derived from these use cases.
-How the runtime is added to a project is in the [Component Documentation](/component-documentation/#integration).
+How the runtime is added to a project is in the [Installation](/user-manual/get-started/installation/#add-the-runtime) chapter of the User Manual.
 
 ## Compiling a .slint File Into Rust
 
@@ -25,10 +25,6 @@ slint-compiler --slint-sc -o main_file.rs mainFile.slint
 ```
 
 The generated code is then compiled and linked into the application together with the `slint-sc` runtime crate.
-
-:::caution[TODO]
-State the environment constraints.
-:::
 
 ## Measuring the Coverage of Slint Code
 
