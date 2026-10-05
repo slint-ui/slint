@@ -28,6 +28,11 @@ Each folder under `cases/` is one scroll situation, with its captured CSV files.
    All cases together launch the app about 120 times and take about 25 minutes.
 
 The Cargo dependencies and the build script point to this checkout's engine.
+XcodeGen creates the app's ignored `Info.plist`, including the high-refresh-rate setting and scene configuration.
+The app's scene delegate attaches Winit's window to the connected scene.
+Apps built with the iOS 27 SDK require the scene lifecycle to launch.
+
+[The iPhone capture results](RESULTS.md) describe the recorded matrix and its measurement limits.
 
 ## Collect the Data
 

@@ -6,3 +6,4 @@ target/
 raw/
 cases/*/plots/
 __pycache__/
+Info.plist

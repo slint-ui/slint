@@ -405,6 +405,10 @@
   ],
   "overrides": [
     {
+      "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
+      "words": ["uikit"]
+    },
+    {
       "filename": "tools/figma-inspector/**",
       "words": [
         "aqid",

@@ -103,10 +103,12 @@ extern "C" fn set_slint_scroll_offset(offset: f32) {
 
 unsafe extern "C" {
     fn install_native_scroll(host: *mut std::ffi::c_void);
+    fn register_scroll_scene_delegate();
     fn record_slint_drag();
 }
 
 fn main() {
+    unsafe { register_scroll_scene_delegate() };
     let app = Comparison::new().unwrap();
     if let Some(height) = std::env::var("VIEWPORT_HEIGHT").ok().and_then(|h| h.parse().ok()) {
         app.set_list_height(height);

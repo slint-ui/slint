@@ -1,0 +1,11 @@
+file,distance,trial,engine_commit,device,viewport_pt,releases,uikit_release_offset_pt,slint_release_offset_pt,release_pan_velocity_y,finger_speed_last_25_ms,uikit_final_offset_pt,slint_final_offset_pt,uikit_settle_s,slint_settle_s,max_sample_gap_ms,issues
+distance0050-trial1,50,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-21.333,-21.389,102.952,0.000,0.000,-0.000,0.543,0.476,14.397,
+distance0050-trial2,50,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-21.333,-21.389,105.619,0.000,0.000,-0.000,0.562,0.484,16.375,
+distance0100-trial1,100,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-46.667,-46.510,240.001,0.000,0.000,-0.000,0.620,0.559,16.668,
+distance0100-trial2,100,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-46.667,-46.510,240.001,0.000,0.000,-0.000,0.627,0.560,21.870,
+distance0200-trial1,200,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-92.000,-92.013,465.148,0.000,0.000,-0.000,0.694,0.619,21.352,
+distance0200-trial2,200,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-92.000,-92.013,480.002,0.000,0.000,-0.000,0.694,0.619,21.034,
+distance0300-trial1,300,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-132.000,-132.130,400.000,0.000,0.000,-0.000,0.669,0.643,15.686,
+distance0300-trial2,300,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-132.000,-132.130,401.153,0.000,0.000,-0.000,0.668,0.643,17.013,
+distance0600-trial1,600,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-228.333,-228.291,480.000,0.000,0.000,-0.000,0.751,0.667,17.263,
+distance0600-trial2,600,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-228.333,-228.291,501.254,0.000,0.000,-0.000,0.753,0.675,16.425,

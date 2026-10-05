@@ -9,6 +9,23 @@ targets:
     platform: iOS
     deploymentTarget: "16.6"
     sources: []
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Scroll comparison
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        CADisableMinimumFrameDurationOnPhone: true
+        UIRequiresFullScreen: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Scroll comparison
+                UISceneDelegateClassName: ScrollComparisonSceneDelegate
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.slint.native-scroll-prototype
