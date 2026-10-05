@@ -640,6 +640,13 @@ pub trait ItemRenderer {
         _self_rc: &ItemRc,
         _size: LogicalSize,
     );
+    fn draw_backdrop_blur(
+        &mut self,
+        _backdrop_blur: Pin<&BackdropBlur>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+    }
     fn visit_opacity(
         &mut self,
         opacity_item: Pin<&Opacity>,
@@ -838,4 +845,6 @@ where
 pub trait ItemRendererFeatures {
     /// The renderer supports applying 2D transformations to items.
     const SUPPORTS_TRANSFORMATIONS: bool;
+    /// The renderer draws [`BackdropBlur`] items, see [`ItemRenderer::draw_backdrop_blur`].
+    const SUPPORTS_BACKDROP_BLUR: bool = false;
 }
