@@ -637,7 +637,7 @@ impl ComponentCompiler {
     ///
     /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
-        self.overrides.include_paths = Some(include_paths.clone());
+        self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
     }
 
@@ -650,7 +650,7 @@ impl ComponentCompiler {
     ///
     /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
-        self.overrides.library_paths = Some(library_paths.clone());
+        self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
     }
 
@@ -673,7 +673,7 @@ impl ComponentCompiler {
     ///
     /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
-        self.overrides.style = Some(style.clone());
+        self.overrides.project.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -857,7 +857,7 @@ impl Compiler {
     ///
     /// This wins over the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
-        self.overrides.include_paths = Some(include_paths.clone());
+        self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
     }
 
@@ -870,7 +870,7 @@ impl Compiler {
     ///
     /// This wins over the library paths of the project file.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
-        self.overrides.library_paths = Some(library_paths.clone());
+        self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
     }
 
@@ -892,7 +892,7 @@ impl Compiler {
     ///
     /// This wins over the style of the project file.
     pub fn set_style(&mut self, style: String) {
-        self.overrides.style = Some(style.clone());
+        self.overrides.project.style = Some(style.clone());
         self.config.style = Some(style);
     }
 
@@ -1033,8 +1033,12 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
-            .await
+        if let Some(native_path) = path.as_native_path() {
+            return self.build_from_source(source_code, native_path.to_path_buf()).await;
+        }
+        let mut config = self.config.clone();
+        self.overrides.apply(None, &mut config);
+        build_compilation_result(source_code, path, config, AnimationMode::Running).await
     }
 
     /// Compile Slint code without timers or animations.
@@ -1046,8 +1050,9 @@ impl Compiler {
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
-            .await
+        let mut config = self.config.clone();
+        self.overrides.apply(None, &mut config);
+        build_compilation_result(source_code, path, config, AnimationMode::Static).await
     }
 }
 
@@ -1069,7 +1074,8 @@ async fn build_with_project_file(
 ) -> CompilationResult {
     let mut config = config.clone();
     overrides.apply(project_file, &mut config);
-    build_compilation_result(source_code, SourcePath::new(path), config, AnimationMode::Running).await
+    build_compilation_result(source_code, SourcePath::new(path), config, AnimationMode::Running)
+        .await
 }
 
 /// Like [`build_with_project_file`], with the project file found for the directory of `path`.
@@ -1079,7 +1085,7 @@ async fn build_with_found_project_file(
     config: &i_slint_compiler::CompilerConfiguration,
     overrides: &i_slint_compiler::project_file::Overrides,
 ) -> CompilationResult {
-    let directory = i_slint_compiler::pathutils::dirname(&path);
+    let directory = SourcePath::new(&path).parent().into_native_path().unwrap_or_default();
     match i_slint_compiler::project_file::ProjectFile::find(&directory) {
         Ok(project_file) => {
             build_with_project_file(source_code, path, project_file.as_ref(), config, overrides)
@@ -1102,7 +1108,6 @@ fn project_file_error(message: String, path: &Path) -> CompilationResult {
         #[cfg(feature = "internal")]
         structs_and_enums: Vec::new(),
     }
-
 }
 
 async fn build_compilation_result(
@@ -2929,6 +2934,87 @@ mod project_file_tests {
                    export component Main inherits Window { Shared { } }"#,
             );
             assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+        });
+    }
+
+    #[test]
+    fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
+        with_project(r#"{"include-paths":["include"]}"#, |root| {
+            let include = root.join("include");
+            std::fs::create_dir_all(&include).unwrap();
+            std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
+            let source = r#"import { Shared } from "shared.slint";
+                export component Main inherits Window { Shared {} }"#;
+            let main = root.join("main.slint");
+            std::fs::write(&main, source).unwrap();
+            let mut compiler = Compiler::default();
+            compiler.set_include_paths(vec![]);
+            assert!(compiler.include_paths().is_empty());
+            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(result.has_errors());
+            assert!(
+                result
+                    .diagnostics()
+                    .any(|diagnostic| diagnostic.message().contains("shared.slint"))
+            );
+
+            #[allow(deprecated)]
+            let mut compiler = super::ComponentCompiler::new();
+            #[allow(deprecated)]
+            compiler.set_include_paths(vec![]);
+            #[allow(deprecated)]
+            let result = spin_on::spin_on(compiler.build_from_path(&main));
+            assert!(result.is_none());
+            #[allow(deprecated)]
+            let missing_import = compiler
+                .diagnostics()
+                .iter()
+                .any(|diagnostic| diagnostic.message().contains("shared.slint"));
+            assert!(missing_import);
+        });
+    }
+
+    #[cfg(feature = "internal")]
+    #[test]
+    fn explicit_empty_include_paths_apply_to_source_path_compilation() {
+        with_project("{}", |root| {
+            let include_directory = root.join("include");
+            std::fs::create_dir(&include_directory).unwrap();
+            std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
+                .unwrap();
+            let source =
+                "import { Shared } from \"shared.slint\"; export component Main inherits Shared {}";
+            for path in [
+                super::SourcePath::new(root.join("main.slint")),
+                super::SourcePath::new("https://example.invalid/main.slint"),
+            ] {
+                for static_compilation in [false, true] {
+                    let mut compiler = Compiler::default();
+                    compiler.set_reads_project_file(false);
+                    compiler.compiler_configuration(i_slint_core::InternalToken).include_paths =
+                        vec![include_directory.clone()];
+                    compiler.set_include_paths(Vec::new());
+                    let result = if static_compilation {
+                        spin_on::spin_on(compiler.build_static_from_source(
+                            source.into(),
+                            path.clone(),
+                            i_slint_core::InternalToken,
+                        ))
+                    } else {
+                        spin_on::spin_on(compiler.build_from_source_path(
+                            source.into(),
+                            path.clone(),
+                            i_slint_core::InternalToken,
+                        ))
+                    };
+                    assert!(result.has_errors());
+                    assert!(
+                        result
+                            .diagnostics()
+                            .any(|diagnostic| diagnostic.message().contains("shared.slint"))
+                    );
+                }
+            }
         });
     }
 

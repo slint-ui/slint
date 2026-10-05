@@ -1730,7 +1730,19 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             }
         }
     }
-    SessionConfigOverrides { hide_ui, include_paths, library_paths, style, experimental }
+    SessionConfigOverrides {
+        hide_ui,
+        compiler: i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths,
+                library_paths,
+                style,
+                enable_experimental_features: experimental,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    }
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
@@ -1842,9 +1854,9 @@ pub mod tests {
             "experimental": false
         })]);
 
-        assert_eq!(overrides.include_paths, Some(vec![]));
-        assert_eq!(overrides.library_paths, Some(HashMap::new()));
-        assert_eq!(overrides.experimental, Some(false));
+        assert_eq!(overrides.compiler.project.include_paths, Some(vec![]));
+        assert_eq!(overrides.compiler.project.library_paths, Some(HashMap::new()));
+        assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
     }
 
     #[test]

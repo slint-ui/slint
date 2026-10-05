@@ -80,7 +80,6 @@ pub use i_slint_compiler::DefaultTranslationContext;
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
-    config: i_slint_compiler::CompilerConfiguration,
     overrides: project_file::Overrides,
 }
 
@@ -108,12 +107,7 @@ pub enum EmbedResourcesKind {
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
-        Self {
-            config: i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Rust,
-            ),
-            overrides: Default::default(),
-        }
+        Self { overrides: Default::default() }
     }
 }
 
@@ -129,7 +123,7 @@ impl CompilerConfiguration {
     /// This wins over the include paths of the project file.
     #[must_use]
     pub fn with_include_paths(mut self, include_paths: Vec<std::path::PathBuf>) -> Self {
-        self.overrides.include_paths = Some(include_paths);
+        self.overrides.project.include_paths = Some(include_paths);
         self
     }
 
@@ -166,7 +160,7 @@ impl CompilerConfiguration {
         mut self,
         library_paths: HashMap<String, std::path::PathBuf>,
     ) -> Self {
-        self.overrides.library_paths = Some(library_paths);
+        self.overrides.project.library_paths = Some(library_paths);
         self
     }
 
@@ -175,7 +169,7 @@ impl CompilerConfiguration {
     /// This wins over the style of the project file.
     #[must_use]
     pub fn with_style(mut self, style: String) -> Self {
-        self.overrides.style = Some(style);
+        self.overrides.project.style = Some(style);
         self
     }
 
@@ -184,7 +178,7 @@ impl CompilerConfiguration {
     /// See [`EmbedResourcesKind`]
     #[must_use]
     pub fn embed_resources(mut self, kind: EmbedResourcesKind) -> Self {
-        self.config.embed_resources = match kind {
+        self.overrides.embed_resources = Some(match kind {
             EmbedResourcesKind::AsAbsolutePath => {
                 i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources
             }
@@ -195,7 +189,7 @@ impl CompilerConfiguration {
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
             }
-        };
+        });
         self
     }
 
@@ -207,7 +201,7 @@ impl CompilerConfiguration {
     /// If this is set, changing the scale factor at runtime will not have any effect.
     #[must_use]
     pub fn with_scale_factor(mut self, factor: f32) -> Self {
-        self.config.const_scale_factor = Some(factor);
+        self.overrides.const_scale_factor = Some(factor);
         self
     }
 
@@ -224,7 +218,7 @@ impl CompilerConfiguration {
         mut self,
         path: impl Into<std::path::PathBuf>,
     ) -> CompilerConfiguration {
-        self.config.bundled_translations_path = Some(path.into());
+        self.overrides.bundled_translations_path = Some(path.into());
         self
     }
 
@@ -238,7 +232,7 @@ impl CompilerConfiguration {
         mut self,
         default_translation_context: DefaultTranslationContext,
     ) -> Self {
-        self.config.default_translation_context = default_translation_context;
+        self.overrides.default_translation_context = Some(default_translation_context);
         self
     }
 
@@ -249,7 +243,7 @@ impl CompilerConfiguration {
     #[doc(hidden)]
     #[must_use]
     pub fn with_debug_info(mut self, enable: bool) -> Self {
-        self.config.debug_info = enable;
+        self.overrides.debug_info = Some(enable);
         self
     }
 
@@ -262,7 +256,7 @@ impl CompilerConfiguration {
     #[cfg(feature = "experimental-module-builds")]
     #[must_use]
     pub fn as_library(mut self, library_name: &str) -> Self {
-        self.config.library_name = Some(library_name.to_string());
+        self.overrides.library_name = Some(library_name.to_string());
         self
     }
 
@@ -277,7 +271,7 @@ impl CompilerConfiguration {
     #[cfg(feature = "experimental-module-builds")]
     #[must_use]
     pub fn rust_module(mut self, rust_module: &str) -> Self {
-        self.config.rust_module = Some(rust_module.to_string());
+        self.overrides.rust_module = Some(rust_module.to_string());
         self
     }
     /// Configures the compiler to use Signed Distance Field (SDF) encoding for fonts.
@@ -293,7 +287,7 @@ impl CompilerConfiguration {
     #[cfg(feature = "sdf-fonts")]
     #[must_use]
     pub fn with_sdf_fonts(mut self, enable: bool) -> Self {
-        self.config.use_sdf_fonts = enable;
+        self.overrides.use_sdf_fonts = Some(enable);
         self
     }
 
@@ -306,15 +300,13 @@ impl CompilerConfiguration {
             }
         };
 
-        for path in self.overrides.library_paths.iter_mut().flat_map(|paths| paths.values_mut()) {
+        for path in
+            self.overrides.project.library_paths.iter_mut().flat_map(|paths| paths.values_mut())
+        {
             to_absolute_path(path);
         }
 
-        for path in self.overrides.include_paths.iter_mut().flatten() {
-            to_absolute_path(path);
-        }
-
-        if let Some(path) = self.config.bundled_translations_path.as_mut() {
+        for path in self.overrides.project.include_paths.iter_mut().flatten() {
             to_absolute_path(path);
         }
 
@@ -326,8 +318,24 @@ impl CompilerConfiguration {
         self,
         project_file: Option<&ProjectFile>,
     ) -> i_slint_compiler::CompilerConfiguration {
-        let mut config = self.config;
+        let mut config = i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Rust,
+        );
         self.overrides.apply(project_file, &mut config);
+        config
+    }
+
+    fn resolve_for_cargo(
+        self,
+        project_file: Option<&ProjectFile>,
+        manifest_dir: &Path,
+    ) -> i_slint_compiler::CompilerConfiguration {
+        let mut config = self.with_absolute_paths(manifest_dir).resolve(project_file);
+        if let Some(path) = config.bundled_translations_path.as_mut() {
+            if path.is_relative() {
+                *path = manifest_dir.join(&path);
+            }
+        }
         config
     }
 
@@ -556,8 +564,6 @@ pub fn compile_with_config(
     let manifest_path = std::path::PathBuf::from(
         env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?,
     );
-    let config = config.with_absolute_paths(&manifest_path);
-
     let (path, project_file) =
         project_file::resolve_input(&manifest_path.join(relative_slint_file_path.as_ref()))
             .map_err(CompileError::ProjectFileError)?;
@@ -570,10 +576,11 @@ pub fn compile_with_config(
                 .with_extension("rs"),
         );
 
+    let config = config.resolve_for_cargo(project_file.as_ref(), &manifest_path);
+
     #[cfg(feature = "experimental-module-builds")]
-    if let Some(library_name) = config.config.library_name.clone() {
+    if let Some(library_name) = config.library_name.clone() {
         let rust_module = config
-            .config
             .rust_module
             .as_deref()
             .map(i_slint_compiler::generator::rust::parse_rust_module)
@@ -590,7 +597,7 @@ pub fn compile_with_config(
         }
     }
     // Cargo scans a directory dependency recursively, so this also catches an added language.
-    if let Some(bundle_path) = &config.config.bundled_translations_path {
+    if let Some(bundle_path) = &config.bundled_translations_path {
         println!("cargo:rerun-if-changed={}", bundle_path.display());
     }
 
@@ -636,7 +643,12 @@ pub fn compile_with_output_path(
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
     let (slint_file, project_file) = project_file::resolve_input(input_slint_file_path.as_ref())
         .map_err(CompileError::ProjectFileError)?;
-    compile_resolved(&slint_file, project_file.as_ref(), output_rust_file_path.as_ref(), config)
+    compile_resolved(
+        &slint_file,
+        project_file.as_ref(),
+        output_rust_file_path.as_ref(),
+        config.resolve(project_file.as_ref()),
+    )
 }
 
 /// Compiles `input_slint_file_path` with `project_file` and `config` applied.
@@ -644,10 +656,8 @@ fn compile_resolved(
     input_slint_file_path: &Path,
     project_file: Option<&ProjectFile>,
     output_rust_file_path: &Path,
-    config: CompilerConfiguration,
+    mut compiler_config: i_slint_compiler::CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let mut compiler_config = config.resolve(project_file);
-
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse_file(input_slint_file_path, &mut diag);
 
@@ -698,7 +708,14 @@ fn compile_resolved(
     dependencies.push(input_slint_file_path.to_path_buf());
 
     dependencies.push(project_file.map_or_else(
-        || project_file_path_in(i_slint_compiler::pathutils::dirname(input_slint_file_path)),
+        || {
+            project_file_path_in(
+                i_slint_compiler::source_path::SourcePath::new(input_slint_file_path)
+                    .parent()
+                    .into_native_path()
+                    .unwrap_or_default(),
+            )
+        },
         |project_file| project_file.source_path().to_owned(),
     ));
 
@@ -771,7 +788,6 @@ fn with_temp_test_dir<R>(test_name: &str, f: impl FnOnce(&Path) -> R) -> R {
 mod tests {
     use super::*;
 
-
     #[test]
     fn with_absolute_library_paths_test() {
         use std::path::PathBuf;
@@ -784,7 +800,7 @@ mod tests {
 
         let manifest_path = root_path_prefix().join("path/to/manifest");
         let absolute_config = config.clone().with_absolute_paths(&manifest_path);
-        let library_paths = absolute_config.overrides.library_paths.unwrap();
+        let library_paths = absolute_config.overrides.project.library_paths.unwrap();
         let relative = &library_paths["relative"];
         assert!(relative.is_absolute());
         assert!(relative.starts_with(&manifest_path));
@@ -804,7 +820,7 @@ mod tests {
         let manifest_path = root_path_prefix().join("path/to/manifest");
         let absolute_config = config.clone().with_absolute_paths(&manifest_path);
         assert_eq!(
-            absolute_config.overrides.include_paths.unwrap(),
+            absolute_config.overrides.project.include_paths.unwrap(),
             Vec::from([
                 root_path_prefix().join("some/absolute/path"),
                 manifest_path.join("some/relative/path"),
@@ -904,6 +920,110 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
 }
 
 #[test]
+fn explicit_build_settings_preserve_empty_values_and_false() {
+    with_temp_test_dir("empty-overrides", |test_root| {
+        let project_path = project_file_path_in(test_root);
+        std::fs::write(
+            &project_path,
+            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent"}"#,
+        )
+        .unwrap();
+        let project = ProjectFile::load(project_path).unwrap();
+        let config = CompilerConfiguration::new()
+            .with_include_paths(vec![])
+            .with_library_paths(HashMap::new())
+            .with_style(String::new())
+            .with_scale_factor(0.)
+            .with_bundled_translations(PathBuf::new())
+            .with_default_translation_context(DefaultTranslationContext::None)
+            .with_debug_info(false)
+            .resolve(Some(&project));
+        assert!(config.include_paths.is_empty());
+        assert!(config.library_paths.is_empty());
+        assert_eq!(config.style.as_deref(), Some(""));
+        assert_eq!(config.const_scale_factor, Some(0.));
+        assert_eq!(config.bundled_translations_path, Some(PathBuf::new()));
+        assert_eq!(config.default_translation_context, DefaultTranslationContext::None);
+        assert!(!config.debug_info);
+    });
+}
+
+#[test]
+fn build_settings_adapt_all_resource_kinds() {
+    use i_slint_compiler::EmbedResourcesKind as InternalKind;
+    for (public_kind, internal_kind) in [
+        (EmbedResourcesKind::AsAbsolutePath, InternalKind::OnlyBuiltinResources),
+        (EmbedResourcesKind::EmbedFiles, InternalKind::EmbedAllResources),
+        #[cfg(feature = "renderer-software")]
+        (EmbedResourcesKind::EmbedForSoftwareRenderer, InternalKind::EmbedTextures),
+    ] {
+        assert_eq!(
+            CompilerConfiguration::new().embed_resources(public_kind).resolve(None).embed_resources,
+            internal_kind
+        );
+    }
+}
+
+#[test]
+fn omitted_build_settings_keep_compiler_defaults() {
+    let config = CompilerConfiguration::new().resolve(None);
+    let defaults = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Rust,
+    );
+    assert_eq!(config.embed_resources, defaults.embed_resources);
+    assert_eq!(config.const_scale_factor, defaults.const_scale_factor);
+    assert_eq!(config.bundled_translations_path, defaults.bundled_translations_path);
+    assert_eq!(config.default_translation_context, defaults.default_translation_context);
+    assert_eq!(config.debug_info, defaults.debug_info);
+    assert_eq!(config.library_name, defaults.library_name);
+    assert_eq!(config.rust_module, defaults.rust_module);
+    #[cfg(feature = "sdf-fonts")]
+    assert_eq!(config.use_sdf_fonts, defaults.use_sdf_fonts);
+}
+
+#[test]
+fn cargo_translation_paths_include_environment_defaults() {
+    let manifest_dir = root_path_prefix().join("cargo-manifest");
+    let defaults = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Rust,
+    );
+    assert_eq!(
+        CompilerConfiguration::new()
+            .resolve_for_cargo(None, &manifest_dir)
+            .bundled_translations_path,
+        defaults.bundled_translations_path.map(|path| manifest_dir.join(path))
+    );
+    for path in [PathBuf::from("translations"), root_path_prefix().join("absolute/translations")] {
+        assert_eq!(
+            CompilerConfiguration::new()
+                .with_bundled_translations(&path)
+                .resolve_for_cargo(None, &manifest_dir)
+                .bundled_translations_path,
+            Some(manifest_dir.join(path))
+        );
+    }
+}
+
+#[cfg(feature = "experimental-module-builds")]
+#[test]
+fn build_module_settings_preserve_empty_values() {
+    for name in ["", "widgets"] {
+        let config = CompilerConfiguration::new().as_library(name).rust_module(name).resolve(None);
+        assert_eq!(config.library_name.as_deref(), Some(name));
+        assert_eq!(config.rust_module.as_deref(), Some(name));
+    }
+}
+
+#[cfg(feature = "sdf-fonts")]
+#[test]
+fn build_sdf_settings_preserve_false() {
+    for enabled in [false, true] {
+        let config = CompilerConfiguration::new().with_sdf_fonts(enabled).resolve(None);
+        assert_eq!(config.use_sdf_fonts, enabled);
+    }
+}
+
+#[test]
 fn compiler_configuration_defaults_without_project_file() {
     use std::fs;
 
@@ -979,7 +1099,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
         let config = CompilerConfiguration::new();
         let dependencies = compile_with_output_path(&input_file, &output_file, config).unwrap();
 
-        let project_file = i_slint_compiler::pathutils::clean_path(&project_file);
+        let project_file = i_slint_compiler::source_path::clean_path(&project_file);
         assert!(
             dependencies.iter().any(|dependency| dependency == &project_file),
             "expected: {:?}\ndeps: {dependencies:#?}",
@@ -1002,11 +1122,11 @@ fn output_path_compilation_tracks_missing_project_file_dependency() {
         let config = CompilerConfiguration::new();
         let dependencies = compile_with_output_path(&input_file, &output_file, config).unwrap();
 
-        let project_file = i_slint_compiler::pathutils::clean_path(&project_file);
+        let project_file = i_slint_compiler::source_path::clean_path(&project_file);
         assert!(
             dependencies
                 .iter()
-                .any(|dependency| i_slint_compiler::pathutils::clean_path(dependency)
+                .any(|dependency| i_slint_compiler::source_path::clean_path(dependency)
                     == project_file),
             "expected: {:?}\ndeps: {dependencies:#?}",
             project_file
