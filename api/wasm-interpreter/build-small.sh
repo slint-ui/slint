@@ -14,8 +14,9 @@
 #     so `import ... from "std-widgets.slint"` works in those styles only;
 #   - the default font is not embedded (the `no-embedded-font` feature). The page fetches a
 #     font itself and passes it to `register_default_font_from_memory()` before compiling;
-#     the slintpad preview page does that for `preview.html?font=<url>`. WOFF2 is accepted
-#     (the `woff2` feature), so this can be the font the page's CSS already downloaded;
+#     the slintpad preview page does that for `preview.html?font=<url>`. The font must be
+#     TrueType or OpenType: the `woff2` feature would accept WOFF2 too, but its decoder costs
+#     more (90 KB gzipped) than serving a .ttf (55 KB gzipped, 48 KB with brotli);
 #   - text is drawn as paths from the glyph outlines (the `outline-text` feature), which leaves
 #     femtovg's glyph rasterizer out; color glyphs (emoji) aren't drawn;
 #   - `@markdown` text is shown as plain text (the `no-markdown` feature), which leaves the
@@ -47,7 +48,7 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/../../target/wasm-small}"
 out_dir="${OUT_DIR:-pkg}"
 
-cargo_args=(--features no-embedded-font,woff2,outline-text,no-markdown)
+cargo_args=(--features no-embedded-font,outline-text,no-markdown)
 
 # Replace skrifa with a patched copy, for this build only.
 skrifa_src=$(cargo metadata --format-version 1 --locked | python3 -c '
