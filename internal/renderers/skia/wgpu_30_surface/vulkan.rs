@@ -269,6 +269,17 @@ pub unsafe fn make_vulkan_context(
         )
         .build();
 
-        skia_safe::gpu::direct_contexts::make_vulkan(&backend, None)
+        let mut options = skia_safe::gpu::ContextOptions::new();
+        let vendor_id = shared_instance
+            .raw_instance()
+            .get_physical_device_properties(vulkan_device.raw_physical_device())
+            .vendor_id;
+        // `VK_VENDOR_ID_VIV` and `VK_VENDOR_ID_VSI`. The NXP i.MX8 Vulkan drivers get Skia's
+        // multisample path rendering wrong: stroked paths and the draws after them are lost.
+        if vendor_id == 0x10001 || vendor_id == 0x10002 {
+            options.internal_multisample_count = 0;
+        }
+
+        skia_safe::gpu::direct_contexts::make_vulkan(&backend, Some(&options))
     }
 }
