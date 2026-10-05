@@ -121,6 +121,9 @@ pub struct GlobalStorage {
     pub root: std::cell::OnceCell<
         vtable::VWeak<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
     >,
+    /// The context the component was created with, if one was given.
+    /// The instance's window and bindings use it instead of the thread's.
+    pub context: std::cell::OnceCell<i_slint_core::SlintContext>,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
     pub debug_hook_callback: std::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
@@ -178,6 +181,7 @@ impl GlobalStorage {
         Self {
             globals,
             root: std::cell::OnceCell::new(),
+            context: std::cell::OnceCell::new(),
             debug_hook_callback: std::cell::RefCell::new(None),
         }
     }

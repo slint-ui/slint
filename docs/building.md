@@ -153,11 +153,10 @@ cargo build --manifest-path examples/Cargo.toml --workspace --release \
 ### C++ Tests
 
 The C++ tests are contained in the `test-driver-cpp` crate of the `tests/`
-workspace. It requires the Slint C++ library to be built, which isn't done by
-default. Build it explicitly before running the tests:
+workspace.
+The driver builds the Slint C++ library itself, with the features of the driver:
 
 ```sh
-cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp
 ```
 
@@ -196,8 +195,8 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ### Node.js API Build
 
-The Slint Node.js API is implemented as a pnpm build. Building it needs Node.js 22.13 or newer,
-the minimum required by the pnpm version this repository pins. You can build it locally using the
+The Slint Node.js API is implemented as a pnpm build. Building it needs Node.js 22.18 or newer,
+the minimum the `slint-ui` package declares. You can build it locally using the
 following command line:
 
 ```sh

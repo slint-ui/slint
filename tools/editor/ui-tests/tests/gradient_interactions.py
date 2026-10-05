@@ -6,11 +6,11 @@ from pathlib import Path
 
 import slint_testing
 from canvas_interactions import center as element_center
-from ui_driver import elements_with_label, select_outline_row, window_element_with_label
+from ui_driver import element, elements, select_outline_row
 
 
 def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window_element_with_label(window, label, role)
+    return element(window, label, role=role)
 
 
 def click(window, label):
@@ -50,8 +50,8 @@ def open_radial(window):
     select_outline_row(window, "fill")
     open_gradient(window)
     control(window, "Gradient center handle")
-    assert not elements_with_label(window.root_element, "Gradient center")
-    assert not elements_with_label(window.root_element, "Gradient radius mode")
+    assert not elements(window, "Gradient center")
+    assert not elements(window, "Gradient radius mode")
     control(window, "Add gradient stop")
 
 
@@ -66,3 +66,26 @@ def gradient_document(directory: Path, expression: str) -> Path:
 }}
 """)
     return file
+
+
+def picker_panel(window, name):
+    return element(window, id=f"InspectorFillPicker::{name}-panel")
+
+
+def move_picker_to_files(window, name):
+    panel = picker_panel(window, name)
+    title = "Custom" if name == "main" else "Stop color"
+    handle = control(window, f"Move {title} picker")
+    files = control(window, "Files", slint_testing.AccessibleRole.Tree)
+    point = center(handle)
+    gesture(
+        window,
+        point,
+        shifted(
+            point,
+            x=files.absolute_position.x - panel.absolute_position.x,
+            y=files.absolute_position.y - panel.absolute_position.y,
+        ),
+    )
+    canvas = element(window, "Editor canvas")
+    assert panel.absolute_position.x + panel.size.width <= canvas.absolute_position.x

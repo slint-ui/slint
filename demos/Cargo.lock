@@ -2373,6 +2373,7 @@ dependencies = [
  "icu_decimal",
  "icu_locale_core",
  "icu_provider",
+ "objc2 0.6.4",
  "pulldown-cmark",
  "resvg",
  "skrifa",

@@ -51,7 +51,7 @@ export default defineConfig({
                 "@slint/common-files/src/styles/sls-ids.css",
             ],
             components: {
-                Footer: "@slint/common-files/src/components/Footer.astro",
+                Footer: "./src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
@@ -112,21 +112,7 @@ export default defineConfig({
                             },
                             {
                                 label: "Slint Compiler",
-                                items: [
-                                    {
-                                        label: "Constraints",
-                                        slug: "user-manual/compiler/constraints",
-                                    },
-                                ],
-                            },
-                            {
-                                label: "slint-sc Runtime",
-                                items: [
-                                    {
-                                        label: "Constraints",
-                                        slug: "user-manual/runtime/constraints",
-                                    },
-                                ],
+                                slug: "user-manual/compiler",
                             },
                         ],
                     },

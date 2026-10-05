@@ -146,6 +146,14 @@ component SelectedCanvasFrame inherits Rectangle {
         }
         control-hovered => { root.hover-suppressed(); }
         move-press-started(position) => { root.hover-suppressed(); }
+        move-released(position) => {
+            if !self.move-dragging && !root.interaction-disabled {
+                let preview = CanvasView.to-preview(position);
+                Api.select-at(preview.x, preview.y, false);
+                root.focus-requested();
+                root.pointer-hovered(position);
+            }
+        }
         interaction-started => {
             root.rotation-active = false;
             root.radius-drag-active = false;

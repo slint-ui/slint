@@ -39,6 +39,8 @@ pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
+#[doc(hidden)]
+pub mod font_collection;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -60,6 +62,8 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
+#[cfg(test)]
+mod testing;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
@@ -99,7 +103,7 @@ pub use graphics::BorderRadius;
 #[doc(inline)]
 pub use data_transfer::DataTransfer;
 
-pub use context::{SlintContext, SlintContextWeak, with_global_context};
+pub use context::{SlintContext, SlintContextWeak, with_existing_context, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;

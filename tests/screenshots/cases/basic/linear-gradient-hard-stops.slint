@@ -1,0 +1,30 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// ROTATION_THRESHOLD=442  - a rotated hard stop can land one pixel off, which swaps its two colors there
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    background: black;
+
+    // Square cells of a fractional size.
+    GridLayout {
+        Row {
+            Rectangle { background: @linear-gradient(90deg, red 30%, green 30%, blue); }
+            Rectangle { background: @linear-gradient(180deg, red 30%, green 30%, blue); }
+            Rectangle { background: @linear-gradient(45deg, red 30%, green 30%, blue); }
+        }
+        Row {
+            Rectangle { background: @linear-gradient(90deg, red, green 70%, blue 70%); }
+            Rectangle { background: @linear-gradient(0deg, red 40%, blue 40%); }
+            Rectangle { background: @linear-gradient(135deg, red 50%, blue 50%); }
+        }
+        Row {
+            Rectangle { background: @linear-gradient(270deg, red 20%, yellow 20%, cyan 80%, blue 80%); }
+            Rectangle { background: @linear-gradient(225deg, red, green 60%, blue 60%); }
+            Rectangle { background: @linear-gradient(315deg, red 25%, green 25%, blue); }
+        }
+    }
+}

@@ -85,7 +85,7 @@ targets:
     postCompileScripts:
       - name: Build with Cargo
         script: |
-          ./build_macos_app_with_cargo.bash --bin my-slint-app --profile release
+          ./scripts/build_macos_app_with_cargo.bash --bin my-slint-app --profile release
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
 ```
@@ -116,7 +116,9 @@ This is the script the Slint repository ships as `scripts/build_macos_app_with_c
 
 <Code code={buildScript} lang="bash" />
 
-Copy it next to your `project.yml` and make it executable with `chmod +x build_macos_app_with_cargo.bash`.
+Create a `scripts/` directory in your Cargo project root, next to `project.yml`.
+Copy the build script there and make it executable with `chmod +x scripts/build_macos_app_with_cargo.bash`.
+The script uses its parent directory as the project root for its default Cargo target directory.
 
 Xcode passes `TARGET_BUILD_DIR` and `EXECUTABLE_PATH` to the script.
 The `--profile` flag keeps the Cargo profile out of the script, so the same script serves debug and release builds.

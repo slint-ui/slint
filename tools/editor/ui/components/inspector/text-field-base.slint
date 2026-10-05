@@ -23,6 +23,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
+    callback edit-started();
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
 
@@ -39,7 +40,7 @@ export component InspectorTextFieldBase inherits Rectangle {
     accessible-enabled: root.enabled;
     accessible-action-set-value(value) => {
         if root.enabled {
-            root.accept-input(value);
+            root.accept-input(value, true);
         }
     }
     accessible-action-default => {
@@ -60,14 +61,22 @@ export component InspectorTextFieldBase inherits Rectangle {
         root.active-commit-key = root.commit-key;
     }
 
-    function accept-input(text: string) -> bool {
+    function begin-edit() {
+        if !root.edited {
+            root.edit-started();
+            root.edited = true;
+        }
+    }
+
+    function accept-input(text: string, normalize: bool) -> bool {
         if root.active-commit-key != root.commit-key {
             input.text = root.value;
             root.active-commit-key = root.commit-key;
             return false;
         }
+        root.begin-edit();
         let accepted = root.accepted(text);
-        if accepted && root.normalize-accepted {
+        if accepted && normalize && root.normalize-accepted {
             input.text = root.normalized(text);
             root.edited = false;
         }
@@ -106,13 +115,24 @@ export component InspectorTextFieldBase inherits Rectangle {
                 text-cursor-width: root.style.border-width;
 
                 edited => {
-                    root.edited = true;
-                    if root.live-edit { root.accept-input(self.text); }
+                    root.begin-edit();
+                    if root.live-edit { root.accept-input(self.text, false); }
                 }
 
                 accepted => {
-                    if !root.accept-input(self.text) {
+                    if !root.accept-input(self.text, true) {
                         self.text = root.value;
+                    }
+                }
+
+                TouchArea {
+                    enabled: root.enabled && !input.has-focus;
+                    mouse-cursor: text;
+                    clicked => { input.focus(); }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                            input.focus();
+                        }
                     }
                 }
 
@@ -122,10 +142,11 @@ export component InspectorTextFieldBase inherits Rectangle {
                         self.select-all();
                     }
                     if !self.has-focus && self.text != root.value {
-                        if !root.accept-input(self.text) {
+                        if !root.accept-input(self.text, true) {
                             self.text = root.value;
                         }
                     }
+                    if !self.has-focus { root.edited = false; }
                 }
             }
 

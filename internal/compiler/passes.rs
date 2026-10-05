@@ -146,6 +146,7 @@ pub async fn run_passes(
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
+        lower_menus::remove_root_menus(component);
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
@@ -342,7 +343,7 @@ pub async fn run_passes(
     match type_loader.compiler_config.embed_resources {
         #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
-            let mut characters_seen = std::collections::HashSet::new();
+            let mut characters_seen = std::collections::BTreeSet::new();
 
             let sf = type_loader.compiler_config.const_scale_factor.unwrap_or(1.) as f64;
 

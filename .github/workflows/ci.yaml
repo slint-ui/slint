@@ -82,12 +82,21 @@ jobs:
 
     visual_editor:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'visual_editor') }}
-        name: Visual Editor (${{ matrix.suite }})
+        name: Visual Editor (${{ matrix.name }})
         strategy:
             fail-fast: false
             matrix:
-                suite: [rust, ui]
-        runs-on: macos-14
+                include:
+                    - name: Rust and UI on macOS
+                      os: macos-14
+                      run_ui_tests: true
+                    - name: Rust on Linux
+                      os: ubuntu-22.04
+                      run_ui_tests: false
+                    - name: Rust on Windows
+                      os: windows-2022
+                      run_ui_tests: false
+        runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         env:
             RUSTFLAGS: -D warnings
@@ -98,33 +107,41 @@ jobs:
             UI_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         steps:
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
-                  key: x-visual-editor-v1-${{ matrix.suite }}
+                  key: x-visual-editor-v1-rust
                   save_if: ${{ github.ref == 'refs/heads/master' }}
+            - name: Test the visual editor
+              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - uses: actions/setup-python@v7
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
               with:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
             - name: Install UI test dependencies
-              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
                   UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
                   UV_INDEX_SLINT_PRIVATE_PASSWORD: ${{ secrets.SLINT_TESTING_TOKEN }}
               run: uv sync --locked
-            - name: Test the visual editor
-              if: matrix.suite == 'rust'
-              run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
+            # ty needs slint-testing installed, so this also needs the private package.
+            - name: Check visual editor UI tests
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
+              working-directory: tools/editor/ui-tests
+              run: |
+                  uv run --no-sync ty check
+                  uv run --no-sync ruff check
+                  uv run --no-sync ruff format --check
             - name: Build the visual editor UI test binary
-              if: matrix.suite == 'ui'
+              if: matrix.run_ui_tests
               run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
-              if: ${{ matrix.suite == 'ui' && env.UI_TESTS == 'true' }}
+              if: ${{ matrix.run_ui_tests && env.UI_TESTS == 'true' }}
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
@@ -133,10 +150,10 @@ jobs:
 
             - name: Upload Cargo timing reports
               if: always()
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
-                  name: visual-editor-${{ matrix.suite }}-timings
-                  path: target/cargo-timings/
+                  name: visual-editor-${{ matrix.os }}-timings
+                  path: ${{ env.CARGO_TARGET_DIR || 'target' }}/cargo-timings/
                   if-no-files-found: warn
                   retention-days: 7
 
@@ -215,7 +232,7 @@ jobs:
               with:
                   toolchain: ${{ matrix.rust_version }}
             - name: Run tests
-              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features slint-cpp/backend-qt
+              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features backend-qt
 
     cpp_test_driver_32bit:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
@@ -358,7 +375,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: Swatinem/rust-cache@v2
               with:
                 key: "vsce_1" # increment this to bust the cache if needed
@@ -635,11 +652,11 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
-            - uses: actions/setup-java@v5
+            - uses: actions/setup-java@v6
               with:
                   distribution: temurin
                   java-version: '17'
-            - uses: gradle/actions/setup-gradle@v6.3.0
+            - uses: gradle/actions/setup-gradle@v6.4.0
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
               env:
@@ -648,14 +665,7 @@ jobs:
 
     emscripten_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        strategy:
-            matrix:
-                include:
-                    - name: default renderers
-                      cmake_args: ""
-                    - name: software renderer
-                      cmake_args: "-DSLINT_FEATURE_RENDERER_FEMTOVG=OFF"
-        name: Emscripten C++ (${{ matrix.name }})
+        name: Emscripten C++
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v7
@@ -673,9 +683,15 @@ jobs:
                   [patch.crates-io]
                   femtovg = { git = "https://github.com/femtovg/femtovg", rev = "d9f4dde04b89ca37783e10857cb90ce805dbe361" }
                   EOF
-            - name: Configure
-              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON ${{ matrix.cmake_args }}
-            - name: Build todo example
+            - name: Configure (default renderers)
+              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
+            - name: Build todo example (default renderers)
+              run: cmake --build build --target todo
+            - name: Configure (software renderer)
+              if: ${{ inputs.full }}
+              run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_FEMTOVG=OFF
+            - name: Build todo example (software renderer)
+              if: ${{ inputs.full }}
               run: cmake --build build --target todo
 
     test-figma-inspector:
@@ -687,7 +703,7 @@ jobs:
               with:
                   node-version: 24
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-unknown

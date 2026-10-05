@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13723: replacing a repeated `Row`'s model with a longer one, where a cell's `init` reads the
+// grid's size, must not solve the grid against organized data from the old model.
+
+export struct RowData { v: int }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[RowData]> rows;
+    in-out property <length> shared-min: 20px;
+    out property <length> probe;
+    out property <length> grid-preferred-width: grid.preferred-width;
+    out property <length> grid-preferred-height: grid.preferred-height;
+
+    grid := GridLayout {
+        for r in root.rows: Row {
+            Rectangle {
+                min-width: root.shared-min + r.v * 1px;
+                min-height: 20px;
+                init => {
+                    root.shared-min += 1px;
+                    root.probe = root.grid-preferred-width;
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::VecModel;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let rows = Rc::new(VecModel::from(vec![RowData { v: 0 }]));
+instance.set_rows(rows.clone().into());
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_grid_preferred_height(), 20.);
+
+// Replace the model with a longer one before the next frame.
+let rows2 = Rc::new(VecModel::from(vec![RowData { v: 0 }, RowData { v: 5 }]));
+instance.set_rows(rows2.clone().into());
+slint_testing::mock_elapsed_time(16);
+
+// Three inits ran: shared-min is 23px, so the second row's cell is 28px wide.
+assert_eq!(instance.get_grid_preferred_width(), 28.);
+assert_eq!(instance.get_grid_preferred_height(), 40.);
+// The last init already saw both rows.
+assert_eq!(instance.get_probe(), 28.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto rows = std::make_shared<slint::VectorModel<RowData>>(std::vector<RowData>{ RowData { .v = 0 } });
+instance.set_rows(rows);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_grid_preferred_height(), 20.);
+
+// Replace the model with a longer one before the next frame.
+auto rows2 = std::make_shared<slint::VectorModel<RowData>>(std::vector<RowData>{ RowData { .v = 0 }, RowData { .v = 5 } });
+instance.set_rows(rows2);
+slint_testing::mock_elapsed_time(16);
+
+assert_eq(instance.get_grid_preferred_width(), 28.);
+assert_eq(instance.get_grid_preferred_height(), 40.);
+assert_eq(instance.get_probe(), 28.);
+```
+*/

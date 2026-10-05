@@ -6,6 +6,7 @@
 
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::Cursor;
@@ -236,6 +237,16 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    #[cfg(feature = "typescript")]
+    if format == generator::OutputFormat::TypeScript
+        && let Some(name) = args.output.file_name().and_then(|n| n.to_str())
+        && name != "-"
+        && !name.ends_with(".d.ts")
+    {
+        eprintln!("The TypeScript output is a declaration file: name it '{name}.d.ts'");
+        std::process::exit(1);
+    }
+
     let mut compiler_config = CompilerConfiguration::new(format.clone());
     #[cfg(feature = "slint-sc")]
     {
@@ -267,6 +278,7 @@ fn main() -> std::io::Result<()> {
         };
     }
 
+    compiler_config.debug_info |= format == OutputFormat::Llr;
     compiler_config.include_paths = args.include_paths;
     compiler_config.library_paths = args
         .library_paths

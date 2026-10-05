@@ -3,10 +3,10 @@
 
 import { Button, ComboBox, ScrollView } from "std-widgets.slint";
 import { Gallery, GalleryPage } from "state.slint";
-import { Api, BrushKind } from "../ui/api.slint";
+import { BrushKind } from "../ui/api.slint";
 import { Colors, Typography } from "../ui/style.slint";
 import { PrimerTextInput, MutedLabel, SectionTitle } from "../ui/components/index.slint";
-import { InspectorValueField } from "../ui/components/inspector/index.slint";
+import { InspectorColorValueField, InspectorValueField } from "../ui/components/inspector/index.slint";
 
 component NumberProperty inherits VerticalLayout {
     in property <string> label;
@@ -75,12 +75,15 @@ export component GalleryProperties inherits Rectangle {
                 if Gallery.fill.kind == BrushKind.solid: VerticalLayout {
                     spacing: 6px;
                     MutedLabel { text: "Color"; }
-                    InspectorValueField {
-                        accessible-name: "Property fill color"; value: Api.fill-expression(Gallery.fill);
-                        accepted(text) => { if !Api.string-is-color(text) { return false; } Gallery.fill.color = Api.string-to-color(text); return true; }
+                    InspectorColorValueField {
+                        accessible-name: "Property fill color";
+                        value: Gallery.fill.color;
+                        live-edit: true;
+                        preview(color) => { Gallery.fill.color = color; return true; }
+                        swatch-activated => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); }
                     }
                 }
-                Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position); } }
+                Button { text: "Edit fill"; clicked => { Gallery.open-picker(self.absolute-position, { width: self.width, height: self.height }); } }
             }
             Button { text: "Reset example"; clicked => { Gallery.preview-width = 0; Gallery.preview-height = 0; Gallery.panel-width = 260; Gallery.navigate(Gallery.page, Gallery.scenario-index); } }
         }

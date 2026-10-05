@@ -656,7 +656,7 @@ function loadSlint(loadData: LoadData): Object {
  * **`index.js`**:
  * ```javascript
  * import * as slint from "slint-ui";
- * let ui = slint.loadFile("main.slint");
+ * let ui = slint.loadFile(new URL("main.slint", import.meta.url));
  * let main = new ui.Main();
  * main.greeting = "Hello friends";
  * ```

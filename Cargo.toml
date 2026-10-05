@@ -103,7 +103,6 @@ i-slint-renderer-skia = { version = "=1.19.0", path = "internal/renderers/skia",
 i-slint-renderer-software = { version = "=1.19.0", path = "internal/renderers/software", default-features = false }
 slint = { version = "=1.19.0", path = "api/rs/slint", default-features = false }
 slint-build = { version = "=1.19.0", path = "api/rs/build", default-features = false, features = ["compat-1-18"] }
-slint-cpp = { version = "=1.19.0", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.19.0", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.19.0", path = "api/rs/macros", default-features = false }
 
@@ -150,7 +149,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 # parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
-icu_properties = { version = "2.2.0", features = ["compiled_data"] }
+icu_properties = { version = "2", features = ["compiled_data"] }
 
 glow = { version = "0.18" }
 tikv-jemallocator = { version = "0.7" }

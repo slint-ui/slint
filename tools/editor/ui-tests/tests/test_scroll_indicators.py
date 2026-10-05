@@ -7,7 +7,8 @@ from canvas_interactions import center
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
-from ui_driver import first_window, launch_editor, wait_until, window_element_with_label
+from ui_assertions import expect
+from ui_driver import element, first_window, launch_editor, wait_until
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])
@@ -33,10 +34,10 @@ def test_tree_indicators_scroll_without_losing_virtualization(
     with launch_editor(editor_binary, editor_environment, file) as editor:
         wait_for_source(file, file.read_bytes())
         window = first_window(editor)
-        tree = window_element_with_label(
+        tree = element(
             window,
             "Files" if panel == "files" else "Current file outline",
-            slint_testing.AccessibleRole.Tree
+            role=slint_testing.AccessibleRole.Tree
             if panel == "files"
             else slint_testing.AccessibleRole.List,
         )
@@ -57,25 +58,40 @@ def test_tree_indicators_scroll_without_losing_virtualization(
                 .find_all()
             ]
 
-        before = wait_until(lambda: row_labels() or None)
+        before = wait_until(row_labels)
         assert 0 < len(before) < 150
         assert vertical.computed_opacity == 0
         tree_size = tree.size
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(center(tree), delta_x=0, delta_y=-300)
         )
-        wait_until(lambda: True if vertical.computed_opacity > 0.99 else None)
-        wait_until(lambda: True if row_labels() != before else None)
-        assert tree.size == tree_size
-
-        wait_until(lambda: True if 0 < vertical.computed_opacity < 1 else None)
-        before_drag = row_labels()
+        expect.poll(
+            lambda: vertical.computed_opacity > 0.99,
+            message="vertical scroll indicator is opaque",
+        ).to_equal(True)
+        # Hover the thumb right away: it only reacts to hover while shown, and it starts to fade
+        # 700ms after scrolling stops. Hovering keeps it shown while the rows are read.
         start = center(vertical)
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        expect.poll(
+            row_labels, message="visible tree rows after scrolling"
+        ).not_to_equal(before)
+        assert tree.size == tree_size
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="hover keeps the vertical scroll indicator opaque",
+        ).to_equal(1)
+        before_drag = row_labels()
         end = slint_testing.LogicalPosition(x=start.x, y=start.y + 30)
         gesture(window, start, end)
-        wait_until(lambda: True if row_labels() != before_drag else None)
+        expect.poll(
+            row_labels, message="visible tree rows after dragging"
+        ).not_to_equal(before_drag)
         window.dispatch_event(slint_testing.PointerExitedEvent())
         assert 0 < len(row_labels()) < 150
-        wait_until(lambda: True if vertical.computed_opacity == 0 else None)
+        expect.poll(
+            lambda: vertical.computed_opacity,
+            message="vertical scroll indicator opacity",
+        ).to_equal(0)
         assert tree.size == tree_size
         original.assert_unchanged()

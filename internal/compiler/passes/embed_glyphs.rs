@@ -10,8 +10,7 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use i_slint_common::sharedfontique::{self, fontique, skrifa};
@@ -30,7 +29,7 @@ struct Font {
 pub struct FontCollection {
     pub collection: sharedfontique::Collection,
     pub custom_font_paths: HashMap<fontique::FamilyId, std::path::PathBuf>,
-    pub custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont>,
+    pub custom_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont>,
 }
 
 /// Built once and shared (by reference) between the font and image passes. The
@@ -72,7 +71,7 @@ pub fn shared_font_collection(
         Box::new(move || {
             let mut collection = sharedfontique::create_collection(true);
             let mut custom_font_paths = HashMap::new();
-            let mut custom_font_map = HashMap::new();
+            let mut custom_font_map = BTreeMap::new();
             for (path, bytes) in custom_fonts {
                 if let Some(font) = collection
                     .register_fonts(bytes.into(), None)
@@ -103,7 +102,7 @@ pub fn embed_glyphs<'a>(
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _font_weights: Vec<u16>,
-    _characters_seen: HashSet<char>,
+    _characters_seen: BTreeSet<char>,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -116,7 +115,7 @@ pub fn embed_glyphs(
     compiler_config: &CompilerConfiguration,
     mut pixel_sizes: Vec<i16>,
     font_weights: Vec<u16>,
-    mut characters_seen: HashSet<char>,
+    mut characters_seen: BTreeSet<char>,
     font_collection: &SharedFontCollection,
     diag: &mut BuildDiagnostics,
 ) {
@@ -385,7 +384,7 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
-    let mut character_map: Vec<CharacterMapEntry> = character_coverage
+    let character_map: Vec<CharacterMapEntry> = character_coverage
         .filter(|code_point| {
             core::iter::once(&font)
                 .chain(fallback_fonts.iter())
@@ -408,8 +407,6 @@ fn embed_font(
     #[cfg(not(feature = "sdf-fonts"))]
     let glyphs =
         embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16);
-
-    character_map.sort_by_key(|entry| entry.code_point);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
     let location = skrifa::instance::LocationRef::new(normalized_coords);
@@ -745,7 +742,7 @@ pub fn collect_font_weights_used(component: &Rc<Component>, weights_seen: &mut V
     });
 }
 
-pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut HashSet<char>) {
+pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTreeSet<char>) {
     visit_all_expressions(component, |expr, _| {
         expr.visit_recursive(&mut |expr| {
             if let Expression::StringLiteral(string) = expr {

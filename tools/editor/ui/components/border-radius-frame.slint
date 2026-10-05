@@ -74,6 +74,7 @@ export component BorderRadiusFrame inherits MoveResizeFrame {
     ]: Rectangle {
         property <Point> handle-center: root.radius-handle-center(corner);
 
+        z: 1;
         visible: root.enable-border-radius-edits
             && root.active
             && !root.move-pressed

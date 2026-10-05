@@ -133,6 +133,16 @@
           },
           "description": "The command line arguments passed to the Slint LSP server"
         },
+        "slint.lsp.logLevel": {
+          "type": "string",
+          "enum": [
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "info",
+          "description": "Set the Slint language server log level. Run 'Slint: Restart server' to apply changes."
+        },
         "slint.preview.hide_ui": {
           "type": "boolean",
           "default": false,
@@ -237,11 +247,11 @@
     "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
   },
   "dependencies": {
-    "fs-extra": "11.4.0",
+    "fs-extra": "11.4.1",
     "simple-git": "3.36.0",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1",
-    "vscode-languageserver-types": "3.18.3"
+    "vscode-languageserver-types": "3.18.4"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

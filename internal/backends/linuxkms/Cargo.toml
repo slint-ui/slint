@@ -53,7 +53,7 @@ libseat = ["dep:libseat"]
 ## Handle mouse, touch and keyboard input via libinput. Without this feature the
 ## backend renders but receives no input events (and libinput, libudev and
 ## libxkbcommon are not needed at build or run time).
-libinput = ["dep:input", "dep:xkbcommon"]
+libinput = ["dep:input", "dep:xkbcommon", "nix/time"]
 
 default = []
 

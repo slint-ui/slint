@@ -13,6 +13,7 @@ packages:
   - examples/imagefilter/node
   - examples/carousel/node
   - examples/todo/node
+  - examples/todo/node-typescript
   - examples/dnd-kanban
   - examples/maps
   - examples/memory
@@ -42,6 +43,7 @@ allowBuilds:
 overrides:
   deepmerge-ts@<8.0.0: 8.0.0
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  js-yaml@>=5.0.0 <=5.4.0: 5.4.1
   lodash-es@<=4.17.23: 4.18.1
   lodash-es@>=4.0.0 <=4.17.23: 4.18.1
   qs@>=2.2.5 <6.16.0: 6.16.0
@@ -52,24 +54,24 @@ overrides:
 catalog:
   '@astrojs/check': 0.9.10
   '@astrojs/sitemap': 3.7.4
-  '@astrojs/starlight': 0.42.2
-  '@biomejs/biome': 2.5.14
+  '@astrojs/starlight': 0.42.5
+  '@biomejs/biome': 2.5.15
   '@expressive-code/plugin-line-numbers': 0.44.2
   '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.63.0
-  '@vitest/browser-playwright': 5.0.1
+  '@vitest/browser-playwright': 5.0.3
   '@types/node': 24.12.0
-  astro: 7.3.3
+  astro: 7.3.5
   astro-embed: 0.14.0
-  cspell: 10.3.3
+  cspell: 10.3.6
   playwright: 1.63.0
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
-  sharp: 0.35.4
+  sharp: 0.35.5
   starlight-links-validator: 0.26.0
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.3.0
-  vitest: 5.0.1
+  vite: 8.3.2
+  vitest: 5.0.3

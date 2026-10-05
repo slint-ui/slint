@@ -18,6 +18,7 @@ export component InspectorValueField inherits FocusScope {
     in property <length> radius: root.style.radius;
     in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
     in property <bool> normalize-accepted: false;
+    in property <bool> live-edit: false;
     in property <bool> show-focus-border: true;
     in property <bool> scrubbable: false;
     in property <bool> scrub-on-suffix: false;
@@ -29,6 +30,7 @@ export component InspectorValueField inherits FocusScope {
     out property <bool> input-focused: field.input-focused;
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
+    callback scrub-started();
     callback scrub-preview(float) -> bool;
     callback scrub-accepted(float) -> bool;
     callback scrub-canceled(float);
@@ -62,6 +64,7 @@ export component InspectorValueField inherits FocusScope {
 
     function begin-scrub(mouse-x: length) {
         root.focus();
+        root.scrub-started();
         root.scrubbing = true;
         root.scrub-start-x = mouse-x;
         root.scrub-initial-value = root.scrub-value;
@@ -95,6 +98,7 @@ export component InspectorValueField inherits FocusScope {
         suffix: root.suffix;
         suffix-width: root.suffix-width;
         normalize-accepted: root.normalize-accepted;
+        live-edit: root.live-edit;
         show-focus-border: root.show-focus-border;
         accessible-name: root.accessible-name;
         width: parent.width;

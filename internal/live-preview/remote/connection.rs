@@ -1488,25 +1488,64 @@ mod session_tests {
 
     /// The seam the remote viewer uses: the session compiles on its own thread and the
     /// result crosses back to the thread that instantiates.
+    /// The editor may run on another OS, so its URLs needn't be native paths here (#13674).
     #[tokio::test]
     async fn a_session_on_another_thread_compiles_and_sends_the_result_back() {
+        /// A 1x1 grayscale PNG.
+        const PNG: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x00, 0x00, 0x00,
+            0x00, 0x3a, 0x7e, 0x9b, 0x55, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0x60, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x48, 0xaf, 0xa4, 0x71, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ];
+
         let mut session = ThreadedPreviewSession::start(PairingPolicy::Disabled).await;
         let mut client = session.viewer.dial().await;
         hello(&mut client, None).await;
 
-        let url = lsp_types::Url::from_file_path(
-            std::env::temp_dir().join("a-session-on-another-thread.slint"),
-        )
-        .unwrap();
+        let dir = lsp_types::Url::parse("file:///mnt/remote%20project/ui/").unwrap();
+        let url = dir.join("app.slint").unwrap();
+        let imported = dir.join("value.slint").unwrap();
+        let image = dir.join("image.png").unwrap();
+        for (url, contents) in [
+            (&imported, "export global Value { out property <int> value: 42; }"),
+            (
+                &url,
+                "import { Value } from \"value.slint\"; export component App { out property <int> value: Value.value; Image { source: @image-url(\"image.png\"); } }",
+            ),
+        ] {
+            send(
+                &mut client,
+                &LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: contents.as_bytes().to_vec(),
+                },
+            )
+            .await;
+        }
+        session.compile.send(PreviewComponent { url, component: None }).unwrap();
+
+        loop {
+            match recv(&mut client).await {
+                Some(PreviewToLspMessage::RequestState { files, .. }) if files.contains(&image) => {
+                    break;
+                }
+                // The worker may ask for sources before the session has taken their contents.
+                Some(
+                    PreviewToLspMessage::RequestState { .. } | PreviewToLspMessage::PairingAccepted,
+                ) => {}
+                message => panic!("expected the viewer to ask for the image, got {message:?}"),
+            }
+        }
         send(
             &mut client,
             &LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url.clone(), None),
-                contents: b"export component App { in property <int> value: 42; }".to_vec(),
+                url: VersionedUrl::new(image, None),
+                contents: PNG.to_vec(),
             },
         )
         .await;
-        session.compile.send(PreviewComponent { url, component: None }).unwrap();
 
         let compilation = tokio::time::timeout(REPLY_TIMEOUT, session.compiled.recv())
             .await

@@ -294,6 +294,12 @@ pub fn initialize_editor(
 
         current_property_value(&api, property_name, fallback)
     });
+    api.on_image_source_file_name(file_tree::image_source_file_name);
+    let editor_weak = editor_ui.as_weak();
+    api.on_choose_image_file(move |source_uri| {
+        let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
+        file_tree::choose_image_file(source_uri.as_str(), window)
+    });
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);
@@ -1916,40 +1922,48 @@ mod tests {
     }
 
     #[test]
-    fn fill_picker_fits_single_paired_and_stacked_panels() {
+    fn fill_picker_placement_and_resize_keep_both_panels_visible() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
+        super::brushes::setup(&editor.global::<super::Api>());
         let session = editor.global::<super::FillSession>();
+        let bounds = editor.global::<super::EditorWindow>();
         editor.show().unwrap();
         slint::platform::update_timers_and_animations();
-        for (width, anchor, paired) in
-            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
-        {
-            editor.global::<super::EditorWindow>().set_width(width);
+        for (width, anchor) in [(1360., 1200.), (1040., 330.), (540., 200.), (400., 160.)] {
+            bounds.set_width(width);
+            bounds.set_height(860.);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),
                     ..Default::default()
                 },
-                anchor_width: 24.,
+                anchor_size: slint::LogicalSize::new(24., 24.),
                 anchor_position: LogicalPosition::new(anchor, 100.),
                 ..Default::default()
             });
-            session.set_stop_panel_open(paired);
+            session.set_stop_panel_open(true);
             slint::platform::update_timers_and_animations();
-            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
-                &editor,
-                "InspectorFillPicker::picker-panel",
-            )
-            .next()
-            .unwrap();
-            let position = panel.absolute_position();
-            let size = panel.size();
-            assert!(position.x >= 8.);
-            assert!(position.x + size.width <= width - 8.);
-            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
+            let panels = ["main", "stop"].map(|name| {
+                i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    &format!("InspectorFillPicker::{name}-panel"),
+                )
+                .next()
+                .unwrap()
+            });
+            for (width, height) in [(width, 860.), (400., 380.), (240., 240.)] {
+                bounds.set_width(width);
+                bounds.set_height(height);
+                slint::platform::update_timers_and_animations();
+                for panel in &panels {
+                    let position = panel.absolute_position();
+                    let size = panel.size();
+                    assert!(position.x >= 0. && position.y >= 0.);
+                    assert!(position.x + size.width <= width);
+                    assert!(position.y + size.height <= height);
+                }
+            }
         }
     }
 

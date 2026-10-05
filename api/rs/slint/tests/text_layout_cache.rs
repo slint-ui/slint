@@ -206,6 +206,37 @@ fn wrap_change_invalidates_cache() {
 }
 
 #[test]
+fn wrapping_items_shape_once_per_layout_pass() {
+    let window = setup();
+
+    // A `word-wrap` Text wouldn't show this: its width comes from the content widths cache.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello World this is a long text";
+            HorizontalLayout {
+                TextInput { text: root.content; wrap: word-wrap; }
+                Text { text: root.content; wrap: char-wrap; }
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    // New text invalidates both entries, so this counts one pass' worth of shaping.
+    ui.set_content("Hello World this is another long text".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 2, "Expected each of the two items to be shaped once");
+}
+
+#[test]
 fn alignment_change_does_not_reshape() {
     let window = setup();
 

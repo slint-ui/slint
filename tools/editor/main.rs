@@ -23,6 +23,8 @@ use i_slint_live_preview::protocol::{
 use lsp_types::{MessageType, Url};
 use slint::ComponentHandle;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod file_dialog;
 #[cfg(target_os = "linux")]
 mod flatpak;
 mod preview;

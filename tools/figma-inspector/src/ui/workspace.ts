@@ -162,6 +162,7 @@ function createResizeController(
     const finishResize = (flush: boolean): void => {
         const session = activeSession;
         if (session === undefined) return;
+        activeSession = undefined;
         if (flush) {
             if (frameRequest !== undefined) {
                 window.cancelAnimationFrame(frameRequest);
@@ -172,7 +173,9 @@ function createResizeController(
             cancelQueuedResize();
         }
         session.handle.dataset.active = "false";
-        activeSession = undefined;
+        if (session.handle.hasPointerCapture(session.pointerId)) {
+            session.handle.releasePointerCapture(session.pointerId);
+        }
     };
 
     const sizeForPointer = (
@@ -195,13 +198,10 @@ function createResizeController(
 
     return {
         start(handle, direction, event) {
-            if (
-                event.isPrimary === false ||
-                event.button !== 0 ||
-                activeSession !== undefined
-            ) {
+            if (event.isPrimary === false || event.button !== 0) {
                 return;
             }
+            finishResize(false);
             event.preventDefault();
             activeSession = {
                 direction,
@@ -222,6 +222,10 @@ function createResizeController(
                 session === undefined ||
                 !isActiveSession(handle, event.pointerId)
             ) {
+                return;
+            }
+            if ((event.buttons & 1) === 0) {
+                finishResize(true);
                 return;
             }
             event.preventDefault();
@@ -264,9 +268,6 @@ function createResizeHandle(
         if (event.isPrimary === false || event.button !== 0) return;
         event.preventDefault();
         controller.end(handle, event.pointerId, true, event);
-        if (handle.hasPointerCapture(event.pointerId)) {
-            handle.releasePointerCapture(event.pointerId);
-        }
     });
 
     handle.addEventListener("pointercancel", (event: PointerEvent) => {

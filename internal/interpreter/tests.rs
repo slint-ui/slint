@@ -839,11 +839,10 @@ fn accent_color_reachable_from_global() {
     let instance = result.component("App").unwrap().create().unwrap();
 
     let before = instance.get_property("accent").unwrap();
-    i_slint_core::context::with_global_context(
-        || panic!("context should already be initialized"),
-        |ctx| ctx.set_accent_color(i_slint_core::Color::from_argb_u8(255, 255, 0, 0)),
-    )
-    .unwrap();
+    i_slint_core::context::with_existing_context(|ctx| {
+        ctx.set_accent_color(i_slint_core::Color::from_argb_u8(255, 255, 0, 0))
+    })
+    .expect("context should already be initialized");
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
 }

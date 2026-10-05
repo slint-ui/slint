@@ -907,6 +907,7 @@ fn shadow_redraw_beyond_geometry() {
                 y: 10px;
                 width: 20px;
                 height: 20px;
+                background: white;
                 drop-shadow-blur: 5px;
                 drop-shadow-offset-x: 15px;
                 drop-shadow-offset-y: 5px;
@@ -945,16 +946,18 @@ fn shadow_redraw_beyond_geometry() {
     let move_delta = 10.;
     let shadow_height = /* rect height */ 20. + 2. * /*blur */ 5.;
 
-    let old_shadow_x = /* rect x */ 10. + /* shadow offset */ 15. - /* blur */ 5.;
+    let old_rect_x = 10.;
+    let old_shadow_x = old_rect_x + /* shadow offset */ 15. - /* blur */ 5.;
     let old_shadow_y = /* rect y */ 10. + /* shadow offset */ 5. - /* blur */ 5.;
+    let new_shadow_right = old_shadow_x + move_delta + shadow_width;
 
     assert_eq!(
         window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: shadow_width + move_delta, height: shadow_height })
+        Some(slint::LogicalSize { width: new_shadow_right - old_rect_x, height: shadow_height })
     );
     assert_eq!(
         window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: old_shadow_x, y: old_shadow_y })
+        Some(slint::LogicalPosition { x: old_rect_x, y: old_shadow_y })
     );
 }
 

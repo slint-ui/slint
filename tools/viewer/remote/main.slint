@@ -238,6 +238,7 @@ export component RemoteViewerWindow inherits Window {
         width: 300px;
         height: 50px;
         border-radius: self.height / 2;
+        background: root.dark-color-scheme ? #212121 : #f6f7f8;
         drop-shadow-color: root.dark-color-scheme ? black : #0000002e;
         drop-shadow-blur: 30px;
         drop-shadow-offset-x: 10px;
@@ -250,7 +251,6 @@ export component RemoteViewerWindow inherits Window {
 
         Rectangle {
             border-radius: parent.border-radius;
-            background: root.dark-color-scheme ? #212121 : #f6f7f8;
             Text {
                 text: root.toast-message;
                 font-weight: 400;

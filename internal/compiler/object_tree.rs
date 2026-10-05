@@ -28,7 +28,6 @@ use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
-use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -179,6 +178,7 @@ impl Document {
                 values,
                 default_value: 0,
                 node: Some(n.to_source_location()),
+                public: false,
                 rust_attributes: n
                     .AtRustAttr()
                     .map(|a| SmolStr::from(a.text().to_string()))
@@ -241,24 +241,20 @@ impl Document {
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if crate::pathutils::is_font_file(&import.file) {
-                    let token_path = import.import_uri_token.source_file.path();
-                    let import_file_path = PathBuf::from(import.file.clone());
-                    let import_file_path = crate::pathutils::join(token_path, &import_file_path)
-                        .unwrap_or(import_file_path);
+                    let import_file_path = std::path::Path::new(&import.file);
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
                     // When the resource URL mapper is set (e.g. remote viewer), fonts are
                     // delivered out-of-band; skip the local existence check.
                     if ignore_missing_font_files
-                        || crate::pathutils::is_url(&import_file_path)
-                        || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
-                            .is_some()
+                        || crate::pathutils::is_url(import_file_path)
+                        || crate::fileaccess::load_file(import_file_path).is_some()
                     {
-                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token.clone()))
+                        Some((import.file.as_str().into(), import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
-                            format!("File \"{}\" not found", import.file),
+                            format!("File {} not found", import.import_uri_token.text()),
                             &import.import_uri_token,
                         );
                         None
@@ -4605,6 +4601,28 @@ fn visit_all_named_references_in_element_dyn(
         grid_layout_cell.borrow_mut().visit_named_references(&mut vis);
         elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell);
     }
+}
+
+/// Returns the component of `elem`.
+pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+    let component = elem.borrow().enclosing_component.upgrade().unwrap();
+    let index = parent
+        .borrow()
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, elem))
+        .expect("elem must be a child of parent");
+    parent.borrow_mut().children.remove(index);
+    for cip in component.child_insertion_points.borrow_mut().values_mut() {
+        if Rc::ptr_eq(&cip.parent, parent) && cip.insertion_index > index {
+            cip.insertion_index -= 1;
+        }
+    }
+    component
+}
+
+pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
+    remove_child_element(elem, parent).optimized_elements.borrow_mut().push(elem.clone());
 }
 
 /// Visit all named reference in this component and sub component

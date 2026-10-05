@@ -1606,6 +1606,8 @@ impl WinitWindowAdapter {
                         id: finger_id,
                         position,
                         phase: winit_touch_phase(touch.phase),
+                        event_time: None,
+                        history: Default::default(),
                     });
                 }
             }
