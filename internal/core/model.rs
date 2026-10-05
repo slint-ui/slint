@@ -94,6 +94,44 @@ pub trait ModelTracker {
             self.track_row_data_changes(row);
         }
     }
+
+    /// Like [`Self::track_row_count_changes`], for the binding being evaluated in `ctx`.
+    ///
+    /// Not part of the public API.
+    #[doc(hidden)]
+    fn track_row_count_changes_with_context(
+        &self,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        ctx.enter(|| self.track_row_count_changes())
+    }
+
+    /// Like [`Self::track_row_data_changes`], for the binding being evaluated in `ctx`.
+    ///
+    /// Not part of the public API.
+    #[doc(hidden)]
+    fn track_row_data_changes_with_context(
+        &self,
+        row: usize,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        ctx.enter(|| self.track_row_data_changes(row))
+    }
+
+    /// Like [`Self::track_any_change`], for the binding being evaluated in `ctx`.
+    ///
+    /// Not part of the public API.
+    #[doc(hidden)]
+    fn track_any_change_with_context(
+        &self,
+        row_count: usize,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        ctx.enter(|| self.track_any_change(row_count, crate::InternalToken))
+    }
 }
 
 impl ModelTracker for () {
@@ -102,6 +140,26 @@ impl ModelTracker for () {
     fn track_row_count_changes(&self) {}
     fn track_row_data_changes(&self, _row: usize) {}
     fn track_any_change(&self, _row_count: usize, _: crate::InternalToken) {}
+    fn track_row_count_changes_with_context(
+        &self,
+        _ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+    }
+    fn track_row_data_changes_with_context(
+        &self,
+        _row: usize,
+        _ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+    }
+    fn track_any_change_with_context(
+        &self,
+        _row_count: usize,
+        _ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+    }
 }
 
 /// A Model is providing Data for the repeated elements with `for` in the `.slint` language
@@ -331,6 +389,19 @@ pub trait ModelExt: Model {
         self.row_data(row)
     }
 
+    /// Like [`Self::row_data_tracked`], for the binding being evaluated in `ctx`.
+    ///
+    /// Not part of the public API.
+    #[doc(hidden)]
+    fn row_data_tracked_with_context(
+        &self,
+        row: usize,
+        ctx: &crate::properties::PropertyContext,
+    ) -> Option<Self::Data> {
+        self.model_tracker().track_row_data_changes_with_context(row, ctx, crate::InternalToken);
+        self.row_data(row)
+    }
+
     /// Returns a new Model where all elements are mapped by the function `map_function`.
     /// This is a shortcut for [`MapModel::new()`].
     fn map<F, U>(self, map_function: F) -> MapModel<Self, F>
@@ -404,15 +475,32 @@ pub fn report_model_error(
     }
 }
 
-pub fn model_any<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+/// The row count of `model`, registered as a dependency of the binding being evaluated in `ctx`.
+pub fn model_row_count<T>(
+    ctx: &crate::properties::PropertyContext,
+    model: &dyn Model<Data = T>,
+) -> usize {
+    model.model_tracker().track_row_count_changes_with_context(ctx, crate::InternalToken);
+    model.row_count()
+}
+
+pub fn model_any<T>(
+    ctx: &crate::properties::PropertyContext,
+    model: &dyn Model<Data = T>,
+    mut predicate: impl FnMut(T) -> bool,
+) -> bool {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count, crate::InternalToken);
+    model.model_tracker().track_any_change_with_context(row_count, ctx, crate::InternalToken);
     (0..row_count).any(|index| model.row_data(index).is_some_and(&mut predicate))
 }
 
-pub fn model_all<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) -> bool) -> bool {
+pub fn model_all<T>(
+    ctx: &crate::properties::PropertyContext,
+    model: &dyn Model<Data = T>,
+    mut predicate: impl FnMut(T) -> bool,
+) -> bool {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count, crate::InternalToken);
+    model.model_tracker().track_any_change_with_context(row_count, ctx, crate::InternalToken);
     // `is_none_or`, not `is_some_and`: a row without data is skipped, as it is by
     // model_any and model_find_index, rather than failing the whole model.
     (0..row_count).all(|index| model.row_data(index).is_none_or(&mut predicate))
@@ -421,11 +509,12 @@ pub fn model_all<T>(model: &dyn Model<Data = T>, mut predicate: impl FnMut(T) ->
 /// Returns the index of the first row for which `predicate` returns `true`, or `-1`
 /// if no row matches.
 pub fn model_find_index<T>(
+    ctx: &crate::properties::PropertyContext,
     model: &dyn Model<Data = T>,
     mut predicate: impl FnMut(T) -> bool,
 ) -> i32 {
     let row_count = model.row_count();
-    model.model_tracker().track_any_change(row_count, crate::InternalToken);
+    model.model_tracker().track_any_change_with_context(row_count, ctx, crate::InternalToken);
     (0..row_count)
         .find(|index| model.row_data(*index).is_some_and(&mut predicate))
         .map_or(-1, |index| index as i32)
@@ -1046,6 +1135,29 @@ impl From<&str> for StandardListViewItem {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn model_tracking_is_per_context() {
+        use crate::properties::{PropertyContext, WithContext};
+        let ctx_a = PropertyContext::default();
+        let ctx_b = Rc::pin(PropertyContext::default());
+        let model = Rc::new(VecModel::from(std::vec![1, 2]));
+        let own = Box::pin(Property::<usize>::default());
+        own.set_binding(WithContext({
+            let model = model.clone();
+            move |ctx: &PropertyContext| model_row_count(ctx, &*model)
+        }));
+        let other = Box::pin(Property::<usize>::default());
+        other.set_binding({
+            let (model, ctx_b) = (model.clone(), ctx_b.clone());
+            move || model_row_count(&ctx_b, &*model)
+        });
+        assert_eq!(own.as_ref().get_with_context(&ctx_a), 2);
+        assert_eq!(other.as_ref().get_with_context(&ctx_a), 2);
+        model.push(3);
+        assert_eq!(own.as_ref().get_with_context(&ctx_a), 3);
+        assert_eq!(other.as_ref().get_with_context(&ctx_a), 2);
+    }
     use super::*;
     use std::vec;
 
@@ -1205,7 +1317,13 @@ mod tests {
         let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
         let handle = ModelRc::from(model.clone());
         let tracker = Box::pin(<crate::properties::PropertyTracker>::default());
-        let find_two = || tracker.as_ref().evaluate(|| model_find_index(&handle, |x| x == 2));
+        let find_two = || {
+            tracker.as_ref().evaluate(|| {
+                crate::properties::with_property_context(|c| {
+                    model_find_index(c, &handle, |x| x == 2)
+                })
+            })
+        };
         assert_eq!(find_two(), 2);
         assert!(!tracker.is_dirty());
 
@@ -1301,9 +1419,22 @@ mod tests {
     fn test_predicates_skip_absent_rows() {
         // All three predicates skip the absent row, rather than failing the whole
         // model or feeding the predicate a default value in its place.
-        assert!(model_all(&AbsentRowModel, |x| x > 0));
-        assert!(!model_any(&AbsentRowModel, |x| x == 0));
-        assert_eq!(model_find_index(&AbsentRowModel, |x| x == 3), 2);
+        assert!(crate::properties::with_property_context(
+            |c| model_all(c, &AbsentRowModel, |x| x > 0)
+        ));
+        assert!(!crate::properties::with_property_context(|c| model_any(
+            c,
+            &AbsentRowModel,
+            |x| x == 0
+        )));
+        assert_eq!(
+            crate::properties::with_property_context(|c| model_find_index(
+                c,
+                &AbsentRowModel,
+                |x| x == 3
+            )),
+            2
+        );
     }
 
     #[test]
@@ -1313,7 +1444,9 @@ mod tests {
 
         // Track the whole model, so that every row is now implicitly tracked.
         let any_tracker = Box::pin(<crate::properties::PropertyTracker>::default());
-        any_tracker.as_ref().evaluate(|| model_find_index(&handle, |x| x == 2));
+        any_tracker.as_ref().evaluate(|| {
+            crate::properties::with_property_context(|c| model_find_index(c, &handle, |x| x == 2))
+        });
         assert!(!any_tracker.is_dirty());
 
         // track_row_data_changes() no longer records the row individually while that

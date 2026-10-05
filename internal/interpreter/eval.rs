@@ -2437,11 +2437,13 @@ fn call_builtin_function(
             };
             let mut predicate =
                 |row_value| eval_array_row_predicate(arg_name, expression, ctx, row_value);
-            Value::Bool(if is_all {
-                i_slint_core::model::model_all(&model, &mut predicate)
-            } else {
-                i_slint_core::model::model_any(&model, &mut predicate)
-            })
+            Value::Bool(i_slint_core::properties::with_property_context(|pc| {
+                if is_all {
+                    i_slint_core::model::model_all(pc, &model, &mut predicate)
+                } else {
+                    i_slint_core::model::model_any(pc, &model, &mut predicate)
+                }
+            }))
         })(),
         BuiltinFunction::ArrayFindIndex => (|| {
             let model: i_slint_core::model::ModelRc<Value> =
@@ -2449,8 +2451,10 @@ fn call_builtin_function(
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
                 panic!("internal error: Array.find-index expects a closure as second argument")
             };
-            Value::Number(i_slint_core::model::model_find_index(&model, |row_value| {
-                eval_array_row_predicate(arg_name, expression, ctx, row_value)
+            Value::Number(i_slint_core::properties::with_property_context(|pc| {
+                i_slint_core::model::model_find_index(pc, &model, |row_value| {
+                    eval_array_row_predicate(arg_name, expression, ctx, row_value)
+                })
             }) as f64)
         })(),
         BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {

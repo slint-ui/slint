@@ -3948,7 +3948,7 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::PropertyReference(..)
             // compiles to `args.N.clone()`
             | Expression::FunctionParameterReference { .. }
-            // compiles to `x.row_data_tracked(i).unwrap_or_default()`
+            // compiles to `x.row_data_tracked_with_context(i, _ctx).unwrap_or_default()`
             | Expression::ArrayIndex { .. }
             | Expression::Cast { .. }
             | Expression::BuiltinFunctionCall { .. }
@@ -4493,7 +4493,7 @@ fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStrea
     let index_e = compile_expression(index, ctx);
     quote!(match &#base_e { x => {
         let index = (#index_e) as usize;
-        x.row_data_tracked(index).unwrap_or_default()
+        x.row_data_tracked_with_context(index, _ctx).unwrap_or_default()
     }})
 }
 
@@ -5415,12 +5415,7 @@ fn compile_builtin_function_call(
             quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
         })(),
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
-        BuiltinFunction::ArrayLength => (|| {
-            quote!(match &#(#a)* { x => {
-                x.model_tracker().track_row_count_changes();
-                x.row_count() as i32
-            }})
-        })(),
+        BuiltinFunction::ArrayLength => (|| quote!(sp::model_row_count(_ctx, &#(#a)*) as i32))(),
         BuiltinFunction::ArrayPush => (|| {
             let context = access_context(ctx);
             let model = a.next().unwrap();
@@ -5649,17 +5644,17 @@ fn compile_builtin_function_call(
         BuiltinFunction::ArrayAny => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
-            quote!(sp::model_any(&#model, #predicate))
+            quote!(sp::model_any(_ctx, &#model, #predicate))
         })(),
         BuiltinFunction::ArrayAll => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
-            quote!(sp::model_all(&#model, #predicate))
+            quote!(sp::model_all(_ctx, &#model, #predicate))
         })(),
         BuiltinFunction::ArrayFindIndex => (|| {
             let model = a.next().unwrap();
             let predicate = a.next().unwrap();
-            quote!(sp::model_find_index(&#model, #predicate))
+            quote!(sp::model_find_index(_ctx, &#model, #predicate))
         })(),
     }
 }

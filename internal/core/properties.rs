@@ -431,13 +431,13 @@ impl PropertyContext {
     }
 
     /// Evaluate `f` without registering any property dependencies.
-    pub(crate) fn evaluate_no_tracking<T>(&self, f: impl FnOnce() -> T) -> T {
+    pub fn evaluate_no_tracking<T>(&self, f: impl FnOnce() -> T) -> T {
         self.set_current_binding(None, f)
     }
 
     /// Returns true if a binding is currently being evaluated, so that property
     /// accesses register dependencies.
-    pub(crate) fn is_currently_tracking(&self) -> bool {
+    pub fn is_currently_tracking(&self) -> bool {
         self.with_current_binding(|x| x.is_some())
     }
 }

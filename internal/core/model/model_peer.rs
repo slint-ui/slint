@@ -126,11 +126,38 @@ impl ModelTracker for ModelNotify {
     }
 
     fn track_row_count_changes(&self) {
-        self.inner().project_ref().model_row_count_dirty_property.get();
+        crate::properties::with_property_context(|ctx| {
+            self.track_row_count_changes_with_context(ctx, crate::InternalToken)
+        })
     }
 
     fn track_row_data_changes(&self, row: usize) {
-        if crate::properties::is_currently_tracking() {
+        crate::properties::with_property_context(|ctx| {
+            self.track_row_data_changes_with_context(row, ctx, crate::InternalToken)
+        })
+    }
+
+    fn track_any_change(&self, row_count: usize, _: crate::InternalToken) {
+        crate::properties::with_property_context(|ctx| {
+            self.track_any_change_with_context(row_count, ctx, crate::InternalToken)
+        })
+    }
+
+    fn track_row_count_changes_with_context(
+        &self,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        self.inner().project_ref().model_row_count_dirty_property.get_with_context(ctx);
+    }
+
+    fn track_row_data_changes_with_context(
+        &self,
+        row: usize,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        if ctx.is_currently_tracking() {
             let inner = self.inner().project_ref();
 
             // Recording the row individually is redundant once every row is tracked.
@@ -140,17 +167,22 @@ impl ModelTracker for ModelNotify {
                 rows.insert(insertion_point, row);
             }
 
-            inner.model_row_data_dirty_property.get();
+            inner.model_row_data_dirty_property.get_with_context(ctx);
         }
     }
 
-    fn track_any_change(&self, _row_count: usize, _: crate::InternalToken) {
-        self.track_row_count_changes();
-        if crate::properties::is_currently_tracking() {
+    fn track_any_change_with_context(
+        &self,
+        _row_count: usize,
+        ctx: &crate::properties::PropertyContext,
+        _: crate::InternalToken,
+    ) {
+        self.track_row_count_changes_with_context(ctx, crate::InternalToken);
+        if ctx.is_currently_tracking() {
             let inner = self.inner().project_ref();
             // Any individually tracked rows are now subsumed by the whole-model dependency.
             *inner.tracked_rows.borrow_mut() = TrackedRows::All;
-            inner.model_row_data_dirty_property.get();
+            inner.model_row_data_dirty_property.get_with_context(ctx);
         }
     }
 }
