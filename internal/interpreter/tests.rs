@@ -10,7 +10,7 @@ use i_slint_core::api::ComponentHandle;
 
 #[cfg(feature = "internal")]
 #[test]
-fn preview_allows_valid_files_without_components() {
+fn preview_tools_report_files_without_components() {
     i_slint_backend_testing::init_no_event_loop();
     for preview in [false, true] {
         let mut compiler = crate::Compiler::default();
@@ -21,7 +21,7 @@ fn preview_allows_valid_files_without_components() {
             Default::default(),
         ));
         assert_eq!(result.components().count(), 0);
-        assert_eq!(result.has_errors(), !preview);
+        assert!(result.has_errors());
         let broken = spin_on::spin_on(
             compiler
                 .build_from_source("export component Broken { broken }".into(), Default::default()),

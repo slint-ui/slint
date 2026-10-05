@@ -3,6 +3,7 @@
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::{cell::RefCell, collections::HashMap};
 
 use slint::{FilterModel, Global, Model, ModelRc, VecModel};
 
@@ -19,15 +20,29 @@ pub(in crate::preview) fn setup(global: &Diagnostics<'_>) {
     global.set_warnings(ModelRc::new(FilterModel::new(entries, |entry: &Diagnostic| {
         entry.level == DiagnosticLevel::Warning
     })));
+    let paths = Rc::new(RefCell::new(HashMap::<PathBuf, PathBuf>::new()));
+    let summary_paths = paths.clone();
+    let summary_models =
+        RefCell::new((ModelRc::<Diagnostic>::default(), ModelRc::<Diagnostic>::default()));
     let weak = <Diagnostics as Global<'_, EditorUi>>::as_weak(global);
     global.on_file_diagnostics(move |path| {
         let Some(global) = weak.upgrade() else { return Default::default() };
-        file_summary(&global.get_entries(), Path::new(path.as_str()))
+        let entries = global.get_entries();
+        let mut models = summary_models.borrow_mut();
+        if models.0 != entries {
+            models.1 = ModelRc::new(FilterModel::new(entries.clone(), |entry: &Diagnostic| {
+                matches!(entry.level, DiagnosticLevel::Error | DiagnosticLevel::Warning)
+            }));
+            models.0 = entries;
+        }
+        let path = cached_path(&summary_paths, Path::new(path.as_str()));
+        file_summary(&models.1, &path)
     });
-    global.on_format_location(|diagnostic| {
+    global.on_format_location(move |diagnostic| {
         let root = crate::preview::PREVIEW_STATE.with_borrow(|state| {
             state.current_project_root.as_ref().and_then(|root| root.to_file_path().ok())
         });
+        let root = root.as_deref().map(|root| cached_path(&paths, root));
         format_location(&diagnostic, root.as_deref()).into()
     });
     let weak = <Diagnostics as Global<'_, EditorUi>>::as_weak(global);
@@ -62,17 +77,34 @@ pub(in crate::preview) fn setup(global: &Diagnostics<'_>) {
 }
 
 fn normalized_path(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| i_slint_compiler::pathutils::clean_path(path))
+    let mut parent = i_slint_compiler::pathutils::clean_path(path);
+    let mut missing = Vec::new();
+    loop {
+        if let Ok(mut normalized) = std::fs::canonicalize(&parent) {
+            for name in missing.iter().rev() {
+                normalized.push(name);
+            }
+            return normalized;
+        }
+        let Some(name) = parent.file_name().map(|name| name.to_owned()) else {
+            return path.to_owned();
+        };
+        missing.push(name);
+        if !parent.pop() {
+            return path.to_owned();
+        }
+    }
+}
+
+fn cached_path(paths: &RefCell<HashMap<PathBuf, PathBuf>>, path: &Path) -> PathBuf {
+    paths.borrow_mut().entry(path.to_owned()).or_insert_with(|| normalized_path(path)).clone()
 }
 
 fn file_summary(entries: &ModelRc<Diagnostic>, path: &Path) -> FileDiagnosticSummary {
     entries.model_tracker().track_any_change(entries.row_count(), i_slint_core::InternalToken);
-    let path = normalized_path(path);
     let mut summary = FileDiagnosticSummary::default();
     for entry in entries.iter() {
-        if entry.file.is_empty()
-            || !normalized_path(Path::new(entry.file.as_str())).starts_with(&path)
-        {
+        if entry.file.is_empty() || !Path::new(entry.file.as_str()).starts_with(path) {
             continue;
         }
         match entry.level {
@@ -134,7 +166,13 @@ pub(in crate::preview) fn publish(
     }
 }
 
-pub(in crate::preview) fn append(global: &Diagnostics<'_>, diagnostic: Diagnostic) {
+pub(in crate::preview) fn append(global: &Diagnostics<'_>, mut diagnostic: Diagnostic) {
+    if !diagnostic.file.is_empty() {
+        diagnostic.file = normalized_path(Path::new(diagnostic.file.as_str()))
+            .to_string_lossy()
+            .into_owned()
+            .into();
+    }
     if let Some(entries) = global.get_entries().as_any().downcast_ref::<VecModel<Diagnostic>>() {
         entries.push(diagnostic);
     }
@@ -220,6 +258,74 @@ mod tests {
         assert_eq!(tracker.as_ref().evaluate(read).error_count, 1);
         assert_eq!(global.invoke_file_diagnostics("/project/components".into()).error_count, 0);
         assert_eq!(global.invoke_file_diagnostics("/project/Main.slint".into()).error_count, 1);
+    }
+
+    #[test]
+    fn debug_output_does_not_invalidate_file_summaries() {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = super::super::create_ui().unwrap();
+        let global = window.global::<Diagnostics>();
+        setup(&global);
+        append(&global, error("/project/Main.slint"));
+        let tracker = Box::pin(i_slint_core::properties::PropertyTracker::<false>::default());
+        let read = || global.invoke_file_diagnostics("/project".into());
+        assert_eq!(tracker.as_ref().evaluate(read).error_count, 1);
+        for _ in 0..100 {
+            append(
+                &global,
+                Diagnostic {
+                    level: DiagnosticLevel::Debug,
+                    message: "Timer output".into(),
+                    ..Default::default()
+                },
+            );
+            assert!(!tracker.is_dirty());
+        }
+        append(&global, error("/project/Other.slint"));
+        assert!(tracker.is_dirty());
+        assert_eq!(tracker.as_ref().evaluate(read).error_count, 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn missing_files_resolve_existing_symlinked_ancestors_once() {
+        i_slint_backend_testing::init_no_event_loop();
+        let directory = tempfile::tempdir().unwrap();
+        let project = directory.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let alias = directory.path().join("alias");
+        std::os::unix::fs::symlink(&project, &alias).unwrap();
+        let window = super::super::create_ui().unwrap();
+        let global = window.global::<Diagnostics>();
+        setup(&global);
+        append(&global, error(alias.join("missing/Main.slint").to_str().unwrap()));
+        let stored = global.get_entries().row_data(0).unwrap().file;
+        assert_eq!(
+            Path::new(stored.as_str()),
+            std::fs::canonicalize(&project).unwrap().join("missing/Main.slint")
+        );
+        assert_eq!(
+            global
+                .invoke_file_diagnostics(project.to_string_lossy().into_owned().into())
+                .error_count,
+            1
+        );
+        let replacement = directory.path().join("replacement");
+        std::fs::create_dir(&replacement).unwrap();
+        std::fs::remove_file(&alias).unwrap();
+        std::os::unix::fs::symlink(&replacement, &alias).unwrap();
+        assert_eq!(
+            global
+                .invoke_file_diagnostics(project.to_string_lossy().into_owned().into())
+                .error_count,
+            1
+        );
+        assert_eq!(
+            global
+                .invoke_file_diagnostics(replacement.to_string_lossy().into_owned().into())
+                .error_count,
+            0
+        );
     }
 
     #[test]
