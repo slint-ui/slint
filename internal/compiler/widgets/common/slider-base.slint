@@ -134,4 +134,10 @@ export component SliderBase {
     public function decrement() {
         root.set-value(root.value - root.step);
     }
+
+    public function emit-released() {
+        if root.enabled {
+            root.released(root.value);
+        }
+    }
 }
