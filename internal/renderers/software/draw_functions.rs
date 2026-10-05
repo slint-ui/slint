@@ -993,7 +993,7 @@ fn draw_conic_gradient(
 
         // atan2 returns angle in radians from -π to π
         // For 0deg at north (12 o'clock), we need to rotate by -90 degrees
-        let mut angle = dy.atan2(dx) + core::f32::consts::FRAC_PI_2;
+        let mut angle = dy.atan2(dx) + core::f32::consts::FRAC_PI_2 - g.rotation;
 
         // Normalize angle to [0, 2π]
         while angle < 0.0 {

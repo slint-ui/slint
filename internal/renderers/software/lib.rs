@@ -1885,6 +1885,8 @@ fn process_rectangle_impl(
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
     let geom_w = geom.width();
     let geom_h = geom.height();
+    let (item_w, item_h) =
+        if args.rotation.is_transpose() { (geom_h, geom_w) } else { (geom_w, geom_h) };
     let radius = PhysicalBorderRadius {
         top_left: args.top_left_radius as _,
         top_right: args.top_right_radius as _,
@@ -1911,15 +1913,17 @@ fn process_rectangle_impl(
         shape: rounded_shape,
         opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
     };
-    let truncated_rect: PhysicalRect = clipped.cast();
-    // The clip must line up with the rounded rectangle's border, which is snapped by rounding.
-    let radial_conic_rect = if radius.is_zero() { truncated_rect } else { clipped.round().cast() };
-    // The center stays where it is on the truncated rect, so a radius doesn't move the gradient.
-    let to_rect_center = |cx: f32, cy: f32| {
-        let shift = truncated_rect.origin - radial_conic_rect.origin;
+    let radial_conic_rect: PhysicalRect = clipped.round().cast();
+    let to_rect_center = |x: f32, y: f32| {
+        let (cx, cy) = match args.rotation {
+            RenderingRotation::NoRotation => (x, y),
+            RenderingRotation::Rotate90 => (geom_w - y, x),
+            RenderingRotation::Rotate180 => (geom_w - x, geom_h - y),
+            RenderingRotation::Rotate270 => (y, geom_h - x),
+        };
         (
-            geom.min_x() + cx - clipped.min_x() + shift.x as f32,
-            geom.min_y() + cy - clipped.min_y() + shift.y as f32,
+            geom.min_x() + cx - radial_conic_rect.min_x() as f32,
+            geom.min_y() + cy - radial_conic_rect.min_y() as f32,
         )
     };
 
@@ -2044,9 +2048,9 @@ fn process_rectangle_impl(
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
         let (center_x, center_y) = to_rect_center(cx, cy);
-        let gradient_radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -2066,7 +2070,7 @@ fn process_rectangle_impl(
         processor.process_radial_gradient(radial_conic_rect, radial_grad);
         Color::default()
     } else if let Brush::ConicGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
         let (center_x, center_y) = to_rect_center(cx, cy);
         let conic_grad = ConicGradientCommand {
             stops: g
@@ -2080,6 +2084,7 @@ fn process_rectangle_impl(
             center_x,
             center_y,
             clip: gradient_clip,
+            rotation: args.rotation.angle().to_radians(),
         };
 
         processor.process_conic_gradient(radial_conic_rect, conic_grad);
