@@ -567,4 +567,71 @@ assert_eq!(instance.get_fli_content_y(), released, "Held still before the return
 slint_testing::mock_elapsed_time(100000000);
 assert_eq!(instance.get_fli_content_y(), 0., "Bounced back");
 ```
+
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_content_height(instance.get_fli_height() + 1500.);
+
+let advance_frames = |frames| {
+    for _ in 0..frames {
+        slint_testing::mock_elapsed_time(16);
+        let _ = instance.get_fli_content_y();
+    }
+};
+
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(50., 50.),
+    delta_x: 0.,
+    delta_y: -300.,
+    phase: TouchPhase::Moved,
+}));
+advance_frames(3);
+let before_shrink = instance.get_fli_content_y();
+assert!(before_shrink < 0. && before_shrink > -100., "The fling must be moving before the content shrinks: {before_shrink}");
+assert!(instance.window().has_active_animations());
+
+instance.set_fli_content_height(instance.get_fli_height() + 100.);
+advance_frames(10_000 / 16);
+let settled_y = instance.get_fli_content_y();
+assert!(!instance.window().has_active_animations(), "The fling must settle within ten seconds");
+assert!((settled_y + 100.).abs() < 0.01, "The fling must settle at the new lower limit (-100), received: {settled_y}");
+```
+
+```rust
+use slint_testing::AutoBool;
+
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+instance.set_fli_content_height(instance.get_fli_height() + 100.);
+
+let advance_frames = |frames| {
+    for _ in 0..frames {
+        slint_testing::mock_elapsed_time(16);
+        let _ = instance.get_fli_content_y();
+    }
+};
+
+advance_frames(1);
+instance.set_fli_content_y(-150.);
+advance_frames(3);
+let before_shrink = instance.get_fli_content_y();
+assert!(before_shrink > -150. && before_shrink < -100., "The spring must be returning before the content shrinks: {before_shrink}");
+assert!(instance.window().has_active_animations());
+
+instance.set_fli_content_height(instance.get_fli_height() + 50.);
+advance_frames(10_000 / 16);
+let settled_y = instance.get_fli_content_y();
+assert!(!instance.window().has_active_animations(), "The spring must settle within ten seconds");
+assert!((settled_y + 50.).abs() < 0.01, "The spring must settle at the new lower limit (-50), received: {settled_y}");
+```
 */

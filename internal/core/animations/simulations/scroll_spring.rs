@@ -59,7 +59,11 @@ fn initial_return_rate(distance: f32) -> f32 {
 #[derive(Debug)]
 pub struct SpringSimulation {
     start_time: Instant,
-    traveled: f32,
+    limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
+    limit: f32,
+    last_position: f32,
+    last_time: Duration,
+    spring_time: Duration,
     data: SpringRegime,
     init_pos: f32,
     release_velocity: f32,
@@ -80,7 +84,8 @@ impl SpringSimulation {
         velocity: f32,
         drag_speed: f32,
     ) -> Self {
-        let distance = limit_value.as_ref().get() - start_value;
+        let limit = limit_value.as_ref().get();
+        let distance = limit - start_value;
         let release_velocity = if velocity * distance < 0. { velocity } else { 0. };
         let onset_distance = distance - release_velocity * RETURN_DELAY.as_secs_f32();
         let return_rate_share = if release_velocity == 0. {
@@ -92,7 +97,11 @@ impl SpringSimulation {
             - return_rate_share * onset_distance * initial_return_rate(onset_distance);
         Self {
             start_time,
-            traveled: 0.,
+            limit_value,
+            limit,
+            last_position: start_value,
+            last_time: Duration::ZERO,
+            spring_time: RETURN_DELAY,
             data: SpringRegime::new(onset_distance, onset_velocity, RETURN_FREQUENCY, 1.),
             init_pos: distance,
             release_velocity,
@@ -101,7 +110,7 @@ impl SpringSimulation {
 
     /// The remaining distance to the limit and its rate of change.
     fn evaluate(&self, time_elapsed: Duration) -> (f32, f32) {
-        match time_elapsed.checked_sub(RETURN_DELAY) {
+        match time_elapsed.checked_sub(self.spring_time) {
             Some(t) => self.data.evaluate(t.as_secs_f32()),
             None => (
                 self.init_pos - self.release_velocity * time_elapsed.as_secs_f32(),
@@ -111,12 +120,21 @@ impl SpringSimulation {
     }
 
     fn step_internal(&mut self, current: &mut f32, new_tick: Instant) -> bool {
-        let (new_pos, new_vel) = self.evaluate(new_tick.duration_since(self.start_time));
-        let new_traveled = self.init_pos - new_pos;
-        *current += new_traveled - self.traveled;
-        self.traveled = new_traveled;
+        let time_elapsed = new_tick.duration_since(self.start_time);
+        let limit = self.limit_value.as_ref().get();
+        if limit != self.limit || *current != self.last_position {
+            let (_, velocity) = self.evaluate(self.last_time);
+            self.data = SpringRegime::new(limit - *current, velocity, RETURN_FREQUENCY, 1.);
+            self.spring_time = self.last_time;
+            self.limit = limit;
+        }
+        let (new_pos, new_vel) = self.evaluate(time_elapsed);
+        let finished = new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE;
+        *current = if finished { self.limit } else { self.limit - new_pos };
+        self.last_position = *current;
+        self.last_time = time_elapsed;
 
-        new_pos.abs() < ZERO_TOLERANCE && new_vel.abs() < ZERO_TOLERANCE
+        finished
     }
 }
 
@@ -157,6 +175,40 @@ mod tests {
         );
         assert_approx_eq!(simulation.remaining_distance(core::time::Duration::from_secs(10)), 0.);
         assert_approx_eq!(simulation.remaining_velocity(core::time::Duration::from_secs(10)), 0.);
+    }
+
+    #[test]
+    fn retargeting_preserves_position_and_velocity() {
+        for sign in [-1., 1.] {
+            for (new_limit, offset) in [(10., 0.), (20., 10.)] {
+                let start = start_time();
+                let mut simulation = SpringSimulation::new_with_default_parameters(
+                    sign * 30.,
+                    test_limit_property(sign * 20.),
+                    start,
+                    0.,
+                    0.,
+                );
+                let elapsed = Duration::from_millis(50);
+                let mut position = sign * 30.;
+                assert!(!simulation.step(&mut position, start + elapsed));
+                let velocity = simulation.remaining_velocity(elapsed);
+
+                simulation.limit_value.as_ref().set(sign * new_limit);
+                position += sign * offset;
+                let before = position;
+                assert!(!simulation.step(&mut position, start + elapsed));
+                assert_approx_eq!(position, before);
+                assert_approx_eq!(simulation.remaining_velocity(elapsed), velocity);
+                assert_approx_eq!(
+                    simulation.remaining_distance(elapsed),
+                    sign * new_limit - position
+                );
+
+                assert!(simulation.step(&mut position, start + Duration::from_secs(10)));
+                assert_approx_eq!(position, sign * new_limit);
+            }
+        }
     }
 
     /// `remaining_velocity` reports the velocity of the content position that `step` moves,

@@ -212,4 +212,50 @@ assert!(instance.get_outer_y() < 500., "Scrolling the outer again: {}", instance
 assert_eq!(instance.get_nested_y(), nested_y);
 ```
 
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+let scroll_vertical = |inner_bounce| {
+    let instance = TestCase::new().unwrap();
+    for (id, bounce) in [("TestCase::outer", AutoBool::Off), ("TestCase::inner", inner_bounce)] {
+        let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, id)
+            .next()
+            .unwrap();
+        slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    }
+
+    let position = LogicalPoint::new(175., 175.);
+    for (phase, delta_y) in [
+        (TouchPhase::Started, 0.),
+        (TouchPhase::Moved, -20.),
+        (TouchPhase::Moved, -20.),
+    ] {
+        instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+            position,
+            delta_x: 0.,
+            delta_y,
+            phase,
+        }));
+        slint_testing::mock_elapsed_time(16);
+    }
+
+    assert_eq!(instance.get_inner_x(), 0., "A vertical gesture must not scroll the horizontal inner Flickable");
+    assert!(instance.get_test());
+    let outer_y = instance.get_outer_y();
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position,
+        delta_x: 0.,
+        delta_y: 0.,
+        phase: TouchPhase::Ended,
+    }));
+    outer_y
+};
+
+let without_bounce = scroll_vertical(AutoBool::Off);
+assert!(without_bounce > 0., "The outer Flickable must follow the vertical gesture");
+let with_bounce = scroll_vertical(AutoBool::On);
+assert_eq!(with_bounce, without_bounce, "Inner bounce must not consume the outer Flickable's vertical gesture");
+```
+
 */

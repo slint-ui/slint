@@ -523,10 +523,8 @@ impl FlickableDataInner {
     ) -> bool {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
 
-        let allowed_y = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::Y))
-            || (delta.y != 0 as Coord && flick.content_height() > geo.height_length());
-        let allowed_x = FlickAnimation::use_bounce(effective_bounce(flick, &geo, Dimension::X))
-            || (delta.x != 0 as Coord && flick.content_width() > geo.width_length());
+        let allowed_y = delta.y != 0 as Coord && flick.content_height() > geo.height_length();
+        let allowed_x = delta.x != 0 as Coord && flick.content_width() > geo.width_length();
 
         allowed_x || allowed_y
     }
