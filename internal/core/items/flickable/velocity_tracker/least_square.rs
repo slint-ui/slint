@@ -42,13 +42,6 @@ fn norm<T: Float + Sum>(v: &[T]) -> T {
     dot(v, v).sqrt()
 }
 
-/// Row-major matrix backed by a fixed-size array.
-///
-/// `ROWS` is fixed at compile time. `MAX_COLS` only bounds the storage;
-/// the number of columns actually in use (`columns`) is chosen at
-/// construction time and can be smaller, since callers may have fewer
-/// samples than the maximum they're prepared to store. This keeps the
-/// Gram-Schmidt process below allocation-free.
 struct Matrix<T, const ROWS: usize, const MAX_COLS: usize> {
     columns: usize,
     elements: [[T; MAX_COLS]; ROWS],
@@ -73,11 +66,6 @@ impl<T: Float, const ROWS: usize, const MAX_COLS: usize> Matrix<T, ROWS, MAX_COL
     }
 }
 
-/// A polynomial fit to a dataset.
-///
-/// `MAX_COEFFS` is the compile-time storage capacity; only the first
-/// `degree() + 1` entries of the backing storage are meaningful, as returned
-/// by [`Self::coefficients`].
 pub struct PolynomialFit<T, const MAX_COEFFS: usize> {
     degree: usize,
     coefficients: [T; MAX_COEFFS],
@@ -92,10 +80,6 @@ pub struct PolynomialFit<T, const MAX_COEFFS: usize> {
 }
 
 impl<T, const MAX_COEFFS: usize> PolynomialFit<T, MAX_COEFFS> {
-    /// The polynomial coefficients of the fit.
-    ///
-    /// For each `i`, `coefficients()[i]` is the coefficient of the `i`-th
-    /// power of the variable. Has `degree() + 1` elements.
     pub fn coefficients(&self) -> &[T] {
         &self.coefficients[..=self.degree]
     }

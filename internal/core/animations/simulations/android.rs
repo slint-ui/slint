@@ -51,8 +51,6 @@ impl Parameter for AndroidFlickParameters {
 
 #[derive(Debug)]
 pub struct AndroidFlick {
-    /// If the limit is not reached, it is also fine. Also exceeding the limit can be ok,
-    /// but at the end of the animation the limit shall not be exceeded
     limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
     data: AndroidFlickParameters,
     direction: Direction,

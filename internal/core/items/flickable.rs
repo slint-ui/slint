@@ -481,7 +481,7 @@ struct FlickableDataInner {
     /// calculated required for the animation after the release event
     velocity_rb: VelocityTracker,
 
-    /// The animation details of the currently running animation for smooth mouse wheel scrolling.
+    /// The animation details of the currently running animation for smooth mouse wheel, touchpad and touch screen scrolling.
     /// This allows us to add the missing delta of the animation to the next scroll event if the user scrolls again
     /// before the animation is finished.
     running_animation: Option<RunningSimulation>,
