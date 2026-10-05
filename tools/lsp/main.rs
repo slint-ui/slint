@@ -453,9 +453,16 @@ async fn run_main_loop(
     let startup_library_paths = (!library_paths.is_empty()).then(|| library_paths.clone());
     let startup_style = (!cli_args.style.is_empty()).then(|| cli_args.style.clone());
     let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths,
+        compiler_config: {
+            let mut compiler_config =
+                editor_preview::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.include_paths = cli_args.include_paths;
+            compiler_config.library_paths = library_paths;
+            compiler_config.style =
+                Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
+            compiler_config.resource_url_mapper = None;
+            compiler_config
+        },
         open_import_callback: Some(Rc::new(move |path| {
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
@@ -490,9 +497,6 @@ async fn run_main_loop(
         } else {
             editor_preview::ByteFormat::Utf16
         },
-        resource_url_mapper: None,
-        // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
-        enable_experimental: false,
     };
 
     let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
