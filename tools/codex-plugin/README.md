@@ -21,7 +21,9 @@ The CLI supports the development skill and tools but does not display an inline 
 
 The build uses the existing native LSP and Wasm interpreter crates.
 Generated binaries and their source revision are stored in the ignored `runtime/` directory.
-The server embeds the generated Wasm and JavaScript in the preview resource, without fetching a released interpreter.
+The preview loads generated Wasm and JavaScript from a loopback server owned by the local MCP process.
+The HTML stays below 1 MiB; the runtime assets are served separately.
+The asset server exposes only these two files and closes when the MCP process ends.
 The bundled native LSP supplies validation directly; agents do not need to find an LSP executable.
 
 ## Follow master

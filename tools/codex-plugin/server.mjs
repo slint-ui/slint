@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, isAbsolute } from "node:path";
@@ -15,13 +16,32 @@ const example = await readFile(join(root, "examples/button.slint"), "utf8");
 const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
 const runtimeJavascript = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter.js"));
 const runtimeWasm = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter_bg.wasm"));
-const initializer = runtimeJavascript.toString("utf8").match(/\b(\w+)\s+as\s+default\b/)?.[1];
-if (!initializer) throw new Error("The built Wasm module has no default initializer.");
-const runtimeScript = runtimeJavascript.toString("utf8") + `\nwindow.slintRuntime = { default: ${initializer}, compile_from_string, run_event_loop };`;
+const assetPrefix = "/" + randomBytes(16).toString("hex");
+const assets = new Map([
+  [assetPrefix + "/slint_wasm_interpreter.js", { type: "text/javascript", bytes: runtimeJavascript }],
+  [assetPrefix + "/slint_wasm_interpreter_bg.wasm", { type: "application/wasm", bytes: runtimeWasm }],
+]);
+const assetServer = createServer((request, response) => {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Private-Network", "true");
+  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  const asset = assets.get(request.url);
+  if (!asset) { response.writeHead(404); response.end(); return; }
+  if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
+  if (request.method !== "GET") { response.writeHead(405); response.end(); return; }
+  response.setHeader("Content-Type", asset.type);
+  response.setHeader("Content-Length", asset.bytes.length);
+  response.end(asset.bytes);
+});
+await new Promise((resolve, reject) => {
+  assetServer.once("error", reject);
+  assetServer.listen(0, "127.0.0.1", resolve);
+});
+const assetOrigin = `http://127.0.0.1:${assetServer.address().port}`;
 const html = (await readFile(join(root, "runtime/preview.html"), "utf8"))
-  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify(runtimeMetadata))
-  .replace("__SLINT_RUNTIME_JAVASCRIPT__", () => runtimeScript.replaceAll("</script", "<\\/script"))
-  .replace("__SLINT_RUNTIME_WASM__", runtimeWasm.toString("base64"));
+  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, assetBaseUrl: assetOrigin + assetPrefix }));
+if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
 const icon = await readFile(join(root, "assets/slint.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
@@ -101,7 +121,7 @@ async function handle(message) {
       if (uri === "slint://components/button.slint") return { contents: [{ uri, mimeType: "text/plain", text: component }] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
       return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
-        ui: { prefersBorder: true },
+        ui: { prefersBorder: true, csp: { resourceDomains: [assetOrigin], connectDomains: [assetOrigin] } },
         "openai/ui": { availableDisplayModes: ["inline"] },
       } }] };
     }
@@ -125,7 +145,6 @@ async function handle(message) {
     default: throw new Error("Unknown MCP method.");
   }
 }
-
 for await (const line of createInterface({ input: process.stdin })) {
   let message;
   try {
@@ -137,3 +156,4 @@ for await (const line of createInterface({ input: process.stdin })) {
     process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message?.id ?? null, error: { code: -32602, message: error.message } }) + "\n");
   }
 }
+await new Promise(resolve => assetServer.close(resolve));
