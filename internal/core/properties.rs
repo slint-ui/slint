@@ -386,10 +386,10 @@ impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
     }
 }
 
-/// Per-thread reactive state of the property system.
+/// The reactive state of the property system for one [`SlintContext`](crate::SlintContext).
 ///
-/// Owns the binding currently being evaluated, which property accesses read to
-/// register themselves as dependencies. Reached through [`with_property_context`].
+/// Bindings evaluated in one context don't register dependencies on reads made
+/// through another, so two contexts on the same thread don't affect one another.
 pub struct PropertyContext {
     /// Raw pointer to the binding currently being evaluated, or null.
     current_binding: Cell<*const BindingHolder>,
@@ -402,17 +402,26 @@ impl Default for PropertyContext {
 }
 
 impl PropertyContext {
-    /// Set the current binding to `value` for the duration of `f`, restoring the
-    /// previous binding afterwards so nested evaluations are balanced.
+    /// Set the current binding to `value` for the duration of `f`, and make this
+    /// context the active one, so that nested reads that don't take a context
+    /// register their dependencies here.
     fn set_current_binding<T>(
         &self,
         value: Option<*const BindingHolder>,
         f: impl FnOnce() -> T,
     ) -> T {
         let old = self.current_binding.replace(value.unwrap_or(core::ptr::null()));
-        let res = f();
-        self.current_binding.set(old);
-        res
+        scopeguard::defer! { self.current_binding.set(old); }
+        self.enter(f)
+    }
+
+    /// Run `f` with this context as the active one.
+    ///
+    /// Property accesses that don't take a context use the active one.
+    pub fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
+        let old = ACTIVE_PROPERTY_CONTEXT.with(|a| a.replace(self as *const Self));
+        scopeguard::defer! { ACTIVE_PROPERTY_CONTEXT.with(|a| a.set(old)); }
+        f()
     }
 
     /// Call `f` with the binding currently being evaluated, if any.
@@ -435,14 +444,21 @@ impl PropertyContext {
 
 crate::thread_local! {
     static FALLBACK_PROPERTY_CONTEXT: PropertyContext = PropertyContext::default();
+    /// Set by [`PropertyContext::enter`] for the duration of its closure.
+    static ACTIVE_PROPERTY_CONTEXT: Cell<*const PropertyContext> = const { Cell::new(core::ptr::null()) };
 }
 
-/// Run `f` with the [`PropertyContext`] of the current [`SlintContext`](crate::SlintContext).
+/// Run `f` with the active [`PropertyContext`] (see [`PropertyContext::enter`]),
+/// or else the one of this thread's [`SlintContext`](crate::SlintContext).
 ///
-/// Property evaluation is expected to happen within a context. When none is set
-/// (isolated unit tests, or properties touched before the platform is installed),
-/// a thread-local fallback is used instead.
+/// When the thread has no context (isolated unit tests, or properties touched before
+/// the platform is installed), a thread-local fallback is used instead.
 pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) -> R {
+    let active = ACTIVE_PROPERTY_CONTEXT.with(|a| a.get());
+    if !active.is_null() {
+        // Safety: `enter` resets the pointer before the context it borrows goes away
+        return f(unsafe { &*active });
+    }
     crate::context::GLOBAL_CONTEXT.with(|c| match c.get() {
         Some(ctx) => f(ctx.property_context()),
         None => FALLBACK_PROPERTY_CONTEXT.with(|pc| f(pc)),
@@ -1438,17 +1454,19 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
         if !NEEDS_SET_DIRTY && unsafe { (*self.holder.dep_nodes.get()).is_empty() } {
             return;
         }
-        with_property_context(|pc| pc.with_current_binding(|cur_binding| {
-            if let Some(cur_binding) = cur_binding {
-                debug_assert!(self.holder.dependencies.get() != const_sentinel());
-                BindingHolder::register_self_as_dependency(
-                    cur_binding,
-                    self.holder.dependencies.as_ptr() as *mut DependencyListHead,
-                    #[cfg(slint_debug_property)]
-                    &self.holder.debug_name,
-                );
-            }
-        }));
+        with_property_context(|pc| {
+            pc.with_current_binding(|cur_binding| {
+                if let Some(cur_binding) = cur_binding {
+                    debug_assert!(self.holder.dependencies.get() != const_sentinel());
+                    BindingHolder::register_self_as_dependency(
+                        cur_binding,
+                        self.holder.dependencies.as_ptr() as *mut DependencyListHead,
+                        #[cfg(slint_debug_property)]
+                        &self.holder.debug_name,
+                    );
+                }
+            })
+        });
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
@@ -1700,6 +1718,42 @@ fn test_nested_property_tracker_evaluate_if_dirty() {
     assert!(inner_tracker.is_dirty());
     let r = outer_tracker.as_ref().evaluate(|| cache_or_evaluate());
     assert_eq!(r, 12);
+}
+
+#[test]
+fn test_nested_read_uses_evaluating_context() {
+    use std::rc::Rc;
+    let ctx = PropertyContext::default();
+    let prop1 = Rc::pin(Property::new(1));
+    let prop2 = Rc::pin(Property::<i32>::default());
+    prop2.as_ref().set_binding({
+        let prop1 = prop1.clone();
+        move || prop1.as_ref().get() * 2
+    });
+    assert_eq!(prop2.as_ref().get_with_context(&ctx), 2);
+    prop1.as_ref().set(5);
+    assert_eq!(prop2.as_ref().get_with_context(&ctx), 10);
+}
+
+#[test]
+fn test_read_through_other_context_is_not_tracked() {
+    use std::rc::Rc;
+    let ctx_a = PropertyContext::default();
+    let ctx_b = PropertyContext::default();
+    let prop_a = Rc::pin(Property::new(1));
+    let prop_b = Rc::pin(Property::new(10));
+    let sum = Rc::pin(Property::<i32>::default());
+    sum.as_ref().set_binding({
+        let (prop_a, prop_b) = (prop_a.clone(), prop_b.clone());
+        let ctx_b = &raw const ctx_b;
+        // Safety: `ctx_b` outlives `sum`'s evaluations below
+        move || prop_a.as_ref().get() + prop_b.as_ref().get_with_context(unsafe { &*ctx_b })
+    });
+    assert_eq!(sum.as_ref().get_with_context(&ctx_a), 11);
+    prop_b.as_ref().set(20);
+    assert_eq!(sum.as_ref().get_with_context(&ctx_a), 11);
+    prop_a.as_ref().set(2);
+    assert_eq!(sum.as_ref().get_with_context(&ctx_a), 22);
 }
 
 #[cfg(feature = "ffi")]
