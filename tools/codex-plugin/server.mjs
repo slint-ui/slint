@@ -58,14 +58,14 @@ const renderOutputSchema = {
 const tools = [
   {
     name: "validate_slint", title: "Validate Slint Source", icons,
-    description: "Validate a saved Slint file with the language server built from this plugin's monorepo checkout. Return diagnostics, source hash, and revision. The bundled Button import is resolved automatically. Provide an absolute source path. No environment discovery is needed by the agent.",
+    description: "Validate a saved Slint file with the bundled language server. Success is structuredContent.status === 'valid'. Status is 'error' for Slint errors or 'failure' for validator/setup errors; never check for 'ok'. Return diagnostics, source hash, and revision. The bundled Button import is resolved automatically. Provide an absolute source path. No environment discovery is needed. Save, validate, and render in one code-mode execution, rendering only after status 'valid'.",
     inputSchema: { type: "object", properties: { path: { type: "string" }, revision: { type: "integer", minimum: 1 } }, required: ["path", "revision"], additionalProperties: false },
-    outputSchema: { type: "object", properties: { status: { type: "string" }, diagnostics: { type: "array" }, sourceHash: { type: "string" }, revision: { type: "integer" }, runtimeVersion: { type: "string" }, message: { type: "string" } }, required: ["status"] },
+    outputSchema: { type: "object", properties: { status: { type: "string", enum: ["valid", "error", "failure"], description: "valid means no error diagnostics; error means Slint errors; failure means a validator or setup error." }, diagnostics: { type: "array" }, sourceHash: { type: "string" }, revision: { type: "integer" }, runtimeVersion: { type: "string" }, message: { type: "string" } }, required: ["status"] },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview exact Slint source using the Wasm interpreter built from the same monorepo checkout as the validator. Read or edit source with apply_patch, use validate_slint, then render the same bytes and revision in one execution. Preserve the user's design and match dimensions to the Window. Only slint-button.slint is supplied as a bundled custom import. Source edits requested through the UI arrive in slintEdit model context. The CLI returns source metadata without displaying an inline UI. Starter:\n" + example,
+    description: "Preview exact Slint source with the Wasm interpreter built from the validator's monorepo checkout. For simple Button requests, reuse the starter below and change only requested properties. Preserve implicit centering and the component's state-color defaults; do not add x/y or hover/pressed overrides unless requested. Save with apply_patch, validate, check structuredContent.status === 'valid', and render the same bytes and revision in one code-mode execution. Match dimensions to the Window. Only slint-button.slint is supplied as a bundled custom import. UI edits arrive in slintEdit model context. The CLI returns metadata without an inline UI. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },

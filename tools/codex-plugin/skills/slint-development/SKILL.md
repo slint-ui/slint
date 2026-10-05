@@ -7,6 +7,7 @@ description: Develop, edit, validate, and preview Slint applications and compone
 
 Work directly in the user's Slint project.
 Read its instructions, dependencies, and existing components before editing.
+For a standalone component preview, use the bundled starter rather than inspecting unrelated project dependencies.
 Use `.slint` as the canonical design source.
 Preserve unrelated edits and use `apply_patch` for source changes.
 Do not substitute an HTML implementation of the design.
@@ -14,20 +15,39 @@ Ask before adding UI elements, decoration, or behavior beyond the user's request
 
 Use the plugin's `validate_slint` tool to check a saved source file.
 It runs the language server built from this monorepo checkout and returns diagnostics, a source hash, and a revision.
+Success is `structuredContent.status === "valid"`.
+The other statuses are `"error"` for Slint errors and `"failure"` for validator or setup errors.
+Do not check for `"ok"`.
 Do not search for another validator when this tool is available.
 The preview and validator use the same Slint source revision recorded in `runtime/runtime.json`.
 If runtime files are missing, run `node tools/codex-plugin/scripts/build-runtime.mjs` from the monorepo before installing the plugin.
 Build the runtime after updating the branch from master; do not substitute a released LSP or Wasm interpreter.
 Check the project's Slint dependencies before relying on master for another version.
 
-For the supplied reusable Button, use `show_slint_button` or start from `examples/button.slint` in this plugin.
+For a requested Button design, use the starter included in `render_slint`'s description.
+Change only the requested properties; preserve implicit centering, geometry, and state-color defaults.
+Do not add `x`, `y`, hover, or pressed overrides unless requested.
+Use `show_slint_button` when the user wants the unchanged example.
 Import `Button` from `slint-button.slint`.
 Its API includes `label`, `label-color`, `background-color`, `hover-color`, `pressed-color`, `disabled-color`, `enabled`, and `clicked()`.
 Keep the Window transparent unless the user requests a background.
 Set root dimensions explicitly and pass the same logical dimensions to `render_slint`.
 The preview resolves the bundled Button import; other project imports require the project's normal preview tooling.
 
-Read, edit, validate, and render in one execution when possible.
+Use one code-mode execution to save with `apply_patch`, validate, and render.
+Await validation and check its status before rendering; report errors and stop that execution if validation fails.
+After defining the patch and its exact source, use this sequence:
+
+```js
+await tools.apply_patch(patch);
+const checked = await tools.mcp__slint__validate_slint({ path, revision });
+if (checked.isError || checked.structuredContent.status !== "valid") {
+  text(checked);
+} else {
+  text(await tools.mcp__slint__render_slint({ source, revision, width, height }));
+}
+```
+
 Render the exact bytes that passed validation, with the same revision and matching Window dimensions.
 A tool response confirms submission, not visible rendering.
 Ask the user to inspect the preview when visual confirmation is needed.

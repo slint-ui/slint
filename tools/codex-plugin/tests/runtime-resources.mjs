@@ -99,12 +99,18 @@ test("invalid Slint and render arguments return errors", async () => {
   const directory = await mkdtemp(join(tmpdir(), "slint-invalid-test-"));
   const path = join(directory, "invalid.slint");
   try {
+    const { tools } = await client.call("tools/list");
+    const statuses = tools.find(tool => tool.name === "validate_slint").outputSchema.properties.status.enum;
+    assert.deepEqual(statuses, ["valid", "error", "failure"]);
     const source = "export component Broken inherits Window { width: banana; }";
     await writeFile(path, source);
     const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 1 } });
     assert.equal(validation.isError, true);
     assert.equal(validation.structuredContent.status, "error");
     assert(validation.structuredContent.diagnostics.some(diagnostic => diagnostic.severity === 1));
+    const missing = await client.call("tools/call", { name: "validate_slint", arguments: { path: join(directory, "missing.slint"), revision: 1 } });
+    assert.equal(missing.isError, true);
+    assert.equal(missing.structuredContent.status, "failure");
     for (const arguments_ of [{ source, revision: 0 }, { source, revision: 1, width: 0 }]) {
       const rendering = await client.call("tools/call", { name: "render_slint", arguments: arguments_ });
       assert.equal(rendering.isError, true);
