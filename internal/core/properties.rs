@@ -453,7 +453,8 @@ crate::thread_local! {
 ///
 /// When the thread has no context (isolated unit tests, or properties touched before
 /// the platform is installed), a thread-local fallback is used instead.
-pub(crate) fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) -> R {
+#[doc(hidden)]
+pub fn with_property_context<R>(f: impl FnOnce(&PropertyContext) -> R) -> R {
     let active = ACTIVE_PROPERTY_CONTEXT.with(|a| a.get());
     if !active.is_null() {
         // Safety: `enter` resets the pointer before the context it borrows goes away

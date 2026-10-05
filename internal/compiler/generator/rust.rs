@@ -246,10 +246,6 @@ fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     }
 }
 
-fn primitive_property_value(ty: &Type, property_accessor: MemberAccess) -> TokenStream {
-    primitive_value_from_property_value(ty, property_accessor.get_property())
-}
-
 fn primitive_value_from_property_value(ty: &Type, value: TokenStream) -> TokenStream {
     match ty {
         Type::LogicalLength => quote!(#value.get()),
@@ -467,7 +463,7 @@ fn generate_public_component(
         current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
         generator_state: RustGeneratorContext {
             global_access: quote!(_self.globals()),
-            property_context: None,
+            property_context: Some(quote!(_ctx)),
         },
         argument_types: &[],
     };
@@ -532,7 +528,7 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
                 sp::unwrap(inner.globals.get()).create_window_from_existing(window)?;
-                sp::unwrap(inner.globals.get()).enter(|| {
+                sp::unwrap(inner.globals.get()).enter(|_ctx| {
                     #init_bundle_translations
                     #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                     #ensure_tree_instantiated
@@ -634,7 +630,7 @@ fn generate_public_component(
 
             #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
-                sp::unwrap(inner.globals.get()).enter(|| {
+                sp::unwrap(inner.globals.get()).enter(|_ctx| {
                     #eager_create_window
                     #init_bundle_translations
                     #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
@@ -807,8 +803,9 @@ fn generate_shared_globals(
 
             // Run `f` with the property context of the component's context as the active one.
             #[allow(dead_code)]
-            #pub_token fn enter<R>(&self, f: impl FnOnce() -> R) -> R {
-                self.context.property_context().enter(f)
+            #pub_token fn enter<R>(&self, f: impl FnOnce(&sp::PropertyContext) -> R) -> R {
+                let property_context = self.context.property_context();
+                property_context.enter(|| f(property_context))
             }
 
             fn scale_factor(&self) -> f32 {
@@ -1068,7 +1065,11 @@ fn handle_property_init(
             }
             None => (quote!(, args), None),
         };
-        let handler = self_fn(args, ret, quote!({ (#tokens_for_expression) #as_ }));
+        let handler = self_fn(
+            args,
+            ret,
+            quote!(sp::with_property_context(|_ctx| { (#tokens_for_expression) #as_ })),
+        );
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             #set_callback_handler(#rust_property, &self_rc, { #handler });
@@ -1123,7 +1124,10 @@ fn handle_property_init(
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         let set_animated_property_binding = helper("set_animated_property_binding");
-                        let details = self_closure(unit_arg.clone(), quote!((#anim, None)));
+                        let details = self_closure(
+                            unit_arg.clone(),
+                            quote!(sp::with_property_context(|_ctx| (#anim, None))),
+                        );
                         let context = access_context(ctx);
                         quote! { {
                             #set_animated_property_binding(
@@ -1136,10 +1140,10 @@ fn handle_property_init(
                         let set_animated_property_binding = helper("set_animated_property_binding");
                         let details = self_closure(
                             unit_arg.clone(),
-                            quote!({
+                            quote!(sp::with_property_context(|_ctx| {
                                 let (animation, change_time) = #animation;
                                 (animation, Some(change_time))
-                            }),
+                            })),
                         );
                         let context = access_context(ctx);
                         quote! { {
@@ -1275,7 +1279,7 @@ fn public_api(
             property_and_callback_accessors.push(quote!(
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
-                    #global_access.enter(|| #prop.call(&(#(#args_name,)*)))
+                    #global_access.enter(|_ctx| #prop.call(&(#(#args_name,)*)))
                 }
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
@@ -1302,7 +1306,7 @@ fn public_api(
             property_and_callback_accessors.push(quote!(
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
-                    #global_access.enter(|| #prop(#(#args_name,)*))
+                    #global_access.enter(|_ctx| #prop(_ctx, #(#args_name,)*))
                 }
             ));
         } else {
@@ -1310,12 +1314,15 @@ fn public_api(
 
             let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
 
-            let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
+            let prop_expression = primitive_value_from_property_value(
+                &p.ty,
+                MemberAccess::Direct(prop).get_property_with(Some(&quote!(_ctx))),
+            );
 
             property_and_callback_accessors.push(quote!(
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     let _self = #self_init;
-                    #global_access.enter(|| #prop_expression)
+                    #global_access.enter(|_ctx| #prop_expression)
                 }
             ));
 
@@ -1325,7 +1332,7 @@ fn public_api(
                 property_and_callback_accessors.push(quote!(
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         let _self = #self_init;
-                        #global_access.enter(|| { #set_value })
+                        #global_access.enter(|_ctx| { #set_value })
                     }
                 ));
             } else {
@@ -1467,7 +1474,10 @@ fn generate_sub_component_body(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
+        RustGeneratorContext {
+            global_access: quote!(_self.globals()),
+            property_context: Some(quote!(_ctx)),
+        },
         parent_ctx,
     );
 
@@ -1592,7 +1602,7 @@ fn generate_sub_component_body(
                     move || {
                         let self_rc = sp::unwrap(self_weak.upgrade());
                         let _self = self_rc.as_pin_ref();
-                        (#model) as _
+                        sp::with_property_context(|_ctx| (#model) as _)
                     }
                 });
             });
@@ -1954,8 +1964,8 @@ fn generate_sub_component_body(
                     &_self.#change_tracker,
                     #context.change_handler_queue(),
                     &self_rc,
-                    move |_self, _: &()| #prop,
-                    move |_self, _| { #code; }
+                    move |_self, _ctx: &sp::PropertyContext| #prop,
+                    move |_self, _| sp::with_property_context(|_ctx| { #code; })
                 );
             }
         },
@@ -1977,8 +1987,11 @@ fn generate_sub_component_body(
                     new_row: bool,
                     result: &mut [sp::GridLayoutInputData],
                 ) {
-                    let _self = self;
-                    #expr
+                    #![allow(unused)]
+                    sp::with_property_context(|_ctx| {
+                        let _self = self;
+                        #expr
+                    })
                 }
             }
         });
@@ -2003,8 +2016,11 @@ fn generate_sub_component_body(
                 fn cross_axis_self_alignment_for_repeated(
                     self: ::core::pin::Pin<&Self>,
                 ) -> sp::CrossAxisAlignment {
-                    let _self = self;
-                    #expr
+                    #![allow(unused)]
+                    sp::with_property_context(|_ctx| {
+                        let _self = self;
+                        #expr
+                    })
                 }
             }
         });
@@ -2014,8 +2030,11 @@ fn generate_sub_component_body(
             let expr = compile_expression(&expr.borrow(), &ctx);
             quote! {
                 fn layout_order_for_repeated(self: ::core::pin::Pin<&Self>) -> i32 {
-                    let _self = self;
-                    #expr
+                    #![allow(unused)]
+                    sp::with_property_context(|_ctx| {
+                        let _self = self;
+                        #expr
+                    })
                 }
             }
         });
@@ -2058,7 +2077,7 @@ fn generate_sub_component_body(
                         #context.start_timer(&self.#ident, sp::TimerMode::Repeated, interval, move || {
                             if let Some(self_rc) = self_weak.upgrade() {
                                 let _self = self_rc.as_pin_ref();
-                                #callback
+                                sp::with_property_context(|_ctx| { #callback });
                             }
                         });
                     }
@@ -2070,8 +2089,10 @@ fn generate_sub_component_body(
         user_init_code.push(quote!(_self.update_timers();));
         quote!(
             fn update_timers(self: ::core::pin::Pin<&Self>) {
-                let _self = self;
-                #(#updt)*
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    #(#updt)*
+                })
             }
         )
     });
@@ -2083,24 +2104,26 @@ fn generate_sub_component_body(
         let code = emit_in_chunks(
             "init_change_trackers",
             change_trackers_init_code,
-            &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
-            &quote!(self_rc.clone()),
+            &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, _ctx: &sp::PropertyContext),
+            &quote!(self_rc.clone(), _ctx),
             &quote!(let _self = self_rc.as_pin_ref();),
             false,
             &mut chunk_fns,
         );
         quote!(
             pub(super) fn init_change_trackers(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                let _self = self_rc.as_pin_ref();
-                #(#code)*
+                sp::with_property_context(|_ctx| {
+                    let _self = self_rc.as_pin_ref();
+                    #(#code)*
+                })
             }
         )
     });
     let init = emit_in_chunks(
         "init",
         init,
-        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32),
-        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child),
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, tree_index: u32, tree_index_of_first_child: u32, _ctx: &sp::PropertyContext),
+        &quote!(self_rc.clone(), tree_index, tree_index_of_first_child, _ctx),
         &quote!(let _self = self_rc.as_pin_ref();),
         true,
         &mut chunk_fns,
@@ -2112,8 +2135,8 @@ fn generate_sub_component_body(
     let user_init_code = emit_in_chunks(
         "user_init",
         user_init_code,
-        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>),
-        &quote!(self_rc.clone()),
+        &quote!(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>, _ctx: &sp::PropertyContext),
+        &quote!(self_rc.clone(), _ctx),
         &quote!(let _self = self_rc.as_pin_ref();),
         false,
         &mut chunk_fns,
@@ -2126,19 +2149,23 @@ fn generate_sub_component_body(
     let user_init_fn = (is_item_tree_root || component.needs_user_init(root)).then(|| {
         quote!(
             pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                let _self = self_rc.as_pin_ref();
-                #(#user_init_code)*
+                sp::with_property_context(|_ctx| {
+                    let _self = self_rc.as_pin_ref();
+                    #(#user_init_code)*
+                })
             }
         )
     });
     let accessibility_fns = (is_item_tree_root || component.has_accessibility(root)).then(|| {
         quote!(
             #vis fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                let _self = self;
-                match index {
-                    #(#accessible_role_branch)*
-                    _ => sp::AccessibleRole::default(),
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match index {
+                        #(#accessible_role_branch)*
+                        _ => sp::AccessibleRole::default(),
+                    }
+                })
             }
 
             #vis fn accessible_string_property(
@@ -2147,27 +2174,33 @@ fn generate_sub_component_body(
                 what: sp::AccessibleStringProperty,
                 result: &mut sp::SharedString,
             ) -> bool {
-                let _self = self;
-                match (index, what) {
-                    #(#accessible_string_property_branch)*
-                    _ => false,
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match (index, what) {
+                        #(#accessible_string_property_branch)*
+                        _ => false,
+                    }
+                })
             }
 
             #vis fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                let _self = self;
-                match (index, action) {
-                    #(#accessibility_action_branch)*
-                    _ => (),
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match (index, action) {
+                        #(#accessibility_action_branch)*
+                        _ => (),
+                    }
+                })
             }
 
             #vis fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                let _self = self;
-                match index {
-                    #(#supported_accessibility_actions_branch)*
-                    _ => ::core::default::Default::default(),
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match index {
+                        #(#supported_accessibility_actions_branch)*
+                        _ => ::core::default::Default::default(),
+                    }
+                })
             }
         )
     });
@@ -2180,37 +2213,45 @@ fn generate_sub_component_body(
                 order: sp::TraversalOrder,
                 visitor: sp::ItemVisitorRefMut<'_>
             ) -> sp::VisitChildrenResult {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_visit_branch)*
-                    _ => sp::invalid_dyn_index(dyn_index),
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match dyn_index {
+                        #(#repeated_visit_branch)*
+                        _ => sp::invalid_dyn_index(dyn_index),
+                    }
+                })
             }
         )
     });
     let repeater_fns = (is_item_tree_root || has_repeaters).then(|| {
         quote!(
             #vis fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-                let _self = self;
-                let mut _changed = false;
-                #(#ensure_instantiated_stmts)*
-                _changed
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    let mut _changed = false;
+                    #(#ensure_instantiated_stmts)*
+                    _changed
+                })
             }
 
             #vis fn get_subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_ranges)*
-                    _ => sp::invalid_dyn_index(dyn_index),
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match dyn_index {
+                        #(#repeated_subtree_ranges)*
+                        _ => sp::invalid_dyn_index(dyn_index),
+                    }
+                })
             }
 
             #vis fn get_subtree(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_subtree_components)*
-                    _ => sp::invalid_dyn_index(dyn_index),
-                };
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match dyn_index {
+                        #(#repeated_subtree_components)*
+                        _ => sp::invalid_dyn_index(dyn_index),
+                    };
+                })
             }
         )
     });
@@ -2218,24 +2259,28 @@ fn generate_sub_component_body(
         #repeater_fns
 
         #vis fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
-            let _self = self;
-            match orientation {
-                sp::Orientation::Horizontal => #layout_info_h,
-                sp::Orientation::Vertical => #layout_info_v,
-            }
+            sp::with_property_context(|_ctx| {
+                let _self = self;
+                match orientation {
+                    sp::Orientation::Horizontal => #layout_info_h,
+                    sp::Orientation::Vertical => #layout_info_v,
+                }
+            })
         }
 
         #subtree_index_fn
 
         #vis fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
-            let _self = self;
-            // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
-            // fields are in alphabetical order
-            let (h, w, x, y) = match index {
-                #(#item_geometry_branch)*
-                _ => return ::core::default::Default::default()
-            };
-            sp::euclid::rect(x, y, w, h)
+            sp::with_property_context(|_ctx| {
+                let _self = self;
+                // The result of the expression is an anonymous struct, `{height: length, width: length, x: length, y: length}`
+                // fields are in alphabetical order
+                let (h, w, x, y) = match index {
+                    #(#item_geometry_branch)*
+                    _ => return ::core::default::Default::default()
+                };
+                sp::euclid::rect(x, y, w, h)
+            })
         }
 
         #accessibility_fns
@@ -2250,11 +2295,13 @@ fn generate_sub_component_body(
     let element_infos_fn = component.has_element_infos(root).then(|| {
         quote!(
             pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                let _self = self;
-                match index {
-                    #(#item_element_infos_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match index {
+                        #(#item_element_infos_branch)*
+                        _ => { ::core::default::Default::default() }
+                    }
+                })
             }
         )
     });
@@ -2262,20 +2309,24 @@ fn generate_sub_component_body(
         quote!(
             pub(super) fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
                 #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#element_testable_properties_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match index {
+                        #(#element_testable_properties_branch)*
+                        _ => { ::core::default::Default::default() }
+                    }
+                })
             }
 
             pub(super) fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
                 #![allow(unused, unreachable_patterns)]
-                let _self = self;
-                match index {
-                    #(#element_testable_property_value_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
+                sp::with_property_context(|_ctx| {
+                    let _self = self;
+                    match index {
+                        #(#element_testable_property_value_branch)*
+                        _ => { ::core::default::Default::default() }
+                    }
+                })
             }
         )
     });
@@ -2348,13 +2399,16 @@ fn generate_sub_component_body(
                     tree_index: u32, tree_index_of_first_child: u32)
                 -> ::core::result::Result<(), slint::PlatformError>
             {
-                let _self = self_rc.as_pin_ref();
-                let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
-                let _ = _self.globals.set(globals);
-                _self.tree_index.set(tree_index);
-                _self.tree_index_of_first_child.set(tree_index_of_first_child);
-                #(#init)*
-                ::core::result::Result::Ok(())
+                #![allow(unused)]
+                sp::with_property_context(|_ctx| {
+                    let _self = self_rc.as_pin_ref();
+                    let _ = _self.self_weak.set(sp::VRcMapped::downgrade(&self_rc));
+                    let _ = _self.globals.set(globals);
+                    _self.tree_index.set(tree_index);
+                    _self.tree_index_of_first_child.set(tree_index_of_first_child);
+                    #(#init)*
+                    ::core::result::Result::Ok(())
+                })
             }
 
             #user_init_fn
@@ -2415,7 +2469,7 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
 
             quote! {
                 #[allow(dead_code, unused)]
-                pub fn #fn_id(self: ::core::pin::Pin<&Self>, #(#args_name : #args_ty,)*) -> #return_type {
+                pub fn #fn_id(self: ::core::pin::Pin<&Self>, _ctx: &sp::PropertyContext, #(#args_name : #args_ty,)*) -> #return_type {
                     let _self = self;
                     let args = (#(#args_name,)*);
                     (#tokens_for_expression) #as_
@@ -2467,7 +2521,10 @@ fn generate_global(
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
+        RustGeneratorContext {
+            global_access: quote!(_self.globals()),
+            property_context: Some(quote!(_ctx)),
+        },
     );
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
@@ -2501,18 +2558,18 @@ fn generate_global(
         let context = access_context(&ctx);
         quote! {
             #[allow(dead_code, unused)]
-            _self.#change_tracker.init(
+            _self.#change_tracker.init_with_context(
                 #context.change_handler_queue(),
                 sp::unwrap(self_rc.globals.get()).clone(),
-                move |global_weak| {
+                move |global_weak, _ctx| {
                     let self_rc = sp::unwrap(global_weak.upgrade()).#global_id.clone();
                     let _self = self_rc.as_ref();
-                    #prop.get()
+                    #prop.get_with_context(_ctx)
                 },
                 move |global_weak, _| {
                     let self_rc = sp::unwrap(global_weak.upgrade()).#global_id.clone();
                     let _self = self_rc.as_ref();
-                    #code;
+                    sp::with_property_context(|_ctx| { #code; });
                 }
             );
         }
@@ -2522,8 +2579,8 @@ fn generate_global(
     let init = emit_in_chunks(
         "init",
         init,
-        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>),
-        &quote!(self_rc.clone()),
+        &quote!(self_rc: ::core::pin::Pin<sp::Rc<Self>>, _ctx: &sp::PropertyContext),
+        &quote!(self_rc.clone(), _ctx),
         &quote!(let _self = self_rc.as_ref();),
         false,
         &mut chunk_fns,
@@ -2594,10 +2651,13 @@ fn generate_global(
                     sp::Rc::pin(Self::default())
                 }
                 fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
-                    let _ = self.globals.set(sp::Rc::downgrade(globals));
-                    let self_rc = self;
-                    let _self = self_rc.as_ref();
-                    #(#init)*
+                    #![allow(unused)]
+                    sp::with_property_context(|_ctx| {
+                        let _ = self.globals.set(sp::Rc::downgrade(globals));
+                        let self_rc = self;
+                        let _self = self_rc.as_ref();
+                        #(#init)*
+                    })
                 }
 
                 #(#chunk_fns)*
@@ -2872,7 +2932,10 @@ fn generate_item_tree_body(
         let ctx = EvaluationContext::new_sub_component(
             root,
             sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
+            RustGeneratorContext {
+                global_access: quote!(_self.globals()),
+                property_context: Some(quote!(_ctx)),
+            },
             parent_ctx,
         );
         let z_match_arms = z_sorted_nodes.iter().map(|(node_idx, node)| {
@@ -2931,7 +2994,7 @@ fn generate_item_tree_body(
             let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
             let globals = #globals;
             let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
-            globals.clone().enter(|| {
+            globals.clone().enter(|_ctx| {
                 #init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
@@ -2944,7 +3007,7 @@ fn generate_item_tree_body(
             let self_rc = sp::VRc::<sp::ItemTreeVTable, Self>::new_with(Self::default);
             #(let _ = self_rc.parent.set(parent as #parent_component_type);)*
             let _ = self_rc.globals.set(globals.clone());
-            globals.clone().enter(|| {
+            globals.clone().enter(|_ctx| {
                 slint::private_unstable_api::new_item_tree(self_rc, #register_window_adapter_arg, globals, Self::init)
             })
         )
@@ -3070,7 +3133,7 @@ fn generate_repeated_component_body(
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
         generator_state: RustGeneratorContext {
             global_access: quote!(_self.globals()),
-            property_context: None,
+            property_context: Some(quote!(_ctx)),
         },
         argument_types: &[],
     };
@@ -3315,7 +3378,9 @@ fn generate_repeated_component_body(
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::LayoutItemInfo {
-                        #body
+                        sp::with_property_context(|_ctx| {
+                            #body
+                        })
                     }
                 }
             } else { // not a repeated row
@@ -3372,20 +3437,26 @@ fn generate_repeated_component_body(
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        let _self = self.as_ref();
-                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
-                        #v_constrained
-                        info.constraint = self.layout_item_info(o, child_index).constraint;
-                        info
+                        sp::with_property_context(|_ctx| {
+                            #[allow(unused)]
+                            let _self = self.as_ref();
+                            let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                            #v_constrained
+                            info.constraint = self.layout_item_info(o, child_index).constraint;
+                            info
+                        })
                     }
                     fn flexbox_layout_item_info_at_cross_width(
                         self: ::core::pin::Pin<&Self>,
                         #cross_width_param: f32,
                     ) -> sp::FlexboxLayoutItemInfo {
-                        let _self = self.as_ref();
-                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
-                        #at_cross_width_body
-                        info
+                        sp::with_property_context(|_ctx| {
+                            #[allow(unused)]
+                            let _self = self.as_ref();
+                            let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                            #at_cross_width_body
+                            info
+                        })
                     }
                 }
             });
@@ -3410,9 +3481,13 @@ fn generate_repeated_component_body(
                         self: ::core::pin::Pin<&Self>,
                         #param: f32,
                     ) -> sp::LayoutItemInfo {
-                        let _self = self.as_ref();
-                        let o = sp::Orientation::Vertical;
-                        sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
+                        sp::with_property_context(|_ctx| {
+                            #[allow(unused)]
+                            let _self = self.as_ref();
+                            #[allow(unused)]
+                            let o = sp::Orientation::Vertical;
+                            sp::LayoutItemInfo { constraint: #info, #align_self_field #order_field ..::core::default::Default::default() }
+                        })
                     }
                 }
             });
@@ -3443,7 +3518,10 @@ fn generate_repeated_component_body(
         let ctx = EvaluationContext::new_sub_component(
             unit,
             repeated.sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
+            RustGeneratorContext {
+                global_access: quote!(_self.globals()),
+                property_context: Some(quote!(_ctx)),
+            },
             Some(parent_ctx),
         );
         let z_prop = access_member(z_ref, &ctx).get_property();
@@ -4363,8 +4441,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
 fn compile_callback_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::CallBackCall { callback, arguments } = expr else { unreachable!() };
     let f = access_member(callback, ctx);
-    let register_dep =
-        access_callback_tracker(callback, ctx).map(|t| t.then(|t| quote!({ #t.get(); })));
+    let register_dep = access_callback_tracker(callback, ctx)
+        .map(|t| t.then(|t| quote!({ #t.register_as_dependency_with_context(_ctx); })));
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     if expr.ty(ctx) == Type::Void {
         f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
@@ -4377,10 +4455,11 @@ fn compile_function_call(expr: &Expression, ctx: &EvaluationContext) -> TokenStr
     let Expression::FunctionCall { function, arguments } = expr else { unreachable!() };
     let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
     let f = access_member(function, ctx);
+    let property_context = ctx.generator_state.property_context.as_ref().unwrap();
     if expr.ty(ctx) == Type::Void {
-        f.then(|f| quote!(#f( #(#a as _),*)))
+        f.then(|f| quote!(#f(#property_context, #(#a as _),*)))
     } else {
-        f.map_or_default(|f| quote!(#f( #(#a as _),*)))
+        f.map_or_default(|f| quote!(#f(#property_context, #(#a as _),*)))
     }
 }
 
@@ -4770,11 +4849,11 @@ fn compile_layout_cache_access(expr: &Expression, ctx: &EvaluationContext) -> To
         if let Some(ri) = repeater_index {
             let offset = compile_expression(ri, ctx);
             quote!({
-                let cache = #cache.get();
+                let cache = #cache.get_with_context(_ctx);
                 *cache.get((sp::layout_cache_entry(&cache, #index) as usize) + #offset as usize * #entries_per_item).unwrap_or(&(0 as _))
             })
         } else {
-            quote!(sp::layout_cache_entry(&#cache.get(), #index))
+            quote!(sp::layout_cache_entry(&#cache.get_with_context(_ctx), #index))
         }
     })
 }
@@ -4801,7 +4880,7 @@ fn compile_grid_repeater_cache_access(expr: &Expression, ctx: &EvaluationContext
         });
 
         quote!({
-            let cache = #cache.get();
+            let cache = #cache.get_with_context(_ctx);
             cache.get(#index)
                 .and_then(|base| cache.get(*base as usize + #offset as usize * (#stride_val as usize) + #child_offset #inner_offset))
                 .copied()
@@ -4975,7 +5054,7 @@ fn compile_builtin_function_call(
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
+                    RustGeneratorContext { global_access: quote!(_self.globals()), property_context: Some(quote!(_ctx)) },
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
@@ -5013,7 +5092,7 @@ fn compile_builtin_function_call(
                                 sp::Box::new(move |value: bool| {
                                     if let Some(is_open_self) = is_open_self_weak.upgrade() {
                                         let _self = is_open_self.as_pin_ref();
-                                        #set_expr
+                                        sp::with_property_context(|_ctx| { #set_expr });
                                     }
                                 })
                             },
@@ -5036,7 +5115,8 @@ fn compile_builtin_function_call(
 
                         let popup_instance_vrc_for_position = popup_instance_vrc.clone();
                         let access_position = sp::Box::new(move || {
-                            let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                            let _self = popup_instance_vrc_for_position.as_pin_ref();
+                            sp::with_property_context(|_ctx| #position)
                         });
 
                         #is_open_self_weak_decl
@@ -5118,7 +5198,7 @@ fn compile_builtin_function_call(
                 popup.item_tree.root,
                 RustGeneratorContext {
                     global_access: quote!(_self.globals()),
-                    property_context: None,
+                    property_context: Some(quote!(_ctx)),
                 },
                 None,
             );
@@ -5198,7 +5278,7 @@ fn compile_builtin_function_call(
                             #access_close.set_handler(move |()| {
                                 let Some(self_rc) = self_weak.upgrade() else { return };
                                 let _self = self_rc.as_pin_ref();
-                                #close_popup
+                                sp::with_property_context(|_ctx| { #close_popup });
                             });
                         }
                         let context_menu_item_tree = sp::VRc::into_dyn(context_menu_item_tree);
@@ -5221,7 +5301,7 @@ fn compile_builtin_function_call(
                             #access.set_handler(move |entry| {
                                 if let Some(self_rc) = self_weak.upgrade() {
                                     let _self = self_rc.as_pin_ref();
-                                    #call
+                                    sp::with_property_context(|_ctx| #call)
                                 } else { ::core::default::Default::default() }
                             });
                         )
@@ -5241,7 +5321,7 @@ fn compile_builtin_function_call(
                             #access_close.set_handler(move |()| {
                                 let Some(self_rc) = self_weak.upgrade() else { return };
                                 let _self = self_rc.as_pin_ref();
-                                #close_popup
+                                sp::with_property_context(|_ctx| { #close_popup });
                             });
                         }
                         #slint_show
@@ -5429,7 +5509,7 @@ fn compile_builtin_function_call(
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
-                        #binding
+                        sp::with_property_context(|_ctx| #binding)
                     }
                 })
             };
@@ -5507,7 +5587,7 @@ fn compile_builtin_function_call(
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
-                        #binding
+                        sp::with_property_context(|_ctx| #binding)
                     }
                 })
             } else {

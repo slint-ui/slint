@@ -415,9 +415,7 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
                 let mut new_to_value = T::default();
                 // Safety: `new_to_value` is a valid mutable reference matching the
                 // original binding's value type
-                unsafe {
-                    self.original_binding.update(&mut new_to_value as *mut T, ctx)
-                };
+                unsafe { self.original_binding.update(&mut new_to_value as *mut T, ctx) };
 
                 if previous_to_value.as_ref() != Some(&new_to_value)
                     && animation_data.apply_map(new_to_value.clone())

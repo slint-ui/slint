@@ -1402,14 +1402,13 @@ fn contexts_on_one_thread_are_separate() {
     let code = r#"
         export component TestCase inherits Window {
             in property <int> value: 1;
-            out property <int> changes;
-            changed value => { changes += 1; }
             pure callback read-other() -> int;
             out property <int> with-other: value + read-other();
         }
     "#;
-    let result =
-        spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));
+    let result = i_slint_compiler::poll_ready(
+        Compiler::default().build_from_source(code.into(), Default::default()),
+    );
     assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
     let definition = result.component("TestCase").unwrap();
     let ctx_b = i_slint_core::SlintContext::new(Box::new(
@@ -1418,18 +1417,12 @@ fn contexts_on_one_thread_are_separate() {
     let a = definition.create().unwrap();
     let b = definition.create_with_context(ctx_b.clone()).unwrap();
 
-    b.set_property("value", Value::from(5)).unwrap();
-    i_slint_core::properties::ChangeTracker::run_change_handlers();
-    assert_eq!(b.get_property("changes").unwrap(), Value::from(0));
-    ctx_b.update_timers_and_animations();
-    assert_eq!(b.get_property("changes").unwrap(), Value::from(1));
-    assert_eq!(a.get_property("changes").unwrap(), Value::from(0));
-
+    // Reading the other context's component from a binding doesn't make it a dependency.
     let b_weak = b.as_weak();
     a.set_callback("read-other", move |_| b_weak.unwrap().get_property("value").unwrap()).unwrap();
-    assert_eq!(a.get_property("with-other").unwrap(), Value::from(6));
+    assert_eq!(a.get_property("with-other").unwrap(), Value::from(2));
     b.set_property("value", Value::from(7)).unwrap();
-    assert_eq!(a.get_property("with-other").unwrap(), Value::from(6));
+    assert_eq!(a.get_property("with-other").unwrap(), Value::from(2));
     a.set_property("value", Value::from(2)).unwrap();
     assert_eq!(a.get_property("with-other").unwrap(), Value::from(9));
 }

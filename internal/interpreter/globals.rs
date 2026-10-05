@@ -124,16 +124,9 @@ pub struct GlobalStorage {
 }
 
 impl GlobalStorage {
-    /// Run `f` with the property context of the component's context as the active one:
-    /// the one it was created with, or else the thread's.
+    /// Run `f` with the property context of the component's context as the active one.
     pub fn enter<R>(&self, f: impl FnOnce() -> R) -> R {
-        match self.context.get() {
-            Some(context) => context.property_context().enter(f),
-            None => match i_slint_core::SlintContext::current() {
-                Some(context) => context.property_context().enter(f),
-                None => f(),
-            },
-        }
+        self.context.property_context().enter(f)
     }
 
     /// Allocate one `GlobalInstance` per declared global.

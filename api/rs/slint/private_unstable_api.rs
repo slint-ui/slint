@@ -265,7 +265,7 @@ pub mod re_exports {
         ChangeTracker, ErasedPropertyOffset, Property, PropertyContext, PropertyTracker, StateInfo,
         WithContext, change_tracker_init_erased, set_animated_property_binding_erased,
         set_callback_handler_erased, set_constant_properties, set_property_binding_erased,
-        set_property_state_binding_erased, set_state_binding,
+        set_property_state_binding_erased, set_state_binding, with_property_context,
     };
     pub use i_slint_core::slice::Slice;
     pub use i_slint_core::timers::{Timer, TimerMode};

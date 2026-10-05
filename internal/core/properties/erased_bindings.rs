@@ -133,7 +133,7 @@ pub fn change_tracker_init_erased<
     change_tracker: &super::ChangeTracker,
     queue: &super::ChangeHandlerQueue,
     self_rc: &VRcMapped<VT, X>,
-    eval: fn(Pin<&X>, &()) -> T,
+    eval: fn(Pin<&X>, &PropertyContext) -> T,
     notify: fn(Pin<&X>, &T),
 ) {
     change_tracker_init_impl(
@@ -150,13 +150,13 @@ fn change_tracker_init_impl<
 >(
     change_tracker: &super::ChangeTracker,
     queue: &super::ChangeHandlerQueue,
-    eval: ErasedWeakFn<VT, T>,
+    eval: ErasedWeakFn<VT, T, PropertyContext>,
     notify: ErasedWeakFn<VT, (), T>,
 ) {
-    change_tracker.init(
+    change_tracker.init_with_context(
         queue,
         (eval, notify),
-        |(eval, _)| eval.upgrade_and_call(&()).expect("change tracker on dropped component"),
+        |(eval, _), ctx| eval.upgrade_and_call(ctx).expect("change tracker on dropped component"),
         |(_, notify), value| {
             notify.upgrade_and_call(value).expect("change tracker on dropped component");
         },

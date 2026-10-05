@@ -588,8 +588,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
         unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
-        let notify =
-            ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(inner.user_data));
+        let notify = ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(inner.user_data));
         if notify {
             (inner.notify_fn)(inner.user_data);
         }

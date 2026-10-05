@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode, PropertyContext,
+    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode,
+    PropertyContext,
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -103,6 +104,23 @@ impl ChangeTracker {
         notify_fn: NF,
     ) {
         self.init_impl(queue.clone(), data, move |data, _| eval_fn(data), notify_fn, false);
+    }
+
+    /// Same as [`Self::init`], but `eval_fn` is given the context it's evaluated in,
+    /// to read the properties it depends on.
+    pub fn init_with_context<
+        Data: 'static,
+        T: Default + PartialEq,
+        EF: Fn(&Data, &PropertyContext) -> T + 'static,
+        NF: Fn(&Data, &T) + 'static,
+    >(
+        &self,
+        queue: &ChangeHandlerQueue,
+        data: Data,
+        eval_fn: EF,
+        notify_fn: NF,
+    ) {
+        self.init_impl(queue.clone(), data, eval_fn, notify_fn, false);
     }
 
     /// Initialize the change tracker with the given data and callbacks.

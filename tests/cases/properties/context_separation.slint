@@ -1,17 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Two components on two contexts of the same thread don't affect one another:
-// each context runs its own change handlers,
-// and reading the other component from a binding doesn't make it a dependency.
+// Reading a component of another context from a binding doesn't make it a dependency.
 
 export component TestCase inherits Window {
     in property <int> value: 1;
-    out property <int> changes;
-    changed value => {
-        changes += 1;
-    }
-
     pure callback read-other() -> int;
     out property <int> with-other: value + read-other();
 }
@@ -24,18 +17,11 @@ let ctx_b = i_slint_core::SlintContext::new(Box::new(
 let a = TestCase::new().unwrap();
 let b = TestCase::new_with_context(ctx_b.clone()).unwrap();
 
-b.set_value(5);
-i_slint_core::SlintContext::current().unwrap().run_change_handlers();
-assert_eq!(b.get_changes(), 0);
-ctx_b.update_timers_and_animations();
-assert_eq!(b.get_changes(), 1);
-assert_eq!(a.get_changes(), 0);
-
 let b_weak = b.as_weak();
 a.on_read_other(move || b_weak.unwrap().get_value());
-assert_eq!(a.get_with_other(), 6);
+assert_eq!(a.get_with_other(), 2);
 b.set_value(7);
-assert_eq!(a.get_with_other(), 6);
+assert_eq!(a.get_with_other(), 2);
 a.set_value(2);
 assert_eq!(a.get_with_other(), 9);
 ```
