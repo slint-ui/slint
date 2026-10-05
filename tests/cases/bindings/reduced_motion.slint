@@ -62,6 +62,37 @@ assert_eq!(instance.get_delayed(), 0.);
 assert_eq!(instance.get_gated(), 0.);
 ```
 
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_eased(), 1.);
+assert_eq(instance.get_sprung(), 0.);
+assert_eq(instance.get_delayed(), 0.);
+assert_eq(instance.get_gated(), 0.);
+
+slint_testing::set_reduced_motion(true);
+instance.set_cond(true);
+assert_eq(instance.get_eased(), 0.);
+assert_eq(instance.get_sprung(), 100.);
+assert_eq(instance.get_delayed(), 100.);
+assert_eq(instance.get_gated(), 100.);
+
+// Back to normal: the next change animates again.
+slint_testing::set_reduced_motion(false);
+instance.set_cond(false);
+assert_eq(instance.get_eased(), 0.);
+assert_eq(instance.get_delayed(), 100.);
+assert_eq(instance.get_gated(), 100.);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_eased(), 0.5);
+assert_eq(instance.get_delayed(), 100.);
+assert_eq(instance.get_gated(), 50.);
+slint_testing::mock_elapsed_time(1500);
+assert_eq(instance.get_eased(), 1.);
+assert_eq(instance.get_delayed(), 0.);
+assert_eq(instance.get_gated(), 0.);
+```
+
 ```rust
 // The setting changes while an animation runs: that animation finishes at its own pace,
 // the next one to start jumps.
@@ -81,6 +112,23 @@ assert_eq!(instance.get_eased(), 1.);
 slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_eased(), 1.);
+instance.set_cond(true);
+slint_testing::mock_elapsed_time(500);
+assert_eq(instance.get_eased(), 0.5);
+slint_testing::set_reduced_motion(true);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.get_eased(), 0.25);
+slint_testing::mock_elapsed_time(250);
+assert_eq(instance.get_eased(), 0.);
+instance.set_cond(false);
+assert_eq(instance.get_eased(), 1.);
+slint_testing::set_reduced_motion(false);
+```
+
 ```rust
 // The animation's own `enabled` still wins: off stays off whatever the setting says.
 use slint_testing::MotionPreference;
@@ -93,5 +141,18 @@ slint_testing::set_motion_preference(MotionPreference::Reduced);
 instance.set_cond(false);
 assert_eq!(instance.get_gated(), 0.);
 slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_gated(), 0.);
+instance.set_gate(false);
+instance.set_cond(true);
+assert_eq(instance.get_gated(), 100.);
+slint_testing::set_reduced_motion(true);
+instance.set_cond(false);
+assert_eq(instance.get_gated(), 0.);
+slint_testing::set_reduced_motion(false);
 ```
 */
