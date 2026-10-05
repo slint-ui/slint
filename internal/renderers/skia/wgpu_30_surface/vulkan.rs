@@ -276,8 +276,11 @@ pub unsafe fn make_vulkan_context(
             .vendor_id;
         // `VK_VENDOR_ID_VIV` and `VK_VENDOR_ID_VSI`. The NXP i.MX8 Vulkan drivers get Skia's
         // multisample path rendering wrong: stroked paths and the draws after them are lost.
+        // They also sample textures with a LOD bias several times slower than without one,
+        // and Skia biases every texture lookup to sharpen mipmapped textures.
         if vendor_id == 0x10001 || vendor_id == 0x10002 {
             options.internal_multisample_count = 0;
+            options.sharpen_mipmapped_textures = false;
         }
 
         skia_safe::gpu::direct_contexts::make_vulkan(&backend, Some(&options))
