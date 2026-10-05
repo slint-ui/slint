@@ -45,6 +45,9 @@ const MAX_SPRING_TRANSFER_VELOCITY: f32 = 5000.0;
 
 /// A velocity at or below this magnitude (logical px/s) is considered stopped.
 const VELOCITY_TOLERANCE: f32 = 1.0;
+/// UIKit ends a deceleration where the content is once its speed falls below this, in logical
+/// px/s, measured on an iPhone 13 Pro Max with iOS 27.
+const DECELERATION_STOP_VELOCITY: f32 = 10.0;
 /// A spring within this distance (logical px) of `limit_value` is considered settled.
 const DISTANCE_TOLERANCE: f32 = 0.5;
 
@@ -64,8 +67,10 @@ impl IOsFlickParameters {
     }
     pub fn new_with_distance(distance: f32, _duration: Duration) -> Self {
         let drag_log = f32::ln(DRAG);
-        // finalX - x0 = -v0 / drag_log  =>  v0 = -distance * drag_log
-        Self { initial_velocity: -distance * drag_log }
+        // finalX - x0 = (v0 - v_stop) / -drag_log  =>  v0 = -distance * drag_log + v_stop
+        let stop_velocity =
+            if distance == 0. { 0. } else { distance.signum() * DECELERATION_STOP_VELOCITY };
+        Self { initial_velocity: -distance * drag_log + stop_velocity }
     }
 }
 
@@ -206,10 +211,19 @@ impl IOsFlick {
         Some(f32::ln(ratio) / drag_log)
     }
 
+    /// The elapsed time at which the friction curve's speed falls to [`DECELERATION_STOP_VELOCITY`].
+    fn friction_stop_time(v0: f32) -> f32 {
+        if f32::abs(v0) <= DECELERATION_STOP_VELOCITY {
+            0.
+        } else {
+            f32::ln(DECELERATION_STOP_VELOCITY / f32::abs(v0)) / f32::ln(DRAG)
+        }
+    }
+
     /// The position the friction curve (starting at `x0` with velocity `v0`) comes to rest at.
-    /// See FrictionSimulation.finalX: the position as time approaches infinity.
     fn friction_end(x0: f32, v0: f32) -> f32 {
-        x0 - v0 / f32::ln(DRAG)
+        let drag_log = f32::ln(DRAG);
+        x0 + v0 * f32::powf(DRAG, Self::friction_stop_time(v0)) / drag_log - v0 / drag_log
     }
 
     /// The position the simulation comes to rest at: the limit if the spring takes over,
@@ -226,6 +240,9 @@ impl IOsFlick {
     fn friction_at(&self, t: f32) -> (f32, f32) {
         let drag_log = f32::ln(DRAG);
         let v0 = self.data.initial_velocity;
+        if t >= Self::friction_stop_time(v0) {
+            return (Self::friction_end(self.start_value, v0), 0.);
+        }
         let position = self.start_value + v0 * f32::powf(DRAG, t) / drag_log - v0 / drag_log;
         let velocity = v0 * f32::powf(DRAG, t);
         (position, velocity)
@@ -456,11 +473,11 @@ mod tests {
             IOsFlickParameters::new(500.),
             time,
         );
-        let total = -500. / f32::ln(DRAG);
+        let total = -(500. - DECELERATION_STOP_VELOCITY) / f32::ln(DRAG);
         assert!((simulation.remaining_distance(Duration::ZERO) - total).abs() < 1e-2);
 
         let mut previous = total;
-        for millis in [50, 300, 1000, 3000] {
+        for millis in [50, 300, 1000, 1900] {
             let elapsed = Duration::from_millis(millis);
             let remaining = simulation.remaining_distance(elapsed);
             let (position, _, _) = simulation.evaluate(elapsed.as_secs_f32());
@@ -513,5 +530,39 @@ mod tests {
             "There is no velocity. So the simulation must be finish"
         );
         assert_eq!(current, START_VALUE);
+    }
+
+    /// UIKit stops a 656 pt/s fling about 2.1 s after release, 5 points before its friction
+    /// curve would come to rest.
+    #[test]
+    fn stops_where_the_speed_falls_to_the_stop_velocity() {
+        let time = Instant::default();
+        let mut simulation = IOsFlick::new_internal(
+            0.,
+            test_limit_property(5000.),
+            IOsFlickParameters::new(656.),
+            time,
+        );
+        let stop_time = IOsFlick::friction_stop_time(656.);
+        assert!((stop_time - 2.09).abs() < 0.01, "{stop_time}");
+        let (_, velocity, done) = simulation.evaluate(stop_time - 0.01);
+        assert!(!done && (velocity - DECELERATION_STOP_VELOCITY).abs() < 0.5, "{velocity}");
+
+        let mut current = 0.;
+        assert!(simulation.step(&mut current, time + Duration::from_secs_f32(stop_time + 0.01)));
+        let unstopped_travel = -656. / f32::ln(DRAG);
+        assert!((unstopped_travel - current - 5.).abs() < 0.05, "{current}");
+        let stopped = current;
+        simulation.step(&mut current, time + Duration::from_secs(5));
+        assert_eq!(current, stopped);
+    }
+
+    #[test]
+    fn distance_parameters_still_cover_the_distance() {
+        for distance in [-120., 40., 300.] {
+            let params = IOsFlickParameters::new_with_distance(distance, Duration::ZERO);
+            let end = IOsFlick::friction_end(10., params.initial_velocity);
+            assert!((end - 10. - distance).abs() < 1e-3, "{distance}: {end}");
+        }
     }
 }
