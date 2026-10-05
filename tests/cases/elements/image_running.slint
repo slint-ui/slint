@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <bool> toggle: true;
+    animated := Image {
+        source: @image-url("../../../internal/core/graphics/image/testdata/twice.png");
+    }
+    paused := Image {
+        source: @image-url("../../../internal/core/graphics/image/testdata/twice.png");
+        running: false;
+    }
+    bound := Image {
+        running: root.toggle;
+    }
+    out property <bool> test: animated.running && !paused.running && bound.running
+        && animated.source.width == 8 && animated.source.height == 8;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_toggle(false);
+assert!(!instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_toggle(false);
+assert(!instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.toggle = false;
+assert(!instance.test);
+```
+*/

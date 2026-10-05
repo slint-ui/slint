@@ -92,6 +92,7 @@ pub enum EmbedResourcesKind {
     ///
     /// Useful for MCUs with no file system and little RAM.
     /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
+    /// Animated images keep only their first frame.
     EmbedForSoftwareRenderer,
 }
 

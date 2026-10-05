@@ -7,7 +7,7 @@ This module contains image and caching related types for the run-time library.
 
 #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use super::CachedPath;
-use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
+use super::{Image, ImageCacheKey, ImageData, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
 
 struct ImageWeightInBytes;
@@ -16,15 +16,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
     fn weight(&self, _key: &ImageCacheKey, value: &ImageInner) -> usize {
         match value {
             ImageInner::None => 0,
-            ImageInner::EmbeddedImage { buffer, .. } => match buffer {
-                SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
-                SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
-                SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
-                #[cfg(feature = "image-pixel-format-rgb565")]
-                SharedImageBuffer::RGB565(pixels) => pixels.as_bytes().len(),
-                #[cfg(feature = "image-pixel-format-gray8")]
-                SharedImageBuffer::Gray8(pixels) => pixels.as_bytes().len(),
-            },
+            ImageInner::EmbeddedImage { buffer, .. } => buffer_weight(buffer),
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.weight_in_bytes(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
@@ -36,7 +28,20 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => 0, // The texture is imported from the application and will never reside in our cache.
+            ImageInner::AnimatedImage(animated) => animated.weight_in_bytes(),
         }
+    }
+}
+
+fn buffer_weight(buffer: &SharedImageBuffer) -> usize {
+    match buffer {
+        SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
+        SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
+        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(pixels) => pixels.as_bytes().len(),
+        #[cfg(feature = "image-pixel-format-gray8")]
+        SharedImageBuffer::Gray8(pixels) => pixels.as_bytes().len(),
     }
 }
 
@@ -103,18 +108,14 @@ impl ImageCache {
                 )));
             }
 
-            image::open(std::path::Path::new(&path.as_str())).map_or_else(
-                |decode_err| {
-                    crate::debug_log!("Error loading image from {}: {}", &path, decode_err);
-                    None
-                },
-                |image| {
-                    Some(ImageInner::EmbeddedImage {
-                        cache_key,
-                        buffer: super::dynamic_image_to_shared_image_buffer(image),
-                    })
-                },
-            )
+            let format = image::ImageFormat::from_path(path.as_str()).ok();
+            std::fs::read(path.as_str())
+                .map_err(image::ImageError::IoError)
+                .and_then(|data| {
+                    ImageInner::decode_with_cache_key(cache_key, ImageData::Borrowed(&data), format)
+                })
+                .map_err(|err| crate::debug_log!("Error loading image from {}: {}", &path, err))
+                .ok()
         })
     }
 
@@ -138,7 +139,11 @@ impl ImageCache {
     ) -> Option<Image> {
         let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            ImageInner::load_from_data_with_cache_key(cache_key, data, format)
+            ImageInner::load_from_data_with_cache_key(
+                cache_key,
+                ImageData::Static(data.as_slice()),
+                format,
+            )
         })
     }
 
@@ -153,7 +158,7 @@ impl ImageCache {
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             ImageInner::load_from_data_with_cache_key(
                 cache_key,
-                data.into(),
+                ImageData::Borrowed(data),
                 format.as_bytes().into(),
             )
         })

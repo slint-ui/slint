@@ -43,7 +43,7 @@ enum Embedding {
     EmbedFiles,
     /// Embed in a format optimized for the software renderer. This
     /// option falls back to `embed-files` if the renderer-software feature is not
-    /// used
+    /// used. Animated images keep only their first frame.
     #[cfg(feature = "renderer-software")]
     EmbedForSoftwareRenderer,
     /// Same as "embed-files-for-software-renderer" but use Signed Distance Field (SDF) to render fonts.

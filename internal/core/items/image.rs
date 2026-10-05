@@ -28,6 +28,9 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
+#[cfg(all(feature = "image-decoders", any(not(target_arch = "wasm32"), target_os = "emscripten")))]
+mod animation;
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -39,13 +42,17 @@ pub struct ImageItem {
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
     pub colorize: Property<Brush>,
+    pub running: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    animation: ImageAnimationBox,
 }
 
 impl Item for ImageItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
-    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+        self.animation.stop();
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -151,7 +158,7 @@ impl RenderImage for ImageItem {
     }
 
     fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        self.source()
+        self.animation.current_frame(self.source(), || self.running())
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -206,14 +213,18 @@ pub struct ClippedImage {
     pub vertical_alignment: Property<ImageVerticalAlignment>,
     pub horizontal_tiling: Property<ImageTiling>,
     pub vertical_tiling: Property<ImageTiling>,
+    pub running: Property<bool>,
 
     pub cached_rendering_data: CachedRenderingData,
+    animation: ImageAnimationBox,
 }
 
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
-    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+        self.animation.stop();
+    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -320,7 +331,7 @@ impl RenderImage for ClippedImage {
     }
 
     fn source(self: Pin<&Self>) -> crate::graphics::Image {
-        self.source()
+        self.animation.current_frame(self.source(), || self.running())
     }
 
     fn source_clip(self: Pin<&Self>) -> Option<crate::graphics::IntRect> {
@@ -358,4 +369,109 @@ impl ItemConsts for ClippedImage {
         ClippedImage,
         CachedRenderingData,
     > = ClippedImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+/// The playback state of an item's animated image, allocated when the item first shows one.
+#[repr(C)]
+pub struct ImageAnimationBox(core::cell::Cell<*mut ImageAnimationSlot>);
+
+#[derive(Default)]
+struct ImageAnimationSlot(
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    core::cell::RefCell<Option<Pin<Rc<animation::ImageAnimation>>>>,
+);
+
+impl Default for ImageAnimationBox {
+    fn default() -> Self {
+        Self(core::cell::Cell::new(core::ptr::null_mut()))
+    }
+}
+
+impl Drop for ImageAnimationBox {
+    fn drop(&mut self) {
+        let ptr = self.0.get();
+        if !ptr.is_null() {
+            // Safety: ptr was constructed from a Box::leak in slot_or_init
+            drop(unsafe { alloc::boxed::Box::from_raw(ptr) });
+        }
+    }
+}
+
+impl ImageAnimationBox {
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    fn slot(&self) -> Option<&ImageAnimationSlot> {
+        // Safety: the pointer is either null or was created from a Box::leak in slot_or_init
+        unsafe { self.0.get().as_ref() }
+    }
+
+    #[cfg(all(
+        feature = "image-decoders",
+        any(not(target_arch = "wasm32"), target_os = "emscripten")
+    ))]
+    fn slot_or_init(&self) -> &ImageAnimationSlot {
+        if self.0.get().is_null() {
+            self.0.set(alloc::boxed::Box::leak(alloc::boxed::Box::default()));
+        }
+        // Safety: the pointer is non-null and was created from a Box::leak above
+        unsafe { &*self.0.get() }
+    }
+
+    /// Returns the frame of `source` to show, or `source` itself if it isn't animated.
+    fn current_frame(
+        &self,
+        source: crate::graphics::Image,
+        running: impl FnOnce() -> bool,
+    ) -> crate::graphics::Image {
+        #[cfg(all(
+            feature = "image-decoders",
+            any(not(target_arch = "wasm32"), target_os = "emscripten")
+        ))]
+        if let crate::graphics::ImageInner::AnimatedImage(animated) = &source.0 {
+            let mut slot = self.slot_or_init().0.borrow_mut();
+            let player = match &*slot {
+                Some(player) if player.shows(animated) => player.clone(),
+                _ => slot.insert(animation::ImageAnimation::new(animated.clone())).clone(),
+            };
+            drop(slot);
+            return player.frame(running());
+        }
+        let _ = running;
+        self.stop();
+        source
+    }
+
+    fn stop(&self) {
+        #[cfg(all(
+            feature = "image-decoders",
+            any(not(target_arch = "wasm32"), target_os = "emscripten")
+        ))]
+        if let Some(slot) = self.slot() {
+            slot.0.borrow_mut().take();
+        }
+    }
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold an ImageAnimationBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_image_animation_init(animation: *mut ImageAnimationBox) {
+    unsafe { core::ptr::write(animation, ImageAnimationBox::default()) };
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized ImageAnimationBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_image_animation_free(animation: *mut ImageAnimationBox) {
+    unsafe {
+        core::ptr::drop_in_place(animation);
+    }
 }

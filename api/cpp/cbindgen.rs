@@ -675,7 +675,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -977,6 +977,14 @@ fn gen_corelib(
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
     config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
     config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
+    config
+        .export
+        .body
+        .insert("ImageItem".to_owned(), "    inline ImageItem(); inline ~ImageItem();".into());
+    config.export.body.insert(
+        "ClippedImage".to_owned(),
+        "    inline ClippedImage(); inline ~ClippedImage();".into(),
+    );
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),

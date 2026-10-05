@@ -1315,6 +1315,9 @@ fn load_image(
         ImageInner::NineSlice(n) => {
             load_image(n.image(), target_size_fn, ImageFit::Preserve, scale_factor, image_cache)
         }
+        ImageInner::AnimatedImage(animated) => {
+            load_image(animated.first_frame(), target_size_fn, image_fit, scale_factor, image_cache)
+        }
         // Remaining variants hold live GPU resources (borrowed GL textures,
         // wgpu textures behind the unstable-wgpu-* features) that this
         // backend-agnostic renderer cannot import.
