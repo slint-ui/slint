@@ -21,7 +21,7 @@ in detail.
 
 To use Slint with Node.js, ensure the following programs are installed:
 
-  * **[Node.js](https://nodejs.org/download/release/)** (v20 or newer)
+  * **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer)
   * **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
@@ -196,44 +196,72 @@ This is your main TypeScript entry point:
 
 ## API Overview
 
-### Instantiating a Component
+### Loading `.slint` Files
 
-Use the {@link loadFile} function to load a `.slint` file. Instantiate the [exported component](http://slint.dev/docs/slint/guide/language/coding/file/)
-with the new operator. Access exported callbacks and properties as JavaScript properties on the instantiated component. In addition,
-the returned object implements the {@link ComponentHandle} interface, to show/hide the instance or access the window.
+There are two ways to load a `.slint` file.
+Both compile the `.slint` markup at runtime and return constructor functions
+for each exported component.
 
-The following example shows how to instantiating a Slint component from JavaScript.
+#### Option 1: `import` the `.slint` File (Recommended)
 
-**`ui/main.slint`**
-
-```
-export component MainWindow inherits Window {
-    callback clicked <=> i-touch-area.clicked;
-
-    in property <int> counter;
-
-    width: 400px;
-    height: 200px;
-
-    i-touch-area := TouchArea {}
-}
-```
-
-The exported component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
-
-**`main.mjs`**
+Import `.slint` files directly as ES modules:
 
 ```js
 import * as slint from "slint-ui";
-// In this example, the main.slint file exports a module which
-// has a counter property and a clicked callback
+import { MainWindow } from "./ui/main.slint";
+
+let component = new MainWindow({
+    counter: 42,
+    clicked: function() { console.log("hello"); }
+});
+```
+
+Load `slint-ui/register` before your own code, so the runtime knows what a `.slint` file is:
+
+```sh
+node --import slint-ui/register app.mjs
+deno run --preload npm:slint-ui/register app.ts
+bun --preload slint-ui/register app.ts
+```
+
+This is the recommended approach because:
+- Imports are declarative and statically analyzable
+- Works with TypeScript type checking (see [TypeScript Support](#typescript-support) below)
+- Components, structs, and enums are available as named exports
+
+You still import `slint-ui` for runtime helpers like `ArrayModel` and `runEventLoop`.
+
+The flag is needed even though your code already imports `slint-ui`:
+a static `import` is resolved before any module body runs,
+so a hook installed while `slint-ui` loads comes too late.
+A dynamic `import()`, or `require()` from CommonJS, works without the flag.
+
+#### Option 2: `loadFile()`
+
+Call {@link loadFile} to compile and load a `.slint` file at runtime:
+
+```js
+import * as slint from "slint-ui";
+
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
     clicked: function() { console.log("hello"); }
 });
 ```
+
+Use this when you need to:
+- Load `.slint` files dynamically (e.g. based on user input or configuration)
+- Pass compiler options like `style`, `includePaths`, or `libraryPaths`
+- Work without the `--import` flag
+
+#### Instantiating a Component
+
+With both approaches,
+the exported component is available as a constructor function.
+The constructor takes an optional object to set initial property values and callbacks.
+The returned instance implements the {@link ComponentHandle} interface
+for showing, hiding, and accessing the window.
 
 ### Accessing a Properties
 
@@ -422,8 +450,47 @@ component.Logic.to_upper_case = (str) => {
 };
 ```
 
-**Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
+**Note**: Global singletons are instantiated once per component.
+When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated globals singletons.
+
+### TypeScript Support
+
+Importing a `.slint` file works in TypeScript out of the box — it compiles and runs.
+For IDE autocomplete and type checking, generate a `.d.ts` declaration file:
+
+```sh
+slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts
+```
+
+Wire it into `package.json` so types stay in sync:
+
+```json
+{
+  "scripts": {
+    "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
+    "start": "npm run generate && node --import slint-ui/register app.mjs"
+  }
+}
+```
+
+Add `*.slint.d.ts` to `.gitignore` — the generated file is a build artifact.
+The app runs without it; you just lose type checking.
+
+Use `moduleResolution: "bundler"` in `tsconfig.json`
+so TypeScript resolves `import "./main.slint"` to `main.slint.d.ts`:
+
+```json
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+For a complete example,
+see [/examples/todo/node-typescript](https://github.com/slint-ui/slint/tree/master/examples/todo/node-typescript).
 
 ## Third-Party Licenses
 

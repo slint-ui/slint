@@ -107,6 +107,14 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             })
             .clone()
     });
+    let scrub_horizontal_cursor = {
+        let image = slint::Image::load_from_svg_data(include_bytes!(
+            "../ui/assets/cursors/scrub-horizontal.svg"
+        ))
+        .expect("valid horizontal scrub cursor SVG");
+        slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
+    };
+    ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
     Ok(ui)
 }
 
@@ -166,7 +174,7 @@ pub fn initialize_editor(
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
-    api.on_unselect(super::element_selection::unselect_element);
+    api.on_unselect(|| super::element_selection::unselect_element(SelectionNotification::Now));
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     hover.on_element_at(super::element_selection::hovered_element_at);
@@ -268,6 +276,16 @@ pub fn initialize_editor(
 
         current_property_value_data(&api, property_name).unwrap_or_default()
     });
+    let color_field_api_weak = api_weak.clone();
+    api.on_current_color_field_data(move |property_name| {
+        let Some(api) = color_field_api_weak.upgrade() else {
+            return ColorFieldData::default();
+        };
+
+        current_property_value_data(&api, property_name)
+            .map(brushes::color_field_data)
+            .unwrap_or_default()
+    });
     let property_value_api_weak = api_weak.clone();
     api.on_current_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {
@@ -275,6 +293,12 @@ pub fn initialize_editor(
         };
 
         current_property_value(&api, property_name, fallback)
+    });
+    api.on_image_source_file_name(file_tree::image_source_file_name);
+    let editor_weak = editor_ui.as_weak();
+    api.on_choose_image_file(move |source_uri| {
+        let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
+        file_tree::choose_image_file(source_uri.as_str(), window)
     });
 
     api.on_get_property_value(get_property_value);
@@ -1656,6 +1680,15 @@ mod tests {
     }
 
     #[test]
+    fn scrub_cursor_uses_fixed_pixel_size() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!(cursor.size().width, 32);
+        assert_eq!(cursor.size().height, 32);
+    }
+
+    #[test]
     fn rotated_edge_cursor_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -1889,40 +1922,48 @@ mod tests {
     }
 
     #[test]
-    fn fill_picker_fits_single_paired_and_stacked_panels() {
+    fn fill_picker_placement_and_resize_keep_both_panels_visible() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
+        super::brushes::setup(&editor.global::<super::Api>());
         let session = editor.global::<super::FillSession>();
+        let bounds = editor.global::<super::EditorWindow>();
         editor.show().unwrap();
         slint::platform::update_timers_and_animations();
-        for (width, anchor, paired) in
-            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
-        {
-            editor.global::<super::EditorWindow>().set_width(width);
+        for (width, anchor) in [(1360., 1200.), (1040., 330.), (540., 200.), (400., 160.)] {
+            bounds.set_width(width);
+            bounds.set_height(860.);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),
                     ..Default::default()
                 },
-                anchor_width: 24.,
+                anchor_size: slint::LogicalSize::new(24., 24.),
                 anchor_position: LogicalPosition::new(anchor, 100.),
                 ..Default::default()
             });
-            session.set_stop_panel_open(paired);
+            session.set_stop_panel_open(true);
             slint::platform::update_timers_and_animations();
-            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
-                &editor,
-                "InspectorFillPicker::picker-panel",
-            )
-            .next()
-            .unwrap();
-            let position = panel.absolute_position();
-            let size = panel.size();
-            assert!(position.x >= 8.);
-            assert!(position.x + size.width <= width - 8.);
-            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
+            let panels = ["main", "stop"].map(|name| {
+                i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    &format!("InspectorFillPicker::{name}-panel"),
+                )
+                .next()
+                .unwrap()
+            });
+            for (width, height) in [(width, 860.), (400., 380.), (240., 240.)] {
+                bounds.set_width(width);
+                bounds.set_height(height);
+                slint::platform::update_timers_and_animations();
+                for panel in &panels {
+                    let position = panel.absolute_position();
+                    let size = panel.size();
+                    assert!(position.x >= 0. && position.y >= 0.);
+                    assert!(position.x + size.width <= width);
+                    assert!(position.y + size.height <= height);
+                }
+            }
         }
     }
 

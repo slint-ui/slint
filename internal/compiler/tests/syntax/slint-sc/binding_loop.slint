@@ -13,9 +13,9 @@ component Inner inherits Rectangle {
 
 export component Test inherits Window {
     property <length> loopback: inner.output;
-//                              >           <error{The binding for the property 'loopback' is part of a binding loop (root.loopback -> inner.input -> inner.output -> root.loopback)}
+//                              >           <note{'loopback' is part of the binding loop reported for 'output' at line 10}
     inner := Inner {
         input: loopback;
-//             >       <error{The binding for the property 'input' is part of a binding loop (root.loopback -> inner.input -> inner.output -> root.loopback)}
+//             >       <note{'input' is part of the binding loop reported for 'output' at line 10}
     }
 }

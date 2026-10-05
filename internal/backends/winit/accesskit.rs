@@ -221,12 +221,7 @@ impl AccessKitAdapter {
     }
 
     pub fn unregister_item_tree(&mut self, component: ItemTreeRef) {
-        let component_ptr = ItemTreeRef::as_ptr(component);
-        if let Some(component_id) = self.nodes.component_ids.remove(&component_ptr) {
-            self.nodes.components_by_id.remove(&component_id);
-            self.nodes.free_component_ids.push(component_id);
-        }
-        self.nodes.text_state.component_destroyed(component);
+        self.nodes.forget_component(ItemTreeRef::as_ptr(component));
         self.reload_tree();
     }
 
@@ -439,6 +434,29 @@ impl NodeCollection {
             self.next_component_id += 1;
             id
         })
+    }
+
+    fn forget_component(&mut self, component_ptr: NonNull<u8>) {
+        if let Some(component_id) = self.component_ids.remove(&component_ptr) {
+            self.components_by_id.remove(&component_id);
+            self.free_component_ids.push(component_id);
+        }
+        self.text_state.component_destroyed_at(component_ptr);
+    }
+
+    /// Forgets the components that were destroyed without being unregistered: their
+    /// `unregister_item_tree` is skipped when it finds the adapter borrowed, such as while
+    /// building the tree destroys repeated components (#13670).
+    fn forget_destroyed_components(&mut self) {
+        let destroyed = self
+            .component_ids
+            .iter()
+            .filter(|(_, id)| self.components_by_id.get(id).is_none_or(|c| c.upgrade().is_none()))
+            .map(|(component_ptr, _)| *component_ptr)
+            .collect::<Vec<_>>();
+        for component_ptr in destroyed {
+            self.forget_component(component_ptr);
+        }
     }
 
     fn encode_item_node_id(&mut self, item: &ItemRc) -> NodeId {
@@ -659,6 +677,7 @@ impl NodeCollection {
             )
         });
         self.root_node_id = root_id;
+        self.forget_destroyed_components();
 
         TreeUpdate {
             nodes,

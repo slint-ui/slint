@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The root Menu of a SystemTrayIcon isn't part of the menu tree, but its properties stay accessible
+
+export component TestCase inherits SystemTrayIcon {
+    in-out property <string> shared: "tray";
+    in-out property <int> changes;
+
+    m := Menu {
+        property <int> counter;
+        callback bump();
+        bump => {
+            counter += 1;
+        }
+        title <=> root.shared;
+        changed title => {
+            root.changes += 1;
+        }
+        MenuItem { title: m.title; }
+        MenuItem {
+            title: "Count " + m.counter;
+            enabled: m.enabled;
+        }
+    }
+
+    out property <string> label: m.title;
+    out property <bool> menu-enabled: m.enabled;
+    out property <bool> no-icon: m.icon.width == 0;
+    out property <int> counter: m.counter;
+    public function bump() {
+        m.bump();
+    }
+
+    out property <bool> test: label == "tray" && menu-enabled && no-icon && counter == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_bump();
+assert_eq!(instance.get_counter(), 1);
+instance.set_shared("changed".into());
+assert_eq!(instance.get_label(), "changed");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_changes(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+handle->invoke_bump();
+assert_eq(instance.get_counter(), 1);
+handle->set_shared("changed");
+assert_eq(instance.get_label(), "changed");
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_changes(), 1);
+```
+*/

@@ -90,6 +90,34 @@ impl ComponentDefinitionInner {
         ComponentInstanceInner(vrc)
     }
 
+    /// Instantiate the component with `context` instead of the thread's.
+    pub fn create_with_context(
+        &self,
+        context: i_slint_core::SlintContext,
+    ) -> ComponentInstanceInner {
+        let vrc = Instance::new_with_context(
+            self.compilation_unit.clone(),
+            self.public_index,
+            self.type_loaders.clone(),
+            context,
+        );
+        ComponentInstanceInner(vrc)
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn create_detached_with_existing_window(
+        &self,
+        window_adapter: i_slint_core::window::WindowAdapterRc,
+    ) -> ComponentInstanceInner {
+        let vrc = Instance::new_detached_with_window(
+            self.compilation_unit.clone(),
+            self.public_index,
+            window_adapter,
+            self.type_loaders.clone(),
+        );
+        ComponentInstanceInner(vrc)
+    }
+
     /// Instantiate the component and embed it at `parent_item_tree_index`
     /// in the given outer item tree. Used by the `ComponentFactory` path
     /// to embed an interpreter-built component inside a natively compiled

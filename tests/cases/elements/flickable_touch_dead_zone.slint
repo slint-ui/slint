@@ -38,7 +38,7 @@ use slint_testing::{InternalEvent, LogicalPoint, TouchPhase};
 let instance = TestCase::new().unwrap();
 
 let touch = |y: f32, phase: TouchPhase| {
-    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(300.0, y), phase }));
+    instance.window().dispatch_event(WindowEvent::internal(InternalEvent::Touch { id: 3, position: LogicalPoint::new(300.0, y), phase, event_time: None, history: Default::default() }));
 };
 
 const DISTANCE_THRESHOLD: f32 = 8.;

@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13726: an empty slot in the middle of an inner repeater keeps its position in the grid input,
+// so the following cells stay paired with their own constraints.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in property <[[int]]> rows;
+    in-out property <int> init-count;
+    out property <length> probe;
+    out property <length> grid-preferred-width: grid.preferred-width;
+
+    grid := GridLayout {
+        spacing: 0px;
+        // Pins columns 0, 1 and 4. A span that lands on column 4 is absorbed by the pin.
+        Row {
+            Rectangle { min-width: 20px; min-height: 10px; }
+            Rectangle { min-width: 30px; min-height: 10px; }
+            Rectangle { min-height: 10px; }
+            Rectangle { min-height: 10px; }
+            Rectangle { min-width: 30px; min-height: 10px; }
+        }
+        for cells in root.rows: Row {
+            for c in cells: Rectangle {
+                min-width: 5px;
+                min-height: 10px;
+                // The third init is the first inserted cell's, while the second one is still empty.
+                init => {
+                    root.init-count += 1;
+                    if root.init-count == 3 {
+                        root.probe = grid.preferred-width;
+                    }
+                }
+            }
+            Rectangle { colspan: 2; min-width: 50px; min-height: 10px; }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+// The interpreter runs the same scenario in internal/interpreter/tests/grid_repeated_row_inner_empty_slot.rs.
+
+/*
+```rust
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let inner = Rc::new(slint::VecModel::from(vec![1, 1]));
+let outer = Rc::new(slint::VecModel::from(vec![slint::ModelRc::from(inner.clone())]));
+instance.set_rows(outer.into());
+slint_testing::mock_elapsed_time(16);
+
+inner.insert(1, 2);
+inner.insert(1, 2);
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_probe(), 105.);
+assert_eq!(instance.get_grid_preferred_width(), 110.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto inner = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 1 });
+auto outer = std::make_shared<slint::VectorModel<std::shared_ptr<slint::Model<int>>>>(
+        std::vector<std::shared_ptr<slint::Model<int>>> { inner });
+instance.set_rows(outer);
+slint_testing::mock_elapsed_time(16);
+
+inner->insert(1, 2);
+inner->insert(1, 2);
+slint_testing::mock_elapsed_time(16);
+assert_eq(instance.get_probe(), 105.);
+assert_eq(instance.get_grid_preferred_width(), 110.);
+```
+*/

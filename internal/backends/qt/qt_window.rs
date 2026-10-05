@@ -1036,14 +1036,25 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     return std::make_unique<QPainter>(img);
                 });
 
+                let (background, border_color, border_width) = if box_shadow.inset() {
+                    (Brush::SolidColor(Color::from_rgb_u8(0, 0, 0)), Brush::default(), 0.)
+                } else {
+                    (box_shadow.background(), box_shadow.border_color(), box_shadow.border_width().get())
+                };
                 Self::draw_rectangle_impl(
                     &mut painter_,
                     qttypes::QRectF { x: 0., y: 0., width: shadow_rect.width, height: shadow_rect.height },
-                    Brush::SolidColor(box_shadow.color()),
-                    Brush::default(),
-                    0.,
+                    background,
+                    border_color,
+                    border_width,
                     box_shadow.logical_border_radius(),
                 );
+                let color = box_shadow.color().as_argb_encoded();
+                let painter = &mut painter_;
+                cpp! { unsafe [painter as "QPainterPtr*", img as "QImage*", color as "uint32_t"] {
+                    (*painter)->setCompositionMode(QPainter::CompositionMode_SourceIn);
+                    (*painter)->fillRect(img->rect(), QColor::fromRgba(color));
+                }}
 
                 drop(painter_);
 
@@ -1640,6 +1651,14 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         }
         SharedImageBuffer::RGB8(img) => {
             (qttypes::ImageFormat::RGB888, img.width() * 3, img.as_bytes())
+        }
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(img) => {
+            (qttypes::ImageFormat::RGB16, img.width() * 2, img.as_bytes())
+        }
+        #[cfg(feature = "image-pixel-format-gray8")]
+        SharedImageBuffer::Gray8(img) => {
+            (qttypes::ImageFormat::Grayscale8, img.width(), img.as_bytes())
         }
     };
     let width: i32 = buffer.width() as _;

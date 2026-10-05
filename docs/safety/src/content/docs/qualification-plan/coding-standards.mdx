@@ -19,12 +19,13 @@ The rules differ between the two parts of Slint SC, because the runtime ships in
 
 | Rule | Enforced by |
 | --- | --- |
-| No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `i-slint-compiler`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
+| No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `slint-compiler`, and of the workspace crates it builds on, `i-slint-compiler` and `i-slint-common`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
 | No clippy warnings. | The same CI run as above. |
 
-(TODO: decide whether the compiler should move from `deny` to `forbid`, or
-whether the ability to make a reviewed exception is worth keeping. If it stays
-`deny`, each `allow` needs a justification.)
+:::caution[TODO]
+Decide whether the compiler should move from `deny` to `forbid`, or whether the ability to make a reviewed exception is worth keeping.
+If it stays `deny`, each `allow` needs a justification.
+:::
 
 ## The Rust Language
 
@@ -32,4 +33,7 @@ The toolchain of each evidence run is recorded in the [Test Results](/qualificat
 
 The [Ferrocene Language Specification](https://spec.ferrocene.dev/) defines the Rust language. It's a specification rather than a coding standard, so the commitment here is a narrow one: Slint SC doesn't rely on behavior the specification leaves unspecified.
 
-(TODO: state how that's checked. Today it rests on review.)
+:::caution[TODO]
+State how that's checked.
+Today it rests on review.
+:::

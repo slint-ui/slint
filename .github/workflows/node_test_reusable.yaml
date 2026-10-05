@@ -32,13 +32,13 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -59,6 +59,9 @@ jobs:
               # api/node is filtered out of the root type-check:ci script.
               run: pnpm type-check
               working-directory: api/node
+            - name: Build slint-compiler
+              # The typescript_typegen tests invoke target/debug/slint-compiler.
+              run: cargo build -p slint-compiler
             - name: Run node tests
               working-directory: api/node
               run: pnpm test
@@ -69,6 +72,11 @@ jobs:
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
               run: cargo test --verbose --release --all-features --manifest-path tests/Cargo.toml -p test-driver-nodejs
+            - name: Run test-driver-typescript
+              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-typescript
+            - name: Check todo-typescript example
+              working-directory: examples/todo/node-typescript
+              run: pnpm check
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check

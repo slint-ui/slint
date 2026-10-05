@@ -583,6 +583,7 @@ impl Snapshotter {
             span: binding_expression.span.clone(),
             priority: binding_expression.priority,
             from_state: binding_expression.from_state,
+            from_source: binding_expression.from_source,
             animation: binding_expression.animation.as_ref().map(|pa| match pa {
                 object_tree::PropertyAnimation::Static(element) => {
                     object_tree::PropertyAnimation::Static(
@@ -644,6 +645,12 @@ impl Snapshotter {
                     Weak::upgrade(&self.use_component(component))
                         .expect("I can unwrap at this point"),
                 )
+            }
+            langtype::ElementType::Interface(base) => {
+                langtype::ElementType::Interface(base.as_ref().map(|component| {
+                    Weak::upgrade(&self.use_component(component))
+                        .expect("I can unwrap at this point")
+                }))
             }
             _ => element_type.clone(),
         }
@@ -1131,7 +1138,33 @@ impl TypeLoader {
                     &import.file,
                 ) {
                     import.file = path.to_string_lossy().into_owned();
-                };
+                } else if crate::pathutils::is_font_file(&import.file) {
+                    let importing_file = import.import_uri_token.source_file.path();
+                    let file = Path::new(&import.file);
+                    // Slint ≤ 1.18 resolved also font files relative to the file itself by accident. Still support it with a warning.
+                    let path = if let Some(too_deep) =
+                        crate::pathutils::join(importing_file, file).filter(|path| path.exists())
+                    {
+                        let suggested = import
+                            .file
+                            .strip_prefix("..")
+                            .and_then(|rest| rest.strip_prefix(['/', '\\']))
+                            .unwrap_or(&import.file);
+                        state.borrow_mut().diag.push_warning(
+                            format!(
+                                "Loading \"{}\" relative to the importing file rather than its directory is deprecated. \
+                                 Files should be imported relative to their import location, as \"{}\"",
+                                import.file, suggested
+                            ),
+                            &import.import_uri_token,
+                        );
+                        too_deep
+                    } else {
+                        crate::pathutils::join(&crate::pathutils::dirname(importing_file), file)
+                            .unwrap_or_else(|| file.to_path_buf())
+                    };
+                    import.file = path.to_string_lossy().into_owned();
+                }
                 imports.push(import);
                 continue;
             }

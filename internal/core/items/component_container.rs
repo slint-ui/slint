@@ -45,6 +45,8 @@ pub struct ComponentContainer {
 
     component_tracker: OnceCell<Pin<Box<PropertyTracker>>>,
     item_tree: RefCell<Option<ItemTreeRc>>,
+    /// `layout_info` depends on this instead of building the component.
+    instance_generation: Property<()>,
 
     my_component: OnceCell<ItemTreeWeak>,
     embedding_item_tree_index: OnceCell<u32>,
@@ -52,20 +54,24 @@ pub struct ComponentContainer {
 }
 
 impl ComponentContainer {
+    /// Must not run inside a binding: it runs the factory and the init callbacks.
     pub fn ensure_updated(self: Pin<&Self>) -> bool {
-        let factory = self
+        let rebuilt = self.build_component_if_dirty();
+        let instantiated = self
+            .subtree_component()
+            .upgrade()
+            .is_some_and(|inner| crate::item_tree::ensure_item_tree_instantiated(&inner));
+        rebuilt || instantiated
+    }
+
+    fn build_component_if_dirty(self: Pin<&Self>) -> bool {
+        let Some(factory) = self
             .component_tracker
             .get()
             .unwrap()
             .as_ref()
-            .evaluate_if_dirty(|| self.component_factory());
-
-        let Some(factory) = factory else {
-            // Factory unchanged — still recurse into the embedded component
-            // so its repeaters and conditionals get instantiated.
-            if let Some(inner) = self.subtree_component().upgrade() {
-                return crate::item_tree::ensure_item_tree_instantiated(&inner);
-            }
+            .evaluate_if_dirty(|| self.component_factory())
+        else {
             return false;
         };
 
@@ -123,10 +129,7 @@ impl ComponentContainer {
         self.has_component.set(product.is_some());
 
         self.item_tree.replace(product);
-
-        if let Some(inner) = self.subtree_component().upgrade() {
-            crate::item_tree::ensure_item_tree_instantiated(&inner);
-        }
+        Self::FIELD_OFFSETS.instance_generation().apply_pin(self).mark_dirty();
         true
     }
 
@@ -144,6 +147,9 @@ impl ComponentContainer {
         order: TraversalOrder,
         visitor: vtable::VRefMut<ItemVisitorVTable>,
     ) -> VisitChildrenResult {
+        // Notifies the redraw tracker of a new factory, so the instantiation
+        // pass builds it before the next frame.
+        Self::FIELD_OFFSETS.component_factory().apply_pin(self).register_as_dependency();
         let rc = self.item_tree.borrow().clone();
         if let Some(rc) = &rc {
             vtable::VRc::borrow_pin(rc).as_ref().visit_children_item(-1, order, visitor)
@@ -186,7 +192,7 @@ impl Item for ComponentContainer {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
-        self.ensure_updated();
+        Self::FIELD_OFFSETS.instance_generation().apply_pin(self).register_as_dependency();
         if let Some(rc) = self.item_tree.borrow().clone() {
             vtable::VRc::borrow_pin(&rc).as_ref().layout_info(orientation)
         } else {

@@ -11,6 +11,7 @@ mod remote;
 
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
+use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
     CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
@@ -248,10 +249,8 @@ fn main() -> Result<()> {
         return screenshot::take_screenshot(&args);
     }
 
-    let compiler = init_compiler(&args);
-
     if args.check {
-        let result = poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         std::process::exit(if result.has_errors() { 1 } else { 0 });
     }
@@ -260,8 +259,12 @@ fn main() -> Result<()> {
         select_backend(args.backend.as_deref())?;
         install_log_message_handler()?;
 
+        let compiler_factory = {
+            let args = args.clone();
+            move || init_compiler(&args)
+        };
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
-            compiler,
+            compiler_factory,
             args.path().to_path_buf(),
             args.component.clone(),
         )?;
@@ -288,7 +291,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
@@ -640,15 +643,4 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
-}
-
-/// Poll a future that is expected to resolve immediately (e.g. the interpreter's
-/// `build_from_path` when no async file loader is installed).
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
-    let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
-    }
 }

@@ -299,7 +299,7 @@ export struct SelectionFrameStyle {
 
 export struct RadiusHandleStyle {
     size: length = 10px,
-    inset: length = 10px,
+    inset: length = 12px,
 }
 
 export struct TransparencyGridStyle {
@@ -309,10 +309,20 @@ export struct TransparencyGridStyle {
 }
 
 export struct GradientMarkerStyle {
-    inactive: color,
-    active: color = #0c8ce9,
-    size: length = 24px,
-    radius: length = 5px,
+    inactive: color = #7d8793,
+    active: color = #176fe8,
+    size: length = 40px,
+    pointer-width: length = 12px,
+    pointer-height: length = 10px,
+    indicator-size: length = 24px,
+    inner-ring-width: length = 2px,
+    inactive-ring-width: length = 1px,
+    active-ring-width: length = 2px,
+    tick-length: length = 4px,
+    tick-width: length = 2px,
+    tick-keyline-width: length = 1px,
+    keyline-light: color = #ffffff,
+    keyline-dark: color = #171717,
     checker: TransparencyGridStyle,
 }
 
@@ -424,9 +434,7 @@ export struct FillPickerStyle {
     width: length = 260px,
     gap: length,
     margin: length,
-    min-height: length = 200px,
     shadow: ShadowStyle,
-    close-width: length = 48px,
     background: brush,
     border: brush,
     radius: length,
@@ -500,11 +508,6 @@ export struct ColorSliderStyle {
     radius: length,
 }
 
-export struct ColorHexStyle {
-    width: length = 78px,
-    input-width: length = 58px,
-}
-
 export struct GradientRampStyle {
     height: length,
     inset: length,
@@ -514,9 +517,7 @@ export struct GradientRampStyle {
 export struct GradientStopRowStyle {
     action-width: length = 24px,
     position-width: length = 66px,
-    opacity-width: length = 48px,
     height: length = 28px,
-    swatch-size: length = 14px,
 }
 
 export struct InfoIconStyle {
@@ -584,7 +585,6 @@ export struct SidebarToggleStyle {
 export struct ColorControlsStyle {
     plane: ColorPlaneStyle,
     slider: ColorSliderStyle,
-    hex: ColorHexStyle,
     row-height: length,
     gap: length,
 }
@@ -626,8 +626,11 @@ export struct CornerEditorStyle {
 }
 
 export struct ColorFieldStyle {
-    decorative: color,
+    checker: TransparencyGridStyle,
+    divider: color,
     field: FieldStyle,
+    opacity-width: length = 52px,
+    swatch-size: length = 16px,
     swatch-border: color,
 }
 
@@ -686,7 +689,6 @@ struct OverlayTheme {
     tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
     floating-panel: PaintStyle,
-    marker-inactive: color,
 }
 
 struct InspectorTheme {
@@ -905,8 +907,6 @@ export global LightTheme {
         background: LightTheme.colors.surface.with-alpha(0.92),
     };
 
-    out property <color> marker-inactive: #b5ccdd;
-
     out property <color> divider: #e5e5e5;
 
     out property <FillPickerStyle> fill-picker: {
@@ -1055,7 +1055,7 @@ export global LightTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: LightTheme.colors.muted.with-alpha(0.35),
+        divider: LightTheme.colors.subtle-border,
         swatch-border: LightTheme.colors.muted,
     };
 }
@@ -1191,8 +1191,6 @@ export global DarkTheme {
         border: #ffffff18,
         background: DarkTheme.colors.surface.with-alpha(0.92),
     };
-
-    out property <color> marker-inactive: #3f3f3f;
 
     out property <color> divider: #414141;
 
@@ -1342,7 +1340,7 @@ export global DarkTheme {
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: DarkTheme.colors.muted.with-alpha(0.35),
+        divider: DarkTheme.colors.subtle-border,
         swatch-border: DarkTheme.colors.muted,
     };
 }
@@ -1407,14 +1405,12 @@ export global Theme {
         tooltip-paint: DarkTheme.tooltip-paint,
         drag-preview: DarkTheme.drag-preview,
         floating-panel: DarkTheme.floating-panel,
-        marker-inactive: DarkTheme.marker-inactive,
     } : {
         gradient-overlay: LightTheme.gradient-overlay,
         slice-label-border: LightTheme.slice-label-border,
         tooltip-paint: LightTheme.tooltip-paint,
         drag-preview: LightTheme.drag-preview,
         floating-panel: LightTheme.floating-panel,
-        marker-inactive: LightTheme.marker-inactive,
     };
 
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
@@ -1703,7 +1699,6 @@ export global Style {
 
     private property <GradientMarkerStyle> gradient-marker: {
         checker: root.transparency-grid,
-        inactive: Theme.overlay.marker-inactive,
     };
 
     out property <InspectorStyle> inspector-layout: {
@@ -1981,7 +1976,10 @@ export global Style {
 
     out property <ColorFieldStyle> color-field: {
         field: root.inspector-field,
-        decorative: Theme.fields.color-field.decorative,
+        checker: root.transparency-grid,
+        divider: Theme.fields.color-field.divider,
+        opacity-width: Theme.fields.color-field.opacity-width,
+        swatch-size: Theme.fields.color-field.swatch-size,
         swatch-border: Theme.fields.color-field.swatch-border,
     };
 }

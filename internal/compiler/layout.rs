@@ -236,8 +236,25 @@ impl LayoutConstraints {
     /// when another pass owns that diagnostic).
     pub fn new(
         element: &ElementRc,
-        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+        diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
     ) -> Self {
+        Self::build(element, diag, MergedFixedSize::Constrains)
+    }
+
+    /// Builds the constraints, with `fixed_size` deciding whether a `width`/`height`
+    /// binding also becomes a min/max constraint.
+    ///
+    /// `diag` reports a redundant size constraint, as in [`Self::new`]; a caller that
+    /// builds the same element's constraints several times passes `None`, so that a
+    /// conflict isn't reported that many times.
+    pub(crate) fn build(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+        fixed_size: MergedFixedSize,
+    ) -> Self {
+        let fixed_size_is_constraint = fixed_size == MergedFixedSize::Constrains;
+        let width_constrains = fixed_size_is_constraint && is_local_binding(element, "width");
+        let height_constrains = fixed_size_is_constraint && is_local_binding(element, "height");
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -250,17 +267,13 @@ impl LayoutConstraints {
             fixed_width: false,
             fixed_height: false,
             local: LayoutConstraintLocality {
-                // min/max-{width,height} may be derived from a local fixed
-                // `width`/`height` binding (see below), which is just as local
-                // an override as an explicit min/max constraint.
-                min_width: is_local_binding(element, "min-width")
-                    || is_local_binding(element, "width"),
-                max_width: is_local_binding(element, "max-width")
-                    || is_local_binding(element, "width"),
-                min_height: is_local_binding(element, "min-height")
-                    || is_local_binding(element, "height"),
-                max_height: is_local_binding(element, "max-height")
-                    || is_local_binding(element, "height"),
+                // Under `MergedFixedSize::Constrains`, min/max-{width,height} may be
+                // derived from a local fixed `width`/`height` binding (see below),
+                // which is just as local an override as an explicit min/max constraint.
+                min_width: is_local_binding(element, "min-width") || width_constrains,
+                max_width: is_local_binding(element, "max-width") || width_constrains,
+                min_height: is_local_binding(element, "min-height") || height_constrains,
+                max_height: is_local_binding(element, "max-height") || height_constrains,
                 preferred_width: is_local_binding(element, "preferred-width"),
                 preferred_height: is_local_binding(element, "preferred-height"),
                 horizontal_stretch: is_local_binding(element, "horizontal-stretch"),
@@ -299,11 +312,16 @@ impl LayoutConstraints {
             };
         find_binding(element, "height", |s, enclosing, depth| {
             constraints.fixed_height = true;
-            apply_size_constraint("height", s, enclosing, depth, &mut constraints.min_height);
-            apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
+            if fixed_size_is_constraint {
+                apply_size_constraint("height", s, enclosing, depth, &mut constraints.min_height);
+                apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
+            }
         });
         find_binding(element, "width", |s, enclosing, depth| {
             constraints.fixed_width = true;
+            if !fixed_size_is_constraint {
+                return;
+            }
             if s.expression.ty() == Type::Percent {
                 apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
             } else {
@@ -867,21 +885,13 @@ impl FlexboxLayout {
     }
 }
 
-/// Whether the builtin — or the native class it resolves to after the
-/// `resolve_native_classes` pass — has no intrinsic size (Rectangle, Empty,
-/// TouchArea, etc.): its layout info is the static default, never
-/// height-for-width.
+/// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
+/// its layout info is the static default, never height-for-width.
 fn has_no_intrinsic_size(base: &ElementType) -> bool {
-    let name = match base {
-        ElementType::Builtin(b) => b.name.as_str(),
-        ElementType::Native(n) => n.class_name.as_str(),
-        _ => return false,
-    };
+    let ElementType::Builtin(b) = base else { return false };
     matches!(
-        name,
+        b.name.as_str(),
         "Rectangle"
-            | "BasicBorderRectangle"
-            | "BorderRectangle"
             | "Empty"
             | "TouchArea"
             | "FocusScope"
@@ -965,9 +975,7 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            base @ (ElementType::Builtin(_) | ElementType::Native(_))
-                if has_no_intrinsic_size(base) =>
-            {
+            base @ ElementType::Builtin(_) if has_no_intrinsic_size(base) => {
                 if filter == BuiltinFilter::SkipNonImplicit {
                     return None;
                 }
@@ -1021,15 +1029,10 @@ pub fn implicit_layout_info_call(
 /// `Element::is_builtin_height_for_width` is the variant for synthesis,
 /// which runs before `property_analysis` is filled.
 pub fn builtin_height_depends_on_width(elem: &Element) -> bool {
-    // Before `resolve_native_classes`, a builtin's native class is its widest one.
-    let class = match &elem.base_type {
-        ElementType::Builtin(b) => &b.native_class,
-        ElementType::Native(n) => n,
-        _ => return false,
-    };
-    match class.class_name.as_str() {
-        "ImageItem" | "ClippedImage" | "StyledTextItem" => true,
-        "SimpleText" | "ComplexText" | "TextInput" => {
+    let ElementType::Builtin(b) = &elem.base_type else { return false };
+    match b.name.as_str() {
+        "Image" | "StyledText" => true,
+        "Text" | "TextInput" => {
             elem.is_binding_set("wrap", false)
                 || elem
                     .property_analysis
@@ -1064,10 +1067,18 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> N
     NamedReference::new(elem, name)
 }
 
-/// Return true if this type is a layout that has constraints
+/// Return true if this type is a layout that has constraints,
+/// also for a component whose root layout was already lowered
 pub fn is_layout(base_type: &ElementType) -> bool {
     match base_type {
-        ElementType::Component(c) => is_layout(&c.root_element.borrow().base_type),
+        ElementType::Component(c) => {
+            let root = c.root_element.borrow();
+            // `lower_layouts` replaces a layout's base with `Empty`.
+            // A lowered `Dialog` keeps its base and isn't a layout here.
+            let is_lowered_layout = matches!(&root.base_type, ElementType::Builtin(b) if b.name == "Empty")
+                && root.debug.iter().any(|d| d.layout.is_some());
+            is_lowered_layout || is_layout(&root.base_type)
+        }
         ElementType::Builtin(be) => {
             matches!(
                 be.name.as_str(),
@@ -1078,6 +1089,24 @@ pub fn is_layout(base_type: &ElementType) -> bool {
     }
 }
 
+/// Whether an element's own `width`/`height` binding is one of its layout constraints,
+/// in [`LayoutConstraints`] and the [`repeated_element_layout_info`] that derives a
+/// repeated body's from it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MergedFixedSize {
+    /// Turn the fixed size into a min and a max, as a layout cell needs.
+    /// The layout assigns the cell its size, and a Flickable's scroll extent covers a
+    /// body that sizes itself.
+    Constrains,
+    /// Leave the fixed size out, as `explicit_layout_info` does for a static child
+    /// without layout info of its own.
+    /// A non-layout parent then reads the same off a fixed-size child that has
+    /// layout info of its own, and off a merged repeated child.
+    /// Such a child keeps its own size, so folding that size into the parent's layout
+    /// info would feed the parent back into itself.
+    Ignored,
+}
+
 /// The merged `LayoutInfo` of every instance of a repeated (`if`/`for`) element,
 /// along `orientation`.
 ///
@@ -1086,31 +1115,37 @@ pub fn is_layout(base_type: &ElementType) -> bool {
 /// and computes its layout info, which reuses the existing box-layout-info
 /// runtime machinery (`WithLayoutItemInfo` + `box_layout_info_ortho`) to
 /// enumerate the repeater's instances and fold their `LayoutInfo` together —
-/// the same merge two static siblings get. See issue #407.
+/// close to the merge two static siblings get. See issue #407.
 ///
 /// Also populates the repeated body's `root_constraints` — the same thing
 /// `lower_layout.rs`'s `create_layout_item` does for a repeated cell of a
 /// *real* layout, and for the same reason: without it, the generated
 /// `layout_info`/`layout_item_info` never applies an explicit
 /// `min-height`/`preferred-width`/etc. set directly on the body's root, and
-/// silently drops it. This must happen here, at the point of use, rather
-/// than in a later pass over the whole tree: the call site (`flickable.rs`)
-/// runs *before* `default_geometry` visits this same
+/// silently drops it. For a [`MergedFixedSize::Constrains`] caller this must happen
+/// here, at the point of use, rather than in a later pass over the whole tree:
+/// `flickable.rs` runs *before* `default_geometry` visits this same
 /// element's own root and gives it a default-fill `height`/`width` binding
 /// (every lowered layout has `default_fill_parent = (true, true)`) — computed
 /// any later, that synthesized binding would look like an explicit `height`
-/// conflicting with the user's `min-height`, a false positive. No
-/// diagnostics are threaded through: this can run up to several times for
-/// the same element (once per orientation, more from `flickable.rs`'s
-/// several folds), and re-reporting a real conflict that many times would be
-/// worse than not reporting it at all here — the same conflict on a *static*
-/// layout is still caught by `gen_layout_info_prop`'s own diagnostic pass.
-pub fn repeated_element_layout_info(elem: &ElementRc, orientation: Orientation) -> Expression {
+/// conflicting with the user's `min-height`, a false positive.
+///
+/// `fixed_size` says whether the body's own `width`/`height` binding is one of those
+/// constraints; see [`MergedFixedSize`]. It decides what every consumer of the body's
+/// `root_constraints` sees, the component's own `layout_info_h`/`layout_info_v` included,
+/// so each repeated element must be merged by one call site only: an element belongs to a
+/// single parent, and `gen_layout_info_prop` never descends into a Flickable's viewport.
+pub fn repeated_element_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    fixed_size: MergedFixedSize,
+) -> Expression {
     debug_assert!(elem.borrow().repeated.is_some());
     let ElementType::Component(base) = elem.borrow().base_type.clone() else {
         unreachable!("a repeated element's base_type is always Component")
     };
-    *base.root_constraints.borrow_mut() = LayoutConstraints::new(&base.root_element, None);
+    *base.root_constraints.borrow_mut() =
+        LayoutConstraints::build(&base.root_element, None, fixed_size);
     let layout = BoxLayout {
         // `ComputeBoxLayoutInfo` only folds cells via `box_layout_info_ortho` (the
         // merge, not the sum) when queried for the axis orthogonal to the box's own
@@ -1131,12 +1166,6 @@ pub fn repeated_element_layout_info(elem: &ElementRc, orientation: Orientation) 
         cross_alignment: None,
         is_synthesized_repeated_merge: true,
     };
-    // KNOWN LIMITATION: a height-for-width instance — a word-wrapped `Text`, say —
-    // is measured unconstrained rather than at the size it is given, so it can
-    // under-report its cross size. That needs a known cross size here, the way a
-    // real enclosing layout threads one through `repeated_cross_size`; no single
-    // such value exists in the outer scope, where the instance's own width does
-    // not yet exist.
     Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size: None }
 }
 

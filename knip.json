@@ -10,7 +10,7 @@
     ".": {
       "ignoreBinaries": ["build", "biome"],
       "ignoreDependencies": ["@cspell/dict-fr-fr", "cookie"],
-      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
+      "ignoreFiles": ["editors/tree-sitter-slint/grammar.js", "api/cpp/slint_emscripten.js"]
     },
     "api/node": {
       "project": ["typescript/**/*.ts", "__test__/**/*.{ts,mts}"]
@@ -83,6 +83,7 @@
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/todo/node-typescript": { "ignoreBinaries": ["compile"] },
     "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
     "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
@@ -96,12 +97,14 @@
         "src/styles/sls-ids.css",
         "src/components/Banner.astro",
         "src/components/Footer.astro",
+        "src/components/Head.astro",
         "src/components/Header.astro",
         "src/components/HeaderCppDocs.astro",
         "src/components/HeaderNodeDocs.astro",
         "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
         "src/components/HeaderVersioned.astro",
+        "src/components/MarkdownContent.astro",
         "src/components/ThemeSelect.astro",
         "src/components/VersionSelector.astro",
         "src/components/ThreeCardGrid.astro",

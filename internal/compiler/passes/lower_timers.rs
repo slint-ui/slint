@@ -76,21 +76,7 @@ fn lower_timer(
         return;
     }
 
-    // Remove the timer_element from its parent
-    let mut parent_element_borrowed = parent_element.borrow_mut();
-    let index = parent_element_borrowed
-        .children
-        .iter()
-        .position(|child| Rc::ptr_eq(child, timer_element))
-        .expect("Timer must be a child of its parent");
-    let removed = parent_element_borrowed.children.remove(index);
-    parent_component.optimized_elements.borrow_mut().push(removed);
-    drop(parent_element_borrowed);
-    for parent_cip in parent_component.child_insertion_points.borrow_mut().values_mut() {
-        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
-            parent_cip.insertion_index -= 1;
-        }
-    }
+    move_to_optimized_elements(timer_element, parent_element);
 
     let running = NamedReference::new(timer_element, SmolStr::new_static("running"));
     running.mark_as_set();

@@ -40,7 +40,7 @@ export X := Rectangle {
         x <=> self.loop_on_x;
 //      >                   <error{The binding for the property 'x' is part of a binding loop (Rectangle.loop-on-x -> Rectangle.x -> Rectangle.loop-on-x)}
         property <length> loop_on_x <=> x;
-//                                  >    <error{The binding for the property 'loop-on-x' is part of a binding loop (Rectangle.loop-on-x -> Rectangle.x -> Rectangle.loop-on-x)}
+//                                  >    <note{'loop-on-x' is part of the binding loop reported for 'x' at line 40}
     }
 
     property gyoyo <=> G.yoyo;

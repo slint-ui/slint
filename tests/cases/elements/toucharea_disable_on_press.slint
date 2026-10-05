@@ -1,0 +1,54 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <bool> overlay-enabled: true;
+    out property <int> parent-downs;
+    out property <int> parent-ups;
+    out property <bool> clicked;
+    out property <bool> canceled;
+    out property <bool> child-pressed: child.pressed;
+    out property <bool> child-hover: child.has-hover;
+
+    TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down { root.parent-downs += 1; }
+            if event.kind == PointerEventKind.up { root.parent-ups += 1; }
+        }
+        clicked => { root.clicked = true; }
+
+        child := TouchArea {
+            enabled: root.overlay-enabled;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down { root.overlay-enabled = false; }
+                if event.kind == PointerEventKind.cancel { root.canceled = true; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::{LogicalPosition, platform::{PointerEventButton, WindowEvent}};
+
+for outside in [false, true] {
+    for button in [PointerEventButton::Left, PointerEventButton::Middle, PointerEventButton::Right] {
+        let instance = TestCase::new().unwrap();
+        let position = LogicalPosition::new(50., 50.);
+        instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+        assert_eq!(instance.get_parent_downs(), 1);
+        assert!(instance.get_canceled());
+        assert!(!instance.get_child_pressed());
+        assert!(!instance.get_child_hover());
+        let position = if outside { LogicalPosition::new(200., 50.) } else { position };
+        instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+        assert_eq!(instance.get_parent_ups(), 1);
+        assert_eq!(instance.get_clicked(), button == PointerEventButton::Left && !outside);
+        assert!(!instance.get_child_pressed());
+        assert!(!instance.get_child_hover());
+    }
+}
+```
+*/

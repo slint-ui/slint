@@ -4,10 +4,10 @@
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { runtimeRoot, verifyRuntime } from "./runtime-pin.mjs";
+
+const repoRoot = resolve(import.meta.dirname, "../../..");
 
 export async function dependencyNotices(moduleIds) {
-    verifyRuntime();
     const packages = new Map();
     for (const input of moduleIds) {
         if (!input.includes("node_modules/")) continue;
@@ -43,7 +43,7 @@ export async function dependencyNotices(moduleIds) {
                 "--format-version",
                 "1",
                 "--manifest-path",
-                resolve(runtimeRoot, "api/wasm-interpreter/Cargo.toml"),
+                resolve(repoRoot, "api/wasm-interpreter/Cargo.toml"),
             ],
             { encoding: "utf8", maxBuffer: 100 * 1024 * 1024 },
         ),
@@ -106,9 +106,9 @@ export async function dependencyNotices(moduleIds) {
         );
     }
     // Include upstream license texts, including fonts and vendored components.
-    for (const name of (await readdir(resolve(runtimeRoot, "LICENSES"))).sort())
+    for (const name of (await readdir(resolve(repoRoot, "LICENSES"))).sort())
         sections.push(
-            `## Slint LICENSES/${name}\n\n${await readFile(resolve(runtimeRoot, "LICENSES", name), "utf8")}`,
+            `## Slint LICENSES/${name}\n\n${await readFile(resolve(repoRoot, "LICENSES", name), "utf8")}`,
         );
     return {
         inventory: {

@@ -90,11 +90,8 @@ pub fn mock_elapsed_time(duration: std::time::Duration) {
 /// Set the system accent color, as a platform backend would when the OS theme changes.
 /// Must be called after initializing the testing backend (e.g. after [`init_no_event_loop()`]).
 pub fn set_system_accent_color(color: i_slint_core::Color) {
-    i_slint_core::context::with_global_context(
-        || panic!("the testing backend must be initialized first"),
-        |ctx| ctx.set_accent_color(color),
-    )
-    .unwrap();
+    i_slint_core::context::with_existing_context(|ctx| ctx.set_accent_color(color))
+        .expect("the testing backend must be initialized first");
 }
 
 /// Set the operating system's reduced-motion setting, as a platform backend would when it
@@ -125,40 +122,37 @@ pub fn configure_test_fonts() {
         include_bytes!("../../../tests/screenshots/fonts/NotoSansSymbols2-Regular.ttf"),
     ];
 
-    i_slint_core::with_global_context(
-        || panic!("platform not set, initialize the testing backend first"),
-        |ctx| {
-            let mut font_context = ctx.font_context().borrow_mut();
-            font_context.collection = fontique::Collection::new(fontique::CollectionOptions {
-                shared: true,
-                system_fonts: false,
-            });
-            font_context.source_cache = fontique::SourceCache::new_shared();
-            font_context.clear_registered_static_fonts();
+    i_slint_core::with_existing_context(|ctx| {
+        let mut font_context = ctx.font_context().borrow_mut();
+        font_context.collection = fontique::Collection::new(fontique::CollectionOptions {
+            shared: true,
+            system_fonts: false,
+        });
+        font_context.source_cache = fontique::SourceCache::new_shared();
+        font_context.clear_registered_static_fonts();
 
-            let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
-            for font in FONTS {
-                let fonts = font_context
-                    .collection
-                    .register_fonts(fontique::Blob::new(std::sync::Arc::new(*font)), None);
-                for (family_id, _) in &fonts {
-                    if !chain_families.contains(family_id) {
-                        chain_families.push(*family_id);
-                    }
+        let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
+        for font in FONTS {
+            let fonts = font_context
+                .collection
+                .register_fonts(fontique::Blob::new(std::sync::Arc::new(*font)), None);
+            for (family_id, _) in &fonts {
+                if !chain_families.contains(family_id) {
+                    chain_families.push(*family_id);
                 }
             }
-            // Map the fallback generics plus monospace (used by markdown code spans) to the bundled
-            // fonts, so all generic families resolve deterministically with system fonts disabled.
-            for generic_family in
-                FALLBACK_FAMILIES.into_iter().chain([fontique::GenericFamily::Monospace])
-            {
-                font_context
-                    .collection
-                    .set_generic_families(generic_family, chain_families.iter().copied());
-            }
-        },
-    )
-    .unwrap();
+        }
+        // Map the fallback generics plus monospace (used by markdown code spans) to the bundled
+        // fonts, so all generic families resolve deterministically with system fonts disabled.
+        for generic_family in
+            FALLBACK_FAMILIES.into_iter().chain([fontique::GenericFamily::Monospace])
+        {
+            font_context
+                .collection
+                .set_generic_families(generic_family, chain_families.iter().copied());
+        }
+    })
+    .expect("platform not set, initialize the testing backend first");
 }
 
 pub use i_slint_core::MotionPreference;

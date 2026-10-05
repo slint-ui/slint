@@ -32,6 +32,12 @@
     "color": {
         "href": "reference/property-types/colors-and-brushes/#color"
     },
+    "Deprecation": {
+        "href": "guide/language/coding/deprecation/"
+    },
+    "DeprecationSpec": {
+        "href": "reference/language/deprecation/"
+    },
     "DragAndDrop": {
         "href": "guide/development/drag-and-drop/"
     },
@@ -301,6 +307,9 @@
     },
     "skia_renderer": {
         "href": "guide/backends-and-renderers/backends_and_renderers/#skia-renderer"
+    },
+    "android_building": {
+        "href": "guide/platforms/mobile/android/#building-and-running"
     },
     "globals": {
         "href": "reference/language/globals/"

@@ -317,26 +317,89 @@ int main()
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
-There are multiple ways to build, upload and run Android apps written in Rust. This page describes a
-way using [xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
+Slint doesn't require a specific tool to build, upload, and run Android apps written in Rust.
+The app's activity must be `android.app.NativeActivity`, or a subclass of it,
+because that's the activity type Slint's Android backend supports.
+This section covers some common tools that can package such an app.
+None of them needs Android Studio.
 
-At the time of this writing, the current version of xbuild (0.2.0) is severely outdated and contains
-relevant bugs that have been fixed in the master branch. So, don't use `cargo install xbuild` to
-install it, use the git version instead:
+### cargo-apk2
+
+[cargo-apk2](https://crates.io/crates/cargo-apk2) builds, signs, and installs the APK from your `Cargo.toml`,
+and can also compile Java and Kotlin sources into it.
+Install it and run your app on the connected device:
+
+```sh
+cargo install cargo-apk2
+cargo apk2 run --target aarch64-linux-android --lib
+```
+
+Declare the `NativeActivity` in your `Cargo.toml`:
+
+```toml
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+
+[[package.metadata.android.application.activity.meta_data]]
+name = "android.app.lib_name"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]
+```
+
+Set additional manifest values in the `[package.metadata.android]` table of your `Cargo.toml`.
+See the [cargo-apk2 README](https://github.com/mzdk100/cargo-apk2#manifest) for the available keys.
+
+To build a release APK, run `cargo apk2 build --target aarch64-linux-android --lib --release`.
+The APK is then located in `target/release/apk/`.
+
+### cargo-apk
+
+[cargo-apk](https://crates.io/crates/cargo-apk) generates the Android manifest,
+including the `NativeActivity`, from your `Cargo.toml`.
+Install it and run your app on the connected device:
+
+```sh
+cargo install cargo-apk
+cargo apk run --target aarch64-linux-android --lib
+```
+
+Set additional manifest values in the `[package.metadata.android]` table of your `Cargo.toml`.
+See the [cargo-apk README](https://github.com/rust-mobile/cargo-apk/tree/main/cargo-apk#manifest) for the available keys.
+
+To build a release APK, run `cargo apk build --target aarch64-linux-android --lib --release`.
+The APK is then located in `target/release/apk/`.
+
+### cargo-ndk and Gradle
+
+[cargo-ndk](https://crates.io/crates/cargo-ndk) builds only the native library.
+Gradle, or Android Studio, then packages it like any other Android app.
+Use this setup to add Java or Kotlin code, or to build an Android App Bundle (AAB) for Google Play.
+
+Build the library into the `jniLibs` directory of your Gradle project:
+
+```sh
+cargo install cargo-ndk
+cargo ndk -t arm64-v8a -o app/src/main/jniLibs build --release --lib
+```
+
+Declare a `NativeActivity` in `AndroidManifest.xml`, with `android.app.lib_name` set to your library name.
+The C++ tab of this page shows such a manifest,
+and the [Slint Viewer](https://github.com/slint-ui/slint/tree/master/tools/viewer/android) is a complete example.
+
+### xbuild
+
+[xbuild](https://github.com/rust-mobile/xbuild) builds for Android and iOS.
+The release on crates.io (0.2.0) is outdated, so install the git version:
 
 ```sh
 cargo install --git https://github.com/rust-mobile/xbuild.git
 ```
 
-The command line tool for xbuild is simply called `x`. For example, to get a list of devices connected,
-use
-
-```sh
-x devices
-```
-
-Note that unlike `adb` above, this tool also supports iOS devices and simulators. However, for Android
-devices it simply talks to `adb`, so if you connect a device using that tool, it will also show up here.
+The command line tool is called `x`.
+List the connected devices with `x devices`.
+For Android devices it talks to `adb`, so a device you connected with `adb` shows up here too.
 
 To build your project, navigate to the directory containing your `Cargo.toml` and run
 
@@ -346,30 +409,18 @@ x run --device <id>
 
 Where `<id>` is shown in `x devices` as the leftmost column and is something like `adb:emulator-1234`
 for virtual Android devices.
+To recompile and test changes, press ctrl-c and run the same command again.
 
-This should build your project, upload it to the device and run it. The target platform is detected
-automatically.
+If `x run` doesn't work, run `x doctor` to check that xbuild finds all the tools it needs.
 
-To recompile and test changes, press ctrl-c and run the same command again. The running version on the
-device is replaced automatically.
-
-### Troubleshooting
-
-If `x run` doesn't work, run `x doctor` to check if you have all required tools installed and that
-they're found by xbuild.
-
-### Distribution
-
-There are many ways to distribute Android applications and xbuild supports all of them via `x build`.
-To get information about the configuration, use `x build --help`.
-
-For example, to build an .apk file, use something like
+To build an APK for distribution, use something like
 
 ```sh
 x build --platform android --arch arm64 --format apk --release
 ```
 
-The apk is then located in `target/x/release/android/<name>.apk`.
+The APK is then located in `target/x/release/android/<name>.apk`.
+Run `x build --help` for the other formats.
 
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">

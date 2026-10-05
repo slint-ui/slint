@@ -49,7 +49,7 @@ fn main() {
     let coverage_dir = std::env::var_os("SLINT_SC_COVERAGE_DIR").map(PathBuf::from);
     let update_coverage = std::env::var(expectations::UPDATE_VAR).is_ok_and(|var| var == "1");
     let compiler = build_compiler(&target_dir);
-    let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
+    let slint_sc_rlib = build_slint_sc_rlib(&target_dir);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
     let config = TestConfig {
@@ -165,16 +165,22 @@ fn find_target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-fn build_compiler(target_dir: &Path) -> PathBuf {
+/// A `cargo build` into the same target directory as the test binary itself,
+/// so the artifacts end up next to us (important for cargo-llvm-cov which
+/// uses a separate target dir).
+fn cargo_build(target_dir: &Path) -> Command {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let mut cmd = Command::new(&cargo);
-    cmd.args(["build", "-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
-    // Use the same target directory as the test binary itself, so the
-    // compiler ends up next to us (important for cargo-llvm-cov which
-    // uses a separate target dir).
+    cmd.arg("build");
     if let Some(parent) = target_dir.parent() {
         cmd.arg("--target-dir").arg(parent);
     }
+    cmd
+}
+
+fn build_compiler(target_dir: &Path) -> PathBuf {
+    let mut cmd = cargo_build(target_dir);
+    cmd.args(["-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
     // Coverage measures the slint-sc runtime alone, so the compiler builds
     // uninstrumented: clear the rustc wrapper cargo-llvm-cov injects the
     // instrumentation with, and the flag variables older versions used.
@@ -188,20 +194,18 @@ fn build_compiler(target_dir: &Path) -> PathBuf {
     compiler
 }
 
-/// Find the slint-sc rlib in the deps directory for --extern: the newest,
-/// as builds with other features leave theirs behind.
-fn find_slint_sc_rlib(target_dir: &Path) -> PathBuf {
-    let deps_dir = target_dir.join("deps");
-    let rlibs = std::fs::read_dir(&deps_dir).into_iter().flatten().flatten().filter(|entry| {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        name.starts_with("libslint_sc-") && name.ends_with(".rlib")
-    });
-    let newest = rlibs.max_by_key(|entry| entry.metadata().and_then(|m| m.modified()).ok());
-    match newest {
-        Some(entry) => entry.path(),
-        None => panic!("Could not find slint-sc rlib in {}", deps_dir.display()),
-    }
+/// Cargo places the library of the package it builds in the target directory.
+/// The environment is kept, so under cargo-llvm-cov this is the instrumented
+/// build that the test binary links.
+fn build_slint_sc_rlib(target_dir: &Path) -> PathBuf {
+    let status = cargo_build(target_dir)
+        .args(["-p", "slint-sc", "--lib"])
+        .status()
+        .expect("Failed to run cargo build for slint-sc");
+    assert!(status.success(), "Failed to build slint-sc");
+    let rlib = target_dir.join("libslint_sc.rlib");
+    assert!(rlib.exists(), "slint-sc rlib not found at {}", rlib.display());
+    rlib
 }
 
 fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
@@ -279,7 +283,7 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
     // Step 6: The coverage of the case must be what the case states, if it
     // does: every point, reached or not.
     let report = coverage::measure(tmp.path(), &generated_rs, &test_bin)?;
-    // The cases of the `coverage` group test the reporting: one that lost its
+    // The cases of the `coverage` group test only the reporting: one that lost its
     // caret lines would pass for stating nothing.
     if rel.starts_with("coverage") && !expectations::is_stated(&source) {
         return Err("a coverage case states its coverage in `//#c` caret lines".into());
@@ -515,15 +519,12 @@ fn compile(
     rs_path: &Path,
     out_path: &Path,
 ) -> Result<std::process::Output, String> {
-    let deps_dir = config.slint_sc_rlib.parent().unwrap_or_else(|| Path::new("."));
     let mut rustc_cmd = Command::new(config.rustc);
     rustc_cmd
         .arg(rs_path)
         .arg("--edition=2024")
         .arg("-o")
         .arg(out_path)
-        .arg("-L")
-        .arg(deps_dir)
         // slint-sc is the only `--extern`, so the generated code fails to build
         // if it references any other crate.
         //#sls.gen.output
@@ -534,6 +535,9 @@ fn compile(
     // `coverage` module); under cargo-llvm-cov, the runtime code the case
     // exercises is in the runtime's coverage too.
     rustc_cmd.arg("-Cinstrument-coverage");
+    // The generated code must build on stable, even when the suite enables
+    // unstable options for the runtime's branch coverage.
+    rustc_cmd.env_remove("RUSTC_BOOTSTRAP");
 
     rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
 }

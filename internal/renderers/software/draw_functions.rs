@@ -205,6 +205,26 @@ pub(super) fn draw_texture_line(
                     }
                 }
             }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => {
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let p: &[u8] = &data[pos(2).0..][..2];
+                        *pix = TargetPixel::from_rgb565(u16::from_ne_bytes([p[0], p[1]]));
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let b: &[u8] = &data[pos(2).0..][..2];
+                        let p = Rgb565Pixel(u16::from_ne_bytes([b[0], b[1]]));
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha,
+                            p.red(),
+                            p.green(),
+                            p.blue(),
+                        )))
+                    }
+                }
+            }
             TexturePixelFormat::Rgba => {
                 if color.alpha() == 0 {
                     for pix in line_buffer {
@@ -281,6 +301,24 @@ pub(super) fn draw_texture_line(
                     pix.blend(c);
                 }
             }
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => {
+                if alpha == 0xff {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
+                        *pix = TargetPixel::from_rgb(v, v, v);
+                    }
+                } else {
+                    for pix in line_buffer {
+                        let pos = pos(1).0;
+                        let v = data[pos];
+                        pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                            alpha, v, v, v,
+                        )));
+                    }
+                }
+            }
             TexturePixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
                 let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)
@@ -311,6 +349,93 @@ pub(super) fn draw_texture_line(
     }
 }
 
+/// This is an integer shifted by 4 bits.
+/// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
+/// the shifted integer
+#[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
+struct Shifted(u32);
+impl Shifted {
+    const ONE: Self = Shifted(1 << 4);
+    const ZERO: Self = Shifted(0);
+    #[track_caller]
+    #[inline]
+    fn new(value: impl TryInto<u32> + core::fmt::Debug + Copy) -> Self {
+        Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
+    }
+    #[inline(always)]
+    fn floor(self) -> u32 {
+        self.0 >> 4
+    }
+    #[inline(always)]
+    fn ceil(self) -> u32 {
+        (self.0 + Self::ONE.0 - 1) >> 4
+    }
+    #[inline(always)]
+    fn saturating_sub(self, other: Self) -> Self {
+        Self(self.0.saturating_sub(other.0))
+    }
+    #[inline(always)]
+    fn sqrt(self) -> Self {
+        Self(self.0.isqrt())
+    }
+}
+impl core::ops::Mul for Shifted {
+    type Output = Shifted;
+    #[inline(always)]
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self(self.0 * rhs.0)
+    }
+}
+
+/// The radius of the left and right corner that `line` crosses (0 if none),
+/// and the distance of `line` from the nearest horizontal edge of `shape`.
+fn corner_radii_on_line(
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    shape: &super::RoundedShape,
+) -> (i16, i16, i16) {
+    let y1 = (line - span.origin.y_length()) + shape.top_clip;
+    let y2 = (span.origin.y_length() + span.size.height_length() - line) + shape.bottom_clip
+        - PhysicalLength::new(1);
+    let y = y1.min(y2);
+    debug_assert!(y.get() >= 0);
+    let r = &shape.radius;
+    let left = if y1.get() < r.top_left {
+        r.top_left
+    } else if y2.get() < r.bottom_left {
+        r.bottom_left
+    } else {
+        0
+    };
+    let right = if y1.get() < r.top_right {
+        r.top_right
+    } else if y2.get() < r.bottom_right {
+        r.bottom_right
+    } else {
+        0
+    };
+    (left, right, y.get())
+}
+
+/// Where a pixel line crosses a circle of radius `circle`,
+/// centered `r` in from both edges of a corner.
+/// Returns `(x1, x2)` measured from the vertical edge,
+/// at the line's sides nearer to and farther from the center.
+/// `y` is `r` minus the line's distance from the horizontal edge.
+/// Each crossing is `r - √(circle² - y²)`, from the circle equation.
+fn arc_crossing(r: Shifted, circle: Shifted, y: Shifted) -> (Shifted, Shifted) {
+    let x1 = r - (circle * circle).saturating_sub((y - Shifted::ONE) * (y - Shifted::ONE)).sqrt();
+    let x2 = r - (circle * circle).saturating_sub(y * y).sqrt();
+    (x1, x2)
+}
+
+/// Coverage, between 0 and 255, of pixel `x` by a shape whose edge goes from `x1` to `x2`
+/// across the pixel line, with the shape to the right of the edge.
+/// This interpolates linearly, which isn't exact, but good enough.
+fn edge_coverage(x: u32, x1: Shifted, x2: Shifted) -> u32 {
+    ((Shifted::ONE + Shifted::new(x) - x1).0 << 8) / (Shifted::ONE + x2 - x1).0
+}
+
 /// draw one line of the rounded rectangle in the line buffer
 #[allow(clippy::unnecessary_cast)] // Coord
 pub(super) fn draw_rounded_rectangle_line(
@@ -321,111 +446,45 @@ pub(super) fn draw_rounded_rectangle_line(
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
-    /// This is an integer shifted by 4 bits.
-    /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
-    /// the shifted integer
-    #[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
-    struct Shifted(u32);
-    impl Shifted {
-        const ONE: Self = Shifted(1 << 4);
-        #[track_caller]
-        #[inline]
-        pub fn new(value: impl TryInto<u32> + core::fmt::Debug + Copy) -> Self {
-            Self(value.try_into().unwrap_or_else(|_| panic!("Overflow {value:?}")) << 4)
-        }
-        #[inline(always)]
-        pub fn floor(self) -> u32 {
-            self.0 >> 4
-        }
-        #[inline(always)]
-        pub fn ceil(self) -> u32 {
-            (self.0 + Self::ONE.0 - 1) >> 4
-        }
-        #[inline(always)]
-        pub fn saturating_sub(self, other: Self) -> Self {
-            Self(self.0.saturating_sub(other.0))
-        }
-        #[inline(always)]
-        pub fn sqrt(self) -> Self {
-            Self(self.0.isqrt())
-        }
-    }
-    impl core::ops::Mul for Shifted {
-        type Output = Shifted;
-        #[inline(always)]
-        fn mul(self, rhs: Self) -> Self::Output {
-            Self(self.0 * rhs.0)
-        }
-    }
     let width = line_buffer.len();
-    let y1 = (line - span.origin.y_length()) + rr.top_clip;
-    let y2 = (span.origin.y_length() + span.size.height_length() - line) + rr.bottom_clip
-        - PhysicalLength::new(1);
-    let y = y1.min(y2);
-    debug_assert!(y.get() >= 0,);
+    let shape = &rr.shape;
+    let (left_radius, right_radius, y) = corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
-    const ONE: Shifted = Shifted::ONE;
-    const ZERO: Shifted = Shifted(0);
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
         // line and the curve.
         // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
-        // This algorithm just go linearly which is not perfect, but good enough.
         for x in x1.floor()..x2.ceil() {
-            // the coverage is basically how much of the pixel should be used
-            let cov = ((ONE + Shifted::new(x) - x1).0 << 8) / (ONE + x2 - x1).0;
-            process_pixel(x as usize, cov);
+            process_pixel(x as usize, edge_coverage(x, x1, x2));
         }
     };
     let rev = |x: Shifted| {
-        (Shifted::new(width) + Shifted::new(rr.right_clip.get() + extra_right_clip))
+        (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
             .saturating_sub(x)
     };
-    let calculate_xxxx = |r: i16, y: i16| {
+    let calculate_xxxx = |r: i16| {
+        if r == 0 {
+            return (Shifted::ZERO, Shifted::ZERO, border, border);
+        }
         let r = Shifted::new(r);
-        // `y` is how far away from the center of the circle the current line is.
         let y = r - Shifted::new(y);
-        // Circle equation: x = √(r² - y²)
-        // Coordinate from the left edge: x' = r - x
-        let x2 = r - (r * r).saturating_sub(y * y).sqrt();
-        let x1 = r - (r * r).saturating_sub((y - ONE) * (y - ONE)).sqrt();
-        let r2 = r.saturating_sub(border);
-        let x4 = r - (r2 * r2).saturating_sub(y * y).sqrt();
-        let x3 = r - (r2 * r2).saturating_sub((y - ONE) * (y - ONE)).sqrt();
+        let (x1, x2) = arc_crossing(r, r, y);
+        let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
         (x1, x2, x3, x4)
     };
 
-    let (x1, x2, x3, x4, x5, x6, x7, x8) = if let Some(r) = rr.radius.as_uniform() {
-        let (x1, x2, x3, x4) =
-            if y.get() < r { calculate_xxxx(r, y.get()) } else { (ZERO, ZERO, border, border) };
-        (x1, x2, x3, x4, rev(x4), rev(x3), rev(x2), rev(x1))
-    } else {
-        let (x1, x2, x3, x4) = if y1 < PhysicalLength::new(rr.radius.top_left) {
-            calculate_xxxx(rr.radius.top_left, y.get())
-        } else if y2 < PhysicalLength::new(rr.radius.bottom_left) {
-            calculate_xxxx(rr.radius.bottom_left, y.get())
-        } else {
-            (ZERO, ZERO, border, border)
-        };
-        let (x5, x6, x7, x8) = if y1 < PhysicalLength::new(rr.radius.top_right) {
-            let x = calculate_xxxx(rr.radius.top_right, y.get());
-            (x.3, x.2, x.1, x.0)
-        } else if y2 < PhysicalLength::new(rr.radius.bottom_right) {
-            let x = calculate_xxxx(rr.radius.bottom_right, y.get());
-            (x.3, x.2, x.1, x.0)
-        } else {
-            (border, border, ZERO, ZERO)
-        };
-        (x1, x2, x3, x4, rev(x5), rev(x6), rev(x7), rev(x8))
-    };
+    let (x1, x2, x3, x4) = calculate_xxxx(left_radius);
+    let (x8, x7, x6, x5) =
+        if right_radius == left_radius { (x1, x2, x3, x4) } else { calculate_xxxx(right_radius) };
+    let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
     anti_alias(
-        x1.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-        x2.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+        x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
+        x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
         &mut |x, cov| {
             if x >= width {
                 return;
             }
-            let c = if border == ZERO { rr.inner_color } else { rr.border_color };
+            let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
             let col = PremultipliedRgbaColor {
                 alpha: (((c.alpha as u32) * cov as u32) / 255) as u8,
                 red: (((c.red as u32) * cov as u32) / 255) as u8,
@@ -435,35 +494,35 @@ pub(super) fn draw_rounded_rectangle_line(
             line_buffer[x].blend(col);
         },
     );
-    if y < rr.width {
+    if y < rr.width.get() {
         // up or down border (x2 .. x7)
         let l = x2
             .ceil()
-            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
             .min(width as u32) as usize;
         let r = x7.floor().min(width as u32) as usize;
         if l < r {
             TargetPixel::blend_slice(&mut line_buffer[l..r], rr.border_color)
         }
     } else {
-        if border > ZERO {
+        if border > Shifted::ZERO {
             // 3. draw the border (between x2 and x3)
-            if ONE + x2 <= x3 {
+            if Shifted::ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
                     &mut line_buffer[x2
                         .ceil()
-                        .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                        .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                         .min(width as u32) as usize
                         ..x3.floor()
-                            .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                            .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                             .min(width as u32) as usize],
                     rr.border_color,
                 )
             }
             // 4. anti-aliasing for the contents (x3 .. x4)
             anti_alias(
-                x3.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
-                x4.saturating_sub(Shifted::new(rr.left_clip.get() + extra_left_clip)),
+                x3.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
+                x4.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
                 &mut |x, cov| {
                     if x >= width {
                         return;
@@ -477,7 +536,7 @@ pub(super) fn draw_rounded_rectangle_line(
             // 5. inside (x4 .. x5)
             let begin = x4
                 .ceil()
-                .saturating_sub((rr.left_clip.get() + extra_left_clip) as u32)
+                .saturating_sub((shape.left_clip.get() + extra_left_clip) as u32)
                 .min(width as u32);
             let end = x5.floor().min(width as u32);
             if begin < end {
@@ -487,7 +546,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 )
             }
         }
-        if border > ZERO {
+        if border > Shifted::ZERO {
             // 6. border anti-aliasing: x5..x6
             anti_alias(x5, x6, &mut |x, cov| {
                 if x >= width {
@@ -497,7 +556,7 @@ pub(super) fn draw_rounded_rectangle_line(
                 line_buffer[x].blend(col)
             });
             // 7. border x6 .. x7
-            if ONE + x6 <= x7 {
+            if Shifted::ONE + x6 <= x7 {
                 TargetPixel::blend_slice(
                     &mut line_buffer[x6.ceil().min(width as u32) as usize
                         ..x7.floor().min(width as u32) as usize],
@@ -510,7 +569,7 @@ pub(super) fn draw_rounded_rectangle_line(
         if x >= width {
             return;
         }
-        let c = if border == ZERO { rr.inner_color } else { rr.border_color };
+        let c = if border == Shifted::ZERO { rr.inner_color } else { rr.border_color };
         let col = PremultipliedRgbaColor {
             alpha: (((c.alpha as u32) * (255 - cov) as u32) / 255) as u8,
             red: (((c.red as u32) * (255 - cov) as u32) / 255) as u8,
@@ -548,7 +607,192 @@ fn interpolate_color(
     }
 }
 
-pub(super) fn draw_linear_gradient(
+/// Taken as `dyn` by [`draw_gradient_line`] so it's only instantiated once per pixel type.
+pub(super) trait GradientCommand<T: TargetPixel> {
+    fn clip(&self) -> &super::GradientClip;
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    );
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    );
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::LinearGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        _extra_right_clip: i16,
+    ) {
+        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        _extra_right_clip: i16,
+    ) {
+        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+    }
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::RadialGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+}
+
+impl<T: TargetPixel> GradientCommand<T> for super::ConicGradientCommand {
+    fn clip(&self) -> &super::GradientClip {
+        &self.clip
+    }
+    fn draw_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [T],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+    fn draw_scratch_line(
+        &self,
+        rect: &PhysicalRect,
+        line: PhysicalLength,
+        buffer: &mut [PremultipliedRgbaColor],
+        extra_left_clip: i16,
+        extra_right_clip: i16,
+    ) {
+        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    }
+}
+
+/// Draw one line of a gradient, clipped to its rounded shape with anti-aliased corners.
+pub(super) fn draw_gradient_line<T: TargetPixel>(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    g: &dyn GradientCommand<T>,
+    buffer: &mut [T],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+) {
+    let clip = g.clip();
+    let shape = &clip.shape;
+    let (left_radius, right_radius, y) =
+        if shape.radius.is_zero() { (0, 0, 0) } else { corner_radii_on_line(rect, line, shape) };
+    if left_radius == 0 && right_radius == 0 {
+        g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
+        return;
+    }
+
+    let len = buffer.len();
+    // The edges are computed relative to the shape's left edge rather than the buffer,
+    // so the coverage doesn't depend on where the dirty region splits the line.
+    let left_offset = (shape.left_clip.get() + extra_left_clip) as u32;
+    let shape_width =
+        Shifted::new(len as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32);
+    let border = Shifted::new(clip.opaque_border.get());
+    let arc = |r: i16| {
+        if r == 0 {
+            return (Shifted::ZERO, Shifted::ZERO);
+        }
+        let r = Shifted::new(r);
+        arc_crossing(r, r.saturating_sub(border), r - Shifted::new(y))
+    };
+    let (l1, l2) = arc(left_radius);
+    let (r2, r1) = if right_radius == left_radius { (l1, l2) } else { arc(right_radius) };
+    let (r1, r2) = (shape_width.saturating_sub(r1), shape_width.saturating_sub(r2));
+
+    let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);
+    let begin = to_buffer(l1.floor());
+    let end = to_buffer(r2.ceil());
+    let clips = |range: &core::ops::Range<usize>| {
+        (extra_left_clip + range.start as i16, extra_right_clip + (len - range.end) as i16)
+    };
+
+    if border > Shifted::ZERO {
+        // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
+        // span, so the gradient must have full coverage in it.
+        let inner = begin..end.max(begin);
+        let (left_clip, right_clip) = clips(&inner);
+        g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+        return;
+    }
+
+    let inner_begin = to_buffer(l2.ceil()).clamp(begin, end);
+    let inner_end = to_buffer(r1.floor()).clamp(inner_begin, end);
+
+    let inner = inner_begin..inner_end;
+    let (left_clip, right_clip) = clips(&inner);
+    g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+
+    // On a narrow shape both arcs can cross the same pixel, so take the smaller coverage.
+    let coverage = |x: usize| {
+        let x = x as u32 + left_offset;
+        let left = if x >= l2.ceil() { 255 } else { edge_coverage(x, l1, l2) };
+        let right = if x < r1.floor() { 255 } else { 255 - edge_coverage(x, r1, r2) };
+        left.min(right)
+    };
+    // Bounds the stack scratch buffer. Most edges fit in one chunk;
+    // the flat top of a large corner takes several.
+    const CHUNK: usize = 16;
+    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
+    for edge in [begin..inner_begin, inner_end..end] {
+        for start in edge.clone().step_by(CHUNK) {
+            let chunk = start..(start + CHUNK).min(edge.end);
+            let scratch = &mut scratch[..chunk.len()];
+            scratch.fill(PremultipliedRgbaColor::default());
+            let (left_clip, right_clip) = clips(&chunk);
+            g.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
+            for (x, color) in chunk.zip(scratch.iter()) {
+                let color =
+                    interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
+                buffer[x].blend(color);
+            }
+        }
+    }
+}
+
+fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::LinearGradientCommand,
@@ -657,7 +901,7 @@ pub(super) fn draw_linear_gradient(
 }
 
 /// Draw a radial gradient on a line
-pub(super) fn draw_radial_gradient(
+fn draw_radial_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::RadialGradientCommand,
@@ -720,7 +964,7 @@ pub(super) fn draw_radial_gradient(
 }
 
 /// Draw a conic gradient on a line
-pub(super) fn draw_conic_gradient(
+fn draw_conic_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::ConicGradientCommand,
@@ -846,6 +1090,16 @@ pub trait TargetPixel: Sized + Copy {
     /// Create a pixel from the red, gree, blue component in the range 0..=255
     fn from_rgb(red: u8, green: u8, blue: u8) -> Self;
 
+    /// Create a pixel from a 16-bit RGB565 value in native byte order
+    /// (5 red bits, 6 green bits, 5 blue bits).
+    ///
+    /// The default implementation expands the components. RGB565 pixel
+    /// types override this and use the value as-is.
+    fn from_rgb565(value: u16) -> Self {
+        let pixel = Rgb565Pixel(value);
+        Self::from_rgb(pixel.red(), pixel.green(), pixel.blue())
+    }
+
     /// Pixel which will be filled as the background in case the slint view has transparency
     fn background() -> Self {
         Self::from_rgb(0, 0, 0)
@@ -884,35 +1138,11 @@ impl TargetPixel for PremultipliedRgbaColor {
     }
 }
 
-/// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Rgb565Pixel(pub u16);
+pub use i_slint_core::graphics::Rgb565Pixel;
 
-impl Rgb565Pixel {
-    const R_MASK: u16 = 0b1111_1000_0000_0000;
-    const G_MASK: u16 = 0b0000_0111_1110_0000;
-    const B_MASK: u16 = 0b0000_0000_0001_1111;
-
-    /// Return the red component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn red(self) -> u8 {
-        ((self.0 & Self::R_MASK) >> 8) as u8
-    }
-    /// Return the green component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn green(self) -> u8 {
-        ((self.0 & Self::G_MASK) >> 3) as u8
-    }
-    /// Return the blue component as a u8.
-    ///
-    /// The bits are shifted so that the result is between 0 and 255
-    fn blue(self) -> u8 {
-        ((self.0 & Self::B_MASK) << 3) as u8
-    }
-}
+const R_MASK: u16 = 0b1111_1000_0000_0000;
+const G_MASK: u16 = 0b0000_0111_1110_0000;
+const B_MASK: u16 = 0b0000_0000_0001_1111;
 
 impl TargetPixel for Rgb565Pixel {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
@@ -921,8 +1151,7 @@ impl TargetPixel for Rgb565Pixel {
         let a = (a + 4) >> 3;
 
         // 00000ggg_ggg00000_rrrrr000_000bbbbb
-        let expanded = (self.0 & (Self::R_MASK | Self::B_MASK)) as u32
-            | (((self.0 & Self::G_MASK) as u32) << 16);
+        let expanded = (self.0 & (R_MASK | B_MASK)) as u32 | (((self.0 & G_MASK) as u32) << 16);
 
         // gggggggg_000rrrrr_rrr000bb_bbbbbb00
         let c =
@@ -932,24 +1161,16 @@ impl TargetPixel for Rgb565Pixel {
 
         let res = expanded * a + c;
 
-        self.0 = ((res >> 21) as u16 & Self::G_MASK)
-            | ((res >> 5) as u16 & (Self::R_MASK | Self::B_MASK));
+        self.0 = ((res >> 21) as u16 & G_MASK) | ((res >> 5) as u16 & (R_MASK | B_MASK));
     }
 
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
-        Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
+        // This calls the inherent from_rgb, not this trait method.
+        Rgb565Pixel::from_rgb(r, g, b)
     }
-}
 
-impl From<Rgb8Pixel> for Rgb565Pixel {
-    fn from(p: Rgb8Pixel) -> Self {
-        Self::from_rgb(p.r, p.g, p.b)
-    }
-}
-
-impl From<Rgb565Pixel> for Rgb8Pixel {
-    fn from(p: Rgb565Pixel) -> Self {
-        Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+    fn from_rgb565(value: u16) -> Self {
+        Self(value)
     }
 }
 
@@ -1003,6 +1224,11 @@ impl TargetPixel for Rgb565BigEndianPixel {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(Rgb565Pixel::from_rgb(r, g, b).0.to_be())
     }
+
+    fn from_rgb565(value: u16) -> Self {
+        // Same 565 bit layout, only the byte order differs.
+        Self(value.to_be())
+    }
 }
 
 impl From<Rgb8Pixel> for Rgb565BigEndianPixel {
@@ -1029,6 +1255,28 @@ fn rgb565() {
 }
 
 #[test]
+fn rgb565_full_component_expands_to_255() {
+    // The C++ Rgb565Pixel accessors replicate the high bits the same way, so an RGB565 image
+    // has to reach pure white on every renderer, not #f8fcf8.
+    let white = Rgb565Pixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white.red(), 0xff);
+    assert_eq!(white.green(), 0xff);
+    assert_eq!(white.blue(), 0xff);
+
+    let black = Rgb565Pixel::from_rgb(0, 0, 0);
+    assert_eq!(black.red(), 0);
+    assert_eq!(black.green(), 0);
+    assert_eq!(black.blue(), 0);
+
+    assert_eq!(Rgb8Pixel::from_rgb565(white.0), Rgb8Pixel { r: 0xff, g: 0xff, b: 0xff });
+
+    let white_be = Rgb565BigEndianPixel::from_rgb(0xff, 0xff, 0xff);
+    assert_eq!(white_be.red(), 0xff);
+    assert_eq!(white_be.green(), 0xff);
+    assert_eq!(white_be.blue(), 0xff);
+}
+
+#[test]
 fn rgb565_be() {
     // BE should be byte-swapped LE for any color
     for &(r, g, b) in &[(0xff, 0x25, 0u8), (0x56, 0x42, 0xe3), (0, 0xff, 0), (0, 0, 0xff)] {
@@ -1045,6 +1293,24 @@ fn rgb565_be() {
     let pix_be = Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3);
     let pix888: Rgb8Pixel = pix_be.into();
     assert_eq!(pix_be, pix888.into());
+}
+
+#[test]
+fn target_pixel_from_rgb565() {
+    let value = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3).0;
+
+    // Native-endian 565 targets take the value as-is.
+    assert_eq!(Rgb565Pixel::from_rgb565(value), Rgb565Pixel(value));
+
+    // Big-endian 565 targets only swap the bytes.
+    let be = Rgb565BigEndianPixel::from_rgb565(value);
+    assert_eq!(be.0, value.to_be());
+    assert_eq!(be, Rgb565BigEndianPixel::from_rgb(0x56, 0x42, 0xe3));
+
+    // The default implementation expands like the accessors.
+    let p = Rgb565Pixel(value);
+    let rgb8 = Rgb8Pixel::from_rgb565(value);
+    assert_eq!(rgb8, Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() });
 }
 
 #[test]

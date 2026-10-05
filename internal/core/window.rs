@@ -13,7 +13,7 @@ use crate::cursor::MouseCursorInner;
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
     KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchPhase, TouchState, key_codes,
+    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -669,6 +669,7 @@ pub struct WindowInner {
     /// Stack of currently active popups
     pub active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
+    overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
@@ -736,6 +737,7 @@ impl WindowInner {
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
+            overlays: Default::default(),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -750,6 +752,7 @@ impl WindowInner {
     /// done with that component.
     pub fn set_component(&self, component: &ItemTreeRc) {
         self.close_all_popups();
+        self.clear_overlays();
         self.focus_item_visibility_tracker.clear();
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
@@ -802,6 +805,9 @@ impl WindowInner {
             for popup in self.active_popups.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
             }
+            for overlay in self.overlays.borrow().iter() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
+            }
             changed |= crate::properties::ChangeTracker::run_change_handlers_once();
             if !changed {
                 return;
@@ -843,7 +849,14 @@ impl WindowInner {
         // the tab holding it), drop the focus so that input methods get torn down.
         // The key-event handler does the same, but a tab is switched with a pointer
         // tap, not a key press, so it must also happen here.
-        if self.focus_item.borrow().upgrade().is_some_and(|i| !i.is_visible()) {
+        // An item that a Flickable only scrolled out of view keeps the focus:
+        // the wheel that scrolled it away is pointer input too.
+        if self
+            .focus_item
+            .borrow()
+            .upgrade()
+            .is_some_and(|i| !i.is_visible_or_clipped_by_flickable())
+        {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
         }
 
@@ -1144,7 +1157,12 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
         if let Some(position) = hover_position_after_drop {
-            self.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
+            self.process_mouse_input(MouseEvent::Moved {
+                position,
+                touch_finger_id: 0,
+                event_time: None,
+                history: Default::default(),
+            });
         }
 
         Some(MouseDispatchResult { drag_action, accepted })
@@ -1223,8 +1241,11 @@ impl WindowInner {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
+        event_time: Option<crate::animations::Instant>,
+        history: TouchHistory,
     ) -> Option<MouseDispatchResult> {
-        let events = self.touch_state.borrow_mut().process(id, position, phase);
+        let events =
+            self.touch_state.borrow_mut().process(id, position, phase, event_time, history);
         let mut aggregate: Option<MouseDispatchResult> = None;
         for event in events.into_iter() {
             if let Some(r) = self.process_mouse_input(event) {
@@ -1291,6 +1312,8 @@ impl WindowInner {
                 self.process_mouse_input(MouseEvent::Moved {
                     position: crate::lengths::logical_point_from_api(pos),
                     touch_finger_id: 0,
+                    event_time: None,
+                    history: Default::default(),
                 });
             }
         }
@@ -1308,8 +1331,9 @@ impl WindowInner {
 
         let mut item = self.focus_item.borrow().clone().upgrade();
 
-        if item.as_ref().is_some_and(|i| !i.is_visible()) {
-            // Reset the focus... not great, but better than keeping it.
+        // A hidden item loses the focus. An item that a Flickable only scrolled out of view
+        // keeps it, and the key goes to it.
+        if item.as_ref().is_some_and(|i| !i.is_visible_or_clipped_by_flickable()) {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
             item = None;
         }
@@ -1859,18 +1883,20 @@ impl WindowInner {
         };
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
-                if !self
-                    .active_popups
-                    .borrow()
-                    .iter()
-                    .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
-                {
+                let has_child_popup =
+                    self.active_popups.borrow().iter().any(|popup| {
+                        matches!(popup.location, PopupWindowLocation::ChildWindow(..))
+                    });
+                let has_overlay = !self.overlays.borrow().is_empty();
+                if !has_child_popup && !has_overlay {
                     render_components(&[(component_weak, LogicalPoint::default())], &post_render)
                 } else {
-                    let borrow = self.active_popups.borrow();
-                    let mut item_trees = Vec::with_capacity(borrow.len() + 1);
+                    let active_popups = self.active_popups.borrow();
+                    let overlays = self.overlays.borrow();
+                    let mut item_trees =
+                        Vec::with_capacity(active_popups.len() + overlays.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
-                    for popup in borrow.iter() {
+                    for popup in active_popups.iter() {
                         // If the popup is not a real window and does not have its own coordinate system.
                         // We have to draw the popup and consider the location for subelements because everything must
                         // be rendered relative to the main window position
@@ -1878,7 +1904,11 @@ impl WindowInner {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
-                    drop(borrow);
+                    for overlay in overlays.iter() {
+                        item_trees.push((ItemTreeRc::downgrade(overlay), LogicalPoint::zero()));
+                    }
+                    drop(overlays);
+                    drop(active_popups);
                     render_components(&item_trees, &post_render)
                 }
             },
@@ -2291,6 +2321,57 @@ impl WindowInner {
         }
     }
 
+    /// Adds an item tree that renders above the component and embedded popups.
+    ///
+    /// The item tree must have a `Window` root and use this window's adapter.
+    /// Overlays don't participate in input, focus, popup closing, or accessibility.
+    pub fn add_overlay(&self, component: &ItemTreeRc) -> Result<(), PlatformError> {
+        let mut overlay_window_adapter = None;
+        ItemTreeRc::borrow_pin(component)
+            .as_ref()
+            .window_adapter(false, &mut overlay_window_adapter);
+        let Some(overlay_window_adapter) = overlay_window_adapter else {
+            return Err(PlatformError::Other("The overlay has no window adapter".into()));
+        };
+        if !Rc::ptr_eq(&self.window_adapter(), &overlay_window_adapter) {
+            return Err(PlatformError::Other(
+                "The overlay must use the target window's adapter".into(),
+            ));
+        }
+
+        crate::item_tree::ensure_item_tree_instantiated(component);
+        let overlay_component = ItemTreeRc::borrow_pin(component);
+        let overlay_root = overlay_component.as_ref().get_item_ref(0);
+        let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(overlay_root)
+        else {
+            return Err(PlatformError::Other("The overlay root must be a Window".into()));
+        };
+        let size = self.window_adapter().size().to_logical(self.scale_factor()).to_euclid();
+        window_item.width.set(size.width_length());
+        window_item.height.set(size.height_length());
+
+        self.overlays.borrow_mut().push(component.clone());
+        self.window_adapter().request_redraw();
+        Ok(())
+    }
+
+    /// Removes all overlays.
+    pub fn clear_overlays(&self) {
+        if self.overlays.take().is_empty() {
+            return;
+        }
+        self.mark_overlay_region_dirty();
+    }
+
+    fn mark_overlay_region_dirty(&self) {
+        let window_adapter = self.window_adapter();
+        let size = window_adapter.size().to_logical(self.scale_factor()).to_euclid();
+        if !size.is_empty() {
+            window_adapter.renderer().mark_dirty_region(LogicalRect::from_size(size).into());
+        }
+        window_adapter.request_redraw();
+    }
+
     /// Returns the scale factor set on the window, as provided by the windowing system.
     pub fn scale_factor(&self) -> f32 {
         self.pinned_fields.as_ref().project_ref().scale_factor.get()
@@ -2355,13 +2436,19 @@ impl WindowInner {
     /// window resize event from the windowing system.
     pub(crate) fn set_window_item_geometry(&self, size: crate::lengths::LogicalSize) {
         if let Some(component_rc) = self.try_component() {
-            let component = ItemTreeRc::borrow_pin(&component_rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-            {
-                window_item.width.set(size.width_length());
-                window_item.height.set(size.height_length());
-            }
+            Self::set_item_tree_window_geometry(&component_rc, size);
+        }
+        for overlay in self.overlays.borrow().iter() {
+            Self::set_item_tree_window_geometry(overlay, size);
+        }
+    }
+
+    fn set_item_tree_window_geometry(component: &ItemTreeRc, size: crate::lengths::LogicalSize) {
+        let component = ItemTreeRc::borrow_pin(component);
+        let root_item = component.as_ref().get_item_ref(0);
+        if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) {
+            window_item.width.set(size.width_length());
+            window_item.height.set(size.height_length());
         }
     }
 

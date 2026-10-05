@@ -109,12 +109,14 @@ fn lower_state_in_element(
                 if !cell.has_binding() {
                     cell.from_state = true;
                     cell.priority = 1;
+                    cell.from_source = true;
                 }
                 cell.set_value_expression(new_expr);
             } else {
                 let mut r = BindingExpression::from(new_expr);
                 r.priority = 1;
                 r.from_state = true;
+                r.from_source = true;
                 element.borrow_mut().set_binding(name.clone(), r);
             }
         }

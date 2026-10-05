@@ -45,14 +45,17 @@ The driver rejects a caret line that is malformed, a caret line that differs fro
 `SLINT_COVERAGE_TEST_UPDATE=1` has the driver rewrite the caret lines from the measurement, and the run still fails on the difference, so a change in what is measured is reviewed in the diff and never passes unseen.
 A point in an imported file, which the case cannot annotate, is stated in a ` ```coverage ` block at the end of the case.
 
-The cases under `coverage/` test the reporting itself, and the driver fails one that states no coverage.
-Together with the cases of other groups that state theirs, each pins one part of the reporting:
+Every case with caret lines tests the reporting, since the driver compares what it states with the measurement.
+The cases under `coverage/` test nothing else, so the driver also fails one of them that states no coverage.
+Each case that states its coverage pins one part of the reporting:
 
 | Case | What it pins |
 |---|---|
 | `coverage/decisions` | outcomes of `?:`, `&&` and `||` taken and not taken, a nested decision, and a caret under an operator past a multi-byte character |
 | `coverage/unreached` | an element, bindings, a handler and a call that the test never reaches |
 | `coverage/call_without_handler` | a call to a callback that has no handler, reached while nothing runs for it |
+| `coverage/multiline` | a decision written over several lines, whose outcomes are points of the line of its operator |
+| `coverage/state` | a state: its name, the `when` of its condition, the decisions it's written with, and the value it gives each property |
 | `expr/ternary` | chained and nested decisions, and a decision inside another's condition |
 | `expr/logical` | `&&` and `||` under `!` and parentheses, every outcome taken |
 | `callback/clicked` | a handler and the call it makes, both reached |

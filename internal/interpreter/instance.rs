@@ -236,6 +236,7 @@ pub struct Instance {
     /// attach idempotent and lets binding-evaluated code paths distinguish
     /// "adapter exists" from "window is fully wired for display".
     pub window_attached: OnceCell<()>,
+    window_attachment_disabled: bool,
     /// Set once `bindings::install_bindings_only` has wired up property
     /// bindings, two-way links and timers. Idempotent on repeated calls.
     pub bindings_installed: OnceCell<()>,
@@ -393,17 +394,25 @@ impl Instance {
         {
             return Err(i_slint_core::api::PlatformError::Other(e.clone()));
         }
-        let adapter = i_slint_backend_selector::with_platform(|p| p.create_window_adapter())
-            .inspect_err(|e| {
-                let msg = e.to_string();
-                if let Some(root) = &outermost_root {
-                    let _ = root.window_adapter_error.set(msg.clone());
-                }
-                let _ = self.window_adapter_error.set(msg);
-            })?;
+        let context = self.globals.context.get();
+        let adapter = match context {
+            Some(context) => context.platform().create_window_adapter(),
+            None => i_slint_backend_selector::with_platform(|p| p.create_window_adapter()),
+        }
+        .inspect_err(|e| {
+            let msg = e.to_string();
+            if let Some(root) = &outermost_root {
+                let _ = root.window_adapter_error.set(msg.clone());
+            }
+            let _ = self.window_adapter_error.set(msg);
+        })?;
         // Point the renderer at its adapter right away: font registration in
         // `pre_init_code` and image decoding need the renderer's Slint context
         // before `attach_to_window` runs `set_component` on show.
+        if let Some(context) = context {
+            i_slint_core::window::WindowInner::from_pub(adapter.window())
+                .set_context(context.clone());
+        }
         adapter.renderer().set_window_adapter(&adapter);
         // A freshly created adapter belongs to the outermost root instance;
         // caching it only on a sub-tree would leave the root creating a
@@ -426,7 +435,10 @@ impl Instance {
     pub fn attach_to_window(&self) {
         // make sure not to attach embedded instances, they would otherwise take over
         // the window of the item tree they are embedded in.
-        if self.window_attached.get().is_some() || self.embedded_in.get().is_some() {
+        if self.window_attached.get().is_some()
+            || self.window_attachment_disabled
+            || self.embedded_in.get().is_some()
+        {
             return;
         }
         let Some(adapter) = self.window_adapter_or_default() else { return };
@@ -472,8 +484,6 @@ impl Instance {
     }
 
     /// Ensure the repeater at `tree_index` is populated from its model.
-    /// Called by `get_subtree_range`, `get_subtree` and
-    /// `visit_dynamic_children` before reading the repeater's instances.
     ///
     /// When the LLR `RepeatedElement` is actually a `ComponentContainer`
     /// placeholder (`container_item_index = Some`), defer to the
@@ -656,6 +666,45 @@ impl Instance {
             window_adapter,
             type_loaders,
             None,
+            None,
+            false,
+        )
+    }
+
+    /// Build an instance for a public component that uses `context` instead of the thread's.
+    /// Its window, once created, comes from the context's platform.
+    pub fn new_with_context(
+        compilation_unit: Rc<CompilationUnit>,
+        public_component_index: PublicComponentIdx,
+        type_loaders: crate::component::TypeLoaders,
+        context: i_slint_core::SlintContext,
+    ) -> VRc<ItemTreeVTable, Instance> {
+        Self::new_with_options(
+            compilation_unit,
+            public_component_index,
+            None,
+            type_loaders,
+            None,
+            Some(context),
+            false,
+        )
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn new_detached_with_window(
+        compilation_unit: Rc<CompilationUnit>,
+        public_component_index: PublicComponentIdx,
+        window_adapter: i_slint_core::window::WindowAdapterRc,
+        type_loaders: crate::component::TypeLoaders,
+    ) -> VRc<ItemTreeVTable, Instance> {
+        Self::new_with_options(
+            compilation_unit,
+            public_component_index,
+            Some(window_adapter),
+            type_loaders,
+            None,
+            None,
+            true,
         )
     }
 
@@ -676,6 +725,8 @@ impl Instance {
             None,
             type_loaders,
             Some((parent, parent_item_tree_index)),
+            None,
+            false,
         )
     }
 
@@ -685,9 +736,19 @@ impl Instance {
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
+        context: Option<i_slint_core::SlintContext>,
+        disable_window_attachment: bool,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
         let globals = Rc::new(GlobalStorage::new(&compilation_unit));
+        let context = context.or_else(|| {
+            window_adapter.as_ref().and_then(|adapter| {
+                i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+            })
+        });
+        if let Some(context) = context {
+            let _ = globals.context.set(context);
+        }
         let item_tree = &public.item_tree;
         let vrc = build_instance(
             &compilation_unit,
@@ -696,9 +757,20 @@ impl Instance {
             globals,
             Some(public_component_index),
             type_loaders,
+            disable_window_attachment,
         );
         if let Some(adapter) = window_adapter {
             let _ = vrc.window_adapter.set(adapter);
+        }
+        // A tray has no window to reach the context through; see `SystemTrayIcon::set_context`.
+        if public.top_level_type == i_slint_compiler::llr::TopLevelComponentType::SystemTrayIcon
+            && let Some(context) = vrc.globals.context.get()
+        {
+            i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(vrc.clone()), 0)
+                .downcast::<i_slint_core::items::SystemTrayIcon>()
+                .expect("the root item of a SystemTrayIcon-rooted component is a SystemTrayIcon")
+                .as_pin_ref()
+                .set_context(context);
         }
         // Set the outer-tree handle before finalizing so bindings that
         // read absolute coordinates during `install_bindings` /
@@ -706,12 +778,13 @@ impl Instance {
         if let Some((parent, idx)) = embedded_in {
             let _ = vrc.embedded_in.set((parent, idx));
         }
-        // Register the languages before the bindings are installed, on the context of the window
-        // this instance ends up in.
+        // Register the languages before the bindings are installed, on the context the
+        // instance was created with, or else the one of the window it ends up in.
         #[cfg(feature = "bundle-translations")]
         if let Some(translations) = &compilation_unit.translations
-            && let Some(context) =
+            && let Some(context) = vrc.globals.context.get().cloned().or_else(|| {
                 i_slint_core::window::context_for_root(&vtable::VRc::into_dyn(vrc.clone()))
+            })
         {
             context.set_bundled_languages(
                 translations.languages.iter().map(|(l, s)| (l.to_string(), *s)),
@@ -739,6 +812,7 @@ impl Instance {
             globals,
             None,
             Default::default(),
+            false,
         );
         let _ = vrc.root_sub_component.repeated_in.set((parent, repeater_idx));
         vrc
@@ -753,7 +827,15 @@ impl Instance {
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        build_instance(&compilation_unit, item_tree, parent, globals, None, Default::default())
+        build_instance(
+            &compilation_unit,
+            item_tree,
+            parent,
+            globals,
+            None,
+            Default::default(),
+            false,
+        )
     }
 }
 
@@ -771,6 +853,7 @@ fn build_instance(
     globals: Rc<GlobalStorage>,
     public_component_index: Option<PublicComponentIdx>,
     type_loaders: crate::component::TypeLoaders,
+    disable_window_attachment: bool,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();
     let root_sub_component =
@@ -790,6 +873,7 @@ fn build_instance(
         window_adapter: OnceCell::new(),
         window_adapter_error: OnceCell::new(),
         window_attached: OnceCell::new(),
+        window_attachment_disabled: disable_window_attachment,
         bindings_installed: OnceCell::new(),
         init_code_run: OnceCell::new(),
         embedded_in: OnceCell::new(),

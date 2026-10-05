@@ -8,6 +8,7 @@ use itertools::{Either, Itertools};
 use crate::expression_tree::MinMaxOp;
 use crate::langtype::{StructName, Type};
 use crate::layout::Orientation;
+use crate::llr::debug_info::ItemDebugInfo;
 
 use super::{
     Animation, CompilationUnit, EvaluationContext, Expression, LocalMemberIndex,
@@ -70,6 +71,10 @@ impl PrettyPrinter<'_> {
     ) -> Result {
         let ctx = EvaluationContext::new_sub_component(root, sc_idx, (), parent);
         let sc = &root.sub_components[sc_idx];
+        if let Some(debug_info) = &sc.debug_info {
+            self.indent()?;
+            writeln!(self.writer, "// @ {}", debug_info.source_location)?;
+        }
         writeln!(self.writer, "component {} {{", sc.name)?;
         self.indentation += 1;
         for p in &sc.properties {
@@ -221,11 +226,35 @@ impl PrettyPrinter<'_> {
                 DisplayExpression(&t.triggered.borrow(), &ctx)
             )?
         }
-        for ssc in &sc.sub_components {
+        for (sub_component_index, ssc) in sc.sub_components.iter_enumerated() {
+            if let Some(use_site) = sc
+                .debug_info
+                .as_ref()
+                .and_then(|debug_info| debug_info.sub_component_use_sites.get(sub_component_index))
+            {
+                self.indent()?;
+                writeln!(self.writer, "// @ {use_site}")?;
+            }
             self.indent()?;
             writeln!(self.writer, "{} := {} {{}};", ssc.name, root.sub_components[ssc.ty].name)?;
         }
-        for (item, geom) in std::iter::zip(&sc.items, &sc.geometries) {
+        for ((item_idx, item), geom) in std::iter::zip(sc.items.iter_enumerated(), &sc.geometries) {
+            if let Some(item_debug_entries) =
+                sc.debug_info.as_ref().and_then(|debug| debug.items.get(item_idx))
+            {
+                for ItemDebugInfo { source_location, qualified_id, element_hash } in
+                    item_debug_entries
+                {
+                    let id = qualified_id.as_ref().map(|id| format!(" ({id})")).unwrap_or_default();
+                    self.indent()?;
+                    writeln!(self.writer, "// {element_hash}{id} @ {source_location}",)?;
+                }
+                if item_debug_entries.is_empty() {
+                    self.indent()?;
+                    writeln!(self.writer, "// injected wrapper element!",)?;
+                }
+            }
+
             self.indent()?;
             let geometry = geom.as_ref().map_or(String::new(), |geom| {
                 format!("geometry: {}", DisplayExpression(&geom.borrow(), &ctx))

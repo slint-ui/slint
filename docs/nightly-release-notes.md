@@ -57,7 +57,7 @@ Note that you need to disable or uninstall an existing version of the Slint  VS 
 For other editors, you compile the latest version of the Slint Language Server with:
 
 ```sh
-cargo install --git https://github.com/slint-ui/slint slint-lsp --branch {branch}
+cargo install --locked --git https://github.com/slint-ui/slint slint-lsp --branch {branch}
 ```
 
 Alternatively, download the binary from "Assets" section below.

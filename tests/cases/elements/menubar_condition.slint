@@ -40,7 +40,10 @@ export component TestCase inherits Window {
         Button { text: "Hello"; clicked => { show-menubar = !show-menubar; } }
     }
 
-    if true: Text { text: win-height / 1px; }
+    // x/y set explicitly, which keeps this out of the window's layout info (#407):
+    // a Text whose text depends on the window height would otherwise feed that
+    // height back into the height it is computed from.
+    if true: Text { x: 0; y: 0; text: win-height / 1px; }
 
     out property <bool> check-geometry: vl.x == 0 && vl.y == 0 && vl.width == root.width && vl.height == root.height;
     out property <length> win-height: root.height;

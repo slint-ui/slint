@@ -67,8 +67,19 @@ export component TestCase inherits Window {
         }
     }
 
+    // A body that sets its own `height` still says how far the Flickable scrolls:
+    // the body keeps that size, unlike a cell whose size a layout assigns
+    // (see `MergedFixedSize`).
+    fs := Flickable {
+        height: 10px;
+        for blah in 1: HorizontalLayout {
+            height: 50px;
+            Rectangle { }
+        }
+    }
+
     out property <bool> test: t-f-pref && t-f-content && t-empty && t-if-false
-        && t-rows && t-width && t-constrained;
+        && t-rows && t-width && t-constrained && t-self-sized;
     out property <bool> t-f-pref: f.preferred-height == 55px;
     out property <bool> t-f-content: fc.content-height == 55px;
     out property <bool> t-empty: fe.preferred-height == fe-ref.preferred-height;
@@ -76,6 +87,7 @@ export component TestCase inherits Window {
     out property <bool> t-rows: fr.content-height == 30px;
     out property <bool> t-width: fw.content-width == 40px;
     out property <bool> t-constrained: fk.content-height == 100px;
+    out property <bool> t-self-sized: fs.content-height == 50px;
 }
 
 /*

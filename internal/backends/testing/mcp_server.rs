@@ -74,7 +74,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "query_element_descendants",
-        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, or {\"matchElementAccessibleRole\": \"Button\"}. More efficient than get_element_tree for targeted lookups.",
+        description: "Search descendants of an element using a query pipeline. Pass an array of instructions applied in order: {\"matchDescendants\": true} to recurse, then filter by {\"matchElementId\": \"...\"}, {\"matchElementTypeName\": \"...\"}, {\"matchElementTypeNameOrBase\": \"...\"}, {\"matchElementAccessibleRole\": \"Button\"}, or {\"matchElementAccessibleLabel\": \"...\"}. More efficient than get_element_tree for targeted lookups.",
         request_type: "RequestQueryElementDescendants",
         optional_fields: &["findAll"],
     },
@@ -653,6 +653,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- {\"matchElementTypeName\": \"Button\"} — match by exact Slint type name\n",
                     "- {\"matchElementTypeNameOrBase\": \"TouchArea\"} — match by type or inherited base\n",
                     "- {\"matchElementAccessibleRole\": \"Button\"} — match by accessible role (PascalCase)\n",
+                    "- {\"matchElementAccessibleLabel\": \"OK\"} — match by exact accessible label\n",
                     "Instructions are applied in order to build a query pipeline.\n\n",
 
                     "# Tips\n\n",
@@ -977,14 +978,12 @@ async fn run_server(state: Rc<IntrospectionState>, port: u16) {
             Ok((stream, _peer)) => {
                 stream.set_nodelay(true).ok();
                 let state = state.clone();
-                let _ = i_slint_core::with_global_context(
-                    || panic!("uninitialized platform"),
-                    |context| {
-                        let _ = context.spawn_local(async move {
-                            handle_connection(&state, stream).await;
-                        });
-                    },
-                );
+                i_slint_core::with_existing_context(|context| {
+                    let _ = context.spawn_local(async move {
+                        handle_connection(&state, stream).await;
+                    });
+                })
+                .expect("uninitialized platform");
             }
             Err(e) => {
                 eprintln!("MCP server: accept error: {e}");
@@ -1044,19 +1043,16 @@ pub fn init() -> Result<(), EventLoopError> {
         }
 
         let state = state_clone.clone();
-        let spawn_result = i_slint_core::with_global_context(
-            || panic!("uninitialized platform"),
-            |context| context.spawn_local(async move { run_server(state, port).await }),
-        );
+        let spawn_result = i_slint_core::with_existing_context(|context| {
+            context.spawn_local(async move { run_server(state, port).await })
+        })
+        .expect("uninitialized platform");
         match spawn_result {
-            Ok(Ok(join_handle)) => {
+            Ok(join_handle) => {
                 let _ = server_started_clone.set(join_handle);
             }
             // spawn_local fails when no event-loop proxy is available yet. The hook
             // will fire again on the next window-show, so this is non-fatal.
-            Ok(Err(e)) => {
-                i_slint_core::debug_log!("MCP server failed to start: {e:?}");
-            }
             Err(e) => {
                 i_slint_core::debug_log!("MCP server failed to start: {e:?}");
             }

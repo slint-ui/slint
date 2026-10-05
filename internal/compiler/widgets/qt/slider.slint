@@ -31,11 +31,10 @@ export component Slider inherits NativeSlider {
             return;
         }
         let clamped = max(root.minimum, min(root.maximum, value));
-        if (root.value == clamped) {
-            return;
+        if (root.value != clamped) {
+            root.value = clamped;
+            root.changed(root.value);
         }
-
-        root.value = clamped;
-        root.changed(root.value);
+        root.released(root.value);
     }
 }

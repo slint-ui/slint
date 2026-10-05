@@ -318,6 +318,18 @@ impl core::fmt::Debug for ItemRc {
     }
 }
 
+/// Returns true if a `clip` rectangle leaves some of `geometry` visible.
+/// An empty clip hides everything, and a rectangle that only touches its edge counts as visible.
+fn clip_overlaps(clip: LogicalRect, geometry: LogicalRect) -> bool {
+    let clip = clip.to_box2d();
+    let geometry = geometry.to_box2d();
+    !clip.is_empty()
+        && clip.max.x >= geometry.min.x
+        && clip.max.y >= geometry.min.y
+        && clip.min.x <= geometry.max.x
+        && clip.min.y <= geometry.max.y
+}
+
 impl ItemRc {
     /// Create an ItemRc from a ItemTree and an index
     pub fn new(item_tree: vtable::VRc<ItemTreeVTable>, index: u32) -> Self {
@@ -369,6 +381,18 @@ impl ItemRc {
         }))
     }
 
+    /// Identifies compiler-added wrappers that take over a source element's geometry.
+    /// Skip these wrappers when recovering the source element's parent coordinate system.
+    /// Ordinary clips sit inside their source rectangle and don't take over its geometry.
+    pub fn is_geometry_wrapper(&self) -> bool {
+        let item = self.borrow();
+        ItemRef::downcast_pin::<crate::items::Transform>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Opacity>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Layer>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Clip>(item)
+                .is_some_and(|clip| clip.is_visibility_clip())
+    }
+
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { item_tree: VRc::downgrade(&self.item_tree), index: self.index }
     }
@@ -409,13 +433,7 @@ impl ItemRc {
     /// false for `Clip` elements with the `clip` property evaluating to true.
     pub fn is_visible(&self) -> bool {
         let (clip, geometry) = self.absolute_clip_rect_and_geometry();
-        let clip = clip.to_box2d();
-        let geometry = geometry.to_box2d();
-        !clip.is_empty()
-            && clip.max.x >= geometry.min.x
-            && clip.max.y >= geometry.min.y
-            && clip.min.x <= geometry.max.x
-            && clip.min.y <= geometry.max.y
+        clip_overlaps(clip, geometry)
     }
 
     pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
@@ -438,23 +456,37 @@ impl ItemRc {
             return true;
         }
 
-        // The item is not visible. Walk toward the root and find the first
-        // clipping ancestor that actually hides the item: if it is a
-        // Flickable, scrolling can bring the item back into view.
-        let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
+        // Walk toward the root to the clipping ancestor that hides the item, and ask whether
+        // it's a Flickable, which scrolling can undo. An ancestor hides the item with its own
+        // rectangle, or with that rectangle intersected with the clips above it. The first
+        // reading is needed for a LineEdit: once the Flickable scrolled it away, its own clip
+        // intersected with the Flickable's is empty, and the walk would stop there. The
+        // second is needed for a Flickable taller than a clip around it. Every ancestor that
+        // hides the item by its own rectangle also hides it by the intersection, so the
+        // intersection only has to be asked until it first hides the item.
+        let geometry = self.absolute_clip_rect_and_geometry().1;
+        let mut hidden_by_intersection = false;
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(ancestor) = parent {
             if ancestor.borrow().as_ref().clips_children() {
                 let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
-                let clip = ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d();
-                let item_in_clip = !clip.is_empty()
-                    && clip.max.x >= geometry.min.x
-                    && clip.max.y >= geometry.min.y
-                    && clip.min.x <= geometry.max.x
-                    && clip.min.y <= geometry.max.y;
-                if !item_in_clip {
-                    return ancestor.downcast::<crate::items::Flickable>().is_some()
-                        && ancestor.is_visible_or_clipped_by_flickable();
+                let hidden_by_own_rect = !clip_overlaps(ancestor_geo, geometry);
+                if hidden_by_own_rect
+                    || (!hidden_by_intersection
+                        && !clip_overlaps(
+                            ancestor_geo.intersection(&clip).unwrap_or_default(),
+                            geometry,
+                        ))
+                {
+                    if ancestor.downcast::<crate::items::Flickable>().is_some()
+                        && ancestor.is_visible_or_clipped_by_flickable()
+                    {
+                        return true;
+                    }
+                    if hidden_by_own_rect {
+                        return false;
+                    }
+                    hidden_by_intersection = true;
                 }
             }
             parent = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -1699,7 +1731,7 @@ mod tests {
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
-    use std::{rc::Rc, vec};
+    use std::{boxed::Box, rc::Rc, vec};
 
     const GEOMETRY_POSITION_X: f32 = 6.;
     const GEOMETRY_POSITION_Y: f32 = 27.;
@@ -3079,6 +3111,73 @@ mod tests {
     }
 
     #[test]
+    fn test_window_overlay_renders_above_child_popups_without_joining_popup_stack() {
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+        let (window_adapter, component) = create_one_node_component(Some(window_item));
+        window_adapter
+            .window
+            .0
+            .set_context(crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform)));
+        window_adapter.window.0.set_component(&component);
+
+        let popup = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
+            &popup,
+            alloc::boxed::Box::new(|| LogicalPosition::new(10., 20.)),
+            crate::items::PopupClosePolicy::NoAutoClose,
+            &ItemRc::new_root(component.clone()),
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
+        );
+
+        let overlay = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let unrelated_overlay = create_subsubtree_items(None).1;
+        assert!(window_adapter.window.0.add_overlay(&unrelated_overlay).is_err());
+
+        let resized = LogicalSize::new(75., 65.);
+        window_adapter.window.0.set_window_item_geometry(resized);
+        let overlay_window = ItemRc::new_root(overlay.clone()).downcast::<WindowItem>().unwrap();
+        assert_eq!(overlay_window.as_pin_ref().width().0, resized.width);
+        assert_eq!(overlay_window.as_pin_ref().height().0, resized.height);
+
+        assert_eq!(window_adapter.window.0.active_popups().len(), 1);
+        let rendered_components = || {
+            window_adapter
+                .window
+                .0
+                .draw_contents(|components, _| {
+                    components
+                        .iter()
+                        .map(|(component, _)| component.upgrade().unwrap())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap()
+        };
+        for (actual, expected) in rendered_components().iter().zip([&component, &popup, &overlay]) {
+            assert!(VRc::ptr_eq(actual, expected));
+        }
+
+        window_adapter.window.0.close_top_popup();
+        assert!(window_adapter.window.0.active_popups().is_empty());
+        let components_without_popup = rendered_components();
+        assert_eq!(components_without_popup.len(), 2);
+        assert!(VRc::ptr_eq(&components_without_popup[1], &overlay));
+
+        window_adapter.window.0.clear_overlays();
+        assert_eq!(rendered_components().len(), 1);
+
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let replacement = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.set_component(&replacement);
+        let components_after_replacement = rendered_components();
+        assert_eq!(components_after_replacement.len(), 1);
+        assert!(VRc::ptr_eq(&components_after_replacement[0], &replacement));
+    }
+
+    #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter, item_tree) = create_subsubtree_items(None);
@@ -3291,7 +3390,6 @@ mod tests {
             &self,
             _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
         ) {
-            unimplemented!("Not required in this test");
         }
 
         fn slint_context(&self) -> Option<crate::SlintContext> {

@@ -124,14 +124,7 @@ pub(crate) fn check_and_coerce(value: &mut Value, ty: &Type) -> bool {
                 }
                 str_value.set_field(k, v);
             }
-            // Fill any declared field that wasn't provided with the type
-            // default so downstream consumers always see a complete struct.
-            for (k, field_ty) in s.fields.iter() {
-                if str_value.get_field(k.as_str()).is_none() {
-                    str_value
-                        .set_field(k.to_string(), crate::eval::default_value_for_type(field_ty));
-                }
-            }
+            crate::eval::fill_missing_struct_fields(str_value, s);
             true
         }
         Type::Enumeration(en) => {

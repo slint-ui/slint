@@ -331,6 +331,36 @@ Where the width comes from differs per layout kind:
   (`SolveFlexboxLayoutWithMeasure`, `FlexboxLayoutInfoCrossAxisWithMeasure`),
   which re-measures at the size taffy actually assigns.
 
+### Merging into a non-layout parent
+
+A non-layout parent gets its `layoutinfo-*` from `default_geometry::gen_layout_info_prop`,
+which merges what each child reports.
+A repeated child has no single `LayoutInfo` to read, so `repeated_element_layout_info`
+synthesizes a one-cell `BoxLayout` over it and folds every instance through
+`box_layout_info_ortho`, close to the merge two static siblings get: the box
+layout also forces `max >= min`, clamps `preferred` and resets the percentages.
+`flickable.rs` uses the same helper for a Flickable's scroll extent.
+
+One thing differs from a static child: a `width`/`height` binding on the body's own root
+is left out of its `root_constraints` (`MergedFixedSize::Ignored`), because a merged child
+keeps that size rather than being given one, and folding it back in makes the parent's
+layout info depend on the parent's own size.
+The Flickable path passes `Constrains` instead, where that size is exactly the extent to
+scroll over.
+
+The merge makes the parent measure every instance, where it previously measured none.
+Creating and laying out `VerticalLayout { Rectangle { for i in N: ... } ... }` and reading
+a geometry property measured 0.3 ms -> 1.1 ms for N=100 and 8 ms -> 52 ms for N=5000, in
+the interpreter, release build.
+The cost is paid wherever something reads the parent's `layoutinfo-*`.
+A Window reads its root's for its own minimum and maximum size, so the chain up from the
+child is normally read, whether or not the window has a fixed size.
+Setting `x` or `y` on the repeated child keeps it out of the parent's layout info
+altogether, and out of this cost.
+The result is cached like any other property, but the cache is dropped whenever an
+instance's own layout info changes or the model gains or loses a row, and the parent
+then measures all N again.
+
 ## Width down, height up
 
 Sizes flow one way: a layout settles widths first, and heights are then

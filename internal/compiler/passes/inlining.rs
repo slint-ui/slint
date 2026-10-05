@@ -589,7 +589,6 @@ fn duplicate_element_with_mapping(
     let new = Rc::new(RefCell::new(Element {
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
-        is_injected_wrapper_element: elem.is_injected_wrapper_element,
         property_declarations: elem.property_declarations.clone(),
         shadowing_members: elem.shadowing_members.clone(),
         // We will do the fixup of the references in bindings later
@@ -781,6 +780,7 @@ fn duplicate_binding(
         span: b.span.clone(),
         priority: b.priority.saturating_add(priority_delta),
         from_state: b.from_state,
+        from_source: b.from_source,
         animation: b
             .animation
             .as_ref()

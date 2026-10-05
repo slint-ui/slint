@@ -12,8 +12,8 @@ import { dependencyNotices } from "./scripts/dependency-notices.mjs";
 import manifest from "./manifest.json";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const runtimePin = JSON.parse(
-    readFileSync(resolve(root, "runtime-pin.json"), "utf8"),
+const { version } = JSON.parse(
+    readFileSync(resolve(root, "package.json"), "utf8"),
 );
 
 export default defineConfig(({ mode }) => {
@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         publicDir: false,
         resolve: {
             alias: {
-                "@interpreter": resolve(root, ".generated/slint-wasm"),
+                "@interpreter": resolve(root, "../../api/wasm-interpreter/pkg"),
             },
         },
         define: { DEVELOPMENT: JSON.stringify(development) },
@@ -88,16 +88,21 @@ export default defineConfig(({ mode }) => {
                         JSON.stringify(
                             {
                                 channel: "development",
-                                repository: runtimePin.repository,
+                                repository:
+                                    "https://github.com/slint-ui/slint.git",
                                 manifest: "api/wasm-interpreter/Cargo.toml",
-                                revision: runtimePin.revision,
+                                revision: execFileSync(
+                                    "git",
+                                    ["rev-parse", "HEAD"],
+                                    { cwd: root, encoding: "utf8" },
+                                ).trim(),
                                 dirty:
                                     execFileSync(
                                         "git",
                                         ["status", "--porcelain"],
                                         { cwd: root, encoding: "utf8" },
                                     ).trim() !== "",
-                                version: runtimePin.version,
+                                version,
                             },
                             null,
                             4,

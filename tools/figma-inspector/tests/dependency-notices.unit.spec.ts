@@ -3,42 +3,39 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
+import { resolve } from "node:path";
 import { expect, test, vi } from "vitest";
 import { dependencyNotices } from "../scripts/dependency-notices.mjs";
-import { runtimeRoot, verifyRuntime } from "../scripts/runtime-pin.mjs";
 
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 vi.mock("node:fs/promises", () => ({ readFile: vi.fn(), readdir: vi.fn() }));
-vi.mock("../scripts/runtime-pin.mjs", () => ({
-    runtimeRoot: "/pinned-runtime",
-    verifyRuntime: vi.fn(),
-}));
 
-test("notices use the verified runtime checkout for metadata and license texts", async () => {
+const repoRoot = resolve(import.meta.dirname, "../../..");
+
+test("notices use the repository for metadata and license texts", async () => {
     vi.mocked(execFileSync).mockReturnValue(
         JSON.stringify({
             packages: [
                 {
                     id: "runtime",
                     name: "slint-wasm-interpreter",
-                    version: "1.18.0",
+                    version: "1.19.0",
                     license: "MIT",
-                    manifest_path: `${runtimeRoot}/api/wasm-interpreter/Cargo.toml`,
+                    manifest_path: `${repoRoot}/api/wasm-interpreter/Cargo.toml`,
                 },
             ],
             resolve: { nodes: [{ id: "runtime", deps: [] }] },
         }),
     );
     vi.mocked(readdir).mockImplementation(async (path) => {
-        if (String(path) === `${runtimeRoot}/LICENSES`)
+        if (String(path) === `${repoRoot}/LICENSES`)
             return ["MIT.txt"] as never;
         return [];
     });
-    vi.mocked(readFile).mockResolvedValue("Pinned runtime license");
+    vi.mocked(readFile).mockResolvedValue("Runtime license");
 
     const notices = await dependencyNotices([]);
 
-    expect(verifyRuntime).toHaveBeenCalledOnce();
     expect(execFileSync).toHaveBeenCalledWith(
         "cargo",
         [
@@ -48,21 +45,13 @@ test("notices use the verified runtime checkout for metadata and license texts",
             "--format-version",
             "1",
             "--manifest-path",
-            `${runtimeRoot}/api/wasm-interpreter/Cargo.toml`,
+            `${repoRoot}/api/wasm-interpreter/Cargo.toml`,
         ],
         expect.any(Object),
     );
     expect(readFile).toHaveBeenCalledWith(
-        `${runtimeRoot}/LICENSES/MIT.txt`,
+        `${repoRoot}/LICENSES/MIT.txt`,
         "utf8",
     );
-    expect(notices.text).toContain("Pinned runtime license");
-});
-
-test("notices reject an unverified runtime before running Cargo", async () => {
-    vi.mocked(verifyRuntime).mockImplementationOnce(() => {
-        throw new Error("Unverified runtime");
-    });
-    await expect(dependencyNotices([])).rejects.toThrow("Unverified runtime");
-    expect(execFileSync).not.toHaveBeenCalled();
+    expect(notices.text).toContain("Runtime license");
 });

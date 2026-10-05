@@ -12,7 +12,7 @@ use crate::expression_tree::{
     self, BindingExpression, Callable, ConditionLocation, Expression, Unit,
 };
 use crate::langtype::{
-    BuiltinElement, Enumeration, EnumerationValue, Function, NativeClass, Struct, StructName, Type,
+    BuiltinElement, Enumeration, EnumerationValue, Function, Struct, StructName, Type,
 };
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
@@ -28,7 +28,6 @@ use std::cell::{Cell, OnceCell, Ref, RefCell, RefMut};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
-use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
@@ -178,6 +177,7 @@ impl Document {
                 values,
                 default_value: 0,
                 node: Some(n.to_source_location()),
+                public: false,
                 rust_attributes: n
                     .AtRustAttr()
                     .map(|a| SmolStr::from(a.text().to_string()))
@@ -240,24 +240,20 @@ impl Document {
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if crate::pathutils::is_font_file(&import.file) {
-                    let token_path = import.import_uri_token.source_file.path();
-                    let import_file_path = PathBuf::from(import.file.clone());
-                    let import_file_path = crate::pathutils::join(token_path, &import_file_path)
-                        .unwrap_or(import_file_path);
+                    let import_file_path = std::path::Path::new(&import.file);
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
                     // When the resource URL mapper is set (e.g. remote viewer), fonts are
                     // delivered out-of-band; skip the local existence check.
                     if ignore_missing_font_files
-                        || crate::pathutils::is_url(&import_file_path)
-                        || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
-                            .is_some()
+                        || crate::pathutils::is_url(import_file_path)
+                        || crate::fileaccess::load_file(import_file_path).is_some()
                     {
-                        Some((import_file_path.to_string_lossy().into(), import.import_uri_token.clone()))
+                        Some((import.file.as_str().into(), import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
-                            format!("File \"{}\" not found", import.file),
+                            format!("File {} not found", import.import_uri_token.text()),
                             &import.import_uri_token,
                         );
                         None
@@ -584,7 +580,7 @@ impl Component {
                         if reject_experimental_feature(diag, tr, "interface", &node) {
                             ElementType::Error
                         } else {
-                            ElementType::Interface
+                            ElementType::Interface(None)
                         }
                     }
                     _ => ElementType::Error,
@@ -706,18 +702,12 @@ impl Component {
 
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
-        matches!(&self.root_element.borrow().base_type, ElementType::Interface)
+        matches!(&self.root_element.borrow().base_type, ElementType::Interface(_))
     }
 
-    /// True if this component's root resolves to the `SystemTrayIcon` native
-    /// class. Uses `native_class()` rather than `builtin_type()` so the check
-    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
-    /// after `resolve_native_classes`.
+    /// True if this component's root resolves to the `SystemTrayIcon` builtin.
     pub fn inherits_system_tray_icon(&self) -> bool {
-        self.root_element
-            .borrow()
-            .native_class()
-            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
+        self.root_element.borrow().builtin_type().is_some_and(|b| b.name == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -809,9 +799,10 @@ pub struct PropertyDeclaration {
     /// component itself declares, in the source or through the component it
     /// inherits from, keeps this `None`.
     pub moved_from: Option<SmolStr>,
-    /// Some if the property was declared with `@deprecated`. The string is the hint shown after
-    /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
-    /// binding target, or the custom message given as argument to `@deprecated("...")`.
+    /// Some if the member was declared with `@deprecated`. The string is the message given as
+    /// argument, shown after "The property 'xxx' has been deprecated:" in the warning. It is
+    /// empty when the declaration gives no advice on a replacement, and the warning then stops
+    /// after naming the member.
     pub deprecated: Option<SmolStr>,
 }
 
@@ -836,18 +827,6 @@ impl PropertyDeclaration {
     pub fn is_private_shadow(&self) -> bool {
         self.shadowed_name.is_some() && self.visibility == PropertyVisibility::Private
     }
-
-    /// True when declared `@deprecated` without a custom message, so the hint in
-    /// [`Self::deprecated`] is derived from the two-way binding target.
-    pub fn has_derived_deprecation(&self) -> bool {
-        self.deprecated.is_some()
-            && self
-                .node
-                .as_ref()
-                .and_then(|n| syntax_nodes::PropertyDeclaration::new(n.clone()))
-                .and_then(|p| p.PropertyDeprecation())
-                .is_some_and(|d| d.child_token(SyntaxKind::StringLiteral).is_none())
-    }
 }
 
 /// Whether the declaration is marked `@shadowable` (an experimental feature).
@@ -859,54 +838,16 @@ fn shadowable_attribute(
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
 }
 
-/// How a `@deprecated` member without an explicit message derives its replacement hint.
-enum DeprecationHint {
-    /// A property or callback: derive it from the two-way binding target, if any.
-    TwoWayBinding(Option<syntax_nodes::QualifiedName>),
-    /// A function has no two-way binding, so an explicit message is required.
-    MessageRequired,
-}
-
-/// The hint from a `@deprecated` attribute on a member: the explicit message, or one derived from
-/// the two-way binding target when none is given. `None` when the member isn't deprecated.
+/// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
+/// advice on a replacement. `None` when the member isn't deprecated.
 fn member_deprecation(
     deprecation: Option<syntax_nodes::PropertyDeprecation>,
-    hint: DeprecationHint,
-    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<SmolStr> {
     let deprecation = deprecation?;
-    if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
-        return None;
-    }
-    if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
-        return crate::literals::unescape_string(message.text());
-    }
-    let message = match hint {
-        DeprecationHint::TwoWayBinding(target) => {
-            // Derive the hint from the two-way binding target: keep the full path (e.g.
-            // `a-struct.field`), dropping a leading `self`/`root`. The resolving pass checks the
-            // target is actually reachable.
-            if let Some(qn) = target {
-                let mut segments = qn
-                    .children_with_tokens()
-                    .filter(|t| t.kind() == SyntaxKind::Identifier)
-                    .map(|t| parser::normalize_identifier(t.as_token().unwrap().text()))
-                    .peekable();
-                if segments.peek().is_some_and(|s| matches!(s.as_str(), "self" | "root")) {
-                    segments.next();
-                }
-                let path = segments.collect::<Vec<_>>().join(".");
-                if !path.is_empty() {
-                    return Some(format_smolstr!("Please use '{path}' instead"));
-                }
-            }
-            "@deprecated without a message requires a two-way binding to derive the replacement from"
-        }
-        DeprecationHint::MessageRequired => "@deprecated on a function requires a message",
-    };
-    diag.push_error(message.into(), &deprecation);
-    None
+    // A missing message is reported by the parser, so don't pile on here.
+    let literal = deprecation.child_token(SyntaxKind::StringLiteral)?;
+    crate::literals::unescape_string_reporting(Some(&literal), diag, &deprecation)
 }
 
 /// Shift the locality flags of a result that came from the element's base rather than itself.
@@ -914,6 +855,57 @@ fn from_base(mut r: PropertyLookupResult<'_>) -> PropertyLookupResult<'_> {
     r.is_in_direct_base = r.is_local_to_component;
     r.is_local_to_component = false;
     r
+}
+
+fn disallow_non_member_content(
+    node: &syntax_nodes::Element,
+    declaration: &ElementType,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut error_on = |node: &dyn Spanned, what: &str| {
+        let element_type = match declaration {
+            ElementType::Global => "A global component",
+            ElementType::Interface(_) => "An interface",
+            _ => "An unexpected type",
+        };
+        diag.push_error(format!("{element_type} cannot have {what}"), node);
+    };
+    node.SubElement().for_each(|n| error_on(&n, "sub elements"));
+    node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+    if let Some(n) = node.ChildrenPlaceholder() {
+        error_on(&n, "sub elements");
+    }
+    node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
+    node.States().for_each(|n| error_on(&n, "states"));
+    node.Transitions().for_each(|n| error_on(&n, "transitions"));
+    node.CallbackDeclaration().for_each(|cb| {
+        if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
+            error_on(&cb, "an 'init' callback")
+        }
+    });
+    node.CallbackConnection().for_each(|cb| {
+        if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
+            error_on(&cb, "an 'init' callback")
+        }
+    });
+    node.MatchElement().for_each(|n| error_on(&n, "match elements"));
+    node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
+
+    if matches!(declaration, ElementType::Interface(_)) {
+        node.Binding().for_each(|n| error_on(&n, "bindings"));
+        node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+
+        node.ImplementStatement().for_each(|stmt| {
+            diag.push_error(
+                "Interfaces cannot implement another interface, use 'inherits' instead".into(),
+                &stmt,
+            );
+        });
+    } else {
+        node.ImplementStatement().for_each(|stmt| {
+            diag.push_error("Globals cannot implement an interface".into(), &stmt);
+        });
+    }
 }
 
 /// The error for a declaration that collides with a member it may not shadow.
@@ -1238,11 +1230,6 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
-    /// True when this element was injected by `lower_property_to_element` or the `visible` pass
-    /// to wrap another element for a property like `opacity`/`transform-rotation`/`visible` (see
-    /// `adjust_geometry_for_injected_parent`). Such wrappers take over the wrapped element's
-    /// geometry, so consumers that need the wrapped element's source parent must walk past them.
-    pub is_injected_wrapper_element: bool,
 
     /// Z-order of this element within a parent whose children are dynamically z-ordered.
     /// Stored on the child so it remains consistent when the children vector is reordered
@@ -1997,12 +1984,35 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
-        // A child element's parent_type is the type of its parent; the root
-        // gets a sentinel from Component::from_node
-        #[cfg(feature = "slint-sc")]
-        let is_component_root =
-            !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
-        let base_type = if let Some(base_node) = node.QualifiedName() {
+        // Every element but a declaration's root sits inside a SubElement.
+        let is_component_root = node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component);
+        let is_interface_declaration =
+            is_component_root && matches!(parent_type, ElementType::Interface(_));
+        let base_type = if is_interface_declaration {
+            disallow_non_member_content(node, &parent_type, diag);
+            match node.QualifiedName() {
+                None => ElementType::Interface(None),
+                Some(base_node) => {
+                    let base = QualifiedTypeName::from_node(base_node.clone());
+                    match parent_type.lookup_type_for_child_element(&base.to_smolstr(), tr) {
+                        Ok(ElementType::Component(c)) if c.is_interface() => {
+                            ElementType::Interface(Some(c))
+                        }
+                        Ok(_) => {
+                            diag.push_error(
+                                "An interface can only inherit another interface".into(),
+                                &base_node,
+                            );
+                            ElementType::Interface(None)
+                        }
+                        Err(err) => {
+                            diag.push_error(err, &base_node);
+                            ElementType::Interface(None)
+                        }
+                    }
+                }
+            }
+        } else if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
             match parent_type.lookup_type_for_child_element(&base_string, tr) {
@@ -2011,6 +2021,18 @@ impl Element {
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
+                    ElementType::Error
+                }
+                Ok(ElementType::Component(c)) if c.is_interface() => {
+                    let message = if is_component_root {
+                        "Components cannot inherit from interfaces".into()
+                    } else {
+                        format!(
+                            "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
+                            c.id
+                        )
+                    };
+                    diag.push_error(message, &base_node);
                     ElementType::Error
                 }
                 Ok(ty) => {
@@ -2032,50 +2054,8 @@ impl Element {
                     ElementType::Error
                 }
             }
-        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
-            // This must be a global component or interface. It can only have properties and callbacks
-            let mut error_on = |node: &dyn Spanned, what: &str| {
-                let element_type = match parent_type {
-                    ElementType::Global => "A global component",
-                    ElementType::Interface => "An interface",
-                    _ => "An unexpected type",
-                };
-                diag.push_error(format!("{element_type} cannot have {what}"), node);
-            };
-            node.SubElement().for_each(|n| error_on(&n, "sub elements"));
-            node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
-            if let Some(n) = node.ChildrenPlaceholder() {
-                error_on(&n, "sub elements");
-            }
-            node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
-            node.States().for_each(|n| error_on(&n, "states"));
-            node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            node.CallbackDeclaration().for_each(|cb| {
-                if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.CallbackConnection().for_each(|cb| {
-                if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
-            node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
-
-            if parent_type == ElementType::Interface {
-                node.Binding().for_each(|n| error_on(&n, "bindings"));
-                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
-
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Interfaces cannot implement another interface".into(), &stmt);
-                });
-            } else {
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Globals cannot implement an interface".into(), &stmt);
-                });
-            }
-
+        } else if parent_type == ElementType::Global {
+            disallow_non_member_content(node, &parent_type, diag);
             parent_type
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
@@ -2084,10 +2064,10 @@ impl Element {
         } else {
             tr.empty_type()
         };
-        let is_interface = base_type == ElementType::Interface;
+        let is_interface = matches!(base_type, ElementType::Interface(_));
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
-        if let ElementType::Component(c) = &base_type {
+        if let ElementType::Component(c) | ElementType::Interface(Some(c)) = &base_type {
             c.used.set(true);
         }
         let type_name = base_type
@@ -2213,14 +2193,7 @@ impl Element {
                 }
             }
 
-            let deprecated = member_deprecation(
-                prop_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    prop_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
+            let deprecated = member_deprecation(prop_decl.PropertyDeprecation(), diag);
 
             r.property_declarations.insert(
                 prop_name.clone(),
@@ -2247,7 +2220,7 @@ impl Element {
         }
 
         let (implemented_interfaces, child_implements) =
-            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
+            if matches!(r.base_type, ElementType::Global | ElementType::Interface(_)) {
                 // Already rejected above with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
@@ -2353,14 +2326,7 @@ impl Element {
                 continue;
             }
             let shadowable = shadowable_attribute(sig_decl.ShadowableAttribute(), tr, diag);
-            let deprecated = member_deprecation(
-                sig_decl.PropertyDeprecation(),
-                DeprecationHint::TwoWayBinding(
-                    sig_decl.TwoWayBinding().and_then(|twb| twb.Expression().QualifiedName()),
-                ),
-                tr,
-                diag,
-            );
+            let deprecated = member_deprecation(sig_decl.PropertyDeprecation(), diag);
             let source_name = name;
             let name =
                 declaration.register(&mut r, &source_name, &sig_decl.DeclaredIdentifier(), diag);
@@ -2500,24 +2466,19 @@ impl Element {
                 pure,
                 shadowed_name,
                 shadowable: shadowable_attribute(func.ShadowableAttribute(), tr, diag),
-                deprecated: member_deprecation(
-                    func.PropertyDeprecation(),
-                    DeprecationHint::MessageRequired,
-                    tr,
-                    diag,
-                ),
+                deprecated: member_deprecation(func.PropertyDeprecation(), diag),
                 ..Default::default()
             };
 
             match (base_type.clone(), func.CodeBlock()) {
-                (ElementType::Interface, Some(code_block)) => {
+                (ElementType::Interface(_), Some(code_block)) => {
                     diag.push_error(
                         "Function declarations in interfaces must not have a body".into(),
                         &code_block,
                     );
                     continue;
                 }
-                (ElementType::Interface, None) => {
+                (ElementType::Interface(_), None) => {
                     // Do not create a binding for this function, as it is just a declaration without body. It will be
                     // implemented by the component that implements the interface.
                     r.property_declarations.insert(name, declaration);
@@ -2602,7 +2563,8 @@ impl Element {
                 continue;
             }
             if let Some(message) = &deprecation {
-                diag.push_property_deprecation_warning_with_message(
+                diag.push_member_deprecation_warning(
+                    "callback",
                     &unresolved_name,
                     message,
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
@@ -2692,7 +2654,8 @@ impl Element {
                                 .as_ref()
                                 .filter(|_| !lookup_result.is_local_to_component)
                             {
-                                diag.push_property_deprecation_warning_with_message(
+                                diag.push_member_deprecation_warning(
+                                    "property",
                                     unresolved_prop_name,
                                     message,
                                     &prop_name_token,
@@ -2703,6 +2666,7 @@ impl Element {
                                 r.bindings.0.entry(binding_name).or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
+                                    r.from_source = true;
                                     r.span = Some(prop_name_token.to_source_location());
                                     r.into()
                                 });
@@ -3188,11 +3152,7 @@ impl Element {
         MemberDeclaration::Shadow {
             internal_name: self.unique_member_name(name),
             warning: (!private).then(|| {
-                let kind = match existing.property_type {
-                    Type::Callback { .. } => "callback",
-                    Type::Function { .. } => "function",
-                    _ => "property",
-                };
+                let kind = existing.property_type.member_kind();
                 format!("'{name}' shadows the {origin} {kind} of the same name")
             }),
         }
@@ -3211,7 +3171,9 @@ impl Element {
     fn declaring_base_component(&self, name: &str) -> Option<Rc<Component>> {
         let mut base = self.base_type.clone();
         loop {
-            let ElementType::Component(c) = base else { return None };
+            let (ElementType::Component(c) | ElementType::Interface(Some(c))) = base else {
+                return None;
+            };
             let declares = {
                 let root = c.root_element.borrow();
                 root.shadowing_members.contains_key(name)
@@ -3318,7 +3280,8 @@ impl Element {
             } else if let Some(message) =
                 lookup_result.deprecated.as_ref().filter(|_| !lookup_result.is_local_to_component)
             {
-                diag.push_property_deprecation_warning_with_message(
+                diag.push_member_deprecation_warning(
+                    lookup_result.property_type.member_kind(),
                     &unresolved_name,
                     message,
                     &name_token,
@@ -3398,20 +3361,6 @@ impl Element {
             return Some(twb);
         }
         self.callback_alias_declaration_node(name)
-    }
-
-    pub fn native_class(&self) -> Option<Arc<NativeClass>> {
-        let mut base_type = self.base_type.clone();
-        loop {
-            match &base_type {
-                ElementType::Component(component) => {
-                    base_type = component.root_element.clone().borrow().base_type.clone();
-                }
-                ElementType::Builtin(builtin) => break Some(builtin.native_class.clone()),
-                ElementType::Native(native) => break Some(native.clone()),
-                _ => break None,
-            }
-        }
     }
 
     pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {
@@ -4641,6 +4590,28 @@ fn visit_all_named_references_in_element_dyn(
         grid_layout_cell.borrow_mut().visit_named_references(&mut vis);
         elem.borrow_mut().grid_layout_cell = Some(grid_layout_cell);
     }
+}
+
+/// Returns the component of `elem`.
+pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+    let component = elem.borrow().enclosing_component.upgrade().unwrap();
+    let index = parent
+        .borrow()
+        .children
+        .iter()
+        .position(|child| Rc::ptr_eq(child, elem))
+        .expect("elem must be a child of parent");
+    parent.borrow_mut().children.remove(index);
+    for cip in component.child_insertion_points.borrow_mut().values_mut() {
+        if Rc::ptr_eq(&cip.parent, parent) && cip.insertion_index > index {
+            cip.insertion_index -= 1;
+        }
+    }
+    component
+}
+
+pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
+    remove_child_element(elem, parent).optimized_elements.borrow_mut().push(elem.clone());
 }
 
 /// Visit all named reference in this component and sub component

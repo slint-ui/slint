@@ -6,12 +6,11 @@
 use std::{
     collections::VecDeque,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
-    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use crate::preview_sessions::{PreviewSession, PreviewSessionEvent, PreviewSessionHandle};
+use crate::preview_sessions::PreviewSessionHandle;
 use crate::protocol::pairing::{
     self, CODE_TIMEOUT, MAX_ATTEMPTS, PROMPT_RATE_LIMIT, PairingRejection, Token, TokenId,
 };
@@ -403,18 +402,16 @@ async fn next_message(receiver: &mut Source, timeout: Duration) -> Option<LspToP
 }
 
 impl Connection {
-    pub async fn listen(
+    /// Listen, feeding the session behind `session_handle`, which may run on another
+    /// thread. That thread builds its session on [`Self::preview_to_lsp()`].
+    pub async fn listen_with_session_handle(
         address: Option<SocketAddr>,
         device_name_override: Option<String>,
         pairing_policy: PairingPolicy,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
-        preview_event_handler: impl Fn(PreviewSessionEvent) + 'static,
-    ) -> anyhow::Result<(Self, Rc<PreviewSession>)> {
+        session_handle: PreviewSessionHandle,
+    ) -> anyhow::Result<Self> {
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
-        let (preview_session, session_handle) = PreviewSession::start(
-            Rc::new(ConnectionPreviewToLsp(message_sender.clone())),
-            preview_event_handler,
-        );
 
         let inner_message_sender = message_sender.clone();
         let inner_session_handle = session_handle.clone();
@@ -548,15 +545,18 @@ impl Connection {
                 device_name_override.filter(|n| !n.is_empty()).unwrap_or_else(default_device_name);
             if raw.is_empty() { ip_derived_device_name(&local_ips_for(local_addr)) } else { raw }
         };
-        Ok((
-            Self {
-                local_addr,
-                thread_handle: Some((thread_handle, quit_sender)),
-                message_sender,
-                device_name: Mutex::new(device_name),
-            },
-            preview_session,
-        ))
+        Ok(Self {
+            local_addr,
+            thread_handle: Some((thread_handle, quit_sender)),
+            message_sender,
+            device_name: Mutex::new(device_name),
+        })
+    }
+
+    /// The sink a [`crate::preview_sessions::PreviewSession`] answers the editor
+    /// through. It is `Send`, so a session on another thread can be built on it.
+    pub fn preview_to_lsp(&self) -> impl PreviewToLsp + Send + use<> {
+        ConnectionPreviewToLsp(self.message_sender.clone())
     }
 
     /// Friendly device name to advertise over mDNS and show in the viewer UI.
@@ -1177,13 +1177,18 @@ mod cool_down_tests {
 #[cfg(test)]
 mod session_tests {
     use super::{Connection, ConnectionMessage, MAX_PENDING_ADMISSIONS, PairingPolicy};
+    use crate::preview_sessions::{
+        PreviewCompilation, PreviewSession, PreviewSessionCommands, PreviewSessionHandle,
+    };
     use crate::protocol::pairing::{self, MAX_ATTEMPTS, Token, TokenId};
     use crate::protocol::session;
     use crate::protocol::{
         LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
     };
+    use crate::protocol::{PreviewComponent, VersionedUrl, lsp_types};
     use futures_util::{SinkExt as _, StreamExt as _};
-    use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+    use std::rc::Rc;
+    use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
     use tokio_tungstenite::tungstenite::{
         Message,
         client::IntoClientRequest as _,
@@ -1203,21 +1208,69 @@ mod session_tests {
         events: UnboundedReceiver<ConnectionMessage>,
     }
 
-    impl Viewer {
+    /// A preview session running on a thread of its own, as the real remote viewer
+    /// does. `compile` asks the worker for a build, `compiled` answers.
+    struct ThreadedPreviewSession {
+        viewer: Viewer,
+        compile: UnboundedSender<PreviewComponent>,
+        compiled: UnboundedReceiver<PreviewCompilation>,
+    }
+
+    impl ThreadedPreviewSession {
         async fn start(policy: PairingPolicy) -> Self {
+            let (viewer, session_commands) = Viewer::start_detached(policy).await;
+            let connection = &viewer.connection;
+
+            let (compile, mut compile_receiver) = unbounded_channel::<PreviewComponent>();
+            let (compiled_sender, compiled) = unbounded_channel();
+            let to_editor = connection.preview_to_lsp();
+            std::thread::spawn(move || {
+                let runtime =
+                    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+                let local_set = tokio::task::LocalSet::new();
+                runtime.block_on(local_set.run_until(async move {
+                    let session =
+                        PreviewSession::start_with(session_commands, Rc::new(to_editor), |_| {});
+                    while let Some(component) = compile_receiver.recv().await {
+                        let compilation = session.compile_component(&component).await;
+                        if compiled_sender.send(compilation).is_err() {
+                            break;
+                        }
+                    }
+                }));
+            });
+
+            Self { viewer, compile, compiled }
+        }
+    }
+
+    impl Viewer {
+        /// Listen without a session, leaving the caller to run one wherever it wants.
+        async fn start_detached(policy: PairingPolicy) -> (Self, PreviewSessionCommands) {
             let (sender, events) = unbounded_channel();
-            let (connection, _preview_session) = Connection::listen(
+            let (session_handle, session_commands) = PreviewSessionHandle::new();
+            let connection = Connection::listen_with_session_handle(
                 Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
                 None,
                 policy,
                 move |message| {
                     let _ = sender.send(message);
                 },
-                |_| {},
+                session_handle,
             )
             .await
             .unwrap();
-            Self { connection, events }
+            (Self { connection, events }, session_commands)
+        }
+
+        async fn start(policy: PairingPolicy) -> Self {
+            let (viewer, session_commands) = Self::start_detached(policy).await;
+            PreviewSession::start_with(
+                session_commands,
+                Rc::new(viewer.connection.preview_to_lsp()),
+                |_| {},
+            );
+            viewer
         }
 
         /// Open a socket and complete the WebSocket handshake, stopping short
@@ -1432,6 +1485,77 @@ mod session_tests {
         client.send(&LspToPreviewMessage::Ping).await;
         assert!(matches!(client.recv().await, Some(PreviewToLspMessage::Pong)));
     });
+
+    /// The seam the remote viewer uses: the session compiles on its own thread and the
+    /// result crosses back to the thread that instantiates.
+    /// The editor may run on another OS, so its URLs needn't be native paths here (#13674).
+    #[tokio::test]
+    async fn a_session_on_another_thread_compiles_and_sends_the_result_back() {
+        /// A 1x1 grayscale PNG.
+        const PNG: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x00, 0x00, 0x00,
+            0x00, 0x3a, 0x7e, 0x9b, 0x55, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0x60, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x48, 0xaf, 0xa4, 0x71, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ];
+
+        let mut session = ThreadedPreviewSession::start(PairingPolicy::Disabled).await;
+        let mut client = session.viewer.dial().await;
+        hello(&mut client, None).await;
+
+        let dir = lsp_types::Url::parse("file:///mnt/remote%20project/ui/").unwrap();
+        let url = dir.join("app.slint").unwrap();
+        let imported = dir.join("value.slint").unwrap();
+        let image = dir.join("image.png").unwrap();
+        for (url, contents) in [
+            (&imported, "export global Value { out property <int> value: 42; }"),
+            (
+                &url,
+                "import { Value } from \"value.slint\"; export component App { out property <int> value: Value.value; Image { source: @image-url(\"image.png\"); } }",
+            ),
+        ] {
+            send(
+                &mut client,
+                &LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: contents.as_bytes().to_vec(),
+                },
+            )
+            .await;
+        }
+        session.compile.send(PreviewComponent { url, component: None }).unwrap();
+
+        loop {
+            match recv(&mut client).await {
+                Some(PreviewToLspMessage::RequestState { files, .. }) if files.contains(&image) => {
+                    break;
+                }
+                // The worker may ask for sources before the session has taken their contents.
+                Some(
+                    PreviewToLspMessage::RequestState { .. } | PreviewToLspMessage::PairingAccepted,
+                ) => {}
+                message => panic!("expected the viewer to ask for the image, got {message:?}"),
+            }
+        }
+        send(
+            &mut client,
+            &LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(image, None),
+                contents: PNG.to_vec(),
+            },
+        )
+        .await;
+
+        let compilation = tokio::time::timeout(REPLY_TIMEOUT, session.compiled.recv())
+            .await
+            .expect("the worker never answered")
+            .expect("the worker hung up");
+        let PreviewCompilation::Ready(compiled) = compilation else {
+            panic!("expected the source to compile");
+        };
+        assert!(compiled.component_definition().is_some());
+    }
 
     local_test!(wrong_code_burns_attempts_then_closes, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;

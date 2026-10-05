@@ -69,7 +69,7 @@ pub fn default_log_message(_arguments: core::fmt::Arguments) {
         feature = "log" => {
             log::debug!("{_arguments}");
         }
-        target_arch = "wasm32" => {
+        all(target_arch = "wasm32", not(target_os = "emscripten")) => {
             use wasm_bindgen::prelude::*;
             use std::string::ToString;
 

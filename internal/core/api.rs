@@ -17,8 +17,8 @@ pub use crate::data_transfer::DataTransfer;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
-    Brush, Color, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgba8Pixel, RgbaColor,
-    SharedPixelBuffer,
+    Brush, Color, Gray8Pixel, Image, LoadImageError, OklchColor, Rgb8Pixel, Rgb565Pixel,
+    Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
@@ -679,6 +679,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerReleased { position, button } => self
@@ -695,6 +696,8 @@ impl Window {
                 .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
+                    event_time: None,
+                    history: Default::default(),
                 })
                 .into(),
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => self
@@ -774,9 +777,13 @@ impl Window {
                 crate::platform::InternalEvent::Key(event) => {
                     self.0.process_key_input(event).into()
                 }
-                crate::platform::InternalEvent::Touch { id, position, phase } => {
-                    self.0.process_touch_input(id, position, phase).into()
-                }
+                crate::platform::InternalEvent::Touch {
+                    id,
+                    position,
+                    phase,
+                    event_time,
+                    history,
+                } => self.0.process_touch_input(id, position, phase, event_time, history).into(),
             },
         };
         if let Some(event_for_hook) = event_for_hook
@@ -1370,7 +1377,7 @@ pub enum PlatformError {
     OtherError(Box<dyn core::error::Error + Send + Sync>),
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 impl From<PlatformError> for wasm_bindgen::JsValue {
     fn from(err: PlatformError) -> wasm_bindgen::JsValue {
         wasm_bindgen::JsError::from(err).into()
@@ -1441,8 +1448,5 @@ fn error_is_send() {
 /// Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
 /// compliant window managers. This must be set before the window is shown, and has only an effect on Wayland or X11.
 pub fn set_xdg_app_id(app_id: impl Into<SharedString>) -> Result<(), PlatformError> {
-    crate::context::with_global_context(
-        || Err(crate::platform::PlatformError::NoPlatform),
-        |ctx| ctx.set_xdg_app_id(app_id.into()),
-    )
+    crate::context::with_existing_context(|ctx| ctx.set_xdg_app_id(app_id.into()))
 }

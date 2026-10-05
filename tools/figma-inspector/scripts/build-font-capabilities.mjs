@@ -4,11 +4,10 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { runtimeRoot, runtimePin, verifyRuntime } from "./runtime-pin.mjs";
 
-verifyRuntime();
+const repoRoot = resolve(import.meta.dirname, "../../..");
 const source = readFileSync(
-    resolve(runtimeRoot, "internal/common/sharedfontique.rs"),
+    resolve(repoRoot, "internal/common/sharedfontique.rs"),
     "utf8",
 ).split("#[cfg(test)]")[0];
 const paths = [
@@ -17,7 +16,7 @@ const paths = [
 if (!paths.length) throw Error("No embedded runtime fonts found");
 const fonts = [...new Set(paths)].map((path) => {
     const data = readFileSync(
-        resolve(runtimeRoot, "internal/common/sharedfontique", path),
+        resolve(repoRoot, "internal/common/sharedfontique", path),
     );
     const tables = new Map();
     for (let i = 0; i < data.readUInt16BE(4); i++) {
@@ -135,7 +134,7 @@ const manifest = resolve(
     import.meta.dirname,
     "../src/plugin/runtime-fonts.json",
 );
-const expected = { revision: runtimePin.revision, fonts };
+const expected = { fonts };
 if (process.argv.includes("--update"))
     writeFileSync(manifest, `${JSON.stringify(expected, null, 4)}\n`);
 else if (

@@ -7,9 +7,9 @@ mod ui {
     slint::slint! {
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export {
-            Api, BrushKind, ColorData, ElementKind, ElementLibraryEntry,
-            ElementLibraryGroup, FillData, GradientStop, GradientStopOrder,
-            LinearGradientAxis
+            Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode,
+            ColorValueData, ElementKind, ElementLibraryEntry, ElementLibraryGroup, FillData,
+            GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
         } from "../ui/api.slint";
     }
 }
@@ -27,6 +27,6 @@ fn main() -> Result<(), slint::PlatformError> {
     brushes::setup(&api);
     element_library::setup(&api);
     recent_fills::setup(&api, <Api as slint::Global<'_, GalleryWindow>>::as_weak(&api));
-    window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page_index(), 0);
+    window.global::<Gallery>().invoke_navigate(window.global::<Gallery>().get_page(), 0);
     window.run()
 }

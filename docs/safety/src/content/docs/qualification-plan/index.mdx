@@ -1,6 +1,36 @@
 ---
 title: Qualification Plan
-description: ISO 26262 qualification plan for Slint SC.
+description: How Slint SC is organized, designed, developed, and verified.
 ---
 
-The ISO 26262 standard requires us to track and report known safety-critical issues and possible failures, documenting for each how it arises, what issue# addresses it, what test case tests it, and what version it is fixed in.
+The Qualification Plan describes how Slint SC is organized, designed, developed, and verified.
+
+What can go wrong, and what we do about it, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
+The evidence from running the tests is in the [Qualification Report](/qualification-report/).
+
+## Scope
+
+* [Standards Compliance](/qualification-plan/standards-compliance/): the standard Slint SC targets, the integrity level it's developed for, and which chapter addresses each clause.
+* [Safety Policy](/qualification-plan/safety-policy/): what we commit to, and who is responsible for it.
+
+## Design
+
+* [Architecture Design](/qualification-plan/architecture/): the units that make up Slint SC, and how they fit together at build time and at run time.
+
+## Process
+
+* [Development Process](/qualification-plan/development-process/): the tools, configuration management, and change management.
+* [Development Phases](/qualification-plan/development-phases/): the phases a change goes through, and what must hold before it merges.
+* [Coding Standards](/qualification-plan/coding-standards/): the rules the Rust code follows, and what enforces each one.
+
+## Verification
+
+* [Verification](/qualification-plan/verification/): what is verified, and the pass criteria.
+* [Test Suites](/qualification-plan/test-suites/): the suites that verify Slint SC, and how their cases are written.
+* [Coverage Criteria](/qualification-plan/test-coverage/): how code coverage is measured, and the level we hold it at.
+* [Coverage Tool Verification](/qualification-plan/slint-coverage/): how the tool that measures the coverage of `.slint` code is tested.
+
+## Qualification
+
+* [Component Qualification Plan](/qualification-plan/component-qualification/): how the runtime is qualified as a software component.
+  How the tools are qualified is in the [Tool Evaluation Report](/evaluation-report/qualification-method/).

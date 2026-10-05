@@ -4,7 +4,7 @@
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
 };
@@ -17,6 +17,7 @@ use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
+use crate::inspector::InspectorOverlay;
 #[cfg(target_arch = "wasm32")]
 use crate::protocol::wasm_prelude::*;
 use crate::protocol::{
@@ -57,10 +58,27 @@ pub enum PreviewSessionEvent {
 }
 
 pub enum PreviewCompilation {
-    Ready(slint_interpreter::ComponentDefinition),
+    Ready(CompiledPreview),
     CompilationError { message: String },
     ComponentNotFound,
     Unavailable,
+}
+
+/// A successful compilation, in the form that can leave the thread it was compiled on.
+///
+/// Call [`Self::component_definition()`] on the thread that instantiates the component.
+pub struct CompiledPreview {
+    compilation: Box<slint_interpreter::CompilationResultSend>,
+    component_name: String,
+}
+
+impl CompiledPreview {
+    /// `None` only if the component is gone from the result, which the compiling side
+    /// already ruled out: it reports [`PreviewCompilation::ComponentNotFound`] instead.
+    pub fn component_definition(self) -> Option<slint_interpreter::ComponentDefinition> {
+        slint_interpreter::CompilationResult::from(*self.compilation)
+            .component(&self.component_name)
+    }
 }
 
 enum PreviewSessionCommand {
@@ -92,11 +110,30 @@ pub struct PreviewSessionHandle {
     command_sender: mpsc::UnboundedSender<PreviewSessionCommand>,
 }
 
+/// The receiving end of a [`PreviewSessionHandle`], which
+/// [`PreviewSession::start_with()`] turns into a running session.
+///
+/// It exists so that the handle can be made before the session: the transport needs a
+/// handle to feed, while the session needs the transport to answer file requests. Both
+/// are `Send`, so the session can run on a thread of its own.
+pub struct PreviewSessionCommands(mpsc::UnboundedReceiver<PreviewSessionCommand>);
+
 impl PreviewSession {
     pub fn start(
         to_editor: Rc<dyn PreviewToLsp>,
         event_handler: impl Fn(PreviewSessionEvent) + 'static,
     ) -> (Rc<Self>, PreviewSessionHandle) {
+        let (handle, commands) = PreviewSessionHandle::new();
+        (Self::start_with(commands, to_editor, event_handler), handle)
+    }
+
+    /// Like [`Self::start()`], but for a handle that was made in advance, possibly on
+    /// another thread. The session runs on the thread that calls this.
+    pub fn start_with(
+        commands: PreviewSessionCommands,
+        to_editor: Rc<dyn PreviewToLsp>,
+        event_handler: impl Fn(PreviewSessionEvent) + 'static,
+    ) -> Rc<Self> {
         let session = Rc::new(Self {
             file_cache: Default::default(),
             dependencies: Default::default(),
@@ -105,9 +142,8 @@ impl PreviewSession {
             to_editor,
         });
         session.compiler.replace(Some(session.create_compiler()));
-        let (command_sender, command_receiver) = mpsc::unbounded_channel();
-        tokio_spawn_local(session.clone().process_messages(command_receiver, event_handler));
-        (session, PreviewSessionHandle { command_sender })
+        tokio_spawn_local(session.clone().process_messages(commands.0, event_handler));
+        session
     }
 
     async fn process_messages(
@@ -285,7 +321,7 @@ impl PreviewSession {
 
         let file_loader_session = Rc::downgrade(self);
         compiler.set_file_loader(move |path: &std::path::Path| {
-            let url = Url::from_file_path(path);
+            let url = path_to_url(path);
             let path_display = path.display().to_string();
             let session = file_loader_session.clone();
             Box::pin(async move {
@@ -295,7 +331,7 @@ impl PreviewSession {
                         "Preview session is no longer available",
                     )));
                 };
-                let Ok(url) = url else {
+                let Some(url) = url else {
                     return Some(Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
                         format!("Not an absolute file path: {path_display}"),
@@ -344,7 +380,7 @@ impl PreviewSession {
     }
 
     pub async fn compile_component(&self, component: &PreviewComponent) -> PreviewCompilation {
-        let Ok(path) = component.url.to_file_path() else {
+        let Some(path) = url_to_path(&component.url) else {
             tracing::error!("Not a file URL: {}", component.url);
             return PreviewCompilation::Unavailable;
         };
@@ -370,7 +406,7 @@ impl PreviewSession {
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
             .iter()
-            .filter_map(|path| Url::from_file_path(path).ok())
+            .filter_map(|path| path_to_url(path))
             .collect();
 
         if compilation_result.has_errors() {
@@ -384,11 +420,12 @@ impl PreviewSession {
             return PreviewCompilation::CompilationError { message };
         }
 
-        let Some(component_definition) = component
+        let Some(component_name) = component
             .component
             .as_deref()
             .or_else(|| compilation_result.component_names().next())
-            .and_then(|name| compilation_result.component(name))
+            .filter(|name| compilation_result.component_names().any(|known| known == *name))
+            .map(String::from)
         else {
             // No compile errors but no component: skip the diagnostics so they don't clobber
             // unrelated ones the editor holds for this URL.
@@ -397,7 +434,10 @@ impl PreviewSession {
         };
 
         self.send_diagnostics(&compilation_result, &component.url);
-        PreviewCompilation::Ready(component_definition)
+        PreviewCompilation::Ready(CompiledPreview {
+            compilation: Box::new(compilation_result.into_send()),
+            component_name,
+        })
     }
 
     fn restore_compiler(&self, mut compiler: slint_interpreter::Compiler) {
@@ -433,6 +473,23 @@ impl PreviewSession {
     }
 }
 
+/// Converts a `file:` URL from the editor into the path the compiler loads it under.
+///
+/// The editor may run on another OS than the viewer, so a URL that isn't a native path here,
+/// such as a POSIX path on Windows (#13674), stays a URL.
+/// The compiler resolves imports and images against such a path on any host.
+fn url_to_path(url: &Url) -> Option<PathBuf> {
+    if url.scheme() != "file" {
+        return None;
+    }
+    Some(url.to_file_path().unwrap_or_else(|()| url.as_str().into()))
+}
+
+/// The inverse of [`url_to_path`].
+fn path_to_url(path: &Path) -> Option<Url> {
+    Url::from_file_path(path).ok().or_else(|| Url::parse(path.to_str()?).ok())
+}
+
 fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration: &PreviewConfig) {
     compiler.set_style(configuration.style.clone());
     compiler.compiler_configuration(InternalToken).enable_experimental =
@@ -440,6 +497,13 @@ fn apply_configuration(compiler: &mut slint_interpreter::Compiler, configuration
 }
 
 impl PreviewSessionHandle {
+    /// Makes a handle and the [`PreviewSessionCommands`] that
+    /// [`PreviewSession::start_with()`] consumes.
+    pub fn new() -> (Self, PreviewSessionCommands) {
+        let (command_sender, command_receiver) = mpsc::unbounded_channel();
+        (Self { command_sender }, PreviewSessionCommands(command_receiver))
+    }
+
     pub fn handle_message(&self, message: LspToPreviewMessage) -> crate::protocol::Result<()> {
         self.command_sender.send(PreviewSessionCommand::Message(message))?;
         Ok(())
@@ -491,7 +555,9 @@ pub async fn run_with_channels(
     install_debug_handler(Rc::downgrade(&to_editor))?;
 
     let mut current_component = None;
+    let mut current_highlight = None;
     let mut component_instance = None;
+    let mut inspector = None;
     let mut registered_fonts = HashSet::new();
     let mut pending_fonts = Vec::new();
 
@@ -503,6 +569,8 @@ pub async fn run_with_channels(
                     &preview_session,
                     &component,
                     &mut component_instance,
+                    &mut inspector,
+                    current_highlight.as_ref(),
                     &mut pending_fonts,
                 )
                 .await?;
@@ -514,11 +582,18 @@ pub async fn run_with_channels(
                     &preview_session,
                     component,
                     &mut component_instance,
+                    &mut inspector,
+                    current_highlight.as_ref(),
                     &mut pending_fonts,
                 )
                 .await?;
             }
-            PreviewSessionEvent::HighlightFromEditor { .. } => {}
+            PreviewSessionEvent::HighlightFromEditor { url, offset } => {
+                current_highlight = url.map(|url| (url, offset));
+                if let Some(inspector) = inspector.as_ref() {
+                    inspector.update(component_instance.as_ref(), current_highlight.as_ref());
+                }
+            }
             PreviewSessionEvent::RegisterFont { url, contents } => {
                 if !registered_fonts.insert(url.clone()) {
                     tracing::debug!("Font {url} already registered, skipping");
@@ -540,13 +615,15 @@ async fn show_component(
     preview_session: &PreviewSession,
     component: &PreviewComponent,
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
+    inspector: &mut Option<InspectorOverlay>,
+    current_highlight: Option<&(Url, u32)>,
     pending_fonts: &mut Vec<Arc<[u8]>>,
 ) -> anyhow::Result<()> {
-    let PreviewCompilation::Ready(component_definition) =
-        preview_session.compile_component(component).await
+    let PreviewCompilation::Ready(compiled) = preview_session.compile_component(component).await
     else {
         return Ok(());
     };
+    let Some(component_definition) = compiled.component_definition() else { return Ok(()) };
 
     let new_instance = if let Some(component_instance) = component_instance.as_ref() {
         component_definition.create_with_existing_window(component_instance.window())?
@@ -556,8 +633,14 @@ async fn show_component(
     for contents in pending_fonts.drain(..) {
         register_font(new_instance.window(), contents);
     }
+    if inspector.is_none() {
+        *inspector = Some(InspectorOverlay::new(new_instance.window()).await?);
+    }
     new_instance.show()?;
     *component_instance = Some(new_instance);
+    let inspector = inspector.as_ref().unwrap();
+    inspector.attach()?;
+    inspector.update(component_instance.as_ref(), current_highlight);
     Ok(())
 }
 

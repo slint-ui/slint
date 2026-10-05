@@ -46,6 +46,20 @@ fn reuse_window() {
             instance.get_property("text_alias").unwrap(),
             Value::from(SharedString::from("foo"))
         );
+        let attached_item_tree =
+            i_slint_core::window::WindowInner::from_pub(instance.window()).component();
+        let detached = definition
+            .create_detached_with_existing_window(instance.window(), i_slint_core::InternalToken)
+            .unwrap();
+        assert!(!i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &attached_item_tree,
+            &detached.as_item_tree(i_slint_core::InternalToken),
+        ));
+        let _ = detached.window();
+        assert!(i_slint_core::item_tree::ItemTreeRc::ptr_eq(
+            &attached_item_tree,
+            &i_slint_core::window::WindowInner::from_pub(instance.window()).component(),
+        ));
         instance
     };
 }
@@ -839,11 +853,10 @@ fn accent_color_reachable_from_global() {
     let instance = result.component("App").unwrap().create().unwrap();
 
     let before = instance.get_property("accent").unwrap();
-    i_slint_core::context::with_global_context(
-        || panic!("context should already be initialized"),
-        |ctx| ctx.set_accent_color(i_slint_core::Color::from_argb_u8(255, 255, 0, 0)),
-    )
-    .unwrap();
+    i_slint_core::context::with_existing_context(|ctx| {
+        ctx.set_accent_color(i_slint_core::Color::from_argb_u8(255, 255, 0, 0))
+    })
+    .expect("context should already be initialized");
     let after = instance.get_property("accent").unwrap();
     assert_ne!(before, after, "accent-background should follow the system accent color");
 }

@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: always exposes window(), forbidden for SystemTrayIcon roots
+//ignore: cpp-live-preview
+
+// A tray has no window, so its bindings must use the context it was created with.
+
+export component TestCase inherits SystemTrayIcon {
+    in property <float> value: 1.5;
+    out property <string> formatted: value;
+    out property <string> separator: Platform.decimal-separator;
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(
+    i_slint_backend_testing::TestingBackend::new(Default::default()),
+));
+ctx.set_locale("de_DE.UTF-8");
+let instance = TestCase::new_with_context(ctx).unwrap();
+assert_eq!(instance.get_formatted(), "1,5");
+assert_eq!(instance.get_separator(), ",");
+```
+*/

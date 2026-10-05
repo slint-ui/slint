@@ -20,6 +20,17 @@ pub use i_slint_core::SlintContext;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 
+fn ensure_requested_backend_available(event_loop: &str) -> Result<(), PlatformError> {
+    #[cfg(not(all(feature = "mcp", supports_headless)))]
+    if event_loop == "headless" {
+        return Err(
+            "headless backend is not available in this build; recompile the application with Slint's \"mcp\" feature enabled"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(default_backend::Backend::new()))
@@ -113,6 +124,7 @@ core::cfg_select! {
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
             let backend_config = backend_config.to_lowercase();
             let (event_loop, _renderer) = parse_backend_env_var(backend_config.as_str());
+            ensure_requested_backend_available(event_loop)?;
 
             match event_loop {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]

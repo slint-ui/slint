@@ -1,109 +1,122 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore Spannable tbstart tbend
+// cSpell:ignore drawables javahelper Spannable tbstart tbend
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.FutureTask;
-import android.view.ActionMode;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewTreeObserver;
-import android.view.WindowInsets;
-import android.view.WindowInsetsAnimation;
-import android.view.WindowMetrics;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputConnection;
+package dev.slint.android;
+
+import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
-import android.graphics.BlendMode;
-import android.graphics.BlendModeColorFilter;
 import android.graphics.Insets;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
-import android.util.TypedValue;
+import android.util.Log;
+import android.view.ActionMode;
+import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsAnimation;
+import android.view.WindowMetrics;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.app.Activity;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
-import android.view.inputmethod.BaseInputConnection;
-import android.os.Build;
-import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 class InputHandle extends ImageView {
-    private PopupWindow mPopupWindow;
+    // The ids that callback_move_cursor_handle in javahelper.rs expects.
+    static final int CURSOR = 0;
+    static final int SELECTION_START = 1;
+    static final int SELECTION_END = 2;
+
+    private final SlintInputView mRootView;
+    private final PopupWindow mPopupWindow;
+    private final int mId;
+    private final int mOffsetX;
+    private int mCursorX;
+    private int mCursorY;
     private float mPressedX;
     private float mPressedY;
-    private SlintInputView mRootView;
-    private int cursorX;
-    private int cursorY;
-    private int attr;
 
-    public InputHandle(SlintInputView rootView, int attr) {
+    public InputHandle(SlintInputView rootView, int id) {
         super(rootView.getContext());
-        this.attr = attr;
         mRootView = rootView;
+        mId = id;
         Context ctx = rootView.getContext();
         mPopupWindow = new PopupWindow(ctx, null, android.R.attr.textSelectHandleWindowStyle);
         mPopupWindow.setSplitTouchEnabled(true);
         mPopupWindow.setClippingEnabled(false);
-        int[] attrs = { attr };
-        Drawable drawable = ctx.getTheme().obtainStyledAttributes(attrs).getDrawable(0);
-        mPopupWindow.setWidth(drawable.getIntrinsicWidth());
+        int attr;
+        int offsetQuarters;
+        switch (id) {
+            case SELECTION_START:
+                attr = android.R.attr.textSelectHandleLeft;
+                offsetQuarters = 3;
+                break;
+            case SELECTION_END:
+                attr = android.R.attr.textSelectHandleRight;
+                offsetQuarters = 1;
+                break;
+            default:
+                attr = android.R.attr.textSelectHandle;
+                offsetQuarters = 2;
+                break;
+        }
+        TypedArray a = ctx.getTheme().obtainStyledAttributes(new int[] { attr });
+        Drawable drawable = a.getDrawable(0);
+        a.recycle();
+        int width = drawable.getIntrinsicWidth();
+        mOffsetX = offsetQuarters * width / 4;
+        mPopupWindow.setWidth(width);
         mPopupWindow.setHeight(drawable.getIntrinsicHeight());
-        this.setImageDrawable(drawable);
+        setImageDrawable(drawable);
         mPopupWindow.setContentView(this);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
         switch (ev.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN: {
-                mPressedX = ev.getRawX() - cursorX;
-                mPressedY = ev.getRawY() - cursorY;
+            case MotionEvent.ACTION_DOWN:
+                mPressedX = ev.getRawX() - mCursorX;
+                mPressedY = ev.getRawY() - mCursorY;
                 break;
-            }
-
-            case MotionEvent.ACTION_MOVE: {
-                mRootView.hideActionMenu(ActionMode.DEFAULT_HIDE_DURATION);
-                int id = attr == android.R.attr.textSelectHandleLeft ? 1
-                        : attr == android.R.attr.textSelectHandleRight ? 2 : 0;
-                SlintAndroidJavaHelper.moveCursorHandle(id, Math.round(ev.getRawX() - mPressedX),
+            case MotionEvent.ACTION_MOVE:
+                mRootView.finishActionMenu();
+                SlintAndroidJavaHelper.moveCursorHandle(mId, Math.round(ev.getRawX() - mPressedX),
                         Math.round(ev.getRawY() - mPressedY));
-                break;
-            }
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
                 break;
         }
         return true;
     }
 
     public void setPosition(int x, int y) {
-        cursorX = x;
-        cursorY = y;
+        mCursorX = x;
+        mCursorY = y;
+        x -= mOffsetX;
 
-        if (attr == android.R.attr.textSelectHandleLeft) {
-            x -= 3 * mPopupWindow.getWidth() / 4;
-        } else if (attr == android.R.attr.textSelectHandleRight) {
-            x -= mPopupWindow.getWidth() / 4;
+        if (mPopupWindow.isShowing()) {
+            mPopupWindow.update(x, y, -1, -1);
         } else {
-            x -= mPopupWindow.getWidth() / 2;
+            mPopupWindow.showAtLocation(mRootView, Gravity.NO_GRAVITY, x, y);
         }
-
-        mPopupWindow.showAtLocation(mRootView, 0, x, y);
-        mPopupWindow.update(x, y, -1, -1);
     }
 
     public void hide() {
@@ -111,15 +124,9 @@ class InputHandle extends ImageView {
     }
 
     public void setHandleColor(int color) {
-        Drawable drawable = getDrawable();
-        if (drawable != null) {
-            if (android.os.Build.VERSION.SDK_INT >= 29) {
-                drawable.setColorFilter(new BlendModeColorFilter(color, BlendMode.SRC_IN));
-            } else {
-                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
-            }
-            setImageDrawable(drawable);
-        }
+        // ImageView mutates the drawable before applying the filter, so other drawables
+        // of the same resource keep their color.
+        setColorFilter(color, PorterDuff.Mode.SRC_IN);
     }
 }
 
@@ -127,14 +134,19 @@ class SlintInputView extends View {
     private String mText = "";
     private int mCursorPosition = 0;
     private int mAnchorPosition = 0;
-    private int mPreeditStart = 0;
-    private int mPreeditEnd = 0;
     private int mInputType = EditorInfo.TYPE_CLASS_TEXT;
     private int mInBatch = 0;
     private boolean mPending = false;
     private SlintEditable mEditable;
 
-    public class SlintEditable extends SpannableStringBuilder {
+    private InputHandle mCursorHandle;
+    private InputHandle mLeftHandle;
+    private InputHandle mRightHandle;
+    private Integer mHandleColor;
+    private final Rect mSelectionRect = new Rect();
+    private ActionMode mCurrentActionMode;
+
+    private class SlintEditable extends SpannableStringBuilder {
         public SlintEditable() {
             super(mText);
         }
@@ -142,7 +154,7 @@ class SlintInputView extends View {
         @Override
         public SpannableStringBuilder replace(int start, int end, CharSequence tb, int tbstart, int tbend) {
             super.replace(start, end, tb, tbstart, tbend);
-            setCursorPos(0, 0, 0, 0, 0, 0);
+            hideCursor();
             if (mInBatch == 0) {
                 update();
             } else {
@@ -156,9 +168,8 @@ class SlintInputView extends View {
             mText = toString();
             mCursorPosition = Selection.getSelectionStart(this);
             mAnchorPosition = Selection.getSelectionEnd(this);
-            mPreeditStart = BaseInputConnection.getComposingSpanStart(this);
-            mPreeditEnd = BaseInputConnection.getComposingSpanEnd(this);
-            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition, mPreeditStart, mPreeditEnd);
+            SlintAndroidJavaHelper.updateText(mText, mCursorPosition, mAnchorPosition,
+                    BaseInputConnection.getComposingSpanStart(this), BaseInputConnection.getComposingSpanEnd(this));
         }
     }
 
@@ -212,19 +223,13 @@ class SlintInputView extends View {
         mText = text;
         mCursorPosition = cursorPosition;
         mAnchorPosition = anchorPosition;
-        mPreeditStart = preeditStart;
-        mPreeditEnd = preeditEnd;
         mInputType = inputType;
 
         if (typeChanged) {
             mEditable = new SlintEditable();
             Selection.setSelection(mEditable, cursorPosition, anchorPosition);
-            InputMethodManager imm = (InputMethodManager) this.getContext()
-                    .getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.restartInput(this);
+            getContext().getSystemService(InputMethodManager.class).restartInput(this);
         } else if (textChanged || selectionChanged) {
-            InputMethodManager imm = (InputMethodManager) this.getContext()
-                    .getSystemService(Context.INPUT_METHOD_SERVICE);
             mInBatch += 1;
             try {
                 if (textChanged) {
@@ -238,103 +243,89 @@ class SlintInputView extends View {
                 mInBatch -= 1;
                 mPending = false;
             }
-            imm.updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
+            getContext().getSystemService(InputMethodManager.class)
+                    .updateSelection(this, cursorPosition, anchorPosition, preeditStart, preeditEnd);
         }
     }
 
     @Override
     protected void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        SlintAndroidJavaHelper.setNightMode(currentNightMode);
+        SlintAndroidJavaHelper.setNightMode(newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK);
         SlintAndroidJavaHelper.setFontScale(newConfig.fontScale);
     }
 
-    private InputHandle mCursorHandle;
-    private InputHandle mLeftHandle;
-    private InputHandle mRightHandle;
-    public Rect selectionRect = new Rect();
+    private InputHandle updateHandle(InputHandle handle, int id, int x, int y) {
+        if (x == -1) {
+            hideHandle(handle);
+            return handle;
+        }
+        if (handle == null) {
+            handle = new InputHandle(this, id);
+            if (mHandleColor != null) {
+                handle.setHandleColor(mHandleColor);
+            }
+        }
+        handle.setPosition(x, y);
+        return handle;
+    }
 
-    // num_handles: 0=hidden, 1=cursor handle, 2=selection handles
-    public void setCursorPos(int left_x, int left_y, int right_x, int right_y, int cursor_height, int num_handles) {
+    private static void hideHandle(InputHandle handle) {
+        if (handle != null) {
+            handle.hide();
+        }
+    }
+
+    public void hideCursor() {
+        setCursorPos(0, 0, 0, 0, 0, 0);
+    }
+
+    // numHandles: 0=hidden, 1=cursor handle, 2=selection handles
+    public void setCursorPos(int leftX, int leftY, int rightX, int rightY, int cursorHeight, int numHandles) {
         int handleHeight = 0;
-        if (num_handles == 1) {
-            if (mLeftHandle != null) {
-                mLeftHandle.hide();
-            }
-            if (mRightHandle != null) {
-                mRightHandle.hide();
-            }
-            if (left_x != -1) {
-                if (mCursorHandle == null) {
-                    mCursorHandle = new InputHandle(this, android.R.attr.textSelectHandle);
-                }
-                mCursorHandle.setPosition(left_x, left_y);
+        if (numHandles == 1) {
+            hideHandle(mLeftHandle);
+            hideHandle(mRightHandle);
+            mCursorHandle = updateHandle(mCursorHandle, InputHandle.CURSOR, leftX, leftY);
+            if (leftX != -1) {
                 handleHeight = mCursorHandle.getHeight();
-            } else if (mCursorHandle != null) {
-                mCursorHandle.hide();
             }
-        } else if (num_handles == 2) {
-            if (left_x != -1) {
-                if (mLeftHandle == null) {
-                    mLeftHandle = new InputHandle(this, android.R.attr.textSelectHandleLeft);
-                }
-                mLeftHandle.setPosition(left_x, left_y);
+        } else if (numHandles == 2) {
+            hideHandle(mCursorHandle);
+            mLeftHandle = updateHandle(mLeftHandle, InputHandle.SELECTION_START, leftX, leftY);
+            if (leftX != -1) {
                 handleHeight = mLeftHandle.getHeight();
-            } else {
-                if (mLeftHandle != null) {
-                    mLeftHandle.hide();
-                }
             }
-            if (right_x != -1) {
-                if (mRightHandle == null) {
-                    mRightHandle = new InputHandle(this, android.R.attr.textSelectHandleRight);
-                }
-                mRightHandle.setPosition(right_x, right_y);
+            mRightHandle = updateHandle(mRightHandle, InputHandle.SELECTION_END, rightX, rightY);
+            if (rightX != -1) {
                 handleHeight = mRightHandle.getHeight();
-            } else {
-                if (mRightHandle != null) {
-                    mRightHandle.hide();
-                }
-            }
-            if (mCursorHandle != null) {
-                mCursorHandle.hide();
             }
             showActionMenu();
         } else {
             if (mCursorHandle != null) {
                 handleHeight = mCursorHandle.getHeight();
-                mCursorHandle.hide();
             }
-            if (mLeftHandle != null) {
-                mLeftHandle.hide();
-            }
-            if (mRightHandle != null) {
-                mRightHandle.hide();
-            }
-            hideActionMenu(-1);
+            hideHandle(mCursorHandle);
+            hideHandle(mLeftHandle);
+            hideHandle(mRightHandle);
+            finishActionMenu();
         }
 
-        selectionRect.set(Math.min(left_x, right_x), Math.min(left_y, right_y) - cursor_height,
-                Math.max(left_x, right_x), Math.max(left_y, right_y) + handleHeight);
+        mSelectionRect.set(Math.min(leftX, rightX), Math.min(leftY, rightY) - cursorHeight,
+                Math.max(leftX, rightX), Math.max(leftY, rightY) + handleHeight);
         if (mCurrentActionMode != null) {
             mCurrentActionMode.invalidateContentRect();
         }
     }
 
     public void setHandleColor(int color) {
-        if (mCursorHandle != null) {
-            mCursorHandle.setHandleColor(color);
-        }
-        if (mLeftHandle != null) {
-            mLeftHandle.setHandleColor(color);
-        }
-        if (mRightHandle != null) {
-            mRightHandle.setHandleColor(color);
+        mHandleColor = color;
+        for (InputHandle handle : new InputHandle[] { mCursorHandle, mLeftHandle, mRightHandle }) {
+            if (handle != null) {
+                handle.setHandleColor(color);
+            }
         }
     }
-
-    private ActionMode mCurrentActionMode;
 
     public void showActionMenu() {
         if (mCurrentActionMode != null) {
@@ -347,7 +338,7 @@ class SlintInputView extends View {
                 mode.setTitle(null);
                 mode.setSubtitle(null);
                 mode.setTitleOptionalHint(true);
-                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     menu.setGroupDividerEnabled(true);
                 }
 
@@ -358,7 +349,7 @@ class SlintInputView extends View {
                         android.R.attr.actionModeSelectAllDrawable,
                 });
 
-                // Note: the ids are used in Java_SlintAndroidJavaHelper_popupMenuAction
+                // The ids are the ones callback_popup_menu_action in javahelper.rs expects.
                 menu.add(Menu.FIRST, 0, 0, android.R.string.cut)
                         .setAlphabeticShortcut('x')
                         .setIcon(a.getDrawable(0));
@@ -391,12 +382,13 @@ class SlintInputView extends View {
 
             @Override
             public void onDestroyActionMode(ActionMode action) {
+                mCurrentActionMode = null;
             }
 
             // Introduced in API level 23
             @Override
             public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
-                outRect.set(selectionRect);
+                outRect.set(mSelectionRect);
                 if (outRect.top < 0) {
                     // FIXME: I don't know why this is the case, but without that, the menu doesn't
                     // show at the right position when there is no room on top.
@@ -404,170 +396,131 @@ class SlintInputView extends View {
                     outRect.top = outRect.bottom;
                 }
             }
-
         };
         mCurrentActionMode = startActionMode(action, ActionMode.TYPE_FLOATING);
-
     }
 
-    public void hideActionMenu(int duration) {
+    void finishActionMenu() {
         if (mCurrentActionMode != null) {
-            if (duration < 0) {
-                mCurrentActionMode.finish();
-                mCurrentActionMode = null;
-            } else {
-                mCurrentActionMode.hide(duration);
-            }
+            mCurrentActionMode.finish();
+            mCurrentActionMode = null;
         }
     }
 }
 
 public class SlintAndroidJavaHelper {
-    Activity mActivity;
-    SlintInputView mInputView;
-    private OnBackInvokedCallback mBackCallback;
+    private final Activity mActivity;
+    private final SlintInputView mInputView;
 
     public SlintAndroidJavaHelper(Activity activity) {
-        this.mActivity = activity;
-        this.mInputView = new SlintInputView(activity);
-        this.mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT);
-                mActivity.addContentView(mInputView, params);
-                mInputView.setVisibility(View.VISIBLE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    mActivity.getWindow().getDecorView().getRootView()
-                            .setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
-                    // Attach the IME animation callback to the input view rather than the
-                    // decor root: some OEM ROMs fail to render the IME surface when an
-                    // animation callback is installed on the window's root view.
-                    mInputView.setWindowInsetsAnimationCallback(
-                            new WindowInsetsAnimation.Callback(
-                                    WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
-                                @Override
-                                public WindowInsets onProgress(WindowInsets insets,
-                                        java.util.List<WindowInsetsAnimation> runningAnimations) {
-                                    return dispatchInsets(insets);
-                                }
-                            });
-                }
-                // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
-                // it into Slint's key-event pipeline.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && mBackCallback == null) {
-                    mBackCallback = () -> SlintAndroidJavaHelper.onBackInvoked();
-                    mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                            OnBackInvokedDispatcher.PRIORITY_DEFAULT, mBackCallback);
-                }
-            }
-        });
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            activity.getWindow().getDecorView().getRootView().getViewTreeObserver()
-                    .addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+        mActivity = activity;
+        mInputView = new SlintInputView(activity);
+        mActivity.runOnUiThread(this::attachInputView);
+    }
+
+    private void attachInputView() {
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT);
+        mActivity.addContentView(mInputView, params);
+        View rootView = rootView();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            rootView.setOnApplyWindowInsetsListener((v, insets) -> dispatchInsets(insets));
+            // Attach the IME animation callback to the input view rather than the
+            // decor root: some OEM ROMs fail to render the IME surface when an
+            // animation callback is installed on the window's root view.
+            mInputView.setWindowInsetsAnimationCallback(
+                    new WindowInsetsAnimation.Callback(
+                            WindowInsetsAnimation.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
                         @Override
-                        public void onGlobalLayout() {
-                            mActivity.runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Rect windowRect = get_view_rect();
-                                    Rect safeAreaRect = get_safe_area();
-
-                                    // This is only an approximation, because SDK level < 30 doesn't provide
-                                    // a way to get the keyboard area directly.
-                                    Rect visibleRect = new Rect();
-                                    mActivity.getWindow().getDecorView().getRootView()
-                                            .getWindowVisibleDisplayFrame(visibleRect);
-                                    int keyboardBottom = windowRect.bottom - visibleRect.bottom;
-                                    int keyboardLeft = windowRect.left - visibleRect.left;
-                                    int keyboardTop = windowRect.top - visibleRect.top;
-                                    int keyboardRight = windowRect.right - visibleRect.right;
-                                    int max = Math.max(keyboardBottom, Math.max(keyboardLeft,
-                                            Math.max(keyboardTop, keyboardRight)));
-
-                                    // only take the largest value (it's probably always going to be bottom)
-                                    if (max == keyboardBottom) {
-                                        keyboardTop = 0;
-                                        keyboardLeft = 0;
-                                        keyboardRight = 0;
-                                    } else if (max == keyboardLeft) {
-                                        keyboardTop = 0;
-                                        keyboardRight = 0;
-                                        keyboardBottom = 0;
-                                    } else if (max == keyboardTop) {
-                                        keyboardLeft = 0;
-                                        keyboardRight = 0;
-                                        keyboardBottom = 0;
-                                    } else {
-                                        keyboardTop = 0;
-                                        keyboardLeft = 0;
-                                        keyboardBottom = 0;
-                                    }
-
-                                    SlintAndroidJavaHelper.setInsets(
-                                            windowRect.top, windowRect.left,
-                                            windowRect.bottom, windowRect.right,
-                                            safeAreaRect.top, safeAreaRect.left,
-                                            safeAreaRect.bottom, safeAreaRect.right,
-                                            keyboardTop, keyboardLeft,
-                                            keyboardBottom, keyboardRight);
-                                }
-                            });
+                        public WindowInsets onProgress(WindowInsets insets,
+                                List<WindowInsetsAnimation> runningAnimations) {
+                            return dispatchInsets(insets);
                         }
                     });
+        } else {
+            rootView.getViewTreeObserver().addOnGlobalLayoutListener(this::dispatchLayoutInsets);
         }
+        // On API 34+, Back arrives via OnBackInvokedDispatcher; forward
+        // it into Slint's key-event pipeline.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            mActivity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, SlintAndroidJavaHelper::onBackInvoked);
+        }
+    }
+
+    private View rootView() {
+        return mActivity.getWindow().getDecorView().getRootView();
+    }
+
+    private static void sendInsets(Rect window, Rect safeArea, Rect keyboard) {
+        setInsets(
+                window.top, window.left, window.bottom, window.right,
+                safeArea.top, safeArea.left, safeArea.bottom, safeArea.right,
+                keyboard.top, keyboard.left, keyboard.bottom, keyboard.right);
+    }
+
+    private static Rect safeArea(WindowInsets insets) {
+        Insets safeArea = Insets.max(
+                insets.getInsets(WindowInsets.Type.systemBars()),
+                insets.getInsets(WindowInsets.Type.displayCutout()));
+        return new Rect(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
     }
 
     private WindowInsets dispatchInsets(WindowInsets insets) {
         // The listener-supplied `insets` reflects what reaches the decor view
         // AFTER any ancestor has consumed insets, so in edge-to-edge mode the
         // system bars and the display cutout often arrive as zero. Read those
-        // straight from the WindowManager, which always returns the unconsumed
-        // values — matching what get_safe_area() does. The IME inset still
-        // comes from the listener stream so keyboard show/hide animates.
-        Insets sysBars;
-        Insets cutout;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsets src = mActivity.getWindowManager().getCurrentWindowMetrics().getWindowInsets();
-            sysBars = src.getInsets(WindowInsets.Type.systemBars());
-            cutout = src.getInsets(WindowInsets.Type.displayCutout());
-        } else {
-            sysBars = insets.getInsets(WindowInsets.Type.systemBars());
-            cutout = insets.getInsets(WindowInsets.Type.displayCutout());
-        }
-        Insets safeAreaInsets = Insets.max(sysBars, cutout);
-        Insets keyboardAreaInsets = insets.getInsets(WindowInsets.Type.ime());
-        Rect windowRect = get_view_rect();
-        SlintAndroidJavaHelper.setInsets(
-                windowRect.top, windowRect.left,
-                windowRect.bottom, windowRect.right,
-                safeAreaInsets.top, safeAreaInsets.left,
-                safeAreaInsets.bottom, safeAreaInsets.right,
-                keyboardAreaInsets.top, keyboardAreaInsets.left,
-                keyboardAreaInsets.bottom, keyboardAreaInsets.right);
+        // from the WindowManager instead, which always returns the unconsumed
+        // values. The IME inset still comes from the listener stream so
+        // keyboard show/hide animates.
+        WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
+        Insets keyboard = insets.getInsets(WindowInsets.Type.ime());
+        sendInsets(metrics.getBounds(), safeArea(metrics.getWindowInsets()),
+                new Rect(keyboard.left, keyboard.top, keyboard.right, keyboard.bottom));
         return insets;
     }
 
+    private void dispatchLayoutInsets() {
+        Rect windowRect = get_view_rect();
+        Rect safeArea = get_safe_area();
+
+        // This is only an approximation, because SDK level < 30 doesn't provide
+        // a way to get the keyboard area directly.
+        Rect visibleRect = new Rect();
+        rootView().getWindowVisibleDisplayFrame(visibleRect);
+        int top = windowRect.top - visibleRect.top;
+        int left = windowRect.left - visibleRect.left;
+        int bottom = windowRect.bottom - visibleRect.bottom;
+        int right = windowRect.right - visibleRect.right;
+
+        // only take the largest value (it's probably always going to be bottom)
+        Rect keyboard = new Rect();
+        if (bottom >= Math.max(left, Math.max(top, right))) {
+            keyboard.bottom = bottom;
+        } else if (left >= Math.max(top, right)) {
+            keyboard.left = left;
+        } else if (top >= right) {
+            keyboard.top = top;
+        } else {
+            keyboard.right = right;
+        }
+
+        sendInsets(windowRect, safeArea, keyboard);
+    }
+
     public void show_keyboard() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mInputView.requestFocus();
-                InputMethodManager imm = (InputMethodManager) mActivity.getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.showSoftInput(mInputView, 0);
-            }
+        mActivity.runOnUiThread(() -> {
+            mInputView.requestFocus();
+            mActivity.getSystemService(InputMethodManager.class).showSoftInput(mInputView, 0);
         });
     }
 
     public void hide_keyboard() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                InputMethodManager imm = (InputMethodManager) mActivity.getSystemService(Context.INPUT_METHOD_SERVICE);
-                imm.hideSoftInputFromWindow(mInputView.getWindowToken(), 0);
-                mInputView.clearFocus();
-                mInputView.setCursorPos(0, 0, 0, 0, 0, 0);
-            }
+        mActivity.runOnUiThread(() -> {
+            mActivity.getSystemService(InputMethodManager.class)
+                    .hideSoftInputFromWindow(mInputView.getWindowToken(), 0);
+            mInputView.clearFocus();
+            mInputView.hideCursor();
         });
     }
 
@@ -575,67 +528,51 @@ public class SlintAndroidJavaHelper {
     // dispatch reports the Back key as unhandled — preserves the legacy
     // Back-closes-the-activity default.
     public void finish_activity() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mActivity.finish();
-            }
-        });
+        mActivity.runOnUiThread(mActivity::finish);
     }
 
-    static public native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
-            int preeditOffset);
+    public static native void updateText(String text, int cursorPosition, int anchorPosition, int preeditStart,
+            int preeditEnd);
 
-    static public native void setNightMode(int nightMode);
+    public static native void setNightMode(int nightMode);
 
-    static public native void setFontScale(float fontScale);
+    public static native void setFontScale(float fontScale);
 
-    static public native void onBackInvoked();
+    public static native void onBackInvoked();
 
-    static public native void moveCursorHandle(int id, int pos_x, int pos_y);
+    public static native void moveCursorHandle(int id, int posX, int posY);
 
-    static public native void popupMenuAction(int id);
+    public static native void popupMenuAction(int id);
 
-    static public native void setInsets(int window_top, int window_left, int window_bottom, int window_right,
-            int safe_area_top, int safe_area_left, int safe_area_bottom, int safe_area_right,
-            int keyboard_top, int keyboard_left, int keyboard_bottom, int keyboard_right);
+    public static native void setInsets(int windowTop, int windowLeft, int windowBottom, int windowRight,
+            int safeAreaTop, int safeAreaLeft, int safeAreaBottom, int safeAreaRight,
+            int keyboardTop, int keyboardLeft, int keyboardBottom, int keyboardRight);
 
-    public void set_imm_data(String text, int cursor_position, int anchor_position, int preedit_start, int preedit_end,
-            int cur_x, int cur_y, int anchor_x, int anchor_y, int cursor_height, int input_type,
-            boolean show_cursor_handles) {
-
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                int selStart = Math.min(cursor_position, anchor_position);
-                int selEnd = Math.max(cursor_position, anchor_position);
-                mInputView.setText(text, selStart, selEnd, preedit_start, preedit_end, input_type);
-                int num_handles = 0;
-                if (show_cursor_handles) {
-                    num_handles = cursor_position == anchor_position ? 1 : 2;
-                }
-                if (cursor_position < anchor_position) {
-                    mInputView.setCursorPos(cur_x, cur_y, anchor_x, anchor_y, cursor_height, num_handles);
-                } else {
-                    mInputView.setCursorPos(anchor_x, anchor_y, cur_x, cur_y, cursor_height, num_handles);
-                }
-
+    public void set_imm_data(String text, int cursorPosition, int anchorPosition, int preeditStart, int preeditEnd,
+            int curX, int curY, int anchorX, int anchorY, int cursorHeight, int inputType,
+            boolean showCursorHandles) {
+        mActivity.runOnUiThread(() -> {
+            int selStart = Math.min(cursorPosition, anchorPosition);
+            int selEnd = Math.max(cursorPosition, anchorPosition);
+            mInputView.setText(text, selStart, selEnd, preeditStart, preeditEnd, inputType);
+            int numHandles = 0;
+            if (showCursorHandles) {
+                numHandles = cursorPosition == anchorPosition ? 1 : 2;
+            }
+            if (cursorPosition < anchorPosition) {
+                mInputView.setCursorPos(curX, curY, anchorX, anchorY, cursorHeight, numHandles);
+            } else {
+                mInputView.setCursorPos(anchorX, anchorY, curX, curY, cursorHeight, numHandles);
             }
         });
     }
 
     public void set_handle_color(int color) {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mInputView.setHandleColor(color);
-            }
-        });
+        mActivity.runOnUiThread(() -> mInputView.setHandleColor(color));
     }
 
     public int color_scheme() {
-        int nightModeFlags = mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return nightModeFlags;
+        return mActivity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
     }
 
     public float font_scale() {
@@ -643,89 +580,68 @@ public class SlintAndroidJavaHelper {
     }
 
     public int accent_color() {
-        TypedValue typedValue = new TypedValue();
-        if (mActivity.getTheme().resolveAttribute(android.R.attr.colorAccent, typedValue, true)) {
-            return mActivity.getColor(typedValue.resourceId);
-        }
-        return 0;
+        TypedArray a = mActivity.getTheme().obtainStyledAttributes(new int[] { android.R.attr.colorAccent });
+        int color = a.getColor(0, 0);
+        a.recycle();
+        return color;
     }
 
     // Get the size of the window
     public Rect get_view_rect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // On Android 11 and above, we can get the window bounds directly
-            WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
-            return metrics.getBounds();
-        } else {
-            View rootView = mActivity.getWindow().getDecorView().getRootView();
-            return new Rect(rootView.getLeft(), rootView.getTop(), rootView.getRight(), rootView.getBottom());
+            return mActivity.getWindowManager().getCurrentWindowMetrics().getBounds();
         }
+        View rootView = rootView();
+        return new Rect(rootView.getLeft(), rootView.getTop(), rootView.getRight(), rootView.getBottom());
     }
 
     // On SDK level < 30, returns the inset for the safe area and the keyboard.
     // On SDK level >= 30, returns the inset for the safe area only.
     public Rect get_safe_area() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowMetrics metrics = mActivity.getWindowManager().getCurrentWindowMetrics();
-            WindowInsets insets = metrics.getWindowInsets();
-            Insets safeArea = Insets.max(
-                    insets.getInsets(WindowInsets.Type.systemBars()),
-                    insets.getInsets(WindowInsets.Type.displayCutout()));
-            return new Rect(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
-        } else {
-            View decorView = mActivity.getWindow().getDecorView();
-            // Note: `View.getRootWindowInsets` requires API level 23 or above
-            WindowInsets insets = decorView.getRootView().getRootWindowInsets();
-            if (insets != null) {
-                return new Rect(
-                        insets.getStableInsetLeft(),
-                        insets.getStableInsetTop(),
-                        insets.getStableInsetRight(),
-                        insets.getStableInsetBottom());
-            }
-            return new Rect(0, 0, 0, 0);
+            return safeArea(mActivity.getWindowManager().getCurrentWindowMetrics().getWindowInsets());
         }
+        // Note: `View.getRootWindowInsets` requires API level 23 or above
+        WindowInsets insets = rootView().getRootWindowInsets();
+        if (insets == null) {
+            return new Rect();
+        }
+        return new Rect(
+                insets.getStableInsetLeft(),
+                insets.getStableInsetTop(),
+                insets.getStableInsetRight(),
+                insets.getStableInsetBottom());
     }
 
     public void show_action_menu() {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mInputView.showActionMenu();
-            }
-        });
+        mActivity.runOnUiThread(mInputView::showActionMenu);
     }
 
     public String get_clipboard() {
-        FutureTask<String> future = new FutureTask<>(new Callable<String>() {
-            @Override
-            public String call() throws Exception {
-                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-                if (clipboard.hasPrimaryClip()) {
-                    ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
-                    return item.getText().toString();
-                }
-                return "";
+        FutureTask<String> future = new FutureTask<>(() -> {
+            ClipData clip = mActivity.getSystemService(ClipboardManager.class).getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) {
+                return null;
             }
+            CharSequence text = clip.getItemAt(0).coerceToText(mActivity);
+            return text == null ? null : text.toString();
         });
 
         mActivity.runOnUiThread(future);
         try {
-            return future.get(); // Wait for the result and return it
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "";
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException e) {
+            Log.w("slint", "Failed to read the clipboard", e.getCause());
+            return null;
         }
     }
 
     public void set_clipboard(String text) {
-        mActivity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
-                ClipData clip = ClipData.newPlainText(null, text);
-                clipboard.setPrimaryClip(clip);
-            }
-        });
+        mActivity.runOnUiThread(() -> mActivity.getSystemService(ClipboardManager.class)
+                .setPrimaryClip(ClipData.newPlainText(null, text)));
     }
 }

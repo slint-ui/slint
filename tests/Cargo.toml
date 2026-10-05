@@ -17,6 +17,7 @@ members = [
   'driver/nodejs',
   'driver/python',
   'driver/rust',
+  'driver/typescript',
   'screenshots',
   'backends',
   'manual/windowattributes',
@@ -46,7 +47,6 @@ version = "1.19.0"
 # by `cargo xtask check_license_headers` (REUSE compliance), which enforces that
 # every slint/i-slint path dependency specifies `version = "=<workspace version>"`.
 slint = { version = "=1.19.0", path = "../api/rs/slint", default-features = false }
-slint-cpp = { version = "=1.19.0", path = "../api/cpp", default-features = false }
 slint-interpreter = { version = "=1.19.0", path = "../internal/interpreter", default-features = false }
 i-slint-backend-qt = { version = "=1.19.0", path = "../internal/backends/qt", default-features = false }
 i-slint-backend-testing = { version = "=1.19.0", path = "../internal/backends/testing", default-features = false }

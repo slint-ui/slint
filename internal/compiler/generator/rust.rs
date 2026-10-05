@@ -432,7 +432,7 @@ fn generate_public_component(
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
-            sp::set_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+            inner.globals.get().unwrap().context_or_global().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
         )
     });
     #[cfg(not(feature = "bundle-translations"))]
@@ -446,8 +446,9 @@ fn generate_public_component(
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
+                inner.globals.get().unwrap().set_context(sp::WindowInner::from_pub(window).context());
+                #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -544,8 +545,8 @@ fn generate_public_component(
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
-                #init_bundle_translations
                 #eager_create_window
+                #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
@@ -554,6 +555,7 @@ fn generate_public_component(
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
+                inner.globals.get().unwrap().set_context(&ctx);
                 #init_bundle_translations
 
                 #init_with_context
@@ -695,6 +697,7 @@ fn generate_shared_globals(
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
+            context : sp::OnceCell<sp::SlintContext>,
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
             #(#[allow(dead_code)]
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
@@ -706,6 +709,7 @@ fn generate_shared_globals(
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
+                    context : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
                 })
@@ -727,6 +731,7 @@ fn generate_shared_globals(
                     #(#global_names : self.#global_names.clone(),)*
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
+                    context: self.context.clone(),
                     // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
                     root_item_tree_weak: ::core::default::Default::default(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
@@ -735,6 +740,22 @@ fn generate_shared_globals(
 
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
+            }
+
+            #[allow(dead_code)]
+            #pub_token fn set_context(&self, ctx: &sp::SlintContext) {
+                let _ = self.context.set(ctx.clone());
+                #(self.#library_shared_globals_names.set_context(ctx);)*
+            }
+
+            // The context the component was created with, or the thread's.
+            #[allow(dead_code)]
+            fn context_or_global(&self) -> sp::SlintContext {
+                self.context
+                    .get()
+                    .cloned()
+                    .or_else(sp::SlintContext::current)
+                    .expect("a component exists, so a platform and its context do too")
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
@@ -3692,7 +3713,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
-            quote!(let #name = #value;)
+            quote!(#[allow(unused_variables)] let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
@@ -3894,7 +3915,15 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
             #ignore_alt))
 }
 
-#[inline(never)]
+/// The context to format or parse numbers with.
+///
+/// Struct field defaults have no globals to reach it through,
+/// but they never format numbers at run time.
+fn access_context(ctx: &EvaluationContext) -> TokenStream {
+    let global_access = &ctx.generator_state.global_access;
+    quote!(#global_access.context_or_global())
+}
+
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Cast { from, to } = expr else { unreachable!() };
     let f = compile_expression(from, ctx);
@@ -3903,7 +3932,8 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             quote!(((#f) as i32))
         }
         (from, Type::String) if from.as_unit_product().is_some() => {
-            quote!(sp::shared_string_from_number((#f) as f64))
+            let context = access_context(ctx);
+            quote!(#context.format_number((#f) as f64))
         }
         (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
             quote!(sp::ModelRc::new(#f.max(::core::default::Default::default()) as usize))
@@ -4497,10 +4527,11 @@ fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> 
         unreachable!()
     };
     let args = compile_expression(format_args, ctx);
+    let context = access_context(ctx);
     match plural {
         Some(plural) => {
             let plural = compile_expression(plural, ctx);
-            quote!(sp::translate_from_bundle_with_plural(
+            quote!(#context.translate_from_bundle_with_plural(
                 &self::_SLINT_TRANSLATED_STRINGS_PLURALS[#string_index],
                 &self::_SLINT_TRANSLATED_PLURAL_RULES,
                 sp::Slice::<sp::SharedString>::from(#args).as_slice(),
@@ -4508,7 +4539,7 @@ fn compile_translation_reference(expr: &Expression, ctx: &EvaluationContext) -> 
             ))
         }
         None => {
-            quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
+            quote!(#context.translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
         }
     }
 }
@@ -4968,15 +4999,14 @@ fn compile_builtin_function_call(
         BuiltinFunction::AnimationTick => {
             quote!(sp::animation_tick())
         }
-        BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
+        BuiltinFunction::Debug => {
+            let context = access_context(ctx);
+            quote!(slint::private_unstable_api::debug(&#context, #(#a)*))
+        }
         BuiltinFunction::DefaultWindowTitle => quote!(sp::default_window_title()),
         BuiltinFunction::DecimalSeparator => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::SharedString::from(
-                sp::WindowInner::from_pub(#window_adapter_tokens.window())
-                    .context()
-                    .locale_decimal_separator()
-            ))
+            let context = access_context(ctx);
+            quote!(sp::SharedString::from(#context.locale_decimal_separator()))
         }
         BuiltinFunction::Mod => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
@@ -5009,20 +5039,26 @@ fn compile_builtin_function_call(
         BuiltinFunction::Exp => quote!((#(#a)* as f64).exp()),
         BuiltinFunction::ToFixed => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(#context.format_number_fixed(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToPrecision => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
+            let context = access_context(ctx);
+            quote!(#context.format_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::ToStringUnlocalized => {
             let a1 = a.next().unwrap();
             quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
         }
         BuiltinFunction::StringToFloat => {
-            quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
+            let context = access_context(ctx);
+            quote!(#context.parse_number(#(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
+        BuiltinFunction::StringIsFloat => {
+            let context = access_context(ctx);
+            quote!(#context.parse_number(#(#a)*.as_str()).is_some())
+        }
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
@@ -5079,15 +5115,17 @@ fn compile_builtin_function_call(
             }})
         }
         BuiltinFunction::ArrayPush => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let value = a.next().unwrap();
             quote!({
                 let model = &#model;
                 let value = #value;
-                sp::report_model_error("push", None, model.push_row(value));
+                sp::report_model_error(&#context, "push", None, model.push_row(value));
             })
         }
         BuiltinFunction::ArrayRemove => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             quote!({
@@ -5096,10 +5134,11 @@ fn compile_builtin_function_call(
                     Ok(index) => model.remove_row(index),
                     Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
                 };
-                sp::report_model_error("remove", None, result);
+                sp::report_model_error(&#context, "remove", None, result);
             })
         }
         BuiltinFunction::ArrayInsert => {
+            let context = access_context(ctx);
             let model = a.next().unwrap();
             let index = a.next().unwrap();
             let value = a.next().unwrap();
@@ -5111,7 +5150,7 @@ fn compile_builtin_function_call(
                     Ok(index) => model.insert_row(index, value),
                     Err(_) => Err(sp::ModelError::out_of_bounds(model.row_count())),
                 };
-                sp::report_model_error("insert", None, result);
+                sp::report_model_error(&#context, "insert", None, result);
             })
         }
         BuiltinFunction::Rgb => {
@@ -5332,7 +5371,8 @@ fn compile_builtin_function_call(
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
         }
         BuiltinFunction::Translate => {
-            quote!(slint::private_unstable_api::translate(#((#a) as _),*))
+            let context = access_context(ctx);
+            quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
         }
         BuiltinFunction::Use24HourFormat => {
             quote!(slint::private_unstable_api::use_24_hour_format())
