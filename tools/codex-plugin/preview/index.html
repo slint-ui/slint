@@ -139,7 +139,6 @@
   <div id="version" role="status"></div>
   <script id="slint-build" type="application/json">{"version":"0.14.0","buildId":"fdef8460f9d2"}</script>
   <script id="slint-runtime" type="application/json">__SLINT_RUNTIME_METADATA__</script>
-  <script type="module">__SLINT_RUNTIME_JAVASCRIPT__</script>
   <script id="slint-example" type="application/json">"import { Button } from \"slint-button.slint\";\n\nexport component ButtonPreview inherits Window {\n    width: 320px;\n    height: 160px;\n    background: transparent;\n\n    Button {\n        width: 200px;\n        height: 48px;\n        label: \"click me!\";\n        background-color: #dc2626;\n        label-color: #ffffff;\n    }\n}\n"</script>
   <script id="slint-button" type="application/json">"export component Button inherits Rectangle {\n    in property \u003cstring> label: \"click me!\";\n    in property \u003ccolor> label-color: #ffffff;\n    in property \u003ccolor> background-color: #dc2626;\n    in property \u003ccolor> hover-color: root.background-color.brighter(0.08);\n    in property \u003ccolor> pressed-color: root.background-color.darker(0.12);\n    in property \u003ccolor> disabled-color: #9ca3af;\n    in property \u003cbool> enabled: true;\n    out property \u003cbool> hovered: root.enabled && touch.has-hover;\n    out property \u003cbool> pressed: root.enabled && touch.pressed;\n    callback clicked();\n\n    preferred-width: 200px;\n    preferred-height: 48px;\n    border-radius: 4px;\n    border-width: 1px;\n    border-color: #00000020;\n    background: !root.enabled ? root.disabled-color\n        : root.pressed ? root.pressed-color\n        : root.hovered ? root.hover-color : root.background-color;\n    accessible-role: button;\n    accessible-label: root.label;\n    accessible-enabled: root.enabled;\n    accessible-action-default => { if (root.enabled) { root.clicked(); } }\n\n    Text {\n        text: root.label;\n        color: root.label-color;\n        horizontal-alignment: center;\n        vertical-alignment: center;\n    }\n    touch := TouchArea {\n        enabled: root.enabled;\n        clicked => { if (root.enabled) { root.clicked(); } }\n    }\n}\n"</script>
   <script type="module">
@@ -345,9 +344,8 @@ ${t.indent}${t.property}: ${d.toLowerCase()};`+n.slice(t.insertAt):n.slice(0,t.s
     }
     setSource(window.openai?.toolOutput ?? window.openai?.toolInput);
     try {
-      const slint = window.slintRuntime;
-      const wasm = Uint8Array.from(atob("__SLINT_RUNTIME_WASM__"), character => character.charCodeAt(0));
-      await slint.default({ module_or_path: wasm });
+      const slint = await import(runtimeInfo.assetBaseUrl + "/slint_wasm_interpreter.js");
+      await slint.default({ module_or_path: runtimeInfo.assetBaseUrl + "/slint_wasm_interpreter_bg.wasm" });
       runtime = slint;
       await render();
     } catch (error) { showError(error); }
