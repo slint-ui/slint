@@ -240,24 +240,33 @@ mod tests {
         let global = window.global::<Diagnostics>();
         setup(&global);
         let tracker = Box::pin(i_slint_core::properties::PropertyTracker::<false>::default());
-        let read = || global.invoke_file_diagnostics("/project".into());
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let path = |relative: &str| root.join(relative).to_string_lossy().into_owned();
+        let read = || global.invoke_file_diagnostics(path("project").into());
         assert_eq!(tracker.as_ref().evaluate(read).error_count, 0);
         let model = global.get_entries();
         let entries = model.as_any().downcast_ref::<VecModel<Diagnostic>>().unwrap();
-        entries.push(error("/project/components/Card.slint"));
+        entries.push(error(&path("project/components/Card.slint")));
         assert!(tracker.is_dirty());
         assert_eq!(tracker.as_ref().evaluate(read).error_count, 1);
-        entries.set_row_data(0, error("/project-other/Card.slint"));
+        entries.set_row_data(0, error(&path("project-other/Card.slint")));
         assert!(tracker.is_dirty());
         assert_eq!(tracker.as_ref().evaluate(read).error_count, 0);
         entries.remove(0);
         assert!(tracker.is_dirty());
         tracker.as_ref().evaluate(read);
-        global.set_entries(ModelRc::new(VecModel::from(vec![error("/project/Main.slint")])));
+        global.set_entries(ModelRc::new(VecModel::from(vec![error(&path("project/Main.slint"))])));
         assert!(tracker.is_dirty());
         assert_eq!(tracker.as_ref().evaluate(read).error_count, 1);
-        assert_eq!(global.invoke_file_diagnostics("/project/components".into()).error_count, 0);
-        assert_eq!(global.invoke_file_diagnostics("/project/Main.slint".into()).error_count, 1);
+        assert_eq!(
+            global.invoke_file_diagnostics(path("project/components").into()).error_count,
+            0
+        );
+        assert_eq!(
+            global.invoke_file_diagnostics(path("project/Main.slint").into()).error_count,
+            1
+        );
     }
 
     #[test]
