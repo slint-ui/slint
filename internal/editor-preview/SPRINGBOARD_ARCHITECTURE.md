@@ -1,6 +1,6 @@
 # Springboard Architecture
 
-Status: Design in progress.
+Status: Broader architecture and local visual-editor MVP.
 The current direction is a protocol router with reusable embedded and standalone UI.
 
 ## Purpose
@@ -9,7 +9,8 @@ Springboard directs a preview protocol session to a selected preview target.
 Targets include a local or remote Slint Viewer, the visual editor's built-in run preview,
 and potentially a Slint application running in `LIVE_PREVIEW` mode.
 
-The current scope is selecting and connecting to remote live preview sessions, with a local run preview as an alternative endpoint.
+The broader architecture includes remote live preview sessions and a local run preview endpoint.
+The MVP implements only Local inside the visual editor.
 Only one endpoint receives the session at a time.
 Selecting a remote viewer immediately closes the local run preview and starts connecting to that viewer.
 
@@ -52,7 +53,7 @@ The following requirements are copied verbatim.
 The existing protocol's `PreviewTarget` describes the local transport choice: child process, embedded WASM, or dummy.
 Springboard needs a target concept that can also identify individual viewers and, eventually, running applications.
 
-## Architecture Direction
+## Broader Architecture Direction (Future Scope)
 
 ### Protocol Router
 
@@ -93,11 +94,12 @@ It can move into a separate crate later if needed.
 Springboard provides a Slint library with an exported global API and reusable UI components.
 The global exposes lifecycle and connection state, endpoint selection, and connection prompts.
 Rust code connects this UI API to the router and connection management.
-Exact API names and types remain to be designed.
+The shared API draft below defines the global and endpoint types.
 
 The reusable components must fit inside an existing Slint window, including a visual-editor tab or panel.
 They must not require a standalone main window.
-The host connects the global in its component to the corresponding Springboard router.
+The host supplies the shared global to Springboard.
+Springboard installs callbacks and converts its state inside the shared implementation.
 
 Keep connection logic independent of the window that presents it.
 The shared implementation must work within an existing Slint application's backend and event loop.
@@ -137,7 +139,8 @@ There is no separate disconnect action that leaves Springboard running.
 The saved endpoint selection survives stopping.
 
 The upstream protocol session stays connected when the selected endpoint changes.
-Springboard's UI also stays available when the local run preview closes or a remote viewer disconnects.
+The MVP stops Springboard when its local preview closes.
+Future remote disconnect behavior remains separate from the upstream session lifetime.
 Closing an owned local preview and disconnecting an independently running remote viewer are separate operations.
 
 Routing therefore includes handling connection and lifecycle messages, beyond forwarding preview content.
@@ -266,7 +269,7 @@ An empty `unavailable-reason` means the endpoint can be selected.
 Otherwise, it explains why the endpoint is unavailable, including protocol incompatibility.
 
 The host starts Springboard externally through Run or Show Preview; the global reports the resulting state.
-`close()` requests that the host stop Springboard, including its preview and connection activity.
+`close()` stops Springboard through its shared task, including its preview and connection activity.
 In embedded mode, this does not close the visual editor's main window.
 Endpoint selection callbacks apply while Springboard is running and immediately switch the selected target.
 `select-remote-address()` accepts a manually entered host and port, creates or resolves its endpoint, and selects it.
@@ -291,3 +294,148 @@ Its UI implementation and API organization are not carried forward.
 - Ordering of state synchronization and highlight replay during endpoint changes.
 - How long startup discovery waits before treating a saved endpoint as unavailable.
 - Account connection details and debugger architecture.
+
+## Springboard MVP Implementation Plan
+
+Run starts Springboard inside the visual editor.
+Springboard presents Local as an endpoint.
+Selecting Local launches the existing run preview in a separate process.
+Stopping Springboard closes that process.
+
+The MVP excludes remote discovery and connections, standalone mode, LSP changes, manual addresses, reconnection, and saved endpoint selection.
+Every start begins in `Idle`, with no selected endpoint.
+The original requirements above remain verbatim; the broader architecture describes future work.
+
+### Shared Implementation and API
+
+Implement Rust in `springboard.rs` and the Slint API and minimal view under `springboard/`.
+Use experimental Slint module builds and expose generated types through `springboard_ui`.
+Gate Springboard and its UI dependencies behind the `springboard` feature.
+Do not create `springboard/mod.rs`, an editor adapter, or a separate module-build feasibility test.
+
+```rust
+pub struct LocalPreviewConfig {
+    pub executable: std::path::PathBuf,
+    pub arguments: Vec<std::ffi::OsString>,
+}
+
+impl Springboard {
+    pub fn new(
+        local_preview: LocalPreviewConfig,
+        to_editor: tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
+        global: slint::Weak<springboard_ui::Springboard<'static>>,
+    ) -> Self;
+
+    pub fn start(&self);
+    pub fn close(&self);
+}
+```
+
+The cloneable handle implements `LspToPreview`, including awaited preview shutdown.
+Construct it on the existing editor runtime.
+Install callbacks and initialize the global through the Slint event loop.
+Keep UI bindings and state conversion inside the shared implementation.
+Preserve the global and endpoint types above, including the derived selected endpoint.
+Implement `close()` and `select-endpoint()`; remote callbacks remain future design.
+There is no public endpoint-selection method, public state snapshot, or Slint start callback.
+
+### Task Ownership and Communication
+
+Run one Springboard task on the existing Tokio runtime, with no additional runtime or OS thread.
+The handle uses `task_sender` to send private closures:
+
+```rust
+type SpringboardAction =
+    Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
+
+pub struct Springboard {
+    task_sender: tokio::sync::mpsc::UnboundedSender<SpringboardAction>,
+}
+```
+
+UI callbacks, start, close, and protocol sends use this channel.
+Do not add a command enum or UI bridge task.
+The task owns endpoint selection, lifecycle, transport, errors, and the retained source highlight.
+Closures perform short synchronous operations.
+The event loop handles transport events and shutdown completion, without a task per closure.
+Post global updates with `upgrade_in_event_loop()` and modify Slint models only on the UI thread.
+Keep update data private.
+The task sleeps on its receivers while stopped.
+Close requests a stop and returns immediately; shutdown requests the same stop and waits for preview cleanup.
+Both permit restart using the same Springboard task and UI callbacks.
+The task cleans up and exits when its command channel closes after all handles are dropped.
+Future discovery can add another event receiver and use the same endpoint list and selection callback.
+
+### Editor Integration and Behavior
+
+Replace only the editor run-preview connection.
+Keep the editing preview independent.
+
+- Run saves the requested component through `EditorSession` and starts Springboard without launching a child.
+- Selecting Local explicitly launches `--run-preview-child` through `ChildProcessLspToPreview`.
+  Repeated selection doesn't launch another child.
+- Forward the child's automatic `RequestState` and route the normal response back.
+  Springboard neither requests state nor duplicates the document cache.
+- Retain the latest highlight, including an explicit clear, and replay it after `ShowPreview`.
+  Remove duplicate editor replay responsibility.
+- Repeated Run updates the component without duplicating the task or child.
+- Stop and upstream Quit detach the endpoint, close the child, clear selection, and report `Stopped`.
+  Keep the upstream connection available.
+- Preview-window close stops Springboard and consumes `Exited` without terminating the editor session.
+- Launch failure returns to `Idle` with no selection and an error.
+  Retry only on another explicit selection.
+- Unexpected child exit stops Springboard and reports an error without recovery or fallback.
+- Project switches await cleanup.
+  Reuse Springboard and explicitly clear the previous project's source highlight.
+  Preserve the session if opening a replacement project fails.
+- Editor exit does not wait for the session thread or preview process.
+  The preview exits when its input pipe closes.
+
+Extend child transport with fallible explicit startup and awaited shutdown.
+Preserve automatic startup for other callers.
+Shutdown sends Quit, waits two seconds, then kills and reaps if needed.
+Retire the old receiver so stale events cannot affect another run.
+Derive the running indicator from Springboard lifecycle.
+
+Present a minimal nonmodal overlay below Run, covering the inspector if needed.
+Use standard widgets for endpoints, status/errors, and Stop.
+Show it while active or while an unacknowledged error remains.
+Close acknowledges errors after a crash; successful Local selection clears errors.
+Outside clicks don't dismiss it, and input inside it doesn't reach the inspector.
+Do not add a window or redesign the layout.
+
+### Delegation, Review, and Verification
+
+The initial implementation uses a GPT-6.1 sol worker, with the main agent coordinating and reviewing.
+During the user's review, the main agent makes follow-up changes directly.
+Read the code-style skill, Slint guidance, and repository instructions; preserve others' changes.
+
+1. Save this revised plan before implementation.
+2. Implement the integrated MVP and run affected compile checks.
+   Pause edits for the first Claude review.
+3. Run the Claude review skill's `scripts/review.sh` without arguments, using `claude-opus-5-5` and read-only tools inside the sandbox.
+   Verify findings; delegate corrections to the worker.
+4. Verify start without a child, Local launch, repeated selection, stop/restart, window close, launch failure, and stale events.
+   Verify synchronization, highlight replay, editing-preview operation, and project switching.
+   Test real subprocess cleanup in the child transport tests.
+   Use recording previews for editor project-switch tests, without subprocess fixtures.
+   Inspect a rendered UI and exercise Run → Local → Stop.
+   Run affected tests, formatting, and `git diff --check`.
+5. Repeat Claude review at the final checkpoint and report validation, remaining issues, and blocked checks.
+
+Stop immediately and notify the user if experimental module builds have a critical defect.
+Do not repair that feature or introduce a workaround before discussion.
+
+### Approved Module-Build Adjustment
+
+The generated Rust module is `springboard_ui`.
+The experimental module-build importer rejects nested Rust module paths such as `springboard::ui`.
+The user approved this flat module name; the module-build implementation remains unchanged.
+
+### Editor Project and Exit Cleanup
+
+A successful project switch clears the source highlight and awaits preview shutdown, then reuses the existing Springboard task and UI callbacks.
+A failed project open preserves the existing session and controller.
+The editor exits when its UI event loop returns, without joining the session thread.
+Closing the editor's pipes tells the local preview to quit.
+The editor does not enforce a timeout or kill a hung preview during application exit.

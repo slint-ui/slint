@@ -14,6 +14,12 @@ pub mod element;
 mod lsp_to_previews;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
+#[cfg(all(feature = "springboard", not(target_arch = "wasm32")))]
+pub mod springboard;
+#[cfg(all(feature = "springboard", not(target_arch = "wasm32")))]
+pub mod springboard_ui {
+    slint::include_modules!();
+}
 #[cfg(any(test, feature = "testing"))]
 pub mod test;
 pub mod token_info;

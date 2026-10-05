@@ -37,7 +37,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-core = { workspace = true, features = ["std"] }
-i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process"] }
+i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process", "springboard"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
@@ -60,7 +60,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [build-dependencies]
-slint-build = { workspace = true }
+slint-build = { workspace = true, features = ["experimental-module-builds"] }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
