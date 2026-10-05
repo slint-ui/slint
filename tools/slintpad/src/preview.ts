@@ -6,7 +6,27 @@
 import slint_init, * as slint from "@interpreter/slint_wasm_interpreter.js";
 
 (async function () {
+    const params = new URLSearchParams(window.location.search);
+
+    // `font=<url>` names a TrueType or OpenType file to use as the default font. A build of the
+    // interpreter without an embedded font (the `no-embedded-font` feature) needs one to draw text.
+    // Fetch it while the wasm downloads.
+    const font_url = params.get("font");
+    const font_data = font_url
+        ? fetch(font_url).then((response) => response.arrayBuffer())
+        : null;
+
     await slint_init();
+
+    if (font_data) {
+        try {
+            slint.register_default_font_from_memory(
+                new Uint8Array(await font_data),
+            );
+        } catch (e) {
+            console.error(`Failed to load the font ${font_url}:`, e);
+        }
+    }
 
     let base_url = "";
 
@@ -86,7 +106,6 @@ export Demo := Window {
         }
     }
 
-    const params = new URLSearchParams(window.location.search);
     const code = params.get("snippet");
     const load_url = params.get("load_url");
     const style = params.get("style") || "";

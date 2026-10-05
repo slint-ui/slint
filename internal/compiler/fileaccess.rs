@@ -124,7 +124,12 @@ mod builtin_library {
                     None
                 }
             })
-            .chain(ALIASES.iter().map(|x| x.0))
+            .chain(
+                ALIASES
+                    .iter()
+                    .filter(|(_, style)| widget_library().iter().any(|(s, _)| s == style))
+                    .map(|x| x.0),
+            )
             .collect()
     }
 

@@ -7,9 +7,6 @@ pub use skrifa;
 #[cfg(feature = "svg-text")]
 pub mod svg;
 
-#[cfg(any(target_family = "wasm", target_os = "nto"))]
-use fontique::ScriptExt;
-
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -28,8 +25,12 @@ pub fn create_collection(shared: bool) -> Collection {
     let mut default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = Vec::new();
     let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
 
-    #[cfg(any(target_family = "wasm", target_os = "nto"))]
+    #[cfg(all(
+        any(target_family = "wasm", target_os = "nto"),
+        not(feature = "no-embedded-fallback-font")
+    ))]
     {
+        use fontique::ScriptExt;
         let data = include_bytes!("sharedfontique/Inter-VariableFont.ttf");
         let fonts = collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
         for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
@@ -127,6 +128,44 @@ pub fn create_collection(shared: bool) -> Collection {
     }
 
     Collection { inner: collection, source_cache, default_fonts: Arc::new(default_fonts) }
+}
+
+/// Registers the fonts in `data` and puts them first in the generic sans-serif and system-ui
+/// families and in the fallbacks of every script, so that they become the default font.
+/// This is how a platform without system fonts gets text drawn at all.
+/// Returns the registered fonts; empty if `data` holds none.
+pub fn register_default_fonts(
+    collection: &mut fontique::Collection,
+    data: fontique::Blob<u8>,
+) -> Vec<(fontique::FamilyId, Vec<fontique::FontInfo>)> {
+    let fonts = collection.register_fonts(data, None);
+    let mut families: Vec<fontique::FamilyId> = Vec::new();
+    for (family_id, _) in &fonts {
+        if !families.contains(family_id) {
+            families.push(*family_id);
+        }
+    }
+    if families.is_empty() {
+        return fonts;
+    }
+    let first_then = |existing: Vec<fontique::FamilyId>| {
+        families.iter().copied().chain(existing.into_iter().filter(|f| !families.contains(f)))
+    };
+    use fontique::ScriptExt;
+    for script in fontique::Script::all_samples().iter().map(|(script, _)| *script) {
+        let key = fontique::FallbackKey::new(script, None);
+        let existing = collection.fallback_families(key).collect();
+        collection.set_fallbacks(key, first_then(existing));
+    }
+    for generic_family in [
+        fontique::GenericFamily::SansSerif,
+        fontique::GenericFamily::SystemUi,
+        fontique::GenericFamily::UiSansSerif,
+    ] {
+        let existing = collection.generic_families(generic_family).collect();
+        collection.set_generic_families(generic_family, first_then(existing));
+    }
+    fonts
 }
 
 #[derive(Clone)]

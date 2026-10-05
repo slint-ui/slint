@@ -356,6 +356,40 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     Ok(())
 }
 
+/// Register a font as the default font: the one that draws text without a `font-family`,
+/// and the first fallback for characters the requested family doesn't have.
+///
+/// `data` is the content of a TrueType or OpenType file (not WOFF or WOFF2).
+/// Its families are also available by name, as with [`register_font_from_memory`].
+///
+/// A build with the `no-embedded-font` feature has no font of its own and draws no text
+/// until this is called, so call it before compiling the first component.
+///
+/// Throws if the platform isn't initialized yet, or if the data declares no font family.
+#[wasm_bindgen]
+pub fn register_default_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
+    use i_slint_core::textlayout::sharedparley::fontique;
+
+    let blob = fontique::Blob::new(std::sync::Arc::new(data));
+
+    let registered = i_slint_core::with_global_context(
+        || Err(i_slint_core::platform::PlatformError::NoPlatform),
+        |ctx| {
+            i_slint_common::sharedfontique::register_default_fonts(
+                &mut ctx.font_context().borrow_mut().collection,
+                blob,
+            )
+        },
+    )?;
+
+    if registered.is_empty() {
+        return Err("the data declares no font family, \
+                    expected a TrueType or OpenType file"
+            .into());
+    }
+    Ok(())
+}
+
 /// Register DOM event handlers on all instance and set up the event loop for that.
 /// You can call this function only once. It will throw an exception but that is safe
 /// to ignore.

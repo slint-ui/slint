@@ -34,6 +34,21 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
         .map(|style| style.path())
         .collect();
     styles.sort();
+
+    // A comma-separated list of the styles to embed, for builds that need to be small (such as the
+    // wasm interpreter for a web page). The directories without a std-widgets.slint, like `common`,
+    // are shared by the styles and always embedded.
+    println!("cargo:rerun-if-env-changed=SLINT_COMPILER_BUILTIN_STYLES");
+    if let Some(selected) =
+        std::env::var("SLINT_COMPILER_BUILTIN_STYLES").ok().filter(|s| !s.is_empty())
+    {
+        let selected: Vec<&str> = selected.split(',').map(str::trim).collect();
+        styles.retain(|style| {
+            !style.join("std-widgets.slint").exists()
+                || selected.iter().any(|s| style.file_name().is_some_and(|f| f == *s))
+        });
+    }
+
     for path in styles {
         writeln!(
             file,

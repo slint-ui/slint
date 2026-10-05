@@ -24,6 +24,10 @@ shared-fontique = ["dep:fontique", "dep:skrifa"]
 # submodule only builds when `shared-fontique` is also on, so `svg` does not force it.
 svg-text = ["dep:resvg"]
 color-parsing = []
+# On the web (and QNX), where there are no system fonts to fall back to, don't embed Inter as the
+# default font. This makes the binary half a megabyte smaller, but draws no text until the
+# application registers a font at runtime (with `register_default_fonts`).
+no-embedded-fallback-font = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:derive_more", "color-parsing"]
 locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_provider"]
