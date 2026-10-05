@@ -61,6 +61,67 @@ export function markdownStaticPaths(entries: MarkdownDocEntry[]) {
     }));
 }
 
+/** The URL path of an entry's `.md` sibling, under `basePath` (for example `/docs/`). */
+export function markdownHref(id: string, basePath: string): string {
+    return `${basePath.replace(/\/?$/, "/")}${markdownRouteContentPath(id)}.md`;
+}
+
+export interface LlmsTxtOptions {
+    /** The site name, the file's `#` heading. */
+    title: string;
+    /** One-sentence summary, the file's `>` quote. */
+    summary: string;
+    /** Base path the site is served under, as for {@link markdownHref}. */
+    basePath: string;
+    /** Absolute site URL. Without it, the links are root-relative. */
+    site?: URL | string;
+}
+
+/**
+ * Build an [llms.txt](https://llmstxt.org) index that links every entry's `.md` sibling,
+ * one section per top-level folder.
+ * A description that only repeats the title is left out.
+ */
+export function renderLlmsTxt(
+    entries: MarkdownDocEntry[],
+    options: LlmsTxtOptions,
+): Response {
+    // Top-level pages come first.
+    const sections = new Map<string, string[]>([["", []]]);
+    for (const entry of [...entries].sort((a, b) => a.id.localeCompare(b.id))) {
+        const folder = entry.id.includes("/")
+            ? entry.id.slice(0, entry.id.indexOf("/"))
+            : "";
+        const href = markdownHref(entry.id, options.basePath);
+        const url = options.site ? new URL(href, options.site).href : href;
+        const title =
+            typeof entry.data.title === "string" ? entry.data.title : entry.id;
+        const description = entry.data.description;
+        const line =
+            typeof description === "string" &&
+            description !== "" &&
+            description !== title
+                ? `- [${title}](${url}): ${description}`
+                : `- [${title}](${url})`;
+        sections.set(folder, [...(sections.get(folder) ?? []), line]);
+    }
+    let body = `# ${options.title}\n\n> ${options.summary}\n`;
+    for (const [folder, lines] of sections) {
+        if (lines.length === 0) {
+            continue;
+        }
+        const heading =
+            folder === ""
+                ? "Overview"
+                : folder[0].toUpperCase() +
+                  folder.slice(1).replaceAll("-", " ");
+        body += `\n## ${heading}\n\n${lines.join("\n")}\n`;
+    }
+    return new Response(body, {
+        headers: { "Content-Type": "text/markdown; charset=utf-8" },
+    });
+}
+
 function markdownRouteContentPath(id: string): string {
     if (id === "") {
         return "index";

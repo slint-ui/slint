@@ -54,6 +54,8 @@ export default defineConfig({
                 Footer: "./src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent: "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 slintStarlightLinksValidatorPlugin({
