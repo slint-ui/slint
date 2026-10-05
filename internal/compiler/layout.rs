@@ -898,6 +898,7 @@ fn has_no_intrinsic_size(base: &ElementType) -> bool {
             | "Opacity"
             | "Layer"
             | "BoxShadow"
+            | "BackdropBlur"
             | "Clip"
     )
 }

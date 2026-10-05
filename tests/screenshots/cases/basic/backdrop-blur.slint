@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3
+//ignore: software
+//ignore: software-embed-assets
+//ignore: anyrender
+//ignore: vello_cpu
+
+// The blur covers the rounded rectangle only, stays beneath its drop shadow and border,
+// sees through the rectangle's own opacity, and rotates with it.
+// The black bar outside the second rectangle tints the top edge of its blur.
+// The black block in the bottom row tints the left edge of the plain rectangle 2px next to it,
+// since the blur picks up content up to 3 * 6px beyond the rectangle.
+export component TestCase inherits Window {
+    width: 128px;
+    height: 112px;
+    background: white;
+
+    for i in 16: Rectangle {
+        x: i * 8px;
+        width: 4px;
+        height: 64px;
+        y: 0;
+        background: mod(i, 2) == 0 ? red : blue;
+    }
+
+    Rectangle {
+        x: 8px;
+        y: 84px;
+        width: 32px;
+        height: 24px;
+        background: black;
+    }
+
+    Rectangle {
+        x: 42px;
+        y: 84px;
+        width: 78px;
+        height: 24px;
+        background: #ffffff40;
+        backdrop-blur: 6px;
+    }
+
+    Rectangle {
+        x: 4px;
+        y: 12px;
+        width: 36px;
+        height: 40px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: black;
+        background: #ffffff40;
+        backdrop-blur: 3px;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #00000080;
+    }
+
+    Rectangle {
+        x: 46px;
+        y: 4px;
+        width: 36px;
+        height: 8px;
+        background: black;
+    }
+
+    Rectangle {
+        x: 46px;
+        y: 12px;
+        width: 36px;
+        height: 40px;
+        background: #ffffff40;
+        backdrop-blur: 3px;
+        opacity: 0.8;
+        Rectangle {
+            width: 12px;
+            height: 12px;
+            background: green;
+        }
+    }
+
+    Rectangle {
+        x: 92px;
+        y: 18px;
+        width: 28px;
+        height: 28px;
+        backdrop-blur: 3px;
+        transform-rotation: 30deg;
+    }
+}

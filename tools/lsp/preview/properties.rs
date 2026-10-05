@@ -475,6 +475,9 @@ pub(super) fn get_properties(
                         depth,
                         i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
                             .iter()
+                            .chain(
+                                i_slint_compiler::typeregister::RESERVED_BACKDROP_BLUR_PROPERTIES,
+                            )
                             .cloned(),
                     ));
                 }

@@ -703,6 +703,59 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
         //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
         //! thins it.
+        //!
+        //! ## Backdrop Blur
+        //!
+        //! Use `backdrop-blur` to blur what's drawn underneath a rectangle, so that it looks like translucent glass.
+        //! Give the rectangle a translucent `background` so the blurred backdrop shows through.
+        //! The blur covers the rectangle's area, follows its border radius, and corresponds to CSS `backdrop-filter: blur()`.
+        //! Unlike CSS, it also picks up content just outside the rectangle, which makes its edges look more natural.
+        //! This reaches up to three times the `backdrop-blur` value beyond the rectangle's edges.
+        //! Like in CSS, inside an element with an `opacity` below 1 or with `cache-rendering-hint`,
+        //! only that element's content is blurred.
+        //! The rectangle's own `opacity` doesn't limit what's blurred; it fades the blurred backdrop with the rectangle.
+        //! Currently only supported by the Skia renderer; other renderers draw the rectangle without the blur.
+        //!
+        //! Blurring is expensive: it re-reads and filters every pixel beneath the rectangle each time the area is redrawn.
+        //!
+        //! ```slint playground imageAlt="rectangle with backdrop blur"
+        //! export component Example inherits Window {
+        //!     width: 300px; height: 200px;
+        //!     background: #1e2a4a;
+        //!     Rectangle {
+        //!         x: 30px; y: 20px; width: 110px; height: 110px;
+        //!         border-radius: self.width / 2;
+        //!         background: #ff6b6b;
+        //!     }
+        //!     Rectangle {
+        //!         x: 170px; y: 80px; width: 100px; height: 100px;
+        //!         border-radius: self.width / 2;
+        //!         background: #4ecdc4;
+        //!     }
+        //!     Rectangle {
+        //!         x: 130px; y: 10px; width: 60px; height: 60px;
+        //!         border-radius: self.width / 2;
+        //!         background: #ffd93d;
+        //!     }
+        //!     Rectangle {
+        //!         x: 50px; y: 60px; width: 200px; height: 90px;
+        //!         border-radius: 16px;
+        //!         border-width: 1px;
+        //!         border-color: #ffffff60;
+        //!         background: #ffffff30;
+        //!         backdrop-blur: 6px;
+        //!         Text {
+        //!             text: "Blurred glass";
+        //!             font-size: 24px;
+        //!             color: white;
+        //!         }
+        //!     }
+        //! }
+        //! ```
+        //!
+        //! ### backdrop-blur
+        //! <SlintProperty propName="backdrop-blur" typeName="length"/>
+        //! The standard deviation of the Gaussian blur applied to the backdrop. Zero or negative values disable the blur.
     } }
 
     element! {
@@ -2252,6 +2305,19 @@ fn build(l: &mut Loader) {
         BoxShadow: BoxShadow
     }
 
+    item! { BackdropBlur: Empty {
+        in property <length> blur;
+        in property <length> border-top-left-radius;
+        in property <length> border-top-right-radius;
+        in property <length> border-bottom-left-radius;
+        in property <length> border-bottom-right-radius;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        BackdropBlur: BackdropBlur
+    }
+
     item! { TextInput {
         /// The text rendered and editable by the user.
         /// \default ""
@@ -2427,6 +2493,7 @@ fn build(l: &mut Loader) {
 
     item! { Opacity {
         in property <float> opacity: 1;
+        in property <bool> wraps-backdrop-blur;
     } }
 
     element! {
@@ -2436,6 +2503,7 @@ fn build(l: &mut Loader) {
 
     item! { Layer: Empty {
         in property <bool> cache-rendering-hint;
+        in property <bool> wraps-backdrop-blur;
     } }
 
     element! {

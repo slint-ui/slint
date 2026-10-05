@@ -596,6 +596,7 @@ fn is_reserved_prop_valid(
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES)
         || name_in(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
+        || name_in(i_slint_compiler::typeregister::RESERVED_BACKDROP_BLUR_PROPERTIES)
     {
         return name_of(element_type).as_deref() == Some("Rectangle");
     }

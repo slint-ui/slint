@@ -85,6 +85,15 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    /// A paint for restoring a layer that starts as a copy of what's beneath it.
+    /// Blending such a layer with source-over would draw what's beneath twice,
+    /// so this interpolates between the two instead.
+    fn backdrop_layer_paint(alpha: f32) -> skia_safe::Paint {
+        let mut paint = skia_safe::Paint::default();
+        paint.set_blender(skia_safe::Blender::arithmetic(0., alpha, 1. - alpha, 0., true));
+        paint
+    }
+
     /// Skia leaves anti-aliasing off by default, which keeps an upright rectangle's edges crisp.
     /// A transform that tilts the rectangle turns those edges into stair steps instead.
     fn needs_anti_alias(&self) -> bool {
@@ -868,6 +877,33 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         }
     }
 
+    fn draw_backdrop_blur(
+        &mut self,
+        backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
+        _self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
+        if sigma <= 0. {
+            return;
+        }
+        let bounds = to_skia_rect(&PhysicalRect::from_size(size * self.scale_factor));
+        // Skia reads the backdrop around the bounds too, see `BackdropBlur::bounding_rect`.
+        let Some(filter) = skia_safe::image_filters::blur((sigma, sigma), None, None, None) else {
+            return;
+        };
+        self.canvas.save();
+        self.combine_clip(LogicalRect::from_size(size), backdrop_blur.logical_border_radius());
+        let paint = Self::backdrop_layer_paint(self.current_state.alpha);
+        let layer = skia_safe::canvas::SaveLayerRec::default()
+            .bounds(&bounds)
+            .backdrop(&filter)
+            .paint(&paint);
+        self.canvas.save_layer(&layer);
+        self.canvas.restore();
+        self.canvas.restore();
+    }
+
     fn combine_clip(&mut self, rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
         let rounded_rect =
             to_skia_rrect(&(rect * self.scale_factor), &(radius * self.scale_factor));
@@ -995,7 +1031,17 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
-            self.canvas.save_layer_alpha(None, (opacity * 255.) as u32);
+            let mut layer = skia_safe::canvas::SaveLayerRec::default();
+            let paint = if opacity_item.wraps_backdrop_blur() {
+                // Skia's backdrop filter only reads the layer it's drawn into.
+                layer = layer.flags(skia_safe::canvas::SaveLayerFlags::INIT_WITH_PREVIOUS);
+                Self::backdrop_layer_paint(opacity)
+            } else {
+                let mut paint = skia_safe::Paint::default();
+                paint.set_alpha_f(opacity);
+                paint
+            };
+            self.canvas.save_layer(&layer.paint(&paint));
             self.state_stack.push(self.current_state);
             self.current_state.alpha = 1.0;
 
@@ -1023,7 +1069,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &ItemRc,
         _size: LogicalSize,
     ) -> RenderingResult {
-        if layer_item.cache_rendering_hint() {
+        // A cached layer would hide the backdrop from the blur, see `visit_opacity`.
+        if layer_item.cache_rendering_hint() && !layer_item.wraps_backdrop_blur() {
             self.render_and_blend_layer(self_rc)
         } else {
             self.layer_cache.release(self_rc);
@@ -1250,6 +1297,7 @@ pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia
 
 impl ItemRendererFeatures for SkiaItemRenderer<'_> {
     const SUPPORTS_TRANSFORMATIONS: bool = true;
+    const SUPPORTS_BACKDROP_BLUR: bool = true;
 }
 
 pub fn to_skia_point(point: PhysicalPoint) -> skia_safe::Point {

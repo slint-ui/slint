@@ -247,6 +247,9 @@ pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("inner-shadow-color", Type::Color),
 ];
 
+pub const RESERVED_BACKDROP_BLUR_PROPERTIES: &[(&str, Type)] =
+    &[("backdrop-blur", Type::LogicalLength)];
+
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-rotation", Type::Angle),
     ("transform-scale-x", Type::Float32),
@@ -313,6 +316,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_BACKDROP_BLUR_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))

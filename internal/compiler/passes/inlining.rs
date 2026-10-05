@@ -942,6 +942,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
             || prop.starts_with("inner-shadow-")
+            || prop == "backdrop-blur"
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"
