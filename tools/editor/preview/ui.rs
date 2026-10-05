@@ -1641,6 +1641,9 @@ mod tests {
     fn rotated_edge_cursor_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -1712,6 +1715,9 @@ mod tests {
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -2382,6 +2388,9 @@ mod tests {
             ("Outline pane resize", false, false),
         ] {
             let editor = super::create_ui().unwrap();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
             editor.show().unwrap();
             slint::platform::update_timers_and_animations();
             let hit_size = editor.global::<super::Style>().get_panes().resize_hit_size;

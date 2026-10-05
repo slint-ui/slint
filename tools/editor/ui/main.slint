@@ -165,6 +165,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !root.preview-editable {
+            AppState.cancel-active-drags();
+            FillSession.close-picker(false, false);
+        }
+    }
     private property <bool> palette-drag-in-outline: false;
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
@@ -235,6 +242,7 @@ export component EditorUi inherits Window {
     }
 
     function apply-history(redo: bool) {
+        if !Diagnostics.preview-editable { return; }
         FillSession.apply-history(redo);
     }
 
@@ -381,7 +389,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
                     return accept;
                 }

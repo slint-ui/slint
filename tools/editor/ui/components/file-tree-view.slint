@@ -6,6 +6,7 @@ import { FileTreeIcons } from "file-tree-icons.slint";
 
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
+import { Diagnostics, FileDiagnosticSummary } from "../diagnostics.slint";
 import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
@@ -28,6 +29,8 @@ component FileTreeRow inherits Rectangle {
     property <color> selected-guide-color: root.style.selected-guide;
     property <color> guide-color: root.style.file-guide;
     property <color> error-color: Colors.danger;
+    private property <FileDiagnosticSummary> diagnostic-summary: Diagnostics.file-diagnostics(node.path);
+    private property <string> diagnostic-description: diagnostic-summary.error-count == 0 && diagnostic-summary.warning-count == 0 ? "" : "\{diagnostic-summary.error-count} errors, \{diagnostic-summary.warning-count} warnings in the active preview";
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -53,6 +56,7 @@ component FileTreeRow inherits Rectangle {
     background: node.is-selected || row-focus.has-focus ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
+    accessible-description: root.diagnostic-description;
     accessible-item-selectable: !root.folder;
     accessible-item-selected: root.node.is-selected;
     accessible-expanded: root.folder && root.node.is-expanded;
@@ -155,16 +159,33 @@ component FileTreeRow inherits Rectangle {
                 padding-right: root.style.row.padding-inline;
                 min-height: root.style.row.height;
 
-                Image {
+                Rectangle {
                     horizontal-stretch: 0;
                     width: root.style.row.icon-size;
                     height: root.style.row.icon-size;
-                    vertical-alignment: center;
-                    source: root.folder
-                        ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
-                        : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
-                        : FileTreeIcons.file-code;
-                    colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                    Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: root.folder
+                            ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                            : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
+                            : FileTreeIcons.file-code;
+                        colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                    }
+                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: Rectangle {
+                        x: parent.width - self.width + 2px;
+                        y: parent.height - self.height + 2px;
+                        width: 11px;
+                        height: 11px;
+                        border-radius: self.width / 2;
+                        background: root.style.row.selected-background;
+                        Image {
+                            source: FileTreeIcons.alert;
+                            width: parent.width;
+                            height: parent.height;
+                            colorize: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -251,6 +272,9 @@ component FileTreeRow inherits Rectangle {
             root.focus-row();
             root.activate();
         }
+    }
+    if root.diagnostic-description != "": Tooltip {
+        text: @markdown("\{root.diagnostic-description}");
     }
 }
 
