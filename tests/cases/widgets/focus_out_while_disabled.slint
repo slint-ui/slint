@@ -1,0 +1,93 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A widget that loses the focus while disabled must not report `has-focus` once re-enabled.
+
+import { Button, CheckBox, Slider } from "std-widgets.slint";
+export component TestCase inherits Window {
+    in-out property <bool> enabled: true;
+    out property <bool> checkbox-has-focus: checkbox.has-focus;
+    out property <bool> button-has-focus: button.has-focus;
+    out property <bool> slider-has-focus: slider.has-focus;
+
+    public function focus-checkbox() {
+        checkbox.focus();
+    }
+    public function focus-button() {
+        button.focus();
+    }
+    public function focus-slider() {
+        slider.focus();
+    }
+    public function focus-other() {
+        other.focus();
+    }
+
+    VerticalLayout {
+        checkbox := CheckBox {
+            text: "CheckBox";
+            enabled: root.enabled;
+        }
+        button := Button {
+            text: "Button";
+            enabled: root.enabled;
+        }
+        slider := Slider {
+            enabled: root.enabled;
+        }
+        other := FocusScope { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.invoke_focus_checkbox();
+assert!(instance.get_checkbox_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert!(!instance.get_checkbox_has_focus());
+
+instance.invoke_focus_button();
+assert!(instance.get_button_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert!(!instance.get_button_has_focus());
+
+instance.invoke_focus_slider();
+assert!(instance.get_slider_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert!(!instance.get_slider_has_focus());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+instance.invoke_focus_checkbox();
+assert(instance.get_checkbox_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert(!instance.get_checkbox_has_focus());
+
+instance.invoke_focus_button();
+assert(instance.get_button_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert(!instance.get_button_has_focus());
+
+instance.invoke_focus_slider();
+assert(instance.get_slider_has_focus());
+instance.set_enabled(false);
+instance.invoke_focus_other();
+instance.set_enabled(true);
+assert(!instance.get_slider_has_focus());
+```
+*/

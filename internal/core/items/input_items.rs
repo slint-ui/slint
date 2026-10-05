@@ -779,11 +779,8 @@ impl Item for FocusScope {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        if !self.enabled() {
-            return FocusEventResult::FocusIgnored;
-        }
-
         match event {
+            FocusEvent::FocusIn(_) if !self.enabled() => return FocusEventResult::FocusIgnored,
             FocusEvent::FocusIn(reason) => {
                 match reason {
                     FocusReason::TabNavigation if !self.focus_on_tab_navigation() => {
