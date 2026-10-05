@@ -4,6 +4,7 @@
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { ScrollBar } from "scrollview.slint";
 import { FocusBorder } from "components.slint";
+import { TextEditInterface } from "../common/std-widget-interfaces.slint";
 
 // FIXME: After auto-hiding of scrollbars is implemented, use TextEditBase
 component ScrollView {
@@ -60,6 +61,8 @@ component ScrollView {
 }
 
 export component TextEdit {
+    implement TextEditInterface <=> self;
+
     in property <TextWrap> wrap <=> text-input.wrap;
     in property <TextHorizontalAlignment> horizontal-alignment <=> text-input.horizontal-alignment;
     in property <InputMethodHints> input-method-hints <=> text-input.input-method-hints;
