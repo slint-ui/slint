@@ -533,8 +533,7 @@ mod tests {
             ..color_property(slint::Color::from_argb_u8(0, 0, 0, 0))
         });
         assert_eq!(default_color.mode, ui::ColorFieldMode::Solid);
-        assert_eq!(default_color.color_text, "000000");
-        assert_eq!(default_color.opacity, 0);
+        assert_eq!(default_color.fill.color, slint::Color::default());
 
         let source = super::color_field_data(ui::PropertyValue {
             code: "Colors.primary".into(),

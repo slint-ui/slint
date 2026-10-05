@@ -10,14 +10,14 @@ from inspector_interactions import edit_field, inspector_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_driver import (
-    elements_with_label,
+    element,
+    elements,
     first_window,
     launch_editor,
     press_keys,
     press_shortcut,
     screenshot,
     select_outline_row,
-    window_element_with_label,
 )
 
 SOURCE = "InspectorCases.slint"
@@ -39,7 +39,7 @@ def border_scene(fixture_project: Path) -> Path:
 
 
 def border_pixel(window: slint_testing.Window) -> tuple[int, ...]:
-    rectangle = window.find_elements_by_id("InspectorCases::inspect-rectangle")[0]
+    rectangle = element(window, id="InspectorCases::inspect-rectangle")
     position, size = rectangle.absolute_position, rectangle.size
     image = screenshot(window)
     scale = image.width / window.size.width
@@ -215,22 +215,18 @@ def test_border_defaults_and_rectangle_selection(
             window, "Border color color picker", slint_testing.AccessibleRole.Button
         )
         picker.invoke_accessible_default_action()
-        window_element_with_label(
-            window, "Hex color", slint_testing.AccessibleRole.TextInput
-        )
-        window_element_with_label(
-            window, "Gradient", slint_testing.AccessibleRole.Button
-        )
-        window_element_with_label(
-            window, "Close Custom", slint_testing.AccessibleRole.Button
+        element(window, "Hex color", role=slint_testing.AccessibleRole.TextInput)
+        element(window, "Gradient", role=slint_testing.AccessibleRole.Button)
+        element(
+            window, "Close Custom", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         for row in ("inspect-text", "inspect-image"):
             select_outline_row(window, row)
-            pane = window_element_with_label(window, "Inspector and outline")
-            assert not elements_with_label(
-                pane, "Border width", slint_testing.AccessibleRole.TextInput
+            pane = element(window, "Inspector and outline")
+            assert not elements(
+                pane, "Border width", role=slint_testing.AccessibleRole.TextInput
             )
-            assert not elements_with_label(
-                pane, "Border color", slint_testing.AccessibleRole.TextInput
+            assert not elements(
+                pane, "Border color", role=slint_testing.AccessibleRole.TextInput
             )
         snapshot.assert_unchanged()

@@ -765,8 +765,6 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("border-color");
                             session-key: root.fill-session-key("border-color");
                             property-name: "border-color";
-                            picker-anchor-x: root.style.label-width + root.style.row-gap + Style.inspector-field.padding-inline;
-                            picker-anchor-y: -Metrics.icon-small - Metrics.space-small;
                             width: root.width - 2 * root.style.padding;
                             accepted(text) => { return root.commit-code("border-color", text); }
                         }
