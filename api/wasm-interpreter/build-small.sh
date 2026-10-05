@@ -15,7 +15,11 @@
 #   - the default font is not embedded (the `no-embedded-font` feature). The page fetches a
 #     font itself and passes it to `register_default_font_from_memory()` before compiling;
 #     the slintpad preview page does that for `preview.html?font=<url>`. WOFF2 is accepted
-#     (the `woff2` feature), so this can be the font the page's CSS already downloaded.
+#     (the `woff2` feature), so this can be the font the page's CSS already downloaded;
+#   - text is drawn as paths from the glyph outlines (the `outline-text` feature), which leaves
+#     femtovg's glyph rasterizer out; color glyphs (emoji) aren't drawn;
+#   - `@markdown` text is shown as plain text (the `no-markdown` feature), which leaves the
+#     markdown parser out.
 #
 # With NIGHTLY=1, the standard library is rebuilt with `panic = "immediate-abort"` and without
 # panic locations, which saves about another 8%. A panic then traps without a message, and
@@ -41,7 +45,7 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/../../target/wasm-small}"
 out_dir="${OUT_DIR:-pkg}"
 
-cargo_args=(--features no-embedded-font,woff2)
+cargo_args=(--features no-embedded-font,woff2,outline-text,no-markdown)
 if [ "${NIGHTLY:-}" = 1 ]; then
     export RUSTUP_TOOLCHAIN=nightly
     export RUSTFLAGS="${RUSTFLAGS:-} -Zunstable-options -Cpanic=immediate-abort -Zlocation-detail=none -Zfmt-debug=shallow"
