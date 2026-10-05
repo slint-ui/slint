@@ -293,8 +293,7 @@ impl AnimationDriver {
         }
     }
 
-    /// Returns true if there are any active or ready animations. This is used by the windowing system to determine
-    /// if a new animation frame is required or not. Returns false otherwise.
+    /// Returns true if an active animation was evaluated outside of [`Self::track_active_animations`].
     pub fn has_active_animations(&self) -> bool {
         self.active_animations.get()
     }
@@ -303,6 +302,19 @@ impl AnimationDriver {
     pub fn set_has_active_animations(&self) {
         self.active_animations.set(true);
     }
+
+    /// Runs `f` and returns whether it evaluated an active animation,
+    /// without recording it in [`Self::has_active_animations`].
+    pub(crate) fn track_active_animations<R>(&self, f: impl FnOnce() -> R) -> (R, bool) {
+        let tick = self.global_instant.as_ref().get_untracked();
+        let was_active = self.active_animations.replace(false);
+        let result = f();
+        // Advancing the tick in `f` (as the Qt backend does) drops the earlier state.
+        let same_tick = self.global_instant.as_ref().get_untracked() == tick;
+        let active = self.active_animations.replace(was_active && same_tick);
+        (result, active)
+    }
+
     /// The current instant that is to be used for animation
     /// using this function register the current binding as a dependency
     pub fn current_tick(&self) -> Instant {
