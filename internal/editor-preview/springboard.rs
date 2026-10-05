@@ -32,10 +32,7 @@ struct SpringboardTask {
     error: String,
     preview: Option<ChildProcessLspToPreview>,
     from_endpoint: Option<mpsc::UnboundedReceiver<PreviewToLspMessage>>,
-    cleanup: Option<Pin<Box<dyn std::future::Future<Output = ()>>>>,
-    deferred_selection: bool,
     highlight: Option<LspToPreviewMessage>,
-    shutdown_acknowledgements: Vec<oneshot::Sender<()>>,
 }
 
 impl Springboard {
@@ -69,10 +66,7 @@ impl Springboard {
             error: String::new(),
             preview: None,
             from_endpoint: None,
-            cleanup: None,
-            deferred_selection: false,
             highlight: None,
-            shutdown_acknowledgements: Vec::new(),
         };
         task.update_ui();
         crate::spawn_local(task.run(task_receiver));
@@ -110,8 +104,8 @@ impl LspToPreview for Springboard {
         let (acknowledge, completion) = oneshot::channel();
         let _ = self.task_sender.send(Box::new(move |task| {
             task.error.clear();
-            task.shutdown_acknowledgements.push(acknowledge);
             task.close();
+            let _ = acknowledge.send(());
         }));
         Box::pin(async move {
             let _ = completion.await;
@@ -122,11 +116,6 @@ impl LspToPreview for Springboard {
 impl SpringboardTask {
     async fn run(mut self, mut actions: mpsc::UnboundedReceiver<SpringboardAction>) {
         loop {
-            if self.cleanup.is_none() {
-                for acknowledge in self.shutdown_acknowledgements.drain(..) {
-                    let _ = acknowledge.send(());
-                }
-            }
             tokio::select! {
                 action = actions.recv() => {
                     match action {
@@ -152,32 +141,13 @@ impl SpringboardTask {
                         Some(message) => { let _ = self.to_editor.send(message); }
                     }
                 }
-                _ = async {
-                    match &mut self.cleanup {
-                        Some(cleanup) => cleanup.await,
-                        None => std::future::pending().await,
-                    }
-                } => {
-                    self.cleanup = None;
-                    if self.deferred_selection {
-                        self.deferred_selection = false;
-                        self.select(0);
-                    }
-                }
             }
         }
         self.close();
-        if let Some(cleanup) = self.cleanup {
-            cleanup.await;
-        }
     }
 
     fn select(&mut self, index: i32) {
         if index != 0 || self.state != ui::SpringboardState::Idle {
-            return;
-        }
-        if self.cleanup.is_some() {
-            self.deferred_selection = true;
             return;
         }
         let (to_endpoint, from_endpoint) = mpsc::unbounded_channel();
@@ -199,11 +169,8 @@ impl SpringboardTask {
     }
 
     fn close(&mut self) {
-        self.deferred_selection = false;
         self.from_endpoint = None;
-        if let Some(transport) = self.preview.take() {
-            self.cleanup = Some(transport.stop_preview());
-        }
+        self.preview = None;
         self.state = ui::SpringboardState::Stopped;
         self.update_ui();
     }
@@ -244,7 +211,7 @@ impl SpringboardTask {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::child_process::tests::{assert_reaped, component, fixture_config, receive, started};
+    use crate::child_process::tests::{component, fixture_config, receive, started};
 
     fn controller(name: &str) -> (Springboard, mpsc::UnboundedReceiver<PreviewToLspMessage>) {
         let (executable, arguments) = fixture_config(name);
@@ -304,7 +271,7 @@ mod tests {
     async fn start_selection_restart_and_stale_events() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver) = controller("delayed_child");
+                let (controller, mut receiver) = controller("echo_child");
                 select(&controller, 0);
                 assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
                 controller.start();
@@ -321,38 +288,46 @@ mod tests {
                 controller.start();
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 assert!(receiver.try_recv().is_err());
-                controller.close();
+                let (old_sender, old_receiver) = mpsc::unbounded_channel();
+                let queued_old_sender = old_sender.clone();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| {
+                        task.from_endpoint = Some(old_receiver);
+                        queued_old_sender.send(PreviewToLspMessage::Pong).unwrap();
+                        queued_old_sender.send(PreviewToLspMessage::Exited).unwrap();
+                        task.close();
+                    }))
+                    .unwrap();
                 controller.start();
                 select(&controller, 0);
                 let second_process = started(&mut receiver).await;
                 assert_ne!(first_process, second_process);
-                assert_reaped(first_process);
+                assert!(old_sender.send(PreviewToLspMessage::Exited).is_err());
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 assert!(receiver.try_recv().is_err());
                 tokio::join!(controller.shutdown(), controller.shutdown());
-                assert_reaped(second_process);
                 assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
                 controller.shutdown().await;
                 assert!(receiver.try_recv().is_err());
                 controller.start();
                 assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 select(&controller, 0);
-                let third_process = started(&mut receiver).await;
+                started(&mut receiver).await;
                 assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
                 controller.shutdown().await;
-                assert_reaped(third_process);
             })
             .await;
     }
 
     #[tokio::test]
-    async fn dropping_handles_cleans_up_and_ends_task() {
+    async fn dropping_handles_disconnects_and_ends_task() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver) = controller("delayed_child");
+                let (controller, mut receiver) = controller("echo_child");
                 controller.start();
                 select(&controller, 0);
-                let process_id = started(&mut receiver).await;
+                started(&mut receiver).await;
                 drop(controller);
                 assert!(
                     tokio::time::timeout(std::time::Duration::from_secs(5), receiver.recv())
@@ -360,7 +335,6 @@ mod tests {
                         .unwrap()
                         .is_none()
                 );
-                assert_reaped(process_id);
             })
             .await;
     }
@@ -373,7 +347,7 @@ mod tests {
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: 17 });
             controller.start();
             select(&controller, 0);
-            let process_id = started(&mut receiver).await;
+            started(&mut receiver).await;
             let configuration = LspToPreviewMessage::SetConfiguration { config: Default::default() };
             controller.send(&configuration);
             let source = b"export component Fixture { Text { text: \"synced\"; } }".to_vec();
@@ -394,7 +368,6 @@ mod tests {
             controller.send(&LspToPreviewMessage::Quit);
             assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
             controller.shutdown().await;
-            assert_reaped(process_id);
         }).await;
     }
 
@@ -430,10 +403,9 @@ mod tests {
                     }))
                     .unwrap();
                 select(&controller, 0);
-                let process_id = started(&mut receiver).await;
+                started(&mut receiver).await;
                 assert!(inspect(&controller, |task| task.error.is_empty()).await);
                 controller.shutdown().await;
-                assert_reaped(process_id);
             })
             .await;
     }
@@ -444,7 +416,7 @@ mod tests {
             let (controller, mut receiver) = controller("crashing_child");
             controller.start();
             select(&controller, 0);
-            let process_id = started(&mut receiver).await;
+            started(&mut receiver).await;
             assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::SendShowMessage { message } if message.typ == lsp_types::MessageType::ERROR));
             wait_stopped(&controller).await;
             assert!(inspect(&controller, |task| !task.error.is_empty()).await);
@@ -455,7 +427,6 @@ mod tests {
             controller.close();
             assert!(inspect(&controller, |task| task.error.is_empty()).await);
             controller.shutdown().await;
-            assert_reaped(process_id);
         }).await;
     }
 
@@ -466,7 +437,7 @@ mod tests {
                 let (controller, mut receiver) = controller("echo_child");
                 controller.start();
                 select(&controller, 0);
-                let process_id = started(&mut receiver).await;
+                started(&mut receiver).await;
                 controller
                     .task_sender
                     .send(Box::new(|task| {
@@ -481,7 +452,6 @@ mod tests {
                 controller.start();
                 assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 controller.shutdown().await;
-                assert_reaped(process_id);
             })
             .await;
     }

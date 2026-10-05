@@ -331,7 +331,7 @@ impl Springboard {
 }
 ```
 
-The cloneable handle implements `LspToPreview`, including awaited preview shutdown.
+The cloneable handle implements `LspToPreview`, including shutdown that waits only for endpoint detachment.
 Construct it on the existing editor runtime.
 Install callbacks and initialize the global through the Slint event loop.
 Keep UI bindings and state conversion inside the shared implementation.
@@ -357,13 +357,13 @@ UI callbacks, start, close, and protocol sends use this channel.
 Do not add a command enum or UI bridge task.
 The task owns endpoint selection, lifecycle, transport, errors, and the retained source highlight.
 Closures perform short synchronous operations.
-The event loop handles transport events and shutdown completion, without a task per closure.
+The event loop handles transport events, without a task per closure.
 Post global updates with `upgrade_in_event_loop()` and modify Slint models only on the UI thread.
 Keep update data private.
 The task sleeps on its receivers while stopped.
-Close requests a stop and returns immediately; shutdown requests the same stop and waits for preview cleanup.
+Close requests a stop and returns immediately; shutdown waits only for the task to detach the endpoint and queue Quit.
 Both permit restart using the same Springboard task and UI callbacks.
-The task cleans up and exits when its command channel closes after all handles are dropped.
+The task detaches the endpoint and exits when its command channel closes after all handles are dropped.
 Future discovery can add another event receiver and use the same endpoint list and selection callback.
 
 ### Editor Integration and Behavior
@@ -385,15 +385,18 @@ Keep the editing preview independent.
 - Launch failure returns to `Idle` with no selection and an error.
   Retry only on another explicit selection.
 - Unexpected child exit stops Springboard and reports an error without recovery or fallback.
-- Project switches await cleanup.
+- Project switches detach the old endpoint without waiting for its process to exit.
   Reuse Springboard and explicitly clear the previous project's source highlight.
   Preserve the session if opening a replacement project fails.
 - Editor exit does not wait for the session thread or preview process.
   The preview exits when its input pipe closes.
 
-Extend child transport with fallible explicit startup and awaited shutdown.
+Extend child transport with fallible explicit startup and forwarding that cannot restart a stopped preview.
 Preserve automatic startup for other callers.
-Shutdown sends Quit, waits two seconds, then kills and reaps if needed.
+Dropping the transport queues Quit and releases its outgoing sender.
+The existing communication tasks finish in the background as the child exits normally.
+Do not wait for the process to exit or forcibly terminate it.
+An old process may briefly coexist with a new preview, but receives no new requests and cannot send messages back to Springboard.
 Retire the old receiver so stale events cannot affect another run.
 Derive the running indicator from Springboard lifecycle.
 
@@ -417,7 +420,7 @@ Read the code-style skill, Slint guidance, and repository instructions; preserve
    Verify findings; delegate corrections to the worker.
 4. Verify start without a child, Local launch, repeated selection, stop/restart, window close, launch failure, and stale events.
    Verify synchronization, highlight replay, editing-preview operation, and project switching.
-   Test real subprocess cleanup in the child transport tests.
+   Test normal child exit in the transport tests and discarded stale endpoint messages in Springboard tests.
    Use recording previews for editor project-switch tests, without subprocess fixtures.
    Inspect a rendered UI and exercise Run → Local → Stop.
    Run affected tests, formatting, and `git diff --check`.
@@ -434,7 +437,8 @@ The user approved this flat module name; the module-build implementation remains
 
 ### Editor Project and Exit Cleanup
 
-A successful project switch clears the source highlight and awaits preview shutdown, then reuses the existing Springboard task and UI callbacks.
+A successful project switch clears the source highlight and awaits endpoint detachment, then reuses the existing Springboard task and UI callbacks.
+It does not wait for the child process to exit before accepting a new preview selection.
 A failed project open preserves the existing session and controller.
 The editor exits when its UI event loop returns, without joining the session thread.
 Closing the editor's pipes tells the local preview to quit.
