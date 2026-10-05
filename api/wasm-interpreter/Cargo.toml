@@ -30,12 +30,16 @@ js-sys = { version = "0.3.44", default-features = false, features = ["std"] }
 wasm-bindgen-futures = { version = "0.4.18" }
 wasm-bindgen = { version = "0.2.66" }
 web-sys = { workspace = true, features = ["Request", "RequestInit", "RequestMode", "Response", "Window"] }
+wuff = { version = "0.2.9", optional = true, default-features = false, features = ["brotli"] }
 
 [features]
 # Leave the default font (Inter) out of the binary. No text is drawn until the page passes a font
 # to `register_default_font_from_memory`, which the page can download in parallel with the wasm,
 # or share with its own CSS.
 no-embedded-font = ["i-slint-common/no-embedded-fallback-font"]
+# Accept WOFF2 files in `register_font_from_memory` and `register_default_font_from_memory`,
+# so that a page can pass the font its CSS already downloaded.
+woff2 = ["dep:wuff"]
 
 #[dev-dependencies]
 #wasm-bindgen-test = "0.3.13"

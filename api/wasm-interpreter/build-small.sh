@@ -13,8 +13,9 @@
 #   - only the styles in SLINT_COMPILER_BUILTIN_STYLES are embedded (default: fluent),
 #     so `import ... from "std-widgets.slint"` works in those styles only;
 #   - the default font is not embedded (the `no-embedded-font` feature). The page fetches a
-#     TrueType or OpenType file itself and passes it to `register_default_font_from_memory()`
-#     before compiling; the slintpad preview page does that for `preview.html?font=<url>`.
+#     font itself and passes it to `register_default_font_from_memory()` before compiling;
+#     the slintpad preview page does that for `preview.html?font=<url>`. WOFF2 is accepted
+#     (the `woff2` feature), so this can be the font the page's CSS already downloaded.
 #
 # With NIGHTLY=1, the standard library is rebuilt with `panic = "immediate-abort"` and without
 # panic locations, which saves about another 8%. A panic then traps without a message, and
@@ -40,7 +41,7 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/../../target/wasm-small}"
 out_dir="${OUT_DIR:-pkg}"
 
-cargo_args=(--features no-embedded-font)
+cargo_args=(--features no-embedded-font,woff2)
 if [ "${NIGHTLY:-}" = 1 ]; then
     export RUSTUP_TOOLCHAIN=nightly
     export RUSTFLAGS="${RUSTFLAGS:-} -Zunstable-options -Cpanic=immediate-abort -Zlocation-detail=none -Zfmt-debug=shallow"

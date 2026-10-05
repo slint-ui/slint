@@ -320,7 +320,8 @@ impl WrappedInstance {
 
 /// Register a font for use by the `font-family` property.
 ///
-/// `data` is the content of a TrueType or OpenType file.
+/// `data` is the content of a TrueType or OpenType file, or of a WOFF2 file
+/// in a build with the `woff2` feature.
 /// The families it declares become available to the components compiled afterwards,
 /// under the names the font itself carries,
 /// so a page that registers JetBrains Mono can then use `font-family: "JetBrains Mono"`.
@@ -341,7 +342,7 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     // The shared collection holds the bytes through its own `Arc`, so the font doesn't need the
     // `&'static [u8]` that `Renderer::register_font_from_memory` asks for, and nothing is leaked.
     // Taking the `Vec` by value hands over the copy wasm-bindgen already made.
-    let blob = fontique::Blob::new(std::sync::Arc::new(data));
+    let blob = fontique::Blob::new(std::sync::Arc::new(decode_font(data)?));
 
     let registered = i_slint_core::with_global_context(
         || Err(i_slint_core::platform::PlatformError::NoPlatform),
@@ -359,7 +360,8 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
 /// Register a font as the default font: the one that draws text without a `font-family`,
 /// and the first fallback for characters the requested family doesn't have.
 ///
-/// `data` is the content of a TrueType or OpenType file (not WOFF or WOFF2).
+/// `data` is the content of a TrueType or OpenType file, or of a WOFF2 file
+/// in a build with the `woff2` feature.
 /// Its families are also available by name, as with [`register_font_from_memory`].
 ///
 /// A build with the `no-embedded-font` feature has no font of its own and draws no text
@@ -370,7 +372,7 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
 pub fn register_default_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     use i_slint_core::textlayout::sharedparley::fontique;
 
-    let blob = fontique::Blob::new(std::sync::Arc::new(data));
+    let blob = fontique::Blob::new(std::sync::Arc::new(decode_font(data)?));
 
     let registered = i_slint_core::with_global_context(
         || Err(i_slint_core::platform::PlatformError::NoPlatform),
@@ -388,6 +390,18 @@ pub fn register_default_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
             .into());
     }
     Ok(())
+}
+
+/// Returns the TrueType or OpenType data in `data`, decompressing a WOFF2 file.
+fn decode_font(data: Vec<u8>) -> Result<Vec<u8>, JsValue> {
+    if !data.starts_with(b"wOF2") {
+        return Ok(data);
+    }
+    #[cfg(feature = "woff2")]
+    return wuff::decompress_woff2(&data)
+        .map_err(|e| format!("the WOFF2 data could not be decompressed: {e}").into());
+    #[cfg(not(feature = "woff2"))]
+    return Err("WOFF2 fonts need a build with the `woff2` feature".into());
 }
 
 /// Register DOM event handlers on all instance and set up the event loop for that.
