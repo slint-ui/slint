@@ -263,12 +263,11 @@ impl DocumentCache {
 
     /// Re-apply a complete configuration to the document cache
     ///
-    /// This will invalidate and reload all loaded documents.
-    ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
     pub async fn reconfigure(
         &mut self,
         config: CompilerConfiguration,
+        roots: &HashSet<Url>,
         diag: &mut BuildDiagnostics,
     ) -> (CompilerConfiguration, HashSet<lsp_types::Url>) {
         let mut compiler_config = config.compiler_config.clone();
@@ -301,7 +300,7 @@ impl DocumentCache {
 
         self.preload_builtins().await;
 
-        let all_urls = self.all_urls().collect::<HashSet<_>>();
+        let all_urls = self.all_urls().filter(|url| roots.contains(url)).collect::<HashSet<_>>();
         for url in &all_urls {
             self.reload_cached_file(url, diag).await;
         }
@@ -342,6 +341,7 @@ impl DocumentCache {
     /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let path = SourcePath::from_url(url);
+        self.source_file_versions.borrow_mut().remove(&path);
         Ok(self.type_loader.drop_document(&path)?.iter().filter_map(|path| path.to_url()).collect())
     }
 
@@ -358,6 +358,30 @@ impl DocumentCache {
             .collect()
     }
 
+    pub(crate) fn retain_documents(&mut self, roots: &HashSet<Url>) -> Result<HashSet<Url>> {
+        let mut retained = roots.clone();
+        let mut pending = roots.iter().cloned().collect::<Vec<_>>();
+        while let Some(url) = pending.pop() {
+            if let Some(document) = self.get_document(&url) {
+                for import in &document.imports {
+                    if let Some(import_url) = import.resolved.as_ref().and_then(SourcePath::to_url)
+                    {
+                        if retained.insert(import_url.clone()) {
+                            pending.push(import_url);
+                        }
+                    }
+                }
+            }
+        }
+        let removed = self
+            .all_urls()
+            .filter(|url| url.scheme() != "builtin" && !retained.contains(url))
+            .collect::<HashSet<_>>();
+        for url in &removed {
+            self.drop_document(url)?;
+        }
+        Ok(removed)
+    }
 
     pub fn compiler_configuration(&self) -> CompilerConfiguration {
         let mut config = self.config.clone();
@@ -533,7 +557,11 @@ mod tests {
             assert!(config.open_import_callback.is_some());
             assert!(config.compiler_config.open_import_callback.is_none());
             assert!(cache.compiler_configuration().open_import_callback.is_none());
-            spin_on::spin_on(cache.reconfigure(config, &mut BuildDiagnostics::default()));
+            spin_on::spin_on(cache.reconfigure(
+                config,
+                &HashSet::new(),
+                &mut BuildDiagnostics::default(),
+            ));
             let import_callback =
                 cache.type_loader.compiler_config.open_import_callback.as_ref().unwrap();
             assert!(spin_on::spin_on(import_callback(path.clone())).unwrap().is_ok());

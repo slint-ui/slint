@@ -2800,6 +2800,63 @@ mod tests {
     }
 
     #[test]
+    fn project_entry_import_graph_supplies_completion_suggestions() {
+        let directory = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            directory.path().join(i_slint_compiler::project_file::FILE_NAME),
+            r#"{ "entry": "entry.slint" }"#,
+        )
+        .unwrap();
+        std::fs::write(directory.path().join("entry.slint"), r#"import { EntryWidget } from "widgets.slint"; export component Entry inherits EntryWidget {}"#).unwrap();
+        std::fs::write(directory.path().join("widgets.slint"), "export component EntryWidget {}")
+            .unwrap();
+        std::fs::write(
+            directory.path().join("unrelated.slint"),
+            "export component UnrelatedWidget {}",
+        )
+        .unwrap();
+        let source = "export component Editing { Entry }";
+        let cursor_offset = (source.find("Entry }").unwrap() + "Entry".len()) as u32;
+        let document_url =
+            lsp_types::Url::from_file_path(directory.path().join("editing.slint")).unwrap();
+        let mut session = editor_preview::EditorSession::new(
+            crate::language::test::empty_document_cache(),
+            editor_preview::LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+        );
+        spin_on::spin_on(session.open_document(source.into(), document_url.clone(), Some(1)))
+            .unwrap();
+        let document = session.document_cache.get_document(&document_url).unwrap();
+        let token =
+            crate::language::token_at_offset(document.node.as_ref().unwrap(), cursor_offset.into())
+                .unwrap();
+        let capabilities = CompletionClientCapabilities {
+            completion_item: Some(lsp_types::CompletionItemCapability {
+                snippet_support: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let results = completion_at(
+            &mut session.document_cache,
+            token,
+            cursor_offset.into(),
+            Some(&capabilities),
+        )
+        .unwrap();
+        for name in ["Entry", "EntryWidget"] {
+            let suggestion = results
+                .iter()
+                .find(|item| item.label.starts_with(&format!("{name} (import from")))
+                .unwrap_or_else(|| panic!("Missing {name}: {results:?}"));
+            assert!(
+                suggestion.additional_text_edits.as_ref().is_some_and(|edits| !edits.is_empty())
+            );
+        }
+        assert!(!results.iter().any(|item| item.label.contains("UnrelatedWidget")));
+        assert_eq!(session.open_urls, [document_url].into_iter().collect());
+    }
+
+    #[test]
     fn type_completion_suggests_import_for_unimported_struct() {
         // types.slint exports MyPoint (struct) and MyDirection (enum).
         // main.slint does not import them.  Completing `<My` should surface

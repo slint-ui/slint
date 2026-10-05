@@ -12,7 +12,6 @@ use i_slint_live_preview::{
     file_watcher::FileChangeKind,
     protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion, VersionedUrl},
 };
-use itertools::Itertools;
 use lsp_types::Url;
 
 use i_slint_compiler::source_path::SourcePath;
@@ -368,10 +367,24 @@ impl EditorSession {
         let overrides = self.effective_config_overrides();
         let (compiler_config, project_diagnostics) = self.effective_compiler_configuration();
         let mut diagnostics = BuildDiagnostics::default();
+        let roots = self.document_roots();
         let (compiler_config, reloaded_files) =
-            self.document_cache.reconfigure(compiler_config, &mut diagnostics).await;
-        let extra_files = reloaded_files.iter().filter_map(crate::uri_to_file).collect();
+            self.document_cache.reconfigure(compiler_config, &roots, &mut diagnostics).await;
+        let mut extra_files =
+            reloaded_files.iter().map(SourcePath::from_url).collect::<HashSet<_>>();
+        for url in roots.difference(&reloaded_files) {
+            if !self.document_is_open(url) {
+                extra_files.extend(
+                    self.reload_document_without_project_discovery(url.clone(), &mut diagnostics)
+                        .await,
+                );
+            }
+        }
+        let removed = self.document_cache.retain_documents(&roots)?;
+        self.pending_recompile.retain(|url| roots.contains(url));
+        extra_files.extend(roots.iter().chain(&removed).map(SourcePath::from_url));
         let mut diagnostics = collect_diagnostics(&self.document_cache, &extra_files, diagnostics);
+        diagnostics.extend(removed.into_iter().map(|url| (url, None, Vec::new())));
         diagnostics.extend(project_diagnostics);
 
         self.preview_config = PreviewConfig {
@@ -449,17 +462,31 @@ impl EditorSession {
         self.reapply_effective_configuration().await
     }
 
-    fn enqueue_configuration_recompile(&mut self) {
-        self.pending_recompile.extend(self.open_urls.iter().cloned());
+    fn project_entry_urls(&self) -> impl Iterator<Item = Url> + '_ {
+        self.active_projects
+            .values()
+            .filter_map(|project| Url::from_file_path(project.entry()?).ok())
+    }
+
+    fn document_roots(&self) -> HashSet<Url> {
+        let mut roots = self.open_urls.clone();
+        roots.extend(self.project_entry_urls());
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        {
-            let preview_urls = self
-                .previews
-                .iter()
-                .filter_map(|preview| preview.to_show.as_ref().map(|c| c.url.clone()))
-                .collect::<Vec<_>>();
-            self.pending_recompile.extend(preview_urls);
-        }
+        roots.extend(
+            self.previews.iter().filter_map(|preview| {
+                preview.to_show.as_ref().map(|component| component.url.clone())
+            }),
+        );
+        roots.into_iter().filter_map(|url| SourcePath::from_url(&url).to_url()).collect()
+    }
+
+    fn document_is_open(&self, url: &Url) -> bool {
+        let path = SourcePath::from_url(url);
+        self.open_urls.iter().any(|open_url| SourcePath::from_url(open_url) == path)
+    }
+
+    fn enqueue_configuration_recompile(&mut self) {
+        self.pending_recompile.extend(self.document_roots());
     }
 
     async fn reload_active_project_file(
@@ -649,7 +676,8 @@ impl EditorSession {
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     pub fn show_preview(&mut self, preview_index: usize, component: PreviewComponent) {
-        let component_url = component.url.clone();
+        let component_url =
+            SourcePath::from_url(&component.url).to_url().unwrap_or_else(|| component.url.clone());
         let Some(preview) = self.preview_mut(preview_index) else { return };
         preview.to_show = Some(component.clone());
         preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
@@ -724,16 +752,22 @@ impl EditorSession {
             }
         };
 
-        for dep in &dependencies {
-            if self.open_urls.contains(dep) {
-                self.document_cache.reload_cached_file(dep, &mut diag).await;
-            }
-        }
+        self.reload_dependent_roots(&dependencies, &mut diag).await;
 
         let extra_files =
             dependencies.iter().map(SourcePath::from_url).chain(core::iter::once(path)).collect();
 
         (extra_files, diag)
+    }
+
+    async fn reload_dependent_roots(
+        &mut self,
+        dependencies: &HashSet<Url>,
+        diagnostics: &mut BuildDiagnostics,
+    ) {
+        for url in self.document_roots().intersection(dependencies) {
+            self.document_cache.reload_cached_file(url, diagnostics).await;
+        }
     }
 
     pub async fn open_document(
@@ -751,7 +785,16 @@ impl EditorSession {
     pub async fn close_document(&mut self, url: lsp_types::Url) -> crate::Result<()> {
         tracing::debug!("Closing document: {url}");
         self.open_urls.remove(&url);
-        self.drop_document(url).await
+        self.drop_document(url.clone()).await?;
+        if self
+            .document_roots()
+            .iter()
+            .any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url))
+        {
+            self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
+                .await;
+        }
+        Ok(())
     }
 
     pub async fn load_document(
@@ -779,68 +822,73 @@ impl EditorSession {
         url: lsp_types::Url,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Reloading document: {url}");
-        let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
-
-        // Check if document is in cache (can use reload_cached_file)
-        let in_cache = self.document_cache.all_urls().contains(&url);
-
-        if in_cache {
-            tracing::trace!("Document is in cache, reloading: {url}");
-
-            let mut diagnostics = BuildDiagnostics::default();
-
-            self.document_cache.reload_cached_file(&url, &mut diagnostics).await;
-            let mut extra_files = HashSet::new();
-            extra_files.insert(SourcePath::from_url(&url));
-
-            configuration_diagnostics.extend(collect_diagnostics(
-                &self.document_cache,
-                &extra_files,
-                diagnostics,
-            ));
-            Ok(configuration_diagnostics)
+        let url = SourcePath::from_url(&url).to_url().unwrap_or(url);
+        let mut configuration_diagnostics = if self.project_entry_urls().any(|entry| entry == url) {
+            Vec::new()
         } else {
-            tracing::trace!("Document not in cache, loading from disk: {url}");
+            self.maybe_update_active_project(&url).await?
+        };
 
-            let path = SourcePath::from_url(&url);
+        let mut diagnostics = BuildDiagnostics::default();
+        let extra_files =
+            self.reload_document_without_project_discovery(url, &mut diagnostics).await;
+        configuration_diagnostics.extend(collect_diagnostics(
+            &self.document_cache,
+            &extra_files,
+            diagnostics,
+        ));
+        Ok(configuration_diagnostics)
+    }
+
+    async fn reload_document_without_project_discovery(
+        &mut self,
+        url: Url,
+        diagnostics: &mut BuildDiagnostics,
+    ) -> HashSet<SourcePath> {
+        let path = SourcePath::from_url(&url);
+        let Some(url) = path.to_url() else { return HashSet::new() };
+        let mut extra_files = HashSet::from([path.clone()]);
+        // Check if document is in cache (can use reload_cached_file)
+        let in_cache = self.document_cache.all_urls().any(|cached| cached == url);
+        if in_cache {
+            let dependencies = if self.document_cache.get_document(&url).is_some() {
+                self.document_cache.invalidate_url(&url)
+            } else {
+                HashSet::new()
+            };
+            self.document_cache.reload_cached_file(&url, diagnostics).await;
+            self.reload_dependent_roots(&dependencies, diagnostics).await;
+            extra_files.extend(dependencies.iter().map(SourcePath::from_url));
+        } else {
             match path.read_to_string() {
                 Ok(content) => {
-                    let (extra_files, diagnostics) =
+                    let (dependent_files, loaded_diagnostics) =
                         self.load_document_impl(content, url, None).await;
-                    configuration_diagnostics.extend(collect_diagnostics(
-                        &self.document_cache,
-                        &extra_files,
-                        diagnostics,
-                    ));
-                    Ok(configuration_diagnostics)
+                    extra_files.extend(dependent_files);
+                    diagnostics
+                        .all_loaded_files
+                        .extend(loaded_diagnostics.all_loaded_files.clone());
+                    for diagnostic in loaded_diagnostics {
+                        diagnostics.push_compiler_error(diagnostic);
+                    }
                 }
-                // The file was likely deleted, log and move on
-                Err(err) => {
-                    tracing::debug!("Failed to read {path} from disk: {err}");
-                    Ok(configuration_diagnostics)
+                Err(error) => {
+                    tracing::debug!("Failed to read {path} from disk: {error}")
                 }
             }
         }
+        extra_files
     }
 
     fn drop_document_impl(&mut self, url: lsp_types::Url) -> crate::Result<()> {
+        let url = SourcePath::from_url(&url).to_url().unwrap_or(url);
         let dependencies = self.document_cache.drop_document(&url)?;
 
-        let open_dependencies = self.open_urls.intersection(&dependencies).cloned();
-        self.pending_recompile.extend(open_dependencies);
-
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        // The external preview only has access to the files the LSP recompiled, so we need to
-        // ensure the preview file is recompiled if anything it depends on changes, even if it's
-        // not in the open_urls.
-        for preview_url in self
-            .previews
-            .iter()
-            .filter_map(|preview| preview.to_show.as_ref().map(|component| component.url.clone()))
-            .filter(|preview_url| preview_url == &url || dependencies.contains(preview_url))
-        {
-            self.pending_recompile.insert(preview_url);
-        }
+        self.pending_recompile.extend(
+            self.document_roots()
+                .into_iter()
+                .filter(|root| root == &url || dependencies.contains(root)),
+        );
 
         Ok(())
     }
@@ -884,7 +932,7 @@ impl EditorSession {
             return self.reload_active_project_file(&path, typ).await;
         }
 
-        if !self.open_urls.contains(&url) {
+        if !self.document_is_open(&url) {
             tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
             match typ {
                 FileChangeKind::Deleted => return self.delete_document(url).await,
@@ -1116,6 +1164,280 @@ mod tests {
         let url = Url::from_file_path(path).unwrap();
         let content = std::fs::read_to_string(path).unwrap();
         spin_on::spin_on(session.open_document(content, url, None)).map(|_| ())
+    }
+
+    fn cached_text(session: &EditorSession, path: &std::path::Path) -> Option<String> {
+        session
+            .document_cache
+            .get_document(&Url::from_file_path(path).unwrap())
+            .and_then(|document| document.node.as_ref())
+            .map(|node| node.text().to_string())
+    }
+
+    #[test]
+    fn configuration_changes_preserve_open_documents_with_encoded_urls() {
+        let temp = TempDir::new().unwrap();
+        let document = temp.path().join("editing.slint");
+        write_document(&document);
+        let normalized_url = Url::from_file_path(&document).unwrap();
+        let encoded_url =
+            Url::parse(&normalized_url.as_str().replace("editing.slint", "%65diting.slint"))
+                .unwrap();
+        assert_ne!(encoded_url, normalized_url);
+        let mut session = session();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            encoded_url.clone(),
+            Some(7),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+        assert_eq!(session.document_cache.document_version(&encoded_url), Some(7));
+        assert_eq!(session.document_roots(), HashSet::from([normalized_url]));
+        spin_on::spin_on(session.trigger_file_watcher(
+            Url::from_file_path(&document).unwrap(),
+            FileChangeKind::Changed,
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+    }
+
+    #[test]
+    fn discovering_a_project_uses_editor_contents_before_disk_contents() {
+        let temp = TempDir::new().unwrap();
+        let document = temp.path().join("editing.slint");
+        let disk_dependency = temp.path().join("disk-only.slint");
+        std::fs::write(temp.path().join(FILE_NAME), "{}").unwrap();
+        std::fs::write(&document, r#"import { DiskOnly } from "disk-only.slint"; export component Main inherits DiskOnly {}"#).unwrap();
+        std::fs::write(&disk_dependency, "export component DiskOnly inherits DoesNotExist {}")
+            .unwrap();
+        let mut session = session();
+        let diagnostics = spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            Url::from_file_path(&document).unwrap(),
+            Some(7),
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+        assert!(cached_text(&session, &disk_dependency).is_none());
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|(url, _, _)| url == &Url::from_file_path(&disk_dependency).unwrap())
+        );
+    }
+
+    #[test]
+    fn loading_a_new_disk_file_clears_invalidated_dependent_diagnostics() {
+        let temp = TempDir::new().unwrap();
+        let dependency = temp.path().join("new.slint");
+        let dependent = temp.path().join("dependent.slint");
+        let dependent_url = Url::from_file_path(&dependent).unwrap();
+        let mut session = session();
+        spin_on::spin_on(session.load_document_impl(
+            r#"import { New } from "new.slint"; export component Main inherits New {}"#.into(),
+            dependent_url.clone(),
+            None,
+        ));
+        write_document(&dependency);
+        let diagnostics =
+            spin_on::spin_on(session.reload_document(Url::from_file_path(&dependency).unwrap()))
+                .unwrap();
+        assert!(
+            diagnostics
+                .iter()
+                .any(|(url, _, diagnostics)| url == &dependent_url && diagnostics.is_empty())
+        );
+    }
+
+    #[test]
+    fn project_entries_load_imports_without_discovering_other_projects() {
+        let temp = TempDir::new().unwrap();
+        let entry_directory = temp.path().join("entry");
+        std::fs::create_dir(&entry_directory).unwrap();
+        let project = temp.path().join(FILE_NAME);
+        let document = temp.path().join("editing.slint");
+        let entry = entry_directory.join("main.slint");
+        let dependency = entry_directory.join("dependency.slint");
+        std::fs::write(&project, r#"{ "entry": "entry/main.slint", "style": "fluent" }"#).unwrap();
+        std::fs::write(entry_directory.join(FILE_NAME), r#"{ "style": "material" }"#).unwrap();
+        std::fs::write(&entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
+        std::fs::write(&dependency, "export component Dependency {}").unwrap();
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        for path in [&entry, &dependency] {
+            assert!(cached_text(&session, path).is_some());
+            assert!(!session.open_urls.contains(&Url::from_file_path(path).unwrap()));
+        }
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+        assert_eq!(session.preview_config.style, "fluent");
+
+        std::fs::write(&dependency, "export component Changed {}").unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(
+            Url::from_file_path(&dependency).unwrap(),
+            FileChangeKind::Changed,
+        ))
+        .unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
+        let encoded_url =
+            Url::parse(&entry_url.as_str().replace("main.slint", "%6dain.slint")).unwrap();
+        let diagnostics = spin_on::spin_on(session.reload_document(encoded_url)).unwrap();
+        assert!(diagnostics.iter().any(|(_, _, diagnostics)| {
+            diagnostics.iter().any(|diagnostic| diagnostic.message.contains("Dependency"))
+        }));
+        assert!(cached_text(&session, &dependency).unwrap().contains("Changed"));
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+    }
+
+    #[test]
+    fn closing_an_entry_restores_disk_contents_and_version() {
+        let temp = TempDir::new().unwrap();
+        let entry = temp.path().join("main.slint");
+        let document = temp.path().join("editing.slint");
+        std::fs::write(temp.path().join(FILE_NAME), r#"{ "entry": "main.slint" }"#).unwrap();
+        write_document(&entry);
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            entry_url.clone(),
+            Some(42),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert!(cached_text(&session, &entry).unwrap().contains("Unsaved"));
+        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        assert!(cached_text(&session, &entry).unwrap().contains("Main"));
+        assert_eq!(session.document_cache.document_version(&entry_url), None);
+        assert!(!session.open_urls.contains(&entry_url));
+    }
+
+    #[test]
+    fn closing_an_entry_reports_errors_from_disk_on_queued_reload() {
+        let temp = TempDir::new().unwrap();
+        let entry = temp.path().join("main.slint");
+        std::fs::write(temp.path().join(FILE_NAME), r#"{ "entry": "main.slint" }"#).unwrap();
+        std::fs::write(&entry, "export component Main inherits DoesNotExist {}").unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        let mut session = session();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            entry_url.clone(),
+            Some(3),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
+        for _ in 0..2 {
+            let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+            assert!(diagnostics.iter().any(|(url, _, diagnostics)| {
+                url == &entry_url
+                    && diagnostics
+                        .iter()
+                        .any(|diagnostic| diagnostic.message.contains("DoesNotExist"))
+            }));
+        }
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "entry": "main.slint", "style": "fluent" }"#,
+        )
+        .unwrap();
+        spin_on::spin_on(
+            session
+                .reload_active_project_file(&temp.path().join(FILE_NAME), FileChangeKind::Changed),
+        )
+        .unwrap();
+        let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+        assert!(diagnostics.iter().any(|(url, _, diagnostics)| url == &entry_url
+            && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("DoesNotExist"))));
+    }
+
+    #[test]
+    fn changed_and_removed_entries_retain_shared_and_open_documents() {
+        let temp = TempDir::new().unwrap();
+        let project_directories = [temp.path().join("first"), temp.path().join("second")];
+        let entries = [temp.path().join("shared.slint"), temp.path().join("replacement.slint")];
+        let dependency = temp.path().join("dependency.slint");
+        std::fs::write(&dependency, "export component Dependency {}").unwrap();
+        for entry in &entries {
+            std::fs::write(entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
+        }
+        let mut session = session();
+        for directory in &project_directories {
+            std::fs::create_dir(directory).unwrap();
+            std::fs::write(directory.join(FILE_NAME), r#"{ "entry": "../shared.slint" }"#).unwrap();
+            let document = directory.join("editing.slint");
+            write_document(&document);
+            open_document(&mut session, &document).unwrap();
+        }
+        let first_project = project_directories[0].join(FILE_NAME);
+        std::fs::write(&first_project, r#"{ "entry": "../replacement.slint" }"#).unwrap();
+        spin_on::spin_on(
+            session.reload_active_project_file(&first_project, FileChangeKind::Changed),
+        )
+        .unwrap();
+        for path in entries.iter().chain(core::iter::once(&dependency)) {
+            assert!(cached_text(&session, path).is_some());
+        }
+        spin_on::spin_on(session.reload_active_project_file(
+            &project_directories[1].join(FILE_NAME),
+            FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &entries[0]).is_none());
+        assert!(cached_text(&session, &dependency).is_some());
+        let replacement_url = Url::from_file_path(&entries[1]).unwrap();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            replacement_url,
+            Some(3),
+        ))
+        .unwrap();
+        let diagnostics = spin_on::spin_on(
+            session.reload_active_project_file(&first_project, FileChangeKind::Deleted),
+        )
+        .unwrap();
+        assert!(cached_text(&session, &entries[1]).unwrap().contains("Unsaved"));
+        assert!(cached_text(&session, &dependency).is_none());
+        assert!(
+            diagnostics
+                .iter()
+                .any(|(url, _, diagnostics)| url == &Url::from_file_path(&dependency).unwrap()
+                    && diagnostics.is_empty())
+        );
+        for directory in &project_directories {
+            assert!(cached_text(&session, &directory.join("editing.slint")).is_some());
+        }
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn removed_entry_is_retained_by_preview() {
+        let temp = TempDir::new().unwrap();
+        let project = temp.path().join(FILE_NAME);
+        let entry = temp.path().join("main.slint");
+        let document = temp.path().join("editing.slint");
+        std::fs::write(&project, r#"{ "entry": "main.slint" }"#).unwrap();
+        write_document(&entry);
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        let encoded_url =
+            Url::parse(&entry_url.as_str().replace("main.slint", "%6dain.slint")).unwrap();
+        session.show_preview(0, PreviewComponent { url: encoded_url, component: None });
+        assert!(session.pending_recompile.contains(&entry_url));
+        spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
+            .unwrap();
+        assert!(cached_text(&session, &entry).is_some());
+        assert!(session.pending_recompile.contains(&entry_url));
+        spin_on::spin_on(session.drop_document(entry_url.clone())).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
     }
 
     #[test]
