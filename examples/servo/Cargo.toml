@@ -46,12 +46,12 @@ time-now = "0.1.2"
 termcolor = "1.4.1"
 thiserror = "2.0.17"
 
-surfman = { version = "0.13.0", features = ["chains"] }
-servo = "0.6.0"
+surfman = "0.14.0"
+servo = "0.7.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-surfman = { version = "0.13.0", features = ["chains", "sm-angle-default"] }
-servo = { version = "0.6.0", features = ["no-wgl"] }
+surfman = { version = "0.14.0", features = ["sm-angle-default"] }
+servo = { version = "0.7.0", features = ["no-wgl"] }
 windows = { version = "0.62.2", features = ["Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Foundation", "Win32_Graphics_Dxgi_Common"] }
 wio = "0.2"
 
