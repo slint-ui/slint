@@ -376,8 +376,7 @@ pub(super) fn wrap_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
 }
 
 /// Shapes `text` the way both the drawing and the measuring paths need it, so that they can share
-/// one cache entry. `text_wrap` is passed separately because `text_size` measures the unwrapped
-/// width of items that are otherwise wrapped.
+/// one cache entry.
 pub(super) fn shape_paragraphs(
     text: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: Option<&crate::item_tree::ItemRc>,
