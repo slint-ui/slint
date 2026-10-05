@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from "node:crypto";
-import { createServer } from "node:http";
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, isAbsolute } from "node:path";
@@ -16,31 +16,19 @@ const example = await readFile(join(root, "examples/button.slint"), "utf8");
 const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
 const runtimeJavascript = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter.js"));
 const runtimeWasm = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter_bg.wasm"));
-const assetPrefix = "/" + randomBytes(16).toString("hex");
-const assets = new Map([
-  [assetPrefix + "/slint_wasm_interpreter.js", { type: "text/javascript", bytes: runtimeJavascript }],
-  [assetPrefix + "/slint_wasm_interpreter_bg.wasm", { type: "application/wasm", bytes: runtimeWasm }],
-]);
-const assetServer = createServer((request, response) => {
-  response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Private-Network", "true");
-  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  response.setHeader("X-Content-Type-Options", "nosniff");
-  const asset = assets.get(request.url);
-  if (!asset) { response.writeHead(404); response.end(); return; }
-  if (request.method === "OPTIONS") { response.writeHead(204); response.end(); return; }
-  if (request.method !== "GET") { response.writeHead(405); response.end(); return; }
-  response.setHeader("Content-Type", asset.type);
-  response.setHeader("Content-Length", asset.bytes.length);
-  response.end(asset.bytes);
-});
-await new Promise((resolve, reject) => {
-  assetServer.once("error", reject);
-  assetServer.listen(0, "127.0.0.1", resolve);
-});
-const assetOrigin = `http://127.0.0.1:${assetServer.address().port}`;
+const wasmHash = createHash("sha256").update(runtimeWasm).digest("hex");
+const runtimeHash = createHash("sha256").update(runtimeJavascript).update(runtimeWasm).digest("hex");
+const javascriptUri = `slint://runtime/${runtimeHash}/javascript`;
+const runtimeResources = new Map([[javascriptUri, { uri: javascriptUri, mimeType: "text/javascript", text: runtimeJavascript.toString("utf8") }]]);
+const compressedWasm = gzipSync(runtimeWasm);
+const wasmChunkUris = [];
+for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
+  const uri = `slint://runtime/${runtimeHash}/wasm/${wasmChunkUris.length}`;
+  wasmChunkUris.push(uri);
+  runtimeResources.set(uri, { uri, mimeType: "application/octet-stream", blob: compressedWasm.subarray(offset, offset + 256 * 1024).toString("base64") });
+}
 const html = (await readFile(join(root, "runtime/preview.html"), "utf8"))
-  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, assetBaseUrl: assetOrigin + assetPrefix }));
+  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash }));
 if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
 const icon = await readFile(join(root, "assets/slint.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
@@ -114,14 +102,16 @@ async function handle(message) {
     case "resources/list": return { resources: [
       { uri: uiUri, name: "slint-preview", title: "Slint Preview", mimeType: "text/html;profile=mcp-app" },
       { uri: "slint://components/button.slint", name: "slint-button", mimeType: "text/plain" },
+      ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
     ] };
     case "resources/templates/list": return { resourceTemplates: [] };
     case "resources/read": {
       const uri = message.params?.uri;
       if (uri === "slint://components/button.slint") return { contents: [{ uri, mimeType: "text/plain", text: component }] };
+      if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
       return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
-        ui: { prefersBorder: true, csp: { resourceDomains: [assetOrigin], connectDomains: [assetOrigin] } },
+        ui: { prefersBorder: true },
         "openai/ui": { availableDisplayModes: ["inline"] },
       } }] };
     }
@@ -156,4 +146,3 @@ for await (const line of createInterface({ input: process.stdin })) {
     process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message?.id ?? null, error: { code: -32602, message: error.message } }) + "\n");
   }
 }
-await new Promise(resolve => assetServer.close(resolve));
