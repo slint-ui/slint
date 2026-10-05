@@ -196,9 +196,17 @@ impl ProjectFileData {
 /// The settings that a caller set explicitly through an API, which win over the project file.
 #[derive(Clone, Debug, Default)]
 pub struct Overrides {
-    pub include_paths: Option<Vec<PathBuf>>,
-    pub library_paths: Option<HashMap<String, PathBuf>>,
-    pub style: Option<String>,
+    pub project: ProjectFileData,
+    pub embed_resources: Option<crate::EmbedResourcesKind>,
+    pub const_scale_factor: Option<f32>,
+    #[cfg(feature = "bundle-translations")]
+    pub bundled_translations_path: Option<PathBuf>,
+    pub default_translation_context: Option<crate::DefaultTranslationContext>,
+    pub debug_info: Option<bool>,
+    pub library_name: Option<String>,
+    pub rust_module: Option<String>,
+    #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+    pub use_sdf_fonts: Option<bool>,
 }
 
 impl Overrides {
@@ -211,15 +219,95 @@ impl Overrides {
         if let Some(project_file) = project_file {
             project_file.apply_to(config);
         }
-        if let Some(include_paths) = &self.include_paths {
-            config.include_paths = include_paths.clone();
+        let Self {
+            project,
+            embed_resources,
+            const_scale_factor,
+            #[cfg(feature = "bundle-translations")]
+            bundled_translations_path,
+            default_translation_context,
+            debug_info,
+            library_name,
+            rust_module,
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+            use_sdf_fonts,
+        } = self;
+        project.apply_to(config);
+        if let Some(embed_resources) = embed_resources {
+            config.embed_resources = *embed_resources;
         }
-        if let Some(library_paths) = &self.library_paths {
-            config.library_paths = library_paths.clone();
+        if let Some(const_scale_factor) = const_scale_factor {
+            config.const_scale_factor = Some(*const_scale_factor);
         }
-        if let Some(style) = &self.style {
-            config.style = Some(style.clone());
+        #[cfg(feature = "bundle-translations")]
+        if let Some(bundled_translations_path) = bundled_translations_path {
+            config.bundled_translations_path = Some(bundled_translations_path.clone());
         }
+        if let Some(default_translation_context) = default_translation_context {
+            config.default_translation_context = default_translation_context.clone();
+        }
+        if let Some(debug_info) = debug_info {
+            config.debug_info = *debug_info;
+        }
+        if let Some(library_name) = library_name {
+            config.library_name = Some(library_name.clone());
+        }
+        if let Some(rust_module) = rust_module {
+            config.rust_module = Some(rust_module.clone());
+        }
+        #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+        if let Some(use_sdf_fonts) = use_sdf_fonts {
+            config.use_sdf_fonts = *use_sdf_fonts;
+        }
+    }
+
+    pub fn merge(&mut self, other: Self) {
+        let Self {
+            project,
+            embed_resources,
+            const_scale_factor,
+            #[cfg(feature = "bundle-translations")]
+            bundled_translations_path,
+            default_translation_context,
+            debug_info,
+            library_name,
+            rust_module,
+            #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+            use_sdf_fonts,
+        } = other;
+        let ProjectFileData {
+            schema,
+            library_paths,
+            include_paths,
+            style,
+            enable_experimental_features,
+            entry,
+        } = project;
+        replace_if_supplied(&mut self.project.schema, schema);
+        replace_if_supplied(&mut self.project.library_paths, library_paths);
+        replace_if_supplied(&mut self.project.include_paths, include_paths);
+        replace_if_supplied(&mut self.project.style, style);
+        replace_if_supplied(
+            &mut self.project.enable_experimental_features,
+            enable_experimental_features,
+        );
+        replace_if_supplied(&mut self.project.entry, entry);
+        replace_if_supplied(&mut self.embed_resources, embed_resources);
+        replace_if_supplied(&mut self.const_scale_factor, const_scale_factor);
+        #[cfg(feature = "bundle-translations")]
+        replace_if_supplied(&mut self.bundled_translations_path, bundled_translations_path);
+        replace_if_supplied(&mut self.default_translation_context, default_translation_context);
+        replace_if_supplied(&mut self.debug_info, debug_info);
+        replace_if_supplied(&mut self.library_name, library_name);
+        replace_if_supplied(&mut self.rust_module, rust_module);
+        #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
+        replace_if_supplied(&mut self.use_sdf_fonts, use_sdf_fonts);
+    }
+}
+
+fn replace_if_supplied<T>(target: &mut Option<T>, supplied: Option<T>) {
+    if supplied.is_some() {
+        *target = supplied;
     }
 }
 
@@ -303,6 +391,68 @@ mod tests {
         path::{Path, PathBuf},
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    #[test]
+    fn build_overrides_apply_after_project_settings_and_existing_defaults() {
+        with_project_file_contents(
+            r#"{"include-paths":["include"],"library-paths":{"widgets":"lib"},"style":"fluent","enable-experimental-features":true}"#,
+            |path| {
+                let project = ProjectFile::load(path).unwrap();
+                let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
+                config.debug_info = true;
+                config.const_scale_factor = Some(2.);
+                let overrides = super::Overrides {
+                    project: super::ProjectFileData {
+                        include_paths: Some(vec![]),
+                        library_paths: Some(HashMap::new()),
+                        style: Some(String::new()),
+                        enable_experimental_features: Some(false),
+                        ..Default::default()
+                    },
+                    debug_info: Some(false),
+                    const_scale_factor: Some(0.),
+                    ..Default::default()
+                };
+                overrides.apply(Some(&project), &mut config);
+                assert!(config.include_paths.is_empty());
+                assert!(config.library_paths.is_empty());
+                assert_eq!(config.style.as_deref(), Some(""));
+                assert!(!config.enable_experimental);
+                assert!(!config.debug_info);
+                assert_eq!(config.const_scale_factor, Some(0.));
+            },
+        );
+    }
+
+    #[test]
+    fn option_merge_replaces_supplied_collections_and_preserves_omitted_settings() {
+        let mut overrides = super::Overrides {
+            project: super::ProjectFileData {
+                include_paths: Some(vec![PathBuf::from("startup")]),
+                library_paths: Some(HashMap::from([("startup".into(), PathBuf::from("lib"))])),
+                style: Some("fluent".into()),
+                enable_experimental_features: Some(true),
+                ..Default::default()
+            },
+            debug_info: Some(true),
+            ..Default::default()
+        };
+        overrides.merge(super::Overrides {
+            project: super::ProjectFileData {
+                include_paths: Some(vec![]),
+                library_paths: Some(HashMap::new()),
+                enable_experimental_features: Some(false),
+                ..Default::default()
+            },
+            debug_info: Some(false),
+            ..Default::default()
+        });
+        assert_eq!(overrides.project.include_paths, Some(vec![]));
+        assert_eq!(overrides.project.library_paths, Some(HashMap::new()));
+        assert_eq!(overrides.project.style.as_deref(), Some("fluent"));
+        assert_eq!(overrides.project.enable_experimental_features, Some(false));
+        assert_eq!(overrides.debug_info, Some(false));
+    }
 
     #[test]
     fn partially_specified_project_file_is_valid() {

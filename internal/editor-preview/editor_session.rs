@@ -5,7 +5,7 @@
 //! language server and the visual editor.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::project_file::{ProjectFile, ProjectFileData};
+use i_slint_compiler::project_file::{Overrides, ProjectFile, ProjectFileData};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
@@ -33,10 +33,7 @@ pub struct PreviewConnection {
 #[derive(Clone, Debug, Default)]
 pub struct SessionConfigOverrides {
     pub hide_ui: Option<bool>,
-    pub include_paths: Option<Vec<PathBuf>>,
-    pub library_paths: Option<HashMap<String, PathBuf>>,
-    pub style: Option<String>,
-    pub experimental: Option<bool>,
+    pub compiler: Overrides,
 }
 
 impl SessionConfigOverrides {
@@ -44,18 +41,7 @@ impl SessionConfigOverrides {
         if other.hide_ui.is_some() {
             self.hide_ui = other.hide_ui;
         }
-        if other.include_paths.is_some() {
-            self.include_paths = other.include_paths;
-        }
-        if other.library_paths.is_some() {
-            self.library_paths = other.library_paths;
-        }
-        if other.style.is_some() {
-            self.style = other.style;
-        }
-        if other.experimental.is_some() {
-            self.experimental = other.experimental;
-        }
+        self.compiler.merge(other.compiler);
     }
 }
 
@@ -284,22 +270,7 @@ impl EditorSession {
         )
         .apply_to(&mut config.compiler_config);
 
-        let SessionConfigOverrides {
-            hide_ui: _,
-            include_paths,
-            library_paths,
-            style,
-            experimental,
-        } = self.effective_config_overrides();
-        ProjectFileData {
-            schema: None,
-            include_paths,
-            library_paths,
-            style,
-            enable_experimental_features: experimental,
-            entry: None,
-        }
-        .apply_to(&mut config.compiler_config);
+        self.effective_config_overrides().compiler.apply(None, &mut config.compiler_config);
 
         config
     }
@@ -1095,8 +1066,14 @@ mod tests {
 
         let mut session = session();
         session.set_startup_config_overrides(SessionConfigOverrides {
-            style: Some("cosmic".into()),
-            experimental: Some(true),
+            compiler: Overrides {
+                project: ProjectFileData {
+                    style: Some("cosmic".into()),
+                    enable_experimental_features: Some(true),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             ..Default::default()
         });
         load_document(&mut session, &document_path).unwrap();
@@ -1104,8 +1081,14 @@ mod tests {
         assert!(session.preview_config.enable_experimental);
 
         spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
-            style: Some("cupertino".into()),
-            experimental: Some(false),
+            compiler: Overrides {
+                project: ProjectFileData {
+                    style: Some("cupertino".into()),
+                    enable_experimental_features: Some(false),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             ..Default::default()
         }))
         .unwrap();

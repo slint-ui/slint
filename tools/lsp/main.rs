@@ -502,9 +502,15 @@ async fn run_main_loop(
     let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
     let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
-        include_paths: startup_include_paths,
-        library_paths: startup_library_paths,
-        style: startup_style,
+        compiler: i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths: startup_include_paths,
+                library_paths: startup_library_paths,
+                style: startup_style,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     });
 
