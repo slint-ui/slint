@@ -96,9 +96,6 @@ fn target_with_root(
     key: &str,
     allow_root: bool,
 ) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
-    if PREVIEW_STATE.with_borrow(|state| state.preview_blocked) {
-        return None;
-    }
     let (selected, instance_index) = if let Some(selected) = selected_element() {
         let index = selected.instance_index as i32;
         (selected, index)

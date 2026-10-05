@@ -514,7 +514,7 @@ pub async fn build_from_source(
     for def in build_from_document(doc, &config, type_loaders, animation_mode) {
         components.insert(def.name().to_string(), def);
     }
-    if components.is_empty() && !config.is_preview {
+    if components.is_empty() {
         diag.push_error_with_span("No component found".into(), Default::default());
     }
     #[cfg(feature = "internal")]
