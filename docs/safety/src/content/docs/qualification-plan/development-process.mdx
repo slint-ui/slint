@@ -42,9 +42,7 @@ Modifications to the Slint SC codebase are managed to preserve the safety and in
 
 :::caution[TODO]
 No impact analysis is currently performed for changes (ISO 26262-8, 8.4.3.1 requires one per change request). Decide what form this should take and how it fits into the PR flow.
-:::
 
-:::caution[TODO]
 Authorization currently rests with a single reviewer (or, for trivial changes, no one). ISO 26262-8, 8.4.4.1 envisions decision by project manager, safety manager, QA, and developers. Decide whether this needs a dedicated approval step for Slint SC, distinct from ordinary code review.
 :::
 
@@ -52,10 +50,6 @@ Authorization currently rests with a single reviewer (or, for trivial changes, n
 
 Continuous Integration (CI) is achieved through [GitHub Actions](https://github.com/slint-ui/slint/actions).
 Workflows run for any Pull Request (PR) and for any push to the `master` branch, and a failure blocks merging the PR.
-
-:::caution[TODO]
-Show the Actions for Slint SC when we have some.
-:::
 
 The CI system doesn't generate code that ships, but a run that reports green without having run the tests would hide exactly the errors the tests exist to catch, which is the fail-to-detect case of tool classification.
 Its classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).

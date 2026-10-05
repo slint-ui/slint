@@ -8,13 +8,6 @@ description: How the tools of Slint SC are qualified.
 This chapter states how each tool reaches the confidence level its [classification](/evaluation-report/tool-classification/) asks for.
 The runtime isn't a tool; its qualification is in the [Component Qualification Plan](/qualification-plan/component-qualification/).
 
-:::caution[TODO]
-At ASIL B, Tables 4 and 5 of ISO 26262-8 highly recommend increased confidence from use (11.4.7) and evaluation of the tool development process (11.4.8).
-They only recommend validation (11.4.9), the method chosen here.
-Decide whether 11.4.8 is also claimed.
-If it is, 11.4.8.3 wants the evaluation based on a recognized standard, such as Automotive SPICE, the ISO/IEC 33000 series, or CMMI, so say which.
-:::
-
 ## Slint Compiler
 
 The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 11.4.9.
@@ -37,7 +30,3 @@ See [Coverage Tool Verification](/qualification-plan/slint-coverage/).
 ## Test Suites
 
 The suites that produce this evidence are described in [Test Suites](/qualification-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).
-
-:::caution[TODO]
-Give each suite an identifier, so the potential errors can be traced to the suites that cover them.
-:::
