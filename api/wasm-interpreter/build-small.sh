@@ -19,7 +19,9 @@
 #   - text is drawn as paths from the glyph outlines (the `outline-text` feature), which leaves
 #     femtovg's glyph rasterizer out; color glyphs (emoji) aren't drawn;
 #   - `@markdown` text is shown as plain text (the `no-markdown` feature), which leaves the
-#     markdown parser out.
+#     markdown parser out;
+#   - skrifa is replaced by a copy with patches/skrifa-0.44-no-hinting.patch applied, which
+#     leaves the font hinters out. Cargo.lock is restored afterwards.
 #
 # With NIGHTLY=1, the standard library is rebuilt with `panic = "immediate-abort"` and without
 # panic locations, which saves about another 8%. A panic then traps without a message, and
@@ -46,6 +48,22 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/../../target/wasm-small}"
 out_dir="${OUT_DIR:-pkg}"
 
 cargo_args=(--features no-embedded-font,woff2,outline-text,no-markdown)
+
+# Replace skrifa with a patched copy, for this build only.
+skrifa_src=$(cargo metadata --format-version 1 --locked | python3 -c '
+import json, sys
+print(next(p["manifest_path"] for p in json.load(sys.stdin)["packages"]
+           if p["name"] == "skrifa" and p["version"].startswith("0.44.")).rsplit("/", 1)[0])')
+skrifa_patched="$CARGO_TARGET_DIR/patched/skrifa"
+rm -rf "$skrifa_patched"
+mkdir -p "$(dirname "$skrifa_patched")"
+cp -r "$skrifa_src" "$skrifa_patched"
+patch --quiet -p1 -d "$skrifa_patched" < patches/skrifa-0.44-no-hinting.patch
+cargo_args+=(--config "patch.crates-io.skrifa.path=\"$skrifa_patched\"")
+# The patch rewrites Cargo.lock's entry for skrifa; put it back.
+cp ../../Cargo.lock "$CARGO_TARGET_DIR/Cargo.lock.orig"
+trap 'cp "$CARGO_TARGET_DIR/Cargo.lock.orig" ../../Cargo.lock' EXIT
+
 if [ "${NIGHTLY:-}" = 1 ]; then
     export RUSTUP_TOOLCHAIN=nightly
     export RUSTFLAGS="${RUSTFLAGS:-} -Zunstable-options -Cpanic=immediate-abort -Zlocation-detail=none -Zfmt-debug=shallow"

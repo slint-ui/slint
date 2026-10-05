@@ -1,0 +1,43 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+#
+# Applied by build-small.sh to a copy of skrifa 0.44, which then replaces the crates.io one for that
+# build only. Slint draws its outlines unhinted, but skrifa's unhinted TrueType and CFF paths still
+# contain the calls into the hinters, skipped at runtime, so the linker keeps them. With the calls
+# gone, the TrueType bytecode interpreter and the CFF hinting sink leave the binary.
+#
+# cspell:ignore charstring glyf subfont
+#
+--- a/src/outline/cff/mod.rs
++++ b/src/outline/cff/mod.rs
+@@ -265,7 +265,11 @@
+             charstring_data,
+         };
+         // Only apply hinting if we have a scale
+-        let apply_hinting = hint && subfont.scale_requested;
++        // Slint wasm-small build: never hint, so that the hinting sink leaves the binary.
++        let apply_hinting = {
++            let _ = (hint, subfont.scale_requested);
++            false
++        };
+         let mut pen_sink = PenSink::new(pen);
+         let mut simplifying_adapter = NopFilterSink::new(&mut pen_sink);
+         let mut transform = Transform {
+--- a/src/outline/glyf/hint/instance.rs
++++ b/src/outline/glyf/hint/instance.rs
+@@ -101,12 +101,15 @@
+         }
+     }
+ 
++    // Slint wasm-small build: never run the bytecode interpreter, so that it leaves the binary.
++    #[allow(unreachable_code, unused_variables)]
+     pub fn hint(
+         &self,
+         outlines: &Outlines,
+         outline: &mut HintOutline,
+         is_pedantic: bool,
+     ) -> Result<(), HintError> {
++        return Ok(());
+         // Twilight zone
+         let twilight_count = outline.twilight_scaled.len();
+         let twilight_contours = [twilight_count as u16];
