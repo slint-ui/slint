@@ -571,6 +571,7 @@ fn gen_corelib(
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
+        "LogicalSize",
         "LogicalLength",
         "MouseEvent",
     ]
