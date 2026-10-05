@@ -1,0 +1,36 @@
+export component Button inherits Rectangle {
+    in property <string> label: "click me!";
+    in property <color> label-color: #ffffff;
+    in property <color> background-color: #dc2626;
+    in property <color> hover-color: root.background-color.brighter(0.08);
+    in property <color> pressed-color: root.background-color.darker(0.12);
+    in property <color> disabled-color: #9ca3af;
+    in property <bool> enabled: true;
+    out property <bool> hovered: root.enabled && touch.has-hover;
+    out property <bool> pressed: root.enabled && touch.pressed;
+    callback clicked();
+
+    preferred-width: 200px;
+    preferred-height: 48px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #00000020;
+    background: !root.enabled ? root.disabled-color
+        : root.pressed ? root.pressed-color
+        : root.hovered ? root.hover-color : root.background-color;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if (root.enabled) { root.clicked(); } }
+
+    Text {
+        text: root.label;
+        color: root.label-color;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { if (root.enabled) { root.clicked(); } }
+    }
+}

@@ -1,0 +1,15 @@
+import { Button } from "slint-button.slint";
+
+export component ButtonPreview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+
+    Button {
+        width: 200px;
+        height: 48px;
+        label: "click me!";
+        background-color: #dc2626;
+        label-color: #ffffff;
+    }
+}
