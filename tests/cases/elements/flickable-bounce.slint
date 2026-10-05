@@ -60,7 +60,6 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     window.dispatch_event(platform::WindowEvent::PointerReleased { position: released_position, button });
 }
 
-// use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 const INFINITE_TIME_SPEND: u64 = 100000000;
 let instance = TestCase::new().unwrap();
 let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
