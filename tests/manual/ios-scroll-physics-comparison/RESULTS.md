@@ -1,6 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
-<!-- cspell:ignore xcresult XcodeGen -->
+<!-- cspell:ignore xcresult XcodeGen Murmele nondecreasing -->
 
 # iPhone Capture Results
 
