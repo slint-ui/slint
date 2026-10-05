@@ -32,15 +32,15 @@ async fn parse_source(
     let config = {
         let mut tmp = crate::document_cache::CompilerConfiguration::default();
         if !style.is_empty() {
-            tmp.style = Some(style);
+            tmp.compiler_config.style = Some(style);
         }
-        tmp.include_paths = include_paths;
-        tmp.library_paths = library_paths;
-        tmp.enable_experimental |= enable_experimental;
+        tmp.compiler_config.include_paths = include_paths;
+        tmp.compiler_config.library_paths = library_paths;
+        tmp.compiler_config.enable_experimental |= enable_experimental;
         tmp.open_import_callback = Some(Rc::new(file_loader_fallback));
         // The preview's resource URL mapper is installed by the wasm application at
         // runtime, so it was never set when this fixture ran.
-        tmp.resource_url_mapper = None;
+        tmp.compiler_config.resource_url_mapper = None;
         tmp
     };
 
@@ -165,7 +165,12 @@ pub fn recompile_test_with_sources(
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> crate::DocumentCache {
     let config = crate::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
+        compiler_config: {
+            let mut compiler_config =
+                crate::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.style = Some("fluent".to_string());
+            compiler_config
+        },
         ..Default::default()
     };
     crate::DocumentCache::new(config)
@@ -174,8 +179,13 @@ pub fn empty_document_cache() -> crate::DocumentCache {
 /// Create an empty `DocumentCache` with experimental features enabled.
 pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
     let config = crate::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
-        enable_experimental: true,
+        compiler_config: {
+            let mut compiler_config =
+                crate::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.style = Some("fluent".to_string());
+            compiler_config.enable_experimental = true;
+            compiler_config
+        },
         ..Default::default()
     };
     crate::DocumentCache::new(config)

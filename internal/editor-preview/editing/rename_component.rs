@@ -1377,7 +1377,8 @@ mod tests {
         };
 
         // changed code compiles fine:
-        let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+        let enable_experimental =
+            document_cache.compiler_configuration().compiler_config.enable_experimental;
         let new_document_cache =
             test::recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental);
 

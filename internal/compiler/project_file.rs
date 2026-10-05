@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::source_path::SourcePath;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -11,23 +12,23 @@ use std::{
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-struct ProjectFileData {
+pub struct ProjectFileData {
     /// The schema that editors validate the file against. The compiler ignores it.
     #[serde(rename = "$schema")]
-    schema: Option<String>,
+    pub schema: Option<String>,
 
-    library_paths: Option<HashMap<String, PathBuf>>,
+    pub library_paths: Option<HashMap<String, PathBuf>>,
 
-    include_paths: Option<Vec<PathBuf>>,
+    pub include_paths: Option<Vec<PathBuf>>,
 
-    style: Option<String>,
+    pub style: Option<String>,
 
-    enable_experimental_features: Option<bool>,
+    pub enable_experimental_features: Option<bool>,
 
-    entry: Option<PathBuf>,
+    pub entry: Option<PathBuf>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProjectFile {
     source_path: PathBuf,
     data: ProjectFileData,
@@ -46,7 +47,12 @@ pub fn is_project_file(path: &Path) -> bool {
 /// Any other path resolves to itself, with the project file found for its directory.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
     if !is_project_file(input) {
-        return Ok((input.to_path_buf(), ProjectFile::find(&crate::pathutils::dirname(input))?));
+        return Ok((
+            input.to_path_buf(),
+            ProjectFile::find(
+                &SourcePath::new(input).parent().into_native_path().unwrap_or_default(),
+            )?,
+        ));
     }
     let project_file = ProjectFile::load(input)
         .map_err(|error| format!("Cannot load {}: {error}", input.display()))?;
@@ -123,7 +129,8 @@ impl ProjectFile {
 
     /// The `.slint` file to compile when a tool is given this project file.
     pub fn entry(&self) -> Option<PathBuf> {
-        let project_directory = crate::pathutils::dirname(&self.source_path);
+        let project_directory =
+            SourcePath::new(&self.source_path).parent().into_native_path().unwrap_or_default();
         self.data.entry.clone().map(|entry| resolve_relative_path(&project_directory, entry))
     }
 
@@ -139,31 +146,49 @@ impl ProjectFile {
     /// Applies the settings of the project file to `compiler_config`,
     /// leaving the settings the project file doesn't specify untouched.
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
-        let project_directory = crate::pathutils::dirname(&self.source_path);
+        self.resolved_data().apply_to(compiler_config);
+    }
 
-        if let Some(include_paths) = &self.data.include_paths {
-            compiler_config.include_paths = include_paths
-                .iter()
-                .cloned()
-                .map(|path| resolve_relative_path(&project_directory, path))
-                .collect();
+    pub fn resolved_data(&self) -> ProjectFileData {
+        let project_directory =
+            SourcePath::new(&self.source_path).parent().into_native_path().unwrap_or_default();
+        let mut data = self.data.clone();
+        if let Some(include_paths) = &mut data.include_paths {
+            for path in include_paths {
+                *path = resolve_relative_path(&project_directory, path.clone());
+            }
         }
-
-        if let Some(library_paths) = &self.data.library_paths {
-            compiler_config.library_paths = library_paths
-                .iter()
-                .map(|(library_name, path)| {
-                    (library_name.clone(), resolve_relative_path(&project_directory, path.clone()))
-                })
-                .collect();
+        if let Some(library_paths) = &mut data.library_paths {
+            for path in library_paths.values_mut() {
+                *path = resolve_relative_path(&project_directory, path.clone());
+            }
         }
+        data.entry = self.entry();
+        data
+    }
+}
 
-        if let Some(style) = &self.data.style {
+impl ProjectFileData {
+    pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
+        let Self {
+            schema: _,
+            library_paths,
+            include_paths,
+            style,
+            enable_experimental_features,
+            entry: _,
+        } = self;
+        if let Some(include_paths) = include_paths {
+            compiler_config.include_paths = include_paths.clone();
+        }
+        if let Some(library_paths) = library_paths {
+            compiler_config.library_paths = library_paths.clone();
+        }
+        if let Some(style) = style {
             compiler_config.style = Some(style.clone());
         }
-
-        if let Some(enable_experimental_features) = self.data.enable_experimental_features {
-            compiler_config.enable_experimental = enable_experimental_features;
+        if let Some(enable_experimental_features) = enable_experimental_features {
+            compiler_config.enable_experimental = *enable_experimental_features;
         }
     }
 }
@@ -250,16 +275,22 @@ fn blank_out_comments(source: &mut [u8]) {
 }
 
 fn normalize_project_file_path(path: &Path) -> PathBuf {
-    if crate::pathutils::is_absolute(path) {
-        crate::pathutils::clean_path(path)
+    if crate::source_path::is_absolute(&path.to_string_lossy()) {
+        crate::source_path::clean_path(path)
     } else {
-        crate::pathutils::join(&std::env::current_dir().ok().unwrap_or_default(), path)
-            .unwrap_or_else(|| crate::pathutils::clean_path(path))
+        SourcePath::new(std::env::current_dir().ok().unwrap_or_default())
+            .join(&path.to_string_lossy())
+            .and_then(SourcePath::into_native_path)
+            .unwrap_or_else(|| crate::source_path::clean_path(path))
     }
 }
 
+#[expect(deprecated)]
 fn resolve_relative_path(project_directory: &Path, path: PathBuf) -> PathBuf {
-    crate::pathutils::join(project_directory, &path).unwrap_or(path)
+    SourcePath::new(project_directory)
+        .join(&path.to_string_lossy())
+        .map(|path| path.to_legacy_path())
+        .unwrap_or(path)
 }
 
 #[cfg(test)]

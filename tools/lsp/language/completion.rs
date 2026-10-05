@@ -83,7 +83,8 @@ pub(crate) fn completion_at(
         .and_then(|caps| caps.snippet_support)
         .unwrap_or(false);
 
-    let enable_experimental = document_cache.compiler_configuration().enable_experimental;
+    let enable_experimental =
+        document_cache.compiler_configuration().compiler_config.enable_experimental;
 
     if enable_experimental
         && let Some(match_element) = match_element::case_value_position(&token, offset)

@@ -345,7 +345,10 @@ fn project_file_search_directory(
     document: &parser::syntax_nodes::Document,
     source_path: &std::path::Path,
 ) -> PathBuf {
-    let source_directory = pathutils::dirname(source_path);
+    let source_directory = i_slint_compiler::source_path::SourcePath::new(source_path)
+        .parent()
+        .into_native_path()
+        .unwrap_or_default();
 
     let declares_anything = document.Component().next().is_some()
         || document.StructDeclaration().next().is_some()
@@ -382,9 +385,10 @@ fn project_file_search_directory(
         return source_directory;
     }
 
-    pathutils::join(&source_directory, std::path::Path::new(imported_path))
+    i_slint_compiler::source_path::SourcePath::new(&source_directory)
+        .join(imported_path)
         .filter(|path| path.exists())
-        .map(|path| pathutils::dirname(&path))
+        .and_then(|path| path.parent().into_native_path())
         .unwrap_or(source_directory)
 }
 
@@ -508,7 +512,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return stream;
     }
 
-
     //println!("{syntax_node:#?}");
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
@@ -574,7 +577,11 @@ mod tests {
 
     fn search_directory_for(body: &str, source_path: &Path) -> PathBuf {
         let mut diag = BuildDiagnostics::default();
-        let node = parser::parse(body.to_string(), Some(source_path), &mut diag);
+        let node = parser::parse(
+            body.to_string(),
+            Some(i_slint_compiler::source_path::SourcePath::new(source_path)),
+            &mut diag,
+        );
         assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
         let document = parser::syntax_nodes::Document::from(node);
         project_file_search_directory(&document, source_path)

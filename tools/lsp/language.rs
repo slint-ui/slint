@@ -20,13 +20,12 @@ pub mod test;
 use crate::editor_preview::{EditorSession, SessionConfigOverrides};
 use crate::{editor_preview, util};
 
-
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::source_path::SourcePath;
-use i_slint_compiler::langtype::Type;
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 #[cfg(all(
