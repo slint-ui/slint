@@ -252,7 +252,10 @@ impl CompilerConfiguration {
         Self { config }
     }
 
-    /// Specify the Rust module to place the generated code in.
+    /// Specifies the Rust module path containing the library's generated exports, such as `backend::ui`.
+    ///
+    /// Use this with [`Self::as_library()`] so consuming crates can locate those exports.
+    /// Place `slint::include_modules!()` inside the corresponding Rust module.
     ///
     /// **Note**: This feature is experimental and may change or be removed in the future.
     #[cfg(feature = "experimental-module-builds")]

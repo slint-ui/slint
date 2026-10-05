@@ -53,6 +53,13 @@ pub fn ident(ident: &str) -> proc_macro2::Ident {
     }
 }
 
+fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> TokenStream {
+    let package = ident(&library_info.package);
+    let module_segments =
+        library_info.module.iter().flat_map(|module| module.split("::")).map(ident);
+    quote!(#package::#(#module_segments::)*#symbol)
+}
+
 /// Returns the identifier used for the Property<()> that tracks when a
 /// callback handler is changed from native code.
 fn callback_tracker_ident(callback_name: &str) -> proc_macro2::Ident {
@@ -180,16 +187,6 @@ pub fn generate(
     }
 
     let module_header = generate_module_header();
-    let qualified_name_ident = |symbol: &SmolStr, library_info: &LibraryInfo| {
-        let symbol = ident(symbol);
-        let package = ident(&library_info.package);
-        if let Some(module) = &library_info.module {
-            let module = ident(module);
-            quote!(#package :: #module :: #symbol)
-        } else {
-            quote!(#package :: #symbol)
-        }
-    };
 
     let library_imports = {
         let doc_used_types = doc.used_types.borrow();
@@ -197,17 +194,18 @@ pub fn generate(
             .library_types_imports
             .iter()
             .map(|(symbol, library_info)| {
-                let ident = qualified_name_ident(symbol, library_info);
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
                 quote!(
                     #[allow(unused_imports)]
-                    pub use #ident;
+                    pub use #symbol_path;
                 )
             })
             .chain(doc_used_types.library_global_imports.iter().map(|(symbol, library_info)| {
-                let ident = qualified_name_ident(symbol, library_info);
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
                 let inner_symbol_name = smol_str::format_smolstr!("Inner{}", symbol);
-                let inner_ident = qualified_name_ident(&inner_symbol_name, library_info);
-                quote!(pub use #ident, #inner_ident;)
+                let inner_symbol_path =
+                    library_symbol_path(library_info, ident(&inner_symbol_name));
+                quote!(pub use #symbol_path, #inner_symbol_path;)
             }))
             .collect::<Vec<_>>()
     };
@@ -640,15 +638,7 @@ fn generate_shared_globals(
             let struct_name = format_ident!("{}SharedGlobals", library_info.name);
             let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
-            let shared_globals_type_name = if let Some(module) = library_info.module {
-                let package = ident(&library_info.package);
-                let module = ident(&module);
-                //(quote!(#shared_globals_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
-                quote!(#package::#module::#struct_name)
-            } else {
-                let package = ident(&library_info.package);
-                quote!(#package::#struct_name)
-            };
+            let shared_globals_type_name = library_symbol_path(&library_info, struct_name);
             (quote!(#shared_globals_var_name), shared_globals_type_name)
         })
         .unzip();
