@@ -615,7 +615,7 @@ fn item_geometry(
         if !VRc::ptr_eq(parent.item_tree(), &vrc) {
             break; // crossed into another component instance's item tree
         }
-        if !parent.is_injected_wrapper() {
+        if !parent.is_geometry_wrapper() {
             break;
         }
         if let Some(transform) = i_slint_core::items::ItemRef::downcast_pin::<
@@ -762,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn injected_wrapper_classification() {
+    fn geometry_wrapper_classification() {
         let code = r#"
 export component Win inherits Window {
     wrapped := Rectangle {
@@ -788,22 +788,22 @@ export component Win inherits Window {
             ancestors
                 .iter()
                 .find(|item| item.downcast::<Transform>().is_some())
-                .map(ItemRc::is_injected_wrapper),
+                .map(ItemRc::is_geometry_wrapper),
             ancestors
                 .iter()
                 .find(|item| item.downcast::<Opacity>().is_some())
-                .map(ItemRc::is_injected_wrapper),
+                .map(ItemRc::is_geometry_wrapper),
             ancestors
                 .iter()
                 .find(|item| item.downcast::<Layer>().is_some())
-                .map(ItemRc::is_injected_wrapper),
+                .map(ItemRc::is_geometry_wrapper),
             ancestors
                 .iter()
                 .find(|item| {
                     item.downcast::<Clip>()
                         .is_some_and(|clip| clip.as_pin_ref().is_visibility_clip())
                 })
-                .map(ItemRc::is_injected_wrapper),
+                .map(ItemRc::is_geometry_wrapper),
         ] {
             assert_eq!(wrapper_classification, Some(true));
         }
@@ -813,7 +813,7 @@ export component Win inherits Window {
             .map(|flat_index| ItemRc::new(root_item_tree.clone(), flat_index as u32))
             .find(|item| item.downcast::<BoxShadow>().is_some())
             .expect("box shadow");
-        assert!(!box_shadow.is_injected_wrapper());
+        assert!(!box_shadow.is_geometry_wrapper());
 
         let ordinary_clip = (0..instance.inner.vrc().item_table.len())
             .map(|flat_index| ItemRc::new(root_item_tree.clone(), flat_index as u32))
@@ -821,7 +821,7 @@ export component Win inherits Window {
                 item.downcast::<Clip>().is_some_and(|clip| !clip.as_pin_ref().is_visibility_clip())
             })
             .expect("ordinary clip");
-        assert!(!ordinary_clip.is_injected_wrapper());
+        assert!(!ordinary_clip.is_geometry_wrapper());
     }
 
     // With debug_hooks enabled every element is wrapped in injected geometry wrappers
@@ -857,6 +857,12 @@ export component Win inherits Window {
         y: 15px;
         width: 30px;
         height: 25px;
+        clipped-child := Rectangle {
+            x: 3px;
+            y: 4px;
+            width: 10px;
+            height: 12px;
+        }
     }
     outer := Rectangle {
         x: 10px;
@@ -873,20 +879,22 @@ export component Win inherits Window {
 }"#;
         let instance = compile_with_debug_hooks(code);
 
-        let check = |id: &str, expected: (f32, f32)| {
-            let geometry = geometry_of(&instance, code, id);
-            let x = geometry.rect.origin.x - geometry.parent_origin().x;
-            let y = geometry.rect.origin.y - geometry.parent_origin().y;
+        for (element_id, expected_position) in [
+            ("plain", (30.0, 40.0)),
+            ("faded", (70.0, 80.0)),
+            ("clipped", (90.0, 15.0)),
+            ("clipped-child", (3.0, 4.0)),
+            ("nested", (5.0, 7.0)),
+        ] {
+            let geometry = geometry_of(&instance, code, element_id);
+            let horizontal_position = geometry.rect.origin.x - geometry.parent_origin().x;
+            let vertical_position = geometry.rect.origin.y - geometry.parent_origin().y;
             assert!(
-                (x - expected.0).abs() < 0.5 && (y - expected.1).abs() < 0.5,
-                "{id}: source-relative position ({x}, {y}) should be {expected:?}"
+                (horizontal_position - expected_position.0).abs() < 0.5
+                    && (vertical_position - expected_position.1).abs() < 0.5,
+                "{element_id}: source-relative position ({horizontal_position}, {vertical_position}) should be {expected_position:?}"
             );
-        };
-
-        check("plain", (30.0, 40.0));
-        check("faded", (70.0, 80.0));
-        check("clipped", (90.0, 15.0));
-        check("nested", (5.0, 7.0));
+        }
     }
 
     #[test]
