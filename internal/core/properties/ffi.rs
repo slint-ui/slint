@@ -240,7 +240,7 @@ fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
     ));
     // Safety: The BindingCallable is for type T
     unsafe {
-        handle.0.set_binding(move |val: &mut T| {
+        handle.0.set_binding(move |val: &mut T, _: &PropertyContext| {
             let (value, finished) = d.borrow_mut().compute_interpolated_value();
             *val = value;
             if finished {

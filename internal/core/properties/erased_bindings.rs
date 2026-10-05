@@ -14,8 +14,9 @@
 //!
 //! The binding functions all take an extra `&Arg` (`&()` for those without a
 //! meaningful argument), so that erasing them never changes the function's arity.
+//! For property bindings, it's the [`PropertyContext`] they're evaluated in.
 
-use super::Property;
+use super::{Property, PropertyContext, WithContext};
 use crate::callbacks::Callback;
 use core::pin::Pin;
 use vtable::{ErasedWeakFn, VRcMapped, VTableMetaDropInPlace};
@@ -30,16 +31,18 @@ pub fn set_property_binding_erased<
 >(
     property: Pin<&Property<T>>,
     self_rc: &VRcMapped<VT, X>,
-    binding: fn(Pin<&X>, &()) -> T,
+    binding: fn(Pin<&X>, &PropertyContext) -> T,
 ) {
     set_property_binding_impl(property, VRcMapped::downgrade_erased_fn(self_rc, binding))
 }
 
 fn set_property_binding_impl<T: Clone + Default + 'static, VT: VTableMetaDropInPlace + 'static>(
     property: Pin<&Property<T>>,
-    binding: ErasedWeakFn<VT, T>,
+    binding: ErasedWeakFn<VT, T, PropertyContext>,
 ) {
-    property.set_binding(move || binding.upgrade_and_call(&()).unwrap_or_default())
+    property.set_binding(WithContext(move |ctx: &PropertyContext| {
+        binding.upgrade_and_call(ctx).unwrap_or_default()
+    }))
 }
 
 /// Like [`set_property_binding_erased`], for an animated binding.
@@ -52,7 +55,7 @@ pub fn set_animated_property_binding_erased<
     property: Pin<&Property<T>>,
     driver: &crate::animations::AnimationDriver,
     self_rc: &VRcMapped<VT, X>,
-    binding: fn(Pin<&X>, &()) -> T,
+    binding: fn(Pin<&X>, &PropertyContext) -> T,
     compute_animation_details: fn(
         Pin<&X>,
         &(),
@@ -75,7 +78,7 @@ fn set_animated_property_binding_impl<
 >(
     property: Pin<&Property<T>>,
     driver: &crate::animations::AnimationDriver,
-    binding: ErasedWeakFn<VT, T>,
+    binding: ErasedWeakFn<VT, T, PropertyContext>,
     compute_animation_details: ErasedWeakFn<
         VT,
         (crate::items::PropertyAnimation, Option<crate::animations::Instant>),
@@ -83,7 +86,7 @@ fn set_animated_property_binding_impl<
 ) {
     property.set_animated_binding(
         driver,
-        move || binding.upgrade_and_call(&()).unwrap_or_default(),
+        WithContext(move |ctx: &PropertyContext| binding.upgrade_and_call(ctx).unwrap_or_default()),
         move || compute_animation_details.upgrade_and_call(&()).unwrap_or_default(),
     )
 }
@@ -95,7 +98,7 @@ pub fn set_property_state_binding_erased<VT: VTableMetaDropInPlace + 'static, X>
     property: Pin<&Property<super::StateInfo>>,
     driver: &crate::animations::AnimationDriver,
     self_rc: &VRcMapped<VT, X>,
-    binding: fn(Pin<&X>, &()) -> i32,
+    binding: fn(Pin<&X>, &PropertyContext) -> i32,
 ) {
     set_property_state_binding_impl(
         property,
@@ -107,11 +110,15 @@ pub fn set_property_state_binding_erased<VT: VTableMetaDropInPlace + 'static, X>
 fn set_property_state_binding_impl<VT: VTableMetaDropInPlace + 'static>(
     property: Pin<&Property<super::StateInfo>>,
     driver: &crate::animations::AnimationDriver,
-    binding: ErasedWeakFn<VT, i32>,
+    binding: ErasedWeakFn<VT, i32, PropertyContext>,
 ) {
-    super::set_state_binding(property, driver, move || {
-        binding.upgrade_and_call(&()).expect("binding evaluated on dropped component")
-    })
+    super::set_state_binding(
+        property,
+        driver,
+        WithContext(move |ctx: &PropertyContext| {
+            binding.upgrade_and_call(ctx).expect("binding evaluated on dropped component")
+        }),
+    )
 }
 
 /// Initialize `change_tracker` to evaluate `eval` on the component `self_rc`

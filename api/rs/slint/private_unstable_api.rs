@@ -40,12 +40,14 @@ pub fn set_property_binding<
 >(
     property: Pin<&Property<T>>,
     component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
+    binding: fn(StrongRef, &PropertyContext) -> T,
 ) {
     let weak = component_strong.to_weak();
-    property.set_binding(move || {
-        <StrongRef as StrongItemTreeRef>::from_weak(&weak).map(binding).unwrap_or_default()
-    })
+    property.set_binding(WithContext(move |ctx: &PropertyContext| {
+        <StrongRef as StrongItemTreeRef>::from_weak(&weak)
+            .map(|strong| binding(strong, ctx))
+            .unwrap_or_default()
+    }))
 }
 
 pub fn set_animated_property_binding<
@@ -55,7 +57,7 @@ pub fn set_animated_property_binding<
     property: Pin<&Property<T>>,
     driver: &i_slint_core::animations::AnimationDriver,
     component_strong: &StrongRef,
-    binding: fn(StrongRef) -> T,
+    binding: fn(StrongRef, &PropertyContext) -> T,
     compute_animation_details: fn(
         StrongRef,
     )
@@ -65,7 +67,9 @@ pub fn set_animated_property_binding<
     let weak_2 = weak_1.clone();
     property.set_animated_binding(
         driver,
-        move || binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap()),
+        WithContext(move |ctx: &PropertyContext| {
+            binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak_1).unwrap(), ctx)
+        }),
         move || {
             compute_animation_details(<StrongRef as StrongItemTreeRef>::from_weak(&weak_2).unwrap())
         },
@@ -76,12 +80,16 @@ pub fn set_property_state_binding<StrongRef: StrongItemTreeRef + 'static>(
     property: Pin<&Property<StateInfo>>,
     driver: &i_slint_core::animations::AnimationDriver,
     component_strong: &StrongRef,
-    binding: fn(StrongRef) -> i32,
+    binding: fn(StrongRef, &PropertyContext) -> i32,
 ) {
     let weak = component_strong.to_weak();
-    re_exports::set_state_binding(property, driver, move || {
-        binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap())
-    })
+    re_exports::set_state_binding(
+        property,
+        driver,
+        WithContext(move |ctx: &PropertyContext| {
+            binding(<StrongRef as StrongItemTreeRef>::from_weak(&weak).unwrap(), ctx)
+        }),
+    )
 }
 
 pub fn set_callback_handler<
@@ -254,8 +262,8 @@ pub mod re_exports {
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{
-        ChangeTracker, ErasedPropertyOffset, Property, PropertyTracker, StateInfo,
-        change_tracker_init_erased, set_animated_property_binding_erased,
+        ChangeTracker, ErasedPropertyOffset, Property, PropertyContext, PropertyTracker, StateInfo,
+        WithContext, change_tracker_init_erased, set_animated_property_binding_erased,
         set_callback_handler_erased, set_constant_properties, set_property_binding_erased,
         set_property_state_binding_erased, set_state_binding,
     };

@@ -37,6 +37,9 @@ use std::str::FromStr;
 struct RustGeneratorContext {
     /// Path to the SharedGlobals structure that contains the global and the WindowAdapter
     global_access: TokenStream,
+    /// The `&PropertyContext` in scope, which property reads then go through.
+    /// `None` where there's none, such as in callback handlers.
+    property_context: Option<TokenStream>,
 }
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
@@ -462,7 +465,10 @@ fn generate_public_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
-        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
+        generator_state: RustGeneratorContext {
+            global_access: quote!(_self.globals()),
+            property_context: None,
+        },
         argument_types: &[],
     };
 
@@ -869,6 +875,7 @@ fn generate_struct(the_struct: &Struct, unit: &llr::CompilationUnit) -> TokenStr
             unit,
             RustGeneratorContext {
                 global_access: quote!(compile_error!("no global access in a constant expression")),
+                property_context: None,
             },
         );
         let (field_names, field_values): (Vec<_>, Vec<_>) = the_struct
@@ -1067,8 +1074,13 @@ fn handle_property_init(
             #set_callback_handler(#rust_property, &self_rc, { #handler });
         }));
     } else {
+        // Bindings are given the context they're evaluated in, and read through it.
+        let mut binding_ctx = ctx.clone();
+        if binding_expression.kind != llr::BindingKind::Constant {
+            binding_ctx.generator_state.property_context = Some(quote!(_ctx));
+        }
         let tokens_for_expression =
-            compile_expression(&binding_expression.expression.borrow(), ctx);
+            compile_expression(&binding_expression.expression.borrow(), &binding_ctx);
 
         let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
 
@@ -1082,6 +1094,7 @@ fn handle_property_init(
         // The erased helpers take functions with an extra unused `&()` argument, so that
         // erasing them does not change their arity. The global (non-erased) helpers don't.
         let unit_arg = if erased { quote!(, _: &()) } else { quote!() };
+        let context_arg = quote!(, _ctx: &sp::PropertyContext);
         init.push(match binding_expression.kind {
             llr::BindingKind::Constant => {
                 let t = rust_property_type(prop_type).unwrap_or(quote!(_));
@@ -1089,7 +1102,7 @@ fn handle_property_init(
             }
             llr::BindingKind::State => {
                 let binding_tokens = self_fn(
-                    unit_arg.clone(),
+                    context_arg.clone(),
                     Some(quote!(i32)),
                     quote!((#tokens_for_expression) #maybe_cast),
                 );
@@ -1102,7 +1115,7 @@ fn handle_property_init(
             }
             llr::BindingKind::Normal => {
                 let binding_tokens = self_fn(
-                    unit_arg.clone(),
+                    context_arg.clone(),
                     rust_property_type(prop_type),
                     quote!((#tokens_for_expression) #maybe_cast),
                 );
@@ -1424,7 +1437,7 @@ fn generate_child_item_trees(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
         parent_ctx,
     );
     let popups = component.popup_windows.iter().map(|popup| {
@@ -1454,7 +1467,7 @@ fn generate_sub_component_body(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
         parent_ctx,
     );
 
@@ -2454,7 +2467,7 @@ fn generate_global(
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
     );
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
@@ -2859,7 +2872,7 @@ fn generate_item_tree_body(
         let ctx = EvaluationContext::new_sub_component(
             root,
             sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals()) },
+            RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
             parent_ctx,
         );
         let z_match_arms = z_sorted_nodes.iter().map(|(node_idx, node)| {
@@ -3055,7 +3068,10 @@ fn generate_repeated_component_body(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(repeated.sub_tree.root, Some(parent_ctx)),
-        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
+        generator_state: RustGeneratorContext {
+            global_access: quote!(_self.globals()),
+            property_context: None,
+        },
         argument_types: &[],
     };
 
@@ -3427,7 +3443,7 @@ fn generate_repeated_component_body(
         let ctx = EvaluationContext::new_sub_component(
             unit,
             repeated.sub_tree.root,
-            RustGeneratorContext { global_access: quote!(_self.globals()) },
+            RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
             Some(parent_ctx),
         );
         let z_prop = access_member(z_ref, &ctx).get_property();
@@ -3721,9 +3737,18 @@ impl MemberAccess {
     }
 
     fn get_property(self) -> TokenStream {
+        self.get_property_with(None)
+    }
+
+    /// Like [`Self::get_property`], reading through `property_context` when given.
+    fn get_property_with(self, property_context: Option<&TokenStream>) -> TokenStream {
+        let get = match property_context {
+            Some(property_context) => quote!(get_with_context(#property_context)),
+            None => quote!(get()),
+        };
         match self {
-            MemberAccess::Direct(t) => quote!(#t.get()),
-            MemberAccess::Option(_) => self.map_or_default(|x| quote!(#x.get())),
+            MemberAccess::Direct(t) => quote!(#t.#get),
+            MemberAccess::Option(_) => self.map_or_default(|x| quote!(#x.#get)),
             MemberAccess::OptionFn(..) => panic!("function is not a property"),
         }
     }
@@ -3948,7 +3973,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::PropertyReference(nr) => {
             let access = access_member(nr, ctx);
             let prop_type = ctx.property_ty(nr);
-            primitive_property_value(prop_type, access)
+            primitive_value_from_property_value(
+                prop_type,
+                access.get_property_with(ctx.generator_state.property_context.as_ref()),
+            )
         }
         Expression::BuiltinFunctionCall { function, arguments, .. } => {
             compile_builtin_function_call(function.clone(), arguments, ctx)
@@ -4947,7 +4975,7 @@ fn compile_builtin_function_call(
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals()) },
+                    RustGeneratorContext { global_access: quote!(_self.globals()), property_context: None },
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
@@ -5088,7 +5116,10 @@ fn compile_builtin_function_call(
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
                 popup.item_tree.root,
-                RustGeneratorContext { global_access: quote!(_self.globals()) },
+                RustGeneratorContext {
+                    global_access: quote!(_self.globals()),
+                    property_context: None,
+                },
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
@@ -6421,6 +6452,7 @@ fn generate_translations(
         current_scope: EvaluationScope::Global(0.into()),
         generator_state: RustGeneratorContext {
             global_access: quote!(compile_error!("language rule can't access state")),
+            property_context: None,
         },
         argument_types: &[Type::Int32],
     };

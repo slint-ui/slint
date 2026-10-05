@@ -380,9 +380,9 @@ trait BindingCallable<T> {
     }
 }
 
-impl<T, F: Fn(&mut T) -> BindingResult> BindingCallable<T> for F {
-    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
-        self(value)
+impl<T, F: Fn(&mut T, &PropertyContext) -> BindingResult> BindingCallable<T> for F {
+    fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult {
+        self(value, ctx)
     }
 }
 
@@ -919,13 +919,23 @@ unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
 
 /// Types that can be set as bindings for a `Property<T>`
 pub trait Binding<T> {
-    /// Evaluate the binding and return the new value
-    fn evaluate(&self, old_value: &T) -> T;
+    /// Evaluate the binding in `ctx` and return the new value
+    fn evaluate(&self, old_value: &T, ctx: &PropertyContext) -> T;
 }
 
 impl<T, F: Fn() -> T> Binding<T> for F {
-    fn evaluate(&self, _value: &T) -> T {
+    fn evaluate(&self, _value: &T, _ctx: &PropertyContext) -> T {
         self()
+    }
+}
+
+/// A binding that is given the [`PropertyContext`] it's evaluated in,
+/// to read other properties with [`Property::get_with_context`].
+pub struct WithContext<F>(pub F);
+
+impl<T, F: Fn(&PropertyContext) -> T> Binding<T> for WithContext<F> {
+    fn evaluate(&self, _value: &T, ctx: &PropertyContext) -> T {
+        (self.0)(ctx)
     }
 }
 
@@ -1157,8 +1167,8 @@ impl<T: Clone> Property<T> {
         // Safety: This will make a binding callable for the type T
         unsafe {
             self.handle.set_binding(
-                move |val: &mut T| {
-                    *val = binding.evaluate(val);
+                move |val: &mut T, ctx: &PropertyContext| {
+                    *val = binding.evaluate(val, ctx);
                     BindingResult::KeepBinding
                 },
                 #[cfg(slint_debug_property)]
@@ -1321,17 +1331,17 @@ struct StateInfoBinding<F, T> {
     _phantom: core::marker::PhantomData<fn() -> T>,
 }
 
-impl<F: Fn() -> i32, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
+impl<F: Binding<i32>, T> crate::properties::BindingCallable<T> for StateInfoBinding<F, T>
 where
     T: Default + From<StateInfo> + 'static,
     StateInfo: TryFrom<T>,
 {
-    fn evaluate(self: Pin<&Self>, value: &mut T, _ctx: &PropertyContext) -> BindingResult {
-        let new_state = (self.binding)();
-        let timestamp = self.dirty_time.take();
+    fn evaluate(self: Pin<&Self>, value: &mut T, ctx: &PropertyContext) -> BindingResult {
         // The conversion only fails on the property's initial value
         // (`Value::Void` in the interpreter); start from the default then.
         let mut state_info: StateInfo = core::mem::take(value).try_into().unwrap_or_default();
+        let new_state = self.binding.evaluate(&state_info.current_state, ctx);
+        let timestamp = self.dirty_time.take();
         if new_state != state_info.current_state {
             state_info.previous_state = state_info.current_state;
             state_info.change_time = timestamp.unwrap_or_else(|| self.driver.current_tick());
@@ -1356,7 +1366,7 @@ where
 pub fn set_state_binding<T>(
     property: Pin<&Property<T>>,
     driver: &crate::animations::AnimationDriver,
-    binding: impl Fn() -> i32 + 'static,
+    binding: impl Binding<i32> + 'static,
 ) where
     T: Default + From<StateInfo> + 'static,
     StateInfo: TryFrom<T>,

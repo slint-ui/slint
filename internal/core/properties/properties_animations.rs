@@ -663,7 +663,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         // Safety: the closure's argument is a T
         unsafe {
             self.handle.set_binding(
-                move |v: &mut T| {
+                move |v: &mut T, _: &PropertyContext| {
                     *v = value.clone();
                     BindingResult::RemoveBinding
                 },
@@ -785,8 +785,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
-                    (alloc_binding_holder(move |val: &mut T| {
-                        *val = binding.evaluate(val);
+                    (alloc_binding_holder(move |val: &mut T, ctx: &PropertyContext| {
+                        *val = binding.evaluate(val, ctx);
                         BindingResult::KeepBinding
                     }) as *mut ())
                         .map_addr(|a| a | 0b10),
