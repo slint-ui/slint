@@ -526,10 +526,12 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
                 sp::unwrap(inner.globals.get()).create_window_from_existing(window)?;
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                sp::unwrap(inner.globals.get()).enter(|| {
+                    #init_bundle_translations
+                    #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                    #ensure_tree_instantiated
+                    ::core::result::Result::Ok(Self(inner.clone()))
+                })
             }
         )),
         llr::TopLevelComponentType::SystemTrayIcon => None,
@@ -626,11 +628,13 @@ fn generate_public_component(
 
             #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
-                #eager_create_window
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                sp::unwrap(inner.globals.get()).enter(|| {
+                    #eager_create_window
+                    #init_bundle_translations
+                    #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                    #ensure_tree_instantiated
+                    ::core::result::Result::Ok(Self(inner.clone()))
+                })
             }
 
             #new_with_existing_window_impl
@@ -793,6 +797,12 @@ fn generate_shared_globals(
 
             #pub_token fn context(&self) -> &sp::SlintContext {
                 &self.context
+            }
+
+            // Run `f` with the property context of the component's context as the active one.
+            #[allow(dead_code)]
+            #pub_token fn enter<R>(&self, f: impl FnOnce() -> R) -> R {
+                self.context.property_context().enter(f)
             }
 
             fn scale_factor(&self) -> f32 {
@@ -1238,6 +1248,7 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
+    let global_access = &ctx.generator_state.global_access;
     for (name, p) in public_properties {
         let prop = access_member(&p.prop, ctx).unwrap();
 
@@ -1251,7 +1262,7 @@ fn public_api(
             property_and_callback_accessors.push(quote!(
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
-                    #prop.call(&(#(#args_name,)*))
+                    #global_access.enter(|| #prop.call(&(#(#args_name,)*)))
                 }
             ));
             let on_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Handler);
@@ -1278,7 +1289,7 @@ fn public_api(
             property_and_callback_accessors.push(quote!(
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
-                    #prop(#(#args_name,)*)
+                    #global_access.enter(|| #prop(#(#args_name,)*))
                 }
             ));
         } else {
@@ -1291,7 +1302,7 @@ fn public_api(
             property_and_callback_accessors.push(quote!(
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     let _self = #self_init;
-                    #prop_expression
+                    #global_access.enter(|| #prop_expression)
                 }
             ));
 
@@ -1301,7 +1312,7 @@ fn public_api(
                 property_and_callback_accessors.push(quote!(
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         let _self = #self_init;
-                        #set_value
+                        #global_access.enter(|| { #set_value })
                     }
                 ));
             } else {
@@ -2907,10 +2918,12 @@ fn generate_item_tree_body(
             let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
             let globals = #globals;
             let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
-            #init_globals
-            sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
-            Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
-            ::core::result::Result::Ok(self_rc)
+            globals.clone().enter(|| {
+                #init_globals
+                sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
+                Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
+                ::core::result::Result::Ok(self_rc)
+            })
         )
     } else {
         quote!(
@@ -2918,7 +2931,9 @@ fn generate_item_tree_body(
             let self_rc = sp::VRc::<sp::ItemTreeVTable, Self>::new_with(Self::default);
             #(let _ = self_rc.parent.set(parent as #parent_component_type);)*
             let _ = self_rc.globals.set(globals.clone());
-            slint::private_unstable_api::new_item_tree(self_rc, #register_window_adapter_arg, globals, Self::init)
+            globals.clone().enter(|| {
+                slint::private_unstable_api::new_item_tree(self_rc, #register_window_adapter_arg, globals, Self::init)
+            })
         )
     };
 
