@@ -398,6 +398,29 @@ pub fn slot_error_subject(name: &str) -> String {
     }
 }
 
+pub fn error_on_slot_in_inner_builtin(
+    component: &Component,
+    builtins: &[&str],
+    diag: &mut BuildDiagnostics,
+) {
+    for (name, cip) in component.child_insertion_points.borrow().iter() {
+        if Rc::ptr_eq(&cip.parent, &component.root_element) {
+            continue;
+        }
+        let Some(builtin) = cip.parent.borrow().builtin_type() else { continue };
+        if builtins.contains(&builtin.name.as_str()) {
+            diag.push_error(
+                format!(
+                    "{} is not allowed as a child of '{}'",
+                    slot_error_subject(name),
+                    builtin.name
+                ),
+                &cip.node,
+            );
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),

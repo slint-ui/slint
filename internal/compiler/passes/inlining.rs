@@ -253,12 +253,18 @@ fn inline_element(
                     children,
                 });
         } else if !children.is_empty() {
-            // @children was into a PopupWindow (named slots inside popups are not supported).
-            debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
-                &p.component,
-                &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
-            )));
-            if slot_name == DEFAULT_SLOT_NAME {
+            let enclosing = inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap();
+            let in_popup = inlined_component
+                .popup_windows
+                .borrow()
+                .iter()
+                .any(|p| Rc::ptr_eq(&p.component, &enclosing));
+            if !in_popup {
+                debug_assert!(
+                    diag.has_errors(),
+                    "error_on_slot_in_inner_builtin reports @children in a Menu"
+                );
+            } else if slot_name == DEFAULT_SLOT_NAME {
                 move_children_into_popup = Some(children);
             } else {
                 diag.push_error(
