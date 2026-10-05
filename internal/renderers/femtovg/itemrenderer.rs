@@ -31,8 +31,10 @@ use i_slint_core::{Brush, Color, ImageInner, SharedString};
 use crate::images::TextureImporter;
 
 use super::PhysicalSize;
+#[cfg(not(feature = "outline-text"))]
+use super::font_cache;
 use super::images::{Texture, TextureCacheKey};
-use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, font_cache};
+use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect};
 
 pub(super) type FemtovgBoxShadowCache<R> = BoxShadowCache<ItemGraphicsCacheEntry<R>>;
 
@@ -829,6 +831,141 @@ pub enum GlyphBrush {
     Stroke(femtovg::Paint),
 }
 
+/// Collects a glyph's outline into a femtovg path, at the glyph's position on the canvas.
+///
+/// Each contour is added in reverse. femtovg antialiases a non-convex fill by first filling the
+/// shape inset by half a pixel and then drawing a fringe around it, and it takes "inset" from the
+/// contour direction: in the direction fonts draw their outlines, the inset becomes an outset, and
+/// every glyph comes out about a pixel bolder than it is.
+#[cfg(feature = "outline-text")]
+struct GlyphPathPen<'a> {
+    path: &'a mut femtovg::Path,
+    x: f32,
+    y: f32,
+    /// The start point of the current contour.
+    start: (f32, f32),
+    /// The segments of the current contour, each with its end point last.
+    segments: Vec<GlyphSegment>,
+}
+
+#[cfg(feature = "outline-text")]
+enum GlyphSegment {
+    Line((f32, f32)),
+    Quad((f32, f32), (f32, f32)),
+    Curve((f32, f32), (f32, f32), (f32, f32)),
+}
+
+#[cfg(feature = "outline-text")]
+impl GlyphSegment {
+    fn end(&self) -> (f32, f32) {
+        match self {
+            GlyphSegment::Line(p) | GlyphSegment::Quad(_, p) | GlyphSegment::Curve(_, _, p) => *p,
+        }
+    }
+}
+
+#[cfg(feature = "outline-text")]
+impl GlyphPathPen<'_> {
+    // Font units point up, the canvas points down.
+    fn point(&self, x: f32, y: f32) -> (f32, f32) {
+        (self.x + x, self.y - y)
+    }
+
+    /// Adds the current contour to the path, from its last point back to its start.
+    fn flush(&mut self) {
+        let Some(last) = self.segments.last() else { return };
+        let end = last.end();
+        self.path.move_to(end.0, end.1);
+        for (i, segment) in self.segments.iter().enumerate().rev() {
+            let previous = if i == 0 { self.start } else { self.segments[i - 1].end() };
+            match segment {
+                GlyphSegment::Line(_) => self.path.line_to(previous.0, previous.1),
+                GlyphSegment::Quad(c, _) => self.path.quad_to(c.0, c.1, previous.0, previous.1),
+                GlyphSegment::Curve(c0, c1, _) => {
+                    self.path.bezier_to(c1.0, c1.1, c0.0, c0.1, previous.0, previous.1)
+                }
+            }
+        }
+        self.path.close();
+        self.segments.clear();
+    }
+}
+
+#[cfg(feature = "outline-text")]
+impl i_slint_common::sharedfontique::skrifa::outline::OutlinePen for GlyphPathPen<'_> {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.flush();
+        self.start = self.point(x, y);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        let p = self.point(x, y);
+        self.segments.push(GlyphSegment::Line(p));
+    }
+    fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) {
+        let (c, p) = (self.point(cx0, cy0), self.point(x, y));
+        self.segments.push(GlyphSegment::Quad(c, p));
+    }
+    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
+        let (c0, c1, p) = (self.point(cx0, cy0), self.point(cx1, cy1), self.point(x, y));
+        self.segments.push(GlyphSegment::Curve(c0, c1, p));
+    }
+    fn close(&mut self) {
+        self.flush();
+    }
+}
+
+#[cfg(feature = "outline-text")]
+impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
+    /// Draws the glyphs as one path, with the outlines skrifa reads from the font, instead of
+    /// with femtovg's text rendering. This leaves swash and zeno out of the binary, at the cost
+    /// of rasterizing every glyph as a path on every frame and of drawing no color glyphs.
+    fn draw_glyph_run_as_path(
+        &mut self,
+        font: &parley::FontData,
+        font_size: PhysicalLength,
+        normalized_coords: &[i16],
+        mut brush: GlyphBrush,
+        y_offset: sharedparley::PhysicalLength,
+        glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    ) {
+        use i_slint_common::sharedfontique::skrifa::{
+            self, MetadataProvider, instance::Size, outline::DrawSettings, raw::types::F2Dot14,
+        };
+
+        let Ok(font_ref) = skrifa::FontRef::from_index(font.data.as_ref(), font.index) else {
+            return;
+        };
+        let outlines = font_ref.outline_glyphs();
+        let coords: Vec<F2Dot14> =
+            normalized_coords.iter().map(|c| F2Dot14::from_bits(*c)).collect();
+
+        let mut path = femtovg::Path::new();
+        for glyph in glyphs_it {
+            let Some(outline) = outlines.get(skrifa::GlyphId::new(glyph.id)) else { continue };
+            let mut pen = GlyphPathPen {
+                path: &mut path,
+                x: glyph.x,
+                y: glyph.y + y_offset.get(),
+                start: (0., 0.),
+                segments: Vec::new(),
+            };
+            let settings = DrawSettings::unhinted(Size::new(font_size.get()), coords.as_slice());
+            let _ = outline.draw(settings, &mut pen);
+            pen.flush();
+        }
+
+        let mut canvas = self.canvas.borrow_mut();
+        // As for the glyph atlas, align the canvas to the pixel grid.
+        Self::align_canvas_during(&mut *canvas, |canvas| match &mut brush {
+            GlyphBrush::Fill(paint) => {
+                paint.set_fill_rule(femtovg::FillRule::NonZero);
+                canvas.fill_path(&path, paint);
+            }
+            GlyphBrush::Stroke(paint) => canvas.stroke_path(&path, paint),
+        })
+    }
+}
+
 impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRenderer<'a, R> {
     type PlatformBrush = GlyphBrush;
 
@@ -872,31 +1009,38 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         font_size: PhysicalLength,
         normalized_coords: &[i16],
         _synthesis: &fontique::Synthesis,
-        mut brush: Self::PlatformBrush,
+        brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
-        let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
+        #[cfg(feature = "outline-text")]
+        self.draw_glyph_run_as_path(font, font_size, normalized_coords, brush, y_offset, glyphs_it);
 
-        let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + y_offset.get(),
-            glyph_id: glyph.id as u16,
-        });
+        #[cfg(not(feature = "outline-text"))]
+        {
+            let mut brush = brush;
+            let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
-        let mut canvas = self.canvas.borrow_mut();
+            let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
+                x: glyph.x,
+                y: glyph.y + y_offset.get(),
+                glyph_id: glyph.id as u16,
+            });
 
-        // When rendering text, the canvas needs to be aligned to the pixel grid.
-        Self::align_canvas_during(&mut *canvas, |canvas| match &mut brush {
-            GlyphBrush::Fill(paint) => {
-                paint.set_font_size(font_size.get());
-                canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
-            }
-            GlyphBrush::Stroke(paint) => {
-                paint.set_font_size(font_size.get());
-                canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
-            }
-        })
+            let mut canvas = self.canvas.borrow_mut();
+
+            // When rendering text, the canvas needs to be aligned to the pixel grid.
+            Self::align_canvas_during(&mut *canvas, |canvas| match &mut brush {
+                GlyphBrush::Fill(paint) => {
+                    paint.set_font_size(font_size.get());
+                    canvas.fill_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
+                }
+                GlyphBrush::Stroke(paint) => {
+                    paint.set_font_size(font_size.get());
+                    canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
+                }
+            })
+        }
     }
 
     fn fill_rectangle(

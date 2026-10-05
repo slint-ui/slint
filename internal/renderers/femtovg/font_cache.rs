@@ -4,23 +4,32 @@
 // cspell:ignore Noto fontconfig
 
 use femtovg::TextContext;
+#[cfg(not(feature = "outline-text"))]
 use i_slint_common::sharedfontique::HashedBlob;
+#[cfg(not(feature = "outline-text"))]
 use i_slint_core::textlayout::sharedparley::parley;
 use std::cell::RefCell;
+#[cfg(not(feature = "outline-text"))]
 use std::collections::HashMap;
 
 pub struct FontCache {
     pub(crate) text_context: femtovg::TextContext,
+    #[cfg(not(feature = "outline-text"))]
     fonts: HashMap<(HashedBlob, u32), femtovg::FontId>,
 }
 
 impl Default for FontCache {
     fn default() -> Self {
         let text_context = TextContext::default();
-        Self { text_context, fonts: Default::default() }
+        Self {
+            text_context,
+            #[cfg(not(feature = "outline-text"))]
+            fonts: Default::default(),
+        }
     }
 }
 
+#[cfg(not(feature = "outline-text"))]
 impl FontCache {
     pub fn font(&mut self, font: &parley::FontData) -> femtovg::FontId {
         let text_context = self.text_context.clone();

@@ -7969,6 +7969,7 @@ dependencies = [
  "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-core",
+ "i-slint-renderer-femtovg",
  "js-sys",
  "send_wrapper",
  "slint-interpreter",

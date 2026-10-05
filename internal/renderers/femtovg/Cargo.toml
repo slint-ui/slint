@@ -18,6 +18,10 @@ path = "lib.rs"
 [features]
 default = []
 opengl = []
+# Draw text as paths, with the glyph outlines from skrifa, instead of with femtovg's glyph atlas.
+# This leaves swash and zeno out of the binary, which matters for wasm builds, but rasterizes every
+# glyph on every frame and draws no color glyphs (emoji).
+outline-text = []
 # wgpu-30 enables the wgpu backend for internal use (e.g. linuxkms DRM rendering).
 # unstable-wgpu-30 additionally exposes public API integration (GraphicsAPI, texture import).
 wgpu = ["wgpu-30"]

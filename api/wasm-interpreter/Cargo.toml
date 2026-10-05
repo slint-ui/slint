@@ -21,6 +21,7 @@ slint-interpreter = { workspace = true, features = ["std", "backend-winit", "ren
 i-slint-backend-winit = { workspace = true }
 i-slint-core = { workspace = true }
 i-slint-common = { workspace = true, features = ["shared-fontique"] }
+i-slint-renderer-femtovg = { workspace = true }
 send_wrapper = { workspace = true }
 
 vtable = { workspace = true }
@@ -40,6 +41,8 @@ no-embedded-font = ["i-slint-common/no-embedded-fallback-font"]
 # Accept WOFF2 files in `register_font_from_memory` and `register_default_font_from_memory`,
 # so that a page can pass the font its CSS already downloaded.
 woff2 = ["dep:wuff"]
+# Draw text as paths instead of through femtovg's glyph atlas, which leaves swash and zeno out.
+outline-text = ["i-slint-renderer-femtovg/outline-text"]
 
 #[dev-dependencies]
 #wasm-bindgen-test = "0.3.13"
