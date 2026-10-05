@@ -2527,9 +2527,20 @@ pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
 /// every animation's `enabled` binding. Returns whether the component's
 /// [`crate::SlintContext`], reached via its window adapter, reports
 /// [`crate::MotionPreference::Reduced`]; `false` if none is associated.
-pub fn reduced_motion(root: &crate::item_tree::ItemTreeRc) -> bool {
-    context_for_root(root)
-        .is_some_and(|ctx| ctx.motion_preference() == crate::MotionPreference::Reduced)
+/// Without the `std` feature it is always `false`, so the check costs nothing on microcontrollers.
+#[inline]
+pub fn reduced_motion(root: &ItemTreeWeak) -> bool {
+    #[cfg(feature = "std")]
+    {
+        root.upgrade()
+            .and_then(|root| context_for_root(&root))
+            .is_some_and(|ctx| ctx.motion_preference() == crate::MotionPreference::Reduced)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        let _ = root;
+        false
+    }
 }
 
 /// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
@@ -2713,26 +2724,6 @@ pub mod ffi {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).set_const_scale_factor(value)
-        }
-    }
-
-    /// Fixes the reduced-motion setting for the process; called by generated code when the
-    /// build declared it constant.
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_set_const_reduced_motion(
-        handle: *const WindowAdapterRcOpaque,
-        reduced: bool,
-    ) {
-        let preference = if reduced {
-            crate::MotionPreference::Reduced
-        } else {
-            crate::MotionPreference::NoPreference
-        };
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            WindowInner::from_pub(window_adapter.window())
-                .context()
-                .set_const_motion_preference(preference)
         }
     }
 

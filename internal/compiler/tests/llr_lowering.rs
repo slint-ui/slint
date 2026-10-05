@@ -70,14 +70,10 @@ export component TestCase inherits Window {
 }
 
 /// The `enabled` field of every lowered animation in `source`.
-fn lowered_animation_enabled_fields(
-    source: &str,
-    const_reduced_motion: Option<bool>,
-) -> Vec<llr::Expression> {
+fn lowered_animation_enabled_fields(source: &str) -> Vec<llr::Expression> {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diagnostics);
-    let mut config = CompilerConfiguration::new(OutputFormat::Llr);
-    config.const_reduced_motion = const_reduced_motion;
+    let config = CompilerConfiguration::new(OutputFormat::Llr);
     let (doc, diagnostics, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
@@ -122,28 +118,12 @@ export component TestCase inherits Window {
 "#;
 
 #[test]
-fn animation_enabled_reads_the_motion_preference_by_default() {
-    for enabled in lowered_animation_enabled_fields(ANIMATED_PROPERTY, None) {
-        assert!(reads_the_motion_preference(&enabled), "{enabled:?}");
-        assert!(
-            matches!(enabled, llr::Expression::BinaryExpression { op: '&', .. }),
-            "{enabled:?}"
-        );
-    }
-}
-
-#[test]
-fn const_no_motion_preference_leaves_enabled_as_written() {
-    for enabled in lowered_animation_enabled_fields(ANIMATED_PROPERTY, Some(false)) {
-        assert!(!reads_the_motion_preference(&enabled), "{enabled:?}");
-        assert!(matches!(enabled, llr::Expression::PropertyReference(_)), "{enabled:?}");
-    }
-}
-
-#[test]
-fn const_reduced_motion_disables_every_animation() {
-    for enabled in lowered_animation_enabled_fields(ANIMATED_PROPERTY, Some(true)) {
-        assert!(!reads_the_motion_preference(&enabled), "{enabled:?}");
-        assert!(matches!(enabled, llr::Expression::BoolLiteral(false)), "{enabled:?}");
+fn animation_enabled_also_checks_the_motion_preference() {
+    for enabled in lowered_animation_enabled_fields(ANIMATED_PROPERTY) {
+        let llr::Expression::BinaryExpression { lhs, rhs, op: '&' } = &enabled else {
+            panic!("{enabled:?}");
+        };
+        assert!(matches!(**lhs, llr::Expression::PropertyReference(_)), "{enabled:?}");
+        assert!(reads_the_motion_preference(rhs), "{enabled:?}");
     }
 }

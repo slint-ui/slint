@@ -2324,7 +2324,7 @@ fn call_builtin_function(
         }
         BuiltinFunction::ReducedMotion => {
             let reduced = root_instance(ctx)
-                .map(vtable::VRc::into_dyn)
+                .map(|root| vtable::VRc::downgrade(&vtable::VRc::into_dyn(root)))
                 .is_some_and(|root| i_slint_core::window::reduced_motion(&root));
             Value::Bool(reduced)
         }

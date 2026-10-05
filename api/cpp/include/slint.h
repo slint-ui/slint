@@ -95,6 +95,15 @@ inline void debug(const SharedString &str)
     cbindgen_private::slint_debug(&str);
 }
 
+inline bool reduced_motion([[maybe_unused]] const cbindgen_private::ItemTreeWeak &root)
+{
+#ifdef SLINT_FEATURE_FREESTANDING
+    return false;
+#else
+    return cbindgen_private::slint_context_reduced_motion(&root);
+#endif
+}
+
 } // namespace private_api
 
 namespace cbindgen_private {

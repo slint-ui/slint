@@ -900,11 +900,6 @@ pub fn generate(
             .push(format!("window.window_handle().set_const_scale_factor({scale_factor});"));
     }
 
-    if let Some(reduced) = compiler_config.const_reduced_motion {
-        window_creation_code
-            .push(format!("window.window_handle().set_const_reduced_motion({reduced});"));
-    }
-
     window_creation_code.extend([
         "   window.window_handle().set_component(self->root_weak);".into(),
         "}".into(),
@@ -5224,7 +5219,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ReducedMotion => {
             format!(
-                "[&]{{ auto _root = (*{0}->root_weak.lock()).into_dyn(); return slint::cbindgen_private::slint_context_reduced_motion(&_root); }}()",
+                "slint::private_api::reduced_motion({}->root_weak)",
                 ctx.generator_state.global_access
             )
         }
