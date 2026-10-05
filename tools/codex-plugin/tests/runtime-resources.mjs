@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -62,5 +65,52 @@ test("cached preview resources survive a server restart without large HTML or lo
     assert.deepEqual(gunzipSync(Buffer.concat(chunks)), await readFile(new URL("../runtime/wasm/slint_wasm_interpreter_bg.wasm", import.meta.url)));
   } finally {
     await client.close();
+  }
+});
+
+test("red and blue source revisions pass the bundled LSP and render the exact validated bytes", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-source-test-"));
+  const path = join(directory, "button.slint");
+  try {
+    const example = await readFile(new URL("../examples/button.slint", import.meta.url), "utf8");
+    for (const [revision, color] of [[1, "#dc2626"], [2, "#2563eb"]]) {
+      const source = example.replace("background-color: #dc2626;", `background-color: ${color};`);
+      await writeFile(path, source);
+      const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision } });
+      assert.equal(validation.isError, undefined);
+      assert.equal(validation.structuredContent.status, "valid");
+      assert.equal(validation.structuredContent.sourceHash, createHash("sha256").update(source).digest("hex"));
+      const rendering = await client.call("tools/call", { name: "render_slint", arguments: { source, revision, width: 320, height: 160 } });
+      assert.equal(rendering.isError, undefined);
+      assert.equal(rendering.structuredContent.source, source);
+      assert.equal(rendering.structuredContent.revision, revision);
+      assert.equal(rendering.structuredContent.sourceHash, validation.structuredContent.sourceHash);
+      assert.equal(rendering.structuredContent.runtimeRevision, validation.structuredContent.runtimeRevision);
+    }
+  } finally {
+    await client.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("invalid Slint and render arguments return errors", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-invalid-test-"));
+  const path = join(directory, "invalid.slint");
+  try {
+    const source = "export component Broken inherits Window { width: banana; }";
+    await writeFile(path, source);
+    const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 1 } });
+    assert.equal(validation.isError, true);
+    assert.equal(validation.structuredContent.status, "error");
+    assert(validation.structuredContent.diagnostics.some(diagnostic => diagnostic.severity === 1));
+    for (const arguments_ of [{ source, revision: 0 }, { source, revision: 1, width: 0 }]) {
+      const rendering = await client.call("tools/call", { name: "render_slint", arguments: arguments_ });
+      assert.equal(rendering.isError, true);
+    }
+  } finally {
+    await client.close();
+    await rm(directory, { recursive: true, force: true });
   }
 });

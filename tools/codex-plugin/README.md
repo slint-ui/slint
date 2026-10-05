@@ -25,6 +25,9 @@ The preview reads generated JavaScript and compressed Wasm through the host's MC
 The HTML stays below 1 MiB, and each Wasm resource holds at most 256 KiB of compressed bytes.
 The preview verifies the reconstructed Wasm hash before initializing it.
 Run `node --test tools/codex-plugin/tests/runtime-resources.mjs` after building to check resource size and restart behavior.
+After installation, run `node tools/codex-plugin/tests/desktop-resources.mjs` to check resource delivery through Codex's backend.
+Pass the desktop app's bundled Codex executable as its first argument to test that backend version.
+This checks the installed package and resource transport; visible inline rendering still needs a check in the app.
 The bundled native LSP supplies validation directly; agents do not need to find an LSP executable.
 
 ## Follow master
