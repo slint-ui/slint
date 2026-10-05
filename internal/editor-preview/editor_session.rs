@@ -56,23 +56,75 @@ fn insert_broadest_first(projects: &mut Vec<PathBuf>, project: PathBuf) {
     projects.insert(position, project);
 }
 
-/// Records `value` from the project file at `source` unless an earlier one already set it,
-/// and warns when the two disagree.
-fn keep_first<'a, T: Clone + PartialEq + std::fmt::Display>(
-    kept: &mut Option<(T, &'a std::path::Path)>,
-    value: &Option<T>,
-    source: &'a std::path::Path,
+fn keep_first<T: Clone + PartialEq + std::fmt::Display>(
+    kept: &mut Option<(T, String)>,
+    value: Option<T>,
+    source: &str,
     setting: &str,
+    warn: &mut impl FnMut(String, String, &str),
 ) {
     let Some(value) = value else { return };
-    match kept {
-        None => *kept = Some((value.clone(), source)),
-        Some((kept_value, kept_source)) if kept_value != value => tracing::warn!(
-            "Project file {} sets {setting} to {value}, keeping {kept_value} from {}",
-            source.display(),
-            kept_source.display()
-        ),
-        Some(_) => {}
+    let (kept_value, kept_source) = kept.get_or_insert_with(|| (value.clone(), source.into()));
+    if kept_value != &value {
+        warn(format!("{setting} '{value}'"), format!("{setting} '{kept_value}'"), kept_source);
+    }
+}
+
+fn merge_project_include_paths(
+    include_paths: &mut Option<Vec<PathBuf>>,
+    project_include_paths: Option<Vec<PathBuf>>,
+    override_source: Option<&str>,
+    warn: &mut impl FnMut(String, String, &str),
+) {
+    let Some(paths) = project_include_paths else { return };
+    let include_paths = include_paths.get_or_insert_default();
+    for path in paths {
+        if !include_paths.contains(&path) {
+            if let Some(source) = override_source {
+                warn(
+                    format!("include path '{}'", path.display()),
+                    format!("include paths {include_paths:?}"),
+                    source,
+                );
+            } else {
+                include_paths.push(path);
+            }
+        }
+    }
+}
+
+fn merge_project_library_paths(
+    library_paths: &mut Option<HashMap<String, (PathBuf, String)>>,
+    project_library_paths: Option<HashMap<String, PathBuf>>,
+    override_source: Option<&str>,
+    project_source: &str,
+    warn: &mut impl FnMut(String, String, &str),
+) {
+    let Some(paths) = project_library_paths else { return };
+    let library_paths = library_paths.get_or_insert_default();
+    let mut paths = paths.into_iter().collect::<Vec<_>>();
+    paths.sort_by(|(left, _), (right, _)| left.cmp(right));
+    for (name, path) in paths {
+        if let Some(source) = override_source {
+            if !library_paths.contains_key(&name) {
+                warn(
+                    format!("library '{name}' at '{}'", path.display()),
+                    format!("no library '{name}'"),
+                    source,
+                );
+                continue;
+            }
+        }
+        let (kept_path, kept_source) = library_paths
+            .entry(name.clone())
+            .or_insert_with(|| (path.clone(), project_source.to_string()));
+        if kept_path != &path {
+            warn(
+                format!("library '{name}' at '{}'", path.display()),
+                format!("library '{name}' at '{}'", kept_path.display()),
+                kept_source,
+            );
+        }
     }
 }
 
@@ -196,93 +248,131 @@ impl EditorSession {
         overrides
     }
 
-    fn merged_project_data<'a>(
-        projects: impl IntoIterator<Item = &'a ProjectFile>,
-    ) -> ProjectFileData {
-        let mut include_paths: Option<Vec<PathBuf>> = None;
-        let mut library_paths: Option<HashMap<String, (PathBuf, &std::path::Path)>> = None;
-        let mut style = None;
-        let mut enable_experimental = None;
-
-        for project in projects {
-            let ProjectFileData {
-                include_paths: project_include_paths,
-                library_paths: project_library_paths,
-                style: project_style,
-                enable_experimental_features: project_enable_experimental,
-                schema: _,
-                entry: _,
-            } = project.resolved_data();
-            let source = project.source_path();
-
-            if let Some(project_include_paths) = project_include_paths {
-                let include_paths = include_paths.get_or_insert_default();
-                for include_path in &project_include_paths {
-                    if !include_paths.contains(include_path) {
-                        include_paths.push(include_path.clone());
-                    }
-                }
+    fn merged_project_data(
+        &self,
+        overrides: ProjectFileData,
+    ) -> (ProjectFileData, VersionedDiagnostics) {
+        let ProjectFileData {
+            mut include_paths,
+            library_paths,
+            style,
+            enable_experimental_features,
+            schema: _,
+            entry: _,
+        } = overrides;
+        let override_source = |workspace_supplied| {
+            if workspace_supplied {
+                "workspace configuration override"
+            } else {
+                "startup configuration override"
             }
+        };
+        let workspace = &self.workspace_config_overrides.compiler.project;
+        let include_source =
+            include_paths.as_ref().map(|_| override_source(workspace.include_paths.is_some()));
+        let library_source =
+            library_paths.as_ref().map(|_| override_source(workspace.library_paths.is_some()));
+        let mut library_paths = library_paths.map(|paths| {
+            paths
+                .into_iter()
+                .map(|(name, path)| (name, (path, library_source.unwrap().to_string())))
+                .collect::<HashMap<_, _>>()
+        });
+        let mut style =
+            style.map(|value| (value, override_source(workspace.style.is_some()).to_string()));
+        let mut enable_experimental = enable_experimental_features.map(|value| {
+            (value, override_source(workspace.enable_experimental_features.is_some()).to_string())
+        });
+        let mut project_diagnostics = Vec::new();
 
-            if let Some(project_library_paths) = project_library_paths {
-                let library_paths = library_paths.get_or_insert_default();
-                for (name, library_path) in &project_library_paths {
-                    let (kept_path, kept_source) = library_paths
-                        .entry(name.clone())
-                        .or_insert_with(|| (library_path.clone(), source));
-                    if kept_path != library_path {
-                        tracing::warn!(
-                            "Project file {} sets library {name} to {}, keeping {} from {}",
-                            source.display(),
-                            library_path.display(),
-                            kept_path.display(),
-                            kept_source.display()
-                        );
-                    }
-                }
+        for path in &self.project_file_paths {
+            let Ok(url) = Url::from_file_path(path) else { continue };
+            let mut diagnostics = Vec::new();
+            if let Some(project) = self.active_projects.get(path) {
+                let ProjectFileData {
+                    include_paths: project_include_paths,
+                    library_paths: project_library_paths,
+                    style: project_style,
+                    enable_experimental_features: project_enable_experimental,
+                    schema: _,
+                    entry: _,
+                } = project.resolved_data();
+                let source = format!("project file {}", project.source_path().display());
+                let mut warn = |setting: String, selected: String, source: &str| {
+                    diagnostics.push(lsp_types::Diagnostic {
+                        range: lsp_types::Range::default(),
+                        severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                        source: Some("slint".into()),
+                        message: format!(
+                            "slint-lsp is ignoring {setting}.\nUsing {selected} from {source}\nThis is a restriction in slint-lsp - compilation will work normally."
+                        ),
+                        ..Default::default()
+                    });
+                };
+                merge_project_include_paths(
+                    &mut include_paths,
+                    project_include_paths,
+                    include_source,
+                    &mut warn,
+                );
+                merge_project_library_paths(
+                    &mut library_paths,
+                    project_library_paths,
+                    library_source,
+                    &source,
+                    &mut warn,
+                );
+                keep_first(&mut style, project_style, &source, "style", &mut warn);
+                keep_first(
+                    &mut enable_experimental,
+                    project_enable_experimental,
+                    &source,
+                    "experimental features",
+                    &mut warn,
+                );
             }
-
-            keep_first(&mut style, &project_style, source, "the style");
-            keep_first(
-                &mut enable_experimental,
-                &project_enable_experimental,
-                source,
-                "experimental features",
-            );
+            project_diagnostics.push((
+                url.clone(),
+                self.document_cache.document_version(&url),
+                diagnostics,
+            ));
         }
 
-        ProjectFileData {
-            include_paths,
-            library_paths: library_paths
-                .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
-            style: style.map(|(style, _)| style),
-            enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
-            schema: None,
-            entry: None,
-        }
+        (
+            ProjectFileData {
+                include_paths,
+                library_paths: library_paths
+                    .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
+                style: style.map(|(style, _)| style),
+                enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
+                schema: None,
+                entry: None,
+            },
+            project_diagnostics,
+        )
     }
 
-    fn effective_compiler_configuration(&self) -> crate::document_cache::CompilerConfiguration {
+    fn effective_compiler_configuration(
+        &self,
+    ) -> (crate::document_cache::CompilerConfiguration, VersionedDiagnostics) {
         let mut config = self.compiler_config_defaults.clone();
-
-        Self::merged_project_data(
-            self.project_file_paths.iter().filter_map(|path| self.active_projects.get(path)),
-        )
-        .apply_to(&mut config.compiler_config);
-
-        self.effective_config_overrides().compiler.apply(None, &mut config.compiler_config);
-
-        config
+        let mut overrides = self.effective_config_overrides().compiler;
+        let (project_data, diagnostics) =
+            self.merged_project_data(std::mem::take(&mut overrides.project));
+        project_data.apply_to(&mut config.compiler_config);
+        overrides.apply(None, &mut config.compiler_config);
+        (config, diagnostics)
     }
 
     async fn reapply_effective_configuration(&mut self) -> crate::Result<VersionedDiagnostics> {
         let overrides = self.effective_config_overrides();
-        let compiler_config = self.effective_compiler_configuration();
+        let (compiler_config, project_diagnostics) = self.effective_compiler_configuration();
         let mut diagnostics = BuildDiagnostics::default();
         let (compiler_config, reloaded_files) =
             self.document_cache.reconfigure(compiler_config, &mut diagnostics).await;
         let extra_files = reloaded_files.iter().filter_map(crate::uri_to_file).collect();
-        let diagnostics = collect_diagnostics(&self.document_cache, &extra_files, diagnostics);
+        let mut diagnostics = collect_diagnostics(&self.document_cache, &extra_files, diagnostics);
+        diagnostics.extend(project_diagnostics);
 
         self.preview_config = PreviewConfig {
             hide_ui: overrides.hide_ui,
@@ -403,7 +493,16 @@ impl EditorSession {
                 }
             },
         }
-        let diagnostics = self.reapply_effective_configuration().await?;
+        let mut diagnostics = self.reapply_effective_configuration().await?;
+        if matches!(change, FileChangeKind::Deleted) {
+            if let Ok(url) = Url::from_file_path(path) {
+                diagnostics.push((
+                    url.clone(),
+                    self.document_cache.document_version(&url),
+                    Vec::new(),
+                ));
+            }
+        }
         self.enqueue_configuration_recompile();
         Ok(diagnostics)
     }
@@ -1057,6 +1156,207 @@ mod tests {
     }
 
     #[test]
+    fn equal_project_settings_and_additive_paths_have_no_diagnostics() {
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        for name in ["first", "second"] {
+            let directory = temp.path().join(name);
+            std::fs::create_dir_all(&directory).unwrap();
+            let path = directory.join(FILE_NAME);
+            std::fs::write(&path, r#"{"style":"fluent","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            session.project_file_paths.push(path.clone());
+            session.active_projects.insert(path.clone(), ProjectFile::load(&path).unwrap());
+        }
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().all(|(_, _, warnings)| warnings.is_empty()));
+        assert_eq!(session.preview_config.include_paths.len(), 2);
+    }
+
+    #[test]
+    fn library_conflict_diagnostics_name_the_project_supplying_the_library() {
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        let mut project_paths = Vec::new();
+        for (name, libraries) in [
+            ("first", serde_json::json!({"unrelated": "first-lib"})),
+            ("second", serde_json::json!({"shared": "second-lib"})),
+            ("third", serde_json::json!({"shared": "third-lib"})),
+        ] {
+            let directory = temp.path().join(name);
+            std::fs::create_dir_all(&directory).unwrap();
+            let path = directory.join(FILE_NAME);
+            std::fs::write(&path, serde_json::json!({"library-paths": libraries}).to_string())
+                .unwrap();
+            session.project_file_paths.push(path.clone());
+            session.active_projects.insert(path.clone(), ProjectFile::load(&path).unwrap());
+            project_paths.push(path);
+        }
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let warnings = &diagnostics
+            .iter()
+            .find(|(url, _, _)| url == &Url::from_file_path(&project_paths[2]).unwrap())
+            .unwrap()
+            .2;
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0].message.contains(&format!("project file {}", project_paths[1].display()))
+        );
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides {
+                    project: ProjectFileData {
+                        library_paths: Some(HashMap::from([(
+                            "shared".into(),
+                            temp.path().join("third/third-lib"),
+                        )])),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            }))
+            .unwrap();
+        for (project_path, expected_warnings) in project_paths.iter().zip([1, 1, 0]) {
+            let warnings = &diagnostics
+                .iter()
+                .find(|(url, _, _)| url == &Url::from_file_path(project_path).unwrap())
+                .unwrap()
+                .2;
+            assert_eq!(warnings.len(), expected_warnings);
+            assert!(
+                warnings
+                    .iter()
+                    .all(|warning| warning.message.contains("workspace configuration override"))
+            );
+        }
+    }
+
+    #[test]
+    fn project_diagnostics_follow_final_configuration_and_clear() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().join(FILE_NAME);
+        let inner_directory = temp.path().join("nested");
+        std::fs::create_dir_all(&inner_directory).unwrap();
+        let inner = inner_directory.join(FILE_NAME);
+        let document = inner_directory.join("main.slint");
+        write_document(&document);
+        std::fs::write(&outer, r#"{"style":"fluent","enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#).unwrap();
+        std::fs::write(&inner, r#"{"style":"material","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        let mut session = session();
+        for path in [&outer, &inner] {
+            session.project_file_paths.push(path.clone());
+            session.active_projects.insert(path.clone(), ProjectFile::load(path).unwrap());
+        }
+        let recompute = |session: &mut EditorSession| {
+            spin_on::spin_on(session.reapply_effective_configuration()).unwrap()
+        };
+        let warnings_for = |diagnostics: &VersionedDiagnostics, path: &std::path::Path| {
+            diagnostics
+                .iter()
+                .find(|(url, _, _)| url == &Url::from_file_path(path).unwrap())
+                .unwrap()
+                .2
+                .clone()
+        };
+        let diagnostics = recompute(&mut session);
+        assert!(warnings_for(&diagnostics, &outer).is_empty());
+        let warnings = warnings_for(&diagnostics, &inner);
+        assert_eq!(warnings.len(), 3);
+        assert!(warnings.iter().all(|warning| warning.message.contains("project file")));
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData {
+                    style: Some("cupertino".into()),
+                    enable_experimental_features: Some(false),
+                    include_paths: Some(Vec::new()),
+                    library_paths: Some(HashMap::new()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let diagnostics = recompute(&mut session);
+        for path in [&outer, &inner] {
+            let warnings = warnings_for(&diagnostics, path);
+            assert!(!warnings.is_empty());
+            assert!(
+                warnings
+                    .iter()
+                    .all(|warning| warning.message.contains("startup configuration override"))
+            );
+        }
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides {
+                    project: ProjectFileData {
+                        style: Some("material".into()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            }))
+            .unwrap();
+        let warnings = warnings_for(&diagnostics, &outer);
+        assert!(warnings.iter().any(|warning| {
+            warning.message.contains("style 'material' from workspace configuration override")
+        }));
+        assert!(
+            !warnings_for(&diagnostics, &inner)
+                .iter()
+                .any(|warning| warning.message.contains("slint-lsp is ignoring style"))
+        );
+        session.workspace_config_overrides.compiler.project.include_paths =
+            Some(vec![temp.path().join("workspace")]);
+        session.workspace_config_overrides.compiler.project.library_paths =
+            Some(HashMap::from([("other".into(), temp.path().join("workspace-lib"))]));
+        let diagnostics = recompute(&mut session);
+        let warnings = warnings_for(&diagnostics, &inner);
+        assert_eq!(warnings.len(), 3);
+        assert!(
+            warnings
+                .iter()
+                .all(|warning| { warning.message.contains("workspace configuration override") })
+        );
+        assert!(warnings.iter().any(|warning| warning.message.contains("no library 'widgets'")));
+        session.workspace_config_overrides.compiler.project.include_paths = Some(Vec::new());
+        session.workspace_config_overrides.compiler.project.library_paths = Some(HashMap::new());
+        let diagnostics = recompute(&mut session);
+        assert!(
+            warnings_for(&diagnostics, &inner)
+                .iter()
+                .all(|warning| { warning.message.contains("workspace configuration override") })
+        );
+        let diagnostics = spin_on::spin_on(session.load_document(
+            std::fs::read_to_string(&document).unwrap(),
+            Url::from_file_path(&document).unwrap(),
+            Some(1),
+        ))
+        .unwrap();
+        assert!(!diagnostics.iter().any(|(url, _, _)| {
+            [&outer, &inner].iter().any(|path| url == &Url::from_file_path(path).unwrap())
+        }));
+        std::fs::write(&inner, "invalid").unwrap();
+        let diagnostics =
+            spin_on::spin_on(session.reload_active_project_file(&inner, FileChangeKind::Changed))
+                .unwrap();
+        assert!(warnings_for(&diagnostics, &inner).is_empty());
+        let diagnostics =
+            spin_on::spin_on(session.trigger_file_watcher(
+                Url::from_file_path(&inner).unwrap(),
+                FileChangeKind::Deleted,
+            ))
+            .unwrap();
+        assert!(warnings_for(&diagnostics, &inner).is_empty());
+        session.set_startup_config_overrides(Default::default());
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert!(warnings_for(&diagnostics, &outer).is_empty());
+    }
+
+    #[test]
     fn config_overrides_replace_collections_and_fall_back_when_removed() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
@@ -1202,9 +1502,7 @@ mod tests {
         );
         // Only project-a has a style, so no conflict arises.
         assert_eq!(session.preview_config.style, "material");
-        let merged = EditorSession::merged_project_data(
-            session.project_file_paths.iter().filter_map(|path| session.active_projects.get(path)),
-        );
+        let (merged, _) = session.merged_project_data(Default::default());
         assert_eq!(merged.schema, None);
         assert_eq!(merged.entry, None);
         assert_eq!(merged.enable_experimental_features, None);
@@ -1331,8 +1629,13 @@ mod tests {
         let project_url = Url::from_file_path(&project_path).unwrap();
 
         std::fs::remove_file(&project_path).unwrap();
-        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Deleted))
-            .unwrap();
+        let diagnostics = spin_on::spin_on(
+            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted),
+        )
+        .unwrap();
+        assert!(
+            diagnostics.iter().any(|(url, _, warnings)| url == &project_url && warnings.is_empty())
+        );
 
         assert_eq!(session.active_project_file_paths().next(), None);
         assert_eq!(session.preview_config.style, "fluent");
