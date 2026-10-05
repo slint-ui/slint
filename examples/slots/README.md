@@ -10,7 +10,7 @@ Its typed `surface` slot requires the `SliderSurface` interface: enabled state, 
 `CircularSurface` converts pointer angle along a 270-degree arc, starting at the bottom left and ending at the bottom right.
 Requests in the bottom gap clamp to the nearest endpoint; the center ignores pointer input because it has no useful angle.
 The headless slider converts requests into values, clamps them, and rounds them to the configured step.
-A nonpositive step disables rounding; equal or reversed bounds collapse to the minimum.
+A zero or negative step disables rounding; equal or reversed bounds collapse to the minimum.
 External value assignments are displayed with a clamped position but aren't rewritten or reported as user changes.
 
 Both sliders bind to the same external value, so interacting with either updates both.
