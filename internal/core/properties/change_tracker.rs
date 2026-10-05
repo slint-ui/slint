@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode};
+use super::{
+    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode, PropertyContext,
+};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, UnsafeCell};
@@ -100,7 +102,7 @@ impl ChangeTracker {
         eval_fn: EF,
         notify_fn: NF,
     ) {
-        self.init_impl(queue.clone(), data, eval_fn, notify_fn, false);
+        self.init_impl(queue.clone(), data, move |data, _| eval_fn(data), notify_fn, false);
     }
 
     /// Initialize the change tracker with the given data and callbacks.
@@ -120,13 +122,13 @@ impl ChangeTracker {
         eval_fn: EF,
         notify_fn: NF,
     ) {
-        self.init_impl(queue.clone(), data, eval_fn, notify_fn, true);
+        self.init_impl(queue.clone(), data, move |data, _| eval_fn(data), notify_fn, true);
     }
 
     fn init_impl<
         Data: 'static,
         T: Default + PartialEq,
-        EF: Fn(&Data) -> T + 'static,
+        EF: Fn(&Data, &PropertyContext) -> T + 'static,
         NF: Fn(&Data, &T) + 'static,
     >(
         &self,
@@ -148,7 +150,7 @@ impl ChangeTracker {
 
         unsafe fn evaluate<
             T: PartialEq,
-            EF: Fn(&Data) -> T + 'static,
+            EF: Fn(&Data, &PropertyContext) -> T + 'static,
             NF: Fn(&Data, &T) + 'static,
             Data: 'static,
         >(
@@ -164,7 +166,7 @@ impl ChangeTracker {
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
                 let new_value =
-                    ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(&inner.data));
+                    ctx.set_current_binding(Some(_self_raw), || (inner.eval_fn)(&inner.data, ctx));
                 {
                     // Safety: We just set `evaluating` to true which means we can borrow
                     let inner_value = &mut *inner.value.get();
@@ -201,8 +203,12 @@ impl ChangeTracker {
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<T: PartialEq, EF: Fn(&Data) -> T + 'static, NF: Fn(&Data, &T) + 'static, Data: 'static>
-            HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
+        impl<
+            T: PartialEq,
+            EF: Fn(&Data, &PropertyContext) -> T + 'static,
+            NF: Fn(&Data, &T) + 'static,
+            Data: 'static,
+        > HasBindingVTable for ChangeTrackerInner<T, EF, NF, Data>
         {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: drop::<T, EF, NF, Data>,
@@ -243,7 +249,7 @@ impl ChangeTracker {
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
             super::with_property_context(|pc| {
                 pc.set_current_binding(Some(raw as *const BindingHolder), || {
-                    (inner.eval_fn)(&inner.data)
+                    (inner.eval_fn)(&inner.data, pc)
                 })
             })
         };

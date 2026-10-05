@@ -314,7 +314,8 @@ impl SlintContext {
     }
 
     /// Return a reference to the reactive state of the property system.
-    pub(crate) fn property_context(&self) -> &crate::properties::PropertyContext {
+    #[doc(hidden)]
+    pub fn property_context(&self) -> &crate::properties::PropertyContext {
         &self.0.property_context
     }
 

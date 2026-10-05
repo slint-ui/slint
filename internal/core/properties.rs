@@ -1460,23 +1460,32 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
 
     /// Registers this property tracker as a dependency to the current binding being evaluated.
     pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
+        with_property_context(|ctx| {
+            self.register_as_dependency_to_current_binding_with_context(ctx)
+        })
+    }
+
+    /// Same as [`Self::register_as_dependency_to_current_binding`], for the binding being
+    /// evaluated in `ctx`.
+    pub fn register_as_dependency_to_current_binding_with_context(
+        self: Pin<&Self>,
+        ctx: &PropertyContext,
+    ) {
         // Safety: only reading dep_nodes, not moving it
         if !NEEDS_SET_DIRTY && unsafe { (*self.holder.dep_nodes.get()).is_empty() } {
             return;
         }
-        with_property_context(|pc| {
-            pc.with_current_binding(|cur_binding| {
-                if let Some(cur_binding) = cur_binding {
-                    debug_assert!(self.holder.dependencies.get() != const_sentinel());
-                    BindingHolder::register_self_as_dependency(
-                        cur_binding,
-                        self.holder.dependencies.as_ptr() as *mut DependencyListHead,
-                        #[cfg(slint_debug_property)]
-                        &self.holder.debug_name,
-                    );
-                }
-            })
-        });
+        ctx.with_current_binding(|cur_binding| {
+            if let Some(cur_binding) = cur_binding {
+                debug_assert!(self.holder.dependencies.get() != const_sentinel());
+                BindingHolder::register_self_as_dependency(
+                    cur_binding,
+                    self.holder.dependencies.as_ptr() as *mut DependencyListHead,
+                    #[cfg(slint_debug_property)]
+                    &self.holder.debug_name,
+                );
+            }
+        })
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
@@ -1489,8 +1498,17 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
-        let r = self.evaluate_as_dependency_root(f);
-        self.register_as_dependency_to_current_binding();
+        with_property_context(|ctx| self.evaluate_with_context(ctx, f))
+    }
+
+    /// Same as [`Self::evaluate`], in `ctx` rather than the active context.
+    pub fn evaluate_with_context<R>(
+        self: Pin<&Self>,
+        ctx: &PropertyContext,
+        f: impl FnOnce() -> R,
+    ) -> R {
+        let r = self.evaluate_as_dependency_root_with_context(ctx, f);
+        self.register_as_dependency_to_current_binding_with_context(ctx);
         r
     }
 
@@ -1498,11 +1516,20 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
+        with_property_context(|ctx| self.evaluate_as_dependency_root_with_context(ctx, f))
+    }
+
+    /// Same as [`Self::evaluate_as_dependency_root`], in `ctx` rather than the active context.
+    pub fn evaluate_as_dependency_root_with_context<R>(
+        self: Pin<&Self>,
+        ctx: &PropertyContext,
+        f: impl FnOnce() -> R,
+    ) -> R {
         // clear all the nodes so that we can start from scratch
         unsafe { *self.holder.dep_nodes.get() = Default::default() };
 
         let holder_ptr = &raw const self.holder as *const BindingHolder;
-        let r = with_property_context(|pc| pc.set_current_binding(Some(holder_ptr), f));
+        let r = ctx.set_current_binding(Some(holder_ptr), f);
         self.holder.dirty.set(false);
         r
     }
@@ -1510,8 +1537,17 @@ impl<const NEEDS_SET_DIRTY: bool, DirtyHandler: PropertyDirtyHandler>
     /// Call [`Self::evaluate`] if and only if it is dirty.
     /// But register a dependency in any case.
     pub fn evaluate_if_dirty<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> Option<R> {
-        let r = self.is_dirty().then(|| self.evaluate_as_dependency_root(f));
-        self.register_as_dependency_to_current_binding();
+        with_property_context(|ctx| self.evaluate_if_dirty_with_context(ctx, f))
+    }
+
+    /// Same as [`Self::evaluate_if_dirty`], in `ctx` rather than the active context.
+    pub fn evaluate_if_dirty_with_context<R>(
+        self: Pin<&Self>,
+        ctx: &PropertyContext,
+        f: impl FnOnce() -> R,
+    ) -> Option<R> {
+        let r = self.is_dirty().then(|| self.evaluate_as_dependency_root_with_context(ctx, f));
+        self.register_as_dependency_to_current_binding_with_context(ctx);
         r
     }
 
