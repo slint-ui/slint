@@ -381,7 +381,10 @@ impl ItemRc {
         }))
     }
 
-    pub fn is_injected_wrapper(&self) -> bool {
+    /// Identifies compiler-added wrappers that take over a source element's geometry.
+    /// Skip these wrappers when recovering the source element's parent coordinate system.
+    /// Ordinary clips sit inside their source rectangle and don't take over its geometry.
+    pub fn is_geometry_wrapper(&self) -> bool {
         let item = self.borrow();
         ItemRef::downcast_pin::<crate::items::Transform>(item).is_some()
             || ItemRef::downcast_pin::<crate::items::Opacity>(item).is_some()

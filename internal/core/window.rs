@@ -2325,7 +2325,6 @@ impl WindowInner {
     ///
     /// The item tree must have a `Window` root and use this window's adapter.
     /// Overlays don't participate in input, focus, popup closing, or accessibility.
-    #[doc(hidden)]
     pub fn add_overlay(&self, component: &ItemTreeRc) -> Result<(), PlatformError> {
         let mut overlay_window_adapter = None;
         ItemTreeRc::borrow_pin(component)
@@ -2357,7 +2356,6 @@ impl WindowInner {
     }
 
     /// Removes all overlays.
-    #[doc(hidden)]
     pub fn clear_overlays(&self) {
         if self.overlays.take().is_empty() {
             return;
