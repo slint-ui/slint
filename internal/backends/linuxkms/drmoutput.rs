@@ -123,19 +123,14 @@ impl DrmOutput {
                 connector
                     .modes()
                     .iter()
-                    .max_by(|current_mode, next_mode| {
-                        let current = (
-                            current_mode
-                                .mode_type()
-                                .contains(drm::control::ModeTypeFlags::PREFERRED),
-                            current_mode.size().0 as u32 * current_mode.size().1 as u32,
-                        );
-                        let next = (
-                            next_mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                            next_mode.size().0 as u32 * next_mode.size().1 as u32,
-                        );
-
-                        current.cmp(&next)
+                    // Displays often list their native size several times, down to the
+                    // 24 Hz of film, and don't always mark one of them as preferred.
+                    .max_by_key(|mode| {
+                        (
+                            mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
+                            mode.size().0 as u32 * mode.size().1 as u32,
+                            refresh_rate_millihertz(mode),
+                        )
                     })
                     .cloned()
                     .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
@@ -299,22 +294,10 @@ impl DrmOutput {
         (width as u32, height as u32)
     }
 
-    /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
-    /// and timing parameters. This matches the precision used by Vulkan's
-    /// VkDisplayModeParametersKHR::refreshRate.
+    /// Returns the refresh rate in millihertz, see [`refresh_rate_millihertz`].
     #[cfg(wgpu_surface)]
     pub fn refresh_rate_millihertz(&self) -> u32 {
-        let clock = self.mode.clock() as u64; // in kHz
-        let (_, _, htotal) = self.mode.hsync();
-        let (_, _, vtotal) = self.mode.vsync();
-        let htotal = htotal as u64;
-        let vtotal = vtotal as u64;
-        if htotal == 0 || vtotal == 0 {
-            // Fallback to rounded vrefresh * 1000
-            return self.mode.vrefresh() * 1000;
-        }
-        // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
-        ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+        refresh_rate_millihertz(&self.mode)
     }
 
     #[cfg(wgpu_29_surface_target)]
@@ -393,4 +376,21 @@ impl DrmOutput {
 
         Err(PlatformError::Other("Could not find plane matching crtc".into()))
     }
+}
+
+/// Returns `mode`'s refresh rate in millihertz, computed from its pixel clock
+/// and timing parameters. This matches the precision used by Vulkan's
+/// VkDisplayModeParametersKHR::refreshRate.
+fn refresh_rate_millihertz(mode: &drm::control::Mode) -> u32 {
+    let clock = mode.clock() as u64; // in kHz
+    let (_, _, htotal) = mode.hsync();
+    let (_, _, vtotal) = mode.vsync();
+    let htotal = htotal as u64;
+    let vtotal = vtotal as u64;
+    if htotal == 0 || vtotal == 0 {
+        // Fallback to rounded vrefresh * 1000
+        return mode.vrefresh() * 1000;
+    }
+    // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
+    ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
 }
