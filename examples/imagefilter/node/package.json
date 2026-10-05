@@ -5,7 +5,7 @@
     "type": "module",
     "dependencies": {
         "slint-ui": "workspace:*",
-        "image-js": "1.7.0"
+        "image-js": "1.7.1"
     },
     "devDependencies": {
         "@types/node": "catalog:",
