@@ -3004,7 +3004,7 @@ fn update_preview_area(
         if PREVIEW_STATE
             .with_borrow(|state| state.preview_availability != ui::PreviewAvailability::Stale)
         {
-            element_selection::unselect_element();
+            element_selection::unselect_element(SelectionNotification::Never);
         }
         set_drop_mark(&None);
     } else {
@@ -3155,6 +3155,7 @@ mod tests {
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+                state.set_preview_availability(ui::PreviewAvailability::Current);
             });
 
             set_selected_element(
