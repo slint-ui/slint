@@ -255,7 +255,7 @@ impl ComponentInstanceInner {
     }
 
     pub fn get_property(&self, name: &str) -> Option<Value> {
-        public_api::get(&self.0, name)
+        self.0.globals.enter(|| public_api::get(&self.0, name))
     }
 
     pub fn set_property(
@@ -263,11 +263,11 @@ impl ComponentInstanceInner {
         name: &str,
         value: Value,
     ) -> Result<(), crate::api::SetPropertyError> {
-        public_api::set(&self.0, name, value)
+        self.0.globals.enter(|| public_api::set(&self.0, name, value))
     }
 
     pub fn invoke(&self, name: &str, args: &[Value]) -> Option<Value> {
-        public_api::invoke(&self.0, name, args)
+        self.0.globals.enter(|| public_api::invoke(&self.0, name, args))
     }
 
     pub fn set_callback(
@@ -279,7 +279,7 @@ impl ComponentInstanceInner {
     }
 
     pub fn get_global_property(&self, global: &str, property: &str) -> Option<Value> {
-        public_api::get_global(&self.0, global, property)
+        self.0.globals.enter(|| public_api::get_global(&self.0, global, property))
     }
 
     pub fn set_global_property(
@@ -288,7 +288,7 @@ impl ComponentInstanceInner {
         property: &str,
         value: Value,
     ) -> Result<(), crate::api::SetPropertyError> {
-        public_api::set_global(&self.0, global, property, value)
+        self.0.globals.enter(|| public_api::set_global(&self.0, global, property, value))
     }
 
     pub fn set_global_callback(
@@ -301,7 +301,7 @@ impl ComponentInstanceInner {
     }
 
     pub fn invoke_global(&self, global: &str, name: &str, args: &[Value]) -> Option<Value> {
-        public_api::invoke_global(&self.0, global, name, args)
+        self.0.globals.enter(|| public_api::invoke_global(&self.0, global, name, args))
     }
 
     /// Return a borrowed reference to the window adapter, creating one

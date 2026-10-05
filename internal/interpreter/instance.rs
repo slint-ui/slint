@@ -825,6 +825,10 @@ fn build_instance(
 /// Idempotent: separate `OnceCell` flags guard the bindings install and
 /// the `init_code` step so each side can be called independently.
 pub(crate) fn finalize_instance(vrc: &VRc<ItemTreeVTable, Instance>) {
+    vrc.globals.clone().enter(|| finalize_instance_in_context(vrc))
+}
+
+fn finalize_instance_in_context(vrc: &VRc<ItemTreeVTable, Instance>) {
     init_items_and_bindings(vrc);
     if vrc.init_code_run.get().is_some() {
         return;
@@ -849,6 +853,10 @@ pub(crate) fn init_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     if vrc.bindings_installed.get().is_some() {
         return;
     }
+    vrc.globals.clone().enter(|| install_items_and_bindings(vrc))
+}
+
+fn install_items_and_bindings(vrc: &VRc<ItemTreeVTable, Instance>) {
     let _ = vrc.bindings_installed.set(());
     // `register_item_tree` calls `Item::init()`, which `ItemVTable::init`
     // requires to run before the bindings below.
