@@ -450,6 +450,26 @@ mod tests {
     }
 
     #[test]
+    fn private_percentage_component_children_have_debug_hooks() {
+        let doc = compile(
+            r#"
+            component Content inherits Rectangle {
+                width: 100%; height: 100%;
+                child := Rectangle { background: blue; width: 20px; height: 20px; }
+            }
+            export component Win inherits Window {
+                width: 400px; height: 300px;
+                Content { width: 100%; height: 100%; }
+            }
+            "#,
+        );
+        let win = component(&doc, "Win");
+        let child = child(&win.root_element, "child");
+        assert_ne!(child.borrow().debug[0].element_hash, 0);
+        assert!(hooked(&child, "background").is_some());
+    }
+
+    #[test]
     fn injects_and_wraps_top_level_only() {
         let doc = compile(
             r#"
