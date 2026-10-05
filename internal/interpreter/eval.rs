@@ -2428,6 +2428,22 @@ fn call_builtin_function(
             }
             Value::Void
         }
+        BuiltinFunction::HasSelection => {
+            use i_slint_core::items::TextInput;
+            let [Expression::PropertyReference(mr)] = arguments else {
+                return Value::Bool(false);
+            };
+            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
+                return Value::Bool(false);
+            };
+            let item_rc = i_slint_core::items::ItemRc::new(
+                vtable::VRc::into_dyn(parent_inst),
+                flat_idx as u32,
+            );
+            let has_selection = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow())
+                .is_some_and(|text_input| text_input.has_selection());
+            Value::Bool(has_selection)
+        }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)

@@ -39,7 +39,7 @@ export component TestCase {
         ti.set-selection-offsets(start, end);
     }
 
-    out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
+    out property<bool> has_selection: ti.has-selection;
     out property<int> test_cursor_pos: ti.cursor_position_byte_offset;
     out property<int> test_anchor_pos: ti.anchor_position_byte_offset;
 }
@@ -64,6 +64,10 @@ assert_eq!(instance.get_test_text(), "Hello World");
 instance.invoke_do_select();
 assert!(instance.get_has_selection());
 instance.invoke_do_deselect();
+assert!(!instance.get_has_selection());
+
+instance.invoke_do_select();
+instance.set_test_text("".into());
 assert!(!instance.get_has_selection());
 
 instance.set_test_text("Hello".into());
@@ -102,6 +106,10 @@ assert(instance.get_has_selection());
 instance.invoke_do_deselect();
 assert(!instance.get_has_selection());
 
+instance.invoke_do_select();
+instance.set_test_text("");
+assert(!instance.get_has_selection());
+
 instance.set_test_text("Hello");
 instance.invoke_set_selection_offsets(-3, 10);
 assert_eq(instance.get_test_anchor_pos(), 0);
@@ -135,6 +143,10 @@ assert.equal(instance.test_text, "Hello World");
 instance.do_select();
 assert(instance.has_selection);
 instance.do_deselect();
+assert(!instance.has_selection);
+
+instance.do_select();
+instance.test_text = "";
 assert(!instance.has_selection);
 
 instance.test_text = "Hello";

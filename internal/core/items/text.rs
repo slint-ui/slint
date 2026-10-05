@@ -2498,6 +2498,12 @@ pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_textinput_has_selection(text_input: Pin<&TextInput>) -> bool {
+    text_input.has_selection()
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_textinput_select_all(
     text_input: Pin<&TextInput>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,

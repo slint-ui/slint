@@ -2336,6 +2336,8 @@ fn build(l: &mut Loader) {
         out property <string> preedit-text;
         /// The design metrics of the font scaled to the font pixel size used by the element.
         out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+        /// `true` when text is selected.
+        @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
 
 
         /// Selects the text between two UTF-8 offsets.

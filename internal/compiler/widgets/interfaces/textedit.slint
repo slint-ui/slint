@@ -12,6 +12,7 @@ export interface TextEdit {
     in property <bool> read-only;
     in property <TextWrap> wrap;
 
+    @shadowable out property <bool> has-selection;
     out property <bool> has-focus;
     out property <length> visible-height;
     out property <length> visible-width;
