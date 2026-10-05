@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// With `markdown-as-plain-text`, the helpers only the markdown parser uses are left unused.
+#![cfg_attr(feature = "markdown-as-plain-text", allow(dead_code, unused_imports))]
+
 #[derive(Clone, Debug, PartialEq)]
 /// Styles that can be applied to text spans
 #[allow(missing_docs, dead_code)]
@@ -310,7 +313,28 @@ fn unsupported_event_name(event: &pulldown_cmark::Event<'_>) -> alloc::string::S
     }
 }
 
-#[cfg(feature = "markdown")]
+/// Without a markdown parser (`markdown-as-plain-text`), `@markdown` shows its text as it is:
+/// one paragraph per line, with the arguments interpolated and no formatting.
+#[cfg(all(feature = "markdown", feature = "markdown-as-plain-text"))]
+pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
+    format_string: &str,
+    args: &[S],
+) -> (alloc::vec::Vec<StyledTextParagraph>, alloc::vec::Vec<StyledTextParseError>) {
+    let mut arg_index = 0;
+    let mut errors = alloc::vec::Vec::new();
+    let range = 0..format_string.len();
+    let paragraphs = format_string
+        .lines()
+        .map(|line| {
+            let mut paragraph = begin_paragraph(0, None);
+            substitute(&mut paragraph, line, args, &mut arg_index, &mut errors, &range);
+            paragraph
+        })
+        .collect();
+    (paragraphs, errors)
+}
+
+#[cfg(all(feature = "markdown", not(feature = "markdown-as-plain-text")))]
 pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     format_string: &str,
     args: &[S],
@@ -691,6 +715,7 @@ fn assert_no_errors(
 
 #[cfg(feature = "markdown")]
 #[test]
+#[cfg(not(feature = "markdown-as-plain-text"))]
 fn markdown_parsing() {
     assert_eq!(
         assert_no_errors(parse_interpolated::<&[_]>("hello *world*", &[])),
@@ -886,6 +911,7 @@ new *line*
 
 #[cfg(feature = "markdown")]
 #[test]
+#[cfg(not(feature = "markdown-as-plain-text"))]
 fn markdown_parsing_interpolated() {
     assert_eq!(
         assert_no_errors(parse_interpolated(
@@ -989,6 +1015,7 @@ fn markdown_parsing_interpolated() {
 
 #[cfg(feature = "markdown")]
 #[test]
+#[cfg(not(feature = "markdown-as-plain-text"))]
 fn markdown_interleaved_html_and_emphasis() {
     // Issue #11563: interleaved HTML and markdown styles should not panic
     // but should report an error.

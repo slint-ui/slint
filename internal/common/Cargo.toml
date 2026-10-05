@@ -30,6 +30,9 @@ color-parsing = []
 no-embedded-fallback-font = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:derive_more", "color-parsing"]
+# Show `@markdown` text as plain text, without formatting, instead of parsing it. This leaves the
+# markdown and HTML parsers out of the binary, for builds that need to be small.
+markdown-as-plain-text = []
 locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_provider"]
 
 [dependencies]
