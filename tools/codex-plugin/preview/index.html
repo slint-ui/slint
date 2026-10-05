@@ -327,11 +327,33 @@ ${t.indent}${t.property}: ${d.toLowerCase()};`+n.slice(t.insertAt):n.slice(0,t.s
         }
       } finally { rendering = false; }
     }
+    let resolveBridge;
+    let rejectBridge;
+    const bridgeReady = new Promise((resolve, reject) => { resolveBridge = resolve; rejectBridge = reject; });
+    const resourceRequests = new Map();
+    let resourceRequestId = 0;
+    function readRuntimeResource(uri) {
+      return new Promise((resolve, reject) => {
+        const id = `slint-runtime-${++resourceRequestId}`;
+        const timeout = setTimeout(() => { resourceRequests.delete(id); reject(new Error("The host did not return a Slint runtime resource.")); }, 30000);
+        resourceRequests.set(id, { resolve, reject, timeout });
+        window.parent.postMessage({ jsonrpc: "2.0", id, method: "resources/read", params: { uri } }, "*");
+      });
+    }
     window.addEventListener("message", (event) => {
       if (event.source !== window.parent || event.data?.jsonrpc !== "2.0") return;
       const message = event.data;
       if (message.id === "slint-init" && message.result) {
         window.parent.postMessage({ jsonrpc: "2.0", method: "ui/notifications/initialized" }, "*");
+        resolveBridge();
+      }
+      if (message.id === "slint-init" && message.error) rejectBridge(new Error(message.error.message));
+      const request = resourceRequests.get(message.id);
+      if (request) {
+        clearTimeout(request.timeout);
+        resourceRequests.delete(message.id);
+        if (message.error) request.reject(new Error(message.error.message));
+        else request.resolve(message.result);
       }
       if (message.method === "ui/notifications/tool-input") setSource(message.params?.arguments);
       if (message.method === "ui/notifications/tool-result") setSource(message.params?.structuredContent);
@@ -344,8 +366,31 @@ ${t.indent}${t.property}: ${d.toLowerCase()};`+n.slice(t.insertAt):n.slice(0,t.s
     }
     setSource(window.openai?.toolOutput ?? window.openai?.toolInput);
     try {
-      const slint = await import(runtimeInfo.assetBaseUrl + "/slint_wasm_interpreter.js");
-      await slint.default({ module_or_path: runtimeInfo.assetBaseUrl + "/slint_wasm_interpreter_bg.wasm" });
+      if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
+      await bridgeReady;
+      const javascript = (await readRuntimeResource(runtimeInfo.javascriptUri)).contents[0].text;
+      const initializer = javascript.match(/\b(\w+)\s+as\s+default\b/)?.[1];
+      if (!initializer) throw new Error("The built Slint runtime has no initializer.");
+      const slint = await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.type = "module";
+        window.addEventListener("slint-runtime-module-ready", event => resolve(event.detail), { once: true });
+        script.textContent = javascript + `\nwindow.dispatchEvent(new CustomEvent("slint-runtime-module-ready", { detail: { default: ${initializer}, compile_from_string, run_event_loop } }));`;
+        script.addEventListener("error", () => reject(new Error("The host could not initialize the Slint runtime module.")));
+        document.head.appendChild(script);
+      });
+      const chunks = [];
+      for (let offset = 0; offset < runtimeInfo.wasmChunkUris.length; offset += 4) {
+        const batch = await Promise.all(runtimeInfo.wasmChunkUris.slice(offset, offset + 4).map(async uri => {
+          const resource = (await readRuntimeResource(uri)).contents[0];
+          return Uint8Array.from(atob(resource.blob), character => character.charCodeAt(0));
+        }));
+        chunks.push(...batch);
+      }
+      const wasm = await new Response(new Blob(chunks).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", wasm)), byte => byte.toString(16).padStart(2, "0")).join("");
+      if (hash !== runtimeInfo.wasmHash) throw new Error("The Slint runtime resources do not match this preview.");
+      await slint.default({ module_or_path: wasm });
       runtime = slint;
       await render();
     } catch (error) { showError(error); }

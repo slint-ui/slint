@@ -21,9 +21,10 @@ The CLI supports the development skill and tools but does not display an inline 
 
 The build uses the existing native LSP and Wasm interpreter crates.
 Generated binaries and their source revision are stored in the ignored `runtime/` directory.
-The preview loads generated Wasm and JavaScript from a loopback server owned by the local MCP process.
-The HTML stays below 1 MiB; the runtime assets are served separately.
-The asset server exposes only these two files and closes when the MCP process ends.
+The preview reads generated JavaScript and compressed Wasm through the host's MCP resource bridge.
+The HTML stays below 1 MiB, and each Wasm resource holds at most 256 KiB of compressed bytes.
+The preview verifies the reconstructed Wasm hash before initializing it.
+Run `node --test tools/codex-plugin/tests/runtime-resources.mjs` after building to check resource size and restart behavior.
 The bundled native LSP supplies validation directly; agents do not need to find an LSP executable.
 
 ## Follow master
