@@ -256,6 +256,8 @@ impl CompilerConfiguration {
     ///
     /// Use this with [`Self::as_library()`] so consuming crates can locate those exports.
     /// Place `slint::include_modules!()` inside the corresponding Rust module.
+    /// The path must be relative to the library crate's root, without `crate`, `self`, or `super` prefixes.
+    /// Invalid paths are reported as compilation errors.
     ///
     /// **Note**: This feature is experimental and may change or be removed in the future.
     #[cfg(feature = "experimental-module-builds")]
@@ -525,13 +527,20 @@ pub fn compile_with_config(
 
     #[cfg(feature = "experimental-module-builds")]
     if let Some(library_name) = config.config.library_name.clone() {
+        let rust_module = config
+            .config
+            .rust_module
+            .as_deref()
+            .map(i_slint_compiler::generator::rust::parse_rust_module)
+            .transpose()
+            .map_err(|error| CompileError::CompileError(vec![error.to_string()]))?;
         println!("cargo::metadata=SLINT_LIBRARY_NAME={}", library_name);
         println!(
             "cargo::metadata=SLINT_LIBRARY_PACKAGE={}",
             std::env::var("CARGO_PKG_NAME").ok().unwrap_or_default()
         );
         println!("cargo::metadata=SLINT_LIBRARY_SOURCE={}", path.display());
-        if let Some(rust_module) = &config.config.rust_module {
+        if let Some(rust_module) = rust_module {
             println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
         }
     }
@@ -604,11 +613,11 @@ pub fn compile_with_output_path(
         return Err(CompileError::CompileError(vec));
     }
 
+    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
+        .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
     let output_file =
         std::fs::File::create(&output_rust_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter::new(BufWriter::new(output_file));
-    let generated = i_slint_compiler::generator::rust::generate(&doc, &loader.compiler_config)
-        .map_err(|e| CompileError::CompileError(vec![e.to_string()]))?;
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
@@ -674,48 +683,73 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
 }
 
 #[cfg(test)]
-fn root_path_prefix() -> std::path::PathBuf {
-    #[cfg(windows)]
-    return std::path::PathBuf::from("C:/");
-    #[cfg(not(windows))]
-    return std::path::PathBuf::from("/");
-}
+mod tests {
+    use super::*;
 
-#[test]
-fn with_absolute_library_paths_test() {
-    use std::path::PathBuf;
+    fn root_path_prefix() -> std::path::PathBuf {
+        #[cfg(windows)]
+        return std::path::PathBuf::from("C:/");
+        #[cfg(not(windows))]
+        return std::path::PathBuf::from("/");
+    }
 
-    let library_paths = std::collections::HashMap::from([
-        ("relative".to_string(), PathBuf::from("some/relative/path")),
-        ("absolute".to_string(), root_path_prefix().join("some/absolute/path")),
-    ]);
-    let config = CompilerConfiguration::new().with_library_paths(library_paths);
+    #[test]
+    fn with_absolute_library_paths_test() {
+        use std::path::PathBuf;
 
-    let manifest_path = root_path_prefix().join("path/to/manifest");
-    let absolute_config = config.clone().with_absolute_paths(&manifest_path);
-    let relative = &absolute_config.config.library_paths["relative"];
-    assert!(relative.is_absolute());
-    assert!(relative.starts_with(&manifest_path));
+        let library_paths = std::collections::HashMap::from([
+            ("relative".to_string(), PathBuf::from("some/relative/path")),
+            ("absolute".to_string(), root_path_prefix().join("some/absolute/path")),
+        ]);
+        let config = CompilerConfiguration::new().with_library_paths(library_paths);
 
-    assert!(!absolute_config.config.library_paths["absolute"].starts_with(&manifest_path));
-}
+        let manifest_path = root_path_prefix().join("path/to/manifest");
+        let absolute_config = config.clone().with_absolute_paths(&manifest_path);
+        let relative = &absolute_config.config.library_paths["relative"];
+        assert!(relative.is_absolute());
+        assert!(relative.starts_with(&manifest_path));
 
-#[test]
-fn with_absolute_include_paths_test() {
-    use std::path::PathBuf;
+        assert!(!absolute_config.config.library_paths["absolute"].starts_with(&manifest_path));
+    }
 
-    let config = CompilerConfiguration::new().with_include_paths(Vec::from([
-        root_path_prefix().join("some/absolute/path"),
-        PathBuf::from("some/relative/path"),
-    ]));
+    #[test]
+    fn with_absolute_include_paths_test() {
+        use std::path::PathBuf;
 
-    let manifest_path = root_path_prefix().join("path/to/manifest");
-    let absolute_config = config.clone().with_absolute_paths(&manifest_path);
-    assert_eq!(
-        absolute_config.config.include_paths,
-        Vec::from([
+        let config = CompilerConfiguration::new().with_include_paths(Vec::from([
             root_path_prefix().join("some/absolute/path"),
-            manifest_path.join("some/relative/path"),
-        ])
-    )
+            PathBuf::from("some/relative/path"),
+        ]));
+
+        let manifest_path = root_path_prefix().join("path/to/manifest");
+        let absolute_config = config.clone().with_absolute_paths(&manifest_path);
+        assert_eq!(
+            absolute_config.config.include_paths,
+            Vec::from([
+                root_path_prefix().join("some/absolute/path"),
+                manifest_path.join("some/relative/path"),
+            ])
+        )
+    }
+
+    #[cfg(feature = "experimental-module-builds")]
+    #[test]
+    fn invalid_rust_module_is_a_compilation_error() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("main.slint");
+        let output_path = directory.path().join("main.rs");
+        std::fs::write(&source_path, "export component Main inherits Window {}").unwrap();
+
+        let config = CompilerConfiguration::new().as_library("TestLibrary").rust_module("🍰🍔🍕");
+        let error = compile_with_output_path(&source_path, &output_path, config).unwrap_err();
+
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        assert!(
+            messages.iter().any(|message| message.contains("Invalid rust_module")),
+            "{messages:?}"
+        );
+        assert!(!output_path.exists());
+    }
 }
