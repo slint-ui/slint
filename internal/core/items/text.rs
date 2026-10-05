@@ -2300,6 +2300,8 @@ impl TextInput {
     }
 
     pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // The change tracker runs delayed, so `text` may have been assigned since (#13814).
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2345,6 +2347,8 @@ impl TextInput {
     }
 
     pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // See `undo`.
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
