@@ -1682,8 +1682,6 @@ pub(crate) fn handle_mouse_grab(
     }
 }
 
-/// Send exit events for items which are not under the mouse pointer
-/// to clear pending states like hover
 pub(crate) fn send_exit_events(
     old_input_state: &MouseInputState,
     new_input_state: &mut MouseInputState,

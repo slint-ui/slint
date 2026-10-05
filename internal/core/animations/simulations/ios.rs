@@ -406,7 +406,7 @@ mod tests {
         assert_eq!(
             simulation.step(&mut current, time),
             true,
-            "There is no velocity. So the simulation is must be finish"
+            "There is no velocity. So the simulation must be finish"
         );
         assert_eq!(current, START_VALUE);
     }

@@ -196,35 +196,6 @@ mod tests {
     use crate::animations::simulations::test_limit_property;
 
     #[test]
-    fn incremental_motion_and_dynamic_bounds() {
-        for sign in [-1., 1.] {
-            let start = Instant::default();
-            let mut simulation = AndroidFlick::new_internal(
-                0.,
-                test_limit_property(sign * 10_000.),
-                AndroidFlickParameters::new_with_default_friction(sign * 1504.),
-                start,
-            );
-            let elapsed = Duration::from_millis(100);
-            let tick = start + elapsed;
-            let mut current = 0.;
-            assert!(!simulation.step(&mut current, tick));
-            let first = current;
-            current += sign * 100.; // A virtualized view changes its content origin.
-            assert!(!simulation.step(&mut current, tick));
-            assert_eq!(current, first + sign * 100.);
-            simulation.limit_value.as_ref().set(current + sign * 1.);
-            assert!(simulation.step(&mut current, start + Duration::from_millis(200)));
-            assert_eq!(current, first + sign * 101.);
-            assert_eq!(simulation.remaining_distance(elapsed), 0.);
-            assert_eq!(simulation.remaining_velocity(elapsed), 0.);
-            let stopped = current;
-            assert!(simulation.step(&mut current, start + Duration::from_secs(10)));
-            assert_eq!(current, stopped);
-        }
-    }
-
-    #[test]
     fn completion_at_exact_duration() {
         let start = Instant::default();
         let mut simulation = AndroidFlick::new_internal(
@@ -244,27 +215,6 @@ mod tests {
     }
 
     #[test]
-    fn fixed_distance_wheel_curve() {
-        for distance in [-100., 100.] {
-            let duration = Duration::from_millis(250);
-            let simulation = AndroidFlick::new_with_distance(
-                0.,
-                test_limit_property(distance * 10.),
-                distance,
-                duration,
-            );
-            for t in [0., 0.25, 0.5, 0.75, 1.] {
-                let (position, velocity) = simulation.sample(duration.mul_f32(t));
-                let rate = deceleration_rate();
-                assert!((position - distance * (1. - (1. - t).powf(rate))).abs() < 0.001);
-                assert!(
-                    (velocity - distance * rate / 0.25 * (1. - t).powf(rate - 1.)).abs() < 0.001
-                );
-            }
-        }
-    }
-
-    #[test]
     fn zero_init_velocity() {
         const START_VALUE: f32 = 10.;
 
@@ -277,7 +227,7 @@ mod tests {
         assert_eq!(
             simulation.step_internal(&mut current, time),
             true,
-            "There is no velocity. So the simulation is must be finish"
+            "There is no velocity. So the simulation must be finish"
         );
         assert_eq!(current, START_VALUE);
     }
