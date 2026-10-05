@@ -176,6 +176,7 @@ fn inline_element(
             ChildrenInsertionPoint {
                 parent: inlined_component.root_element.clone(),
                 insertion_index: inlined_component.root_element.borrow().children.len(),
+                default_children_count: 0,
                 node: ChildInsertionPointNode::DefaultChildrenPlaceHolder(cip_node),
             },
         );
@@ -183,22 +184,51 @@ fn inline_element(
 
     // Group instance children by slot target (named slot or the default slot).
     // This preserves relative order within each slot and allows named slot validation.
+    let default_overrides: HashMap<SmolStr, ChildrenInsertionPoint> =
+        if Rc::ptr_eq(elem, &root_component.root_element) {
+            root_component
+                .child_insertion_points
+                .borrow()
+                .iter()
+                .filter_map(|(name, point)| {
+                    (Rc::ptr_eq(&point.parent, elem)
+                        && matches!(point.node, ChildInsertionPointNode::SlotPlaceholder(_))
+                        && inlined_component
+                            .declared_slots
+                            .borrow()
+                            .iter()
+                            .any(|slot| slot.name == name.as_str() && slot.interface.is_none()))
+                    .then(|| (name.as_str().into(), point.clone()))
+                })
+                .collect()
+        } else {
+            HashMap::new()
+        };
     let mut children_by_slot: HashMap<SmolStr, Vec<ElementRc>> = HashMap::new();
-    for child in std::mem::take(&mut elem_mut.children) {
+    for (index, child) in std::mem::take(&mut elem_mut.children).into_iter().enumerate() {
+        let default_slot = default_overrides.iter().find_map(|(name, point)| {
+            (index >= point.insertion_index
+                && index < point.insertion_index + point.default_children_count)
+                .then(|| name.clone())
+        });
         let slot = child
             .borrow()
             .slot_target
             .as_ref()
             .map(|s| crate::parser::normalize_identifier(s))
-            .unwrap_or_else(|| DEFAULT_SLOT_NAME.into());
+            .unwrap_or_else(|| default_slot.unwrap_or_else(|| DEFAULT_SLOT_NAME.into()));
 
         children_by_slot.entry(slot).or_default().push(child);
     }
+    for name in default_overrides.keys() {
+        children_by_slot.entry(name.clone()).or_default();
+    }
 
+    let mut inherited_slots = HashSet::new();
     if Rc::ptr_eq(elem, &root_component.root_element) {
         for slot in inlined_component.declared_slots.borrow().iter() {
-            if slot.interface.is_none()
-                || children_by_slot.contains_key(&slot.name)
+            if (children_by_slot.contains_key(&slot.name)
+                && !default_overrides.contains_key(&slot.name))
                 || elem_mut.forwarded_slots.iter().any(|f| f.target == slot.name)
             {
                 continue;
@@ -213,8 +243,10 @@ fn inline_element(
                     .or_insert_with(|| ChildrenInsertionPoint {
                         parent: parent.clone(),
                         insertion_index: cip.insertion_index,
+                        default_children_count: cip.default_children_count,
                         node: cip.node.clone(),
                     });
+                inherited_slots.insert(slot.name.clone());
                 let mut declarations = root_component.declared_slots.borrow_mut();
                 if !declarations.iter().any(|s| s.name == slot.name) {
                     declarations.push(slot.clone());
@@ -257,6 +289,8 @@ fn inline_element(
     struct SlotInsertion {
         slot_name: SmolStr,
         insertion_index: usize,
+        default_children_count: usize,
+        replace_defaults: bool,
         node: ChildInsertionPointNode,
         insertion_element: ElementRc,
         children: Vec<ElementRc>,
@@ -267,7 +301,9 @@ fn inline_element(
         HashMap::new();
 
     for (slot_name, inlined_cip) in inlined_insertion_points.iter() {
-        let children = children_by_slot.remove(slot_name.as_str()).unwrap_or_default();
+        let supplied_children = children_by_slot.remove(slot_name.as_str());
+        let replace_defaults = supplied_children.is_some();
+        let children = supplied_children.unwrap_or_default();
         if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
             insertions_by_parent
                 .entry(element_key(insertion_element.clone()))
@@ -276,6 +312,8 @@ fn inline_element(
                 .push(SlotInsertion {
                     slot_name: slot_name.as_str().into(),
                     insertion_index: inlined_cip.insertion_index,
+                    default_children_count: inlined_cip.default_children_count,
+                    replace_defaults,
                     node: inlined_cip.node.clone(),
                     insertion_element: insertion_element.clone(),
                     children,
@@ -297,113 +335,69 @@ fn inline_element(
         }
     }
 
-    // Insert slot children and keep root insertion points in sync.
-    let mut insertions_for_parent =
-        |insertion_element: &ElementRc, insertions: &mut Vec<SlotInsertion>| {
-            insertions.sort_by(|a, b| {
-                a.insertion_index
-                    .cmp(&b.insertion_index)
-                    .then_with(|| a.node.span().offset.cmp(&b.node.span().offset))
-                    .then_with(|| a.slot_name.cmp(&b.slot_name))
-            });
-
-            let mut offset = 0usize;
-            if Rc::ptr_eq(elem, insertion_element) {
-                // Insert into the new inlined root children vector.
-                for insertion in insertions.drain(..) {
-                    let adjusted_index = insertion.insertion_index + offset;
-                    let inserted_len = insertion.children.len();
-                    if inserted_len > 0 {
-                        new_children.splice(adjusted_index..adjusted_index, insertion.children);
-                    }
-
-                    let mut root_insertion_points =
-                        root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
-                        let forwarded_match = forwarded_sources_by_target
-                            .get(insertion.slot_name.as_str())
-                            .is_some_and(|sources| {
-                                sources.iter().any(|source| source == root_slot_name)
-                            });
-                        if Rc::ptr_eq(&cip.parent, elem)
-                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
-                                || forwarded_match)
+    for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
+        insertions.sort_by(|a, b| {
+            a.insertion_index
+                .cmp(&b.insertion_index)
+                .then_with(|| a.node.span().offset.cmp(&b.node.span().offset))
+                .then_with(|| a.slot_name.cmp(&b.slot_name))
+        });
+        let mut child_parent =
+            (!Rc::ptr_eq(elem, &insertion_element)).then(|| insertion_element.borrow_mut());
+        let destination = if let Some(parent) = child_parent.as_mut() {
+            &mut parent.children
+        } else {
+            &mut new_children
+        };
+        let mut offset = 0isize;
+        for insertion in insertions {
+            let adjusted_index = insertion.insertion_index.checked_add_signed(offset).unwrap();
+            let inserted_len = insertion.children.len();
+            let removed_len =
+                if insertion.replace_defaults { insertion.default_children_count } else { 0 };
+            destination.splice(adjusted_index..adjusted_index + removed_len, insertion.children);
+            let mut root_points = root_component.child_insertion_points.borrow_mut();
+            for (name, cip) in root_points.iter_mut() {
+                let inherited = inherited_slots.contains(name.as_str());
+                let forwarded = forwarded_sources_by_target
+                    .get(insertion.slot_name.as_str())
+                    .is_some_and(|sources| sources.iter().any(|source| source == name));
+                if (Rc::ptr_eq(&cip.parent, elem) || inherited)
+                    && (name.as_str() == insertion.slot_name.as_str() || forwarded)
+                {
+                    let index = if inherited { 0 } else { cip.insertion_index };
+                    *cip = ChildrenInsertionPoint {
+                        parent: insertion.insertion_element.clone(),
+                        insertion_index: adjusted_index + index,
+                        default_children_count: if default_overrides
+                            .contains_key(&insertion.slot_name)
                         {
-                            *cip = ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + cip.insertion_index,
-                                node: insertion.node.clone(),
-                            };
-                        }
-                    }
-                    if root_insertion_points.is_empty()
-                        && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == DEFAULT_SLOT_NAME
-                    {
-                        root_insertion_points.insert(
-                            DEFAULT_SLOT_NAME.into(),
-                            ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + inserted_len,
-                                node: insertion.node.clone(),
-                            },
-                        );
-                    }
-
-                    offset += inserted_len;
-                }
-            } else {
-                // Insert into a mapped child element (not the inlined root).
-                let mut insertion_element_mut = insertion_element.borrow_mut();
-                for insertion in insertions.drain(..) {
-                    let adjusted_index = insertion.insertion_index + offset;
-                    let inserted_len = insertion.children.len();
-                    if inserted_len > 0 {
-                        insertion_element_mut
-                            .children
-                            .splice(adjusted_index..adjusted_index, insertion.children);
-                    }
-
-                    let mut root_insertion_points =
-                        root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
-                        let forwarded_match = forwarded_sources_by_target
-                            .get(insertion.slot_name.as_str())
-                            .is_some_and(|sources| {
-                                sources.iter().any(|source| source == root_slot_name)
-                            });
-                        if Rc::ptr_eq(&cip.parent, elem)
-                            && (root_slot_name.as_str() == insertion.slot_name.as_str()
-                                || forwarded_match)
-                        {
-                            *cip = ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + cip.insertion_index,
-                                node: insertion.node.clone(),
-                            };
-                        }
-                    }
-                    if root_insertion_points.is_empty()
-                        && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == DEFAULT_SLOT_NAME
-                    {
-                        root_insertion_points.insert(
-                            DEFAULT_SLOT_NAME.into(),
-                            ChildrenInsertionPoint {
-                                parent: insertion.insertion_element.clone(),
-                                insertion_index: adjusted_index + inserted_len,
-                                node: insertion.node.clone(),
-                            },
-                        );
-                    }
-
-                    offset += inserted_len;
+                            inserted_len
+                        } else if insertion.replace_defaults {
+                            0
+                        } else {
+                            insertion.default_children_count
+                        },
+                        node: insertion.node.clone(),
+                    };
                 }
             }
-        };
-
-    for (insertion_element, mut insertions) in insertions_by_parent.into_values() {
-        insertions_for_parent(&insertion_element, &mut insertions);
+            if root_points.is_empty()
+                && Rc::ptr_eq(elem, &root_component.root_element)
+                && insertion.slot_name == DEFAULT_SLOT_NAME
+            {
+                root_points.insert(
+                    DEFAULT_SLOT_NAME.into(),
+                    ChildrenInsertionPoint {
+                        parent: insertion.insertion_element.clone(),
+                        insertion_index: adjusted_index + inserted_len,
+                        default_children_count: 0,
+                        node: insertion.node.clone(),
+                    },
+                );
+            }
+            offset += inserted_len as isize - removed_len as isize;
+        }
     }
 
     elem_mut.children = new_children;
@@ -474,6 +468,7 @@ fn inline_element(
                 *cip = ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
                     insertion_index: inlined_cip.insertion_index + cip.insertion_index,
+                    default_children_count: 0,
                     node: inlined_cip.node.clone(),
                 };
             }
@@ -484,6 +479,7 @@ fn inline_element(
                 ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
                     insertion_index: inlined_cip.insertion_index,
+                    default_children_count: 0,
                     node: inlined_cip.node.clone(),
                 },
             );

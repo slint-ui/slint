@@ -1,0 +1,31 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Base {
+    slot content;
+    VerticalLayout {
+        content { Rectangle { min-width: 300px; } }
+    }
+}
+export component Derived inherits Base {
+    slot content;
+    content { Rectangle { min-width: 30px; } }
+}
+export component EmptyDefault inherits Derived {
+    slot content;
+    content {}
+}
+export component MixedAssignment inherits Base {
+    slot content;
+    content { Rectangle {} }
+    content << Rectangle {}
+//             >        <error{Remove the assignment to slot 'content' or its default placeholder}
+}
+export component NestedOverride inherits Base {
+    slot content;
+    VerticalLayout {
+//  >             <error{'Base' cannot have children. Only components with @children can have children}
+        content { Rectangle {} }
+//      >                      <error{Place the default placeholder for inherited slot 'content' at the component root}
+    }
+}

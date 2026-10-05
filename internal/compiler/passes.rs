@@ -7,6 +7,7 @@ mod border_radius;
 mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
+mod check_slot_defaults;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
@@ -395,6 +396,7 @@ pub fn run_import_passes(
 ) {
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     resolving::resolve_expressions(doc, type_loader, diag);
+    check_slot_defaults::check_slot_defaults(doc, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);

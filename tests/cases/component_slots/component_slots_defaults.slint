@@ -1,0 +1,84 @@
+// Copyright © 2026 Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Host {
+    slot header;
+    slot footer;
+    min-width: layout.min-width;
+    min-height: layout.min-height;
+    layout := VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        header {
+            Rectangle { min-width: 300px; height: 11px; }
+            Rectangle { height: 13px; }
+        }
+        Rectangle { height: 7px; }
+        footer { Rectangle { height: 17px; } }
+    }
+}
+component Inherited inherits Host { }
+component InheritedAgain inherits Inherited { }
+component NewDefaults inherits Host {
+    slot header;
+    header {
+        Rectangle { min-width: 31px; height: 2px; }
+        Rectangle { height: 3px; }
+    }
+}
+component NewDefaultsAgain inherits NewDefaults {
+    slot header;
+    header { Rectangle { min-width: 41px; height: 6px; } }
+}
+component EmptyDefaults inherits NewDefaults {
+    slot header;
+    header {}
+}
+component Forwarded {
+    slot heading;
+    min-height: inner.min-height;
+    min-width: inner.min-width;
+    inner := Host { header << heading; }
+}
+export component TestCase inherits Window {
+    out property <bool> test: defaults.min-height == 48px && defaults.min-width == 300px
+        && replacement.min-height == 29px && replacement.min-width == 20px
+        && inherited.min-height == 48px && replaced-inherited.min-height == 19px
+        && forwarded-defaults.min-height == 48px && forwarded-replacement.min-height == 27px
+        && new-defaults.min-width == 31px && new-defaults.min-height == 29px
+        && new-defaults-again.min-width == 41px && new-defaults-again.min-height == 30px
+        && replaced-new-defaults.min-width == 51px && replaced-new-defaults.min-height == 32px
+        && empty-defaults.min-height == 24px && replaced-empty-defaults.min-height == 33px;
+    defaults := Host { }
+    replacement := Host {
+        header << Rectangle { min-width: 20px; height: 5px; }
+    }
+    inherited := InheritedAgain { }
+    replaced-inherited := InheritedAgain {
+        header << Rectangle { height: 3px; }
+        footer << Rectangle { height: 9px; }
+    }
+    forwarded-defaults := Forwarded { }
+    forwarded-replacement := Forwarded {
+        heading << Rectangle { height: 3px; }
+    }
+    new-defaults := NewDefaults { }
+    new-defaults-again := NewDefaultsAgain { }
+    replaced-new-defaults := NewDefaultsAgain {
+        header << Rectangle { min-width: 51px; height: 8px; }
+    }
+    empty-defaults := EmptyDefaults { }
+    replaced-empty-defaults := EmptyDefaults {
+        header << Rectangle { height: 9px; }
+    }
+}
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+```
+*/
