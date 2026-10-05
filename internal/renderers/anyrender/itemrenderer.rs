@@ -1382,6 +1382,14 @@ fn load_image(
             image_cache,
             texture_importer,
         ),
+        ImageInner::AnimatedImage(animated) => load_image(
+            animated.first_frame(),
+            target_size_fn,
+            image_fit,
+            scale_factor,
+            image_cache,
+            texture_importer,
+        ),
         // Remaining variants hold live GPU resources. Borrowed GL textures
         // can't be drawn.
         #[allow(unreachable_patterns)]
