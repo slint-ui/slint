@@ -3189,6 +3189,33 @@ mod tests {
     }
 
     #[test]
+    fn reload_without_a_component_allows_later_preview_requests() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let component = PreviewComponent {
+            url: Url::parse("file:///project/Main.slint").unwrap(),
+            component: None,
+        };
+        load_preview(component.clone(), LoadBehavior::BringWindowToFront);
+        reset_project_state(Url::parse("file:///other-project/").unwrap());
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(state.loading_state, PreviewFutureState::PreLoading);
+            state.preview_loading_delay_timer.as_ref().unwrap().stop();
+        });
+        i_slint_editor_preview::util::poll_once(reload_timer_function());
+        assert_eq!(
+            PREVIEW_STATE.with_borrow(|state| state.loading_state),
+            PreviewFutureState::Pending
+        );
+        load_preview(component, LoadBehavior::BringWindowToFront);
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(state.loading_state, PreviewFutureState::PreLoading);
+            assert!(state.preview_loading_delay_timer.as_ref().unwrap().running());
+        });
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
     fn version_only_source_updates_schedule_a_rebuild_during_compilation() {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
