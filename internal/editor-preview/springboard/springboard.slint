@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum PreviewEndpointKind {
+    Local,
+    Remote,
+}
+
+export struct PreviewEndpoint {
+    name: string,
+    kind: PreviewEndpointKind,
+    addresses: [string],
+    port: int,
+    unavailable-reason: string,
+}
+
+export enum SpringboardState {
+    Stopped,
+    Idle,
+    EndpointSelected,
+}
+
+export enum ConnectionState {
+    None,
+    Connecting,
+    PairingRequired,
+    UnpairedConfirmationRequired,
+    Connected,
+    Reconnecting,
+    Failed,
+}
+
+export global Springboard {
+    in property <[PreviewEndpoint]> endpoints;
+    in property <int> selected-endpoint-index: -1;
+    out property <PreviewEndpoint> selected-endpoint: endpoints[selected-endpoint-index];
+    in property <SpringboardState> state;
+    in property <ConnectionState> connection-state;
+    in property <string> error-message;
+
+    callback close();
+    callback select-endpoint(endpoint-index: int);
+    callback select-remote-address(address: string);
+    callback submit-pairing-code(code: string);
+    callback accept-unpaired-connection();
+}
+
+import { Button, VerticalBox, ListView } from "std-widgets.slint";
+
+export component SpringboardView inherits Rectangle {
+    background: #f5f5f5;
+    border-width: 1px;
+    border-color: #888;
+    TouchArea {
+        scroll-event => { return accept; }
+    }
+
+    VerticalBox {
+        padding: 12px;
+        spacing: 8px;
+        Text {
+            text: "Springboard";
+            font-weight: 700;
+        }
+
+        ListView {
+            height: 60px;
+            for endpoint[index] in Springboard.endpoints: Button {
+                text: endpoint.name;
+                clicked => { Springboard.select-endpoint(index); }
+            }
+        }
+
+        Text {
+            text: Springboard.state == SpringboardState.Stopped ? "Preview stopped" : Springboard.state == SpringboardState.EndpointSelected ? "Local preview running" : "Select an endpoint";
+        }
+
+        Text {
+            text: Springboard.error-message;
+            color: #b02020;
+            wrap: word-wrap;
+        }
+
+        Button {
+            text: Springboard.state == SpringboardState.Stopped ? "Close" : "Stop";
+            clicked => { Springboard.close(); }
+        }
+    }
+}

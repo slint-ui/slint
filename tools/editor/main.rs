@@ -45,12 +45,6 @@ enum EditorToSessionMessage {
     SwitchProject(Project),
 }
 
-#[derive(Default)]
-struct RunPreviewState {
-    requested: bool,
-    highlight: Option<(Url, u32)>,
-}
-
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -184,15 +178,16 @@ fn start_editor_session(
     preview_global.on_run(move || {
         run_preview_sender.send(EditorToSessionMessage::RunPreview).ok();
     });
-    let preview_global =
-        <preview::ui::Preview as slint::Global<'_, preview::ui::EditorUi>>::as_weak(
-            &preview_global,
-        );
+    let springboard_global = editor_ui.global::<editor_preview::springboard_ui::Springboard>();
+    let springboard_global = <editor_preview::springboard_ui::Springboard as slint::Global<
+        '_,
+        preview::ui::EditorUi,
+    >>::as_weak(&springboard_global);
     let to_lsp = Rc::new(EmbeddedPreviewToLsp { sender: to_lsp })
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
     preview::initialize(editor_ui, to_lsp, settings);
-    start_lsp_thread(vec![from_preview], from_editor_preview, project, preview_global);
+    start_lsp_thread(vec![from_preview], from_editor_preview, project, springboard_global);
     to_editor_session
 }
 
@@ -200,7 +195,7 @@ fn start_lsp_thread(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
-    preview_global: slint::Weak<preview::ui::Preview<'static>>,
+    springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -209,9 +204,10 @@ fn start_lsp_thread(
             .build()
             .unwrap();
         let local_set = tokio::task::LocalSet::new();
-        if let Err(err) = local_set
-            .block_on(&rt, lsp_main(from_previews, from_editor_preview, project, preview_global))
-        {
+        if let Err(err) = local_set.block_on(
+            &rt,
+            lsp_main(from_previews, from_editor_preview, project, springboard_global),
+        ) {
             tracing::error!("{err}");
             std::process::exit(1);
         }
@@ -250,7 +246,7 @@ async fn lsp_main(
     from_previews: Vec<crossbeam_channel::Receiver<PreviewToLspMessage>>,
     from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
-    preview_global: slint::Weak<preview::ui::Preview<'static>>,
+    springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
 ) -> Result<()> {
     let mut from_previews = bridge_crossbeam_to_tokio(from_previews);
     let mut from_editor = bridge_crossbeam_receiver(from_editor);
@@ -266,13 +262,18 @@ async fn lsp_main(
         move |err| tracing::warn!("File watcher error: {err}"),
     )?;
 
+    let local_preview = editor_preview::springboard::LocalPreviewConfig {
+        executable: std::env::current_exe()?,
+        arguments: vec![std::ffi::OsString::from("--run-preview-child")],
+    };
+    let springboard = editor_preview::springboard::Springboard::new(
+        local_preview,
+        from_run_preview_sender,
+        springboard_global,
+    );
     let to_previews = vec![
         LspToPreviews::with_one(EditorLspToPreview),
-        LspToPreviews::with_one(editor_preview::child_process::ChildProcessLspToPreview::new(
-            std::env::current_exe()?,
-            vec![std::ffi::OsString::from("--run-preview-child")],
-            from_run_preview_sender,
-        )),
+        LspToPreviews::with_one(springboard.clone()),
     ];
 
     let mut session = new_editor_session(to_previews);
@@ -291,7 +292,6 @@ async fn lsp_main(
 
     const RECOMPILE_DELAY: Duration = Duration::from_millis(50);
     let mut recompile_deadline = None;
-    let mut run_preview_state = RunPreviewState::default();
     loop {
         if session.pending_recompile.is_empty() {
             recompile_deadline = None;
@@ -315,8 +315,6 @@ async fn lsp_main(
                             preview_index,
                             &mut session,
                             &project_root,
-                            &mut run_preview_state,
-                            &preview_global
                         ).await;
                     }
                     None => {
@@ -328,7 +326,9 @@ async fn lsp_main(
             editor_message = from_editor.recv() => {
                 match editor_message {
                     Some(EditorToSessionMessage::RunPreview) => {
-                        run_preview(&mut session, &mut run_preview_state);
+                        if run_preview(&mut session) {
+                            springboard.start();
+                        }
                     }
                     Some(EditorToSessionMessage::SwitchProject(project)) => {
                         watch_paths_revision = None;
@@ -340,7 +340,7 @@ async fn lsp_main(
                         ).await {
                             tracing::warn!("Failed to switch project: {error}");
                         } else {
-                            run_preview_state = RunPreviewState::default();
+                            editor_preview::LspToPreview::shutdown(&springboard).await;
                         }
                     }
                     None => break Ok(()),
@@ -476,22 +476,10 @@ async fn handle_preview_message(
     preview_index: usize,
     session: &mut editor_preview::EditorSession,
     project_root: &Path,
-    run_preview_state: &mut RunPreviewState,
-    preview_global: &slint::Weak<preview::ui::Preview<'static>>,
 ) {
     use PreviewToLspMessage::*;
     if session.preview(preview_index).is_none() {
         return;
-    }
-
-    // any message we receive from the preview that is not "Exited" means the preview is alive.
-    if preview_index == RUN_PREVIEW_INDEX {
-        let is_running = !matches!(&message, PreviewToLspMessage::Exited);
-        if let Err(error) = preview_global.upgrade_in_event_loop(move |preview_global| {
-            preview_global.set_is_running(is_running);
-        }) {
-            tracing::error!("Failed to update Run preview state: {error}");
-        }
     }
 
     match &message {
@@ -503,9 +491,6 @@ async fn handle_preview_message(
                         .send_to_preview(preview_index, &LspToPreviewMessage::OpenProject { root });
                 }
                 session.send_state_to_preview(preview_index);
-                if preview_index == RUN_PREVIEW_INDEX {
-                    send_run_preview_highlight(session, run_preview_state);
-                }
             } else {
                 session.send_files_to_preview(preview_index, files, |_| true);
             }
@@ -563,12 +548,19 @@ async fn handle_preview_message(
                 selection.start,
                 session.document_cache.format,
             );
-            run_preview_state.highlight = Some((file.clone(), offset.into()));
-            send_run_preview_highlight(session, run_preview_state);
+            session.send_to_preview(
+                RUN_PREVIEW_INDEX,
+                &LspToPreviewMessage::HighlightFromEditor {
+                    url: Some(file.clone()),
+                    offset: offset.into(),
+                },
+            );
         }
         ClearHighlight if preview_index == PRIMARY_PREVIEW_INDEX => {
-            run_preview_state.highlight = None;
-            send_run_preview_highlight(session, run_preview_state);
+            session.send_to_preview(
+                RUN_PREVIEW_INDEX,
+                &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+            );
         }
 
         Diagnostics { .. }
@@ -612,17 +604,13 @@ async fn open_initial_preview(
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await
 }
 
-fn run_preview(
-    session: &mut editor_preview::EditorSession,
-    run_preview_state: &mut RunPreviewState,
-) {
+fn run_preview(session: &mut editor_preview::EditorSession) -> bool {
     let Some(component) = session.primary_preview().to_show.clone() else {
         tracing::warn!("Cannot run a preview before a component is open");
-        return;
+        return false;
     };
-    run_preview_state.requested = true;
     session.show_preview(RUN_PREVIEW_INDEX, component);
-    send_run_preview_highlight(session, run_preview_state);
+    true
 }
 
 async fn switch_project(
@@ -638,27 +626,13 @@ async fn switch_project(
         .await?;
 
     session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::Quit);
+    session.send_to_preview(
+        RUN_PREVIEW_INDEX,
+        &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
+    );
     *session = next_session;
     *project_root = next_project_root;
     Ok(())
-}
-
-fn send_run_preview_highlight(
-    session: &editor_preview::EditorSession,
-    run_preview_state: &RunPreviewState,
-) {
-    if !run_preview_state.requested {
-        return;
-    }
-    let (url, offset) = run_preview_state
-        .highlight
-        .as_ref()
-        .map(|(url, offset)| (Some(url.clone()), *offset))
-        .unwrap_or((None, 0));
-    session.send_to_preview(
-        RUN_PREVIEW_INDEX,
-        &LspToPreviewMessage::HighlightFromEditor { url, offset },
-    );
 }
 
 async fn open_preview(
@@ -871,7 +845,13 @@ mod tests {
             None,
         ));
         assert!(session.document_cache.get_document(&old_url).is_some());
+        session.show_preview(
+            PRIMARY_PREVIEW_INDEX,
+            PreviewComponent { url: old_url.clone(), component: Some("Old".into()) },
+        );
+        assert!(run_preview(&mut session));
 
+        let old_run_preview = session.previews[RUN_PREVIEW_INDEX].to_preview.clone();
         let new_project = tempfile::tempdir().unwrap();
         let new_path = new_project.path().join("new.slint");
         std::fs::write(&new_path, "export component New {}").unwrap();
@@ -888,6 +868,8 @@ mod tests {
         assert_eq!(project_root, expected_root);
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert!(session.document_cache.get_document(&expected_component.url).is_some());
+        assert!(session.previews[RUN_PREVIEW_INDEX].to_show.is_none());
+        assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
         let expected_root_url =
             Url::from_directory_path(std::fs::canonicalize(&project_root).unwrap()).unwrap();
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
@@ -910,6 +892,24 @@ mod tests {
                 .iter()
                 .any(|message| matches!(message, LspToPreviewMessage::Quit))
         );
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::HighlightFromEditor { url: None, .. })
+        }));
+        assert!(
+            messages[RUN_PREVIEW_INDEX]
+                .borrow()
+                .iter()
+                .all(|message| { !matches!(message, LspToPreviewMessage::ShowPreview(_)) })
+        );
+
+        clear_messages(&messages);
+        assert!(run_preview(&mut session));
+        assert_eq!(session.previews[RUN_PREVIEW_INDEX].to_show, Some(expected_component.clone()));
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component == &expected_component)
+        }));
     }
 
     #[test]
@@ -923,6 +923,11 @@ mod tests {
             old_url.clone(),
             None,
         ));
+        let old_component =
+            PreviewComponent { url: old_url.clone(), component: Some("Old".into()) };
+        session.show_preview(PRIMARY_PREVIEW_INDEX, old_component.clone());
+        assert!(run_preview(&mut session));
+        let old_run_preview = session.previews[RUN_PREVIEW_INDEX].to_preview.clone();
         let mut project_root = old_project.path().to_path_buf();
         let expected_root = project_root.clone();
         let missing_root = old_project.path().join("missing");
@@ -948,13 +953,15 @@ mod tests {
 
         assert_eq!(project_root, expected_root);
         assert!(session.document_cache.get_document(&old_url).is_some());
+        assert_eq!(session.primary_preview().to_show, Some(old_component.clone()));
+        assert_eq!(session.previews[RUN_PREVIEW_INDEX].to_show, Some(old_component));
+        assert!(Rc::ptr_eq(&session.previews[RUN_PREVIEW_INDEX].to_preview, &old_run_preview));
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
     }
 
     #[test]
     fn preview_requests_are_answered_through_the_originating_connection() {
         let (mut session, messages) = session_with_recording_previews();
-        let mut run_preview_state = RunPreviewState::default();
         let project = tempfile::tempdir().unwrap();
         let path = project.path().join("secondary.slint");
         std::fs::write(&path, "export component Secondary {}").unwrap();
@@ -969,8 +976,6 @@ mod tests {
             1,
             &mut session,
             project.path(),
-            &mut run_preview_state,
-            &Default::default(),
         ));
 
         assert!(messages[0].borrow().is_empty());
@@ -988,8 +993,6 @@ mod tests {
             1,
             &mut session,
             project.path(),
-            &mut run_preview_state,
-            &Default::default(),
         ));
 
         assert!(
@@ -1006,14 +1009,20 @@ mod tests {
     }
 
     #[test]
+    fn run_without_a_component_does_not_start_springboard() {
+        let (mut session, messages) = session_with_recording_previews();
+        assert!(!run_preview(&mut session));
+        assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+    }
+
+    #[test]
     fn run_preview_uses_the_primary_preview_target() {
         let (mut session, messages) = session_with_recording_previews();
         let primary_component = component("primary.slint", "Primary");
         session.show_preview(PRIMARY_PREVIEW_INDEX, primary_component.clone());
         clear_messages(&messages);
 
-        let mut run_preview_state = RunPreviewState::default();
-        run_preview(&mut session, &mut run_preview_state);
+        run_preview(&mut session);
 
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
         assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
@@ -1028,8 +1037,7 @@ mod tests {
         let first_component = component("first.slint", "First");
         let second_component = component("second.slint", "Second");
         session.show_preview(PRIMARY_PREVIEW_INDEX, first_component.clone());
-        let mut run_preview_state = RunPreviewState::default();
-        run_preview(&mut session, &mut run_preview_state);
+        run_preview(&mut session);
         clear_messages(&messages);
 
         session.show_preview(PRIMARY_PREVIEW_INDEX, second_component.clone());
@@ -1037,12 +1045,12 @@ mod tests {
         assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(first_component));
         assert!(messages[RUN_PREVIEW_INDEX].borrow().is_empty());
 
-        run_preview(&mut session, &mut run_preview_state);
+        run_preview(&mut session);
         assert_eq!(session.preview(RUN_PREVIEW_INDEX).unwrap().to_show, Some(second_component));
     }
 
     #[test]
-    fn primary_show_document_highlights_the_run_preview() {
+    fn editor_forwards_highlight_without_replaying_it_in_state_response() {
         let (mut session, messages) = session_with_recording_previews();
         let project = tempfile::tempdir().unwrap();
         let path = project.path().join("main.slint");
@@ -1053,8 +1061,7 @@ mod tests {
             PRIMARY_PREVIEW_INDEX,
             PreviewComponent { url: url.clone(), component: Some("Main".into()) },
         );
-        let mut run_preview_state = RunPreviewState::default();
-        run_preview(&mut session, &mut run_preview_state);
+        run_preview(&mut session);
         clear_messages(&messages);
 
         let expected_offset = u32::try_from(source.find("Text").unwrap()).unwrap();
@@ -1073,8 +1080,6 @@ mod tests {
             PRIMARY_PREVIEW_INDEX,
             &mut session,
             project.path(),
-            &mut run_preview_state,
-            &Default::default(),
         ));
 
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1089,19 +1094,18 @@ mod tests {
             RUN_PREVIEW_INDEX,
             &mut session,
             project.path(),
-            &mut run_preview_state,
-            &Default::default(),
         ));
         let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
-        let show_position = run_messages
-            .iter()
-            .position(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
-            .unwrap();
+        assert!(
+            run_messages
+                .iter()
+                .any(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
+        );
         let highlight_position = run_messages.iter().position(|message| {
             matches!(message, LspToPreviewMessage::HighlightFromEditor { url: Some(current_url), offset }
                 if current_url == &url && *offset == expected_offset)
         });
-        assert!(highlight_position.is_some_and(|position| position > show_position));
+        assert!(highlight_position.is_none());
     }
 
     #[test]
@@ -1113,23 +1117,17 @@ mod tests {
         ] {
             let (mut session, messages) = session_with_recording_previews();
             let project = tempfile::tempdir().unwrap();
-            let highlight =
-                Some((Url::from_file_path(project.path().join("main.slint")).unwrap(), 42));
-            let mut run_preview_state = RunPreviewState { requested, highlight: highlight.clone() };
 
             spin_on::spin_on(handle_preview_message(
                 PreviewToLspMessage::ClearHighlight,
                 preview_index,
                 &mut session,
                 project.path(),
-                &mut run_preview_state,
-                &Default::default(),
             ));
 
             assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
             let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
             if preview_index == PRIMARY_PREVIEW_INDEX {
-                assert!(run_preview_state.highlight.is_none());
                 if requested {
                     assert!(matches!(
                         run_messages.as_slice(),
@@ -1139,7 +1137,6 @@ mod tests {
                     assert!(run_messages.is_empty());
                 }
             } else {
-                assert_eq!(run_preview_state.highlight, highlight);
                 assert!(run_messages.is_empty());
             }
         }
@@ -1149,7 +1146,6 @@ mod tests {
     fn show_document_from_the_run_preview_is_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let project = tempfile::tempdir().unwrap();
-        let mut run_preview_state = RunPreviewState { requested: true, highlight: None };
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
@@ -1160,11 +1156,8 @@ mod tests {
             RUN_PREVIEW_INDEX,
             &mut session,
             project.path(),
-            &mut run_preview_state,
-            &Default::default(),
         ));
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
-        assert!(run_preview_state.highlight.is_none());
     }
 }

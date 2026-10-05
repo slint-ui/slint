@@ -14,10 +14,13 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+links = "springboard"
+
 [lib]
 path = "lib.rs"
 
 [features]
+springboard = ["dep:slint", "dep:slint-build"]
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [
@@ -32,7 +35,11 @@ preview-remote = []
 ## Expose the test fixtures so that dependent crates can build on them
 testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
 
+[build-dependencies]
+slint-build = { workspace = true, features = ["experimental-module-builds"], optional = true }
+
 [dependencies]
+slint = { workspace = true, features = ["compat-1-2"], optional = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-live-preview = { version = "=1.19.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
 

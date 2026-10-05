@@ -3669,6 +3669,8 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde_json",
+ "slint",
+ "slint-build",
  "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
