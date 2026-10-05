@@ -388,6 +388,7 @@ linuxkms
 lipo
 Literata
 Llff
+llms
 Lmaterial
 LOADADDR
 LOWORD
@@ -476,6 +477,7 @@ optipng
 ospi
 othercomp
 ovmf
+pagefind
 PAKE
 Pantone
 partytown
