@@ -93,7 +93,7 @@ export global Gallery {
             angle: 120, stops: [{ color: #5c69e1, position: 0 }, { color: #ee86ac, position: 1 }],
         };
     }
-    public function open-picker(anchor: Point) {
+    public function open-picker(anchor: Point, size: Size) {
         FillSession.begin({
             fill: fill, expression: Api.fill-expression(fill),
             target: {
@@ -101,7 +101,7 @@ export global Gallery {
                 session-key: "gallery:0:" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":background",
             },
             unsupported: scenario == "Unsupported", allow-gradient: true,
-            anchor-position: anchor, anchor-width: 24px,
+            anchor-position: anchor, anchor-size: size,
         });
     }
     callback fill-preview <=> Api.inspector-fill-preview;

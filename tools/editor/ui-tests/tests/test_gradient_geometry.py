@@ -144,6 +144,11 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         ]
         assert "px" not in labels
         assert "X / Y px" not in labels
+        click_picker_button(window, "Edit stop 2 color")
+        click_picker_button(window, "Close Stop color")
+        press_key(window, keys.Space)
+        picker_field(window, "Hex color")
+        click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Close Custom")
         geometry = {
             "linear": "36deg",
@@ -307,10 +312,15 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
         assert picker_field(window, "Hex color opacity").accessible_value == "50"
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 2")
-        press_key(window, keys.RightArrow)
-        assert float(
-            picker_field(window, "Stop 2 position").accessible_value
-        ) == pytest.approx(units * 0.75 + 1, abs=0.01)
+        for key, offset in [
+            (keys.RightArrow, 1),
+            (keys.RightArrow, 2),
+            (keys.LeftArrow, 1),
+        ]:
+            press_key(window, key)
+            assert float(
+                picker_field(window, "Stop 2 position").accessible_value
+            ) == pytest.approx(units * 0.75 + offset, abs=0.01)
         click_picker_button(window, "Remove stop 1")
         click_picker_button(window, "Edit stop 1 color")
         assert picker_field(window, "Hex color").accessible_value == "0000FF"
