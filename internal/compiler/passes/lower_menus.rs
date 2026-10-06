@@ -129,6 +129,7 @@ pub async fn lower_menus(
     // First check if any MenuBar, ContextMenuArea, or SystemTrayIcon is used - avoid loading std-widgets.slint if not needed
     let mut has_menubar_or_context_menu = false;
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["MenuBar", "Menu"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "MenuBar" | "ContextMenuArea" | "ContextMenuInternal" | "SystemTrayIcon")) {
                 has_menubar_or_context_menu = true;
