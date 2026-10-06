@@ -408,7 +408,7 @@ fn generate_public_component(
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
             )),
-            quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
+            quote!(),
             Some(quote!(
                 let window = inner.globals.get().unwrap().window_adapter_ref()?;
                 sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
@@ -433,7 +433,7 @@ fn generate_public_component(
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
         quote!(
-            inner.globals.get().unwrap().context_or_global().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+            inner.globals.get().unwrap().context().set_static_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
         )
     });
     #[cfg(not(feature = "bundle-translations"))]
@@ -445,10 +445,9 @@ fn generate_public_component(
         llr::TopLevelComponentType::Window => Some(quote!(
             #[cfg(#experimental)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
-                slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new()?;
+                slint::private_unstable_api::ensure_context()?;
+                let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
-                inner.globals.get().unwrap().set_context(sp::WindowInner::from_pub(window).context());
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
@@ -544,8 +543,8 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
-                slint::private_unstable_api::ensure_backend()?;
-                let inner = #inner_component_id::new()?;
+                let context = slint::private_unstable_api::ensure_context()?;
+                let inner = #inner_component_id::new(context)?;
                 #eager_create_window
                 #init_bundle_translations
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
@@ -555,8 +554,8 @@ fn generate_public_component(
 
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
-                let inner = #inner_component_id::new()?;
-                inner.globals.get().unwrap().set_context(&ctx);
+                let inner = #inner_component_id::new(ctx.clone())?;
+                #eager_create_window
                 #init_bundle_translations
 
                 #init_with_context
@@ -655,8 +654,8 @@ fn generate_shared_globals(
 
     let needs_window_adapter = llr.needs_window_adapter();
 
-    // `create_window_from_context` is only invoked from a Window-rooted
-    // public component's `new_with_context`, and `maybe_window_adapter_impl`
+    // `create_window_from_existing` is only invoked from a Window-rooted
+    // public component's `new_with_existing_window`, and `maybe_window_adapter_impl`
     // is only invoked from per-tree `register_item_tree` / PinnedDrop hooks
     // — both gated out for tray-only units. Emit them only when something
     // actually calls them; otherwise `#![deny(warnings)]` builds (e.g.
@@ -666,17 +665,6 @@ fn generate_shared_globals(
     // references them on every tree.
     let optional_window_adapter_helpers = needs_window_adapter.then(|| {
         quote!(
-            #[cfg(#experimental)]
-            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
-                let adapter = ctx.platform().create_window_adapter()?;
-                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                #apply_constant_scale_factor
-                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
-                sp::Ok(())
-            }
-
             #[cfg(#experimental)]
             fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
                 let adapter = sp::WindowInner::from_pub(window).window_adapter();
@@ -698,19 +686,19 @@ fn generate_shared_globals(
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
             window_adapter : sp::OnceCell<sp::WindowAdapterRc>,
-            context : sp::OnceCell<sp::SlintContext>,
+            context : sp::SlintContext,
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
             #(#[allow(dead_code)]
             #library_shared_globals_names : sp::Rc<#library_shared_globals_types>,)*
         }
         impl SharedGlobals {
-            #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
-                #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
+            #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>, context: sp::SlintContext) -> sp::Rc<Self> {
+                #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone(), context.clone());)*
                 sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
-                    context : ::core::default::Default::default(),
+                    context,
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
                 })
@@ -744,25 +732,15 @@ fn generate_shared_globals(
             }
 
             #[allow(dead_code)]
-            #pub_token fn set_context(&self, ctx: &sp::SlintContext) {
-                let _ = self.context.set(ctx.clone());
-                #(self.#library_shared_globals_names.set_context(ctx);)*
-            }
-
-            // The context the component was created with, or the thread's.
-            #[allow(dead_code)]
-            fn context_or_global(&self) -> sp::SlintContext {
-                self.context
-                    .get()
-                    .cloned()
-                    .or_else(sp::SlintContext::current)
-                    .expect("a component exists, so a platform and its context do too")
+            #pub_token fn context(&self) -> &sp::SlintContext {
+                &self.context
             }
 
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
-                    let adapter = slint::private_unstable_api::create_window_adapter()?;
+                    let adapter = self.context.platform().create_window_adapter()?;
+                    sp::WindowInner::from_pub(adapter.window()).set_context(self.context.clone());
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor
@@ -2359,7 +2337,7 @@ fn generate_item_tree(
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
-        quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+        quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc), context))
     };
     // The root component owns the freshly created `SharedGlobals` and is responsible for running
     // its eager initialization. The root's own `globals` field must be set *before* that init
@@ -2375,6 +2353,7 @@ fn generate_item_tree(
         quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
+    let context_arg = is_root_component.then(|| quote!(context: sp::SlintContext));
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -2599,7 +2578,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            fn new(#(parent: #parent_component_type,)* #globals_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
+            fn new(#(parent: #parent_component_type,)* #globals_arg #context_arg) -> ::core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
@@ -3916,13 +3895,9 @@ fn compile_keys_literal(expr: &Expression) -> TokenStream {
             #ignore_alt))
 }
 
-/// The context to format or parse numbers with.
-///
-/// Struct field defaults have no globals to reach it through,
-/// but they never format numbers at run time.
 fn access_context(ctx: &EvaluationContext) -> TokenStream {
     let global_access = &ctx.generator_state.global_access;
-    quote!(#global_access.context_or_global())
+    quote!(#global_access.context())
 }
 
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
