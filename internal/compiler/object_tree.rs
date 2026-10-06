@@ -241,10 +241,8 @@ impl Document {
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
                 if crate::fileaccess::is_font_file(&import.file) {
-                    let import_file_path = import
-                        .resolved
-                        .clone()
-                        .unwrap_or_else(|| SourcePath::new(&import.file));
+                    let import_file_path =
+                        import.resolved.clone().expect("the TypeLoader resolves font imports");
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.

@@ -1102,7 +1102,7 @@ impl TypeLoader {
         for mut import in Self::collect_dependencies(state, doc) {
             // The embedded files import each other by that path, so only a
             // document outside them is rejected.
-            if import.file.starts_with("builtin:")
+            if SourcePath::new(&import.file).is_builtin()
                 && !import.import_uri_token.source_file.path().is_builtin()
             {
                 state.borrow_mut().diag.push_error(

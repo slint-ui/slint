@@ -10,6 +10,7 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
+use crate::source_path::SourcePath;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
@@ -28,8 +29,8 @@ struct Font {
 #[cfg(feature = "renderer-software")]
 pub struct FontCollection {
     pub collection: sharedfontique::Collection,
-    pub custom_font_paths: HashMap<fontique::FamilyId, std::path::PathBuf>,
-    pub custom_fonts: BTreeMap<std::path::PathBuf, fontique::QueryFont>,
+    pub custom_font_paths: HashMap<fontique::FamilyId, SourcePath>,
+    pub custom_fonts: BTreeMap<SourcePath, fontique::QueryFont>,
 }
 
 /// Built once and shared (by reference) between the font and image passes. The
@@ -49,14 +50,13 @@ pub type SharedFontCollection = std::sync::Arc<
 pub fn read_custom_fonts<'a>(
     all_docs: impl Iterator<Item = &'a Document>,
     diag: &mut BuildDiagnostics,
-) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+) -> Vec<(SourcePath, Vec<u8>)> {
     let mut fonts = Vec::new();
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
             match font_path.read() {
                 Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
-                Ok(bytes) => fonts
-                    .extend(font_path.as_native_path().map(|p| (p.to_owned(), bytes.into_owned()))),
+                Ok(bytes) => fonts.push((font_path.clone(), bytes.into_owned())),
             }
         }
     }
@@ -65,9 +65,7 @@ pub fn read_custom_fonts<'a>(
 
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
 #[cfg(feature = "renderer-software")]
-pub fn shared_font_collection(
-    custom_fonts: Vec<(std::path::PathBuf, Vec<u8>)>,
-) -> SharedFontCollection {
+pub fn shared_font_collection(custom_fonts: Vec<(SourcePath, Vec<u8>)>) -> SharedFontCollection {
     let init: Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync> =
         Box::new(move || {
             let mut collection = sharedfontique::create_collection(true);
@@ -166,13 +164,17 @@ pub fn embed_glyphs(
 
     let mut custom_face_error = false;
 
-    let default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = if !collection
+    let default_fonts: Vec<(SourcePath, fontique::QueryFont)> = if !collection
         .default_fonts
         .is_empty()
     {
-        collection.default_fonts.as_ref().clone()
+        collection
+            .default_fonts
+            .iter()
+            .map(|(path, font)| (SourcePath::File(path.clone()), font.clone()))
+            .collect()
     } else {
-        let mut default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = Vec::new();
+        let mut default_fonts: Vec<(SourcePath, fontique::QueryFont)> = Vec::new();
 
         for c in doc.exported_roots() {
             let (family, source_location) = c
@@ -230,7 +232,9 @@ pub fn embed_glyphs(
                             path.clone()
                         } else {
                             match &font_info.source().kind {
-                                fontique::SourceKind::Path(path) => path.to_path_buf(),
+                                fontique::SourceKind::Path(path) => {
+                                    SourcePath::File(path.to_path_buf())
+                                }
                                 fontique::SourceKind::Memory(_) => {
                                     diag.push_error(
                                     "internal error: memory fonts are not supported in the compiler"
@@ -256,10 +260,10 @@ pub fn embed_glyphs(
         return;
     }
 
-    let register_embedded_font = |path: &std::path::Path, embedded_bitmap_font: BitmapFont| {
+    let register_embedded_font = |path: &SourcePath, embedded_bitmap_font: BitmapFont| {
         let resource_id = doc.embedded_file_resources.borrow_mut().push_and_get_key(
             crate::embedded_resources::EmbeddedResources {
-                path: Some(crate::source_path::SourcePath::File(path.to_owned())),
+                path: Some(path.clone()),
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
                     embedded_bitmap_font,
                 ),
@@ -275,13 +279,10 @@ pub fn embed_glyphs(
         }
     };
 
-    let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
+    let mut embed_font_by_path = |path: &SourcePath, font: &fontique::QueryFont| {
         let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
             diag.push_error(
-                format!(
-                    "internal error: TrueType font without family name encountered: {}",
-                    path.display()
-                ),
+                format!("internal error: TrueType font without family name encountered: {path}"),
                 &generic_diag_location,
             );
             return;
@@ -289,7 +290,7 @@ pub fn embed_glyphs(
 
         let Some(font_ref) = skrifa::FontRef::from_index(font.blob.data(), font.index).ok() else {
             diag.push_error(
-                format!("internal error: failed to parse font: {}", path.display()),
+                format!("internal error: failed to parse font: {path}"),
                 &generic_diag_location,
             );
             return;
