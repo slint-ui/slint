@@ -293,7 +293,8 @@ impl AnimationDriver {
         }
     }
 
-    /// Returns true if an active animation was evaluated outside of [`Self::track_active_animations`].
+    /// Returns true if an active animation was evaluated in the current tick,
+    /// other than while rendering a window, which tracks its own animations.
     pub fn has_active_animations(&self) -> bool {
         self.active_animations.get()
     }
