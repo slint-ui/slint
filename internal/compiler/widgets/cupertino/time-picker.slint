@@ -16,7 +16,7 @@ export component TimePickerPopup inherits PopupWindow {
     implement TimePickerPopupInterface <=> self;
 
     in property <bool> use-24-hour-format <=> base.use-24-hour-format;
-    in property <string> title: "Select time";
+    in property <string> title: @tr("Select time");
     in property <Time> time <=> base.time;
 
     callback canceled();
@@ -81,7 +81,7 @@ export component TimePickerPopup inherits PopupWindow {
         Button {
             icon: base.selection-mode ? Icons.keyboard : Icons.clock;
             colorize-icon: true;
-            accessible-label: "Toggle input picker";
+            accessible-label: @tr("Toggle input picker");
             dialog-button-role: action;
 
             clicked => {
