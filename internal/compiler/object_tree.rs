@@ -460,6 +460,7 @@ impl Spanned for ChildInsertionPointNode {
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
     pub insertion_index: usize,
+    pub default_children_count: usize,
     pub node: ChildInsertionPointNode,
 }
 
@@ -705,6 +706,28 @@ impl Component {
             if !declared_slot_nodes.contains_key(name.as_str()) {
                 diagnostics
                     .push_error(format!("The slot '{name}' is used but not declared"), &cip.node);
+            }
+            if let ElementType::Component(base) = &self.root_element.borrow().base_type
+                && let Some(inherited) = typed_slots::lookup_slot(base, name)
+                && inherited.interface.is_none()
+                && matches!(cip.node, ChildInsertionPointNode::SlotPlaceholder(_))
+            {
+                if !Rc::ptr_eq(&cip.parent, &self.root_element) {
+                    diagnostics.push_error(
+                        format!("Place the default placeholder for inherited slot '{name}' at the component root"),
+                        &cip.node,
+                    );
+                }
+                for child in &self.root_element.borrow().children {
+                    if child.borrow().slot_target.as_deref() == Some(name.as_str()) {
+                        diagnostics.push_error(
+                            format!(
+                                "Remove the assignment to slot '{name}' or its default placeholder"
+                            ),
+                            &*child.borrow(),
+                        );
+                    }
+                }
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
@@ -1798,6 +1821,7 @@ impl Element {
                 ChildrenInsertionPoint {
                     parent: r.clone(),
                     insertion_index: 0,
+                    default_children_count: 0,
                     node: ChildInsertionPointNode::SlotForwarding(forwarding.expression_node),
                 },
             );
@@ -1829,12 +1853,46 @@ impl Element {
                     }
                     Self::register_slot_placeholder(
                         &se,
-                        slot_name,
+                        slot_name.clone(),
                         &r,
                         component_child_insertion_points,
                         diag,
                         tr,
                     );
+                    let insertion_index = r.borrow().children.len();
+                    for child in se.child_node(SyntaxKind::Element).unwrap().children() {
+                        if child.kind() == SyntaxKind::QualifiedName {
+                            continue;
+                        }
+                        if child.kind() != SyntaxKind::SubElement {
+                            diag.push_error(
+                                "Slot defaults accept elements; wrap bindings and repeated elements in a component".into(),
+                                &child,
+                            );
+                            continue;
+                        }
+                        let mut default_points = BTreeMap::new();
+                        let default = Element::from_sub_element_node(
+                            child.into(),
+                            tr.empty_type(),
+                            &mut default_points,
+                            declared_slots,
+                            is_legacy_syntax,
+                            diag,
+                            tr,
+                        );
+                        Self::reject_slot_placeholders(
+                            diag,
+                            declared_slots,
+                            default_points,
+                            "another slot's default content",
+                        );
+                        r.borrow_mut().children.push(default);
+                    }
+                    if let Some(cip) = component_child_insertion_points.get_mut(slot_name.as_str())
+                    {
+                        cip.default_children_count = r.borrow().children.len() - insertion_index;
+                    }
                     continue;
                 }
                 let parent_type = r.borrow().base_type.clone();
@@ -1920,6 +1978,7 @@ impl Element {
                         ChildrenInsertionPoint {
                             parent: r.clone(),
                             insertion_index: r.borrow().children.len(),
+                            default_children_count: 0,
                             node: ChildInsertionPointNode::ChildrenPlaceHolder(se.into()),
                         },
                     );
@@ -1965,8 +2024,7 @@ impl Element {
                 }
                 let parent_type = match &parent_type {
                     ElementType::Component(component)
-                        if typed_slots::lookup_slot(component, &name)
-                            .is_some_and(|slot| slot.interface.is_some()) =>
+                        if typed_slots::lookup_slot(component, &name).is_some() =>
                     {
                         tr.empty_type()
                     }
@@ -2895,14 +2953,7 @@ impl Element {
             return None;
         }
         let name = parser::identifier_text(&qualified_name)?;
-        declared_slots
-            .iter()
-            .any(|slot| {
-                slot.name == name
-                    && (slot.interface.is_some()
-                        || !element.children().any(|c| c.kind() != SyntaxKind::QualifiedName))
-            })
-            .then_some(name)
+        declared_slots.iter().any(|slot| slot.name == name).then_some(name)
     }
 
     fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {
@@ -2969,6 +3020,7 @@ impl Element {
             ChildrenInsertionPoint {
                 parent: parent.clone(),
                 insertion_index,
+                default_children_count: 0,
                 node: ChildInsertionPointNode::SlotPlaceholder(node.clone().into()),
             },
         );
