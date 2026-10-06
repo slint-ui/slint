@@ -8,9 +8,10 @@
 //! crashes, so those cases need to be exercised here instead.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::expression_tree::BuiltinFunction;
 use i_slint_compiler::generator::{self, OutputFormat};
 use i_slint_compiler::parser::parse;
-use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
+use i_slint_compiler::{CompilerConfiguration, compile_syntax_node, llr};
 
 /// Compile `source` and lower it through the LLR back-end. A panic in lowering
 /// surfaces as a test failure.
@@ -66,4 +67,63 @@ export component TestCase inherits Window {
 }
 "#,
     );
+}
+
+/// The `enabled` field of every lowered animation in `source`.
+fn lowered_animation_enabled_fields(source: &str) -> Vec<llr::Expression> {
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let config = CompilerConfiguration::new(OutputFormat::Llr);
+    let (doc, diagnostics, loader) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let unit = llr::lower_to_item_tree::lower_to_item_tree(&doc, &loader.compiler_config);
+
+    let mut enabled_fields = Vec::new();
+    for sub_component in unit.sub_components.iter() {
+        let from_bindings = sub_component
+            .property_init
+            .iter()
+            .filter_map(|(_, binding)| binding.animation.as_ref())
+            .map(|animation| match animation {
+                llr::Animation::Static(e) | llr::Animation::Transition(e) => e,
+            });
+        for animation in from_bindings.chain(sub_component.animations.values()) {
+            if let llr::Expression::Struct { values, .. } = animation {
+                enabled_fields.push(values["enabled"].clone());
+            }
+        }
+    }
+    assert!(!enabled_fields.is_empty(), "the source declares an animation");
+    enabled_fields
+}
+
+fn reads_the_motion_preference(expression: &llr::Expression) -> bool {
+    let mut found = false;
+    expression.visit_recursive(&mut |e| {
+        found |= matches!(
+            e,
+            llr::Expression::BuiltinFunctionCall { function: BuiltinFunction::ReducedMotion, .. }
+        );
+    });
+    found
+}
+
+const ANIMATED_PROPERTY: &str = r#"
+export component TestCase inherits Window {
+    in-out property <bool> wanted: true;
+    in-out property <length> animated: wanted ? 10px : 20px;
+    animate animated { duration: 100ms; enabled: wanted; }
+}
+"#;
+
+#[test]
+fn animation_enabled_also_checks_the_motion_preference() {
+    for enabled in lowered_animation_enabled_fields(ANIMATED_PROPERTY) {
+        let llr::Expression::BinaryExpression { lhs, rhs, op: '&' } = &enabled else {
+            panic!("{enabled:?}");
+        };
+        assert!(matches!(**lhs, llr::Expression::PropertyReference(_)), "{enabled:?}");
+        assert!(reads_the_motion_preference(rhs), "{enabled:?}");
+    }
 }

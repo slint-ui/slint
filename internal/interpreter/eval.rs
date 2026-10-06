@@ -2346,6 +2346,12 @@ fn call_builtin_function(
                 .unwrap_or_default();
             Value::Brush(i_slint_core::Brush::SolidColor(color))
         }
+        BuiltinFunction::ReducedMotion => {
+            let reduced = root_instance(ctx)
+                .map(|root| vtable::VRc::downgrade(&vtable::VRc::into_dyn(root)))
+                .is_some_and(|root| i_slint_core::window::reduced_motion(&root));
+            Value::Bool(reduced)
+        }
         BuiltinFunction::SupportsNativeMenuBar => {
             let supports = find_window_adapter(ctx).is_some_and(|a| {
                 a.internal(i_slint_core::InternalToken)

@@ -5220,6 +5220,12 @@ fn compile_builtin_function_call(
                 ctx.generator_state.global_access
             )
         }
+        BuiltinFunction::ReducedMotion => {
+            format!(
+                "slint::private_api::reduced_motion({}->root_weak)",
+                ctx.generator_state.global_access
+            )
+        }
         BuiltinFunction::SupportsNativeMenuBar => {
             format!("{}.supports_native_menu_bar()", access_window_field(ctx))
         }

@@ -2610,6 +2610,26 @@ pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
     adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
 }
 
+/// Runtime entry point for `BuiltinFunction::ReducedMotion`, which the compiler folds into
+/// every animation's `enabled` binding. Returns whether the component's
+/// [`crate::SlintContext`], reached via its window adapter, reports
+/// [`crate::MotionPreference::Reduced`]; `false` if none is associated.
+/// Without the `std` feature it is always `false`, so the check costs nothing on microcontrollers.
+#[inline]
+pub fn reduced_motion(root: &ItemTreeWeak) -> bool {
+    #[cfg(feature = "std")]
+    {
+        root.upgrade()
+            .and_then(|root| context_for_root(&root))
+            .is_some_and(|ctx| ctx.motion_preference() == crate::MotionPreference::Reduced)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        let _ = root;
+        false
+    }
+}
+
 /// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
 /// from the component's [`crate::SlintContext`] reached via its window adapter, or
 /// transparent if none is associated.

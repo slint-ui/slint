@@ -6,7 +6,7 @@ use i_slint_core::item_tree::ItemTreeRc;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
 use i_slint_core::window::WindowInner;
-use i_slint_core::{SharedString, SharedVector};
+use i_slint_core::{MotionPreference, SharedString, SharedVector};
 use std::os::raw::c_void;
 
 struct RootWrapper<'a>(&'a ItemTreeRc);
@@ -186,4 +186,13 @@ pub extern "C" fn slint_testing_element_layout_kind(
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_testing_set_system_accent_color(argb_encoded: u32) {
     crate::set_system_accent_color(i_slint_core::Color::from_argb_encoded(argb_encoded));
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_testing_set_reduced_motion(reduced: bool) {
+    crate::set_motion_preference(if reduced {
+        MotionPreference::Reduced
+    } else {
+        MotionPreference::NoPreference
+    });
 }

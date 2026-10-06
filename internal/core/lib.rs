@@ -103,7 +103,9 @@ pub use graphics::BorderRadius;
 #[doc(inline)]
 pub use data_transfer::DataTransfer;
 
-pub use context::{SlintContext, SlintContextWeak, with_existing_context, with_global_context};
+pub use context::{
+    MotionPreference, SlintContext, SlintContextWeak, with_existing_context, with_global_context,
+};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;

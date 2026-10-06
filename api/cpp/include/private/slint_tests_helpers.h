@@ -66,6 +66,11 @@ inline void set_system_accent_color(slint::Color color)
     cbindgen_private::slint_testing_set_system_accent_color(color.as_argb_encoded());
 }
 
+inline void set_reduced_motion(bool reduced)
+{
+    cbindgen_private::slint_testing_set_reduced_motion(reduced);
+}
+
 template<typename Component>
 inline void set_use_native_popup(const Component *component, bool native)
 {
