@@ -2,7 +2,7 @@ const levels = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 const padding = 12;
 const maxHeight = 420;
 
-export function installPreviewZoom({ canvas, initialSize, layoutChanged }) {
+export function installPreviewZoom({ canvas, initialSize }) {
   const viewport = document.getElementById("preview-scroll");
   const content = document.getElementById("preview-content");
   const stage = document.getElementById("preview-stage");
@@ -34,7 +34,6 @@ export function installPreviewZoom({ canvas, initialSize, layoutChanged }) {
       viewport.scrollTop += after.top + centerY * scale - viewBounds.top - viewport.clientHeight / 2;
     }
     viewport.dataset.zoom = String(scale);
-    layoutChanged();
   }
   function step(direction) {
     const level = direction > 0 ? levels.find(value => value > scale + 0.001) : levels.findLast(value => value < scale - 0.001);

@@ -71,7 +71,7 @@ const tools = [
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash from validate_slint; the server checks the saved bytes. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. UI edits arrive in slintEdit model context. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash from validate_slint; the server checks the saved bytes. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },

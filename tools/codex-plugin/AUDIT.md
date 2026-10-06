@@ -1,4 +1,4 @@
-# Deletion and simplification audit
+# Deletion and simplification audit for v0.15.0
 
 Scope: manifests, MCP server, project snapshots, preview template, editor sources, validator, Wasm API change, build and packaging scripts, tests, and documentation.
 Generated runtime binaries were checked through builds, version checks, hashes, and execution rather than treated as editable source.
@@ -41,3 +41,10 @@ Generated runtime binaries were checked through builds, version checks, hashes, 
 - The archive is verified on its recorded build platform; this run prepares macOS ARM64.
 - This prototype supports relative project imports and documented image/font formats, not remote dependencies or include-path aliases.
 - Inline direct manipulation retains its existing single-Button literal-property scope.
+
+## v0.15.1 UI cleanup
+
+The user requested removal of direct manipulation controls, the sidebar divider, and tabs.
+Deleted the editor and label-edit modules and their build, CSS, markup, and runtime hooks.
+Kept source-backed chat edits, renderer acknowledgements, syntax highlighting, and zoom.
+Preview and Code now use a compact view menu on a transparent surface.

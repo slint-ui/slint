@@ -66,5 +66,7 @@ It contains only an explicit package file list, without project snapshots, crede
 The generated ZIP has deterministic file ordering, timestamps, and executable permissions.
 The included native runtime works on the recorded platform and architecture; other platforms build from this checkout.
 
-The preview UI includes the existing editing, code display, and zoom features.
+The preview surface is transparent and follows the host's colour scheme.
+Use the hamburger menu to switch between Preview and Code.
+Keyboard zoom remains available; edits happen through the saved Slint source in chat.
 Third-party notices are in `THIRD_PARTY_NOTICES.txt`.
