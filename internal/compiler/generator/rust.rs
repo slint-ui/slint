@@ -127,15 +127,10 @@ fn rust_module_paths() {
     }
 }
 
-fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> std::io::Result<TokenStream> {
+fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> TokenStream {
     let package = ident(&library_info.package);
-    let module = library_info
-        .module
-        .as_deref()
-        .map(parse_rust_module)
-        .transpose()?
-        .map(|module| quote!(#module::));
-    Ok(quote!(#package::#module #symbol))
+    let module = library_info.module.as_ref().map(|module| quote!(#module::));
+    quote!(#package::#module #symbol)
 }
 
 /// Returns the identifier used for the Property<()> that tracks when a
@@ -275,20 +270,20 @@ pub fn generate(
             .library_types_imports
             .iter()
             .map(|(symbol, library_info)| {
-                let symbol_path = library_symbol_path(library_info, ident(symbol))?;
-                Ok(quote!(
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
+                quote!(
                     #[allow(unused_imports)]
                     pub use #symbol_path;
-                ))
+                )
             })
             .chain(doc_used_types.library_global_imports.iter().map(|(symbol, library_info)| {
-                let symbol_path = library_symbol_path(library_info, ident(symbol))?;
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
                 let inner_symbol_name = smol_str::format_smolstr!("Inner{}", symbol);
                 let inner_symbol_path =
-                    library_symbol_path(library_info, ident(&inner_symbol_name))?;
-                Ok(quote!(pub use #symbol_path, #inner_symbol_path;))
+                    library_symbol_path(library_info, ident(&inner_symbol_name));
+                quote!(pub use #symbol_path, #inner_symbol_path;)
             }))
-            .collect::<std::io::Result<Vec<_>>>()?
+            .collect::<Vec<_>>()
     };
 
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(doc, compiler_config);
@@ -325,7 +320,7 @@ pub fn generate(
         .iter_enumerated()
         .filter(|(_, glob)| glob.from_library)
         .map(|(_idx, glob)| generate_global_getters(glob, &llr));
-    let shared_globals = generate_shared_globals(doc, &llr, compiler_config)?;
+    let shared_globals = generate_shared_globals(doc, &llr, compiler_config);
     let globals_ids = llr.globals.iter().filter(|glob| glob.exported).flat_map(|glob| {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
@@ -672,7 +667,7 @@ fn generate_shared_globals(
     doc: &Document,
     llr: &llr::CompilationUnit,
     compiler_config: &CompilerConfiguration,
-) -> std::io::Result<TokenStream> {
+) -> TokenStream {
     let global_names = llr
         .globals
         .iter()
@@ -719,11 +714,9 @@ fn generate_shared_globals(
             let struct_name = format_ident!("{}SharedGlobals", library_info.name);
             let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
-            let shared_globals_type_name = library_symbol_path(&library_info, struct_name)?;
-            Ok((quote!(#shared_globals_var_name), shared_globals_type_name))
+            let shared_globals_type_name = library_symbol_path(&library_info, struct_name);
+            (quote!(#shared_globals_var_name), shared_globals_type_name)
         })
-        .collect::<std::io::Result<Vec<_>>>()?
-        .into_iter()
         .unzip();
 
     let needs_window_adapter = llr.needs_window_adapter();
@@ -766,7 +759,7 @@ fn generate_shared_globals(
         )
     });
 
-    Ok(quote! {
+    quote! {
         #pub_token struct SharedGlobals {
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
             #(#pub_token #from_library_global_names : ::core::pin::Pin<sp::Rc<#from_library_global_types>>,)*
@@ -845,7 +838,7 @@ fn generate_shared_globals(
 
             #optional_window_adapter_helpers
         }
-    })
+    }
 }
 
 /// Compile the `@rust-attr(...)` captured on a struct or enum declaration into outer
