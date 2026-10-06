@@ -41,13 +41,17 @@ let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default
 let ei = embedded_instance.clone();
 
 let dyn_factory = slint::ComponentFactory::new(move |ctx| {
-    let compiler = slint_interpreter::Compiler::new();
+    let mut compiler = slint_interpreter::Compiler::new();
+    compiler.compiler_configuration(i_slint_core::InternalToken).compile_for_component_container = true;
     let e = spin_on::spin_on(compiler.build_from_source(
         r#"export component E1 inherits Rectangle {
     out property <length> embedded-width <=> self.width;
     out property <length> embedded-height <=> self.height;
     out property <length> embedded-x <=> self.x;
     out property <length> embedded-y <=> self.y;
+
+    width: 100%;
+    height: 100%;
 
     min-width: 10px;
     preferred-width: 50px;
@@ -200,7 +204,7 @@ use slint_interpreter::{ComponentInstance, Value};
 for compile_for_component_container in [false, true] {
     for debug_hooks in [false, true] {
         for root_type in ["Rectangle", "Window"] {
-            for (fixed_width, fixed_height) in [(true, true), (true, false), (false, true)] {
+            for (fixed_width, fixed_height) in [(true, true), (true, false), (false, true), (false, false)] {
                 let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default();
                 let factory_instance = embedded_instance.clone();
                 let factory = slint::ComponentFactory::new(move |context| {
@@ -209,8 +213,8 @@ for compile_for_component_container in [false, true] {
                     configuration.compile_for_component_container = compile_for_component_container;
                     configuration.error_on_binding_loop_with_window_layout = true;
                     configuration.debug_hooks = debug_hooks.then(std::hash::RandomState::new);
-                    let width_binding = if fixed_width { "width: authored-size;" } else { "" };
-                    let height_binding = if fixed_height { "height: authored-size;" } else { "" };
+                    let width_binding = if fixed_width { "width: authored-size;" } else if compile_for_component_container { "width: 100%;" } else { "" };
+                    let height_binding = if fixed_height { "height: authored-size;" } else if compile_for_component_container { "height: 100%;" } else { "" };
                     let source = format!(r#"
                         export component Embedded inherits {root_type} {{
                             in property <length> authored-size: 100px;
@@ -275,6 +279,22 @@ let compilation = spin_on::spin_on(compiler.build_from_source(
     std::path::PathBuf::from("private-sizing.slint"),
 ));
 assert!(compilation.has_errors());
+
+for root_type in ["Rectangle", "Window"] {
+    for dimension in ["width", "height"] {
+        for (compile_for_component_container, percentage) in [(false, 100), (true, 30)] {
+            let mut compiler = slint_interpreter::Compiler::new();
+            compiler.compiler_configuration(i_slint_core::InternalToken).compile_for_component_container = compile_for_component_container;
+            let source = format!("export component InvalidPercentage inherits {root_type} {{ {dimension}: {percentage}%; }}");
+            let compilation = spin_on::spin_on(compiler.build_from_source(
+                source,
+                std::path::PathBuf::from("invalid-percentage.slint"),
+            ));
+            assert!(compilation.has_errors());
+            assert!(compilation.diagnostics().any(|diagnostic| diagnostic.message() == "Cannot find parent property to apply relative length"));
+        }
+    }
+}
 ```
 
 ```js

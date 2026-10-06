@@ -160,7 +160,13 @@ pub async fn run_passes(
         if diag.slint_sc {
             windows::check_sc_window_background(&root_component, diag);
         }
-        windows::ensure_window(&root_component, &doc.local_registry, &style_metrics, diag);
+        windows::ensure_window(
+            &root_component,
+            &doc.local_registry,
+            &style_metrics,
+            type_loader.compiler_config.compile_for_component_container,
+            diag,
+        );
     }
     if let Some(popup_menu_impl) = &doc.popup_menu_impl {
         focus_handling::call_focus_on_init(popup_menu_impl);
