@@ -363,10 +363,11 @@ InputEventFilterResult::DelayForwarding(duration_ms)
    watching for a swipe/drag of its own
 3. Any dispatch pass before release other than the eventual release itself can clear the stored delay as a
    side effect of building a fresh `MouseInputState` for that pass: the timer firing with nothing claiming
-   the press, or a `Moved` event that something *outside* the delaying item's own subtree accepts (e.g. an
+   the press, the delaying item grabbing the mouse on a `Moved` (a flick or swipe starting), or a `Moved`
+   event that something *outside* the delaying item's own subtree accepts (e.g. an
    enclosing `TouchArea`'s hover tracking, after the delaying item itself ignored the move). A `Moved` that
-   nothing accepts anywhere, or that a nested child *inside* the delaying item accepts (e.g. press feedback),
-   does not clear it. A press released after the delay was cleared this way is not forwarded (tracked in
+   nothing accepts anywhere, that a nested child *inside* the delaying item accepts (e.g. press feedback),
+   or that the delaying item accepts without grabbing (a move below its drag threshold) does not clear it. A press released after the delay was cleared this way is not forwarded (tracked in
    issue #13120); only a release while the delay is still intact takes the path below
 4. If release comes while the delay is still intact, the stored root-frame press replays through the *full*
    dispatch from the captured root, with *every* `DelayForwarding` item the replay reaches -- not just the

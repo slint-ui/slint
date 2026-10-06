@@ -1799,18 +1799,17 @@ pub fn process_mouse_input(
         result.drop_target =
             accepted.then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
     }
-    // #13120
-    let accepted_past_delaying_item = accepted
-        && matches!(mouse_event, MouseEvent::Moved { .. })
-        && mouse_input_state
-            .item_stack
-            .last()
-            .is_some_and(|(w, _)| !result.item_stack.iter().any(|(x, _)| x == w));
-    if !accepted_past_delaying_item
-        && mouse_input_state.delayed.is_some()
-        && (!accepted
-            || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
-                .is_none_or(|(a, b)| a.0 != b.0))
+    let delaying_item = mouse_input_state.item_stack.last().map(|(w, _)| w);
+    let is_move = matches!(mouse_event, MouseEvent::Moved { .. });
+    let moved_outside_delaying_item = accepted
+        && is_move
+        && delaying_item.is_some_and(|w| !result.item_stack.iter().any(|(x, _)| x == w));
+    let accepted_by_other_item = Option::zip(result.item_stack.last(), delaying_item)
+        .is_none_or(|((accepting_item, _), delaying_item)| accepting_item != delaying_item);
+    let delaying_item_still_undecided = is_move && !result.grabbed;
+    if mouse_input_state.delayed.is_some()
+        && !moved_outside_delaying_item
+        && (!accepted || accepted_by_other_item || delaying_item_still_undecided)
     {
         // The speculative dispatch above may still have run `input_event_filter_before_children`
         // on items in its path or observer list before we knew it would be thrown away.

@@ -1578,10 +1578,10 @@ fn build(l: &mut Loader) {
         ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
         ///    to the coordinates of the press event exceeds 8 logical pixels.
         ///
-        /// A quick click is a press and release within 100ms, without moving the pointer.
+        /// A quick click is a press and release within 100ms that doesn't start a flick.
         /// If no element inside the `Flickable` handles a quick click, the click goes to the elements behind the `Flickable`.
         /// This happens whether or not the `Flickable` can scroll.
-        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
+        /// Once a flick starts, or if the release comes after 100ms, the click isn't passed on.
         ///
         /// ## Wheel/Scroll Event Interaction
         ///
