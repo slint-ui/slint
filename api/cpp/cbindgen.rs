@@ -1065,6 +1065,7 @@ namespace slint {
         using private_api::Point;
         struct ItemTreeVTable;
         struct ItemVTable;
+        struct SlintContext;
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;

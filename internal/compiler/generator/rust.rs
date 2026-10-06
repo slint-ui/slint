@@ -2339,19 +2339,9 @@ fn generate_item_tree(
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc), context))
     };
-    // The root component owns the freshly created `SharedGlobals` and is responsible for running
-    // its eager initialization. The root's own `globals` field must be set *before* that init
-    // runs, because a global binding (e.g. `Palette.color-scheme`) may resolve the root's window
-    // adapter through `globals` during evaluation. Popups and sub-components receive an already
-    // initialized `SharedGlobals`, so they skip this step.
-    let set_and_init_globals = if is_root_component {
-        quote!(
-            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
-            globals.init_globals();
-        )
-    } else {
-        quote!()
-    };
+    // The `globals` field is set before the items are initialized, which reach the context
+    // through it (see `slint_context`), and before `init_globals`.
+    let init_globals = is_root_component.then(|| quote!(globals.init_globals();));
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
     let context_arg = is_root_component.then(|| quote!(context: sp::SlintContext));
 
@@ -2585,7 +2575,8 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
-                #set_and_init_globals
+                let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+                #init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1)?;
                 ::core::result::Result::Ok(self_rc)
@@ -2711,6 +2702,13 @@ fn generate_item_tree(
                 result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
             ) {
                 #window_adapter_vtable_body
+            }
+
+            fn slint_context(
+                self: ::core::pin::Pin<&Self>,
+                result: &mut sp::Option<sp::SlintContext>,
+            ) {
+                *result = sp::Some(self.globals.get().unwrap().context().clone());
             }
         }
 
