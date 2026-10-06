@@ -57,10 +57,7 @@ impl From<Diagnostic> for JsDiagnostic {
             message: internal_diagnostic.message().into(),
             line_number: line_number as u32,
             column_number: column as u32,
-            file_name: internal_diagnostic
-                .source_file()
-                .and_then(|path| path.to_str())
-                .map(|str| str.into()),
+            file_name: internal_diagnostic.source_path(),
         }
     }
 }

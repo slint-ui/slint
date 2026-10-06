@@ -402,11 +402,7 @@ pub(super) fn choose_image_file(
 }
 
 fn source_path(source_uri: &str) -> Option<PathBuf> {
-    let uri = Url::parse(source_uri).ok()?;
-    if uri.scheme() != "file" {
-        return None;
-    }
-    i_slint_editor_preview::uri_to_file(&uri)
+    i_slint_compiler::source_path::SourcePath::from(Url::parse(source_uri).ok()?).into_native_path()
 }
 
 fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {
@@ -857,11 +853,15 @@ mod tests {
 
     #[test]
     fn image_picker_normalizes_source_uri_separators() {
-        let source = std::env::temp_dir().join("ui/pages/main.slint");
-        let uri = Url::from_file_path(&source).unwrap();
-        let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
-        let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
-        assert_eq!(source_path(&uri), Some(source));
+        // `\` only separates directories in a Windows path.
+        #[cfg(windows)]
+        {
+            let source = std::env::temp_dir().join("ui/pages/main.slint");
+            let uri = Url::from_file_path(&source).unwrap();
+            let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
+            let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
+            assert_eq!(source_path(&uri), Some(source));
+        }
         assert!(source_path("https://example.com/main.slint").is_none());
         assert!(source_path("vscode-remote://host/main.slint").is_none());
     }

@@ -31,8 +31,9 @@ pub(crate) fn trigger_debug_hook(ctx: &EvalContext, id: &SmolStr) -> Option<Valu
 pub(crate) mod tests {
     use super::*;
     use crate::{Compiler, ComponentInstance};
+    use i_slint_compiler::source_path::SourcePath;
     use i_slint_core::{Property, graphics::ApproxEq};
-    use std::{cell::RefCell, collections::HashMap, path::PathBuf, pin::Pin, rc::Rc};
+    use std::{cell::RefCell, collections::HashMap, pin::Pin, rc::Rc};
 
     pub fn compile_with_debug_hooks(code: &str) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
@@ -40,8 +41,11 @@ pub(crate) mod tests {
         let mut compiler = Compiler::default();
         compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
             Some(std::hash::RandomState::new());
-        let compile_result =
-            spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+        let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+            code.to_string(),
+            test_path(),
+            i_slint_core::InternalToken,
+        ));
         assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
         compile_result.components().next().unwrap().create().unwrap()
     }
@@ -67,8 +71,8 @@ pub(crate) mod tests {
     }
 
     // Make sure to not actually write this file, it's just a synthetic path
-    pub fn test_path() -> PathBuf {
-        PathBuf::from("/tmp/test.slint")
+    pub fn test_path() -> SourcePath {
+        SourcePath::new("/tmp/test.slint")
     }
 
     fn find_element_hash(instance: &ComponentInstance, code: &str, search_term: &str) -> u64 {
@@ -332,7 +336,11 @@ export component Win inherits Window {
                 compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
                     Some(std::hash::RandomState::new());
             }
-            let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), test_path()));
+            let r = spin_on::spin_on(compiler.build_from_source_path(
+                code.to_string(),
+                test_path(),
+                i_slint_core::InternalToken,
+            ));
             assert!(!r.has_errors(), "{:?}", r.diagnostics);
             let instance = r.components().next().unwrap().create().unwrap();
             [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]

@@ -152,7 +152,10 @@ pub fn search_replace_host_language_accessors(
         };
         // Synthesize a SourceFile for line/column conversion. Host-language
         // files are not in the LSP document cache, so they have no version.
-        let source_file: SourceFile = Arc::new(SourceFileInner::new(path.clone(), contents));
+        let source_file: SourceFile = Arc::new(SourceFileInner::new(
+            i_slint_compiler::source_path::SourcePath::new(&path),
+            contents,
+        ));
         for (range, new_text) in file_edits {
             let lsp_range = byte_range_to_lsp_range(&source_file, range, format);
             edits.push(SingleTextEdit {

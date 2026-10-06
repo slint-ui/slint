@@ -55,7 +55,7 @@
 //! `window/showMessage` to the user, but the slint rename is not rolled
 //! back.
 
-use std::path::{Path, PathBuf};
+use i_slint_compiler::source_path::SourcePath;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -65,11 +65,7 @@ use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::generator::accessor_names::DeclarationKind;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
-use lsp_types::Url;
 use smol_str::SmolStr;
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 pub fn main_identifier(input: &SyntaxNode) -> Option<SyntaxToken> {
     input.child_token(SyntaxKind::Identifier)
@@ -131,11 +127,11 @@ fn is_symbol_name_exported(
 fn fix_imports(
     document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
-    exporter_path: &Path,
+    exporter_path: &SourcePath,
     new_type: &str,
     edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
-    let Ok(exporter_url) = Url::from_file_path(exporter_path) else {
+    let Some(exporter_url) = exporter_path.to_url() else {
         return;
     };
     for (url, doc) in document_cache.all_url_documents() {
@@ -147,7 +143,7 @@ fn fix_imports(
     }
 }
 
-fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<PathBuf> {
+fn import_path(document_directory: &SourcePath, specifier: &SyntaxNode) -> Option<SourcePath> {
     assert!([SyntaxKind::ImportSpecifier, SyntaxKind::ExportModule].contains(&specifier.kind()));
 
     let import = specifier
@@ -159,7 +155,7 @@ fn import_path(document_directory: &Path, specifier: &SyntaxNode) -> Option<Path
     }
 
     // Do not bother with the TypeLoader: It will check the FS, which we do not use:-/
-    Some(i_slint_compiler::pathutils::clean_path(&document_directory.join(import)))
+    document_directory.join(&import)
 }
 
 /// Fix up `Type as OtherType` like specifiers found in import and export lists
@@ -306,13 +302,11 @@ fn fix_import_in_document(
     document_cache: &crate::DocumentCache,
     query: &DeclarationNodeQuery,
     document_node: &syntax_nodes::Document,
-    exporter_path: &Path,
+    exporter_path: &SourcePath,
     new_type: &str,
     edits: &mut Vec<crate::editing::SingleTextEdit>,
 ) {
-    let Some(document_directory) =
-        document_node.source_file().and_then(|sf| sf.path().parent()).map(|p| p.to_owned())
-    else {
+    let Some(document_directory) = document_node.source_file().map(|sf| sf.path().parent()) else {
         return;
     };
 
@@ -321,7 +315,7 @@ fn fix_import_in_document(
             continue;
         };
 
-        if import_path != exporter_path {
+        if &import_path != exporter_path {
             continue;
         }
 
@@ -357,7 +351,7 @@ fn fix_import_in_document(
             continue;
         };
 
-        if import_path != exporter_path {
+        if &import_path != exporter_path {
             continue;
         }
 
@@ -1153,7 +1147,7 @@ fn find_declaration_node_impl(
 
     // Imported?
     let document_path = document_node.source_file.path();
-    let document_dir = document_path.parent()?;
+    let document_dir = &document_path.parent();
 
     for import_spec in document_node.ImportSpecifier() {
         if let Some(import_id) = import_spec.ImportIdentifierList() {
@@ -1305,7 +1299,7 @@ mod tests {
     #[track_caller]
     fn find_token_by_comment(
         document_cache: &crate::DocumentCache,
-        document_path: &Path,
+        document_path: &SourcePath,
         suffix: &str,
     ) -> SyntaxToken {
         let document = document_cache.get_document_by_path(document_path).unwrap();
@@ -1329,7 +1323,7 @@ mod tests {
     #[track_caller]
     fn find_node_by_comment(
         document_cache: &crate::DocumentCache,
-        document_path: &Path,
+        document_path: &SourcePath,
         suffix: &str,
     ) -> SyntaxNode {
         find_token_by_comment(document_cache, document_path, suffix).parent()
@@ -1402,7 +1396,7 @@ mod tests {
     #[track_caller]
     pub fn rename_tester_with_new_name(
         document_cache: &crate::DocumentCache,
-        document_path: &Path,
+        document_path: &SourcePath,
         suffix: &str,
         new_name: &str,
     ) -> Vec<text_edit::EditedText> {
@@ -1419,7 +1413,7 @@ mod tests {
     #[track_caller]
     pub fn rename_tester(
         document_cache: &crate::DocumentCache,
-        document_path: &Path,
+        document_path: &SourcePath,
         suffix: &str,
     ) -> Vec<text_edit::EditedText> {
         rename_tester_with_new_name(document_cache, document_path, suffix, "XxxYyyZzz")
@@ -1430,7 +1424,7 @@ mod tests {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export component Foo inherits Window {
     in property <int> count /* <- TEST_ME_PROP */;
@@ -1483,7 +1477,7 @@ component Inner {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export global Settings {
     in-out property <int> volume /* <- TEST_ME_GLOBAL_PROP */;
@@ -1518,8 +1512,8 @@ export component Host inherits Window { }
         // an exported component in file B. The classifier must walk all
         // documents (not just the renamed file's own document) to find the
         // exported descendant.
-        let base_url = Url::from_file_path(test::test_file_name("base.slint")).unwrap();
-        let app_url = Url::from_file_path(test::main_test_file_name()).unwrap();
+        let base_url = test::test_file_name("base.slint").to_url().unwrap();
+        let app_url = test::main_test_file_name().to_url().unwrap();
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([
@@ -1563,7 +1557,7 @@ export component App inherits Base {{ }}
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 component Base {
     in property <int> base-count /* <- TEST_ME_INHERITED */;
@@ -1603,7 +1597,7 @@ export component DerivedApp inherits Base {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 component Foo /* <- TEST_ME_1 */ { @children }
 
@@ -1658,7 +1652,7 @@ component Foo /* <- TEST_ME_2 */ inherits Foo /* 1.2 */ {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 enum Foo /* <- TEST_ME_1 */ { test1 }
 
@@ -1716,7 +1710,7 @@ export struct Baz {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 struct Foo /* <- TEST_ME_1 */ { test: bool }
 
@@ -1770,7 +1764,7 @@ struct Foo /* <- TEST_ME_2 */ {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export { Foo }
 
@@ -1845,7 +1839,7 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 "component Foo/* <- TEST_ME_1 */{ }\nexport component _SLINT_LivePreview inherits Foo { /* @lsp:ignore-node */ }\n".to_string()
             )]),
             true,
@@ -1871,7 +1865,7 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { FExport} from "source.slint";
 
@@ -1882,7 +1876,7 @@ export component Foo {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 enum Foo {
     foo, bar
@@ -1904,10 +1898,7 @@ export { Foo as FExport }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         assert_eq!(edited_text.len(), 1);
-        assert_eq!(
-            edited_text[0].url.to_file_path().unwrap(),
-            test::test_file_name("source.slint")
-        );
+        assert_eq!(SourcePath::from_url(&edited_text[0].url), test::test_file_name("source.slint"));
         assert!(edited_text[0].contents.contains("enum Foo {"));
         assert!(edited_text[0].contents.contains("component XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("property <Foo> test-property"));
@@ -1921,7 +1912,7 @@ export { Foo as FExport }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 import { UserComponent } from "user.slint";
@@ -1938,14 +1929,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
 import { Foo as Bar } from "source.slint";
 
@@ -1958,7 +1949,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
 import { Foo as XxxYyyZzz } from "source.slint";
 
@@ -1969,7 +1960,7 @@ export component User2Component {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -1978,7 +1969,7 @@ export { Foo }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -1994,7 +1985,7 @@ export { Foo as User4Fxx }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("XxxYyyZzz"));
                 assert!(!ed.contents.contains("Foo"));
@@ -2029,7 +2020,7 @@ export { Foo as User4Fxx }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "s/source.slint";
 import { UserComponent } from "u/user.slint";
@@ -2046,14 +2037,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("s/source.slint")).unwrap(),
+                    test::test_file_name("s/source.slint").to_url().unwrap(),
                     r#"
 export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("u/user.slint")).unwrap(),
+                    test::test_file_name("u/user.slint").to_url().unwrap(),
                     r#"
 import { Foo as Bar } from "../s/source.slint";
 
@@ -2066,7 +2057,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("u/user2.slint")).unwrap(),
+                    test::test_file_name("u/user2.slint").to_url().unwrap(),
                     r#"
 import { Foo as XxxYyyZzz } from "../s/source.slint";
 
@@ -2077,7 +2068,7 @@ export component User2Component {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("u/user3.slint")).unwrap(),
+                    test::test_file_name("u/user3.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "../s/source.slint";
 
@@ -2086,7 +2077,7 @@ export { Foo }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("u/user4.slint")).unwrap(),
+                    test::test_file_name("u/user4.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "../s/source.slint";
 
@@ -2102,7 +2093,7 @@ export { Foo as User4Fxx }
             rename_tester(&document_cache, &test::test_file_name("s/source.slint"), "_1");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("XxxYyyZzz"));
                 assert!(!ed.contents.contains("Foo"));
@@ -2137,7 +2128,7 @@ export { Foo as User4Fxx }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo as User1Fxx } from "user1.slint";
 import { Foo as User2Fxx } from "user2.slint";
@@ -2150,14 +2141,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user1.slint")).unwrap(),
+                    test::test_file_name("user1.slint").to_url().unwrap(),
                     r#"
 export component Foo /* <- TEST_ME_1 */ { }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
 export component Foo /* <- TEST_ME_2 */ { }
                 "#
@@ -2171,7 +2162,7 @@ export component Foo /* <- TEST_ME_2 */ { }
             rename_tester(&document_cache, &test::test_file_name("user1.slint"), "_1");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz as User1Fxx }"));
                 assert!(ed.contents.contains("import { Foo as User2Fxx }"));
@@ -2187,7 +2178,7 @@ export component Foo /* <- TEST_ME_2 */ { }
             rename_tester(&document_cache, &test::test_file_name("user2.slint"), "_2");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz as User2Fxx }"));
                 assert!(ed.contents.contains("import { Foo as User1Fxx }"));
@@ -2205,7 +2196,7 @@ export component Foo /* <- TEST_ME_2 */ { }
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 struct UsedStruct { value: int, }
 enum UsedEnum { x, y }
@@ -2247,7 +2238,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export struct Foo /* <- TEST_ME_1 */ {
     test-me: bool,
@@ -2281,7 +2272,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export struct F-oo /* <- TEST_ME_1 */ {
     test-me: bool,
@@ -2320,7 +2311,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export struct F_oo /* <- TEST_ME_1 */ {
     test-me: bool,
@@ -2360,7 +2351,7 @@ export component Bar {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { FExport} from "source.slint";
 
@@ -2371,7 +2362,7 @@ export component Foo {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 struct Foo /* <- TEST_ME_1 */ {
     test-me: bool,
@@ -2389,10 +2380,7 @@ export { Foo as FExport }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         assert_eq!(edited_text.len(), 1);
-        assert_eq!(
-            edited_text[0].url.to_file_path().unwrap(),
-            test::test_file_name("source.slint")
-        );
+        assert_eq!(SourcePath::from_url(&edited_text[0].url), test::test_file_name("source.slint"));
         assert!(edited_text[0].contents.contains("struct XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz as FExport }"));
     }
@@ -2403,7 +2391,7 @@ export { Foo as FExport }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 import { UserComponent } from "user.slint";
@@ -2423,14 +2411,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export struct Foo /* <- TEST_ME_1 */ { test-me: bool, }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
 import { Foo as Bar } from "source.slint";
 
@@ -2443,7 +2431,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
 import { Foo as XxxYyyZzz } from "source.slint";
 
@@ -2454,7 +2442,7 @@ export struct User2Struct {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -2463,7 +2451,7 @@ export { Foo }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -2479,7 +2467,7 @@ export { Foo as User4Fxx }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("XxxYyyZzz"));
                 assert!(!ed.contents.contains("Foo"));
@@ -2513,7 +2501,7 @@ export { Foo as User4Fxx }
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
     export { Foo }
 
@@ -2552,7 +2540,7 @@ export { Foo as User4Fxx }
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
     enum Foo /* <- TEST_ME_1 */ {
         M1, M2,
@@ -2590,7 +2578,7 @@ export { Foo as User4Fxx }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
     import { FExport} from "source.slint";
 
@@ -2601,7 +2589,7 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
     export enum Foo /* <- TEST_ME_1 */ {
         OM1, OM2,
@@ -2619,10 +2607,7 @@ export { Foo as User4Fxx }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         assert_eq!(edited_text.len(), 1);
-        assert_eq!(
-            edited_text[0].url.to_file_path().unwrap(),
-            test::test_file_name("source.slint")
-        );
+        assert_eq!(SourcePath::from_url(&edited_text[0].url), test::test_file_name("source.slint"));
         assert!(edited_text[0].contents.contains("export enum XxxYyyZzz /* <- TEST_ME_1 "));
         assert!(edited_text[0].contents.contains("export { XxxYyyZzz as FExport"));
         assert!(!edited_text[0].contents.contains("Foo"));
@@ -2634,7 +2619,7 @@ export { Foo as User4Fxx }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
     import { F_o_o } from "source.slint";
     import { UserComponent } from "user.slint";
@@ -2654,14 +2639,14 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
     export enum F_o-o /* <- TEST_ME_1 */ { M1, M2, }
                     "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
     import { F-o_o as B_a-r } from "source.slint";
 
@@ -2674,7 +2659,7 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
     import { F_o_o as XxxYyyZzz } from "source.slint";
 
@@ -2685,7 +2670,7 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
     import { F-o-o } from "source.slint";
 
@@ -2694,7 +2679,7 @@ export { Foo as User4Fxx }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
     import { F-o-o } from "source.slint";
 
@@ -2710,7 +2695,7 @@ export { Foo as User4Fxx }
             rename_tester(&document_cache, &test::test_file_name("source.slint"), "_1");
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"source.slint\""));
                 assert!(ed.contents.contains("import { UserComponent } from \"user.slint\""));
@@ -2753,7 +2738,7 @@ export { Foo as User4Fxx }
     #[track_caller]
     fn find_declaration_node_by_comment(
         document_cache: &crate::DocumentCache,
-        document_path: &Path,
+        document_path: &SourcePath,
         suffix: &str,
     ) -> DeclarationNode {
         let name = find_node_by_comment(document_cache, document_path, suffix);
@@ -2765,7 +2750,7 @@ export { Foo as User4Fxx }
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export { Foo /* <- TEST_ME_1 */ }
 
@@ -2852,7 +2837,7 @@ export component Bar inherits Foo /* <- TEST_ME_3 */ {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 struct Foo /* <- TEST_ME_DECL */ {
     test: bool,
@@ -2896,7 +2881,7 @@ export component Bar {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
     import { F-o_o /* <- TEST_ME_IMPORT1 */ } from "source.slint";
     import { UserComponent } from "user.slint";
@@ -2915,14 +2900,14 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
     export component F_o-o /* <- TEST_ME_DEF1 */ { @children }
                     "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
     import { F-o-o /* <- TEST_ME_IMPORT3 */ as Bar } from "source.slint";
 
@@ -2935,7 +2920,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
     import { F_o_o /* <- TEST_ME_IMPORT4 */ as XxxYyyZzz } from "source.slint";
 
@@ -2946,7 +2931,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
     import { F-o_o /* <- TEST_ME_IMPORT5 */ } from "source.slint";
 
@@ -2955,7 +2940,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
     import { F-o_o /* <- TEST_ME_IMPORT6 */ } from "source.slint";
 
@@ -2994,7 +2979,7 @@ export component Bar {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT1 */ } from "source.slint";
 import { UserComponent } from "user.slint";
@@ -3016,14 +3001,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export struct Foo /* <- TEST_ME_DEF1 */ { test-me: bool, }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT1 */ as Bar } from "source.slint";
 
@@ -3037,7 +3022,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT2 */ as XxxYyyZzz } from "source.slint";
 
@@ -3048,7 +3033,7 @@ export struct User2Struct {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT3 */} from "source.slint";
 
@@ -3057,7 +3042,7 @@ export { Foo /* <- TEST_ME_EXPORT1 */}
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT4 */ } from "source.slint";
 
@@ -3096,7 +3081,7 @@ export { Foo /* <- TEST_ME_EXPORT2 */ as User4Fxx /* <- TEST_ME_EN1 */}
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 import { UserComponent } from "user.slint";
@@ -3118,14 +3103,14 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export enum Foo /* <- TEST_ME_DEF1 */ { test, }
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user.slint")).unwrap(),
+                    test::test_file_name("user.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT1 */ as Bar } from "source.slint";
 
@@ -3139,7 +3124,7 @@ export { Bar }
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user2.slint")).unwrap(),
+                    test::test_file_name("user2.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT2 */ as XxxYyyZzz } from "source.slint";
 
@@ -3150,7 +3135,7 @@ export struct User2Struct {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user3.slint")).unwrap(),
+                    test::test_file_name("user3.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT3 */} from "source.slint";
 
@@ -3159,7 +3144,7 @@ export { Foo /* <- TEST_ME_EXPORT1 */}
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("user4.slint")).unwrap(),
+                    test::test_file_name("user4.slint").to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_IMPORT4 */ } from "source.slint";
 
@@ -3203,7 +3188,7 @@ export { Foo /* <- TEST_ME_EXPORT2 */ as User4Fxx /* <- TEST_ME_EN1 */}
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo as Bar /* <- TEST_ME_1 */ } from "source.slint";
 
@@ -3214,7 +3199,7 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export component Foo { }
                 "#
@@ -3255,7 +3240,7 @@ export component Foo { }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_1 */ as Bar } from "source.slint";
 
@@ -3266,7 +3251,7 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export component Foo { }
                 "#
@@ -3282,7 +3267,7 @@ export component Foo { }
         assert_eq!(edited_text.len(), 2);
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(
                     ed.contents.contains(
@@ -3303,7 +3288,7 @@ export component Foo { }
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { Bar } from \"source.slint\";"));
                 assert!(ed.contents.contains("component Main {"));
@@ -3322,7 +3307,7 @@ export component Foo { }
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo /* <- TEST_ME_1 */ as Bar } from "source.slint";
 
@@ -3333,7 +3318,7 @@ export component Main {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 component XxxYyyZzz { }
 
@@ -3355,7 +3340,7 @@ export { XxxYyyZzz as Foo }
         assert_eq!(edited_text.len(), 2);
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(
                     ed.contents.contains(
@@ -3378,7 +3363,7 @@ export { XxxYyyZzz as Foo }
         assert_eq!(edited_text.len(), 2);
 
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { Bar } from \"source.slint\";"));
                 assert!(ed.contents.contains("component Main {"));
@@ -3395,7 +3380,7 @@ export { XxxYyyZzz as Foo }
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains(
                     "import { XxxYyyZzz /* <- TEST_ME_1 */ as Bar } from \"source.slint\";"
@@ -3416,7 +3401,7 @@ export { XxxYyyZzz as Foo }
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 component re_name-me {
     property <bool> re_name-me /* <- TEST_ME_1 */: true;
@@ -3485,7 +3470,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 component re_name-me {
     property <bool> re_name-me /* 1 */: true;
@@ -3569,7 +3554,7 @@ export component Bar {
     // each declare and use their own `prop`; renaming one must not touch the other.
     fn shadowable_sources() -> HashMap<Url, String> {
         HashMap::from([(
-            Url::from_file_path(test::main_test_file_name()).unwrap(),
+            test::main_test_file_name().to_url().unwrap(),
             r#"
 component Base {
     @shadowable in-out property <int> prop /* <- TEST_ME_BASE_DECL */: 1;
@@ -3644,7 +3629,7 @@ export component Main {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { re_name-me } from "source.slint";
 
@@ -3661,7 +3646,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export component re_name-me {
     in-out property <bool> re_name-me /* <- TEST_ME_1 */: true;
@@ -3680,7 +3665,7 @@ export component re_name-me {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { re_name-me } from \"source.slint\";"));
                 assert!(ed.contents.contains("export component Bar {"));
@@ -3706,7 +3691,7 @@ export component re_name-me {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { re_name-me } from "source.slint";
 
@@ -3723,7 +3708,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export component re_name-me {
     in-out property <bool> re_name-me /* 3 */: true;
@@ -3741,7 +3726,7 @@ export component re_name-me {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { re_name-me } from \"source.slint\";"));
                 assert!(ed.contents.contains("export component Bar {"));
@@ -3766,7 +3751,7 @@ export component re_name-me {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 component Baz {
     in-out property <int> re_name-me /* <- TEST_ME_1 */: 42;
@@ -3808,7 +3793,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export component Bar {
     id := Rectangle {
@@ -3845,7 +3830,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 struct re_name-me {}
 component re_name-me {
@@ -3909,7 +3894,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 global X {
     public function re_name_me /* <- TEST_ME_1 */ (re_name-me: int) {
@@ -3955,7 +3940,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export { Foo }
 
@@ -3991,7 +3976,7 @@ export component Bar {
         let document_cache = test::compile_test_with_sources(
             "fluent",
             HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
+                test::main_test_file_name().to_url().unwrap(),
                 r#"
 export { Foo }
 
@@ -4026,7 +4011,7 @@ export component Bar {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "source.slint";
 
@@ -4037,7 +4022,7 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export { Foo }
 
@@ -4055,7 +4040,7 @@ global Foo {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"source.slint\";"));
                 assert!(ed.contents.contains("function baz(bar: int)"));
@@ -4078,7 +4063,7 @@ global Foo {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "reexport.slint";
 
@@ -4089,14 +4074,14 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    test::test_file_name("reexport.slint").to_url().unwrap(),
                     r#"
 export { Foo } from "source.slint";
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export { Foo }
 
@@ -4114,7 +4099,7 @@ global Foo {
 
         assert_eq!(edited_text.len(), 3);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
                 assert!(ed.contents.contains("function baz(bar: int)"));
@@ -4139,7 +4124,7 @@ global Foo {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foobar } from "reexport.slint";
 
@@ -4150,14 +4135,14 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    test::test_file_name("reexport.slint").to_url().unwrap(),
                     r#"
 export { Foo /* <- TEST_ME_2 */ as Foobar } from "source.slint";
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export { Foo }
 
@@ -4175,7 +4160,7 @@ global Foo {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
                 assert!(ed.contents.contains("function baz(bar: int)"));
@@ -4200,7 +4185,7 @@ global Foo {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::test_file_name("source.slint") {
                 assert!(ed.contents.contains("export { Foobar }"));
                 assert!(ed.contents.contains("global Foobar {"));
@@ -4219,7 +4204,7 @@ global Foo {
             "fluent",
             HashMap::from([
                 (
-                    Url::from_file_path(test::main_test_file_name()).unwrap(),
+                    test::main_test_file_name().to_url().unwrap(),
                     r#"
 import { Foo } from "reexport.slint";
 
@@ -4230,14 +4215,14 @@ export component Bar {
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("reexport.slint")).unwrap(),
+                    test::test_file_name("reexport.slint").to_url().unwrap(),
                     r#"
 export * from "source.slint";
                 "#
                     .to_string(),
                 ),
                 (
-                    Url::from_file_path(test::test_file_name("source.slint")).unwrap(),
+                    test::test_file_name("source.slint").to_url().unwrap(),
                     r#"
 export { Foo }
 
@@ -4255,7 +4240,7 @@ global Foo {
 
         assert_eq!(edited_text.len(), 2);
         for ed in &edited_text {
-            let ed_path = ed.url.to_file_path().unwrap();
+            let ed_path = SourcePath::from_url(&ed.url);
             if ed_path == test::main_test_file_name() {
                 assert!(ed.contents.contains("import { XxxYyyZzz } from \"reexport.slint\";"));
                 assert!(ed.contents.contains("function baz(bar: int)"));

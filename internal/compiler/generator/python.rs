@@ -595,9 +595,8 @@ pub fn generate(
     let main_file = std::path::absolute(
         doc.node
             .as_ref()
-            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
-            .source_file
-            .path(),
+            .and_then(|node| node.source_file.path().as_native_path())
+            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?,
     )
     .unwrap();
 

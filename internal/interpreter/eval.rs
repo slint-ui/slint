@@ -14,6 +14,7 @@ use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
 use i_slint_compiler::langtype::{ConstantExpression, Type};
 use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
@@ -1785,15 +1786,12 @@ fn load_image_reference(
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
-        Ref::Url(url) if url.scheme() == "builtin" => {
+        Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
-            // baked into the compiler's builtin library and need to be fetched
-            // through `fileaccess::load_file` rather than the filesystem.
-            let path = std::path::Path::new(url.as_str());
-            i_slint_compiler::fileaccess::load_file(path)
-                .and_then(|virtual_file| virtual_file.builtin_contents)
+            // baked into the compiler's builtin library.
+            i_slint_compiler::fileaccess::builtin_contents(builtin_path)
                 .map(|contents| {
-                    let extension = path.extension().unwrap().to_str().unwrap();
+                    let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
@@ -1801,13 +1799,11 @@ fn load_image_reference(
                 })
                 .ok_or_else(Default::default)
         }
-        Ref::Path(path) => {
-            i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path.as_str()))
-        }
-        Ref::Url(url) => {
+        Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
-                i_slint_core::graphics::load_as_html_image(url.as_str())
+                i_slint_core::graphics::load_as_html_image(&url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
             #[cfg(not(target_arch = "wasm32"))]
@@ -1894,21 +1890,34 @@ fn grid_repeater_cache_access(
     }
 }
 
-/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
-/// The location of a builtin function call in the .slint source, in the form
-/// attached to the log messages it emits.
-fn log_message_location(
-    source_location: &Option<SourceLocation>,
-) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+/// The location of a builtin function call in the .slint source, which the log
+/// messages it emits borrow through [`LogLocation::get`].
+struct LogLocation<'a> {
+    path: std::borrow::Cow<'a, str>,
+    line: usize,
+    column: usize,
+}
+
+impl LogLocation<'_> {
+    fn get(&self) -> i_slint_core::debug_log::LogMessageLocation<'_> {
+        i_slint_core::debug_log::LogMessageLocation {
+            path: &self.path,
+            line: self.line,
+            column: self.column,
+        }
+    }
+}
+
+fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogLocation<'_>> {
     let location = source_location.as_ref()?;
     let source_file = location.source_file.as_ref()?;
     let (line, column) = source_file
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
-    Some(i_slint_core::debug_log::LogMessageLocation {
-        path: source_file.path().to_str()?,
-        line,
-        column,
-    })
+    let path = match source_file.path() {
+        SourcePath::File(path) => path.to_string_lossy(),
+        path => path.to_string().into(),
+    };
+    Some(LogLocation { path, line, column })
 }
 
 /// Arguments of a `@tr(...)` formatting, as a model of strings.
@@ -1963,6 +1972,7 @@ fn eval_translation_reference(
     ))
 }
 
+/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
@@ -2189,7 +2199,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "push",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 model.push_row(value),
             );
 
@@ -2216,7 +2226,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "remove",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2245,7 +2255,7 @@ fn call_builtin_function(
             i_slint_core::model::report_model_error(
                 &context_or_global(ctx),
                 "insert",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
@@ -2567,7 +2577,7 @@ fn call_builtin_function(
             let msg = to_string(ctx, &arguments[0]);
             context_or_global(ctx).dispatch_log_message(LogMessage::new(
                 LogMessageSource::SlintCode,
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 format_args!("{msg}"),
             ));
             Value::Void

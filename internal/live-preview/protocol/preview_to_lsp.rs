@@ -7,9 +7,6 @@ use lsp_types::Url;
 
 use super::{PairingRejection, PreviewComponent, Result, SourceFileVersion};
 
-#[cfg(target_arch = "wasm32")]
-use super::wasm_prelude::*;
-
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
 /// they aren't a target of their own.
@@ -120,17 +117,10 @@ pub trait PreviewToLsp {
     /// Ask the editor to show some document
     fn ask_editor_to_show_document(
         &self,
-        file: &str,
+        file: lsp_types::Url,
         selection: lsp_types::Range,
         take_focus: bool,
     ) -> Result<()> {
-        let file = match lsp_types::Url::from_file_path(file) {
-            Ok(file) => file,
-            Err(()) => {
-                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
-                return Err("Failed to convert file path to URL".to_string().into());
-            }
-        };
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }

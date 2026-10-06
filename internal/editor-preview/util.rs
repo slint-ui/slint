@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore qualname
+// cSpell: ignore qualname rposition
 use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
@@ -12,8 +12,16 @@ use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
 
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::UrlWasm;
+/// The leading directories that all `paths` share, up to and including the last separator.
+pub fn common_directory<'a>(paths: impl IntoIterator<Item = &'a str>) -> String {
+    let mut paths = paths.into_iter();
+    let Some(first) = paths.next() else { return String::new() };
+    let common = paths.fold(first.len(), |common, path| {
+        first.bytes().zip(path.bytes()).take(common).take_while(|(a, b)| a == b).count()
+    });
+    let end = first.as_bytes()[..common].iter().rposition(|b| matches!(b, b'/' | b'\\'));
+    end.map_or_else(String::new, |end| first[..=end].to_owned())
+}
 
 #[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<Future: std::future::Future>(future: Future) -> Option<Future::Output> {
@@ -45,7 +53,11 @@ pub fn node_to_url_and_lsp_range(
     format: ByteFormat,
 ) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let path = node.source_file.path();
-    Some((lsp_types::Url::from_file_path(path).ok()?, node_to_lsp_range(node, format)))
+    // Desktop editors can't open a `builtin:` URL (#4126).
+    if path.is_builtin() && !cfg!(target_arch = "wasm32") {
+        return None;
+    }
+    Some((path.to_url()?, node_to_lsp_range(node, format)))
 }
 
 /// Map a `node` to the `Range` of characters covered by the `node`
@@ -494,6 +506,20 @@ fn probe_expression(n: &SyntaxNode, offset: TextSize) -> Option<(SyntaxNode, Syn
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_common_directory() {
+        use super::common_directory;
+        assert_eq!(common_directory(["/a/b/x.slint", "/a/b/y.slint"]), "/a/b/");
+        assert_eq!(common_directory(["/a/b/x.slint", "/a/bb/y.slint"]), "/a/");
+        assert_eq!(common_directory(["C:\\ui\\main.slint"]), "C:\\ui\\");
+        assert_eq!(
+            common_directory(["https://h/ü/a.slint", "https://h/ü/b.slint"]),
+            "https://h/ü/"
+        );
+        assert_eq!(common_directory(["a.slint", "b.slint"]), "");
+        assert_eq!(common_directory([]), "");
+    }
+
     use super::*;
 
     use crate::test::loaded_document_cache;

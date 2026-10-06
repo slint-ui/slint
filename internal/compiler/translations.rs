@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+use crate::source_path::SourcePath;
 use rspolib::TranslatedEntry;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
@@ -48,7 +49,7 @@ impl TranslationsBuilder {
     pub fn load_translations(
         path: &Path,
         domain: &str,
-        all_loaded_files: &mut std::collections::BTreeSet<std::path::PathBuf>,
+        all_loaded_files: &mut std::collections::BTreeSet<SourcePath>,
     ) -> std::io::Result<Self> {
         let mut languages = vec![("".into(), i_slint_common::DEFAULT_DECIMAL_SEPARATOR)];
         let mut catalogs = Vec::new();
@@ -65,7 +66,7 @@ impl TranslationsBuilder {
         for l in entries {
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
-                all_loaded_files.insert(path.clone());
+                all_loaded_files.insert(SourcePath::File(path.clone()));
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;

@@ -115,9 +115,9 @@ fn calculate_element_hash(
         .text_range()
         .start();
 
-    use std::hash::{BuildHasher, Hasher};
+    use std::hash::{BuildHasher, Hash, Hasher};
     let mut hasher = random_state.build_hasher();
-    hasher.write(elem_path.as_os_str().as_encoded_bytes());
+    elem_path.hash(&mut hasher);
     hasher.write_u32(elem_offset.into());
     hasher.finish()
 }
@@ -402,7 +402,7 @@ mod tests {
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
-            Some(std::path::Path::new("test.slint")),
+            Some(crate::source_path::SourcePath::new("test.slint")),
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
