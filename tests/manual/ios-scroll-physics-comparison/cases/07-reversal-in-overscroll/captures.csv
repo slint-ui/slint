@@ -1,7 +1,0 @@
-file,back,trial,engine_commit,device,viewport_pt,releases,uikit_release_offset_pt,slint_release_offset_pt,release_pan_velocity_y,finger_speed_last_25_ms,uikit_final_offset_pt,slint_final_offset_pt,uikit_settle_s,slint_settle_s,max_sample_gap_ms,issues
-back0150-trial1,150,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-70.000,-70.000,-1680.000,0.000,172.333,-0.000,1.841,0.593,15.551,
-back0150-trial2,150,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,-70.000,-70.000,-1680.000,0.000,172.333,-0.000,1.824,0.593,18.329,
-back0300-trial1,300,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,10.000,10.000,-400.000,-10.810,324.333,10.000,2.041,-0.308,8.560,
-back0300-trial2,300,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,10.000,10.000,-381.151,-10.810,335.000,10.000,2.082,-0.308,8.538,
-back0450-trial1,450,1,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,160.000,160.000,-494.459,-22.220,2045.667,160.000,2.949,-0.299,8.540,
-back0450-trial2,450,2,9effee0372d4f6044fd291be53e0d2b65bb8c0b8,"iPhone 13 Pro Max, iOS 27.0.1 (24A446)",770,1,160.000,160.000,-480.000,-22.220,2041.333,160.000,2.941,-0.299,8.550,

@@ -1,6 +1,0 @@
-# Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: MIT
-
-# Makes Flickable scroll like on iOS, so the replay matches the iPhone captures.
-[build]
-rustflags = ["--cfg", "slint_ios_scroll_physics"]
