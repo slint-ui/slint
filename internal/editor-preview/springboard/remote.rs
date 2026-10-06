@@ -93,7 +93,7 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
         .into_iter()
         .filter_map(|address| match address {
             mdns_sd::ScopedIp::V4(address) => Some(address.addr().to_string()),
-            mdns_sd::ScopedIp::V6(address) => dialable_v6(address.addr(), address.scope_id().index),
+            mdns_sd::ScopedIp::V6(address) => usable_ipv6(address.addr(), address.scope_id().index),
             _ => None,
         })
         .collect();
@@ -115,7 +115,7 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
     }
 }
 
-fn dialable_v6(address: &std::net::Ipv6Addr, scope_index: u32) -> Option<String> {
+fn usable_ipv6(address: &std::net::Ipv6Addr, scope_index: u32) -> Option<String> {
     if address.is_unicast_link_local() {
         (scope_index != 0).then(|| format!("[{address}%{scope_index}]"))
     } else {
@@ -167,19 +167,19 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn scoped_ipv6_is_dialable_only_with_a_zone() {
+    fn scoped_ipv6_is_usable_only_with_a_zone() {
         for (address, index, expected) in [
             ("fe80::1", 0, None),
             ("fe80::1", 7, Some("[fe80::1%7]")),
             ("2001:db8::5", 0, Some("[2001:db8::5]")),
             ("2001:db8::5", 7, Some("[2001:db8::5]")),
         ] {
-            assert_eq!(dialable_v6(&address.parse().unwrap(), index).as_deref(), expected);
+            assert_eq!(usable_ipv6(&address.parse().unwrap(), index).as_deref(), expected);
         }
     }
 
     #[test]
-    fn incompatible_or_undialable_viewers_are_unavailable() {
+    fn incompatible_viewers_or_unusable_addresses_are_unavailable() {
         for (protocols, address, port) in [
             (None, "127.0.0.1", 1234),
             (Some("slint-preview.0.1"), "127.0.0.1", 1234),

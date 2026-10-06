@@ -74,7 +74,7 @@ wasm-bindgen-futures = "0.4.30"
 [dev-dependencies]
 tokio = { version = "1.50.0", features = ["test-util"] }
 flume = "0.12"
-i-slint-live-preview = { workspace = true, features = ["remote"] }
+i-slint-live-preview = { path = "../live-preview", features = ["remote"] }
 tokio-tungstenite = "0.30.0"
 i-slint-backend-testing = { path = "../backends/testing" }
 spin_on = { workspace = true }
