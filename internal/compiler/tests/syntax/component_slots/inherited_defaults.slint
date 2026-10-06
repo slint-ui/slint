@@ -26,11 +26,12 @@ export component EmptyDefault inherits Derived {
 
 export component MixedAssignment inherits Base {
     content {
+//  >note{'content' is already declared here}
         Rectangle { }
     }
-
+//  <note{'content' is already declared here}
     content << Rectangle { }
-//             >        <error{Remove the assignment to slot 'content' or its default placeholder}
+//             >        <error{Cannot override the slot 'content'}
 }
 
 export component NestedOverride inherits Base {
@@ -50,4 +51,14 @@ export component RedeclaredSlot inherits Base {
     content {
         Rectangle { }
     }
+}
+
+export component AssignmentBeforePlaceholder inherits Base {
+    content << Rectangle { }
+//             >        <error{Cannot override the slot 'content'}
+    content {
+//  >note{'content' is already declared here}
+        Rectangle { }
+    }
+//  <note{'content' is already declared here}
 }
