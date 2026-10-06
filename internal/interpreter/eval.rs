@@ -2579,6 +2579,8 @@ fn call_builtin_function(
                 m.model_tracker().track_row_count_changes();
                 Value::Number(m.row_count() as f64)
             }
+            // A number model, see the repeater model binding in `bindings.rs`.
+            Value::Number(n) => Value::Number((n.max(0.) as usize) as f64),
             _ => Value::Number(0.),
         },
         BuiltinFunction::ImageSize => {
