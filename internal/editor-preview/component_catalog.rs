@@ -3,9 +3,6 @@
 
 // cSpell: ignore descr rfind unindented libraryize
 
-#[cfg(target_arch = "wasm32")]
-use i_slint_live_preview::protocol::wasm_prelude::*;
-
 use crate::{DocumentCache, editing::PropertyChange};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
@@ -87,7 +84,7 @@ fn import_file_name_for_url(
         } else if let Some(current_uri) = current_uri {
             lsp_types::Url::make_relative(current_uri, url)
         } else {
-            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
+            Some(i_slint_compiler::source_path::SourcePath::from_url(url).to_string())
         }
     }
 }
@@ -241,30 +238,21 @@ pub fn builtin_components(document_cache: &DocumentCache, result: &mut Vec<Compo
     }));
 }
 
-fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_types::Url {
-    let url_path = i_slint_compiler::pathutils::clean_path(&url.to_file_path().unwrap_or_default());
-    if let Some((library_name, library_path)) = document_cache
-        .compiler_configuration()
-        .library_paths
-        .iter()
-        .map(|(n, p)| (n, i_slint_compiler::pathutils::clean_path(p)))
-        .find(|(_, path)| url_path.starts_with(path) || url_path == **path)
-    {
-        if url_path == library_path {
-            let mut url = url.clone();
-            url.set_path(&format!("/@{library_name}"));
-            url
-        } else if let Ok(short_path) = url_path.strip_prefix(library_path) {
-            let short_path = short_path.to_string_lossy();
-            let mut url = url.clone();
-            url.set_path(&format!("/@{library_name}/{short_path}"));
-            url
-        } else {
-            url
-        }
-    } else {
-        url
+fn libraryize_url(document_cache: &DocumentCache, mut url: lsp_types::Url) -> lsp_types::Url {
+    use i_slint_compiler::source_path::SourcePath;
+    let url_path = SourcePath::from_url(&url).to_string();
+    let library_path =
+        document_cache.compiler_configuration().library_paths.iter().find_map(|(name, path)| {
+            let rest = url_path.strip_prefix(&SourcePath::new(path).to_string())?;
+            match rest.strip_prefix(['/', '\\']) {
+                Some(rest) => Some(format!("/@{name}/{}", rest.replace('\\', "/"))),
+                None => rest.is_empty().then(|| format!("/@{name}")),
+            }
+        });
+    if let Some(library_path) = library_path {
+        url.set_path(&library_path);
     }
+    url
 }
 
 /// Fill the result with all exported components that matches the given filter.

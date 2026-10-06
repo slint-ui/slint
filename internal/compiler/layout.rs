@@ -6,7 +6,7 @@
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult, Type};
-use crate::object_tree::{Component, Element, ElementRc};
+use crate::object_tree::{Component, Element, ElementRc, PropertyDeclaration};
 
 use smol_str::{SmolStr, ToSmolStr};
 
@@ -1062,7 +1062,8 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: SmolStr, ty: Type) -> N
     } else {
         tentative_name
     };
-    e.property_declarations.insert(name.clone(), ty.into());
+    e.property_declarations
+        .insert(name.clone(), PropertyDeclaration { synthesized: true, ..ty.into() });
     drop(e);
     NamedReference::new(elem, name)
 }

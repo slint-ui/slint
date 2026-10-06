@@ -32,9 +32,6 @@ use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
-
 type JsResult<T> = std::result::Result<T, JsError>;
 
 impl RequestHandler {
@@ -225,8 +222,8 @@ pub fn create(
         let load_file = Function::from(load_file.clone());
         let to_preview = to_preview_clone.clone();
         Box::pin(async move {
-            let contents = self::load_file(path.clone(), &load_file).await;
-            let Ok(url) = Url::from_file_path(&path) else {
+            let contents = self::load_file(path.to_string(), &load_file).await;
+            let Some(url) = path.to_url() else {
                 return Some(contents.map(|c| (None, c)));
             };
             if let Ok(contents) = &contents {

@@ -7,13 +7,13 @@ use crate::instance::{Instance, SubComponentInstance};
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::llr::ItemInstanceIdx;
 use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_tree::{ItemTreeRc, ItemTreeVTable, TraversalOrder, VisitChildrenResult};
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
 use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 use vtable::VRc;
@@ -103,7 +103,7 @@ pub struct ElementCandidate {
 /// the given `(path, offset)` pair.
 pub(crate) fn component_positions(
     root: &VRc<ItemTreeVTable, Instance>,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<HighlightedRect> {
     let sources = SourceOccurrences::new(root);
@@ -173,7 +173,7 @@ pub(crate) fn element_candidates_at(
 
 // The same element can have source ranges of different lengths.
 // Use only its file path and starting byte offset to group those entries.
-type SourceKey = (PathBuf, usize);
+type SourceKey = (SourcePath, usize);
 type SourceElements = BTreeMap<SourceKey, SourceElement>;
 
 struct RuntimeItem {
@@ -377,7 +377,7 @@ impl<'a> SourceOccurrences<'a> {
 
     fn matching_occurrences(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> impl Iterator<Item = (usize, HighlightedRect)> {
         self.elements
@@ -417,7 +417,7 @@ impl<'a> SourceOccurrences<'a> {
 }
 
 fn source_key(source_location: &SourceLocation) -> Option<SourceKey> {
-    Some((source_location.source_file.as_ref()?.path().to_path_buf(), source_location.span.offset))
+    Some((source_location.source_file.as_ref()?.path().clone(), source_location.span.offset))
 }
 
 fn merge_sources(elements: &mut SourceElements, sources: impl IntoIterator<Item = SourceElement>) {
@@ -454,7 +454,7 @@ fn component_root_items(
 /// (if available) to walk the original object-tree `Document`.
 pub(crate) fn element_node_at_source_code_position(
     instance: &VRc<ItemTreeVTable, Instance>,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
 ) -> Vec<(ElementRc, usize)> {
     let Some(type_loader) = instance.type_loaders.type_loader.as_ref() else {
@@ -474,7 +474,7 @@ pub(crate) fn element_node_at_source_code_position(
 
 fn visit_element_for_position(
     element: &ElementRc,
-    path: &Path,
+    path: &SourcePath,
     offset: u32,
     result: &mut Vec<(ElementRc, usize)>,
 ) {
@@ -689,14 +689,14 @@ fn item_corner_radii(item: Pin<i_slint_core::items::ItemRef<'_>>) -> CornerRadii
 #[cfg(all(test, feature = "internal"))]
 fn items_by_source(
     root: &VRc<ItemTreeVTable, Instance>,
-    target_path: &Path,
+    target_path: &SourcePath,
     target_offset: u32,
     _source_match: SourceMatch,
 ) -> Vec<(VRc<ItemTreeVTable, Instance>, usize)> {
     let sources = SourceOccurrences::new(root);
     sources
         .elements
-        .get(&(target_path.to_path_buf(), target_offset as usize))
+        .get(&(target_path.clone(), target_offset as usize))
         .into_iter()
         .flat_map(|element| &element.item_indices)
         .map(|&item_index| {
@@ -713,7 +713,7 @@ enum SourceMatch {
 
 fn source_location_contains(
     source_location: &SourceLocation,
-    target_path: &Path,
+    target_path: &SourcePath,
     target_offset: u32,
 ) -> bool {
     let Some(source_file) = source_location.source_file.as_ref() else { return false };

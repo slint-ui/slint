@@ -18,6 +18,7 @@ use crate::langtype::{ElementType, PropertyLookupMode, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{SyntaxKind, SyntaxNode, syntax_nodes};
+use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::TypeRegister;
 use crate::{parser, reject_experimental_feature};
@@ -56,7 +57,7 @@ pub struct Document {
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
-    pub custom_fonts: Vec<(SmolStr, crate::parser::SyntaxToken)>,
+    pub custom_fonts: Vec<(SourcePath, crate::parser::SyntaxToken)>,
     pub exports: Exports,
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
@@ -240,18 +241,19 @@ impl Document {
             .iter()
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
-                if crate::pathutils::is_font_file(&import.file) {
-                    let import_file_path = std::path::Path::new(&import.file);
+                if crate::fileaccess::is_font_file(&import.file) {
+                    let import_file_path =
+                        import.resolved.clone().expect("the TypeLoader resolves font imports");
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
                     // When the resource URL mapper is set (e.g. remote viewer), fonts are
                     // delivered out-of-band; skip the local existence check.
                     if ignore_missing_font_files
-                        || crate::pathutils::is_url(import_file_path)
-                        || crate::fileaccess::load_file(import_file_path).is_some()
+                        || matches!(import_file_path, SourcePath::Url(_))
+                        || crate::fileaccess::find_file(&import_file_path).is_some()
                     {
-                        Some((import.file.as_str().into(), import.import_uri_token.clone()))
+                        Some((import_file_path, import.import_uri_token.clone()))
                     } else {
                         diag.push_error(
                             format!("File {} not found", import.import_uri_token.text()),
@@ -829,6 +831,11 @@ pub struct PropertyDeclaration {
     /// empty when the declaration gives no advice on a replacement, and the warning then stops
     /// after naming the member.
     pub deprecated: Option<SmolStr>,
+    /// Set on a property the source can't name, such as `layoutinfo-h`: one a compiler pass
+    /// invented for its own use.
+    /// Most come from [`crate::layout::create_new_prop`], which sets this.
+    /// A pass that declares one by hand sets it too, unless it exposes the property to the source.
+    pub synthesized: bool,
 }
 
 impl PropertyDeclaration {
@@ -5270,7 +5277,11 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
     // (should be removed by const propagation in the llr)
     injected_parent_mut.property_declarations.insert(
         "dummy".into(),
-        PropertyDeclaration { property_type: Type::LogicalLength, ..Default::default() },
+        PropertyDeclaration {
+            property_type: Type::LogicalLength,
+            synthesized: true,
+            ..Default::default()
+        },
     );
     let mut old_elem_mut = old_elem.borrow_mut();
     injected_parent_mut.default_fill_parent = std::mem::take(&mut old_elem_mut.default_fill_parent);

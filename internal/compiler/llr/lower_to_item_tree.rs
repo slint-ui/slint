@@ -1671,7 +1671,7 @@ mod tests {
     use crate::diagnostics::BuildDiagnostics;
     use crate::generator::OutputFormat;
     use crate::parser::parse;
-    use std::path::Path;
+    use crate::source_path::SourcePath;
 
     fn compile_with_debug_info(
         source: &str,
@@ -1679,7 +1679,8 @@ mod tests {
         debug_hooks: bool,
     ) -> (crate::object_tree::Document, CompilerConfiguration) {
         let mut diagnostics = BuildDiagnostics::default();
-        let syntax_node = parse(source.into(), Some(Path::new("test.slint")), &mut diagnostics);
+        let syntax_node =
+            parse(source.into(), Some(SourcePath::new("test.slint")), &mut diagnostics);
         let mut compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
         compiler_config.debug_info = true;
         compiler_config.inline_all_elements = inline_all_elements;
@@ -1843,7 +1844,7 @@ export component TestCase inherits Window {
         {
             assert_eq!(
                 source_location.source_file.as_ref().unwrap().path(),
-                Path::new("test.slint")
+                &SourcePath::new("test.slint")
             );
             assert_eq!(source_location.span.offset, expected_offset);
             assert_eq!(repeated_element.index_prop.is_none(), is_conditional);
@@ -1855,7 +1856,7 @@ export component TestCase inherits Window {
         let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node =
-            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+            crate::parser::parse(source.into(), Some(SourcePath::new("t.slint")), &mut diags);
         let (doc, diag, _) =
             spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
         assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());

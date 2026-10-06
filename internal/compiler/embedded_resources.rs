@@ -111,8 +111,8 @@ pub enum EmbeddedResourcesKind {
 
 #[derive(Debug, Clone)]
 pub struct EmbeddedResources {
-    /// Path on disk of the resource, or `None` for in-memory payloads such as data URIs.
-    pub path: Option<smol_str::SmolStr>,
+    /// `None` for in-memory payloads such as data URIs.
+    pub path: Option<crate::source_path::SourcePath>,
 
     pub kind: EmbeddedResourcesKind,
 }

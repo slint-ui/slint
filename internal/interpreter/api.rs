@@ -3,6 +3,7 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -690,8 +691,10 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -732,7 +735,7 @@ impl ComponentCompiler {
 
         let r = build_compilation_result(
             source,
-            path.into(),
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -764,7 +767,7 @@ impl ComponentCompiler {
     ) -> Option<ComponentDefinition> {
         let r = build_compilation_result(
             source_code,
-            path,
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -895,8 +898,10 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Compile a .slint file
@@ -928,15 +933,20 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    watch_paths: vec![SourcePath::new(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                 };
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
-            .await
+        build_compilation_result(
+            source,
+            SourcePath::new(path),
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await
     }
 
     /// Compile some .slint code
@@ -952,6 +962,22 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
+        let path = SourcePath::new(path);
+        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
+            .await
+    }
+
+    /// [`Self::build_from_source`] for a file that may only be reachable by URL.
+    ///
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_from_source_path(
+        &self,
+        source_code: String,
+        path: SourcePath,
+        _: i_slint_core::InternalToken,
+    ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
             .await
     }
@@ -962,7 +988,7 @@ impl Compiler {
     pub async fn build_static_from_source(
         &self,
         source_code: String,
-        path: PathBuf,
+        path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
@@ -980,7 +1006,7 @@ pub(crate) enum AnimationMode {
 
 async fn build_compilation_result(
     source_code: String,
-    path: PathBuf,
+    path: SourcePath,
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> CompilationResult {
@@ -1030,7 +1056,7 @@ pub struct CompilationResultSend {
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    watch_paths: Vec<PathBuf>,
+    watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     structs_and_enums: Vec<LangType>,
 }
@@ -1103,7 +1129,7 @@ pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    pub(crate) watch_paths: Vec<PathBuf>,
+    pub(crate) watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
@@ -1201,7 +1227,7 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[SourcePath] {
         &self.watch_paths
     }
 
@@ -1751,7 +1777,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
@@ -1774,7 +1800,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
@@ -2406,14 +2432,17 @@ fn test_multi_components() {
 }
 
 #[cfg(all(test, feature = "internal-highlight"))]
-fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let path = PathBuf::from("/tmp/test.slint");
+    let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+        code.to_string(),
+        path.clone(),
+        i_slint_core::InternalToken,
+    ));
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");
@@ -2569,7 +2598,7 @@ export component App inherits Window {
 
     let positions_at = |pattern: &str, inside_pattern: usize| {
         let offset = code.find(pattern).unwrap() + inside_pattern;
-        instance.component_positions(&path, offset as u32)
+        instance.component_positions(&SourcePath::new(&path), offset as u32)
     };
 
     let first = positions_at("Derived { x: 10px", 2);
@@ -2583,7 +2612,7 @@ export component App inherits Window {
     assert_eq!(definition.len(), 6, "{definition:?}");
 
     let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
-    let conditional = instance.component_positions(&path, conditional_offset);
+    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
     assert_eq!(conditional.len(), 1, "{conditional:?}");
     assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
 
@@ -2649,7 +2678,7 @@ export component App inherits Window {
         (&imported_path, imported_code, "Rectangle"),
     ] {
         let offset = code.find(pattern).unwrap() as u32;
-        let positions = instance.component_positions(path, offset);
+        let positions = instance.component_positions(&SourcePath::new(path), offset);
         assert_eq!(positions.len(), 1, "{positions:?}");
         assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
         assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
@@ -2683,9 +2712,10 @@ export component App inherits Window {
     second := RepeatedBox { x: 100px; y: 20px; }
 }
 "#;
-    let path = PathBuf::from("/virtual/inlined-repeaters.slint");
+    let path = SourcePath::new("/virtual/inlined-repeaters.slint");
     let mut diagnostics = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(code.into(), Some(&path), &mut diagnostics);
+    let syntax_node =
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
     let mut compiler_configuration =
         i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
     compiler_configuration.debug_info = true;
@@ -2719,7 +2749,7 @@ export component App inherits Window {
             source_location
                 .source_file
                 .as_ref()
-                .is_some_and(|source_file| source_file.path() == path)
+                .is_some_and(|source_file| source_file.path() == &path)
                 && source_location.span.offset == repeated_offset
         })
         .count();

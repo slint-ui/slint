@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{path::PathBuf, rc::Rc};
+use i_slint_compiler::source_path::SourcePath;
+use std::rc::Rc;
 
 use i_slint_compiler::{
     object_tree::ElementRc,
@@ -15,7 +16,7 @@ use crate::preview::{self, SelectionNotification, ext::ElementRcNodeExt, ui};
 
 #[derive(Clone, Debug)]
 pub struct ElementSelection {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub offset: TextSize,
     pub instance_index: usize,
 }
@@ -39,7 +40,7 @@ impl ElementSelection {
         let debug_index = {
             let element = element.borrow();
             element.debug.iter().position(|debug_info| {
-                debug_info.node.source_file.path() == self.path
+                debug_info.node.source_file.path() == &self.path
                     && debug_info.node.text_range().start() == self.offset
             })
         };
@@ -56,7 +57,7 @@ impl ElementSelection {
 fn lsp_element_node_position(
     element: &editor_preview::ElementRcNode,
     format: editor_preview::ByteFormat,
-) -> Option<(String, lsp_types::Range)> {
+) -> Option<(lsp_types::Url, lsp_types::Range)> {
     let (f, sl, sc, el, ec) = element.with_element_node(|n| {
         n.parent()
             .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
@@ -69,7 +70,7 @@ fn lsp_element_node_position(
     use lsp_types::{Position, Range};
     let start = Position::new((sl as u32).saturating_sub(1), (sc as u32).saturating_sub(1));
     let end = Position::new((el as u32).saturating_sub(1), (ec as u32).saturating_sub(1));
-    Some((f, Range::new(start, end)))
+    Some((f.to_url()?, Range::new(start, end)))
 }
 
 fn element_geometries(
@@ -89,7 +90,7 @@ pub fn unselect_element() {
 }
 
 pub fn select_element_at_source_code_position(
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: preview::SelectionNotification,
@@ -108,7 +109,7 @@ pub fn select_element_at_source_code_position(
 
 fn select_element_at_source_code_position_impl(
     component_instance: &ComponentInstance,
-    path: PathBuf,
+    path: SourcePath,
     offset: TextSize,
     position: Option<LogicalPoint>,
     editor_notification: SelectionNotification,
@@ -133,10 +134,7 @@ pub fn highlight_positions(
         return Default::default();
     };
 
-    let Some(path) = crate::Url::parse(source_uri.as_str())
-        .ok()
-        .and_then(|u| crate::editor_preview::uri_to_file(&u))
-    else {
+    let Some(path) = lsp_types::Url::parse(source_uri.as_str()).ok().map(SourcePath::from) else {
         return Default::default();
     };
     let offset = TextSize::new(offset as u32);
@@ -170,7 +168,7 @@ fn select_element_node(
 
     if let Some(document_position) = lsp_element_node_position(selected_element, format) {
         let to_lsp = preview::PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        to_lsp.ask_editor_to_show_document(&document_position.0, document_position.1, false).ok();
+        to_lsp.ask_editor_to_show_document(document_position.0, document_position.1, false).ok();
     }
 }
 
@@ -224,14 +222,14 @@ fn assign_is_in_root_component(
     component_instance: &ComponentInstance,
     candidates: &mut [SelectionCandidate],
 ) {
-    let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
+    let mut root_anchor: Option<(SourcePath, i_slint_compiler::parser::TextRange)> = None;
     for candidate in candidates.iter_mut().rev() {
         let Some(element) = candidate.as_element_node(component_instance) else {
             continue;
         };
 
-        let (node_path, node_text_range) = element
-            .with_element_node(|node| (node.source_file.path().to_path_buf(), node.text_range()));
+        let (node_path, node_text_range) =
+            element.with_element_node(|node| (node.source_file.path().clone(), node.text_range()));
         if let Some((root_path, root_text_range)) = &root_anchor {
             candidate.is_in_root_component =
                 &node_path == root_path && root_text_range.contains_range(node_text_range);
@@ -251,12 +249,12 @@ pub fn collect_all_element_nodes_covering(
         .into_iter()
         .filter_map(|candidate| {
             let source_file = candidate.source_location.source_file.as_ref()?;
-            if source_file.path().starts_with("builtin:/") {
+            if source_file.path().is_builtin() {
                 return None;
             }
             let offset = u32::try_from(candidate.source_location.span.offset).ok()?.into();
             let selection = ElementSelection {
-                path: source_file.path().to_path_buf(),
+                path: source_file.path().clone(),
                 offset,
                 instance_index: candidate.instance_index,
             };
@@ -331,8 +329,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
         (known_components, selected)
     });
 
-    let mut longest_path_prefix = PathBuf::new();
-
     let mut result = collect_all_element_nodes_covering(position, component_instance)
         .iter()
         .filter(|candidate| {
@@ -343,6 +339,7 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 .as_element_node(component_instance)
                 .map(|element| {
                     let (path, offset) = element.path_and_offset();
+                    let path = path.to_string();
                     let offset: u32 = offset.into();
 
                     let is_selected = if selected.is_none() {
@@ -397,18 +394,6 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 })
                 .unwrap_or_default();
 
-            if path.strip_prefix("/@").is_err() && path != PathBuf::new() {
-                if longest_path_prefix == PathBuf::new() {
-                    longest_path_prefix = path.clone();
-                } else {
-                    longest_path_prefix =
-                        std::iter::zip(longest_path_prefix.components(), path.components())
-                            .take_while(|(l, p)| l == p)
-                            .map(|(l, _)| l)
-                            .collect();
-                }
-            }
-
             let root_geo = root_geometry.rect;
             let candidate_geometry = candidate.geometry.rect;
             let width = (candidate_geometry.size.width / root_geo.size.width) * 100.0;
@@ -434,28 +419,25 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
                 is_layout,
                 is_interactive,
                 type_name: type_name.into(),
-                file_name: path.to_string_lossy().to_string().into(),
-                element_path: path.to_string_lossy().to_string().into(),
+                file_name: path.as_str().into(),
+                element_path: path.into(),
                 element_offset: offset as i32,
                 id: id.into(),
             }
         })
         .collect::<Vec<_>>();
 
+    let common_directory = crate::editor_preview::util::common_directory(
+        result.iter().map(|frame| frame.file_name.as_str()).filter(|name| !name.starts_with("/@")),
+    );
     for frame in result.iter_mut() {
-        let file_name = PathBuf::from(frame.file_name.to_string());
-        let new_file_name = {
-            if let Some(library) = file_name.to_string_lossy().strip_prefix("/@") {
-                format!("@{library:?}")
-            } else if file_name == longest_path_prefix {
-                file_name.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                file_name
-                    .strip_prefix(&longest_path_prefix)
-                    .unwrap_or(&file_name)
-                    .to_string_lossy()
-                    .to_string()
-            }
+        let new_file_name = match frame.file_name.strip_prefix("/@") {
+            Some(library) => format!("@{library:?}"),
+            None => frame
+                .file_name
+                .strip_prefix(common_directory.as_str())
+                .unwrap_or(&frame.file_name)
+                .to_string(),
         };
         frame.file_name = new_file_name.into();
     }
@@ -599,7 +581,7 @@ pub fn reselect_element() {
 mod tests {
     use crate::editor_preview::test;
 
-    use std::path::PathBuf;
+    use i_slint_compiler::source_path::SourcePath;
 
     use i_slint_core::lengths::LogicalPoint;
     use slint_interpreter::ComponentInstance;
@@ -643,7 +625,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         );
 
         // Remove the "button" implementation details. They must be at the start:
-        let button_path = PathBuf::from("builtin:/fluent/button.slint");
+        let button_path = SourcePath::new("builtin:/fluent/button.slint");
         let first_non_button = covers_center
             .iter()
             .position(|candidate| {
@@ -663,7 +645,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
             let (path, offset) = candidate.as_element_node(&type_loader).unwrap().path_and_offset();
-            assert_eq!(&path, &test_file);
+            assert_eq!(path, test_file);
             assert_eq!(offset, (*expected_offset).into());
         }
 
@@ -907,7 +889,7 @@ export component Demo inherits Window {{
     }}
 }}
 "#,
-            controls = controls_path.to_string_lossy()
+            controls = controls_path
         );
 
         let controls_source = r#"component InputBlocker {

@@ -4,7 +4,7 @@
 import { RadioButtonImplBase, RadioGroupImplBase } from "../common/radiogroup-base.slint";
 
 export component RadioButtonImpl inherits RadioButtonImplBase {
-    private property <brush> dot-color: root.checked ? #2f78ff : transparent;
+    private property <brush> dot-color: root.checked ? NativePalette.accent-background : transparent;
 
     min-height: max(28px, layout.min-height);
 
@@ -13,7 +13,7 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
             layout.opacity: 0.5;
         }
         pressed when root.pressed: {
-            root.dot-color: root.checked ? #205ed8 : #d0d0d0;
+            root.dot-color: root.checked ? NativePalette.accent-background.darker(0.2) : NativePalette.border;
         }
     ]
 
@@ -28,8 +28,8 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
             y: (parent.height - self.height) / 2;
             border-radius: self.width / 2;
             border-width: 1px;
-            border-color: #7a7a7a;
-            background: #f7f7f7;
+            border-color: NativePalette.border;
+            background: NativePalette.control-background;
 
             Rectangle {
                 width: 8px;
@@ -43,7 +43,7 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
 
         if root.text != "": Text {
             text: root.text;
-            color: #202020;
+            color: NativePalette.foreground;
             vertical-alignment: center;
             horizontal-alignment: left;
             accessible-role: none;
@@ -57,12 +57,12 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         height: parent.height + 4px;
         border-radius: 6px;
         border-width: 1px;
-        border-color: #2f78ff;
+        border-color: NativePalette.accent-background;
     }
 }
 
 export component RadioGroupImpl inherits RadioGroupImplBase {
-    title-color: root.enabled ? #202020 : #808080;
+    title-color: root.enabled ? NativePalette.foreground : NativePalette.foreground.transparentize(0.5);
 }
 
 export component RadioGroup inherits RadioGroup { }

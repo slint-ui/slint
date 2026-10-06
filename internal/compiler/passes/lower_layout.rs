@@ -42,6 +42,7 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
             property_type: function_ty,
             visibility: crate::object_tree::PropertyVisibility::Private,
             pure: Some(true),
+            synthesized: true,
             ..Default::default()
         },
     );
@@ -2014,6 +2015,7 @@ fn lower_dialog_layout(
                                         shadowable: false,
                                         moved_from: None,
                                         deprecated: None,
+                                        synthesized: false,
                                     });
                             }
                         }

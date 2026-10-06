@@ -1,7 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_compiler::diagnostics::{self, ByteFormat, Diagnostic, DiagnosticLevel};
+use i_slint_compiler::diagnostics::{self, ByteFormat, Diagnostic, DiagnosticLevel, Spanned};
+
+/// A diagnostic in a source without a URL, such as a relative path in a test, has none.
+pub fn diagnostic_url(d: &Diagnostic) -> Option<lsp_types::Url> {
+    Spanned::source_file(d)?.path().to_url()
+}
 
 pub fn to_lsp_diagnostic(d: &Diagnostic, format: ByteFormat) -> lsp_types::Diagnostic {
     let start = diagnostics::diagnostic_line_column_with_format(d, format);

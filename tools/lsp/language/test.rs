@@ -303,12 +303,17 @@ mod missing_imports {
 
     #[test]
     fn watch_set_tracks_missing_imports() {
-        let (ctx, dir, main_url) = load_document_with_missing_import();
+        let (ctx, dir, _) = load_document_with_missing_import();
 
-        let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        let watch_urls = ctx.session.document_cache.all_urls_to_watch();
+        let watch_paths = ctx.session.document_cache.all_paths_to_watch();
 
-        assert!(watch_urls.contains(&main_url), "main.slint should stay in the watch set");
-        assert!(watch_urls.contains(&dep_url), "missing imports should stay in the watch set");
+        assert!(
+            watch_paths.contains(&dir.join("main.slint")),
+            "main.slint should stay in the watch set"
+        );
+        assert!(
+            watch_paths.contains(&dir.join("dep.slint")),
+            "missing imports should stay in the watch set"
+        );
     }
 }
