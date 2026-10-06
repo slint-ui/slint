@@ -20,19 +20,20 @@ component Host {
 component Inherited inherits Host { }
 component InheritedAgain inherits Inherited { }
 component NewDefaults inherits Host {
-    slot header;
     header {
         Rectangle { min-width: 31px; height: 2px; }
         Rectangle { height: 3px; }
     }
 }
 component NewDefaultsAgain inherits NewDefaults {
-    slot header;
     header { Rectangle { min-width: 41px; height: 6px; } }
 }
 component EmptyDefaults inherits NewDefaults {
-    slot header;
     header {}
+}
+component InheritedNewDefaults inherits NewDefaults { }
+component OverrideAfterInheritance inherits InheritedNewDefaults {
+    header { Rectangle { min-width: 61px; height: 10px; } }
 }
 component Forwarded {
     slot heading;
@@ -48,7 +49,8 @@ export component TestCase inherits Window {
         && new-defaults.min-width == 31px && new-defaults.min-height == 29px
         && new-defaults-again.min-width == 41px && new-defaults-again.min-height == 30px
         && replaced-new-defaults.min-width == 51px && replaced-new-defaults.min-height == 32px
-        && empty-defaults.min-height == 24px && replaced-empty-defaults.min-height == 33px;
+        && empty-defaults.min-height == 24px && replaced-empty-defaults.min-height == 33px
+        && override-after-inheritance.min-width == 61px && override-after-inheritance.min-height == 34px;
     defaults := Host { }
     replacement := Host {
         header << Rectangle { min-width: 20px; height: 5px; }
@@ -71,6 +73,7 @@ export component TestCase inherits Window {
     replaced-empty-defaults := EmptyDefaults {
         header << Rectangle { height: 9px; }
     }
+    override-after-inheritance := OverrideAfterInheritance { }
 }
 /*
 ```rust

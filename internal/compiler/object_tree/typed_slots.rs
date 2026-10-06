@@ -27,6 +27,7 @@ pub(super) fn declaration(
         name: parser::identifier_text(&name_node).unwrap_or_default(),
         name_node,
         interface,
+        inherited: false,
         has_rejected_placeholder: false,
     }
 }
