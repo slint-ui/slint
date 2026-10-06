@@ -236,6 +236,7 @@ pub struct Instance {
     /// attach idempotent and lets binding-evaluated code paths distinguish
     /// "adapter exists" from "window is fully wired for display".
     pub window_attached: OnceCell<()>,
+    window_attachment_disabled: bool,
     /// Set once `bindings::install_bindings_only` has wired up property
     /// bindings, two-way links and timers. Idempotent on repeated calls.
     pub bindings_installed: OnceCell<()>,
@@ -434,7 +435,10 @@ impl Instance {
     pub fn attach_to_window(&self) {
         // make sure not to attach embedded instances, they would otherwise take over
         // the window of the item tree they are embedded in.
-        if self.window_attached.get().is_some() || self.embedded_in.get().is_some() {
+        if self.window_attached.get().is_some()
+            || self.window_attachment_disabled
+            || self.embedded_in.get().is_some()
+        {
             return;
         }
         let Some(adapter) = self.window_adapter_or_default() else { return };
@@ -663,6 +667,7 @@ impl Instance {
             type_loaders,
             None,
             None,
+            false,
         )
     }
 
@@ -681,6 +686,25 @@ impl Instance {
             type_loaders,
             None,
             Some(context),
+            false,
+        )
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn new_detached_with_window(
+        compilation_unit: Rc<CompilationUnit>,
+        public_component_index: PublicComponentIdx,
+        window_adapter: i_slint_core::window::WindowAdapterRc,
+        type_loaders: crate::component::TypeLoaders,
+    ) -> VRc<ItemTreeVTable, Instance> {
+        Self::new_with_options(
+            compilation_unit,
+            public_component_index,
+            Some(window_adapter),
+            type_loaders,
+            None,
+            None,
+            true,
         )
     }
 
@@ -702,6 +726,7 @@ impl Instance {
             type_loaders,
             Some((parent, parent_item_tree_index)),
             None,
+            false,
         )
     }
 
@@ -712,6 +737,7 @@ impl Instance {
         type_loaders: crate::component::TypeLoaders,
         embedded_in: Option<(vtable::VWeak<ItemTreeVTable>, u32)>,
         context: Option<i_slint_core::SlintContext>,
+        disable_window_attachment: bool,
     ) -> VRc<ItemTreeVTable, Instance> {
         let public = &compilation_unit.public_components[public_component_index];
         let globals = Rc::new(GlobalStorage::new(&compilation_unit));
@@ -731,6 +757,7 @@ impl Instance {
             globals,
             Some(public_component_index),
             type_loaders,
+            disable_window_attachment,
         );
         if let Some(adapter) = window_adapter {
             let _ = vrc.window_adapter.set(adapter);
@@ -785,6 +812,7 @@ impl Instance {
             globals,
             None,
             Default::default(),
+            false,
         );
         let _ = vrc.root_sub_component.repeated_in.set((parent, repeater_idx));
         vrc
@@ -799,7 +827,15 @@ impl Instance {
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
     ) -> VRc<ItemTreeVTable, Instance> {
-        build_instance(&compilation_unit, item_tree, parent, globals, None, Default::default())
+        build_instance(
+            &compilation_unit,
+            item_tree,
+            parent,
+            globals,
+            None,
+            Default::default(),
+            false,
+        )
     }
 }
 
@@ -817,6 +853,7 @@ fn build_instance(
     globals: Rc<GlobalStorage>,
     public_component_index: Option<PublicComponentIdx>,
     type_loaders: crate::component::TypeLoaders,
+    disable_window_attachment: bool,
 ) -> VRc<ItemTreeVTable, Instance> {
     let parent_for_root = parent.clone();
     let root_sub_component =
@@ -836,6 +873,7 @@ fn build_instance(
         window_adapter: OnceCell::new(),
         window_adapter_error: OnceCell::new(),
         window_attached: OnceCell::new(),
+        window_attachment_disabled: disable_window_attachment,
         bindings_installed: OnceCell::new(),
         init_code_run: OnceCell::new(),
         embedded_in: OnceCell::new(),

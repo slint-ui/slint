@@ -4,6 +4,8 @@
 import { CosmicPalette, Icons } from "styling.slint";
 import { StateLayerBase } from "components.slint";
 
+import { ScrollViewInterface } from "../common/std-widget-interfaces.slint";
+
 export component ScrollBar {
     in property <bool> enabled;
     out property <bool> has-hover: touch-area.has-hover;
@@ -95,6 +97,8 @@ export component ScrollBar {
 }
 
 export component ScrollView {
+    implement ScrollViewInterface <=> self;
+
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;

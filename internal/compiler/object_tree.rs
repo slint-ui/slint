@@ -32,7 +32,7 @@ use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
-mod interfaces;
+pub(crate) mod interfaces;
 mod typed_slots;
 
 macro_rules! unwrap_or_continue {
@@ -399,6 +399,29 @@ pub fn slot_error_subject(name: &str) -> String {
     }
 }
 
+pub fn error_on_slot_in_inner_builtin(
+    component: &Component,
+    builtins: &[&str],
+    diag: &mut BuildDiagnostics,
+) {
+    for (name, cip) in component.child_insertion_points.borrow().iter() {
+        if Rc::ptr_eq(&cip.parent, &component.root_element) {
+            continue;
+        }
+        let Some(builtin) = cip.parent.borrow().builtin_type() else { continue };
+        if builtins.contains(&builtin.name.as_str()) {
+            diag.push_error(
+                format!(
+                    "{} is not allowed as a child of '{}'",
+                    slot_error_subject(name),
+                    builtin.name
+                ),
+                &cip.node,
+            );
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ChildInsertionPointNode {
     DefaultChildrenPlaceHolder(SyntaxNode),
@@ -583,7 +606,7 @@ impl Component {
                         if reject_experimental_feature(diag, tr, "interface", &node) {
                             ElementType::Error
                         } else {
-                            ElementType::Interface
+                            ElementType::Interface(None)
                         }
                     }
                     _ => ElementType::Error,
@@ -727,7 +750,7 @@ impl Component {
 
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
-        matches!(&self.root_element.borrow().base_type, ElementType::Interface)
+        matches!(&self.root_element.borrow().base_type, ElementType::Interface(_))
     }
 
     /// True if this component's root resolves to the `SystemTrayIcon` builtin.
@@ -880,6 +903,72 @@ fn from_base(mut r: PropertyLookupResult<'_>) -> PropertyLookupResult<'_> {
     r.is_in_direct_base = r.is_local_to_component;
     r.is_local_to_component = false;
     r
+}
+
+fn implement_is_allowed(node: &syntax_nodes::Element) -> bool {
+    let mut candidate = node.parent();
+    while let Some(declaration) = candidate {
+        if declaration.kind() == SyntaxKind::Component {
+            return !matches!(
+                declaration.child_text(SyntaxKind::Identifier).as_deref(),
+                Some("global" | "interface")
+            );
+        }
+        candidate = declaration.parent();
+    }
+    true
+}
+
+fn disallow_non_member_content(
+    node: &syntax_nodes::Element,
+    declaration: &ElementType,
+    diag: &mut BuildDiagnostics,
+) {
+    let mut error_on = |node: &dyn Spanned, what: &str| {
+        let element_type = match declaration {
+            ElementType::Global => "A global component",
+            ElementType::Interface(_) => "An interface",
+            _ => "An unexpected type",
+        };
+        diag.push_error(format!("{element_type} cannot have {what}"), node);
+    };
+    node.SubElement().for_each(|n| error_on(&n, "sub elements"));
+    node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
+    node.ConditionalElement().for_each(|n| error_on(&n, "sub elements"));
+    if let Some(n) = node.ChildrenPlaceholder() {
+        error_on(&n, "sub elements");
+    }
+    node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
+    node.States().for_each(|n| error_on(&n, "states"));
+    node.Transitions().for_each(|n| error_on(&n, "transitions"));
+    node.CallbackDeclaration().for_each(|cb| {
+        if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
+            error_on(&cb, "an 'init' callback")
+        }
+    });
+    node.CallbackConnection().for_each(|cb| {
+        if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
+            error_on(&cb, "an 'init' callback")
+        }
+    });
+    node.MatchElement().for_each(|n| error_on(&n, "match elements"));
+    node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
+
+    if matches!(declaration, ElementType::Interface(_)) {
+        node.Binding().for_each(|n| error_on(&n, "bindings"));
+        node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+
+        node.ImplementStatement().for_each(|stmt| {
+            diag.push_error(
+                "Interfaces cannot implement another interface, use 'inherits' instead".into(),
+                &stmt,
+            );
+        });
+    } else {
+        node.ImplementStatement().for_each(|stmt| {
+            diag.push_error("Globals cannot implement an interface".into(), &stmt);
+        });
+    }
 }
 
 /// The error for a declaration that collides with a member it may not shadow.
@@ -1204,11 +1293,6 @@ pub struct Element {
     pub repeated: Option<RepeatedElementInfo>,
     /// This element is a placeholder to embed an Component at
     pub is_component_placeholder: bool,
-    /// True when this element was injected by `lower_property_to_element` or the `visible` pass
-    /// to wrap another element for a property like `opacity`/`transform-rotation`/`visible` (see
-    /// `adjust_geometry_for_injected_parent`). Such wrappers take over the wrapped element's
-    /// geometry, so consumers that need the wrapped element's source parent must walk past them.
-    pub is_injected_wrapper_element: bool,
 
     /// Z-order of this element within a parent whose children are dynamically z-ordered.
     /// Stored on the child so it remains consistent when the children vector is reordered
@@ -1258,6 +1342,8 @@ pub struct Element {
     pub default_fill_parent: (bool, bool),
 
     pub accessibility_props: AccessibilityProps,
+
+    pub(crate) implement_statements: Vec<interfaces::ImplementedInterface>,
 
     /// Reference to the property.
     /// This is always initialized from the element constructor, but is Option because it references itself
@@ -2026,8 +2112,9 @@ impl Element {
             .chain(child_implements.iter())
             .map(|i| i.interface.clone())
             .collect();
-        interfaces::validate_self_implement_statements(&r.borrow(), &implemented_interfaces, diag);
-        interfaces::apply_child_implement_statements(&r, child_implements, diag);
+        interfaces::apply_child_implement_statements(&r, &child_implements, diag);
+        r.borrow_mut().implement_statements =
+            implemented_interfaces.into_iter().chain(child_implements).collect();
 
         r
     }
@@ -2041,13 +2128,36 @@ impl Element {
         tr: &TypeRegister,
         slot_interface: Option<Rc<Component>>,
     ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
-        // A child element's parent_type is the type of its parent; the root
-        // gets a sentinel from Component::from_node
-        #[cfg(feature = "slint-sc")]
-        let is_component_root =
-            !matches!(parent_type, ElementType::Builtin(_) | ElementType::Component(_));
+        // Every element but a declaration's root sits inside a SubElement.
+        let is_component_root = node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component);
+        let is_interface_declaration =
+            is_component_root && matches!(parent_type, ElementType::Interface(_));
         let base_type = if let Some(interface) = slot_interface {
             ElementType::Component(interface)
+        } else if is_interface_declaration {
+            disallow_non_member_content(node, &parent_type, diag);
+            match node.QualifiedName() {
+                None => ElementType::Interface(None),
+                Some(base_node) => {
+                    let base = QualifiedTypeName::from_node(base_node.clone());
+                    match parent_type.lookup_type_for_child_element(&base.to_smolstr(), tr) {
+                        Ok(ElementType::Component(c)) if c.is_interface() => {
+                            ElementType::Interface(Some(c))
+                        }
+                        Ok(_) => {
+                            diag.push_error(
+                                "An interface can only inherit another interface".into(),
+                                &base_node,
+                            );
+                            ElementType::Interface(None)
+                        }
+                        Err(err) => {
+                            diag.push_error(err, &base_node);
+                            ElementType::Interface(None)
+                        }
+                    }
+                }
+            }
         } else if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_smolstr();
@@ -2057,6 +2167,28 @@ impl Element {
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
+                    ElementType::Error
+                }
+                Ok(ElementType::Component(c)) if c.is_interface() => {
+                    if is_component_root {
+                        diag.push_error(
+                            "Components cannot inherit from interfaces".into(),
+                            &base_node,
+                        );
+                    } else if implement_is_allowed(node) {
+                        diag.push_error(
+                            format!(
+                                "Cannot create an instance of an interface; write 'implement {} <=> self;' to implement it",
+                                c.id
+                            ),
+                            &base_node,
+                        );
+                    } else {
+                        debug_assert!(
+                            diag.has_errors(),
+                            "`disallow_non_member_content` should have caught the other cases"
+                        );
+                    }
                     ElementType::Error
                 }
                 Ok(ty) => {
@@ -2078,50 +2210,8 @@ impl Element {
                     ElementType::Error
                 }
             }
-        } else if parent_type == ElementType::Global || parent_type == ElementType::Interface {
-            // This must be a global component or interface. It can only have properties and callbacks
-            let mut error_on = |node: &dyn Spanned, what: &str| {
-                let element_type = match parent_type {
-                    ElementType::Global => "A global component",
-                    ElementType::Interface => "An interface",
-                    _ => "An unexpected type",
-                };
-                diag.push_error(format!("{element_type} cannot have {what}"), node);
-            };
-            node.SubElement().for_each(|n| error_on(&n, "sub elements"));
-            node.RepeatedElement().for_each(|n| error_on(&n, "sub elements"));
-            if let Some(n) = node.ChildrenPlaceholder() {
-                error_on(&n, "sub elements");
-            }
-            node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
-            node.States().for_each(|n| error_on(&n, "states"));
-            node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            node.CallbackDeclaration().for_each(|cb| {
-                if parser::identifier_text(&cb.DeclaredIdentifier()).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.CallbackConnection().for_each(|cb| {
-                if parser::identifier_text(&cb).is_some_and(|s| s == "init") {
-                    error_on(&cb, "an 'init' callback")
-                }
-            });
-            node.MatchElement().for_each(|n| error_on(&n, "match elements"));
-            node.SlotDeclaration().for_each(|n| error_on(&n, "slots"));
-
-            if parent_type == ElementType::Interface {
-                node.Binding().for_each(|n| error_on(&n, "bindings"));
-                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
-
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Interfaces cannot implement another interface".into(), &stmt);
-                });
-            } else {
-                node.ImplementStatement().for_each(|stmt| {
-                    diag.push_error("Globals cannot implement an interface".into(), &stmt);
-                });
-            }
-
+        } else if parent_type == ElementType::Global {
+            disallow_non_member_content(node, &parent_type, diag);
             parent_type
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
@@ -2130,10 +2220,10 @@ impl Element {
         } else {
             tr.empty_type()
         };
-        let is_interface = base_type == ElementType::Interface;
+        let is_interface = matches!(base_type, ElementType::Interface(_));
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
-        if let ElementType::Component(c) = &base_type {
+        if let ElementType::Component(c) | ElementType::Interface(Some(c)) = &base_type {
             c.used.set(true);
         }
         let type_name = base_type
@@ -2286,7 +2376,7 @@ impl Element {
         }
 
         let (implemented_interfaces, child_implements) =
-            if matches!(r.base_type, ElementType::Global | ElementType::Interface) {
+            if matches!(r.base_type, ElementType::Global | ElementType::Interface(_)) {
                 // Already rejected above with a more specific diagnostic.
                 (Vec::new(), Vec::new())
             } else if r.id == "root" {
@@ -2537,14 +2627,14 @@ impl Element {
             };
 
             match (base_type.clone(), func.CodeBlock()) {
-                (ElementType::Interface, Some(code_block)) => {
+                (ElementType::Interface(_), Some(code_block)) => {
                     diag.push_error(
                         "Function declarations in interfaces must not have a body".into(),
                         &code_block,
                     );
                     continue;
                 }
-                (ElementType::Interface, None) => {
+                (ElementType::Interface(_), None) => {
                     // Do not create a binding for this function, as it is just a declaration without body. It will be
                     // implemented by the component that implements the interface.
                     r.property_declarations.insert(name, declaration);
@@ -3236,7 +3326,9 @@ impl Element {
     fn declaring_base_component(&self, name: &str) -> Option<Rc<Component>> {
         let mut base = self.base_type.clone();
         loop {
-            let ElementType::Component(c) = base else { return None };
+            let (ElementType::Component(c) | ElementType::Interface(Some(c))) = base else {
+                return None;
+            };
             let declares = {
                 let root = c.root_element.borrow();
                 root.shadowing_members.contains_key(name)

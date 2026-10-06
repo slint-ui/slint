@@ -4,9 +4,10 @@
 import { FluentPalette } from "styling.slint";
 import { SpinnerBase } from "../common/spinner-base.slint";
 
+import { SpinnerInterface } from "../common/std-widget-interfaces.slint";
+
 export component Spinner {
-    in property <float> progress <=> base.progress;
-    in property <bool> indeterminate <=> base.indeterminate;
+    implement SpinnerInterface <=> base;
 
     min-width: 30px;
     min-height: 30px;

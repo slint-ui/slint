@@ -470,6 +470,7 @@ fn lower_sub_component(
                 &*component.root_element.borrow(),
             ),
             items: Default::default(),
+            repeated_elements: Default::default(),
             sub_component_use_sites: Default::default(),
         }),
     };
@@ -550,13 +551,18 @@ fn lower_sub_component(
         }
         if elem.repeated.is_some() {
             let parent = if elem.is_component_placeholder { parent.clone() } else { None };
+            let repeated_index = repeated.push_and_get_key((element.clone(), parent));
 
-            mapping.element_mapping.insert(
-                element.clone().into(),
-                LoweredElement::Repeated {
-                    repeated_index: repeated.push_and_get_key((element.clone(), parent)),
-                },
-            );
+            if let Some(debug_info) = sub_component.debug_info.as_mut() {
+                let added_index = debug_info
+                    .repeated_elements
+                    .push_and_get_key(crate::diagnostics::Spanned::to_source_location(&*elem));
+                debug_assert_eq!(added_index, repeated_index);
+            }
+
+            mapping
+                .element_mapping
+                .insert(element.clone().into(), LoweredElement::Repeated { repeated_index });
             mapping.repeater_count += 1;
             return None;
         }
@@ -600,15 +606,39 @@ fn lower_sub_component(
                     index_in_tree: *elem.item_index.get().unwrap(),
                 });
                 if let Some(debug_info) = sub_component.debug_info.as_mut() {
-                    let primary = elem.debug.first();
-                    let source_location = crate::diagnostics::Spanned::to_source_location(&*elem);
-                    let added_index =
-                        debug_info.items.push_and_get_key(super::debug_info::ItemDebugInfo {
-                            source_location,
-                            qualified_id: primary.and_then(|d| d.qualified_id.clone()),
-                            element_hash: primary.map(|d| d.element_hash).unwrap_or_default(),
-                            is_injected_wrapper_element: elem.is_injected_wrapper_element,
-                        });
+                    let item_debug_entries = elem
+                        .debug
+                        .iter()
+                        .map(|element_debug_info| {
+                            let source_location = element_debug_info
+                                .node
+                                .QualifiedName()
+                                .map(|qualified_name| {
+                                    crate::diagnostics::Spanned::to_source_location(&qualified_name)
+                                })
+                                .or_else(|| {
+                                    element_debug_info
+                                        .node
+                                        .child_token(crate::parser::SyntaxKind::LBrace)
+                                        .map(|left_brace| {
+                                            crate::diagnostics::Spanned::to_source_location(
+                                                &left_brace,
+                                            )
+                                        })
+                                })
+                                .unwrap_or_else(|| {
+                                    crate::diagnostics::Spanned::to_source_location(
+                                        &element_debug_info.node,
+                                    )
+                                });
+                            super::debug_info::ItemDebugInfo {
+                                source_location,
+                                qualified_id: element_debug_info.qualified_id.clone(),
+                                element_hash: element_debug_info.element_hash,
+                            }
+                        })
+                        .collect();
+                    let added_index = debug_info.items.push_and_get_key(item_debug_entries);
                     debug_assert_eq!(added_index, item_index);
                 }
                 mapping
@@ -1114,7 +1144,7 @@ fn for_each_const_properties(
                     }
                     break;
                 }
-                ElementType::Global | ElementType::Interface | ElementType::Error => break,
+                ElementType::Global | ElementType::Interface(_) | ElementType::Error => break,
             }
         }
         for c in all_prop {
@@ -1138,7 +1168,7 @@ fn has_runtime_property(state: &LoweringState, elem: &ElementRc, prop: &str) -> 
             ElementType::Builtin(_) => {
                 return state.native_classes[&ByAddress(e)].lookup_property(prop).is_some();
             }
-            ElementType::Global | ElementType::Interface | ElementType::Error => return false,
+            ElementType::Global | ElementType::Interface(_) | ElementType::Error => return false,
         }
     }
 }
@@ -1637,6 +1667,189 @@ fn public_properties(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::diagnostics::BuildDiagnostics;
+    use crate::generator::OutputFormat;
+    use crate::parser::parse;
+    use std::path::Path;
+
+    fn compile_with_debug_info(
+        source: &str,
+        inline_all_elements: bool,
+        debug_hooks: bool,
+    ) -> (crate::object_tree::Document, CompilerConfiguration) {
+        let mut diagnostics = BuildDiagnostics::default();
+        let syntax_node = parse(source.into(), Some(Path::new("test.slint")), &mut diagnostics);
+        let mut compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
+        compiler_config.debug_info = true;
+        compiler_config.inline_all_elements = inline_all_elements;
+        compiler_config.debug_hooks = debug_hooks.then(std::hash::RandomState::new);
+        let (document, diagnostics, type_loader) =
+            spin_on::spin_on(crate::compile_syntax_node(syntax_node, diagnostics, compiler_config));
+        assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+        (document, type_loader.compiler_config)
+    }
+
+    fn item_debug_entries(
+        compilation_unit: &CompilationUnit,
+    ) -> impl Iterator<Item = &[super::super::debug_info::ItemDebugInfo]> {
+        compilation_unit.sub_components.iter().flat_map(|sub_component| {
+            sub_component
+                .debug_info
+                .iter()
+                .flat_map(|debug_info| debug_info.items.iter().map(Vec::as_slice))
+        })
+    }
+
+    #[test]
+    fn preserves_inlined_item_debug_entries() {
+        let source = r#"
+component Inner inherits Rectangle { }
+export component TestCase inherits Window {
+    instance := Inner { }
+}
+"#;
+        let (document, compiler_config) = compile_with_debug_info(source, true, true);
+        let mut expected_identities = None;
+        for component in document.exported_roots() {
+            crate::object_tree::recurse_elem(&component.root_element, &(), &mut |element, &()| {
+                let element = element.borrow();
+                if element
+                    .debug
+                    .iter()
+                    .any(|entry| entry.qualified_id.as_deref() == Some("TestCase::instance"))
+                {
+                    expected_identities = Some(
+                        element
+                            .debug
+                            .iter()
+                            .map(|entry| (entry.qualified_id.clone(), entry.element_hash))
+                            .collect::<Vec<_>>(),
+                    );
+                }
+            });
+        }
+        let compilation_unit = lower_to_item_tree(&document, &compiler_config);
+        let entries = item_debug_entries(&compilation_unit)
+            .find(|entries| {
+                entries
+                    .iter()
+                    .any(|entry| entry.qualified_id.as_deref() == Some("TestCase::instance"))
+                    && entries.len() > 1
+            })
+            .expect("inlined item debug entries");
+
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| (entry.qualified_id.clone(), entry.element_hash))
+                .collect::<Vec<_>>(),
+            expected_identities.unwrap()
+        );
+        let instance_entry = entries
+            .iter()
+            .find(|entry| entry.qualified_id.as_deref() == Some("TestCase::instance"))
+            .unwrap();
+        assert_eq!(instance_entry.source_location.span.offset, source.rfind("Inner { }").unwrap());
+    }
+
+    #[test]
+    fn preserves_optimized_rectangle_debug_entries() {
+        let source = r#"
+export component TestCase inherits Window {
+    container := Rectangle {
+        background: red;
+        redundant := Rectangle { }
+    }
+}
+"#;
+        let (document, compiler_config) = compile_with_debug_info(source, false, false);
+        for component in document.exported_roots() {
+            crate::passes::optimize_useless_rectangles(&component);
+        }
+        let compilation_unit = lower_to_item_tree(&document, &compiler_config);
+        let entries = item_debug_entries(&compilation_unit)
+            .find(|entries| {
+                ["TestCase::container", "TestCase::redundant"].into_iter().all(|qualified_id| {
+                    entries.iter().any(|entry| entry.qualified_id.as_deref() == Some(qualified_id))
+                })
+            })
+            .expect("optimized rectangle debug entries");
+
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn synthetic_wrappers_have_no_item_debug_entries() {
+        let source = r#"
+export component TestCase inherits Window {
+    target := Rectangle {
+        opacity: 0.5;
+        visible: false;
+        transform-rotation: 45deg;
+        cache-rendering-hint: true;
+    }
+}
+"#;
+        let (document, compiler_config) = compile_with_debug_info(source, false, false);
+        let compilation_unit = lower_to_item_tree(&document, &compiler_config);
+        let empty_debug_item_classes = compilation_unit
+            .sub_components
+            .iter()
+            .flat_map(|sub_component| {
+                sub_component.debug_info.iter().flat_map(|debug_info| {
+                    sub_component.items.iter().zip(&debug_info.items).filter_map(
+                        |(item, item_debug_entries)| {
+                            item_debug_entries.is_empty().then_some(item.ty.class_name.as_str())
+                        },
+                    )
+                })
+            })
+            .collect::<std::collections::HashSet<_>>();
+
+        for class_name in ["Transform", "Opacity", "Layer", "Clip"] {
+            assert!(empty_debug_item_classes.contains(class_name), "missing {class_name}");
+        }
+    }
+
+    #[test]
+    fn repeated_element_debug_entries_follow_repeated_element_indices() {
+        let source = r#"
+component Entry inherits Rectangle { }
+export component TestCase inherits Window {
+    for value in 2: first := Entry { }
+    for value in 2: second := Entry { }
+    if true: conditional := Entry { }
+}
+"#;
+        let (document, compiler_config) = compile_with_debug_info(source, false, false);
+        let compilation_unit = lower_to_item_tree(&document, &compiler_config);
+        let root_sub_component_index =
+            compilation_unit.public_components.first().unwrap().item_tree.root;
+        let root_sub_component = &compilation_unit.sub_components[root_sub_component_index];
+        let repeated_element_locations =
+            &root_sub_component.debug_info.as_ref().unwrap().repeated_elements;
+        let expected_offsets =
+            source.match_indices("Entry { }").map(|(offset, _)| offset).collect::<Vec<_>>();
+
+        assert_eq!(repeated_element_locations.len(), root_sub_component.repeated.len());
+        assert_eq!(expected_offsets.len(), 3);
+        for ((repeated_element, source_location), (expected_offset, is_conditional)) in
+            root_sub_component
+                .repeated
+                .iter()
+                .zip(repeated_element_locations)
+                .zip(expected_offsets.into_iter().zip([false, false, true]))
+        {
+            assert_eq!(
+                source_location.source_file.as_ref().unwrap().path(),
+                Path::new("test.slint")
+            );
+            assert_eq!(source_location.span.offset, expected_offset);
+            assert_eq!(repeated_element.index_prop.is_none(), is_conditional);
+            assert_eq!(repeated_element.data_prop.is_none(), is_conditional);
+        }
+    }
     /// The names of the properties of the lowered public component's root sub-component.
     fn root_property_names(source: &str) -> Vec<String> {
         let config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);

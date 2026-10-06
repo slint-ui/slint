@@ -24,38 +24,37 @@ pub struct ElementSelection {
 }
 
 impl ElementSelection {
-    pub fn as_element(&self) -> Option<ElementRc> {
-        let component_instance = super::component_instance()?;
-
+    fn as_element_in(&self, component_instance: &ComponentInstance) -> Option<ElementRc> {
         let elements =
             component_instance.element_node_at_source_code_position(&self.path, self.offset.into());
-        elements.get(self.instance_index).or_else(|| elements.first()).map(|(e, _)| e.clone())
+        elements
+            .get(self.instance_index)
+            .or_else(|| elements.first())
+            .map(|(element, _)| element.clone())
     }
 
-    pub fn as_element_node(&self) -> Option<i_slint_editor_preview::ElementRcNode> {
-        let element = self.as_element()?;
+    fn as_element_node_in(
+        &self,
+        component_instance: &ComponentInstance,
+    ) -> Option<i_slint_editor_preview::ElementRcNode> {
+        let element = self.as_element_in(component_instance)?;
 
         let debug_index = {
-            let e = element.borrow();
-            e.debug.iter().position(|d| {
-                d.node.source_file.path() == self.path && d.node.text_range().start() == self.offset
+            let element = element.borrow();
+            element.debug.iter().position(|debug_info| {
+                debug_info.node.source_file.path() == self.path
+                    && debug_info.node.text_range().start() == self.offset
             })
         };
 
-        debug_index.map(|i| i_slint_editor_preview::ElementRcNode { element, debug_index: i })
-    }
-}
-
-// Look at an element and if it is a sub component, jump to its root_element()
-fn self_or_embedded_component_root(element: &ElementRc) -> ElementRc {
-    let elem = element.borrow();
-    if elem.repeated.is_some()
-        && let i_slint_compiler::langtype::ElementType::Component(base) = &elem.base_type
-    {
-        return base.root_element.clone();
+        debug_index
+            .map(|debug_index| i_slint_editor_preview::ElementRcNode { element, debug_index })
     }
 
-    element.clone()
+    pub fn as_element_node(&self) -> Option<i_slint_editor_preview::ElementRcNode> {
+        let component_instance = super::component_instance()?;
+        self.as_element_node_in(&component_instance)
+    }
 }
 
 fn lsp_element_node_position(
@@ -77,24 +76,8 @@ fn lsp_element_node_position(
     Some((f, Range::new(start, end)))
 }
 
-fn element_covers_point(
-    position: LogicalPoint,
-    component_instance: &ComponentInstance,
-    selected_element: &ElementRc,
-) -> Option<(HighlightedRect, usize)> {
-    slint_interpreter::highlight::element_positions(
-        &component_instance.clone_strong().into(),
-        selected_element,
-        slint_interpreter::highlight::ElementPositionFilter::ExcludeClipped,
-    )
-    .into_iter()
-    .enumerate()
-    .find(|(_, p)| p.contains(position))
-    .map(|(instance_index, geometry)| (geometry, instance_index))
-}
-
-pub fn unselect_element() {
-    super::set_selected_element(None, SelectionNotification::Never);
+pub fn unselect_element(editor_notification: SelectionNotification) {
+    super::set_selected_element(None, editor_notification);
 }
 
 pub fn select_element_at_source_code_position(
@@ -298,82 +281,67 @@ pub fn root_element(component_instance: &ComponentInstance) -> ElementRc {
     }
 }
 
+fn element_geometries(
+    component_instance: &ComponentInstance,
+    element: &ElementRc,
+) -> Vec<HighlightedRect> {
+    let element = element.borrow();
+    let Some(debug_info) = element.debug.first() else { return Vec::new() };
+    component_instance.component_positions(
+        debug_info.node.source_file.path(),
+        debug_info.node.text_range().start().into(),
+    )
+}
+
 #[derive(Clone)]
 pub struct SelectionCandidate {
-    pub element: ElementRc,
-    pub debug_index: usize,
+    pub selection: ElementSelection,
     pub geometry: HighlightedRect,
-    pub instance_index: usize,
     pub is_in_root_component: bool,
 }
 
 impl SelectionCandidate {
     pub fn is_selected_element_node(
         &self,
+        component_instance: &ComponentInstance,
         selection: &i_slint_editor_preview::ElementRcNode,
     ) -> bool {
-        self.as_element_node().map(|en| en.path_and_offset()) == Some(selection.path_and_offset())
+        self.as_element_node(component_instance).map(|element| element.path_and_offset())
+            == Some(selection.path_and_offset())
     }
 
-    pub fn as_element_node(&self) -> Option<i_slint_editor_preview::ElementRcNode> {
-        i_slint_editor_preview::ElementRcNode::new(self.element.clone(), self.debug_index)
+    pub fn as_element_node(
+        &self,
+        component_instance: &ComponentInstance,
+    ) -> Option<i_slint_editor_preview::ElementRcNode> {
+        self.selection.as_element_node_in(component_instance)
     }
 }
 
 impl std::fmt::Debug for SelectionCandidate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SelectionCandidate {{ {:?} }}@({:?})", self.as_element_node(), self.geometry)
+        write!(f, "SelectionCandidate {{ {:?} }}@({:?})", self.selection, self.geometry)
     }
 }
 
-// Traverse the element tree in reverse render order and collect information on
-// all elements that "render" at the given x and y coordinates
-fn collect_all_element_nodes_covering_impl(
-    position: LogicalPoint,
+fn assign_is_in_root_component(
     component_instance: &ComponentInstance,
-    current_element: &ElementRc,
-    result: &mut Vec<SelectionCandidate>,
+    candidates: &mut [SelectionCandidate],
 ) {
-    let ce = self_or_embedded_component_root(current_element);
-
-    for c in ce.borrow().children.iter().rev() {
-        collect_all_element_nodes_covering_impl(position, component_instance, c, result);
-    }
-
-    if let Some((geometry, instance_index)) =
-        element_covers_point(position, component_instance, current_element)
-    {
-        for (i, d) in ce.borrow().debug.iter().enumerate().rev() {
-            if !i_slint_editor_preview::is_element_node_ignored(&d.node)
-                && !d.node.source_file.path().starts_with("builtin:/")
-            {
-                // All nodes have the same geometry
-                result.push(SelectionCandidate {
-                    element: ce.clone(),
-                    debug_index: i,
-                    is_in_root_component: false,
-                    geometry,
-                    instance_index,
-                });
-            }
-        }
-    }
-}
-
-fn assign_is_in_root_component(candidates: &mut [SelectionCandidate]) {
     let mut root_anchor: Option<(PathBuf, i_slint_compiler::parser::TextRange)> = None;
-    for sc in candidates.iter_mut().rev() {
-        let Some(en) = sc.as_element_node() else {
+    for candidate in candidates.iter_mut().rev() {
+        let Some(element) = candidate.as_element_node(component_instance) else {
             continue;
         };
 
-        let (node_path, node_text_range) =
-            en.with_element_node(|n| (n.source_file.path().to_path_buf(), n.text_range()));
-        if let Some((rp, rtr)) = &root_anchor {
-            sc.is_in_root_component = &node_path == rp && rtr.contains_range(node_text_range);
+        let (node_path, node_text_range) = element
+            .with_element_node(|node| (node.source_file.path().to_path_buf(), node.text_range()));
+        if let Some((root_path, root_text_range)) = &root_anchor {
+            candidate.is_in_root_component =
+                &node_path == root_path && root_text_range.contains_range(node_text_range);
         } else {
             root_anchor = Some((node_path, node_text_range));
-            sc.is_in_root_component = true;
+            candidate.is_in_root_component = true;
         }
     }
 }
@@ -382,18 +350,36 @@ pub fn collect_all_element_nodes_covering(
     position: LogicalPoint,
     component_instance: &ComponentInstance,
 ) -> Vec<SelectionCandidate> {
-    let root_element = root_element(component_instance);
-    let mut elements = Vec::new();
-    collect_all_element_nodes_covering_impl(
-        position,
-        component_instance,
-        &root_element,
-        &mut elements,
-    );
-
-    assign_is_in_root_component(&mut elements);
-
-    elements
+    let mut candidates = component_instance
+        .element_candidates_at(position)
+        .into_iter()
+        .filter_map(|candidate| {
+            let source_file = candidate.source_location.source_file.as_ref()?;
+            if source_file.path().starts_with("builtin:/") {
+                return None;
+            }
+            let offset = u32::try_from(candidate.source_location.span.offset).ok()?.into();
+            let selection = ElementSelection {
+                path: source_file.path().to_path_buf(),
+                offset,
+                instance_index: candidate.instance_index,
+            };
+            let element = selection.as_element_node_in(component_instance)?;
+            // TODO: This should use the LLR - remove the use of ElementRc
+            if i_slint_editor_preview::is_element_node_ignored(
+                &element.with_element_debug(|debug_info| debug_info.node.clone()),
+            ) {
+                return None;
+            }
+            Some(SelectionCandidate {
+                selection,
+                is_in_root_component: false,
+                geometry: candidate.geometry,
+            })
+        })
+        .collect::<Vec<_>>();
+    assign_is_in_root_component(component_instance, &mut candidates);
+    candidates
 }
 
 fn selection_candidate_at_impl(
@@ -401,9 +387,9 @@ fn selection_candidate_at_impl(
     position: LogicalPoint,
     enter_component: bool,
 ) -> Option<SelectionCandidate> {
-    collect_all_element_nodes_covering(position, component_instance)
-        .into_iter()
-        .find(|candidate| filter_nodes_for_selection(candidate, enter_component).is_some())
+    collect_all_element_nodes_covering(position, component_instance).into_iter().find(|candidate| {
+        filter_nodes_for_selection(component_instance, candidate, enter_component).is_some()
+    })
 }
 
 fn select_element_at_impl(
@@ -412,7 +398,7 @@ fn select_element_at_impl(
     enter_component: bool,
 ) -> Option<i_slint_editor_preview::ElementRcNode> {
     selection_candidate_at_impl(component_instance, position, enter_component)
-        .and_then(|candidate| candidate.as_element_node())
+        .and_then(|candidate| candidate.as_element_node(component_instance))
 }
 
 pub fn select_element_at(x: f32, y: f32, enter_component: bool) {
@@ -466,7 +452,7 @@ fn hovered_element_at_impl(
     else {
         return Default::default();
     };
-    let Some(element_node) = candidate.as_element_node() else {
+    let Some(element_node) = candidate.as_element_node(component_instance) else {
         return Default::default();
     };
 
@@ -474,7 +460,7 @@ fn hovered_element_at_impl(
     let is_selected = selected.is_some_and(|selection| {
         selection.path == path
             && selection.offset == offset
-            && selection.instance_index == candidate.instance_index
+            && selection.instance_index == candidate.selection.instance_index
     });
     let is_over_selected_element = selected.is_some_and(|selection| {
         component_instance
@@ -520,7 +506,8 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
         return Default::default();
     };
     let root_element = root_element(component_instance);
-    let Some(root_geometry) = component_instance.element_positions(&root_element).first().cloned()
+    let Some(root_geometry) =
+        element_geometries(component_instance, &root_element).first().cloned()
     else {
         return Default::default();
     };
@@ -543,10 +530,12 @@ pub fn selection_stack_at(x: f32, y: f32) -> slint::ModelRc<ui::SelectionStackFr
 
     let mut result = collect_all_element_nodes_covering(position, component_instance)
         .iter()
-        .filter(|sn| filter_nodes_for_selection(sn, true).is_some())
+        .filter(|candidate| {
+            filter_nodes_for_selection(component_instance, candidate, true).is_some()
+        })
         .map(|sc| {
             let (type_name, id, is_layout, is_selected, path, offset) = sc
-                .as_element_node()
+                .as_element_node(component_instance)
                 .map(|en| {
                     let (path, offset) = en.path_and_offset();
                     let offset: u32 = offset.into();
@@ -714,6 +703,7 @@ pub fn parent_layout_kind(element: &i_slint_editor_preview::ElementRcNode) -> ui
 }
 
 fn filter_nodes_for_selection(
+    component_instance: &ComponentInstance,
     selection_candidate: &SelectionCandidate,
     enter_component: bool,
 ) -> Option<i_slint_editor_preview::ElementRcNode> {
@@ -721,8 +711,10 @@ fn filter_nodes_for_selection(
         return None;
     }
 
-    selection_candidate.as_element_node().filter(|en| {
-        en.with_element_node(|n| n.parent().is_none_or(|p| p.kind() != SyntaxKind::Component))
+    selection_candidate.as_element_node(component_instance).filter(|element| {
+        element.with_element_node(|node| {
+            node.parent().is_none_or(|parent| parent.kind() != SyntaxKind::Component)
+        })
     })
 }
 
@@ -734,8 +726,9 @@ pub fn select_element_behind_impl(
     reverse: bool,
 ) -> Option<i_slint_editor_preview::ElementRcNode> {
     let elements = collect_all_element_nodes_covering(position, component_instance);
-    let current_selection_position =
-        elements.iter().position(|sc| sc.is_selected_element_node(selected_element_node))?;
+    let current_selection_position = elements.iter().position(|candidate| {
+        candidate.is_selected_element_node(component_instance, selected_element_node)
+    })?;
 
     let (start_position, iterations) = if reverse {
         let start_position = current_selection_position.saturating_sub(1);
@@ -753,9 +746,11 @@ pub fn select_element_behind_impl(
             assert!(i + start_position < elements.len());
             start_position + i
         };
-        if let Some(en) =
-            filter_nodes_for_selection(elements.get(mapped_index).unwrap(), enter_component)
-        {
+        if let Some(en) = filter_nodes_for_selection(
+            component_instance,
+            elements.get(mapped_index).unwrap(),
+            enter_component,
+        ) {
             return Some(en);
         }
     }
@@ -833,11 +828,11 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
     #[test]
     fn test_find_covering_elements() {
-        let type_loader = demo_app();
+        let component_instance = demo_app();
 
         let mut covers_center = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 100.0),
-            &type_loader,
+            &component_instance,
         );
 
         // Remove the "button" implementation details. They must be at the start:
@@ -845,7 +840,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         let first_non_button = covers_center
             .iter()
             .position(|sc| {
-                sc.as_element_node().map(|en| en.path_and_offset().0).as_ref() != Some(&button_path)
+                sc.as_element_node(&component_instance)
+                    .map(|element| element.path_and_offset().0)
+                    .as_ref()
+                    != Some(&button_path)
             })
             .unwrap();
         covers_center.drain(0..first_non_button);
@@ -856,14 +854,15 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
         assert_eq!(covers_center.len(), expected_offsets.len());
 
         for (candidate, expected_offset) in covers_center.iter().zip(&expected_offsets) {
-            let (path, offset) = candidate.as_element_node().unwrap().path_and_offset();
+            let (path, offset) =
+                candidate.as_element_node(&component_instance).unwrap().path_and_offset();
             assert_eq!(&path, &test_file);
             assert_eq!(offset, (*expected_offset).into());
         }
 
         let covers_below = super::collect_all_element_nodes_covering(
             LogicalPoint::new(100.0, 180.0),
-            &type_loader,
+            &component_instance,
         );
 
         // All but the button itself as well as the SomeComponent (impl and use)
@@ -871,8 +870,10 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
 
         for (below, center) in covers_below.iter().zip(&covers_center[3..]) {
             assert_eq!(
-                below.as_element_node().map(|en| en.path_and_offset()),
-                center.as_element_node().map(|en| en.path_and_offset())
+                below.as_element_node(&component_instance).map(|element| element.path_and_offset()),
+                center
+                    .as_element_node(&component_instance)
+                    .map(|element| element.path_and_offset())
             );
         }
     }
@@ -886,8 +887,8 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 401
             &component_instance,
         )
         .iter()
-        .flat_map(|sc| sc.as_element_node())
-        .map(|en| en.path_and_offset())
+        .flat_map(|candidate| candidate.as_element_node(&component_instance))
+        .map(|element| element.path_and_offset())
         .collect::<Vec<_>>();
 
         tracing::debug!("Covers:");
@@ -1162,7 +1163,7 @@ export component MyInput {
         );
         let hovered_geometry = hovered
             .geometry
-            .row_data(candidate.instance_index)
+            .row_data(candidate.selection.instance_index)
             .expect("the hovered instance should have geometry");
         assert_eq!(hovered_geometry.x, candidate.geometry.rect.origin.x);
         assert_eq!(hovered_geometry.y, candidate.geometry.rect.origin.y);
@@ -1177,6 +1178,43 @@ export component MyInput {
             None,
         );
         assert!(!outside.valid);
+    }
+
+    #[test]
+    fn test_hovered_element_distinguishes_inlined_component_uses() {
+        let source = r#"import { GroupBox } from "std-widgets.slint";
+export component Main inherits Window {
+    width: 200px;
+    height: 180px;
+    first := GroupBox {
+        x: 0px;
+        y: 0px;
+        width: 180px;
+        height: 80px;
+        title: "First";
+    }
+    second := GroupBox {
+        x: 0px;
+        y: 100px;
+        width: 180px;
+        height: 80px;
+        title: "Second";
+    }
+}
+"#;
+        let component_instance = crate::preview::test::interpret_test("fluent", source);
+        let hovered = super::hovered_element_at_impl(
+            &component_instance,
+            LogicalPoint::new(20.0, 20.0),
+            false,
+            None,
+        );
+
+        assert!(hovered.valid);
+        assert_eq!(
+            hovered.element_offset,
+            i32::try_from(source.find("GroupBox {\n        x: 0px").unwrap()).unwrap()
+        );
     }
 
     #[test]

@@ -123,20 +123,45 @@ instance.set_step(5.);
 slider_element.invoke_accessible_increment_action();
 assert_eq!(instance.get_value(), 55f32);
 assert_eq!(changes.borrow().clone(), vec![55f32]);
+// An accessibility action is a complete interaction, so it also reports `released`
+assert_eq!(edits.borrow().clone(), vec![55f32]);
 
 changes.borrow_mut().clear();
+edits.borrow_mut().clear();
 
 // Invoking accessible-action-decrement should decrement the value by the step
 slider_element.invoke_accessible_decrement_action();
 assert_eq!(instance.get_value(), 50f32);
 assert_eq!(changes.borrow().clone(), vec![50f32]);
+assert_eq!(edits.borrow().clone(), vec![50f32]);
 
 changes.borrow_mut().clear();
+edits.borrow_mut().clear();
 
 // Invoking accessible-action-set-value should update the value
 slider_element.set_accessible_value("75");
 assert_eq!(instance.get_value(), 75f32);
 assert_eq!(changes.borrow().clone(), vec![75f32]);
+assert_eq!(edits.borrow().clone(), vec![75f32]);
+
+// Like the keyboard, an action that leaves the value unchanged still reports `released`
+edits.borrow_mut().clear();
+changes.borrow_mut().clear();
+slider_element.set_accessible_value("75");
+assert!(changes.borrow().is_empty(), "{:?}", changes.borrow());
+assert_eq!(edits.borrow().clone(), vec![75f32]);
+
+edits.borrow_mut().clear();
+instance.set_value(100.);
+slider_element.invoke_accessible_increment_action();
+assert!(changes.borrow().is_empty(), "{:?}", changes.borrow());
+assert_eq!(edits.borrow().clone(), vec![100f32]);
+
+edits.borrow_mut().clear();
+instance.set_value(0.);
+slider_element.invoke_accessible_decrement_action();
+assert!(changes.borrow().is_empty(), "{:?}", changes.borrow());
+assert_eq!(edits.borrow().clone(), vec![0f32]);
 
 // Test vertical slider
 edits.borrow_mut().clear();
@@ -232,6 +257,7 @@ assert_eq!(instance.get_value(), 11f32);
 // A disabled slider refuses the accessibility actions, like it refuses the keyboard
 instance.set_enabled(false);
 changes.borrow_mut().clear();
+edits.borrow_mut().clear();
 
 instance.set_value(10.);
 slider_element.invoke_accessible_increment_action();
@@ -246,6 +272,7 @@ slider_element.set_accessible_value("77");
 assert_eq!(instance.get_value(), 10f32);
 
 assert!(changes.borrow().is_empty(), "{:?}", changes.borrow());
+assert!(edits.borrow().is_empty(), "{:?}", edits.borrow());
 
 instance.set_enabled(true);
 

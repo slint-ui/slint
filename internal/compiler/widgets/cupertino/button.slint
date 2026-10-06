@@ -4,7 +4,11 @@
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
+
 export component Button {
+    implement ButtonInterface <=> self;
+
     in property <string> text;
     in property <image> icon;
     in property <length> icon-size: 13px;

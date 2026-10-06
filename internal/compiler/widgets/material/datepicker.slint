@@ -5,10 +5,14 @@ import { VerticalBox } from "../common/layout.slint";
 import { TextButton } from "./button.slint";
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
+import { DatePickerPopupInterface } from "../common/std-widget-interfaces.slint";
+
 import { Date, DatePickerBase } from "../common/datepicker_base.slint";
 export { Date }
 
 export component DatePickerPopup inherits PopupWindow {
+    implement DatePickerPopupInterface <=> self;
+
     in property <string> title: "Select date";
     in property <Date> date <=> base.date;
 

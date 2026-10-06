@@ -15,7 +15,6 @@ use crate::editor_preview::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
@@ -401,20 +400,6 @@ fn set_contents(url: &VersionedUrl, content: String) {
     }) {
         load_preview(current, LoadBehavior::Reload);
     }
-}
-
-/// Try to find the parent of element `child` below `root`.
-fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
-    for c in &root.borrow().children {
-        if std::rc::Rc::ptr_eq(c, child) {
-            return Some(root.clone());
-        }
-
-        if let Some(parent) = search_for_parent_element(c, child) {
-            return Some(parent);
-        }
-    }
-    None
 }
 
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
@@ -1038,15 +1023,15 @@ fn resize_selected_element_impl(
     let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
     let position = rect.origin;
-    let root_element = element_selection::root_element(&component_instance);
-
-    let parent = search_for_parent_element(&root_element, &element_node.element)
+    let parent = element_node
+        .parent()
         .and_then(|parent_element| {
+            let (parent_path, parent_offset) = parent_element.path_and_offset();
             component_instance
-                .element_positions(&parent_element)
+                .component_positions(&parent_path, parent_offset.into())
                 .iter()
-                .find(|g| g.contains(position))
-                .map(|g| g.rect.origin)
+                .find(|geometry| geometry.contains(position))
+                .map(|geometry| geometry.rect.origin)
         })
         .unwrap_or_default();
 

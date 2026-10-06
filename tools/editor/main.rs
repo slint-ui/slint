@@ -571,9 +571,14 @@ async fn handle_preview_message(
             run_preview_state.highlight = Some((file.clone(), offset.into()));
             send_run_preview_highlight(session, run_preview_state);
         }
+        ClearHighlight if preview_index == PRIMARY_PREVIEW_INDEX => {
+            run_preview_state.highlight = None;
+            send_run_preview_highlight(session, run_preview_state);
+        }
 
         Diagnostics { .. }
         | ShowDocument { .. }
+        | ClearHighlight
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
@@ -650,10 +655,14 @@ fn send_run_preview_highlight(
     if !run_preview_state.requested {
         return;
     }
-    let Some((url, offset)) = &run_preview_state.highlight else { return };
+    let (url, offset) = run_preview_state
+        .highlight
+        .as_ref()
+        .map(|(url, offset)| (Some(url.clone()), *offset))
+        .unwrap_or((None, 0));
     session.send_to_preview(
         RUN_PREVIEW_INDEX,
-        &LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: *offset },
+        &LspToPreviewMessage::HighlightFromEditor { url, offset },
     );
 }
 
@@ -1098,6 +1107,47 @@ mod tests {
                 if current_url == &url && *offset == expected_offset)
         });
         assert!(highlight_position.is_some_and(|position| position > show_position));
+    }
+
+    #[test]
+    fn clear_highlight_only_clears_the_run_preview_from_the_primary_preview() {
+        for (preview_index, requested) in [
+            (PRIMARY_PREVIEW_INDEX, true),
+            (PRIMARY_PREVIEW_INDEX, false),
+            (RUN_PREVIEW_INDEX, true),
+        ] {
+            let (mut session, messages) = session_with_recording_previews();
+            let project = tempfile::tempdir().unwrap();
+            let highlight =
+                Some((Url::from_file_path(project.path().join("main.slint")).unwrap(), 42));
+            let mut run_preview_state = RunPreviewState { requested, highlight: highlight.clone() };
+
+            spin_on::spin_on(handle_preview_message(
+                PreviewToLspMessage::ClearHighlight,
+                preview_index,
+                &mut session,
+                project.path(),
+                &mut run_preview_state,
+                &Default::default(),
+            ));
+
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+            let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+            if preview_index == PRIMARY_PREVIEW_INDEX {
+                assert!(run_preview_state.highlight.is_none());
+                if requested {
+                    assert!(matches!(
+                        run_messages.as_slice(),
+                        [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
+                    ));
+                } else {
+                    assert!(run_messages.is_empty());
+                }
+            } else {
+                assert_eq!(run_preview_state.highlight, highlight);
+                assert!(run_messages.is_empty());
+            }
+        }
     }
 
     #[test]
