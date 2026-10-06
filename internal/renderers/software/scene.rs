@@ -235,22 +235,38 @@ impl Scene {
         false
     }
 
-    pub fn is_guaranteed_opaque(&self, command: &SceneCommand) -> bool {
-        match command {
+    pub fn covers_line(&self, item: &SceneItem, line: PhysicalLength) -> bool {
+        match &item.command {
             SceneCommand::Rectangle { color } => color.alpha == 255,
             SceneCommand::Texture { texture_index } => {
                 let texture = &self.vectors.textures[*texture_index as usize];
-                // Below alpha 255 an RGB texture blends rather than overwrites (see
+                // Below alpha 255 the texture blends rather than overwrites (see
                 // draw_texture_line), so it is not opaque.
-                texture.format == TexturePixelFormat::Rgb && texture.extra.alpha == 255
+                let opaque_format = match texture.format {
+                    TexturePixelFormat::Rgb => true,
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    TexturePixelFormat::Rgb565 => true,
+                    #[cfg(feature = "image-pixel-format-gray8")]
+                    TexturePixelFormat::Gray8 => true,
+                    _ => false,
+                };
+                opaque_format && texture.extra.alpha == 255
             }
             SceneCommand::SharedBuffer { shared_buffer_index } => {
                 let buffer = &self.vectors.shared_buffers[*shared_buffer_index as usize];
-                buffer.extra.alpha == 255
-                    && matches!(
-                        buffer.buffer,
-                        SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_))
-                    )
+                let opaque_format = match buffer.buffer {
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_)) => true,
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB565(_)) => true,
+                    #[cfg(feature = "image-pixel-format-gray8")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::Gray8(_)) => true,
+                    _ => false,
+                };
+                opaque_format && buffer.extra.alpha == 255
+            }
+            SceneCommand::LinearGradient { linear_gradient_index } => {
+                self.vectors.linear_gradients[*linear_gradient_index as usize]
+                    .covers_line(&PhysicalRect { origin: item.pos, size: item.size }, line)
             }
             _ => false,
         }
