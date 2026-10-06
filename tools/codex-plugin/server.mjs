@@ -124,7 +124,7 @@ async function handle(message) {
       if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
       return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
-        ui: { prefersBorder: true, csp: { resourceDomains: ["blob:"] } },
+        ui: { prefersBorder: true, csp: { resourceDomains: ["blob:", "data:"] } },
         "openai/ui": { availableDisplayModes: ["inline"] },
       } }] };
     }
