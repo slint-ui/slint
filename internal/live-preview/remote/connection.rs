@@ -530,13 +530,29 @@ impl Connection {
                                         }
                                     },
                                 };
-                                if let Some(frame) = frame
-                                    && let Err(err) = sink.send(frame).await {
-                                    tracing::error!("Failed sending message to Websocket: {err}");
+                                if let Some(frame) = frame {
+                                    tokio::select! {
+                                        result = sink.send(frame) => {
+                                            if let Err(error) = result {
+                                                tracing::error!("Failed sending message to Websocket: {error}");
+                                            }
+                                        }
+                                        _ = &mut quit_receiver => break 'listen,
+                                    }
                                 }
                             }
                         }
                     }
+                }
+                if let Some((mut sink, reader, _)) = current_session {
+                    let _ = tokio::time::timeout(
+                        Duration::from_secs(1),
+                        sink.send(Message::Close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "".into(),
+                        }))),
+                    ).await;
+                    reader.abort();
                 }
             });
         });
@@ -1480,6 +1496,34 @@ mod session_tests {
             }
         };
     }
+
+    local_test!(viewer_shutdown_sends_normal_websocket_close, {
+        for policy in [PairingPolicy::Generated, PairingPolicy::Disabled] {
+            let paired = policy == PairingPolicy::Generated;
+            let mut viewer = Viewer::start(policy).await;
+            let mut client = if paired {
+                pair(&mut viewer).await.0.client
+            } else {
+                let mut client = viewer.dial().await;
+                hello(&mut client, None).await;
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::PairingAccepted)
+                ));
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::RequestState { .. })
+                ));
+                client
+            };
+            drop(viewer);
+            let frame =
+                tokio::time::timeout(REPLY_TIMEOUT, client.next()).await.unwrap().unwrap().unwrap();
+            assert!(
+                matches!(frame, Message::Close(Some(frame)) if frame.code == tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode::Normal)
+            );
+        }
+    });
 
     local_test!(correct_code_is_accepted_and_session_works, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
