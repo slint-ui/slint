@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 const levels = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 const padding = 12;
 const maxHeight = 420;
