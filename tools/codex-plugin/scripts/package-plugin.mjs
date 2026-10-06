@@ -1,3 +1,4 @@
+// cspell:ignore compresslevel rglob writestr
 import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
