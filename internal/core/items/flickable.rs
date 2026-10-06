@@ -12,8 +12,8 @@ use super::{
 };
 use crate::animations::Instant;
 use crate::animations::simulations::PositionSimulation;
+use crate::animations::simulations::bounce::BounceFlick;
 use crate::animations::simulations::rubber_band;
-use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::input::InputEventFilterResult::ForwardEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -420,9 +420,9 @@ impl core::ops::Deref for FlickableDataBox {
 }
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
 pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
 pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(10 as _);
 /// Time required before we stop caring about child event if the mouse hasn't been moved
 pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
@@ -936,7 +936,7 @@ impl FlickableDataInner {
         } else {
             0.
         };
-        Rc::new_cyclic(|weak: &Weak<RefCell<SpringSimulation>>| {
+        Rc::new_cyclic(|weak: &Weak<RefCell<BounceFlick>>| {
             content.set_physic_animation_value(weak.clone());
             RefCell::new(FlickAnimation::create_spring_animation(
                 curr_val,

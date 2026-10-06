@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Combines the Android-style (hard-clamped) and iOS-style (rubber-band
+//! Combines the Android-style (hard-clamped) and the bouncing (rubber-band
 //! overscroll) flick animation behind one type
 
 use alloc::boxed::Box;
@@ -11,9 +11,8 @@ use core::time::Duration;
 use crate::Property;
 use crate::animations::Instant;
 use crate::animations::simulations::android::{AndroidFlick, AndroidFlickParameters};
-use crate::animations::simulations::ios::{IOsFlick, IOsFlickParameters};
+use crate::animations::simulations::bounce::{BounceFlick, BounceFlickParameters};
 use crate::animations::simulations::rubber_band;
-use crate::animations::simulations::scroll_spring::SpringSimulation;
 use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalVector, RectLengths};
@@ -37,14 +36,14 @@ pub enum FlickAnimationParameter {
 /// Common flick animation type to dynamically switching between simulations
 pub enum FlickAnimation {
     Android(AndroidFlick),
-    Ios(IOsFlick),
+    Bounce(BounceFlick),
 }
 
 impl Simulation for FlickAnimation {
     fn step(&mut self, current: &mut f32, new_tick: Instant) -> bool {
         match self {
             FlickAnimation::Android(s) => s.step(current, new_tick),
-            FlickAnimation::Ios(s) => s.step(current, new_tick),
+            FlickAnimation::Bounce(s) => s.step(current, new_tick),
         }
     }
 }
@@ -53,14 +52,14 @@ impl PositionSimulation for FlickAnimation {
     fn remaining_distance(&self, time_elapsed: Duration) -> f32 {
         match self {
             FlickAnimation::Android(s) => s.remaining_distance(time_elapsed),
-            FlickAnimation::Ios(s) => s.remaining_distance(time_elapsed),
+            FlickAnimation::Bounce(s) => s.remaining_distance(time_elapsed),
         }
     }
 
     fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
         match self {
             FlickAnimation::Android(s) => s.remaining_velocity(time_elapsed),
-            FlickAnimation::Ios(s) => s.remaining_velocity(time_elapsed),
+            FlickAnimation::Bounce(s) => s.remaining_velocity(time_elapsed),
         }
     }
 }
@@ -130,9 +129,9 @@ impl FlickAnimation {
     }
 
     pub fn minimum_flick_velocity_animation() -> f32 {
-        #[cfg(target_os = "ios")]
+        #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
         return 250.;
-        #[cfg(not(target_os = "ios"))]
+        #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
         return 50.;
     }
 
@@ -143,12 +142,12 @@ impl FlickAnimation {
     ) -> f32 {
         let cm = match carry_momentum {
             AutoBool::Auto => {
-                #[cfg(target_os = "ios")]
+                #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
                 {
                     true
                 }
                 // On Android this momentum carry does not exist
-                #[cfg(not(target_os = "ios"))]
+                #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
                 {
                     false
                 }
@@ -169,14 +168,14 @@ impl FlickAnimation {
     /// and if `Auto` on the platform
     pub fn use_bounce(bounce: AutoBool) -> bool {
         match bounce {
-            AutoBool::Auto => cfg!(target_os = "ios"),
+            AutoBool::Auto => cfg!(any(target_os = "ios", slint_ios_scroll_physics)),
             AutoBool::On => true,
             AutoBool::Off => false,
         }
     }
 
     /// Builds and starts the flick animation for one axis, choosing between
-    /// the Android and iOS physics based on `bounce` and the platform.
+    /// the Android and the bouncing physics based on `bounce` and the platform.
     pub fn create_animation(
         animation_parameter: FlickAnimationParameter,
         bounce: AutoBool,
@@ -185,12 +184,14 @@ impl FlickAnimation {
     ) -> FlickAnimation {
         if Self::use_bounce(bounce) {
             let params = match animation_parameter {
-                FlickAnimationParameter::Velocity { velocity } => IOsFlickParameters::new(velocity),
+                FlickAnimationParameter::Velocity { velocity } => {
+                    BounceFlickParameters::new(velocity)
+                }
                 FlickAnimationParameter::Distance { delta, duration } => {
-                    IOsFlickParameters::new_with_distance(delta, duration)
+                    BounceFlickParameters::new_with_distance(delta, duration)
                 }
             };
-            FlickAnimation::Ios(params.simulation(start_value, limit_value))
+            FlickAnimation::Bounce(params.simulation(start_value, limit_value))
         } else {
             let params = match animation_parameter {
                 FlickAnimationParameter::Velocity { velocity } => {
@@ -215,8 +216,8 @@ impl FlickAnimation {
         start_time: Instant,
         velocity: f32,
         drag_speed: f32,
-    ) -> SpringSimulation {
-        SpringSimulation::new_with_default_parameters(
+    ) -> BounceFlick {
+        BounceFlick::new_overscroll_release(
             start_value,
             limit_value,
             start_time,
@@ -253,7 +254,7 @@ mod tests {
 
     /// Five real (residual velocity, required carry boost) pairs decomposed from repeated
     /// same-direction flicks measured on a live iOS UIScrollView, using the
-    /// DRAG constant in `simulations::ios` to turn each release's total measured travel back
+    /// DRAG constant in `simulations::bounce` to turn each release's total measured travel back
     /// into an effective launch velocity. `CARRY_SCALE`/`CARRY_EXPONENT` are fit to this data
     /// (and 107 further points from other real flick sequences) by log-log least squares.
     #[test]
