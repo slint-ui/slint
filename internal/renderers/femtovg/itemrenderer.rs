@@ -1463,12 +1463,14 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 gradient.radius.get(),
                 to_femtovg_stops(&gradient.stops),
             ),
-            ResolvedBrush::ConicGradient(gradient) => femtovg::Paint::conic_gradient_stops_with_angle(
-                gradient.center.x,
-                gradient.center.y,
-                -core::f32::consts::FRAC_PI_2,
-                to_femtovg_stops(&gradient.stops),
-            ),
+            ResolvedBrush::ConicGradient(gradient) => {
+                femtovg::Paint::conic_gradient_stops_with_angle(
+                    gradient.center.x,
+                    gradient.center.y,
+                    -core::f32::consts::FRAC_PI_2,
+                    to_femtovg_stops(&gradient.stops),
+                )
+            }
         })
     }
 
