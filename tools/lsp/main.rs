@@ -454,7 +454,9 @@ async fn run_main_loop(
             Box::pin(async move {
                 tracing::trace!("Importing file: {path}");
                 let contents = path.read().map(std::borrow::Cow::into_owned);
-                if let Some(url) = path.as_native_path().and(path.to_url()) {
+                if let SourcePath::File(_) = &path
+                    && let Some(url) = path.to_url()
+                {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),
@@ -617,13 +619,7 @@ fn sync_file_watcher_if_needed(
     }
 
     watcher
-        .update_watched_paths(
-            ctx.session
-                .document_cache
-                .all_paths_to_watch()
-                .into_iter()
-                .filter_map(SourcePath::into_native_path),
-        )
+        .update_watched_paths(ctx.session.document_cache.all_paths_to_watch())
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())

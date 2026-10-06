@@ -444,8 +444,12 @@ impl DocumentCache {
         self.element_at_document_and_offset(doc, offset)
     }
 
-    pub fn all_paths_to_watch(&self) -> HashSet<SourcePath> {
-        self.type_loader.all_files_to_watch()
+    pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
+        self.type_loader
+            .all_files_to_watch()
+            .into_iter()
+            .filter_map(SourcePath::into_native_path)
+            .collect()
     }
 }
 

@@ -1811,9 +1811,7 @@ fn convert_diagnostics(
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
-            let Some(uri) = i_slint_compiler::diagnostics::Spanned::source_file(d)
-                .and_then(|f| f.path().to_url())
-            else {
+            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
                 continue;
             };
             let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);

@@ -119,7 +119,6 @@ mod builtin_library {
             .collect()
     }
 
-    /// The canonical path and the contents of a builtin file.
     pub(crate) fn find(builtin_path: &str) -> Option<(SourcePath, &'static [u8])> {
         let mut components = Vec::new();
         for part in builtin_path.split('/').filter(|part| !part.is_empty()) {

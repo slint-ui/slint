@@ -383,7 +383,9 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
             Box::pin(async move {
                 tracing::trace!("Importing file: {path}");
                 let contents = path.read().map(std::borrow::Cow::into_owned);
-                if let Some(url) = path.as_native_path().and(path.to_url()) {
+                if let SourcePath::File(_) = &path
+                    && let Some(url) = path.to_url()
+                {
                     for to_preview in &to_previews {
                         if let Ok(contents) = &contents {
                             to_preview.send(&LspToPreviewMessage::SetContents {
@@ -457,13 +459,7 @@ fn sync_file_watcher_if_needed(
 
     watcher.update_watched_paths(
         std::iter::once(root_path.to_path_buf())
-            .chain(
-                session
-                    .document_cache
-                    .all_paths_to_watch()
-                    .into_iter()
-                    .filter_map(SourcePath::into_native_path),
-            )
+            .chain(session.document_cache.all_paths_to_watch())
             .chain(session.previews.iter().filter_map(|preview| {
                 preview
                     .to_show

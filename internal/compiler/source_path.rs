@@ -112,7 +112,6 @@ impl SourcePath {
         }
     }
 
-    /// The directory containing `self`.
     pub fn parent(&self) -> Self {
         match self {
             Self::File(path) => Self::File(path.parent().unwrap_or(path).to_owned()),

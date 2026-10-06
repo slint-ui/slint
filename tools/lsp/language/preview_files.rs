@@ -47,11 +47,7 @@ impl PreviewFileAccess {
         preview_config: &PreviewConfig,
         document_cache: &DocumentCache,
     ) -> Self {
-        let project_files: HashSet<PathBuf> = document_cache
-            .all_paths_to_watch()
-            .into_iter()
-            .filter_map(SourcePath::into_native_path)
-            .collect();
+        let project_files = document_cache.all_paths_to_watch();
 
         // Deduplicated before canonicalizing: a project has many more files
         // than directories, and each candidate costs a system call.

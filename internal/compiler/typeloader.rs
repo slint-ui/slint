@@ -1485,18 +1485,18 @@ impl TypeLoader {
             }
             Some(doc_node)
         } else {
-            let source_code_result = if path_canon.is_builtin() {
-                path_canon.read_to_string()
-            } else {
-                let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
-                if let Some(callback) = callback {
-                    callback(path_canon.clone())
-                        .await
-                        .unwrap_or_else(|| path_canon.read_to_string())
-                } else {
-                    path_canon.read_to_string()
-                }
+            let callback = state
+                .borrow()
+                .tl
+                .compiler_config
+                .open_import_callback
+                .clone()
+                .filter(|_| !path_canon.is_builtin());
+            let loaded = match callback {
+                Some(callback) => callback(path_canon.clone()).await,
+                None => None,
             };
+            let source_code_result = loaded.unwrap_or_else(|| path_canon.read_to_string());
             match source_code_result {
                 Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
                     source,
@@ -1792,9 +1792,10 @@ impl TypeLoader {
         referencing_file: Option<&SourcePath>,
         file_to_import: &str,
     ) -> Option<SourcePath> {
+        let referencing_dir = referencing_file.map(SourcePath::parent);
         let include_dirs = self.compiler_config.include_paths.iter().filter_map(|include_path| {
-            match (referencing_file, include_path.to_str()) {
-                (Some(file), Some(include_path)) => file.parent().join(include_path),
+            match (&referencing_dir, include_path.to_str()) {
+                (Some(dir), Some(include_path)) => dir.join(include_path),
                 _ => Some(SourcePath::new(include_path)),
             }
         });
@@ -1805,8 +1806,8 @@ impl TypeLoader {
         .then(|| SourcePath::Builtin(self.resolved_style.as_str().into()));
 
         // The directory of the current file is the first in the list of include directories.
-        referencing_file
-            .map(SourcePath::parent)
+        referencing_dir
+            .clone()
             .into_iter()
             .chain(
                 referencing_file

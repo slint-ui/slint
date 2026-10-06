@@ -1915,7 +1915,6 @@ fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogL
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
     let path = match source_file.path() {
         SourcePath::File(path) => path.to_string_lossy(),
-        SourcePath::Url(url) => url.as_str().into(),
         path => path.to_string().into(),
     };
     Some(LogLocation { path, line, column })

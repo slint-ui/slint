@@ -164,8 +164,8 @@ impl LiveReloadingComponent {
                     result
                         .watch_paths(i_slint_core::InternalToken)
                         .iter()
-                        .cloned()
-                        .filter_map(i_slint_compiler::source_path::SourcePath::into_native_path),
+                        .filter_map(i_slint_compiler::source_path::SourcePath::as_native_path)
+                        .map(std::path::Path::to_path_buf),
                 )
                 .chain(self.extra_watch_paths.iter().cloned()),
         );

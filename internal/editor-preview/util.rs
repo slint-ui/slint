@@ -13,8 +13,6 @@ use i_slint_compiler::typeregister::TypeRegister;
 use smol_str::SmolStr;
 
 /// The leading directories that all `paths` share, up to and including the last separator.
-///
-/// `/` and `\\` both separate directories, so this works for URLs and for native paths.
 pub fn common_directory<'a>(paths: impl IntoIterator<Item = &'a str>) -> String {
     let mut paths = paths.into_iter();
     let Some(first) = paths.next() else { return String::new() };
