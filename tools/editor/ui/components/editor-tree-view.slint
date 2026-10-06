@@ -12,7 +12,7 @@ import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
 component EditorTreeRow {
-    in property <TreeStyle> style: Style.tree;
+    in property <TreeStyle> style: Style.outline-tree;
     in-out property <OutlineTreeNode> node;
     in property <string> current-source-uri;
     in property <int> current-offset;
@@ -377,7 +377,7 @@ component EditorTreeRow {
 }
 
 export component EditorTreeView inherits FocusScope {
-    in property <TreeStyle> style: Style.tree;
+    in property <TreeStyle> style: Style.outline-tree;
     in property <[OutlineTreeNode]> rows: [];
     in property <string> current-source-uri: "";
     in property <int> current-offset: -1;

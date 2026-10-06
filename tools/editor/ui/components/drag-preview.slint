@@ -43,7 +43,7 @@ component PalettePlaceholderDragPreview inherits Rectangle {
 }
 
 export component OutlineDragRow inherits Rectangle {
-    in property <TreeRowStyle> style: Style.tree.row;
+    in property <TreeRowStyle> style: Style.outline-tree.row;
     in property <length> content-inset: AppState.outline-drag-content-inset;
     in property <brush> row-background: AppState.outline-drag-background;
     opacity: Style.drag-preview.ghost-opacity;

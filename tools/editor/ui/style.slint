@@ -1685,7 +1685,7 @@ export global Style {
     };
 
     out property <DragPreviewStyle> drag-preview: {
-        row: root.tree-row,
+        row: root.outline-tree.row,
         text: { size: 24px, weight: FontWeight.extra-bold },
         shadow: Theme.overlay.drag-preview.shadow,
         row-border: Theme.overlay.drag-preview.row-border,
@@ -1782,35 +1782,42 @@ export global Style {
         hover: Theme.picker.info-icon.hover,
     };
 
-    private property <TreeRowStyle> tree-row: {
-        height: Metrics.control-medium,
-        font-size: Typography.body.size,
-        radius: Metrics.radius-medium,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-regular,
-        toggle-width: Metrics.icon-medium,
-        icon-size: Metrics.icon-medium,
-        focus-width: Metrics.focus-width,
-        hover-background: Theme.navigation.tree-row.hover-background,
-        selected-background: Theme.navigation.tree-row.selected-background,
-        foreground: Theme.navigation.tree-row.foreground,
-        muted: Theme.navigation.tree-row.muted,
-        accent: Theme.navigation.tree-row.accent,
-        directory-icon: Theme.navigation.tree-row.directory-icon,
-    };
+    pure function tree-row(height: length) -> TreeRowStyle {
+        return {
+            height: height,
+            font-size: Typography.body.size,
+            radius: Metrics.radius-medium,
+            padding-inline: Metrics.space-regular,
+            gap: Metrics.space-regular,
+            toggle-width: Metrics.icon-medium,
+            icon-size: Metrics.icon-medium,
+            focus-width: Metrics.focus-width,
+            hover-background: Theme.navigation.tree-row.hover-background,
+            selected-background: Theme.navigation.tree-row.selected-background,
+            foreground: Theme.navigation.tree-row.foreground,
+            muted: Theme.navigation.tree-row.muted,
+            accent: Theme.navigation.tree-row.accent,
+            directory-icon: Theme.navigation.tree-row.directory-icon,
+        };
+    }
 
-    out property <TreeStyle> tree: {
-        row: root.tree-row,
-        guide-width: Metrics.border-width,
-        guide: Theme.navigation.guide,
-        selected-guide: Theme.navigation.selected-guide,
-        file-guide: Theme.navigation.file-guide,
-        drop-border-width: Metrics.border-width,
-        drop-line-height: Metrics.focus-width,
-        root-drop-height: Metrics.space-regular,
-        drop-background: Theme.navigation.drop-background,
-        rename: { background: Palette.control-background, border: Palette.border },
-    };
+    pure function tree-style(height: length) -> TreeStyle {
+        return {
+            row: root.tree-row(height),
+            guide-width: Metrics.border-width,
+            guide: Theme.navigation.guide,
+            selected-guide: Theme.navigation.selected-guide,
+            file-guide: Theme.navigation.file-guide,
+            drop-border-width: Metrics.border-width,
+            drop-line-height: Metrics.focus-width,
+            root-drop-height: Metrics.space-regular,
+            drop-background: Theme.navigation.drop-background,
+            rename: { background: Palette.control-background, border: Palette.border },
+        };
+    }
+
+    out property <TreeStyle> tree: root.tree-style(Metrics.control-medium);
+    out property <TreeStyle> outline-tree: root.tree-style(26px);
 
     out property <PaletteRowStyle> palette-row: {
         height: Metrics.control-large,

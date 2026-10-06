@@ -372,7 +372,7 @@ export global AppState {
         x: self.outline-drag-pointer-position.x - self.outline-drag-grab-offset.x,
         y: self.outline-drag-pointer-position.y - self.outline-drag-grab-offset.y,
     };
-    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: Style.outline-tree.row.height };
 
     public pure function has-active-drag() -> bool {
         return self.palette-drag-kind != ElementKind.none || self.outline-drag-active;
