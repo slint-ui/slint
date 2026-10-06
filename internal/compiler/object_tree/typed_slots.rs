@@ -41,16 +41,17 @@ pub(crate) fn lookup_slot(component: &Rc<Component>, name: &str) -> Option<Decla
     })
 }
 
-fn implements(element: &Element, interface: &Rc<Component>) -> bool {
-    element.typed_slot_interface.as_ref().is_some_and(|c| Rc::ptr_eq(c, interface))
-        || element
-            .implement_statements
-            .iter()
-            .any(|statement| Rc::ptr_eq(&statement.interface, &interface.root_element))
-        || match &element.base_type {
-            ElementType::Component(base) => implements(&base.root_element.borrow(), interface),
-            _ => false,
+pub(crate) fn validate_assignments(root: &ElementRc, diag: &mut BuildDiagnostics) {
+    recurse_elem(root, &(), &mut |parent, _| {
+        let parent = parent.borrow();
+        let ElementType::Component(component) = &parent.base_type else { return };
+        for child in &parent.children {
+            let name = child.borrow().slot_target.clone();
+            if let Some(name) = name {
+                validate_assignment(component, &name, child, diag);
+            }
         }
+    });
 }
 
 pub(super) fn validate_assignment(
@@ -60,12 +61,7 @@ pub(super) fn validate_assignment(
     diag: &mut BuildDiagnostics,
 ) {
     let Some(interface) = lookup_slot(component, name).and_then(|s| s.interface) else { return };
-    if !implements(&element.borrow(), &interface) {
-        diag.push_error(
-            format!("Slot '{name}' requires a component implementing '{}'", interface.id),
-            &*element.borrow(),
-        );
-    } else if let Some(debug) = element.borrow().debug.first() {
+    if let Some(debug) = element.borrow().debug.first() {
         interfaces::validate_interface_implementation(
             &element.borrow(),
             &interface.root_element,

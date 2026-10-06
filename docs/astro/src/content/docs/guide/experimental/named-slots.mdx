@@ -110,7 +110,6 @@ export component App inherits Window {
 ## Typed Slots
 
 Declare `slot <InterfaceName> name;` when a component needs to interact with supplied content through an [interface](./interface).
-Enable this experimental feature with `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1`.
 
 The host can bind interface inputs, read outputs, modify `in-out` properties, call public functions, and connect callbacks.
 Members outside the interface aren't available through the host's slot reference.
@@ -133,7 +132,6 @@ component ActionHost inherits Rectangle {
 }
 
 component PointerAction {
-    implement Action <=> self;
     in property <bool> enabled;
     callback activated();
 
@@ -155,8 +153,10 @@ export component App inherits Window {
 }
 ```
 
-The supplied component must explicitly implement the interface, inherit a component's implementation, or delegate it with `implement Action <=> child`.
-Matching member names alone aren't enough.
+The supplied component must provide the interface's members with matching types, visibility, and function signatures.
+Pure interface functions require pure implementations.
+An explicit `implement` declaration isn't required.
+Members can be declared directly, inherited, or delegated with `implement Action <=> child`.
 
 A typed slot requires exactly one component when its host is instantiated.
 A derived component can leave the slot open for its caller.

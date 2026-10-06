@@ -33,7 +33,7 @@ use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
 pub(crate) mod interfaces;
-mod typed_slots;
+pub(crate) mod typed_slots;
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
@@ -1970,9 +1970,6 @@ impl Element {
                     diag,
                     tr,
                 );
-                if let ElementType::Component(component) = &r.borrow().base_type {
-                    typed_slots::validate_assignment(component, &name, &element, diag);
-                }
                 element.borrow_mut().slot_target = Some(name);
                 r.borrow_mut().children.push(element);
             }

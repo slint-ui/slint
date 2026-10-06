@@ -18,10 +18,9 @@ component LooksSimilar {
     callback activated();
 }
 
-export component WrongImplementation {
+export component StructuralImplementation {
     Host {
         control << LooksSimilar { }
-//                 >           <error{Slot 'control' requires a component implementing 'Interaction'}
     }
 }
 

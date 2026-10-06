@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface ValueControl {
+    in-out property <int> value;
+    callback changed(value: int);
+    public pure function doubled() -> int;
+}
+component Host {
+    slot <ValueControl> control;
+    control { }
+}
+component StructuralControl {
+    in-out property <int> value;
+    callback changed(value: int);
+    public pure function doubled() -> int { root.value * 2 }
+}
+component InheritedControl inherits StructuralControl { }
+component DelegatedControl {
+    implement ValueControl <=> child;
+    child := StructuralControl { }
+}
+component InferredControl {
+    in-out property value <=> child.value;
+    callback changed(value: int);
+    public pure function doubled() -> int { root.value * 2 }
+    child := StructuralControl { }
+}
+export component Valid {
+    Host { control << StructuralControl { } }
+    Host { control << InheritedControl { } }
+    Host { control << DelegatedControl { } }
+    Host { control << InferredControl { } }
+}
+export component MissingMembers {
+    Host { control << Rectangle { } }
+//                    >           <error{Cannot implement 'ValueControl'.↵- missing 'callback changed(int);'↵- missing 'pure public function doubled() -> int { }'↵- missing 'in-out property <int> value;'}
+}
+component WrongType {
+    in-out property <string> value;
+//                   >    <note{'WrongType' declares 'value' here, 'ValueControl' expects 'in-out property <int> value;'}
+    callback changed(value: int);
+    public pure function doubled() -> int { 0 }
+}
+export component InvalidType {
+    Host { control << WrongType { } }
+//                    >           <error{Cannot implement 'ValueControl'.↵- 'value' must be a 'int' property (found a 'string' property)}
+}
+component WrongVisibility {
+    in property <int> value;
+//  ><note{'WrongVisibility' declares 'value' here, 'ValueControl' expects 'in-out property <int> value;'}
+    callback changed(value: int);
+    public pure function doubled() -> int { root.value * 2 }
+}
+export component InvalidVisibility {
+    Host { control << WrongVisibility { } }
+//                    >                 <error{Cannot implement 'ValueControl'.↵- 'value' must be 'in-out' (found 'in')}
+}
+component WrongSignature {
+    in-out property <int> value;
+    callback changed(value: string);
+//                          >    <note{'WrongSignature' declares 'changed' here, 'ValueControl' expects 'callback changed(int);'}
+    public pure function doubled() -> int { root.value * 2 }
+}
+export component InvalidSignature {
+    Host { control << WrongSignature { } }
+//                    >                <error{Cannot implement 'ValueControl'.↵- 'changed' must be 'callback changed(int);' (found 'callback changed(string);')}
+}
+component WrongPurity {
+    in-out property <int> value;
+    callback changed(value: int);
+    public function doubled() -> int { root.value * 2 }
+//                  >     <note{'WrongPurity' declares 'doubled' here, 'ValueControl' expects 'pure public function doubled() -> int { }'}
+}
+export component InvalidPurity {
+    Host { control << WrongPurity { } }
+//                    >             <error{Cannot implement 'ValueControl'.↵- 'doubled' must be 'pure'}
+}
+component WrongInferredType {
+    in-out property value <=> child.value;
+//                  >   <note{'WrongInferredType' declares 'value' here, 'ValueControl' expects 'in-out property <int> value;'}
+    callback changed(value: int);
+    public pure function doubled() -> int { 0 }
+    child := WrongType { }
+}
+export component InvalidInferredType {
+    Host { control << WrongInferredType { } }
+//                    >                   <error{Cannot implement 'ValueControl'.↵- 'value' must be a 'int' property (found a 'string' property)}
+}

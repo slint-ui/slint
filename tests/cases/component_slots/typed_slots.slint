@@ -12,7 +12,6 @@ interface Interaction {
 }
 
 component InteractionImpl {
-    implement Interaction <=> self;
     in property <bool> enabled: true;
     in-out property <int> value: 3;
     out property <bool> pressed;
