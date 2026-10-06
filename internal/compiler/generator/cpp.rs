@@ -5699,9 +5699,13 @@ fn compile_builtin_function_call(
     }
 }
 
-/// Builds the C++ snippet that, for each inner repeater in `templates`, calls
-/// `ensure_updated` on the sub-component and updates `max_total`.
-fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count: usize) -> String {
+/// Builds the C++ snippet that, for each inner repeater in `templates`, tracks
+/// instance changes and adds its length to the row total, then updates `max_total`.
+/// The snippet uses `sub_comp` and `max_total` from the caller's C++ code.
+fn build_inner_track_and_len(
+    templates: &[llr::RowChildTemplateInfo],
+    static_count: usize,
+) -> String {
     let mut code = format!("size_t row_total = {static_count};\n");
     for e in templates {
         if let llr::RowChildTemplateInfo::Repeated { repeater_index, .. } = e {
@@ -5731,11 +5735,11 @@ fn generate_repeater_loop_code(
     if llr::has_inner_repeaters(row_child_templates) {
         let templates = row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
-        let inner_ensure = build_inner_ensure_code(templates, static_count);
+        let inner_track_and_len = build_inner_track_and_len(templates, static_count);
         let rs_init = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
             format!("{rs}_array[{repeater_idx}] = {dynamic_stride_var_name};")
         });
-        dynamic_loop_code(repeater_id, static_count, inner_ensure, rs_init)
+        dynamic_loop_code(repeater_id, static_count, inner_track_and_len, rs_init)
     } else {
         let step = row_child_templates.as_deref().map_or(1, |t| t.len());
         let rs_init = repeater_steps_var_name
@@ -5807,7 +5811,7 @@ fn generate_with_layout_item_info(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "max_total",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         // Only box layouts set a cross size, and their repeaters
                         // never have row templates.
                         debug_assert!(repeated_cross_size.is_none());
@@ -5818,7 +5822,7 @@ fn generate_with_layout_item_info(
                             "{{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 {rs_init}
                                 auto start_offset = cells_vector.size();
@@ -6176,13 +6180,13 @@ fn generate_with_grid_input_data(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "total_item_count",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         format!(
                             "{maybe_bool} new_row = {new_row};
                             {{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 size_t total_item_count = max_total;
                                 {rs_init}

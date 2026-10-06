@@ -5558,8 +5558,8 @@ fn generate_common_repeater_indices_init_code(
 }
 
 /// For each inner repeater in `templates`, generates code to track instance
-/// changes and add its length to `total`.  `row_inner_component_id` is the
-/// repeating Row sub-component's identifier.
+/// changes and add its length to `total`.
+/// The code uses `pin` and `total` from the caller's code.
 fn build_inner_track_and_len(
     templates: &[llr::RowChildTemplateInfo],
     row_inner_component_id: &proc_macro2::Ident,
@@ -5603,7 +5603,7 @@ fn generate_repeater_push_code(
         let row_sc_idx = parent_sc.repeated[repeater_index].sub_tree.root;
         let row_sc = &ctx.compilation_unit.sub_components[row_sc_idx];
         let row_inner_component_id = self::inner_component_id(row_sc);
-        let inner_ensure_and_len = build_inner_track_and_len(templates, &row_inner_component_id);
+        let inner_track_and_len = build_inner_track_and_len(templates, &row_inner_component_id);
 
         let (common_push_code, rs_idx) = self::generate_common_repeater_code(
             repeater_index,
@@ -5619,7 +5619,7 @@ fn generate_repeater_push_code(
         });
 
         let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
-        let loop_code = dynamic_loop_code(repeater_id, static_count, inner_ensure_and_len, rs_init);
+        let loop_code = dynamic_loop_code(repeater_id, static_count, inner_track_and_len, rs_init);
         quote!(
             #common_push_code
             #loop_code
@@ -5678,14 +5678,14 @@ fn generate_with_grid_input_data(
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
                     ctx,
-                    |repeater_id, static_count, inner_ensure_and_len, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         quote!({
                             let len = _self.#repeater_id.len();
                             let max_total = (0..len).filter_map(|i| {
                                 _self.#repeater_id.instance_at(i).map(|rc| {
                                     let pin = rc.as_pin_ref();
                                     let mut total = #static_count;
-                                    #(#inner_ensure_and_len)*
+                                    #(#inner_track_and_len)*
                                     total
                                 })
                             }).max().unwrap_or(#static_count);
@@ -5798,7 +5798,7 @@ fn generate_with_layout_item_info(
                     &repeater_steps_var_name,
                     &mut repeated_count_code,
                     ctx,
-                    |repeater_id, static_count, inner_ensure_and_len, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         // Only box layouts set a cross size, and their repeaters
                         // never have row templates.
                         debug_assert!(cross_size_init.is_none());
@@ -5809,7 +5809,7 @@ fn generate_with_layout_item_info(
                                     _self.#repeater_id.instance_at(i).map(|rc| {
                                         let pin = rc.as_pin_ref();
                                         let mut total = #static_count;
-                                        #(#inner_ensure_and_len)*
+                                        #(#inner_track_and_len)*
                                         total
                                     })
                                 }).max().unwrap_or(#static_count);
