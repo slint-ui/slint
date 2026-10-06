@@ -104,17 +104,9 @@ pub fn debug(ctx: &i_slint_core::SlintContext, s: SharedString) {
     ));
 }
 
-pub fn ensure_backend() -> Result<(), crate::PlatformError> {
-    i_slint_backend_selector::with_platform(|_b| {
-        // Nothing to do, just make sure a backend was created
-        Ok(())
-    })
-}
-
-/// Creates a new window to render components in.
-pub fn create_window_adapter()
--> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
-    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
+/// Create the backend if it doesn't exist yet, and return the current context.
+pub fn ensure_context() -> Result<i_slint_core::SlintContext, crate::PlatformError> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.clone())
 }
 
 /// Wrapper around `SlintContext::translate` for the generated code
