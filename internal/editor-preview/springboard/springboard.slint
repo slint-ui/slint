@@ -45,7 +45,7 @@ export global Springboard {
     callback accept-unpaired-connection();
 }
 
-import { Button, VerticalBox, ListView } from "std-widgets.slint";
+import { Button, VerticalBox, HorizontalBox, LineEdit, ListView } from "std-widgets.slint";
 
 export component SpringboardView inherits Rectangle {
     background: #f5f5f5;
@@ -65,20 +65,51 @@ export component SpringboardView inherits Rectangle {
 
         ListView {
             height: 60px;
-            for endpoint[index] in Springboard.endpoints: Button {
-                text: endpoint.name;
-                clicked => { Springboard.select-endpoint(index); }
+            for endpoint[index] in Springboard.endpoints: VerticalBox {
+                padding: 0px;
+                spacing: 2px;
+                Button {
+                    text: endpoint.name;
+                    enabled: endpoint.unavailable-reason == "";
+                    clicked => { Springboard.select-endpoint(index); }
+                }
+                if endpoint.unavailable-reason != "": Text {
+                    text: endpoint.unavailable-reason;
+                    wrap: word-wrap;
+                }
             }
         }
 
         Text {
-            text: Springboard.state == SpringboardState.Stopped ? "Preview stopped" : Springboard.state == SpringboardState.EndpointSelected ? "Local preview running" : "Select an endpoint";
+            text: Springboard.state == SpringboardState.Stopped ? "Preview stopped"
+                : Springboard.state == SpringboardState.Idle ? "Select an endpoint"
+                : Springboard.selected-endpoint.kind == PreviewEndpointKind.Local ? "Local preview running"
+                : Springboard.connection-state == ConnectionState.Connecting ? "Connecting to \{Springboard.selected-endpoint.name}"
+                : Springboard.connection-state == ConnectionState.PairingRequired ? "Enter the code shown on \{Springboard.selected-endpoint.name}"
+                : Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? "Connection to \{Springboard.selected-endpoint.name} is unencrypted"
+                : Springboard.connection-state == ConnectionState.Connected ? "Connected to \{Springboard.selected-endpoint.name}"
+                : "Connection to \{Springboard.selected-endpoint.name} failed";
+            wrap: word-wrap;
         }
 
         Text {
             text: Springboard.error-message;
             color: #b02020;
             wrap: word-wrap;
+        }
+
+        if Springboard.connection-state == ConnectionState.PairingRequired: HorizontalBox {
+            padding: 0px;
+            code := LineEdit { placeholder-text: "4-digit code"; }
+            Button {
+                text: "Submit";
+                clicked => { Springboard.submit-pairing-code(code.text); code.text = ""; }
+            }
+        }
+
+        if Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired: Button {
+            text: "Accept unencrypted connection";
+            clicked => { Springboard.accept-unpaired-connection(); }
         }
 
         Button {

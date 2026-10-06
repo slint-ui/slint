@@ -1,7 +1,7 @@
 # Springboard Architecture
 
-Status: Broader architecture and local visual-editor MVP.
-The current direction is a protocol router with reusable embedded and standalone UI.
+Status: Embedded Local and discovered remote previews implemented.
+The broader architecture includes reusable embedded and standalone UI.
 
 ## Purpose
 
@@ -10,7 +10,8 @@ Targets include a local or remote Slint Viewer, the visual editor's built-in run
 and potentially a Slint application running in `LIVE_PREVIEW` mode.
 
 The broader architecture includes remote live preview sessions and a local run preview endpoint.
-The MVP implements only Local inside the visual editor.
+The initial visual-editor MVP implemented only Local.
+The current implementation adds discovered remote viewers, pairing, and endpoint switching.
 Only one endpoint receives the session at a time.
 Selecting a remote viewer immediately closes the local run preview and starts connecting to that viewer.
 
@@ -139,8 +140,8 @@ There is no separate disconnect action that leaves Springboard running.
 The saved endpoint selection survives stopping.
 
 The upstream protocol session stays connected when the selected endpoint changes.
-The MVP stops Springboard when its local preview closes.
-Future remote disconnect behavior remains separate from the upstream session lifetime.
+Clean preview closure stops Springboard.
+Failures keep Springboard running so the user can retry or select another endpoint.
 Closing an owned local preview and disconnecting an independently running remote viewer are separate operations.
 
 Routing therefore includes handling connection and lifecycle messages, beyond forwarding preview content.
@@ -384,7 +385,8 @@ Keep the editing preview independent.
 - Preview-window close stops Springboard and consumes `Exited` without terminating the editor session.
 - Launch failure returns to `Idle` with no selection and an error.
   Retry only on another explicit selection.
-- Unexpected child exit stops Springboard and reports an error without recovery or fallback.
+- Unexpected child exit returns to `Idle` and reports an error while keeping discovery and endpoint selection available.
+  Retry or select another endpoint explicitly; do not restart automatically.
 - Project switches detach the old endpoint without waiting for its process to exit.
   Reuse Springboard and explicitly clear the previous project's source highlight.
   Preserve the session if opening a replacement project fails.
@@ -402,8 +404,8 @@ Derive the running indicator from Springboard lifecycle.
 
 Present a minimal nonmodal overlay below Run, covering the inspector if needed.
 Use standard widgets for endpoints, status/errors, and Stop.
-Show it while active or while an unacknowledged error remains.
-Close acknowledges errors after a crash; successful Local selection clears errors.
+Show it only while Springboard is active; `Stopped` never displays Springboard UI.
+Failures remain visible in the running Springboard; Stop or successful endpoint selection clears errors.
 Outside clicks don't dismiss it, and input inside it doesn't reach the inspector.
 Do not add a window or redesign the layout.
 
@@ -443,3 +445,126 @@ A failed project open preserves the existing session and controller.
 The editor exits when its UI event loop returns, without joining the session thread.
 Closing the editor's pipes tells the local preview to quit.
 The editor does not enforce a timeout or kill a hung preview during application exit.
+
+## Springboard Remote Discovery and Connections
+
+### Scope
+
+Discover viewers automatically while Springboard is active.
+Support Local → Remote, Remote → Remote, and Remote → Local selection.
+Keep the simplified shutdown behavior above.
+Selecting a different endpoint drops the previous connection immediately.
+Initial connection failure keeps the endpoint selected with `Failed`; selecting it again retries while it remains advertised.
+A withdrawn failed endpoint stays selected but unavailable until discovery reports it again.
+A clean shutdown of an established remote viewer stops Springboard and hides its UI.
+Connection loss, heartbeat timeout, and error close frames leave Springboard running with the selected endpoint in `Failed`.
+Keep discovery active so the user can retry an advertised endpoint or select Local directly, without another Run action.
+Remember pairing tokens in memory for the controller lifetime, without persistence.
+Exclude manual addresses, automatic reconnection, account login, and standalone mode.
+
+### Discovery
+
+`springboard/remote.rs` owns mDNS browsing and normalization, without Slint globals or selection.
+It exposes private `DiscoveredViewer`, `DiscoveryEvent`, and `Discovery` types.
+A viewer contains its fullname, display name, addresses, port, and unavailable reason.
+Events update a viewer or remove its fullname.
+`Discovery::start()` starts browsing; asynchronous `next_event()` returns normalized updates.
+
+Use the existing service type, compatibility checks, IPv4 conversion, and scoped IPv6 conversion.
+The fullname is a Rust-only identity; don't add an ID to the Slint endpoint API.
+Use mdns-sd's asynchronous receiver and `ServiceRemoved`, including expiry notifications.
+Add no polling thread or stale-entry timer.
+Drop requests browsing and daemon shutdown without joining its thread.
+Tests inject the raw mDNS receiver inside `Discovery`, without creating a daemon.
+
+### Remote Connections
+
+`springboard/remote_connection.rs` owns the selected remote connection.
+Its private handle starts with a discovered viewer and optional pairing credentials.
+It sends ordered preview messages and asynchronously produces connection events.
+Events carry pairing prompts with one-shot answer senders, credential changes, connection readiness, preview messages, and termination errors.
+
+One task on the existing LocalSet owns dialing, authentication, reads, ordered writes, and heartbeat.
+Preserve the existing connection, handshake, Ping, and Pong deadlines.
+Drop cancels the task and socket.
+Stopping or switching a remote endpoint never sends protocol Quit.
+Socket disconnection resets the viewer session; Quit terminates its session processor.
+When the viewer window closes, its close callback asks the existing viewer task to exit before ending the UI event loop.
+The network thread sends and flushes a normal WebSocket Close frame before exiting, with a one-second bound on that attempt.
+This transport close frame is separate from preview-protocol Quit.
+Normal WebSocket close frames end the preview successfully; resets, timeouts, and error close codes report failures.
+Forward only RequestState, Diagnostics, and DebugMessage from remote viewers.
+Consume authentication and heartbeat traffic, and reject unrelated editor controls.
+
+### Shared Authentication and Synchronization
+
+Extract the LSP exchange into native `internal/editor-preview/remote_authentication.rs`, behind an optional `remote-client` feature.
+The shared asynchronous authentication function accepts the WebSocket, optional pairing credentials, a prompt-input callback, and a credential-change callback.
+Shared types represent token credentials, code and consent prompts, answers, session codecs, and structured errors.
+Authentication owns no tasks, UI, token cache, discovery, or reconnection.
+The LSP keeps its existing outer reconnect behavior.
+
+The viewer sends one full RequestState after admitting a connection and installing its session.
+Remove the LSP's synthetic request.
+Authentication retains a request received while waiting for plaintext consent.
+Forward it only after consent and installation of the writable connection.
+Send no documents before consent.
+Validate four numeric pairing digits in Springboard's submit callback.
+The shared authentication helper preserves the existing LSP input-validation boundary.
+Remember confirmed tokens; invalidate rejected tokens before falling through to a code prompt.
+Ask for fresh consent for every plaintext connection.
+
+### Springboard Integration
+
+The task owns the endpoint list, selected identity, token cache, and a Local-or-Remote endpoint.
+Local stays at index zero.
+Update viewers by fullname, retaining distinct entries with identical display names.
+Remove missing unselected viewers; retain a selected viewer while its connection is active.
+Derive the selected index from its identity and publish the list and index together.
+Resolve UI indices against the currently displayed list before enqueueing a stable private identity.
+
+The existing loop polls actions, discovery, and the active endpoint.
+Retire the old endpoint receiver before replacement.
+Pairing callbacks keep using the closure channel and the current one-shot response sender.
+Retain the latest highlight, including explicit clear, and replay it after ShowPreview.
+Use minimal standard widgets for endpoint availability, status, pairing-code submission, and plaintext consent.
+Stop and endpoint switching remain available while connecting or pairing.
+Add no manual-address input or layout redesign.
+
+Resources are the existing Springboard task, one mDNS daemon thread, and one task for the selected remote connection.
+Add no discovery forwarding task, authentication bridge task, UI bridge task, or Tokio runtime.
+
+### Automated Verification
+
+Inject constructed ServiceResolved and ServiceRemoved events through Discovery's raw receiver boundary.
+Cover additions, changes, duplicate updates, duplicate names, removals, compatibility, IPv4, scoped IPv6, and discovery failure.
+Verify stable selection, selected advertisement removal without socket termination, and stale UI index mapping.
+Discovery failure must leave Local usable.
+
+Use the real viewer server and PreviewSession on a loopback listener at 127.0.0.1:0.
+Keep the server and session alive, with test-controlled discovery, user input, and upstream editor responses.
+Read actual generated codes from PairingStarted events and use real pairing and session encryption.
+Cover consent acceptance and rejection, wrong codes, retry, expiry, cancellation, token reuse, and rejected tokens.
+Verify exactly one initial request, retention before plaintext consent, source compilation, selected-only synchronization, and highlight replay.
+
+Switch two loopback viewers A → B → A, including cached-token reuse.
+Use existing Local child fixtures for Local ↔ Remote checks; add no nested subprocess harness.
+Verify cancellation during dialing and pairing, retired endpoint events, and explicit retry.
+Verify that clean viewer shutdown stops Springboard, while connection failures retain an interactive UI and allow switching directly to Local.
+Check that the viewer's window-close callback survives component replacement and that its network shutdown sends a normal Close frame.
+Keep automatic fallback and reconnection disabled.
+Reconnect to the same viewer fixture without recreating its PreviewSession and compile source again, proving no Quit was sent.
+Use scripted loopback peers only for malformed or silent-peer fault injection.
+Use bounded event-driven waits and preserve existing cryptographic and LSP tests.
+
+### Implementation Checkpoints
+
+The GPT-6.1 sol worker owns implementation, tests, and documentation; the main agent coordinates and reviews.
+
+1. Extract shared authentication and viewer-owned initial synchronization; compile and test, then pause for Claude Opus 5.5 review.
+2. Add discovery and its controller integration while preserving Local behavior.
+3. Add remote connections, switching, and automated verification; pause for the final Claude Opus 5.5 review.
+
+The user performs manual viewer and UI checks.
+Agents run automated checks only; don't render or perform manual multicast smoke tests.
+Preserve `springboard_ui` and stop if another critical experimental module-build defect appears.

@@ -21,7 +21,7 @@ path = "lib.rs"
 
 [features]
 remote-client = ["dep:tokio-tungstenite-wasm", "dep:postcard", "futures-util/sink"]
-springboard = ["dep:slint", "dep:slint-build"]
+springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client"]
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [
@@ -61,6 +61,7 @@ i-slint-backend-testing = { workspace = true, optional = true }
 spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
 tokio-tungstenite-wasm = { version = "0.8.2", optional = true }
 directories = "6.0"
 scopeguard = { version = "1.1.0", default-features = false }
@@ -71,6 +72,9 @@ tempfile = "3"
 wasm-bindgen-futures = "0.4.30"
 
 [dev-dependencies]
+tokio = { version = "1.50.0", features = ["test-util"] }
+flume = "0.12"
+i-slint-live-preview = { workspace = true, features = ["remote"] }
 tokio-tungstenite = "0.30.0"
 i-slint-backend-testing = { path = "../backends/testing" }
 spin_on = { workspace = true }
