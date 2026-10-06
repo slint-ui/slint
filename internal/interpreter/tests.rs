@@ -1083,3 +1083,44 @@ fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
         std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
     }
 }
+
+#[test]
+#[cfg(feature = "internal")]
+fn system_tray_uses_its_context() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::{Compiler, Value};
+
+    let code = r#"
+        import { Palette } from "std-widgets.slint";
+        export component TestCase inherits SystemTrayIcon {
+            out property <ColorScheme> color-scheme: Palette.color-scheme;
+            out property <brush> accent: Palette.accent-background;
+            public function open(url: string) -> bool {
+                return Platform.open-url(url);
+            }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("TestCase").unwrap();
+    let backend = i_slint_backend_testing::TestingBackend::new(Default::default());
+    let opened_url = backend.open_url.clone();
+    let ctx = i_slint_core::SlintContext::new(Box::new(backend));
+    let instance = definition.create_with_context(ctx.clone()).unwrap();
+
+    ctx.set_color_scheme(i_slint_core::items::ColorScheme::Dark);
+    assert_eq!(
+        instance.get_property("color-scheme").unwrap(),
+        Value::EnumerationValue("ColorScheme".into(), "dark".into())
+    );
+
+    let accent = instance.get_property("accent").unwrap();
+    ctx.set_accent_color(i_slint_core::Color::from_rgb_u8(255, 0, 0));
+    assert_ne!(instance.get_property("accent").unwrap(), accent);
+
+    let url = Value::String("https://slint.dev".into());
+    assert_eq!(instance.invoke("open", &[url]).unwrap(), Value::Bool(true));
+    assert_eq!(*opened_url.borrow(), Some("https://slint.dev".into()));
+}

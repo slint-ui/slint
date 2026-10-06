@@ -1420,9 +1420,7 @@ impl WindowItem {
     /// `default-font-size` is set in the .slint code, before the renderer's built-in
     /// default applies.
     fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
-        item.window_adapter().and_then(|adapter| {
-            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
-        })
+        item.slint_context().platform_default_font_size()
     }
 
     fn resolve_font_property<T>(
@@ -2178,12 +2176,8 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        // Start on the context this item's window belongs to, not on whichever one is
-        // current: a component built with `new_with_context` must keep its timers there.
-        let Some(window_adapter) = self_rc.window_adapter() else { return };
-        let ctx = crate::window::WindowInner::from_pub(window_adapter.window()).context();
         self.timer.start_on(
-            ctx,
+            &self_rc.slint_context(),
             crate::timers::TimerMode::SingleShot,
             Duration::from_millis(delay_ms),
             move || {

@@ -5163,15 +5163,15 @@ fn compile_builtin_function_call(
             // resolves against the tray's own scheme; everything else falls back to the
             // process-wide value held by the SlintContext.
             let global_access = &ctx.generator_state.global_access;
+            let context = access_context(ctx);
             quote!({
                 let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
-                sp::context_for_root(&_root)
-                    .map_or(sp::ColorScheme::Unknown, |c| c.color_scheme(Some(&_root)))
+                #context.color_scheme(Some(&_root))
             })
         }
         BuiltinFunction::AccentColor => {
-            let global_access = &ctx.generator_state.global_access;
-            quote!(sp::accent_color(&#global_access.root_item_tree_weak.upgrade().unwrap()))
+            let context = access_context(ctx);
+            quote!(#context.accent_color())
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -5378,8 +5378,8 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
+            let context = access_context(ctx);
+            quote!(sp::open_url(&#url, &#context).is_ok())
         }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             quote!(sp::macos_bring_all_windows_to_front())
