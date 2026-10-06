@@ -792,6 +792,56 @@ pub(super) fn draw_gradient_line<T: TargetPixel>(
     }
 }
 
+impl super::LinearGradientCommand {
+    fn invert_slope(&self) -> bool {
+        self.flags & 0b1 != 0
+    }
+
+    /// Whether the band fills past its stop with (color1, color2).
+    fn fills_beyond_stops(&self) -> (bool, bool) {
+        (self.flags & 0b010 != 0, self.flags & 0b100 != 0)
+    }
+
+    /// Whether the band fills past its stop on its (left, right) side.
+    fn fills_beyond_edges(&self) -> (bool, bool) {
+        let (fill_col1, fill_col2) = self.fills_beyond_stops();
+        if self.invert_slope() { (fill_col1, fill_col2) } else { (fill_col2, fill_col1) }
+    }
+
+    /// The band's (y, height) on `line`, measured from the band's top.
+    fn band_y(&self, rect: &PhysicalRect, line: PhysicalLength) -> (i32, i32) {
+        let top_clip = self.top_clip.get() as i32;
+        let y = line.get() as i32 - rect.min_y() as i32 + top_clip;
+        let size_y = rect.height() as i32 + top_clip + self.bottom_clip.get() as i32;
+        (y, size_y)
+    }
+
+    /// The position (0 to 255) in a vertical band on `line`, or `None` where the band draws nothing.
+    fn vertical_position(&self, rect: &PhysicalRect, line: PhysicalLength) -> Option<i32> {
+        debug_assert_eq!(self.start, 0);
+        let (y, size_y) = self.band_y(rect, line);
+        let p = 255 * y / size_y;
+        let (fill_col1, fill_col2) = self.fills_beyond_stops();
+        ((fill_col1 || p >= 0) && (fill_col2 || p < 255)).then_some(p)
+    }
+
+    /// Whether [`draw_linear_gradient`] overwrites every pixel of `rect` on `line`.
+    pub(super) fn covers_line(&self, rect: &PhysicalRect, line: PhysicalLength) -> bool {
+        if self.color1.alpha != 255 || self.color2.alpha != 255 || !self.clip.shape.radius.is_zero()
+        {
+            return false;
+        }
+        match self.start {
+            0 => self.vertical_position(rect, line).is_some(),
+            255 => {
+                let (fill_left, fill_right) = self.fills_beyond_edges();
+                (fill_left || self.left_clip.get() >= 0) && (fill_right || self.right_clip.get() >= 0)
+            }
+            _ => false,
+        }
+    }
+}
+
 fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
@@ -799,23 +849,16 @@ fn draw_linear_gradient(
     mut buffer: &mut [impl TargetPixel],
     extra_left_clip: i16,
 ) {
-    let fill_col1 = g.flags & 0b010 != 0;
-    let fill_col2 = g.flags & 0b100 != 0;
-    let invert_slope = g.flags & 0b1 != 0;
+    let invert_slope = g.invert_slope();
+    let (fill_left, fill_right) = g.fills_beyond_edges();
 
-    let y = (line.get() - rect.min_y() + g.top_clip.get()) as i32;
-    let size_y = (rect.height() + g.top_clip.get() + g.bottom_clip.get()) as i32;
+    let (y, size_y) = g.band_y(rect, line);
     let start = g.start as i32;
 
     let (mut color1, mut color2) = (g.color1, g.color2);
 
     if g.start == 0 {
-        let p = if invert_slope {
-            (255 - start) * y / size_y
-        } else {
-            start + (255 - start) * y / size_y
-        };
-        if (fill_col1 || p >= 0) && (fill_col2 || p < 255) {
+        if let Some(p) = g.vertical_position(rect, line) {
             let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
             TargetPixel::blend_slice(buffer, col);
         }
@@ -833,14 +876,13 @@ fn draw_linear_gradient(
 
     let len = ((255 * size_x) / start) as usize;
 
+    let (left_color, right_color) =
+        if invert_slope { (g.color1, g.color2) } else { (g.color2, g.color1) };
+
     if x < 0 {
         let l = (-x as usize).min(buffer.len());
-        if invert_slope {
-            if fill_col1 {
-                TargetPixel::blend_slice(&mut buffer[..l], g.color1);
-            }
-        } else if fill_col2 {
-            TargetPixel::blend_slice(&mut buffer[..l], g.color2);
+        if fill_left {
+            TargetPixel::blend_slice(&mut buffer[..l], left_color);
         }
         buffer = &mut buffer[l..];
         x = 0;
@@ -848,12 +890,8 @@ fn draw_linear_gradient(
 
     if buffer.len() + x as usize > len {
         let l = len.saturating_sub(x as usize);
-        if invert_slope {
-            if fill_col2 {
-                TargetPixel::blend_slice(&mut buffer[l..], g.color2);
-            }
-        } else if fill_col1 {
-            TargetPixel::blend_slice(&mut buffer[l..], g.color1);
+        if fill_right {
+            TargetPixel::blend_slice(&mut buffer[l..], right_color);
         }
         buffer = &mut buffer[..l];
     }
