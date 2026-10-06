@@ -3,7 +3,7 @@
 
 import * as vscode from "vscode";
 import * as fs from "fs-extra";
-import simpleGit from "simple-git";
+import { simpleGit } from "simple-git";
 import * as path from "node:path";
 
 // Flow
