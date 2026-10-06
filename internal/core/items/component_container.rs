@@ -40,6 +40,7 @@ pub struct ComponentContainer {
     pub height: Property<LogicalLength>,
     pub component_factory: Property<ComponentFactory>,
     pub has_component: Property<bool>,
+    pub force_child_size: Property<bool>,
 
     pub cached_rendering_data: CachedRenderingData,
 
@@ -101,28 +102,9 @@ impl ComponentContainer {
             {
                 // Do _not_ use a two-way binding: That causes evaluations of width and height to
                 // assert on recursive property evaluation.
-                let weak = self.self_weak.get().unwrap().clone();
-                window_item.width.set_binding(Box::new(move || {
-                    if let Some(self_rc) = weak.upgrade() {
-                        let self_pin = self_rc.borrow();
-                        if let Some(self_cc) = crate::items::ItemRef::downcast_pin::<Self>(self_pin)
-                        {
-                            return self_cc.width();
-                        }
-                    }
-                    Default::default()
-                }));
-                let weak = self.self_weak.get().unwrap().clone();
-                window_item.height.set_binding(Box::new(move || {
-                    if let Some(self_rc) = weak.upgrade() {
-                        let self_pin = self_rc.borrow();
-                        if let Some(self_cc) = crate::items::ItemRef::downcast_pin::<Self>(self_pin)
-                        {
-                            return self_cc.height();
-                        }
-                    }
-                    Default::default()
-                }));
+                self.bind_window_property(&window_item.width, Self::width);
+                self.bind_window_property(&window_item.height, Self::height);
+                self.bind_window_property(&window_item.force_child_size, Self::force_child_size);
             }
         }
 
@@ -131,6 +113,20 @@ impl ComponentContainer {
         self.item_tree.replace(product);
         Self::FIELD_OFFSETS.instance_generation().apply_pin(self).mark_dirty();
         true
+    }
+
+    fn bind_window_property<T: Clone + Default + 'static>(
+        self: Pin<&Self>,
+        property: &Property<T>,
+        value: fn(Pin<&Self>) -> T,
+    ) {
+        let weak = self.self_weak.get().unwrap().clone();
+        property.set_binding(move || {
+            let Some(container) = weak.upgrade() else { return T::default() };
+            crate::items::ItemRef::downcast_pin::<Self>(container.borrow())
+                .map(value)
+                .unwrap_or_default()
+        });
     }
 
     pub fn subtree_range(self: Pin<&Self>) -> IndexRange {

@@ -2526,29 +2526,33 @@ fn check_no_layout_properties(
 ///
 /// The Slint runtime will change the width and height property of the native WindowItem to match those of the actual
 /// window, but we don't want that to happen if we have a fixed layout.
-pub fn check_window_layout(component: &Rc<Component>) {
+pub fn check_window_layout(component: &Rc<Component>, compile_for_component_container: bool) {
     if component.root_constraints.borrow().fixed_height {
-        adjust_window_layout(component, "height");
+        adjust_window_layout(component, "height", compile_for_component_container);
     }
     if component.root_constraints.borrow().fixed_width {
-        adjust_window_layout(component, "width");
+        adjust_window_layout(component, "width", compile_for_component_container);
     }
 }
 
 pub fn check_popup_layout(component: &Rc<Component>) {
     component.popup_windows.borrow().iter().for_each(|p| {
         if p.component.root_constraints.borrow().fixed_height {
-            adjust_window_layout(&p.component, "height");
+            adjust_window_layout(&p.component, "height", false);
         }
 
         if p.component.root_constraints.borrow().fixed_width {
-            adjust_window_layout(&p.component, "width");
+            adjust_window_layout(&p.component, "width", false);
         }
     });
 }
 
-fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
-    let new_prop = crate::layout::create_new_prop(
+fn adjust_window_layout(
+    component: &Rc<Component>,
+    prop: &'static str,
+    compile_for_component_container: bool,
+) {
+    let fixed_size_prop = crate::layout::create_new_prop(
         &component.root_element,
         format_smolstr!("fixed-{prop}"),
         Type::LogicalLength,
@@ -2556,20 +2560,49 @@ fn adjust_window_layout(component: &Rc<Component>, prop: &'static str) {
     {
         let mut root = component.root_element.borrow_mut();
         if let Some(b) = root.take_binding(prop) {
-            root.set_binding(new_prop.name().clone(), b);
+            root.set_binding(fixed_size_prop.name().clone(), b);
         };
         let mut analysis = root.property_analysis.borrow_mut();
         if let Some(a) = analysis.remove(prop) {
-            analysis.insert(new_prop.name().clone(), a);
+            analysis.insert(fixed_size_prop.name().clone(), a);
         };
         drop(analysis);
-        root.set_binding(prop.into(), Expression::PropertyReference(new_prop.clone()).into());
+        root.set_binding(
+            prop.into(),
+            Expression::PropertyReference(fixed_size_prop.clone()).into(),
+        );
     }
 
     let old_prop = NamedReference::new(&component.root_element, SmolStr::new_static(prop));
+    let effective_size = if compile_for_component_container {
+        crate::layout::create_new_prop(
+            &component.root_element,
+            format_smolstr!("container-{prop}"),
+            Type::LogicalLength,
+        )
+    } else {
+        fixed_size_prop.clone()
+    };
     crate::object_tree::visit_all_named_references(component, &mut |nr| {
         if nr == &old_prop {
-            *nr = new_prop.clone()
+            *nr = effective_size.clone()
         }
     });
+
+    if compile_for_component_container {
+        let force_child_size =
+            NamedReference::new(&component.root_element, "force-child-size".into());
+        force_child_size.mark_as_set();
+        old_prop.mark_as_set();
+        component.root_element.borrow_mut().set_binding(
+            effective_size.name().clone(),
+            Expression::Condition {
+                condition: Expression::PropertyReference(force_child_size).into(),
+                true_expr: Expression::PropertyReference(old_prop).into(),
+                false_expr: Expression::PropertyReference(fixed_size_prop).into(),
+                source_location: None,
+            }
+            .into(),
+        );
+    }
 }

@@ -215,7 +215,10 @@ pub async fn run_passes(
         lower_layout::check_popup_layout(component);
     });
     for root_component in doc.exported_roots() {
-        lower_layout::check_window_layout(&root_component);
+        lower_layout::check_window_layout(
+            &root_component,
+            type_loader.compiler_config.compile_for_component_container,
+        );
     }
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.

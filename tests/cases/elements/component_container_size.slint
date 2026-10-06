@@ -13,6 +13,7 @@ export component TestCase inherits Rectangle {
     out property <length> container-y <=> cc.y;
     in-out property <length> container-width <=> cc.width;
     in-out property <length> container-height <=> cc.height;
+    in-out property <bool> force-child-size <=> cc.force-child-size;
 
     width: 500px;
     height: 500px;
@@ -189,6 +190,92 @@ assert_eq!(ei.get_property("embedded-y").unwrap(), slint_interpreter::Value::Num
 ```
 
 
+
+```rust
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use slint_interpreter::{ComponentInstance, Value};
+
+for compile_for_component_container in [false, true] {
+    for debug_hooks in [false, true] {
+        for root_type in ["Rectangle", "Window"] {
+            for (fixed_width, fixed_height) in [(true, true), (true, false), (false, true)] {
+                let embedded_instance: Rc<RefCell<Option<ComponentInstance>>> = Default::default();
+                let factory_instance = embedded_instance.clone();
+                let factory = slint::ComponentFactory::new(move |context| {
+                    let mut compiler = slint_interpreter::Compiler::new();
+                    let configuration = compiler.compiler_configuration(i_slint_core::InternalToken);
+                    configuration.compile_for_component_container = compile_for_component_container;
+                    configuration.error_on_binding_loop_with_window_layout = true;
+                    configuration.debug_hooks = debug_hooks.then(std::hash::RandomState::new);
+                    let width_binding = if fixed_width { "width: authored-size;" } else { "" };
+                    let height_binding = if fixed_height { "height: authored-size;" } else { "" };
+                    let source = format!(r#"
+                        export component Embedded inherits {root_type} {{
+                            in property <length> authored-size: 100px;
+                            out property <length> embedded-width <=> self.width;
+                            out property <length> embedded-height <=> self.height;
+                            {width_binding}
+                            {height_binding}
+                        }}
+                    "#);
+                    let compilation = if debug_hooks {
+                        spin_on::spin_on(compiler.build_static_from_source(
+                            source,
+                            std::path::PathBuf::from("embedded.slint"),
+                            i_slint_core::InternalToken,
+                        ))
+                    } else {
+                        spin_on::spin_on(compiler.build_from_source(
+                            source,
+                            std::path::PathBuf::from("embedded.slint"),
+                        ))
+                    };
+                    assert!(!compilation.has_errors(), "{:?}", compilation.diagnostics().collect::<Vec<_>>());
+                    let instance = compilation.component("Embedded").unwrap().create_embedded(context).unwrap();
+                    factory_instance.replace(Some(instance.clone_strong()));
+                    Some(instance)
+                });
+                let host = TestCase::new().unwrap();
+                host.set_container_width(201.0);
+                host.set_container_height(302.0);
+                host.set_cc(factory);
+                slint_testing::mock_elapsed_time(0);
+                let embedded = embedded_instance.take().unwrap();
+                let assert_size = |width: f64, height: f64| {
+                    for (property, expected) in [("embedded-width", width), ("embedded-height", height)] {
+                        assert_eq!(embedded.get_property(property).unwrap(), Value::Number(expected),
+                            "{root_type}, container compilation={compile_for_component_container}, debug hooks={debug_hooks}, fixed axes={fixed_width}/{fixed_height}, {property}");
+                    }
+                };
+                assert_size(if fixed_width { 100.0 } else { 201.0 }, if fixed_height { 100.0 } else { 302.0 });
+                host.set_force_child_size(true);
+                assert_size(
+                    if fixed_width && !compile_for_component_container { 100.0 } else { 201.0 },
+                    if fixed_height && !compile_for_component_container { 100.0 } else { 302.0 },
+                );
+                host.set_container_width(341.0);
+                host.set_container_height(452.0);
+                embedded.set_property("authored-size", Value::Number(123.0)).unwrap();
+                assert_size(
+                    if fixed_width && !compile_for_component_container { 123.0 } else { 341.0 },
+                    if fixed_height && !compile_for_component_container { 123.0 } else { 452.0 },
+                );
+                host.set_force_child_size(false);
+                assert_size(if fixed_width { 123.0 } else { 341.0 }, if fixed_height { 123.0 } else { 452.0 });
+            }
+        }
+    }
+}
+
+let compiler = slint_interpreter::Compiler::new();
+let compilation = spin_on::spin_on(compiler.build_from_source(
+    "export component PrivateSizing inherits Window { force-child-size: true; }".into(),
+    std::path::PathBuf::from("private-sizing.slint"),
+));
+assert!(compilation.has_errors());
+```
 
 ```js
 // Not supported yet

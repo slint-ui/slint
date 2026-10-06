@@ -591,9 +591,12 @@ impl ElementType {
                 );
                 r
             }
-            Self::Builtin(b) => {
-                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
+            Self::Builtin(b) => b
+                .properties
+                .iter()
+                .filter(|(_, property)| property.property_visibility != PropertyVisibility::Private)
+                .map(|(name, property)| (name.clone(), property.ty.clone()))
+                .collect(),
             _ => Vec::new(),
         }
     }
@@ -1474,6 +1477,18 @@ pub fn unit_product_length_conversion(
     units[Unit::Phx as usize] = 0;
     units[Unit::Rem as usize] = 0;
     units.into_iter().all(|x| x == 0).then_some(result)
+}
+
+#[test]
+fn private_window_sizing_property_is_not_listed() {
+    let registry = crate::typeregister::TypeRegister::builtin_experimental();
+    for (element_name, listed) in [("Window", false), ("ComponentContainer", true)] {
+        let element = registry.borrow().lookup_builtin_element(element_name).unwrap();
+        assert_eq!(
+            element.property_list().iter().any(|(name, _)| name == "force-child-size"),
+            listed,
+        );
+    }
 }
 
 #[test]

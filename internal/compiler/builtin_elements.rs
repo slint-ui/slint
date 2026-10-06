@@ -973,6 +973,7 @@ fn build(l: &mut Loader) {
     item! { ComponentContainer: Empty {
         in property <component-factory> component-factory;
         out property <bool> has-component;
+        in property <bool> force-child-size;
 
         in-out property <length> width;
         in-out property <length> height;
@@ -2091,6 +2092,7 @@ fn build(l: &mut Loader) {
     }
 
     item! { WindowItem {
+        private property <bool> force-child-size;
         /// The width of the window. \{#sls.ref.window.width}
         ///
         /// <OnlyInSC>

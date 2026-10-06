@@ -13,6 +13,7 @@ from gradient_interactions import (
     control,
     gesture,
     gradient_document,
+    move_picker_to_files,
     open_gradient,
     picker_field,
     shifted,
@@ -62,8 +63,9 @@ def test_custom_gradient_geometry_uses_layout_size(
         rectangle = wait_until(
             lambda: next(iter(elements(window, id="LayoutGradient::fill")), None)
         )
-        assert rectangle.size.width == pytest.approx(400)
-        assert rectangle.size.height == pytest.approx(400)
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
+        assert rectangle.size.width == pytest.approx(artboard.size.width)
+        assert rectangle.size.height == pytest.approx(artboard.size.height)
 
         def field(label, role):
             return element(window, label, role=role)
@@ -77,7 +79,14 @@ def test_custom_gradient_geometry_uses_layout_size(
             else conic_geometry(window, element_id="LayoutGradient::fill")
         )
         assert geometry == pytest.approx(
-            (200, 200, math.hypot(200, 200) if kind == "radial" else 160), abs=0.001
+            (
+                artboard.size.width / 2,
+                artboard.size.height / 2,
+                math.hypot(artboard.size.width / 2, artboard.size.height / 2)
+                if kind == "radial"
+                else 160,
+            ),
+            abs=0.001,
         )
         click_picker_button(window, "Close Custom")
         assert source_file.read_text() == source
@@ -483,6 +492,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
         open_gradient(window)
+        automatic_geometry = radial_geometry(window)
         set_radial_geometry(window, 37, 200, 95)
         recent = [
             element
@@ -493,9 +503,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         ]
         assert len(recent) == 1
         recent[0].invoke_accessible_default_action()
-        assert radial_geometry(window) == pytest.approx(
-            (200, 200, math.hypot(200, 200)), abs=0.001
-        )
+        assert radial_geometry(window) == pytest.approx(automatic_geometry, abs=0.001)
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
@@ -538,6 +546,7 @@ def rotate_conic(window, previous, next_angle):
 
 def set_radial_geometry(window, x, y, radius):
 
+    move_picker_to_files(window, "main")
     old_x, old_y, _ = radial_geometry(window)
     c = center(control(window, "Gradient center handle"), 35)
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))

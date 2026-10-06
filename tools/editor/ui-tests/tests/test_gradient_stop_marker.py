@@ -12,6 +12,7 @@ from gradient_interactions import (
     control,
     gesture,
     gradient_document,
+    move_picker_to_files,
     open_gradient,
     picker_field,
     shifted,
@@ -56,6 +57,7 @@ def test_stop_marker_click_opens_color_picker_but_drag_does_not(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+        move_picker_to_files(window, "main")
 
         marker = control(window, "Gradient stop 2", role)
         assert marker.size.width == pytest.approx(40)

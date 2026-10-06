@@ -217,6 +217,8 @@ pub struct CompilerConfiguration {
     /// live-reload runtime to indicate that the `.slint` file is being previewed rather than
     /// driven by real host application logic.
     pub is_preview: bool,
+
+    pub compile_for_component_container: bool,
 }
 
 impl CompilerConfiguration {
@@ -340,6 +342,7 @@ impl CompilerConfiguration {
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
+            compile_for_component_container: false,
         }
     }
 }

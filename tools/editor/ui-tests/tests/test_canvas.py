@@ -115,6 +115,41 @@ def finish_palette_drag(
     )
 
 
+@pytest.mark.parametrize("root_type", ["Window", "Rectangle"])
+def test_fixed_root_fills_artboard(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    tmp_path: Path,
+    root_type: str,
+) -> None:
+    source_file = tmp_path / "FixedRoot.slint"
+    source_file.write_text(f"""export component FixedRoot inherits {root_type} {{
+    width: 160px;
+    height: 120px;
+    Rectangle {{
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Sizing surface";
+        background: #e547a0;
+    }}
+}}
+""")
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
+        surface = element(
+            window, "Sizing surface", role=slint_testing.AccessibleRole.Region
+        )
+        expect.poll(lambda: surface.size).to_equal(artboard.size)
+        image = screenshot(window)
+        position = center(surface)
+        scale = image.width / window.root_element.size.width
+        assert image.getpixel(
+            (round(position.x * scale), round(position.y * scale))
+        ) == (229, 71, 160)
+        image.save(tmp_path / "forced-root.png")
+
+
 @pytest.mark.parametrize("kind", PALETTE_DROP_SIZES)
 def test_component_palette_drop_can_extend_outside_artboard(
     editor_binary: Path,
