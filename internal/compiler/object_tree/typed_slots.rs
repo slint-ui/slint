@@ -130,7 +130,6 @@ pub(super) fn create_placeholder(
         ChildrenInsertionPoint {
             parent: proxy.clone(),
             insertion_index: 0,
-            default_children_count: 0,
             node: ChildInsertionPointNode::SlotPlaceholder(node.clone().into()),
         },
     );
@@ -191,7 +190,6 @@ pub(super) fn create_forwarding(
         ChildrenInsertionPoint {
             parent: proxy.clone(),
             insertion_index: 0,
-            default_children_count: 0,
             node: ChildInsertionPointNode::SlotForwarding(node.clone().into()),
         },
     );
