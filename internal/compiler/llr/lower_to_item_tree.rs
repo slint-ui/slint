@@ -1253,6 +1253,7 @@ fn lower_repeated_component(
 
     RepeatedElement {
         model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
+        model_is_constant: repeated.model.is_constant(None),
         sub_tree: ItemTree { tree, root },
         index_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_INDEX),
         data_prop: (!repeated.is_conditional_element).then_some(PropertyIdx::REPEATER_DATA),

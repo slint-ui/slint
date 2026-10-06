@@ -1222,11 +1222,29 @@ class Repeater
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
+    void attach_model(const std::shared_ptr<Model<ModelData>> &m) const
+    {
+        inner = std::make_shared<RepeaterInner>(&instance_generation);
+        instance_generation.mark_dirty();
+        if (m) {
+            inner->model = m;
+            m->attach_peer(inner);
+        }
+    }
+
 public:
     template<typename F>
     void set_model_binding(F &&binding) const
     {
         model.set_binding(std::forward<F>(binding));
+    }
+
+    /// Set a model that never changes, instead of a binding.
+    void set_constant_model(const std::shared_ptr<Model<ModelData>> &m) const
+    {
+        attach_model(m);
+        model.set(m);
+        model.set_constant();
     }
 
     void refresh_model() const
@@ -1235,12 +1253,7 @@ public:
             auto old_model = model.get_internal();
             auto m = model.get();
             if (!inner || old_model != m) {
-                inner = std::make_shared<RepeaterInner>(&instance_generation);
-                instance_generation.mark_dirty();
-                if (m) {
-                    inner->model = m;
-                    m->attach_peer(inner);
-                }
+                attach_model(m);
             }
         }
     }
@@ -1470,6 +1483,13 @@ public:
     void set_model_binding(F &&binding) const
     {
         model.set_binding(std::forward<F>(binding));
+    }
+
+    /// Set a condition that never changes, instead of a binding.
+    void set_constant_model(bool condition) const
+    {
+        model.set(condition);
+        model.set_constant();
     }
 
     /// Create or destroy the conditional instance, and recurse into children.

@@ -413,6 +413,7 @@ pub struct ListViewInfo {
 #[derive(Debug, Clone)]
 pub struct RepeatedElement {
     pub model: MutExpression,
+    pub model_is_constant: bool,
     /// Within the sub_tree's root component. None for `if`
     pub index_prop: Option<PropertyIdx>,
     /// Within the sub_tree's root component. None for `if`
