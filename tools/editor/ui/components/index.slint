@@ -66,8 +66,8 @@ component ResizeDivider inherits FocusScope {
     accessible-orientation: root.vertical ? Orientation.horizontal : Orientation.vertical;
     accessible-label: root.resize-label;
     accessible-description: root.vertical
-        ? @tr("Pane width. Left and Right adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px)
-        : @tr("Lower pane height. Arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px);
+        ? @tr("Pane width. Left and right arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px)
+        : @tr("Pane height. Up and down arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px);
     accessible-value: "\{(root.value / 1px).round()} px";
     accessible-value-minimum: root.value-minimum / 1px;
     accessible-value-maximum: root.value-maximum / 1px;
