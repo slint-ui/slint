@@ -17,7 +17,6 @@ component EditorTreeRow {
     in property <string> current-source-uri;
     in property <int> current-offset;
     in property <int> max-gutter-columns;
-    in property <bool> show-hierarchy-guides: false;
     in property <bool> tree-has-hover: false;
     in property <bool> content-has-hover;
     in property <Point> tree-pointer;
@@ -287,21 +286,9 @@ component EditorTreeRow {
                         padding-right: root.style.row.padding-inline;
                         min-height: Metrics.outline-row-height;
 
-                        if root.gutter-segments > 0: HorizontalLayout {
-                            alignment: start;
-
-                            for slot[index] in root.max-gutter-columns: Rectangle {
-                                width: index < root.gutter-segments ? root.style.row.toggle-width : 0px;
-                                height: Metrics.outline-row-height;
-
-                                if root.show-hierarchy-guides && index < root.gutter-segments: Rectangle {
-                                    x: (parent.width - root.style.guide-width) / 2
-                                        + (index >= 1 ? root.style.row.gap : 0px);
-                                    width: root.style.guide-width;
-                                    height: Metrics.outline-row-height;
-                                    background: root.style.guide;
-                                }
-                            }
+                        if root.gutter-segments > 0: Rectangle {
+                            width: min(root.gutter-segments, root.max-gutter-columns) * root.style.row.toggle-width;
+                            height: Metrics.outline-row-height;
                         }
 
                         Rectangle {
@@ -383,7 +370,6 @@ export component EditorTreeView inherits FocusScope {
     in property <int> current-offset: -1;
     in property <string> accessible-name: "";
     in property <int> max-gutter-columns: 12;
-    in property <bool> show-hierarchy-guides: false;
     in property <bool> content-has-hover: false;
     in property <Point> pointer-position;
     in property <string> hovered-source-uri;
@@ -483,7 +469,6 @@ export component EditorTreeView inherits FocusScope {
             current-source-uri: root.current-source-uri;
             current-offset: root.current-offset;
             max-gutter-columns: root.max-gutter-columns;
-            show-hierarchy-guides: root.show-hierarchy-guides;
             tree-has-hover: root.content-has-hover;
             content-has-hover: root.content-has-hover;
             tree-pointer: root.pointer-position;

@@ -71,34 +71,6 @@ export component InspectorIconButton inherits Rectangle {
         transform-rotation: 28deg;
     }
 
-    if root.kind == "type-grid": Rectangle {
-        for row in 2: Rectangle {
-            for col in 2: Rectangle {
-                x: 4px + col * 6px;
-                y: 4px + row * 6px;
-                width: 3px;
-                height: 3px;
-                border-radius: 1.5px;
-                border-width: Metrics.border-width;
-                border-color: root.style.appearance.normal.foreground;
-            }
-        }
-    }
-
-    if root.kind == "sliders": Rectangle {
-        for col in 3: Rectangle {
-            x: 4px + col * 4.5px;
-            y: 4px;
-            width: 1px;
-            height: 10px;
-            background: root.style.appearance.normal.foreground;
-            border-radius: 1px;
-        }
-        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
-        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
-        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: root.style.appearance.normal.foreground; }
-    }
-
     if root.kind == "folder": Image {
         x: 3px;
         y: 3px;
