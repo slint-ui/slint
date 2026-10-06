@@ -41,6 +41,9 @@ std = [
   "i-slint-common/markdown",
   "taffy/std",
 ]
+# Leave chrono out: the date functions behind the DatePicker and TimePicker format and parse nothing
+# and don't know today's date. For builds that need to be small.
+date-time-stubs = []
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
 # from a single core, and not in a interrupt or signal handler.

@@ -41,6 +41,8 @@ no-embedded-font = ["i-slint-common/no-embedded-fallback-font"]
 # Accept WOFF2 files in `register_font_from_memory` and `register_default_font_from_memory`,
 # so that a page can pass the font its CSS already downloaded.
 woff2 = ["dep:wuff"]
+# Leave the date and time functions out (DatePicker and TimePicker show no dates).
+no-date-time = ["i-slint-core/date-time-stubs"]
 # Show `@markdown` text as plain text, which leaves the markdown parser out.
 no-markdown = ["i-slint-common/markdown-as-plain-text"]
 # Draw text as paths instead of through femtovg's glyph atlas, which leaves swash and zeno out.

@@ -21,6 +21,8 @@
 #     femtovg's glyph rasterizer out; color glyphs (emoji) aren't drawn;
 #   - `@markdown` text is shown as plain text (the `no-markdown` feature), which leaves the
 #     markdown parser out;
+#   - the date functions behind DatePicker and TimePicker format, parse and know nothing (the
+#     `no-date-time` feature), which leaves chrono out;
 #   - skrifa is replaced by a copy with patches/skrifa-0.44-no-hinting.patch applied, which
 #     leaves the font hinters out. Cargo.lock is restored afterwards.
 #
@@ -48,7 +50,7 @@ export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/../../target/wasm-small}"
 out_dir="${OUT_DIR:-pkg}"
 
-cargo_args=(--features no-embedded-font,outline-text,no-markdown)
+cargo_args=(--features no-embedded-font,outline-text,no-markdown,no-date-time)
 
 # Replace skrifa with a patched copy, for this build only.
 skrifa_src=$(cargo metadata --format-version 1 --locked | python3 -c '
