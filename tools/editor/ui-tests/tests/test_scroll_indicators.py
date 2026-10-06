@@ -58,8 +58,8 @@ def test_file_selection_preserves_scrolled_row_positions(
             after_selection = row_frames()
             shared = before_selection.keys() & after_selection.keys()
             assert shared
-            for path in shared:
-                assert after_selection[path] == before_selection[path]
+            for shared_path in shared:
+                assert after_selection[shared_path] == before_selection[shared_path]
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])

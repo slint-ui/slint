@@ -714,6 +714,47 @@ mod tests {
     }
 
     #[test]
+    fn publish_replaces_model_when_rows_change() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let project = editor.global::<Project>();
+        let tree = TempTree::new();
+        let folder = tree.dir("components");
+        tree.file("components/child.slint");
+        let source = tree.file("a.slint");
+        tree.file("z.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+        controller.publish(&project);
+        let initial = project.get_file_tree();
+        let initial_labels = labels(&initial.iter().collect::<Vec<_>>());
+
+        controller.toggle(&folder, &project);
+        let expanded = project.get_file_tree();
+        assert_ne!(expanded, initial);
+        assert_eq!(
+            labels(&expanded.iter().collect::<Vec<_>>())[1..],
+            ["components", "child.slint", "a.slint", "z.slint"]
+        );
+
+        controller.toggle(&folder, &project);
+        let collapsed = project.get_file_tree();
+        assert_ne!(collapsed, expanded);
+        assert_eq!(labels(&collapsed.iter().collect::<Vec<_>>()), initial_labels);
+
+        controller.rename_file(&source, "zz.slint").unwrap();
+        controller.publish(&project);
+        let renamed = project.get_file_tree();
+        assert_ne!(renamed, collapsed);
+        assert_eq!(renamed.row_count(), collapsed.row_count());
+        assert_eq!(
+            labels(&renamed.iter().collect::<Vec<_>>())[1..],
+            ["components", "z.slint", "zz.slint"]
+        );
+    }
+
+    #[test]
     fn new_component_files_use_unique_names_and_stub_contents() {
         let tree = TempTree::new();
 
