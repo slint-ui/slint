@@ -536,11 +536,11 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                if Springboard.state != SpringboardState.Stopped || Springboard.error-message != "": SpringboardView {
+                if Springboard.state != SpringboardState.Stopped: SpringboardView {
                     x: parent.width - self.width - 12px;
                     y: Style.shell.top-bar-height;
                     width: 260px;
-                    height: 230px;
+                    height: 300px;
                     background: Colors.background;
                 }
 
