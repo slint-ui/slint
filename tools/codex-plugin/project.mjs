@@ -11,13 +11,14 @@ function references(source) {
   const tokens = Array.from(source.matchAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|[A-Za-z_][\w-]*|[^\s]/g), match => match[0]).filter(token => !token.startsWith("//") && !token.startsWith("/*"));
   const paths = [];
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i] === "import") {
+    if (tokens[i] === "import" || (tokens[i] === "export" && tokens[i + 1] === "{")) {
       let end = i + 1;
       while (end < tokens.length && tokens[end] !== ";") end++;
       if (tokens[end - 1]?.startsWith('"')) paths.push(JSON.parse(tokens[end - 1]));
       i = end;
     } else if (tokens[i] === "@" && tokens[i + 1] === "image-url" && tokens[i + 2] === "(" && tokens[i + 3]?.startsWith('"')) {
-      paths.push(JSON.parse(tokens[i + 3]));
+      const path = JSON.parse(tokens[i + 3]);
+      if (path !== "") paths.push(path);
     }
   }
   return paths;
