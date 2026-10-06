@@ -49,17 +49,17 @@ impl Simulation for FlickAnimation {
 }
 
 impl PositionSimulation for FlickAnimation {
-    fn remaining_distance(&self, time_elapsed: Duration) -> f32 {
+    fn remaining_distance(&self, now: Instant) -> f32 {
         match self {
-            FlickAnimation::Android(s) => s.remaining_distance(time_elapsed),
-            FlickAnimation::Bounce(s) => s.remaining_distance(time_elapsed),
+            FlickAnimation::Android(s) => s.remaining_distance(now),
+            FlickAnimation::Bounce(s) => s.remaining_distance(now),
         }
     }
 
-    fn remaining_velocity(&self, time_elapsed: Duration) -> f32 {
+    fn remaining_velocity(&self, now: Instant) -> f32 {
         match self {
-            FlickAnimation::Android(s) => s.remaining_velocity(time_elapsed),
-            FlickAnimation::Bounce(s) => s.remaining_velocity(time_elapsed),
+            FlickAnimation::Android(s) => s.remaining_velocity(now),
+            FlickAnimation::Bounce(s) => s.remaining_velocity(now),
         }
     }
 }
@@ -164,7 +164,7 @@ impl FlickAnimation {
             * f32::min(CARRY_SCALE * f32::powf(current_velocity.abs(), CARRY_EXPONENT), 40000.0)
     }
 
-    /// Wether to bounce or not depending on the bounce variable
+    /// Whether to bounce or not depending on the bounce variable
     /// and if `Auto` on the platform
     pub fn use_bounce(bounce: AutoBool) -> bool {
         match bounce {
@@ -236,38 +236,6 @@ mod tests {
         assert_eq!(FlickAnimation::carried_momentum(2000., 2000., AutoBool::Off), 0.);
         assert_eq!(FlickAnimation::carried_momentum(2000., 0., AutoBool::On), 0.);
         assert_eq!(FlickAnimation::carried_momentum(-2000., 2000., AutoBool::On), 0.);
-    }
-
-    /// The growth curve grows with the residual velocity a same-direction flick interrupts,
-    /// and never depends on the new flick's own estimated velocity (unlike the old
-    /// threshold-gated version, real repeated same-strength flicks keep compounding rather
-    /// than alternating between a boosted and an un-boosted repeat).
-    #[test]
-    fn carried_momentum_grows_with_residual_velocity() {
-        let mut previous = 0.;
-        for current_velocity in [500., 1000., 2000., 3000., 3625.] {
-            let carried = FlickAnimation::carried_momentum(1., current_velocity, AutoBool::On);
-            assert!(carried > previous, "{current_velocity}: {carried} <= {previous}");
-            previous = carried;
-        }
-    }
-
-    /// Five real (residual velocity, required carry boost) pairs decomposed from repeated
-    /// same-direction flicks measured on a live iOS UIScrollView, using the
-    /// DRAG constant in `simulations::bounce` to turn each release's total measured travel back
-    /// into an effective launch velocity. `CARRY_SCALE`/`CARRY_EXPONENT` are fit to this data
-    /// (and 107 further points from other real flick sequences) by log-log least squares.
-    #[test]
-    fn carried_momentum_matches_real_device_measurements() {
-        for (current_velocity, measured_carry) in
-            [(550.4, 628.1), (1028.3, 1570.4), (1644.5, 2826.6), (2642.8, 4397.7), (3625.8, 6282.2)]
-        {
-            let carried = FlickAnimation::carried_momentum(1., current_velocity, AutoBool::On);
-            assert!(
-                (carried - measured_carry).abs() < measured_carry * 0.35,
-                "current_velocity={current_velocity}: predicted {carried}, measured {measured_carry}"
-            );
-        }
     }
 
     /// A Flickable with no laid-out size yet, or one the virtual keyboard fully

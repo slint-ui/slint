@@ -4,7 +4,7 @@
 //! Ported from Flutter's `MacOSScrollViewFlingVelocityTracker` (velocity_tracker.dart), which is:
 //! Copyright 2014 The Flutter Authors. All rights reserved.
 //!
-//! Use of the original source is governed by a BSD-style license;
+//! Use of the original source is governed by a BSD-style license
 //!
 //! Original: <https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/gestures/velocity_tracker.dart>
 //!
@@ -46,49 +46,5 @@ impl VelocityEstimator for MacOsVelocityTracker {
             velocity: weighted_recent_velocity(&self.buffer, WEIGHTS),
             confidence: 1.0,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests_macos_velocity_tracker {
-    use super::super::Velocity;
-    use super::*;
-    use core::time::Duration;
-
-    #[test]
-    fn estimate_velocity_is_none_when_empty() {
-        let tracker = MacOsVelocityTracker::default();
-        assert!(tracker.estimate_velocity().is_none());
-        assert_eq!(tracker.last_time(), None);
-    }
-
-    #[test]
-    fn estimate_velocity_is_zero_with_a_single_sample() {
-        let mut tracker = MacOsVelocityTracker::default();
-        tracker.push(Instant::default(), LogicalVector::new(5.0, 5.0));
-
-        let estimate = tracker.estimate_velocity().unwrap();
-        assert_eq!(estimate.velocity, Velocity::default());
-        assert_eq!(estimate.confidence, 1.0);
-    }
-
-    #[test]
-    fn estimate_velocity_blends_the_last_three_segments() {
-        let mut tracker = MacOsVelocityTracker::default();
-        let base_time = crate::animations::current_tick();
-
-        // Same setup as the iOS test: segments of 100, 200, 300 px/s.
-        tracker.push(base_time, LogicalVector::new(0.0, 0.0));
-        tracker.push(base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0));
-        tracker.push(base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0));
-        tracker.push(base_time + Duration::from_millis(30), LogicalVector::new(3.0, 0.0));
-        crate::animations::update_animations(base_time + Duration::from_millis(30));
-
-        let estimate = tracker.estimate_velocity().unwrap();
-        let [oldest, middle, newest] = [100.0, 200.0, 300.0];
-        let expected = oldest * WEIGHTS[0] + middle * WEIGHTS[1] + newest * WEIGHTS[2];
-        assert!((estimate.velocity.x - expected).abs() < 1e-3);
-        assert_eq!(estimate.velocity.y, 0.0);
-        assert_eq!(estimate.confidence, 1.0);
     }
 }

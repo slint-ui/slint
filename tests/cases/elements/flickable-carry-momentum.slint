@@ -130,7 +130,7 @@ let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "Tes
 
 const FLICK_DISTANCE: f32 = 20.;
 
-// Scroll down with no carry momentum
+// Scroll down with carry momentum
 slint_testing::set_flickable_physics(&flickable, AutoBool::Off, AutoBool::On);
 send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
 slint_testing::mock_elapsed_time(5);
@@ -141,9 +141,8 @@ slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
 
-// Flick again, at the same strength, while the other is ongoing: this is
-// the one flick that's strong enough to clear the momentum-retention
-// threshold, so its velocity is boosted by the carried momentum.
+// Flick again, at the same strength, while the other is ongoing:
+// its velocity is boosted by the carried momentum.
 send_mouse_press_and_release(&instance, 5., 130., 5., 130. - FLICK_DISTANCE); // Finger moves up -> Scrolling down.
 
 let content_y = instance.get_fli_content_y();
@@ -218,9 +217,8 @@ slint_testing::mock_elapsed_time(1);
 let velocity = (content_y - instance.get_fli_content_y()) / 0.001;
 assert!((velocity - FLICK_DISTANCE / 10e-3).abs() < 30., "Received: {velocity}");
 
-// Flick again, at the same strength, while the other is ongoing: this one
-// is strong enough to clear the momentum-retention threshold, so its
-// velocity is boosted by the carried momentum.
+// Flick again, at the same strength, while the other is ongoing:
+// its velocity is boosted by the carried momentum.
 send_wheel_scroll(&instance, 5., 5., 0., -FLICK_DISTANCE); // Scrolling down.
 
 let content_y = instance.get_fli_content_y();
@@ -246,7 +244,7 @@ for i in 0..4 {
 // A same-direction touch flick that starts while the previous one is still gliding must
 // still carry momentum, even with an unremarkable ~25ms gap between two tracked move
 // samples (slower than an idealized 60Hz, but a plausible real cadence once dispatch and
-// processing delay are accounted for)..
+// processing delay are accounted for).
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 use slint_testing::AutoBool;
@@ -290,9 +288,8 @@ let baseline_release_y = baseline.get_fli_content_y();
 settle(&baseline);
 let baseline_travel = (baseline.get_fli_content_y() - baseline_release_y).abs();
 
-// The second flick interrupts the first one's still-running animation (60Hz touch delivery
-// means ~17ms between samples, well over the retention timeout from before this fix), so it
-// must carry momentum and travel noticeably farther, once settled, than the isolated baseline.
+// The second flick interrupts the first one's still-running animation, so it must carry
+// momentum and travel noticeably farther, once settled, than the isolated baseline.
 let instance = TestCase::new().unwrap();
 let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli").next().unwrap();
 slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::On);

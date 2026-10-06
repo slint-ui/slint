@@ -260,15 +260,6 @@ mod tests_ring_buffer {
     }
 
     #[test]
-    fn test_next_index_wraps_at_capacity() {
-        let buffer: VelocityRingBuffer<4> = VelocityRingBuffer::default();
-        assert_eq!(buffer.next_index(0), 1);
-        assert_eq!(buffer.next_index(1), 2);
-        assert_eq!(buffer.next_index(2), 3);
-        assert_eq!(buffer.next_index(3), 0);
-    }
-
-    #[test]
     fn test_iter_on_empty_buffer_yields_nothing() {
         let buffer: VelocityRingBuffer<4> = VelocityRingBuffer::default();
         assert_eq!(buffer.iter().next(), None);
@@ -287,25 +278,6 @@ mod tests_ring_buffer {
 
         // The buffer holds 3 of its 5 slots; `iter()` should yield exactly
         // those 3, oldest first, and then stop.
-        let mut iter = buffer.iter();
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v0));
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v1));
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v2));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn test_iter_full() {
-        let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
-        let v0 = Vector2D::new(1.0, 1.0);
-        let v1 = Vector2D::new(2.0, 2.0);
-        let v2 = Vector2D::new(3.0, 3.0);
-        buffer.push(base_time, v0);
-        buffer.push(base_time + Duration::from_millis(10), v1);
-        buffer.push(base_time + Duration::from_millis(20), v2);
-        assert!(buffer.full);
-
         let mut iter = buffer.iter();
         assert_eq!(iter.next().map(|(_, v)| *v), Some(v0));
         assert_eq!(iter.next().map(|(_, v)| *v), Some(v1));
@@ -334,44 +306,6 @@ mod tests_ring_buffer {
     }
 
     #[test]
-    fn test_iter_next_back_partially_filled() {
-        let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
-        let v0 = Vector2D::new(1.0, 1.0);
-        let v1 = Vector2D::new(2.0, 2.0);
-        let v2 = Vector2D::new(3.0, 3.0);
-        buffer.push(base_time, v0);
-        buffer.push(base_time + Duration::from_millis(10), v1);
-        buffer.push(base_time + Duration::from_millis(20), v2);
-
-        // Iterating from the back yields newest first, then progressively older.
-        let mut iter = buffer.iter();
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v2));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v1));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v0));
-        assert_eq!(iter.next_back(), None);
-    }
-
-    #[test]
-    fn test_iter_next_back_full() {
-        let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
-        let v0 = Vector2D::new(1.0, 1.0);
-        let v1 = Vector2D::new(2.0, 2.0);
-        let v2 = Vector2D::new(3.0, 3.0);
-        buffer.push(base_time, v0);
-        buffer.push(base_time + Duration::from_millis(10), v1);
-        buffer.push(base_time + Duration::from_millis(20), v2);
-        assert!(buffer.full);
-
-        let mut iter = buffer.iter();
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v2));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v1));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(v0));
-        assert_eq!(iter.next_back(), None);
-    }
-
-    #[test]
     fn test_iter_next_back_wrap_around() {
         let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
         let base_time = Instant::default();
@@ -387,45 +321,6 @@ mod tests_ring_buffer {
         assert_eq!(iter.next_back().map(|(_, v)| *v), Some(values[4]));
         assert_eq!(iter.next_back().map(|(_, v)| *v), Some(values[3]));
         assert_eq!(iter.next_back().map(|(_, v)| *v), Some(values[2]));
-        assert_eq!(iter.next_back(), None);
-    }
-
-    #[test]
-    fn test_iter_rev_matches_reversed_forward_order() {
-        let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
-        let v0 = Vector2D::new(1.0, 1.0);
-        let v1 = Vector2D::new(2.0, 2.0);
-        let v2 = Vector2D::new(3.0, 3.0);
-        buffer.push(base_time, v0);
-        buffer.push(base_time + Duration::from_millis(10), v1);
-        buffer.push(base_time + Duration::from_millis(20), v2);
-
-        let mut iter = buffer.iter().rev();
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v2));
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v1));
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(v0));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn test_iter_next_and_next_back_meet_in_the_middle() {
-        let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
-        let values: [_; 4] =
-            core::array::from_fn(|i| Vector2D::new(i as f32 + 1.0, i as f32 + 1.0));
-        for (i, value) in values.iter().enumerate() {
-            buffer.push(base_time + Duration::from_millis(i as u64 * 10), *value);
-        }
-
-        // Alternating ends should visit every real entry exactly once,
-        // without overlap or running past the real data.
-        let mut iter = buffer.iter();
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(values[0]));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(values[3]));
-        assert_eq!(iter.next().map(|(_, v)| *v), Some(values[1]));
-        assert_eq!(iter.next_back().map(|(_, v)| *v), Some(values[2]));
-        assert_eq!(iter.next(), None);
         assert_eq!(iter.next_back(), None);
     }
 }

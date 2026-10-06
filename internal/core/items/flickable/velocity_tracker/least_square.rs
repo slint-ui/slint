@@ -13,13 +13,9 @@
 //!
 //! Changes to the original:
 //!     - generic over the float type
-//!     - [`LeastSquaresSolver::solve_weighted`] is an addition, not present in the original:
-//!       Flutter's own velocity tracker always passes a weight of 1 for every sample, but an
-//!       unweighted fit lets a single old, disproportionate sample (such as the synthetic
-//!       zero-delta sample a press seeds the history with) dominate the fitted curve's slope at
-//!       the most recent sample, which is exactly the value used as the fling's initial velocity
+//!     - weights the samples, see `RECENCY_HALF_LIFE_DIVISOR` in `general.rs`
 //!
-//! [`LeastSquaresSolver::solve`] takes the polynomial `degree` as a runtime
+//! [`LeastSquaresSolver::solve_weighted`] takes the polynomial `degree` as a runtime
 //! argument, matching the original API, rather than as a const generic:
 //! stable Rust has no way to turn a const generic `DEGREE` into a `DEGREE +
 //! 1`-sized array for the coefficients. Instead, `MAX_COEFFS` is a separate,
@@ -87,7 +83,7 @@ impl<T, const MAX_COEFFS: usize> PolynomialFit<T, MAX_COEFFS> {
 
 /// Fits a polynomial to a set of data points using the least-squares method.
 ///
-/// `MAX_SAMPLES` bounds how many data points [`Self::solve`] can fit at
+/// `MAX_SAMPLES` bounds how many data points [`Self::solve_weighted`] can fit at
 /// once; `x` and `y` may be shorter than that at runtime, but must have the
 /// same length.
 pub struct LeastSquaresSolver<'a, T, const MAX_SAMPLES: usize> {
@@ -108,37 +104,20 @@ where
     }
 
     /// Fits a polynomial of the given `degree` to the data points.
+    /// A sample with half the `weight` of another counts for half as much toward minimizing the
+    /// fit's residual. `weights` has one entry per data point, like `x` and `y`.
     ///
     /// `MAX_COEFFS` bounds the `degree` this can be asked to fit, since it
     /// must be able to store `degree + 1` coefficients.
     ///
     /// Returns `None` when there isn't enough data to fit a curve, or when
     /// the data is degenerate (linearly dependent).
-    #[cfg_attr(not(test), expect(dead_code, reason = "kept for its own unweighted test coverage"))]
-    pub fn solve<const MAX_COEFFS: usize>(
-        &self,
-        degree: usize,
-    ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
-        self.solve_impl(degree, None)
-    }
-
-    /// Like [`Self::solve`], but a sample with half the `weight` of another counts for half as
-    /// much toward minimizing the fit's residual. `weights` has one entry per data point, like
-    /// `x` and `y`.
     pub fn solve_weighted<const MAX_COEFFS: usize>(
         &self,
         degree: usize,
         weights: &[T],
     ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
         debug_assert_eq!(weights.len(), self.x.len());
-        self.solve_impl(degree, Some(weights))
-    }
-
-    fn solve_impl<const MAX_COEFFS: usize>(
-        &self,
-        degree: usize,
-        weights: Option<&[T]>,
-    ) -> Option<PolynomialFit<T, MAX_COEFFS>> {
         // Shorthand for notation equivalence with the original algorithm:
         // the number of coefficients.
         let n = degree + 1;
@@ -154,7 +133,7 @@ where
         // A weighted fit is equivalent to an unweighted fit of every sample's `x` powers and `y`
         // scaled by the square root of its weight: squaring that factor back out in the residual
         // `(sqrt(w) * y - sqrt(w) * poly(x))^2` gives back the weighted term `w * (y - poly(x))^2`.
-        let sqrt_weight = |h: usize| weights.map_or(T::one(), |w| w[h].sqrt());
+        let sqrt_weight = |h: usize| weights[h].sqrt();
 
         // Expand the x vector to a matrix A of powers of x times sqrt_weight: row 0 is
         // sqrt_weight, row i is row i - 1 multiplied element-wise by x.
@@ -219,9 +198,8 @@ where
         // where sum_squared_error is the residual sum of squares (variance of
         // the error) and sum_squared_total is the total sum of squares
         // (variance of the data), both weighted the same way as the fit itself.
-        let sum_weight = (0..m).map(|h| weights.map_or(T::one(), |w| w[h])).sum::<T>();
-        let y_mean =
-            (0..m).map(|h| weights.map_or(T::one(), |w| w[h]) * self.y[h]).sum::<T>() / sum_weight;
+        let sum_weight = weights[..m].iter().copied().sum::<T>();
+        let y_mean = (0..m).map(|h| weights[h] * self.y[h]).sum::<T>() / sum_weight;
 
         let mut sum_squared_error = T::zero();
         let mut sum_squared_total = T::zero();
@@ -232,7 +210,7 @@ where
                 term *= self.x[h];
                 err -= term * *coefficient;
             }
-            let weight = weights.map_or(T::one(), |w| w[h]);
+            let weight = weights[h];
             sum_squared_error += weight * err * err;
             let v = self.y[h] - y_mean;
             sum_squared_total += weight * v * v;
@@ -262,7 +240,7 @@ mod tests {
         let x = [0.0];
         let y = [0.0];
         let solver = LeastSquaresSolver::<_, 4>::new(&x, &y);
-        assert!(solver.solve::<4>(1).is_none());
+        assert!(solver.solve_weighted::<4>(2, &[1.0]).is_none());
     }
 
     #[test]
@@ -271,28 +249,16 @@ mod tests {
         let x = [1.0, 1.0, 1.0];
         let y = [1.0, 2.0, 3.0];
         let solver = LeastSquaresSolver::<_, 8>::new(&x, &y);
-        assert!(solver.solve::<4>(1).is_none());
+        assert!(solver.solve_weighted::<4>(1, &[1.0; 3]).is_none());
     }
 
     #[test]
     fn exact_linear_fit() {
         // y = 2x + 1
-        let x = [0.0, 1.0, 2.0, 3.0];
-        let y = [1.0, 3.0, 5.0, 7.0];
-        let solver = LeastSquaresSolver::<_, 8>::new(&x, &y);
-        let fit = solver.solve::<4>(1).unwrap();
-        assert_close(fit.coefficients()[0], 1.0);
-        assert_close(fit.coefficients()[1], 2.0);
-        assert_close(fit.confidence, 1.0);
-    }
-
-    #[test]
-    fn exact_linear_fit_f32() {
-        // y = 2x + 1, fit in f32 rather than f64.
         let x: [f32; 4] = [0.0, 1.0, 2.0, 3.0];
         let y: [f32; 4] = [1.0, 3.0, 5.0, 7.0];
         let solver = LeastSquaresSolver::<_, 8>::new(&x, &y);
-        let fit = solver.solve::<4>(1).unwrap();
+        let fit = solver.solve_weighted::<4>(1, &[1.0; 4]).unwrap();
         assert_close(fit.coefficients()[0], 1.0f32);
         assert_close(fit.coefficients()[1], 2.0f32);
         assert_close(fit.confidence, 1.0f32);
@@ -307,10 +273,25 @@ mod tests {
             x * x - 3.0 * x + 2.0
         });
         let solver = LeastSquaresSolver::<_, 8>::new(&x, &y);
-        let fit = solver.solve::<3>(2).unwrap();
+        let fit = solver.solve_weighted::<3>(2, &[1.0; 5]).unwrap();
         assert_close(fit.coefficients()[0], 2.0);
         assert_close(fit.coefficients()[1], -3.0);
         assert_close(fit.coefficients()[2], 1.0);
         assert_close(fit.confidence, 1.0);
+    }
+
+    #[test]
+    fn weights_decide_which_samples_the_fit_follows() {
+        // y = 2x + 1, except for the last sample
+        let x = [0.0, 1.0, 2.0, 3.0];
+        let y = [1.0, 3.0, 5.0, 100.0];
+        let solver = LeastSquaresSolver::<_, 8>::new(&x, &y);
+        let ignoring_the_last = solver.solve_weighted::<4>(1, &[1.0, 1.0, 1.0, 0.0]).unwrap();
+        assert_close(ignoring_the_last.coefficients()[0], 1.0);
+        assert_close(ignoring_the_last.coefficients()[1], 2.0);
+        assert_close(ignoring_the_last.confidence, 1.0);
+        let uniform = solver.solve_weighted::<4>(1, &[1.0; 4]).unwrap();
+        assert!(uniform.coefficients()[1] > 20.0, "{}", uniform.coefficients()[1]);
+        assert!(uniform.confidence < 1.0);
     }
 }

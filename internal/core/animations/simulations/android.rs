@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Velocity-driven flings use the portable AOSP spline in [`spline`].
-//! Fixed-distance wheel motion retains the power curve from Flutter's `ClampingScrollSimulation`
+//! Fixed-distance wheel motion uses the power curve from Flutter's `ClampingScrollSimulation`
 //! (scroll_simulation.dart), which is:
 //! Copyright 2014 The Flutter Authors. All rights reserved.
 //!
@@ -108,7 +108,7 @@ impl AndroidFlick {
         }
     }
 
-    /// Fixed-distance wheel scrolling retains the existing power curve.
+    /// Covers `distance` in `duration` along Flutter's power curve, for wheel scrolling.
     pub fn new_with_distance(
         start_value: f32,
         limit_value: core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>>,
@@ -179,12 +179,12 @@ impl Simulation for AndroidFlick {
 }
 
 impl PositionSimulation for AndroidFlick {
-    fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
-        self.distance - self.sample(time_elapsed).0
+    fn remaining_distance(&self, now: Instant) -> f32 {
+        self.distance - self.sample(now.duration_since(self.start_time)).0
     }
 
-    fn remaining_velocity(&self, time_elapsed: core::time::Duration) -> f32 {
-        self.sample(time_elapsed).1
+    fn remaining_velocity(&self, now: Instant) -> f32 {
+        self.sample(now.duration_since(self.start_time)).1
     }
 }
 
@@ -209,7 +209,7 @@ mod tests {
         );
         assert!(simulation.step(&mut current, start + simulation.duration));
         assert_eq!(current, simulation.distance);
-        assert_eq!(simulation.remaining_velocity(simulation.duration), 0.);
+        assert_eq!(simulation.remaining_velocity(start + simulation.duration), 0.);
     }
 
     #[test]

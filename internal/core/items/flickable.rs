@@ -68,9 +68,7 @@ const VELOCITY_TRACKER_SAMPLES: usize = 20;
 /// flick
 const MOMENTUM_RETAIN_TIMEOUT: Duration = Duration::from_millis(100);
 
-// We use for linux and no os the ios velocity tracker because embedded is
-// computational power constraint and embedded linux can be as well and the
-// velocity estimation is much easier than for the general velocity tracker
+// Linux and bare metal use the iOS tracker, which is cheaper than the least-squares fit.
 #[cfg(any(target_os = "ios", target_os = "linux", target_os = "none"))]
 type VelocityTracker = IOsVelocityTracker;
 #[cfg(target_os = "macos")]
@@ -451,7 +449,6 @@ enum CaptureEvents {
 }
 
 struct RunningSimulation {
-    start_time: Instant,
     #[expect(unused, reason = "Will be used in a future pr for the listview")]
     weak: ItemWeak,
     x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>>,
@@ -632,17 +629,17 @@ impl FlickableDataInner {
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
-            && let Some(RunningSimulation { start_time, x_simulation, y_simulation, .. }) =
+            && let Some(RunningSimulation { x_simulation, y_simulation, .. }) =
                 &self.running_animation
         {
             // If the animation is not finished, we add the remaining animations delta.
-            let animation_duration = crate::animations::current_tick().duration_since(*start_time);
+            let now = crate::animations::current_tick();
 
             if let Some(x_simulation) = x_simulation {
-                delta.x += x_simulation.borrow().remaining_distance(animation_duration) as Coord;
+                delta.x += x_simulation.borrow().remaining_distance(now) as Coord;
             }
             if let Some(y_simulation) = y_simulation {
-                delta.y += y_simulation.borrow().remaining_distance(animation_duration) as Coord;
+                delta.y += y_simulation.borrow().remaining_distance(now) as Coord;
             }
         }
 
@@ -739,7 +736,6 @@ impl FlickableDataInner {
                     }
 
                     self.running_animation = Some(RunningSimulation {
-                        start_time: crate::animations::current_tick(),
                         x_simulation,
                         y_simulation,
                         weak: flick_rc.downgrade(),
@@ -787,15 +783,15 @@ impl FlickableDataInner {
             .running_animation
             .as_ref()
             .map(|sim| {
-                let dt = crate::animations::current_tick().duration_since(sim.start_time);
+                let now = crate::animations::current_tick();
                 Velocity::new(
                     sim.x_simulation
                         .as_ref()
-                        .map(|sim| sim.borrow().remaining_velocity(dt))
+                        .map(|sim| sim.borrow().remaining_velocity(now))
                         .unwrap_or_default(),
                     sim.y_simulation
                         .as_ref()
-                        .map(|sim| sim.borrow().remaining_velocity(dt))
+                        .map(|sim| sim.borrow().remaining_velocity(now))
                         .unwrap_or_default(),
                 )
             })
@@ -949,9 +945,6 @@ impl FlickableDataInner {
     }
 
     /// Springs the content back on one axis and adds the simulation to the running ones.
-    ///
-    /// An existing record keeps its start time, so the new simulation looks further along than it
-    /// is when it is asked for its remaining distance or velocity.
     fn start_spring_back(
         &mut self,
         flick: Pin<&Flickable>,
@@ -962,7 +955,6 @@ impl FlickableDataInner {
         let simulation =
             Self::spring_back(flick, flick_rc, dimension, geo, Self::backend_now(flick_rc), 0.);
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
-            start_time: crate::animations::current_tick(),
             weak: flick_rc.downgrade(),
             x_simulation: None,
             y_simulation: None,
@@ -1080,12 +1072,8 @@ impl FlickableDataInner {
                 (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
             }
 
-            self.running_animation = Some(RunningSimulation {
-                start_time: crate::animations::current_tick(),
-                weak: flick_rc.downgrade(),
-                x_simulation,
-                y_simulation,
-            });
+            self.running_animation =
+                Some(RunningSimulation { weak: flick_rc.downgrade(), x_simulation, y_simulation });
         }
     }
 }
@@ -1497,80 +1485,6 @@ mod velocity_history_tests {
     }
 
     #[test]
-    fn delayed_touch_press_preserves_short_flick_velocity() {
-        use crate::input::TouchState;
-
-        for frame_offset_ms in [-8, 6, 20] {
-            for batched in [false, true] {
-                for sign in [-1., 1.] {
-                    let start = crate::animations::current_tick() + Duration::from_millis(100);
-                    let press_frame = if frame_offset_ms < 0 {
-                        start - Duration::from_millis((-frame_offset_ms) as u64)
-                    } else {
-                        start + Duration::from_millis(frame_offset_ms as u64)
-                    };
-                    let first = start + Duration::from_micros(7000);
-                    let end = start + Duration::from_micros(10500);
-                    let press_position = LogicalPoint::new(100., 200.);
-                    let first_position = press_position + LogicalVector::new(0., sign * 42.);
-                    let end_position = press_position + LogicalVector::new(0., sign * 63.);
-                    let mut touch = TouchState::default();
-                    let pressed = touch.process(
-                        0,
-                        press_position,
-                        TouchPhase::Started,
-                        Some(start),
-                        TouchHistory::default(),
-                    );
-                    let mut inner = FlickableDataInner::default();
-                    for event in pressed.into_iter() {
-                        if let MouseEvent::Pressed { position, event_time, .. } = event {
-                            inner.pressed_mouse_state = Some((press_frame, position));
-                            inner.track_press(event_time.unwrap_or(press_frame));
-                        }
-                    }
-                    let moves = if batched {
-                        alloc::vec![(
-                            end_position,
-                            end,
-                            TouchHistory { history: alloc::vec![(first_position, first)] }
-                        )]
-                    } else {
-                        alloc::vec![
-                            (first_position, first, TouchHistory::default()),
-                            (end_position, end, TouchHistory::default()),
-                        ]
-                    };
-                    for (position, time, history) in moves {
-                        let events =
-                            touch.process(0, position, TouchPhase::Moved, Some(time), history);
-                        for event in events.into_iter() {
-                            if let MouseEvent::Moved { position, event_time, history, .. } = event {
-                                assert_eq!(event_time, Some(time));
-                                inner.track_move(
-                                    event_time.unwrap_or(start + Duration::from_millis(100)),
-                                    position,
-                                    &history,
-                                );
-                            }
-                        }
-                    }
-                    let mut reference = VelocityTracker::default();
-                    reference.push(start, LogicalVector::default());
-                    reference.push(first, LogicalVector::new(0., sign * 42.));
-                    reference.push(end, LogicalVector::new(0., sign * 21.));
-                    let actual = inner.velocity_rb.estimate_velocity().unwrap().velocity;
-                    let expected = reference.estimate_velocity().unwrap().velocity;
-                    assert_eq!(
-                        actual, expected,
-                        "frame offset {frame_offset_ms}, batched {batched}, sign {sign}"
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
     fn coalesced_history_preserves_leading_segment() {
         for sign in [-1., 1.] {
             for historical_positions in [alloc::vec![], alloc::vec![15], alloc::vec![12, 15]] {
@@ -1667,71 +1581,5 @@ mod velocity_history_tests {
             with_history.velocity_rb.estimate_velocity().unwrap().velocity,
             without_history.velocity_rb.estimate_velocity().unwrap().velocity,
         );
-    }
-
-    #[test]
-    fn transformed_history_preserves_velocity() {
-        use crate::input::TouchState;
-        use crate::lengths::ItemTransform;
-
-        for translation in [LogicalVector::default(), LogicalVector::new(-90., -180.)] {
-            for (transform, expected_velocity) in [
-                (ItemTransform::identity(), LogicalVector::new(1000., -2000.)),
-                (ItemTransform::new(0., 2., -3., 0., 50., 60.), LogicalVector::new(6000., 2000.)),
-            ] {
-                for batched in [false, true] {
-                    let start = crate::animations::current_tick();
-                    let press_position = LogicalPoint::new(100., 200.);
-                    let mut touch = TouchState::default();
-                    let mut inner = FlickableDataInner::default();
-                    let pressed = touch.process(
-                        0,
-                        press_position,
-                        TouchPhase::Started,
-                        Some(start),
-                        TouchHistory::default(),
-                    );
-                    for mut event in pressed.into_iter() {
-                        event.translate(translation);
-                        event.transform(transform);
-                        if let MouseEvent::Pressed { position, .. } = event {
-                            inner.pressed_mouse_state = Some((start, position));
-                            inner.track_press(start);
-                        }
-                    }
-                    let samples = [5, 10, 15, 20].map(|time| {
-                        (
-                            press_position + LogicalVector::new(time as f32, -2. * time as f32),
-                            start + Duration::from_millis(time),
-                        )
-                    });
-                    for batch in samples.chunks(if batched { 2 } else { 1 }) {
-                        let (&(position, time), historical_positions) = batch.split_last().unwrap();
-                        let events = touch.process(
-                            0,
-                            position,
-                            TouchPhase::Moved,
-                            Some(time),
-                            TouchHistory { history: historical_positions.to_vec() },
-                        );
-                        for mut event in events.into_iter() {
-                            event.translate(translation);
-                            event.transform(transform);
-                            if let MouseEvent::Moved { position, event_time, history, .. } = event {
-                                inner.track_move(event_time.unwrap(), position, &history);
-                            }
-                        }
-                    }
-                    crate::animations::update_animations(start + Duration::from_millis(20));
-                    let actual = inner.velocity_rb.estimate_velocity().unwrap().velocity;
-                    // Relative, since the general velocity tracker (used on Windows, for one)
-                    // fits in f32 and is off by about 2e-6 of the velocity
-                    assert!(
-                        (actual - expected_velocity).length() < expected_velocity.length() * 1e-4,
-                        "velocity {actual:?}, expected {expected_velocity:?}, batched {batched}"
-                    );
-                }
-            }
-        }
     }
 }

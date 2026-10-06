@@ -18,14 +18,14 @@ mod fling;
     not(any(target_os = "ios", target_os = "linux", target_os = "none", target_os = "macos"))
 ))]
 mod general;
-#[cfg(any(test, target_os = "ios", target_os = "linux", target_os = "none"))]
+#[cfg(any(target_os = "ios", target_os = "linux", target_os = "none"))]
 mod ios;
 #[cfg(any(
     test,
     not(any(target_os = "ios", target_os = "linux", target_os = "none", target_os = "macos"))
 ))]
 mod least_square;
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(target_os = "macos")]
 mod macos;
 mod ring_buffer;
 
@@ -57,7 +57,7 @@ pub(crate) type Velocity = euclid::Vector2D<f32, LogicalPx>;
 
 pub(crate) struct VelocityEstimate {
     pub(crate) velocity: Velocity,
-    #[cfg_attr(not(test), expect(unused, reason = "Confidence is not yet considered"))]
+    #[expect(unused, reason = "Confidence is not yet considered")]
     pub(crate) confidence: f32,
 }
 

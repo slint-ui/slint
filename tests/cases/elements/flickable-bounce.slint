@@ -98,7 +98,7 @@ assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right b
 // Turning on Bouncing
 slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
 
-// Change the content width to enable bouncing in the dimension y
+// Change the content height to enable bouncing in the dimension y
 instance.set_fli_content_height(instance.get_fli_height() + 40.);
 
 // Try to scroll up again
@@ -246,7 +246,7 @@ assert_eq!(instance.get_fli_content_x(), 0., "Bounce is off so scrolling right b
 // Turning on Bouncing
 slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
 
-// Change the content width to enable bouncing in the dimension y
+// Change the content height to enable bouncing in the dimension y
 instance.set_fli_content_height(instance.get_fli_height() + 40.);
 
 // Try to scroll up again

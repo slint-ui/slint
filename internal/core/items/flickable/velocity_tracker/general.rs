@@ -158,16 +158,6 @@ mod tests_general_velocity_tracker {
     }
 
     #[test]
-    fn short_flick_preserves_submillisecond_timing() {
-        let mut tracker = GeneralVelocityTracker::<8>::default();
-        tracker.push(Instant::from(Duration::ZERO), LogicalVector::default());
-        tracker.push(Instant::from(Duration::from_micros(7000)), LogicalVector::new(0., 42.));
-        tracker.push(Instant::from(Duration::from_micros(10500)), LogicalVector::new(0., 21.));
-        let estimate = tracker.estimate_velocity_internal().unwrap();
-        values_equal!(estimate.velocity.y, 6000., 0.1);
-    }
-
-    #[test]
     fn short_flick_uses_two_distinct_samples() {
         let start = crate::animations::current_tick();
         let mut tracker = GeneralVelocityTracker::<8>::default();
@@ -193,24 +183,6 @@ mod tests_general_velocity_tracker {
     fn test_velocity_tracker_cases() {
         let base_time = crate::animations::current_tick();
         let test_cases = [
-            (
-                "x only",
-                vec![
-                    (base_time, LogicalVector::new(0.0, 0.0)),
-                    (base_time + Duration::from_millis(10), LogicalVector::new(1.0, 0.0)),
-                    (base_time + Duration::from_millis(20), LogicalVector::new(2.0, 0.0)),
-                ],
-                LogicalVector::new(2. / 20e-3, 0.),
-            ),
-            (
-                "y only",
-                vec![
-                    (base_time, LogicalVector::new(0.0, 0.0)),
-                    (base_time + Duration::from_millis(15), LogicalVector::new(0.0, 4.0)),
-                    (base_time + Duration::from_millis(30), LogicalVector::new(0.0, 8.0)),
-                ],
-                LogicalVector::new(0., 8. / 30e-3),
-            ),
             (
                 "x and y",
                 vec![

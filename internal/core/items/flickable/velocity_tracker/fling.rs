@@ -50,3 +50,32 @@ pub(super) fn weighted_recent_velocity<const N: usize>(
 
     oldest_segment * weights[0] + middle_segment * weights[1] + newest_segment * weights[2]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lengths::LogicalVector;
+    use core::time::Duration;
+
+    #[test]
+    fn blends_the_last_three_segments_by_weight() {
+        let start = Instant::default();
+        let mut buffer = VelocityRingBuffer::<4>::default();
+        buffer.push(start, LogicalVector::default());
+        assert_eq!(weighted_recent_velocity(&buffer, [1., 1., 1.]), Velocity::default());
+
+        // The buffer drops the first sample; the rest form segments of 100, 200, and 300 px/s.
+        for (millis, distance) in [(10, 9.), (20, 1.), (30, 2.), (40, 3.)] {
+            buffer.push(
+                start + Duration::from_millis(millis),
+                LogicalVector::new(distance, -2. * distance),
+            );
+        }
+        let velocity = weighted_recent_velocity(&buffer, [0.5, 0.3, 0.2]);
+        let expected = 0.5 * 100. + 0.3 * 200. + 0.2 * 300.;
+        assert!(
+            (velocity - Velocity::new(expected, -2. * expected)).length() < 1e-3,
+            "{velocity:?}"
+        );
+    }
+}
