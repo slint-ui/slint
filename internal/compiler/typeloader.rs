@@ -2783,12 +2783,11 @@ fn test_snapshotting_typed_slot_implementations() {
     let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     config.enable_experimental = true;
     let mut type_loader = TypeLoader::new(config, &mut BuildDiagnostics::default());
-    let library_path = PathBuf::from("/tmp/typed-slot-implementations.slint");
+    let library_path = SourcePath::new("/tmp/typed-slot-implementations.slint");
     let mut diag = BuildDiagnostics::default();
     diag.enable_experimental = true;
     spin_on::spin_on(
         type_loader.load_file(
-            &library_path,
             &library_path,
             r#"
             interface ValueControl { in-out property <int> value; }
@@ -2815,10 +2814,9 @@ fn test_snapshotting_typed_slot_implementations() {
 
     let mut copy = snapshot(&type_loader).unwrap();
     drop(type_loader);
-    let application_path = PathBuf::from("/tmp/typed-slot-application.slint");
+    let application_path = SourcePath::new("/tmp/typed-slot-application.slint");
     spin_on::spin_on(
         copy.load_file(
-            &application_path,
             &application_path,
             r#"
             import { SelfImplementation, ChildImplementation, InheritedImplementation, Host }
