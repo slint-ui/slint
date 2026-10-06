@@ -315,15 +315,12 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : Style.panes.left-width;
     private property <length> rail-margin: root.style.rail.margin;
     private property <length> rail-gap: root.style.rail.gap;
-    private property <length> property-pane-width: Style.panes.inspector-width;
     private property <length> property-pane-height: root.style.details.height;
     private property <length> preview-property-pane-height: root.style.details.preview-height;
-    private property <length> property-pane-margin: root.rail-margin;
-    private property <length> preview-panel-width: root.property-pane-width;
     private property <length> preview-panel-height: root.style.preview.height;
     private property <length> edit-safe-top: root.tab-bar-height + Metrics.space-medium;
     private property <length> edit-safe-bottom: root.style.rail.safe-bottom;
-    private property <length> rail-width: max(root.preview-panel-width, root.property-pane-width);
+    private property <length> rail-width: Style.panes.inspector-width;
     private property <length> rail-x: root.width - root.rail-margin - root.rail-width;
     private property <length> edit-safe-right: root.rail-width + root.rail-margin + root.rail-gap;
     private property <length> available-width: max(1px, root.width - root.edit-safe-right - Metrics.space-section);
@@ -410,8 +407,7 @@ export component ImageAssetEditor inherits Rectangle {
 
     function preview-position() -> Point {
         return {
-            x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2
-                + (root.preview-panel-width - root.preview-width()) / 2,
+            x: root.rail-x + (root.rail-width - root.preview-width()) / 2,
             y: root.tab-bar-height + root.style.preview.body-top + (root.preview-panel-height - root.style.preview.body-top - root.style.preview.body-bottom - root.preview-height()) / 2,
         };
     }
@@ -437,14 +433,6 @@ export component ImageAssetEditor inherits Rectangle {
         root.preview-size-custom = true;
         root.preview-custom-width = max(root.preview-min-size, root.preview-resize-start-size.width + width-delta);
         root.preview-custom-height = max(root.preview-min-size, root.preview-resize-start-size.height + height-delta);
-    }
-
-    function image-width-label() -> string {
-        return root.source-width + "";
-    }
-
-    function image-height-label() -> string {
-        return root.source-height + "";
     }
 
     function nine-slice-expression() -> string {
@@ -723,9 +711,9 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
-        x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2;
+        x: root.rail-x;
         y: root.tab-bar-height;
-        width: root.preview-panel-width;
+        width: root.rail-width;
         height: root.preview-panel-height;
         border-radius: Metrics.radius-large;
         border-width: Metrics.border-width;
@@ -819,29 +807,18 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.preview: FloatingImageDetailsPanel {
+    if root.has-image(): FloatingImageDetailsPanel {
         style: root.style.details;
-        x: root.rail-x + root.rail-width - root.property-pane-width;
-        y: root.height - root.preview-property-pane-height - root.property-pane-margin;
-        width: root.property-pane-width;
-        height: root.preview-property-pane-height;
+        x: root.rail-x;
+        y: root.height - self.height - root.rail-margin;
+        width: root.rail-width;
+        height: root.mode == ImageAssetEditorMode.preview
+            ? root.preview-property-pane-height : root.property-pane-height;
         file: Api.selected-image-asset.relative-path;
         format: Api.selected-image-asset.format;
-        image-width: root.image-width-label();
-        image-height: root.image-height-label();
-    }
-
-    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: FloatingImageDetailsPanel {
-        style: root.style.details;
-        x: root.rail-x + root.rail-width - root.property-pane-width;
-        y: root.height - root.property-pane-height - root.property-pane-margin;
-        width: root.property-pane-width;
-        height: root.property-pane-height;
-        file: Api.selected-image-asset.relative-path;
-        format: Api.selected-image-asset.format;
-        image-width: root.image-width-label();
-        image-height: root.image-height-label();
-        expression: root.nine-slice-expression();
+        image-width: root.source-width + "";
+        image-height: root.source-height + "";
+        expression: root.mode == ImageAssetEditorMode.nine-slice ? root.nine-slice-expression() : "";
         copy-clicked => {
             Api.copy-nine-slice-expression(root.nine-slice-expression());
         }

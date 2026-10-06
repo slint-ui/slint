@@ -202,17 +202,6 @@ export component EditorUi inherits Window {
         }
     }
 
-    function open-startup-wizard() {
-        Api.open-startup-wizard();
-    }
-
-    function close-startup-wizard() {
-        Api.close-startup-wizard();
-    }
-
-    function open-project() {
-        root.close-startup-wizard();
-    }
     function apply-history(redo: bool) {
         FillSession.apply-history(redo);
     }
@@ -543,9 +532,6 @@ export component EditorUi inherits Window {
         }
 
         if Api.startup-wizard-visible: StartupWizard {
-            opened => {
-                root.open-project();
-            }
             create-new-project => {
                 Project.create-new-project();
             }
