@@ -307,6 +307,7 @@ def test_outline_ghost_follows_pointer_in_tree(
         wait_for_source(source, source.read_bytes())
         row = outline_row(window, "sibling-a")
         row_width, row_height = row.size.width, row.size.height
+        assert row_height == 26
         grab = slint_testing.LogicalPosition(
             x=row.size.width * grab_fraction, y=row.size.height * grab_fraction
         )
