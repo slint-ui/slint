@@ -2591,9 +2591,16 @@ impl WindowInner {
     }
 
     /// Set the SlintContext.
-    /// This needs to be called once before any other functions that would use the context.
+    /// This needs to be called before any other functions that would use the context.
+    /// A platform may hand out the same window again, so setting the window's own context
+    /// again is allowed, but setting a different one panics.
     pub fn set_context(&self, ctx: crate::SlintContext) {
-        self.ctx.set(ctx).map_err(|_| ()).expect("context shouldn't have been set before")
+        if let Err(ctx) = self.ctx.set(ctx) {
+            assert!(
+                core::ptr::eq(&*self.ctx.get().unwrap().0, &*ctx.0),
+                "the window already belongs to another context"
+            );
+        }
     }
 }
 
