@@ -29,7 +29,7 @@ Generated runtime binaries were checked through builds, version checks, hashes, 
 - Preserved exact UTF-8 bytes in validation, including CRLF line endings.
 - Centralized render identity and acknowledgements in `slintPreview` model context.
   Frontend errors retain the last valid instance and report actionable diagnostics with real source paths.
-- Predecode images before compilation so invalid assets produce an error acknowledgement instead of a silently missing image.
+- Decode images before compilation so invalid assets produce an error acknowledgement instead of a silently missing image.
 - Extracted only an explicit team-package file list, with deterministic ZIP metadata and native executable permissions.
   Project snapshots, test files, credentials, and build directories are excluded.
 
