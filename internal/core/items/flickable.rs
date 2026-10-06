@@ -976,97 +976,63 @@ impl FlickableDataInner {
             let velocity_estimation = self.velocity_rb.estimate_velocity();
             let release_time = Self::backend_now(flick_rc);
 
-            let x_simulation = if inside_bounds_x {
-                match velocity_estimation.as_ref() {
-                    Some(velocity_estimation)
-                        if velocity_estimation.velocity.x.abs()
-                            >= FlickAnimation::minimum_flick_velocity_animation() =>
-                    {
-                        let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                        let carried_velocity_x = FlickAnimation::carried_momentum(
-                            velocity_estimation.velocity.x,
-                            self.retained_velocity.x,
-                            flick.carry_momentum(),
-                        );
-                        let limit_x = Self::flick_limits(
-                            flick_rc,
-                            velocity_estimation.velocity.x,
-                            Dimension::X,
-                        );
-                        let x_simulation =
-                            Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                                let curr_val = content_x.get().0 as f32;
-                                content_x.set_physic_animation_value(weak.clone());
-                                RefCell::new(FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Velocity {
-                                        velocity: velocity_estimation.velocity.x
-                                            + carried_velocity_x,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::X),
-                                    curr_val,
-                                    limit_x,
-                                ))
-                            });
-                        Some(x_simulation as Rc<RefCell<dyn PositionSimulation>>)
-                    }
-                    _ => None,
+            // The release simulation generic over the Dimension
+            let release_simulation = |dimension: Dimension,
+                                      velocity: Option<f32>,
+                                      inside_bounds: bool| {
+                if !inside_bounds {
+                    return Some(Self::spring_back(
+                        flick,
+                        flick_rc,
+                        dimension,
+                        &geo,
+                        release_time,
+                        velocity.unwrap_or(0.),
+                    ));
                 }
-            } else {
-                Some(Self::spring_back(
-                    flick,
-                    flick_rc,
-                    Dimension::X,
-                    &geo,
-                    release_time,
-                    velocity_estimation.as_ref().map_or(0., |estimate| estimate.velocity.x),
-                ))
+                let velocity = velocity.filter(|velocity| {
+                    velocity.abs() >= FlickAnimation::minimum_flick_velocity_animation()
+                })?;
+                let (retained_velocity, content) = match dimension {
+                    Dimension::X => (
+                        self.retained_velocity.x,
+                        (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick),
+                    ),
+                    Dimension::Y => (
+                        self.retained_velocity.y,
+                        (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick),
+                    ),
+                };
+                let carried_velocity = FlickAnimation::carried_momentum(
+                    velocity,
+                    retained_velocity,
+                    flick.carry_momentum(),
+                );
+                let limit = Self::flick_limits(flick_rc, velocity, dimension);
+                let simulation = Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
+                    let curr_val = content.get().0 as f32;
+                    content.set_physic_animation_value(weak.clone());
+                    RefCell::new(FlickAnimation::create_animation(
+                        FlickAnimationParameter::Velocity { velocity: velocity + carried_velocity },
+                        effective_bounce(flick, &geo, dimension),
+                        curr_val,
+                        limit,
+                    ))
+                });
+                Some(simulation as Rc<RefCell<dyn PositionSimulation>>)
             };
 
-            let y_simulation = if inside_bounds_y {
-                match velocity_estimation.as_ref() {
-                    Some(velocity_estimation)
-                        if velocity_estimation.velocity.y.abs()
-                            >= FlickAnimation::minimum_flick_velocity_animation() =>
-                    {
-                        let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-                        let carried_velocity_y = FlickAnimation::carried_momentum(
-                            velocity_estimation.velocity.y,
-                            self.retained_velocity.y,
-                            flick.carry_momentum(),
-                        );
-                        let limit_y = Self::flick_limits(
-                            flick_rc,
-                            velocity_estimation.velocity.y,
-                            Dimension::Y,
-                        );
-                        let y_simulation =
-                            Rc::new_cyclic(|weak: &Weak<RefCell<FlickAnimation>>| {
-                                let curr_val = content_y.get().0 as f32;
-                                content_y.set_physic_animation_value(weak.clone());
-                                RefCell::new(FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Velocity {
-                                        velocity: velocity_estimation.velocity.y
-                                            + carried_velocity_y,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::Y),
-                                    curr_val,
-                                    limit_y,
-                                ))
-                            });
-                        Some(y_simulation as Rc<RefCell<dyn PositionSimulation>>)
-                    }
-                    _ => None,
-                }
-            } else {
-                Some(Self::spring_back(
-                    flick,
-                    flick_rc,
-                    Dimension::Y,
-                    &geo,
-                    release_time,
-                    velocity_estimation.as_ref().map_or(0., |estimate| estimate.velocity.y),
-                ))
-            };
+            let x_simulation = release_simulation(
+                Dimension::X,
+                velocity_estimation.as_ref().map(|v| v.velocity.x),
+                inside_bounds_x,
+            );
+
+            let y_simulation = release_simulation(
+                Dimension::Y,
+                velocity_estimation.map(|v| v.velocity.y),
+                inside_bounds_y,
+            );
 
             if x_simulation.is_some() || y_simulation.is_some() {
                 (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
