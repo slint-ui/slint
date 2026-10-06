@@ -1434,6 +1434,19 @@ pub(crate) struct DragData {
     pub(crate) allowed: AllowedDragActions,
 }
 
+/// A press held back by an item that returned [`InputEventFilterResult::DelayForwarding`].
+/// See "Delayed Event Handling" in `docs/development/input-event-system.md`.
+struct DelayedPress {
+    /// Replays `event_for_children` when it fires; dropping it cancels the replay.
+    _timer: crate::timers::Timer,
+    /// The press in the delaying item's local frame, replayed to its children when `timer` fires.
+    event_for_children: MouseEvent,
+    /// The press in `root`'s frame, replayed from `root` on release.
+    original_event: MouseEvent,
+    /// The item the press was dispatched from: the window's root item or a popup's.
+    root: ItemWeak,
+}
+
 /// The state which a window should hold for the mouse input
 #[derive(Default)]
 pub struct MouseInputState {
@@ -1459,7 +1472,7 @@ pub struct MouseInputState {
     /// this to decide whether to deliver a Drop — matching OS DnD pipelines, where a
     /// target that didn't previously accept never receives a drop.
     pub(crate) drop_target: Option<ItemWeak>,
-    delayed: Option<(crate::timers::Timer, MouseEvent, MouseEvent, ItemWeak)>,
+    delayed: Option<DelayedPress>,
     /// Items that still need an Exit after a delayed or discarded dispatch.
     delayed_exit_items: Vec<ItemWeak>,
     /// The previous target displaced by a delayed press, used for click counting.
@@ -1847,7 +1860,9 @@ pub(crate) fn process_delayed_event(
 ) -> MouseInputState {
     // the take bellow will also destroy the Timer
     let (event, original_event) = match mouse_input_state.delayed.take() {
-        Some((_, event_for_children, original_event, _)) => (event_for_children, original_event),
+        Some(DelayedPress { event_for_children, original_event, .. }) => {
+            (event_for_children, original_event)
+        }
         None => return mouse_input_state,
     };
 
@@ -1893,7 +1908,7 @@ pub(crate) fn resolve_delayed_event_on_release(
     current_event: &MouseEvent,
 ) -> MouseInputState {
     let same_pointer = match &mouse_input_state.delayed {
-        Some((_, _, original_event, _)) => {
+        Some(DelayedPress { original_event, .. }) => {
             original_event.touch_finger_id() == current_event.touch_finger_id()
                 && match (original_event, current_event) {
                     (
@@ -1909,9 +1924,7 @@ pub(crate) fn resolve_delayed_event_on_release(
         return mouse_input_state;
     }
 
-    let Some((_timer, _event_for_children, original_event, root)) =
-        mouse_input_state.delayed.take()
-    else {
+    let Some(DelayedPress { original_event, root, .. }) = mouse_input_state.delayed.take() else {
         return mouse_input_state;
     };
     let Some(root) = root.upgrade() else {
@@ -2010,8 +2023,12 @@ fn send_mouse_event_to_item(
                     }
                 },
             );
-            result.delayed =
-                Some((timer, event_for_children.clone(), original_event.clone(), root.downgrade()));
+            result.delayed = Some(DelayedPress {
+                _timer: timer,
+                event_for_children: event_for_children.clone(),
+                original_event: original_event.clone(),
+                root: root.downgrade(),
+            });
             result
                 .item_stack
                 .push((item_rc.downgrade(), InputEventFilterResult::DelayForwarding(duration)));
