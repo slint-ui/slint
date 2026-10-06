@@ -14,7 +14,6 @@ RUNTIME = json.loads((PLUGIN_ROOT / "runtime/runtime.json").read_text())
 class LspClient:
     def __init__(self, binary):
         self.binary = binary
-        self.documents = {}
 
     async def send(self, message):
         payload = json.dumps(message).encode()
@@ -44,16 +43,9 @@ class LspClient:
 
     async def check(self, path, source, revision):
         uri = Path(path).resolve().as_uri()
-        if type(revision) is not int or revision <= self.documents.get(uri, 0):
-            raise ValueError("Source revisions must increase for each document")
-        if uri not in self.documents:
-            method = "textDocument/didOpen"
-            params = {"textDocument": {"uri": uri, "languageId": "slint", "version": revision, "text": source}}
-        else:
-            method = "textDocument/didChange"
-            params = {"textDocument": {"uri": uri, "version": revision}, "contentChanges": [{"text": source}]}
-        self.documents[uri] = revision
-        await self.send({"jsonrpc": "2.0", "method": method, "params": params})
+        if type(revision) is not int or revision < 1:
+            raise ValueError("Source revisions must be positive integers")
+        await self.send({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "languageId": "slint", "version": revision, "text": source}}})
         diagnostics = []
         while True:
             message = await asyncio.wait_for(self.receive(), 15)
@@ -76,27 +68,17 @@ async def main(args):
     client = LspClient(binary)
     try:
         await client.start()
-        if args.stdio:
-            while line := await asyncio.to_thread(sys.stdin.readline):
-                request = json.loads(line)
-                result = await client.check(request["path"], request["source"], request["revision"])
-                print(json.dumps(result), flush=True)
-        else:
-            if not args.path:
-                raise ValueError("Provide a .slint file or --stdio")
-            result = await client.check(args.path, Path(args.path).read_text(), args.revision)
-            print(json.dumps(result), flush=True)
-            return int(result["status"] == "error")
-        return 0
+        result = await client.check(args.path, Path(args.path).read_bytes().decode("utf-8"), args.revision)
+        print(json.dumps(result), flush=True)
+        return int(result["status"] == "error")
     finally:
         await client.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Return revision-specific diagnostics from Slint's LSP")
-    parser.add_argument("path", nargs="?")
+    parser.add_argument("path")
     parser.add_argument("--revision", type=int, default=1)
-    parser.add_argument("--stdio", action="store_true", help="Keep the LSP alive; read source revisions as JSON lines")
     try:
         sys.exit(asyncio.run(main(parser.parse_args())))
     except Exception as error:

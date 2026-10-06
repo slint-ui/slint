@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "0.14.4",
+  "version": "0.15.0",
   "description": "Develop Slint applications with source validation and a Slint Wasm preview.",
   "author": { "name": "SixtyFPS GmbH" },
   "skills": "./skills/",

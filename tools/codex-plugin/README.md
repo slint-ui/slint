@@ -43,7 +43,28 @@ Teammates can check out this branch and run the same commands on their machine.
 Each developer builds their native LSP for their platform.
 No Site account, invitation, or hosted plugin identity is required.
 
-The preview resolves the bundled `slint-button.slint` import.
-Use the project's existing tooling for previews that need other project imports.
+## File-backed previews
+
+Call `render_slint` with an absolute `path`, the next `revision`, and `validatedSourceHash` returned by `validate_slint`.
+The tool reads saved source and rejects a mismatched validation hash.
+Supply `projectRoot` when relative imports or assets need a broader root than the entry file's directory.
+The preview reports source identity and ready/error acknowledgements through model context.
+These acknowledge the renderer, not independent visual inspection of the host window.
+
+Relative Slint imports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
+Dependencies stay inside the declared root, including symlink targets.
+Network dependencies, include-path aliases, and absolute dependency references are unsupported.
+Snapshots are immutable, private to the local user, and retain the latest 32 submissions in the system temporary directory.
+Each snapshot allows 128 files, 8 MiB per file, and 16 MiB total; each Slint file allows 64 KiB.
+An expired snapshot needs a fresh render submission.
+
+## Ready-to-install team package
+
+Run `node tools/codex-plugin/scripts/package-plugin.mjs /absolute/path/Slint.zip` after building.
+The archive includes the matching native LSP, Wasm, source revision, marketplace catalog, and installation instructions.
+It contains only an explicit package file list, without project snapshots, credentials, build caches, or test files.
+The generated ZIP has deterministic file ordering, timestamps, and executable permissions.
+The included native runtime works on the recorded platform and architecture; other platforms build from this checkout.
+
 The preview UI includes the existing editing, code display, and zoom features.
 Third-party notices are in `THIRD_PARTY_NOTICES.txt`.
