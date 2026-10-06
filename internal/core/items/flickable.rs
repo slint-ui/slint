@@ -442,10 +442,10 @@ pub(super) const SCROLL_FILTER_DISTANCE_SQUARED: LogicalLength = LogicalLength::
 enum CaptureEvents {
     MouseStart,
     MouseMove,
-    WheelMove,
     /// We captured a mouse wheel event but we did not yet decide if we are taking it or
     /// if a child is taking it
     WheelStart,
+    WheelMove,
 }
 
 struct RunningSimulation {
