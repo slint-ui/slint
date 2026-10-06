@@ -24,9 +24,9 @@
 #   - skrifa is replaced by a copy with patches/skrifa-0.44-no-hinting.patch applied, which
 #     leaves the font hinters out. Cargo.lock is restored afterwards.
 #
-# With NIGHTLY=1, the standard library is rebuilt with `panic = "immediate-abort"` and without
-# panic locations, which saves about another 8%. A panic then traps without a message, and
-# console_error_panic_hook has nothing to print.
+# The nightly toolchain rebuilds the standard library with `panic = "immediate-abort"` and without
+# panic locations, which saves about 8%. A panic then traps without a message, and
+# console_error_panic_hook has nothing to print. NIGHTLY=0 builds with the default toolchain.
 #
 # The package goes to `pkg/` (or OUT_DIR), where the slintpad build picks it up:
 #   ./build-small.sh && cd ../../tools/slintpad && pnpm vite build
@@ -65,7 +65,7 @@ cargo_args+=(--config "patch.crates-io.skrifa.path=\"$skrifa_patched\"")
 cp ../../Cargo.lock "$CARGO_TARGET_DIR/Cargo.lock.orig"
 trap 'cp "$CARGO_TARGET_DIR/Cargo.lock.orig" ../../Cargo.lock' EXIT
 
-if [ "${NIGHTLY:-}" = 1 ]; then
+if [ "${NIGHTLY:-1}" = 1 ]; then
     export RUSTUP_TOOLCHAIN=nightly
     export RUSTFLAGS="${RUSTFLAGS:-} -Zunstable-options -Cpanic=immediate-abort -Zlocation-detail=none -Zfmt-debug=shallow"
     cargo_args+=(-Zbuild-std=std,panic_abort)
