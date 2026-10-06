@@ -2600,26 +2600,14 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
-/// Resolve the [`crate::SlintContext`] associated with a component root by
-/// asking it for (or creating) its window adapter and reading the context off
-/// the resulting window. Returns `None` only when no adapter can be produced.
-pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
-    let comp_ref_pin = vtable::VRc::borrow_pin(root);
-    let mut adapter = None;
-    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
-    adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
-}
-
-/// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
-/// from the component's [`crate::SlintContext`] reached via its window adapter, or
-/// transparent if none is associated.
-pub fn accent_color(root: &crate::item_tree::ItemTreeRc) -> crate::graphics::Color {
-    let comp_ref_pin = vtable::VRc::borrow_pin(root);
-    let mut adapter = None;
-    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
-    adapter.map_or(crate::graphics::Color::default(), |a| {
-        WindowInner::from_pub(a.window()).context().accent_color()
-    })
+/// The [`crate::SlintContext`] of the item tree `root`, or the current one when the item
+/// tree doesn't know its context (C++).
+pub fn context_for_root(root: &ItemTreeRc) -> crate::SlintContext {
+    let mut result = None;
+    vtable::VRc::borrow_pin(root).as_ref().slint_context(&mut result);
+    result
+        .or_else(crate::SlintContext::current)
+        .expect("an item tree exists, so there is a current context")
 }
 
 /// This module contains the functions needed to interface with the event loop and window traits

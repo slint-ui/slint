@@ -155,10 +155,8 @@ pub struct ItemTreeVTable {
 
     /// Returns the context the item tree was created with, or leaves `result` empty when it
     /// doesn't know it.
-    pub slint_context: extern "C" fn(
-        ::core::pin::Pin<VRef<ItemTreeVTable>>,
-        result: &mut Option<SlintContext>,
-    ),
+    pub slint_context:
+        extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, result: &mut Option<SlintContext>),
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe extern "C" fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
@@ -1015,14 +1013,9 @@ impl ItemRc {
         result
     }
 
-    /// The context of the item tree this item belongs to, or the current one when the item
-    /// tree doesn't know its context (C++).
+    /// The context of the item tree this item belongs to (see [`crate::window::context_for_root`]).
     pub fn slint_context(&self) -> crate::SlintContext {
-        let mut result = None;
-        vtable::VRc::borrow_pin(&self.item_tree).as_ref().slint_context(&mut result);
-        result
-            .or_else(crate::SlintContext::current)
-            .expect("an item exists, so there is a current context")
+        crate::window::context_for_root(&self.item_tree)
     }
 
     /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].

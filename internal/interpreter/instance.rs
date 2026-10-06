@@ -708,9 +708,7 @@ impl Instance {
         let host = parent
             .upgrade()
             .expect("the host item tree is alive while it builds its embedded component");
-        let context = i_slint_core::window::context_for_root(&host)
-            .or_else(i_slint_core::SlintContext::current)
-            .expect("the backend is set up before creating a component");
+        let context = i_slint_core::window::context_for_root(&host);
         Self::new_with_options(
             compilation_unit,
             public_component_index,
