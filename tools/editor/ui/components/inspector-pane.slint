@@ -30,6 +30,7 @@ export component InspectorPane inherits Rectangle {
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
     property <length> content-x: Metrics.border-width;
+    private property <length> field-width: root.width - root.content-x - 2 * root.style.padding;
     in property <length> outline-pane-height: 0px;
     property <length> split-height: Style.panes.splitter-size;
     property <length> default-outline-height: (root.height - root.split-height) / 2;
@@ -757,7 +758,7 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
-                            width: root.width - root.content-x - 2 * root.style.padding;
+                            width: root.field-width;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
@@ -782,7 +783,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.shadow-color-code();
                                 swatch: root.shadow-color-swatch();
                                 wide: true;
-                                width: root.width - root.content-x - 2 * root.style.padding;
+                                width: root.field-width;
                                 commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                 preview-key: root.field-key(root.current-shadow-prefix() + "color");
                                 session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
@@ -807,7 +808,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
-                            width: root.width - root.content-x - 2 * root.style.padding;
+                            width: root.field-width;
                             accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
@@ -830,7 +831,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
-                            width: root.width - root.content-x - 2 * root.style.padding;
+                            width: root.field-width;
                             accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
@@ -847,7 +848,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
-                            width: root.width - root.content-x - 2 * root.style.padding;
+                            width: root.field-width;
                             accessible-name: "Shadow spread";
                             label: "Spread";
                             value: root.shadow-spread();
@@ -917,7 +918,7 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
-                                width: root.width - root.content-x - 2 * root.style.padding;
+                                width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
@@ -987,7 +988,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
-                            width: root.width - root.content-x - 2 * root.style.padding;
+                            width: root.field-width;
                             accepted(text) => {
                                 return text != "" && root.commit-code("font-family", root.quote(text));
                             }

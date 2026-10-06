@@ -66,8 +66,8 @@ component ResizeDivider inherits FocusScope {
     accessible-orientation: root.vertical ? Orientation.horizontal : Orientation.vertical;
     accessible-label: root.resize-label;
     accessible-description: root.vertical
-        ? @tr("Pane width. Left and Right adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.")
-        : "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
+        ? @tr("Pane width. Left and Right adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px)
+        : @tr("Lower pane height. Arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px);
     accessible-value: "\{(root.value / 1px).round()} px";
     accessible-value-minimum: root.value-minimum / 1px;
     accessible-value-maximum: root.value-maximum / 1px;
@@ -125,7 +125,7 @@ component ResizeDivider inherits FocusScope {
 
     Rectangle {
         visible: !root.vertical || touch.has-hover || touch.pressed || root.has-focus;
-        x: root.vertical ? (parent.width - self.width) / 2 : 0px;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
         y: root.vertical ? 0px : (parent.height - self.height) / 2;
         width: root.vertical ? Metrics.border-width : parent.width;
         height: root.vertical ? parent.height : Metrics.border-width;
@@ -173,37 +173,9 @@ export component HorizontalResizeDivider inherits ResizeDivider {
     height: Style.panes.splitter-size;
 }
 
-export component PaneWidthDivider inherits ResizeDivider {
-    in property <length> saved-width;
-    private property <length> requested-width: (root.dragged-width > 0px ? root.dragged-width
-        : root.saved-width > 0px ? root.saved-width : root.value-minimum)
-        .clamp(root.value-minimum, Style.panes.maximum-width);
-    callback resized(length);
-    callback reset();
-    callback width-requested(length);
-    private property <length> dragged-width;
-    private property <length> width-at-press;
-
+export component VerticalResizeDivider inherits ResizeDivider {
     vertical: true;
     width: Style.panes.splitter-size;
-
-    init => { root.width-requested(root.requested-width); }
-    changed requested-width => { root.width-requested(root.requested-width); }
-
-    drag-started => { root.width-at-press = root.value; }
-    dragged(delta) => {
-        root.dragged-width = (root.width-at-press + (root.reversed ? -delta : delta))
-            .clamp(root.value-minimum, root.value-maximum);
-    }
-    drag-finished(delta) => {
-        if delta != 0px { root.resized(root.value); }
-        root.dragged-width = 0px;
-    }
-    value-set(value) => { root.resized(value); }
-    reset-requested => {
-        root.dragged-width = 0px;
-        root.reset();
-    }
 }
 
 export component BodyLabel inherits Text {

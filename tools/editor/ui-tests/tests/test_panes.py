@@ -9,6 +9,7 @@ import pytest
 import slint_testing
 from canvas_interactions import center
 from inspector_interactions import inspector_field
+from slint_testing import keys
 from ui_driver import (
     element,
     first_window,
@@ -72,14 +73,13 @@ def double_click(window: slint_testing.Window, element: slint_testing.Element) -
 
 
 @pytest.mark.parametrize(
-    ("label", "pane_label", "setting", "minimum", "direction"),
+    ("label", "pane_label", "setting", "direction"),
     [
-        ("Project pane resize", "Project and elements", "left_pane_width", 286, 1),
+        ("Project pane resize", "Project and elements", "left_pane_width", 1),
         (
             "Inspector pane resize",
             "Inspector and outline",
             "inspector_pane_width",
-            232,
             -1,
         ),
     ],
@@ -92,7 +92,6 @@ def test_pane_width_drag_limits_reset_and_persistence(
     label: str,
     pane_label: str,
     setting: str,
-    minimum: int,
     direction: int,
 ) -> None:
     source_file = fixture_project / "Main.slint"
@@ -100,33 +99,37 @@ def test_pane_width_drag_limits_reset_and_persistence(
         window = first_window(editor)
         divider = element(window, label)
         pane = element(window, pane_label)
+        minimum = int(divider.accessible_value_minimum)
+        maximum = divider.accessible_value_maximum
+        delta = int((maximum - minimum) / 2)
+        step = divider.accessible_value_step
         assert pane.size.width == pytest.approx(minimum)
-        drag_divider(window, divider, direction * 96, horizontal=True)
-        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
-        wait_for_pane_settings(tmp_path, {setting: minimum + 96})
+        drag_divider(window, divider, direction * delta, horizontal=True)
+        assert pane.size.width == pytest.approx(minimum + delta, abs=1)
+        wait_for_pane_settings(tmp_path, {setting: minimum + delta})
         element(window, "Collapse sidebars").invoke_accessible_default_action()
         element(window, "Expand sidebars").invoke_accessible_default_action()
-        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        assert pane.size.width == pytest.approx(minimum + delta, abs=1)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         divider = element(window, label)
         pane = element(window, pane_label)
-        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        assert pane.size.width == pytest.approx(minimum + delta, abs=1)
         divider.invoke_accessible_increment_action()
-        assert pane.size.width == pytest.approx(minimum + 104, abs=1)
+        assert pane.size.width == pytest.approx(minimum + delta + step, abs=1)
         divider.invoke_accessible_decrement_action()
-        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        assert pane.size.width == pytest.approx(minimum + delta, abs=1)
         divider.accessible_value = "10000"
-        assert pane.size.width == pytest.approx(480, abs=1)
+        assert pane.size.width == pytest.approx(maximum, abs=1)
         divider.accessible_value = "0"
         assert pane.size.width == pytest.approx(minimum, abs=1)
-        divider.accessible_value = "400"
+        divider.accessible_value = str(minimum + delta)
         double_click(window, divider)
         assert pane.size.width == pytest.approx(minimum, abs=1)
         wait_for_pane_settings(tmp_path, {setting: None})
         drag_divider(window, divider, direction * 2000, horizontal=True)
-        assert pane.size.width == pytest.approx(480, abs=1)
+        assert pane.size.width == pytest.approx(maximum, abs=1)
         drag_divider(window, divider, -direction * 2000, horizontal=True)
         assert pane.size.width == pytest.approx(minimum, abs=1)
 
@@ -158,10 +161,12 @@ def test_wide_inspector_fields_follow_pane_width(
         select_outline_row(window, row)
         control = inspector_field(window, field, role)
         initial_width = control.size.width
-        drag_divider(
-            window, element(window, "Inspector pane resize"), -96, horizontal=True
+        divider = element(window, "Inspector pane resize")
+        delta = int(
+            (divider.accessible_value_maximum - divider.accessible_value_minimum) / 2
         )
-        assert control.size.width == pytest.approx(initial_width + 96, abs=1)
+        drag_divider(window, divider, -delta, horizontal=True)
+        assert control.size.width == pytest.approx(initial_width + delta, abs=1)
         assert source_file.read_bytes() == source
 
 
@@ -205,6 +210,18 @@ def test_pane_resize_handles_preserve_idle_edges(
             )
             idle_edge = idle.crop(bounds).tobytes()
             divider = element(window, label)
+            assert divider.absolute_position.y == canvas.absolute_position.y
+            assert divider.size.height == canvas.size.height
+            if label == "Project pane resize":
+                assert (
+                    divider.absolute_position.x + divider.size.width
+                    <= canvas.absolute_position.x
+                )
+            else:
+                assert (
+                    divider.absolute_position.x
+                    >= canvas.absolute_position.x + canvas.size.width
+                )
             window.dispatch_event(
                 slint_testing.PointerMoveEvent(
                     slint_testing.LogicalPosition(center(divider).x, y / scale + 5)
@@ -213,6 +230,23 @@ def test_pane_resize_handles_preserve_idle_edges(
             assert screenshot(window).crop(bounds).tobytes() != idle_edge
             window.dispatch_event(slint_testing.PointerMoveEvent(away))
             assert screenshot(window).crop(bounds).tobytes() == idle_edge
+
+        for x, delta in [
+            (canvas.absolute_position.x + 1, 10),
+            (canvas.absolute_position.x + canvas.size.width - 1, -10),
+        ]:
+            artboard = element(window, "Artboard")
+            initial_x = artboard.absolute_position.x
+            start = slint_testing.LogicalPosition(x, center(canvas).y)
+            end = slint_testing.LogicalPosition(x + delta, start.y)
+            button = slint_testing.PointerEventButton.Left
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Space))
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Space))
+            assert artboard.absolute_position.x == pytest.approx(initial_x + delta)
 
 
 def test_pane_sizes_persist_across_relaunch(

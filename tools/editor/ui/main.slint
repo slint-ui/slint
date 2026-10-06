@@ -8,7 +8,7 @@ import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, PaneWidthDivider } from "components/index.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -23,7 +23,7 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
+    Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
     FillSessionTarget, Hover, Preview, Project,
 }
 
@@ -186,14 +186,21 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
-    in property <length> left-pane-width: 0px;
-    in property <length> inspector-pane-width: 0px;
+    in property <length> left-pane-width-preference: 0px;
+    in property <length> inspector-pane-width-preference: 0px;
     callback left-pane-resized(length);
     callback inspector-pane-resized(length);
     callback left-pane-reset();
     callback inspector-pane-reset();
-    private property <length> requested-left-width: Style.panes.left-width;
-    private property <length> requested-inspector-width: Style.panes.inspector-width;
+    private property <length> dragged-left-width;
+    private property <length> dragged-inspector-width;
+    private property <length> width-at-press;
+    private property <length> requested-left-width: (root.dragged-left-width > 0px ? root.dragged-left-width
+        : root.left-pane-width-preference > 0px ? root.left-pane-width-preference : Style.panes.left-width)
+        .clamp(Style.panes.left-width, Style.panes.maximum-width);
+    private property <length> requested-inspector-width: (root.dragged-inspector-width > 0px ? root.dragged-inspector-width
+        : root.inspector-pane-width-preference > 0px ? root.inspector-pane-width-preference : Style.panes.inspector-width)
+        .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
     private property <bool> inspector-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
     private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width;
     private property <length> extra-left-width: root.requested-left-width - Style.panes.left-width;
@@ -440,7 +447,7 @@ export component EditorUi inherits Window {
 
                             if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
                                 sidebars-collapsed: root.sidebars-collapsed;
-                                left-pane-width: root.displayed-left-width;
+                                displayed-left-pane-width: root.displayed-left-width;
                             }
 
                             DragPreview {
@@ -470,35 +477,56 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                if !root.sidebars-collapsed: PaneWidthDivider {
-                    x: root.displayed-left-width - self.width / 2;
-                    y: Style.shell.top-bar-height;
-                    height: parent.height - self.y;
+                if !root.sidebars-collapsed: VerticalResizeDivider {
+                    width: max(Metrics.border-width, Style.scroll-indicator.inset);
+                    x: canvas-viewport.absolute-position.x - parent.absolute-position.x - self.width;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
                     z: 1;
                     resize-label: @tr("Project pane resize");
                     value: root.displayed-left-width;
                     value-minimum: Style.panes.left-width;
                     value-maximum: root.left-width-maximum;
-                    saved-width: root.left-pane-width;
-                    width-requested(value) => { root.requested-left-width = value; }
-                    resized(value) => { root.left-pane-resized(value); }
-                    reset => { root.left-pane-reset(); }
+                    drag-started => { root.width-at-press = root.requested-left-width; }
+                    dragged(delta) => {
+                        root.dragged-left-width = (root.width-at-press + delta)
+                            .clamp(Style.panes.left-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.left-pane-resized(root.requested-left-width); }
+                        root.dragged-left-width = 0px;
+                    }
+                    value-set(value) => { root.left-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-left-width = 0px;
+                        root.left-pane-reset();
+                    }
                 }
 
-                if root.inspector-visible && !root.sidebars-collapsed: PaneWidthDivider {
-                    x: parent.width - root.displayed-inspector-width - self.width / 2;
-                    y: Style.shell.top-bar-height;
-                    height: parent.height - self.y;
+                if root.inspector-visible && !root.sidebars-collapsed: VerticalResizeDivider {
+                    x: canvas-viewport.absolute-position.x + canvas-viewport.width - parent.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
                     z: 1;
                     resize-label: @tr("Inspector pane resize");
                     reversed: true;
                     value: root.displayed-inspector-width;
                     value-minimum: Style.panes.inspector-width;
                     value-maximum: root.inspector-width-maximum;
-                    saved-width: root.inspector-pane-width;
-                    width-requested(value) => { root.requested-inspector-width = value; }
-                    resized(value) => { root.inspector-pane-resized(value); }
-                    reset => { root.inspector-pane-reset(); }
+                    drag-started => { root.width-at-press = root.requested-inspector-width; }
+                    dragged(delta) => {
+                        root.dragged-inspector-width = (root.width-at-press - delta)
+                            .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.inspector-pane-resized(root.requested-inspector-width); }
+                        root.dragged-inspector-width = 0px;
+                    }
+                    value-set(value) => { root.inspector-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-inspector-width = 0px;
+                        root.inspector-pane-reset();
+                    }
                 }
 
                 if root.sidebars-collapsed: Rectangle {

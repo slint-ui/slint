@@ -84,43 +84,27 @@ pub fn initialize(
     editor_ui
         .set_outline_pane_height(settings.outline_pane_height.map_or(0.0, |height| height as f32));
 
-    editor_ui.set_left_pane_width(settings.left_pane_width.map_or(0.0, |width| width as f32));
-    let to_lsp_for_width = to_lsp.clone();
-    editor_ui.on_left_pane_resized(move |width| {
-        update_pane_size(PaneSize::Left, Some(width), &to_lsp_for_width);
-    });
-    let to_lsp_for_reset = to_lsp.clone();
-    editor_ui.on_left_pane_reset(move || {
-        update_pane_size(PaneSize::Left, None, &to_lsp_for_reset);
-    });
-
     editor_ui
-        .set_inspector_pane_width(settings.inspector_pane_width.map_or(0.0, |width| width as f32));
-    let to_lsp_for_width = to_lsp.clone();
-    editor_ui.on_inspector_pane_resized(move |width| {
-        update_pane_size(PaneSize::Inspector, Some(width), &to_lsp_for_width);
-    });
-    let to_lsp_for_reset = to_lsp.clone();
-    editor_ui.on_inspector_pane_reset(move || {
-        update_pane_size(PaneSize::Inspector, None, &to_lsp_for_reset);
-    });
-
-    let to_lsp_for_elements = to_lsp.clone();
-    editor_ui.on_elements_pane_resized(move |height| {
-        update_pane_size(PaneSize::Elements, Some(height), &to_lsp_for_elements);
-    });
-    let to_lsp_for_outline = to_lsp.clone();
-    editor_ui.on_outline_pane_resized(move |height| {
-        update_pane_size(PaneSize::Outline, Some(height), &to_lsp_for_outline);
-    });
-    let to_lsp_for_elements_reset = to_lsp.clone();
-    editor_ui.on_elements_pane_reset(move || {
-        update_pane_size(PaneSize::Elements, None, &to_lsp_for_elements_reset);
-    });
-    let to_lsp_for_outline_reset = to_lsp.clone();
-    editor_ui.on_outline_pane_reset(move || {
-        update_pane_size(PaneSize::Outline, None, &to_lsp_for_outline_reset);
-    });
+        .set_left_pane_width_preference(settings.left_pane_width.map_or(0.0, |width| width as f32));
+    editor_ui.set_inspector_pane_width_preference(
+        settings.inspector_pane_width.map_or(0.0, |width| width as f32),
+    );
+    let resize_pane = |pane| {
+        let to_lsp = to_lsp.clone();
+        move |size| update_pane_size(pane, Some(size), &to_lsp)
+    };
+    let reset_pane = |pane| {
+        let to_lsp = to_lsp.clone();
+        move || update_pane_size(pane, None, &to_lsp)
+    };
+    editor_ui.on_left_pane_resized(resize_pane(PaneSize::LeftWidth));
+    editor_ui.on_inspector_pane_resized(resize_pane(PaneSize::InspectorWidth));
+    editor_ui.on_elements_pane_resized(resize_pane(PaneSize::ElementsHeight));
+    editor_ui.on_outline_pane_resized(resize_pane(PaneSize::OutlineHeight));
+    editor_ui.on_left_pane_reset(reset_pane(PaneSize::LeftWidth));
+    editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
+    editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
+    editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
 
     to_lsp
         .send_telemetry(&mut [(
@@ -453,10 +437,10 @@ pub fn set_user_settings(name: String, contents: String) {
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
                 apply_visible_recent_projects(editor_ui, &settings);
-                editor_ui.set_inspector_pane_width(
+                editor_ui.set_inspector_pane_width_preference(
                     settings.inspector_pane_width.map_or(0.0, |width| width as f32),
                 );
-                editor_ui.set_left_pane_width(
+                editor_ui.set_left_pane_width_preference(
                     settings.left_pane_width.map_or(0.0, |width| width as f32),
                 );
                 editor_ui.set_elements_pane_height(
@@ -473,10 +457,10 @@ pub fn set_user_settings(name: String, contents: String) {
 
 #[derive(Copy, Clone)]
 enum PaneSize {
-    Elements,
-    Outline,
-    Left,
-    Inspector,
+    ElementsHeight,
+    OutlineHeight,
+    LeftWidth,
+    InspectorWidth,
 }
 
 fn update_pane_size(
@@ -487,20 +471,20 @@ fn update_pane_size(
     let value = size.map(|size| size.round() as i32).filter(|size| *size > 0);
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let target = match pane {
-            PaneSize::Elements => &mut preview_state.settings.elements_pane_height,
-            PaneSize::Outline => &mut preview_state.settings.outline_pane_height,
-            PaneSize::Inspector => &mut preview_state.settings.inspector_pane_width,
-            PaneSize::Left => &mut preview_state.settings.left_pane_width,
+            PaneSize::ElementsHeight => &mut preview_state.settings.elements_pane_height,
+            PaneSize::OutlineHeight => &mut preview_state.settings.outline_pane_height,
+            PaneSize::InspectorWidth => &mut preview_state.settings.inspector_pane_width,
+            PaneSize::LeftWidth => &mut preview_state.settings.left_pane_width,
         };
         let changed = *target != value;
         *target = value;
         if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
             let size = value.map_or(0.0, |size| size as f32);
             match pane {
-                PaneSize::Elements => editor_ui.set_elements_pane_height(size),
-                PaneSize::Outline => editor_ui.set_outline_pane_height(size),
-                PaneSize::Inspector => editor_ui.set_inspector_pane_width(size),
-                PaneSize::Left => editor_ui.set_left_pane_width(size),
+                PaneSize::ElementsHeight => editor_ui.set_elements_pane_height(size),
+                PaneSize::OutlineHeight => editor_ui.set_outline_pane_height(size),
+                PaneSize::InspectorWidth => editor_ui.set_inspector_pane_width_preference(size),
+                PaneSize::LeftWidth => editor_ui.set_left_pane_width_preference(size),
             }
         }
         changed.then(|| preview_state.settings.serialize())
