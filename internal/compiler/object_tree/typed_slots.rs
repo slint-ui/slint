@@ -43,7 +43,10 @@ pub(crate) fn lookup_slot(component: &Rc<Component>, name: &str) -> Option<Decla
 
 fn implements(element: &Element, interface: &Rc<Component>) -> bool {
     element.typed_slot_interface.as_ref().is_some_and(|c| Rc::ptr_eq(c, interface))
-        || element.implemented_interfaces.iter().any(|i| Rc::ptr_eq(i, &interface.root_element))
+        || element
+            .implement_statements
+            .iter()
+            .any(|statement| Rc::ptr_eq(&statement.interface, &interface.root_element))
         || match &element.base_type {
             ElementType::Component(base) => implements(&base.root_element.borrow(), interface),
             _ => false,

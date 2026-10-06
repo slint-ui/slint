@@ -75,7 +75,6 @@ fn create_repeater_components(component: &Rc<Component>) {
                 inline_depth: 0,
                 slot_target: original_elem.slot_target.clone(),
                 typed_slot_interface: original_elem.typed_slot_interface.clone(),
-                implemented_interfaces: original_elem.implemented_interfaces.clone(),
                 forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),

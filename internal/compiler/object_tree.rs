@@ -1375,7 +1375,6 @@ pub struct Element {
     pub slot_target: Option<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
-    pub implemented_interfaces: Vec<ElementRc>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
     pub forwarded_slots: Vec<SlotForwarding>,
@@ -2107,11 +2106,6 @@ impl Element {
             }
         }
 
-        r.borrow_mut().implemented_interfaces = implemented_interfaces
-            .iter()
-            .chain(child_implements.iter())
-            .map(|i| i.interface.clone())
-            .collect();
         interfaces::apply_child_implement_statements(&r, &child_implements, diag);
         r.borrow_mut().implement_statements =
             implemented_interfaces.into_iter().chain(child_implements).collect();

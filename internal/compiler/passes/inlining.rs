@@ -666,7 +666,6 @@ fn duplicate_element_with_mapping(
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
-        implemented_interfaces: elem.implemented_interfaces.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
         // This is important because children_constraints contain NamedReferences that need

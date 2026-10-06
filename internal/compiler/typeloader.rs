@@ -487,8 +487,8 @@ impl Snapshotter {
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
-        target_element.implemented_interfaces =
-            elem.implemented_interfaces.iter().map(|e| self.use_element(e)).collect();
+        target_element.implement_statements =
+            elem.implement_statements.iter().map(|statement| statement.snapshot(self)).collect();
 
         target_element.transitions = elem
             .transitions
@@ -2725,6 +2725,65 @@ fn test_snapshotting() {
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_snapshotting_typed_slot_implementations() {
+    let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.enable_experimental = true;
+    let mut type_loader = TypeLoader::new(config, &mut BuildDiagnostics::default());
+    let library_path = PathBuf::from("/tmp/typed-slot-implementations.slint");
+    let mut diag = BuildDiagnostics::default();
+    diag.enable_experimental = true;
+    spin_on::spin_on(
+        type_loader.load_file(
+            &library_path,
+            &library_path,
+            r#"
+            interface ValueControl { in-out property <int> value; }
+            export component SelfImplementation {
+                implement ValueControl <=> self;
+                in-out property <int> value;
+            }
+            export component ChildImplementation {
+                implement ValueControl <=> child;
+                child := SelfImplementation { }
+            }
+            export component InheritedImplementation inherits SelfImplementation { }
+            export component Host {
+                slot <ValueControl> control;
+                control { value: 42; }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
+
+    let mut copy = snapshot(&type_loader).unwrap();
+    drop(type_loader);
+    let application_path = PathBuf::from("/tmp/typed-slot-application.slint");
+    spin_on::spin_on(
+        copy.load_file(
+            &application_path,
+            &application_path,
+            r#"
+            import { SelfImplementation, ChildImplementation, InheritedImplementation, Host }
+                from "typed-slot-implementations.slint";
+            export component TestCase {
+                Host { control << SelfImplementation { } }
+                Host { control << ChildImplementation { } }
+                Host { control << InheritedImplementation { } }
+            }
+        "#
+            .into(),
+            false,
+            &mut diag,
+        ),
+    );
+    assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
 }
 
 #[test]

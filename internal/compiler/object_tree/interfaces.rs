@@ -46,7 +46,7 @@ fn check_property_declaration_conflicts(
 
 const SELF_ID: &str = "self";
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ImplementBinding {
     OnSelf,
     OnChild {
@@ -77,11 +77,18 @@ impl ImplementBinding {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct ImplementedInterface {
     node: syntax_nodes::ImplementStatement,
     pub(super) interface: ElementRc,
     interface_name: SmolStr,
     binding: ImplementBinding,
+}
+
+impl ImplementedInterface {
+    pub(crate) fn snapshot(&self, snapshotter: &crate::typeloader::Snapshotter) -> Self {
+        Self { interface: snapshotter.use_element(&self.interface), ..self.clone() }
+    }
 }
 
 fn resolve_implement_statement(
