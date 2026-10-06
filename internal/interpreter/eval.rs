@@ -805,7 +805,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
-                    Value::String(context_or_global(ctx).format_number(n))
+                    Value::String(component_context(ctx).format_number(n))
                 }
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
@@ -1948,7 +1948,7 @@ fn eval_translation_reference(
     let args = StringModelWrapper(args);
     let Some(plural) = plural else {
         return Value::String(
-            context_or_global(ctx)
+            component_context(ctx)
                 .translate_from_bundle(&translations.strings[string_index], &args),
         );
     };
@@ -1956,7 +1956,7 @@ fn eval_translation_reference(
     let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
     let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
     let globals = ctx.globals.clone();
-    Value::String(context_or_global(ctx).translate_from_bundle_with_plural_form(
+    Value::String(component_context(ctx).translate_from_bundle_with_plural_form(
         &forms,
         |language_index| {
             let rule = translations.plural_rules.get(language_index)?.as_ref()?;
@@ -2015,12 +2015,12 @@ fn call_builtin_function(
         BuiltinFunction::ToFixed => {
             let n = to_num(ctx, &arguments[0]);
             let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(context_or_global(ctx).format_number_fixed(n, digits.max(0) as usize))
+            Value::String(component_context(ctx).format_number_fixed(n, digits.max(0) as usize))
         }
         BuiltinFunction::ToPrecision => {
             let n = to_num(ctx, &arguments[0]);
             let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(context_or_global(ctx).format_number_precision(n, p.max(0) as usize))
+            Value::String(component_context(ctx).format_number_precision(n, p.max(0) as usize))
         }
         BuiltinFunction::StringStartsWith => Value::Bool(
             to_string(ctx, &arguments[0])
@@ -2040,7 +2040,7 @@ fn call_builtin_function(
             Value::String(i_slint_core::window::default_window_title())
         }
         BuiltinFunction::DecimalSeparator => {
-            Value::String(context_or_global(ctx).locale_decimal_separator().into())
+            Value::String(component_context(ctx).locale_decimal_separator().into())
         }
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
@@ -2055,10 +2055,10 @@ fn call_builtin_function(
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }
         BuiltinFunction::StringIsFloat => Value::Bool(
-            context_or_global(ctx).parse_number(to_string(ctx, &arguments[0]).as_str()).is_some(),
+            component_context(ctx).parse_number(to_string(ctx, &arguments[0]).as_str()).is_some(),
         ),
         BuiltinFunction::StringToFloat => Value::Number(
-            context_or_global(ctx)
+            component_context(ctx)
                 .parse_number(to_string(ctx, &arguments[0]).as_str())
                 .unwrap_or_default() as f64,
         ),
@@ -2197,7 +2197,7 @@ fn call_builtin_function(
             let value = eval_expression(ctx, &arguments[1]);
 
             i_slint_core::model::report_model_error(
-                &context_or_global(ctx),
+                &component_context(ctx),
                 "push",
                 log_message_location(source_location).as_ref().map(LogLocation::get),
                 model.push_row(value),
@@ -2224,7 +2224,7 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
-                &context_or_global(ctx),
+                &component_context(ctx),
                 "remove",
                 log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
@@ -2253,7 +2253,7 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
-                &context_or_global(ctx),
+                &component_context(ctx),
                 "insert",
                 log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
@@ -2575,7 +2575,7 @@ fn call_builtin_function(
         BuiltinFunction::Debug => {
             use i_slint_core::debug_log::*;
             let msg = to_string(ctx, &arguments[0]);
-            context_or_global(ctx).dispatch_log_message(LogMessage::new(
+            component_context(ctx).dispatch_log_message(LogMessage::new(
                 LogMessageSource::SlintCode,
                 log_message_location(source_location).as_ref().map(LogLocation::get),
                 format_args!("{msg}"),
@@ -2635,7 +2635,7 @@ fn call_builtin_function(
             };
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
-            Value::String(context_or_global(ctx).translate(
+            Value::String(component_context(ctx).translate(
                 &original,
                 &context,
                 &domain,
@@ -2782,26 +2782,12 @@ pub(crate) fn find_window_adapter(
     find_root_instance(ctx)?.window_adapter_or_default()
 }
 
-/// The context the component was created with, else its window's,
-/// or the thread's while it has no window.
-///
-/// Unlike [`find_window_adapter`], this doesn't create a window.
-/// It uses [`root_instance`] so that it also works in a global's init code.
-fn context_or_global(ctx: &EvalContext) -> i_slint_core::SlintContext {
-    ctx.globals
-        .upgrade()
-        .and_then(|globals| globals.context.get().cloned())
-        .or_else(|| {
-            root_instance(ctx).and_then(|instance| instance.window_adapter.get().cloned()).and_then(
-                |adapter| {
-                    i_slint_core::window::WindowInner::from_pub(adapter.window())
-                        .try_context()
-                        .cloned()
-                },
-            )
-        })
-        .or_else(i_slint_core::SlintContext::current)
-        .expect("a component is being evaluated, so a platform and its context exist")
+fn component_context(ctx: &EvalContext) -> i_slint_core::SlintContext {
+    match ctx.globals.upgrade() {
+        Some(globals) => globals.context.clone(),
+        None => i_slint_core::SlintContext::current()
+            .expect("a component is being evaluated, so there is a current context"),
+    }
 }
 
 /// Dispatch an `Expression::ItemMemberFunctionCall` (like

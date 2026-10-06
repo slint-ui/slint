@@ -65,17 +65,6 @@ impl ComponentDefinitionInner {
         self.public().name.as_str()
     }
 
-    /// Instantiate the component.
-    pub fn create(&self) -> ComponentInstanceInner {
-        let vrc = Instance::new_with_window(
-            self.compilation_unit.clone(),
-            self.public_index,
-            None,
-            self.type_loaders.clone(),
-        );
-        ComponentInstanceInner(vrc)
-    }
-
     /// Instantiate the component, reusing the given `WindowAdapter` instead
     /// of creating a fresh one via the backend selector.
     pub fn create_with_existing_window(
@@ -85,7 +74,7 @@ impl ComponentDefinitionInner {
         let vrc = Instance::new_with_window(
             self.compilation_unit.clone(),
             self.public_index,
-            Some(window_adapter),
+            window_adapter,
             self.type_loaders.clone(),
         );
         ComponentInstanceInner(vrc)
