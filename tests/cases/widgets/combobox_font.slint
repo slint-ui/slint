@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBox } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    box := ComboBox {
+        model: ["first", "second"];
+        font-family: "DejaVu Serif";
+        font-italic: true;
+    }
+
+    out property <bool> test: box.font-family == "DejaVu Serif" && box.font-italic;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+*/

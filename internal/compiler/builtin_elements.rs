@@ -3854,6 +3854,8 @@ fn build(l: &mut Loader) {
         in property <bool> combobox;
         in property <length> pressed-x;
         in property <length> pressed-y;
+        in property <string> font-family;
+        in property <bool> font-italic;
     } }
 
     element! {
@@ -3876,6 +3878,8 @@ fn build(l: &mut Loader) {
         in-out property <string> current-value;
         in property <bool> enabled: true;
         in property <bool> has-focus;
+        in property <string> font-family;
+        in property <bool> font-italic;
     } }
 
     element! {
