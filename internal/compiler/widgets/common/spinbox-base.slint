@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { SpinBoxInterface } from "std-widget-interfaces.slint";
+
 export component SpinBoxBase {
+    implement SpinBoxInterface <=> self;
+
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled: true;

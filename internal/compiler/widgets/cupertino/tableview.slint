@@ -4,6 +4,8 @@
 import { CupertinoPalette, CupertinoFontSettings, Icons } from "styling.slint";
 import { ListView } from "../common/listview.slint";
 
+import { StandardTableViewInterface } from "../common/std-widget-interfaces.slint";
+
 component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
     in property <bool> last;
@@ -122,6 +124,8 @@ component TableViewRow inherits Rectangle {
 }
 
 export component StandardTableView {
+    implement StandardTableViewInterface <=> self;
+
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
@@ -140,11 +144,13 @@ export component StandardTableView {
     @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
+    in property <bool> mouse-drag-pan-enabled <=> scroll-view.mouse-drag-pan-enabled;
 
     callback sort-ascending(column: int);
     callback sort-descending(column: int);
     callback row-pointer-event(row: int, event: PointerEvent, position: Point);
     callback current-row-changed(current-row: int);
+    callback scrolled <=> scroll-view.scrolled;
 
     public function set-current-row(index: int) {
         if (index < 0 || index >= rows.length) {

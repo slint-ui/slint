@@ -135,6 +135,7 @@ dashmap
 Datakonsult
 Datas
 datatypes
+datepickerpopup
 Datelike
 DBUILD
 DCACHE
@@ -620,6 +621,8 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+standardlistview
+standardtableview
 startswith
 staticlib
 staticmethod
@@ -674,6 +677,7 @@ thirdparty
 thumbsup
 thumbv
 tikv
+timepickerpopup
 Tisch
 titlebar
 Tlink

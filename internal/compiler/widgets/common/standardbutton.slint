@@ -3,7 +3,11 @@
 
 import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
+import { StandardButtonInterface } from "std-widget-interfaces.slint";
+
 export component StandardButton {
+    implement StandardButtonInterface <=> self;
+
     in property <StandardButtonKind> kind;
     in property <bool> enabled <=> base.enabled;
     in property <bool> primary <=> base.primary;

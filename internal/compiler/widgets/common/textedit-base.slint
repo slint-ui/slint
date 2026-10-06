@@ -3,7 +3,11 @@
 
 import { ScrollView } from "std-widgets-impl.slint";
 
+import { TextEditInterface } from "std-widget-interfaces.slint";
+
 export component TextEditBase inherits Rectangle {
+    implement TextEditInterface <=> self;
+
     in property <length> scroll-view-padding;
 
     in property <TextWrap> wrap <=> text-input.wrap;

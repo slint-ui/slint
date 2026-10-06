@@ -4,7 +4,11 @@
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { StateLayer } from "components.slint";
 
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
+
 export component Switch {
+    implement SwitchInterface <=> self;
+
     in property <bool> enabled: true;
     in property <string> text;
     in-out property <bool> checked;
