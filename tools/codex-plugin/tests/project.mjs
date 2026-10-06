@@ -39,3 +39,26 @@ test("dependencies outside the declared root, including symlinks, are rejected",
     await assert.rejects(snapshotProject(path, join(root, "project"), ""), /outside the declared project root/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+test("re-exported components include their assets and preserve empty images", async () => {
+  const root = await mkdtemp(join(tmpdir(), "slint-re-export-test-"));
+  try {
+    await mkdir(join(root, "ui"));
+    await writeFile(join(root, "main.slint"), 'import { Card } from "ui/pages.slint"; export component Preview inherits Window { Card {} }');
+    await writeFile(join(root, "ui/pages.slint"), 'export { Card } from "card.slint";');
+    const card = 'export component Card inherits Rectangle { Image { source: @image-url(""); } Image { source: @image-url("check.svg"); } }';
+    await writeFile(join(root, "ui/card.slint"), card);
+    await writeFile(join(root, "ui/check.svg"), '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>');
+    const first = await snapshotProject(join(root, "main.slint"), root, "");
+    assert.deepEqual(Object.keys(first.files).sort(), ["main.slint", "ui/card.slint", "ui/check.svg", "ui/pages.slint"]);
+    assert.equal(Buffer.from((await readProjectResource(first.files["ui/card.slint"].uris[0])).blob, "base64").toString(), card);
+    await writeFile(join(root, "ui/card.slint"), card.replace('inherits Rectangle {', 'inherits Rectangle { background: blue;'));
+    const second = await snapshotProject(join(root, "main.slint"), root, "");
+    assert.equal(first.files["main.slint"].hash, second.files["main.slint"].hash);
+    assert.notEqual(first.id, second.id);
+    assert.notEqual(first.files["ui/card.slint"].hash, second.files["ui/card.slint"].hash);
+    await writeFile(join(root, "ui/pages.slint"), 'export { Card } from "../../outside.slint";');
+    await assert.rejects(snapshotProject(join(root, "main.slint"), root, ""), /outside the declared project root/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

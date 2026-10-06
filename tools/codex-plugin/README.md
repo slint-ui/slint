@@ -54,7 +54,8 @@ Supply `projectRoot` when relative imports or assets need a broader root than th
 The preview reports source identity and ready/error acknowledgements through model context.
 These acknowledge the renderer, not independent visual inspection of the host window.
 
-Relative Slint imports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
+Relative Slint imports and re-exports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
+Empty image URLs remain empty images and do not create file dependencies.
 Dependencies stay inside the declared root, including symlink targets.
 Network dependencies, include-path aliases, and absolute dependency references are unsupported.
 Snapshots are immutable, private to the local user, and retain the latest 32 submissions in the system temporary directory.
