@@ -9,6 +9,8 @@ use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+mod color_utilities;
+
 fn ui() -> MainWindow {
     let ui = MainWindow::new().unwrap();
     navigation_view(&ui);
@@ -331,13 +333,14 @@ mod theme {
         pub schemes: MaterialSchemes,
     }
 
-    pub fn init(ui: &MainWindow) {
+        pub fn init(ui: &MainWindow) {
         let adapter = MainViewAdapter::get(ui);
         adapter.set_palettes(VecModel::from_slice(&[
             MenuItem { text: "Slint".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Purple".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Red".into(), enabled: true, ..Default::default() },
             MenuItem { text: "Green".into(), enabled: true, ..Default::default() },
+            MenuItem { text: "Custom (Dynamic)".into(), enabled: true, ..Default::default() },
         ]));
 
         adapter.on_load_palette({
@@ -347,7 +350,16 @@ mod theme {
                 let ui = ui_weak.unwrap();
                 load_theme(index as usize, &ui);
             }
-        })
+        });
+
+        adapter.on_apply_dynamic_color({
+            let ui_weak = ui.as_weak();
+
+            move |hex_str| {
+                let ui = ui_weak.unwrap();
+                apply_custom_color(&hex_str, &ui);
+            }
+        });
     }
 
     fn load_theme(index: usize, ui: &MainWindow) {
@@ -360,5 +372,14 @@ mod theme {
         .unwrap();
 
         MaterialPalette::get(ui).set_schemes(theme.schemes.into());
+    }
+
+    fn apply_custom_color(hex_str: &str, ui: &MainWindow) {
+        let hex_clean = hex_str.trim().trim_start_matches('#');
+        if let Ok(rgb) = u32::from_str_radix(hex_clean, 16) {
+            let argb = 0xff00_0000 | rgb;
+            let schemes = crate::color_utilities::generate_slint_schemes(argb);
+            MaterialPalette::get(ui).set_schemes(schemes);
+        }
     }
 }

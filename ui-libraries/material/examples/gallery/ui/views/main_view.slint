@@ -17,7 +17,9 @@ import {
     SmallAppBar,
     PopupMenu,
     MenuItem,
-    MaterialStyleMetrics
+    MaterialStyleMetrics,
+    Dialog,
+    TextField
 } from "../../../../src/material.slint";
 
 export enum Views {
@@ -30,9 +32,11 @@ export global MainViewAdapter {
         { text: "Purple", enabled: true },
         { text: "Green", enabled: true },
         { text: "Red", enabled: true },
+        { text: "Custom (Dynamic)", enabled: true },
     ];
 
     callback load_palette(index: int);
+    callback apply_dynamic_color(hex: string);
 }
 
 export component MainView {
@@ -85,8 +89,53 @@ export component MainView {
             items: MainViewAdapter.palettes;
 
             activated(index) => {
-                MainViewAdapter.load_palette(index);
+                if index == 4 {
+                    color_dialog.show();
+                } else {
+                    MainViewAdapter.load_palette(index);
+                }
                 color_menu.close();
+            }
+        }
+
+        color_dialog := Dialog {
+            x: -root.absolute_position.x;
+            y: -root.absolute_position.y;
+            width: MainWindowAdapter.width;
+            height: MainWindowAdapter.height;
+            title: "Custom M3 Dynamic Color";
+            default_action_text: "Apply";
+            actions: ["Cancel"];
+
+            VerticalLayout {
+                min_width: 380px;
+                spacing: MaterialStyleMetrics.spacing_12;
+                padding_top: MaterialStyleMetrics.padding_8;
+                padding_bottom: MaterialStyleMetrics.padding_8;
+
+                MaterialText {
+                    text: "Enter a seed color (e.g. #2379F4, #E91E63, #009688) to generate Material 3 schemes dynamically:";
+                    wrap: word_wrap;
+                }
+
+                color_tf := TextField {
+                    text: "#2379F4";
+                    label: "Hex Color";
+                    placeholder_text: "#RRGGBB";
+                    accepted(val) => {
+                        MainViewAdapter.apply_dynamic_color(val);
+                        color_dialog.close();
+                    }
+                }
+            }
+
+            default_action_clicked => {
+                MainViewAdapter.apply_dynamic_color(color_tf.text);
+                color_dialog.close();
+            }
+
+            action_clicked(idx) => {
+                color_dialog.close();
             }
         }
 
