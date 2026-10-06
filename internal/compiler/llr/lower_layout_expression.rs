@@ -241,6 +241,9 @@ fn compute_box_layout_info_ortho_with_measure(
                 Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
                 bld.alignment,
             ),
+            // Reverse does not affect item sizes. This solve exists only to
+            // measure height-for-width cells, so normal placement is sufficient.
+            ("reverse", Type::Bool, llr_Expression::BoolLiteral(false)),
             ("cells", bld.cells.ty(ctx), bld.cells),
         ],
     );
@@ -423,6 +426,11 @@ pub(super) fn solve_box_layout(
         .map(|e| Box::new(super::lower_expression::lower_expression(&e, ctx)));
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
     let (data, function) = if o == layout.orientation {
+        let reverse = if let Some(reverse) = &layout.reverse {
+            llr_Expression::PropertyReference(ctx.map_property_reference(reverse))
+        } else {
+            llr_Expression::BoolLiteral(false)
+        };
         let data = make_struct(
             BuiltinStruct::BoxLayoutData,
             [
@@ -434,6 +442,7 @@ pub(super) fn solve_box_layout(
                     Type::Enumeration(crate::typeregister::BUILTIN.enums.LayoutAlignment.clone()),
                     bld.alignment,
                 ),
+                ("reverse", Type::Bool, reverse),
                 ("cells", bld.cells.ty(ctx), bld.cells),
             ],
         );

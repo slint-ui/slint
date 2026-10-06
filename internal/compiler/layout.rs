@@ -748,6 +748,8 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
+    /// Runtime `reverse` property for main-axis placement.
+    pub reverse: Option<NamedReference>,
     /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
     /// Whether this is the one-cell wrapper [`repeated_element_layout_info`]
@@ -775,6 +777,9 @@ impl BoxLayout {
             }
         }
         self.geometry.visit_named_references(visitor);
+        if let Some(e) = self.reverse.as_mut() {
+            visitor(&mut *e);
+        }
         if let Some(e) = self.cross_alignment.as_mut() {
             visitor(&mut *e);
         }
@@ -1151,6 +1156,7 @@ pub fn repeated_element_layout_info(
         // merge, not the sum) when queried for the axis orthogonal to the box's own
         // orientation.
         orientation: orientation.orthogonal(),
+        reverse: None,
         elems: vec![LayoutItem {
             element: elem.clone(),
             constraints: LayoutConstraints::default(),

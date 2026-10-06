@@ -1506,6 +1506,8 @@ impl PropertyAnalysis {
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
     pub content_y: NamedReference,
+    /// Whether the ListView lays out model rows in reverse physical order.
+    pub reverse: NamedReference,
     /// `None` when the user explicitly sets `content-height` on the ListView;
     /// `Some` when the ListView computes it from the content.
     pub content_height: Option<NamedReference>,
@@ -2952,6 +2954,7 @@ impl Element {
                     .then(|| NamedReference::new(parent, SmolStr::new_static("content-width"))),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
+                reverse: NamedReference::new(parent, SmolStr::new_static("reverse")),
             };
             // these properties are set by the ListView layouting code
             if let Some(content_height) = &lvi.content_height {
@@ -4553,6 +4556,7 @@ fn visit_all_named_references_in_element_dyn(
         }
         vis(&mut lv.listview_height);
         vis(&mut lv.listview_width);
+        vis(&mut lv.reverse);
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);

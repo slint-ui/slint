@@ -523,6 +523,7 @@ impl Snapshotter {
                     content_width: lv.content_width.as_ref().map(|width| width.snapshot(self)),
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
+                    reverse: lv.reverse.snapshot(self),
                 }),
             });
 
