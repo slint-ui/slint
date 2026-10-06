@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { snapshotProject } from "../project.mjs";
 
 const child = spawn(process.argv[2] || "codex", ["app-server"]);
 const pending = new Map();
@@ -53,7 +56,13 @@ try {
   }
   const wasm = gunzipSync(Buffer.concat(chunks));
   assert.equal(createHash("sha256").update(wasm).digest("hex"), metadata.wasmHash);
-  console.log(JSON.stringify({ status: "passed", server: server.name, preview: preview.uri, htmlBytes: Buffer.byteLength(html), runtimeVersion: metadata.version, runtimeReads: chunks.length + 1 }));
+  const project = await snapshotProject(fileURLToPath(new URL("../examples/button.slint", import.meta.url)), undefined, await readFile(new URL("../components/slint-button.slint", import.meta.url), "utf8"));
+  for (const file of Object.values(project.files)) {
+    const bytes = [];
+    for (const uri of file.uris) bytes.push(Buffer.from((await read(uri)).contents[0].blob, "base64"));
+    assert.equal(createHash("sha256").update(Buffer.concat(bytes)).digest("hex"), file.hash);
+  }
+  console.log(JSON.stringify({ status: "passed", server: server.name, preview: preview.uri, htmlBytes: Buffer.byteLength(html), runtimeVersion: metadata.version, runtimeReads: chunks.length + 1, projectFiles: Object.keys(project.files).length }));
 } finally {
   child.kill();
 }
