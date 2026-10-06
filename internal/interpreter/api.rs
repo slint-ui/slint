@@ -1325,7 +1325,9 @@ impl ComponentDefinition {
         options: WindowOptions,
     ) -> Result<ComponentInstance, PlatformError> {
         let instance = match options {
-            WindowOptions::CreateNewWindow => self.inner.create(),
+            WindowOptions::CreateNewWindow => self
+                .inner
+                .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone)?),
             WindowOptions::UseExistingWindow(adapter) => {
                 self.inner.create_with_existing_window(adapter)
             }

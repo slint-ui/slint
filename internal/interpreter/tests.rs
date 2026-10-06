@@ -146,7 +146,11 @@ fn llr_compile(code: &str, name: &str) -> crate::component::ComponentInstanceInn
         "{:?}",
         result.diagnostics
     );
-    result.components.get(name).expect("component should compile").create()
+    result
+        .components
+        .get(name)
+        .expect("component should compile")
+        .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone).unwrap())
 }
 
 #[cfg(feature = "internal")]
@@ -525,7 +529,8 @@ fn interpreter_path_elements() {
     // the LLR walk where `cast_to_path_data` intercepts the expression;
     // end-to-end coverage comes from running an example through
     // `slint-viewer`.
-    let instance = def.create();
+    let instance = def
+        .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone).unwrap());
     assert_eq!(instance.get_property("dummy"), Some(crate::Value::Number(1.)));
 }
 

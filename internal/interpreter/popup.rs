@@ -460,12 +460,14 @@ fn new_popup_for(
 ) -> vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance> {
     let cu = owner.compilation_unit.clone();
     let parent_weak = std::rc::Rc::downgrade(&Pin::into_inner(owner.clone()));
-    let globals = owner
-        .root
-        .get()
-        .and_then(|w| w.upgrade())
-        .map(|inst| inst.globals.clone())
-        .unwrap_or_else(|| std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu)));
+    let globals =
+        owner.root.get().and_then(|w| w.upgrade()).map(|inst| inst.globals.clone()).unwrap_or_else(
+            || {
+                let context = i_slint_core::SlintContext::current()
+                    .expect("a component exists, so there is a current context");
+                std::rc::Rc::new(crate::globals::GlobalStorage::new(&cu, context))
+            },
+        );
     crate::instance::Instance::new_popup(cu, item_tree, parent_weak, globals)
 }
 
