@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
-import { BodyLabel, ComponentPaletteRow, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "index.slint";
+import { BodyLabel, ComponentPaletteRow, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "index.slint";
 import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Project } from "../project.slint";
@@ -141,10 +141,6 @@ export component LeftPane inherits Rectangle {
     background: Colors.surface;
     accessible-role: AccessibleRole.navigation;
     accessible-label: "Project and elements";
-
-    EdgeDivider {
-        x: parent.width - self.width;
-    }
 
     VerticalLayout {
         height: 100%;

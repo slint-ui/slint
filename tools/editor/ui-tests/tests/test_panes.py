@@ -7,7 +7,14 @@ from pathlib import Path
 import pytest
 import slint_testing
 from canvas_interactions import center
-from ui_driver import element, first_window, launch_editor, wait_until
+from inspector_interactions import inspector_field
+from ui_driver import (
+    element,
+    first_window,
+    launch_editor,
+    select_outline_row,
+    wait_until,
+)
 
 
 def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
@@ -36,11 +43,18 @@ def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> 
         ) from error
 
 
-def drag_vertically(
-    window: slint_testing.Window, element: slint_testing.Element, delta: float
+def drag_divider(
+    window: slint_testing.Window,
+    element: slint_testing.Element,
+    delta: float,
+    *,
+    horizontal: bool = False,
 ) -> None:
     start = center(element)
-    end = slint_testing.LogicalPosition(x=start.x, y=start.y + delta)
+    end = slint_testing.LogicalPosition(
+        x=start.x + (delta if horizontal else 0),
+        y=start.y + (0 if horizontal else delta),
+    )
     button = slint_testing.PointerEventButton.Left
     window.dispatch_event(slint_testing.PointerPressEvent(start, button))
     window.dispatch_event(slint_testing.PointerMoveEvent(end))
@@ -55,14 +69,106 @@ def double_click(window: slint_testing.Window, element: slint_testing.Element) -
         window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
 
 
+@pytest.mark.parametrize(
+    ("label", "pane_label", "setting", "minimum", "direction"),
+    [
+        ("Project pane resize", "Project and elements", "left_pane_width", 286, 1),
+        (
+            "Inspector pane resize",
+            "Inspector and outline",
+            "inspector_pane_width",
+            232,
+            -1,
+        ),
+    ],
+)
+def test_pane_width_drag_limits_reset_and_persistence(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    tmp_path: Path,
+    label: str,
+    pane_label: str,
+    setting: str,
+    minimum: int,
+    direction: int,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        divider = element(window, label)
+        pane = element(window, pane_label)
+        assert pane.size.width == pytest.approx(minimum)
+        drag_divider(window, divider, direction * 96, horizontal=True)
+        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        wait_for_pane_settings(tmp_path, {setting: minimum + 96})
+        element(window, "Collapse sidebars").invoke_accessible_default_action()
+        element(window, "Expand sidebars").invoke_accessible_default_action()
+        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        divider = element(window, label)
+        pane = element(window, pane_label)
+        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        divider.invoke_accessible_increment_action()
+        assert pane.size.width == pytest.approx(minimum + 104, abs=1)
+        divider.invoke_accessible_decrement_action()
+        assert pane.size.width == pytest.approx(minimum + 96, abs=1)
+        divider.accessible_value = "10000"
+        assert pane.size.width == pytest.approx(480, abs=1)
+        divider.accessible_value = "0"
+        assert pane.size.width == pytest.approx(minimum, abs=1)
+        divider.accessible_value = "400"
+        double_click(window, divider)
+        assert pane.size.width == pytest.approx(minimum, abs=1)
+        wait_for_pane_settings(tmp_path, {setting: None})
+        drag_divider(window, divider, direction * 2000, horizontal=True)
+        assert pane.size.width == pytest.approx(480, abs=1)
+        drag_divider(window, divider, -direction * 2000, horizontal=True)
+        assert pane.size.width == pytest.approx(minimum, abs=1)
+
+
+@pytest.mark.parametrize(
+    ("row", "field", "role"),
+    [
+        (
+            "inspect-rectangle",
+            "Rectangle effect",
+            slint_testing.AccessibleRole.Combobox,
+        ),
+        ("inspect-text", "Font family", slint_testing.AccessibleRole.TextInput),
+        ("inspect-image", "Image fit", slint_testing.AccessibleRole.Combobox),
+    ],
+)
+def test_wide_inspector_fields_follow_pane_width(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    row: str,
+    field: str,
+    role: slint_testing.AccessibleRole,
+) -> None:
+    source_file = fixture_project / "InspectorCases.slint"
+    source = source_file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, row)
+        control = inspector_field(window, field, role)
+        initial_width = control.size.width
+        drag_divider(
+            window, element(window, "Inspector pane resize"), -96, horizontal=True
+        )
+        assert control.size.width == pytest.approx(initial_width + 96, abs=1)
+        assert source_file.read_bytes() == source
+
+
 def test_pane_sizes_persist_across_relaunch(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
-    editor_environment["HOME"] = str(tmp_path / "home")
-    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     source_file = fixture_project / "Main.slint"
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
@@ -72,8 +178,8 @@ def test_pane_sizes_persist_across_relaunch(
         initial_elements_y = elements_divider.absolute_position.y
         initial_outline_y = outline_divider.absolute_position.y
 
-        drag_vertically(window, elements_divider, 72)
-        drag_vertically(window, outline_divider, -64)
+        drag_divider(window, elements_divider, 72)
+        drag_divider(window, outline_divider, -64)
 
         assert element(window, "FILES").accessible_label == "FILES"
         assert element(window, "ELEMENTS").accessible_label == "ELEMENTS"
@@ -122,8 +228,6 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
-    editor_environment["HOME"] = str(tmp_path / "home")
-    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
@@ -147,8 +251,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         outline.invoke_accessible_increment_action()
         assert float(outline.accessible_value.split()[0]) == default_outline
 
-        drag_vertically(window, elements, 1000)
-        drag_vertically(window, outline, 1000)
+        drag_divider(window, elements, 1000)
+        drag_divider(window, outline, 1000)
         assert (
             float(elements.accessible_value.split()[0])
             == elements.accessible_value_minimum
@@ -160,8 +264,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
 
         elements = element(window, "Elements pane resize")
         outline = element(window, "Outline pane resize")
-        drag_vertically(window, elements, -1000)
-        drag_vertically(window, outline, -1000)
+        drag_divider(window, elements, -1000)
+        drag_divider(window, outline, -1000)
         assert (
             float(elements.accessible_value.split()[0])
             == elements.accessible_value_maximum

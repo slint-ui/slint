@@ -42,12 +42,9 @@ export global EditorWindow {
     in-out property <length> height;
 }
 
-export component EdgeDivider inherits Rectangle {
-    width: Metrics.border-width;
-    background: Colors.border;
-}
-
-export component HorizontalResizeDivider inherits FocusScope {
+component ResizeDivider inherits FocusScope {
+    in property <bool> vertical: false;
+    in property <bool> reversed: false;
     in property <string> resize-label;
     in property <color> line-color: Colors.border;
     in property <length> value: Style.panes.minimum;
@@ -60,10 +57,12 @@ export component HorizontalResizeDivider inherits FocusScope {
     callback value-set(length);
     callback reset-requested();
 
-    height: Style.panes.splitter-size;
     accessible-role: AccessibleRole.slider;
+    accessible-orientation: root.vertical ? Orientation.horizontal : Orientation.vertical;
     accessible-label: root.resize-label;
-    accessible-description: "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
+    accessible-description: root.vertical
+        ? @tr("Pane width. Left and Right adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.")
+        : "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
     accessible-value: "\{(root.value / 1px).round()} px";
     accessible-value-minimum: root.value-minimum / 1px;
     accessible-value-maximum: root.value-maximum / 1px;
@@ -79,11 +78,13 @@ export component HorizontalResizeDivider inherits FocusScope {
             root.reset-requested();
             return accept;
         }
-        if event.text == Key.UpArrow {
+        if (!root.vertical && event.text == Key.UpArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.LeftArrow : Key.RightArrow)) {
             root.value-set(min(root.value + root.value-step, root.value-maximum));
             return accept;
         }
-        if event.text == Key.DownArrow {
+        if (!root.vertical && event.text == Key.DownArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.RightArrow : Key.LeftArrow)) {
             root.value-set(max(root.value - root.value-step, root.value-minimum));
             return accept;
         }
@@ -118,39 +119,84 @@ export component HorizontalResizeDivider inherits FocusScope {
     }
 
     Rectangle {
-        y: (parent.height - self.height) / 2;
-        width: parent.width;
-        height: Metrics.border-width;
+        x: root.vertical ? (parent.width - self.width) / 2 : 0px;
+        y: root.vertical ? 0px : (parent.height - self.height) / 2;
+        width: root.vertical ? Metrics.border-width : parent.width;
+        height: root.vertical ? parent.height : Metrics.border-width;
         background: root.line-color;
     }
 
     touch := TouchArea {
         width: parent.width;
         height: parent.height;
-        mouse-cursor: ns-resize;
-        private property <length> press-absolute-y;
+        mouse-cursor: root.vertical ? ew-resize : ns-resize;
+        private property <length> press-position;
+        private property <length> drag-delta;
+        private property <length> pointer-position: root.vertical
+            ? self.absolute-position.x + self.mouse-x
+            : self.absolute-position.y + self.mouse-y;
 
         changed pressed => {
             if self.pressed {
                 root.focus();
-                self.press-absolute-y = self.absolute-position.y + self.mouse-y;
+                self.press-position = self.pointer-position;
+                self.drag-delta = 0px;
                 root.drag-started();
             } else {
-                root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                root.drag-finished(self.drag-delta);
                 root.clear-focus();
             }
         }
 
         moved => {
             if self.pressed {
-                root.dragged(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                self.drag-delta = self.pointer-position - self.press-position;
+                root.dragged(self.drag-delta);
             }
         }
 
         double-clicked => {
+            self.drag-delta = 0px;
             root.reset-requested();
         }
 
+    }
+}
+
+export component HorizontalResizeDivider inherits ResizeDivider {
+    height: Style.panes.splitter-size;
+}
+
+export component PaneWidthDivider inherits ResizeDivider {
+    in property <length> saved-width;
+    private property <length> requested-width: (root.dragged-width > 0px ? root.dragged-width
+        : root.saved-width > 0px ? root.saved-width : root.value-minimum)
+        .clamp(root.value-minimum, Style.panes.maximum-width);
+    callback resized(length);
+    callback reset();
+    callback width-requested(length);
+    private property <length> dragged-width;
+    private property <length> width-at-press;
+
+    vertical: true;
+    width: Style.panes.splitter-size;
+
+    init => { root.width-requested(root.requested-width); }
+    changed requested-width => { root.width-requested(root.requested-width); }
+
+    drag-started => { root.width-at-press = root.value; }
+    dragged(delta) => {
+        root.dragged-width = (root.width-at-press + (root.reversed ? -delta : delta))
+            .clamp(root.value-minimum, root.value-maximum);
+    }
+    drag-finished(delta) => {
+        if delta != 0px { root.resized(root.value); }
+        root.dragged-width = 0px;
+    }
+    value-set(value) => { root.resized(value); }
+    reset-requested => {
+        root.dragged-width = 0px;
+        root.reset();
     }
 }
 

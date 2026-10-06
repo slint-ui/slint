@@ -40,8 +40,6 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     fixture_project: Path,
     tmp_path: Path,
 ) -> None:
-    editor_environment["HOME"] = str(tmp_path / "home")
-    editor_environment["XDG_CONFIG_HOME"] = str(tmp_path / "config")
     editor_environment["SLINT_NO_MUDA"] = "1"
 
     with launch_editor(

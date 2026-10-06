@@ -2248,6 +2248,35 @@ mod tests {
         assert!(!editor.window().is_maximized());
     }
 
+    #[test]
+    fn pane_widths_shrink_and_restore_without_changing_preferences() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.set_left_pane_width(480.);
+        editor.set_inspector_pane_width(480.);
+        editor.show().unwrap();
+
+        let pane = |label: &str| {
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                .next()
+                .unwrap()
+        };
+        for width in [1600., 1040., 1600.] {
+            editor.window().set_size(slint::LogicalSize::new(width, 860.));
+            slint::platform::update_timers_and_animations();
+            let left = pane("Project and elements").size().width;
+            let right = pane("Inspector and outline").size().width;
+            assert!(left >= 286. && right >= 232.);
+            assert!(pane("Editor canvas").size().width >= 399.9);
+            if width == 1600. {
+                assert_eq!(left, 480.);
+                assert_eq!(right, 480.);
+            }
+            assert_eq!(editor.get_left_pane_width(), 480.);
+            assert_eq!(editor.get_inspector_pane_width(), 480.);
+        }
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),

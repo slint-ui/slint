@@ -8,7 +8,7 @@ import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, PaneWidthDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -186,6 +186,29 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    in property <length> left-pane-width: 0px;
+    in property <length> inspector-pane-width: 0px;
+    callback left-pane-resized(length);
+    callback inspector-pane-resized(length);
+    callback left-pane-reset();
+    callback inspector-pane-reset();
+    private property <length> requested-left-width: Style.panes.left-width;
+    private property <length> requested-inspector-width: Style.panes.inspector-width;
+    private property <bool> inspector-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+    private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width
+        - Style.panes.splitter-size * (root.inspector-visible ? 2 : 1);
+    private property <length> extra-left-width: root.requested-left-width - Style.panes.left-width;
+    private property <length> extra-inspector-width: root.inspector-visible
+        ? root.requested-inspector-width - Style.panes.inspector-width : 0px;
+    private property <float> width-scale: ((root.width-budget - Style.panes.left-width
+        - (root.inspector-visible ? Style.panes.inspector-width : 0px))
+        / max(1px, root.extra-left-width + root.extra-inspector-width)).clamp(0, 1);
+    private property <length> displayed-left-width: Style.panes.left-width + root.extra-left-width * root.width-scale;
+    private property <length> displayed-inspector-width: Style.panes.inspector-width + root.extra-inspector-width * root.width-scale;
+    private property <length> left-width-maximum: min(Style.panes.maximum-width, root.width-budget
+        - (root.inspector-visible ? root.displayed-inspector-width : 0px));
+    private property <length> inspector-width-maximum: min(Style.panes.maximum-width,
+        root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
     private property <string> new-file-error;
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
@@ -392,6 +415,7 @@ export component EditorUi inherits Window {
                         vertical-stretch: 1;
 
                         if !root.sidebars-collapsed: LeftPane {
+                            width: root.displayed-left-width;
                             can-collapse: true;
                             elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
@@ -407,6 +431,17 @@ export component EditorUi inherits Window {
                             create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
+                        if !root.sidebars-collapsed: PaneWidthDivider {
+                            resize-label: @tr("Project pane resize");
+                            value: root.displayed-left-width;
+                            value-minimum: Style.panes.left-width;
+                            value-maximum: root.left-width-maximum;
+                            saved-width: root.left-pane-width;
+                            width-requested(value) => { root.requested-left-width = value; }
+                            resized(value) => { root.left-pane-resized(value); }
+                            reset => { root.left-pane-reset(); }
+                        }
+
                         canvas-viewport := Rectangle {
                             clip: true;
 
@@ -417,6 +452,7 @@ export component EditorUi inherits Window {
 
                             if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
                                 sidebars-collapsed: root.sidebars-collapsed;
+                                left-pane-width: root.displayed-left-width;
                             }
 
                             DragPreview {
@@ -427,7 +463,20 @@ export component EditorUi inherits Window {
                             }
                         }
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                        if root.inspector-visible && !root.sidebars-collapsed: PaneWidthDivider {
+                            resize-label: @tr("Inspector pane resize");
+                            reversed: true;
+                            value: root.displayed-inspector-width;
+                            value-minimum: Style.panes.inspector-width;
+                            value-maximum: root.inspector-width-maximum;
+                            saved-width: root.inspector-pane-width;
+                            width-requested(value) => { root.requested-inspector-width = value; }
+                            resized(value) => { root.inspector-pane-resized(value); }
+                            reset => { root.inspector-pane-reset(); }
+                        }
+
+                        if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
+                            width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
                             }

@@ -298,6 +298,7 @@ component FloatingImageDetailsPanel inherits Rectangle {
 export component ImageAssetEditor inherits Rectangle {
     in property <ImageAssetEditorStyle> style: Style.image-asset-editor;
     in property <bool> sidebars-collapsed: false;
+    in property <length> left-pane-width: Style.panes.left-width;
 
     horizontal-stretch: 1;
     background: root.style.canvas.background;
@@ -312,7 +313,7 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
     private property <length> tab-bar-height: root.style.tabs.bar-height;
-    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : Style.panes.left-width;
+    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : root.left-pane-width;
     private property <length> rail-margin: root.style.rail.margin;
     private property <length> rail-gap: root.style.rail.gap;
     private property <length> property-pane-height: root.style.details.height;
