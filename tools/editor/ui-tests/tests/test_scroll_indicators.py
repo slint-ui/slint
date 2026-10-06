@@ -1,14 +1,65 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+from pathlib import Path
+
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import center, element_frame
 from editor_sync import wait_for_source
 from gradient_interactions import gesture
 from source_snapshot import SourceSnapshot
 from ui_assertions import expect
-from ui_driver import element, first_window, launch_editor, wait_until
+from ui_driver import element, elements, first_window, launch_editor, wait_until
+
+
+@pytest.mark.parametrize("suffix", ["slint", "svg"])
+def test_file_selection_preserves_scrolled_row_positions(
+    editor_binary, editor_environment, tmp_path, suffix
+):
+    source = tmp_path / "Main.slint"
+    source.write_text("export component Main inherits Window {}")
+    contents = (
+        "export component Example inherits Window {}"
+        if suffix == "slint"
+        else '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>'
+    )
+    for index in range(40):
+        (tmp_path / f"File{index:03}.{suffix}").write_text(contents)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        tree = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
+
+        def row_frames():
+            return {
+                row.accessible_label: element_frame(row)
+                for row in elements(tree, role=slint_testing.AccessibleRole.ListItem)
+            }
+
+        for delta in [-301, -107]:
+            before_scroll = row_frames()
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    center(tree), delta_x=0, delta_y=delta
+                )
+            )
+            expect.poll(row_frames).not_to_equal(before_scroll)
+            before_selection = row_frames()
+            paths = [path for path in before_selection if path.endswith(f".{suffix}")]
+            path = paths[len(paths) // 2]
+            row = element(tree, path, role=slint_testing.AccessibleRole.ListItem)
+            position = center(row)
+            gesture(window, position, position)
+            if suffix == "slint":
+                selected = Path(path)
+                wait_for_source(selected, selected.read_bytes())
+            expect(row).to_be_selected()
+            after_selection = row_frames()
+            shared = before_selection.keys() & after_selection.keys()
+            assert shared
+            for path in shared:
+                assert after_selection[path] == before_selection[path]
 
 
 @pytest.mark.parametrize("panel", ["files", "outline"])

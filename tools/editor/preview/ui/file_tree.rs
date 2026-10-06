@@ -11,7 +11,7 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, Model, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
@@ -251,7 +251,19 @@ impl FileTreeController {
             self.selected_path.as_deref(),
             &self.active_folder_path,
         );
-        project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        let current = project.get_file_tree();
+        if let Some(model) = current.as_any().downcast_ref::<VecModel<FileTreeNode>>()
+            && model.row_count() == rows.len()
+            && model.iter().zip(&rows).all(|(old, new)| old.path == new.path)
+        {
+            for (index, (old, new)) in model.iter().zip(rows).enumerate() {
+                if old != new {
+                    model.set_row_data(index, new);
+                }
+            }
+        } else {
+            project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        }
         project.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
         );
