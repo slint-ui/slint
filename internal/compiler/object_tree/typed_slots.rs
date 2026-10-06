@@ -152,27 +152,27 @@ pub(super) fn create_forwarding(
     let source_interface = source_slot.and_then(|s| s.interface.clone());
     let target_interface = target_slot.and_then(|s| s.interface);
     if source_interface.is_none() && target_interface.is_none() {
-        return false;
+        return true;
     }
     let Some(interface) = source_interface else {
         diag.push_error(
             format!("Declare slot '{source}' with the interface required by '{target}'"),
             node,
         );
-        return true;
+        return false;
     };
     if target_interface.as_ref().is_some_and(|target| !Rc::ptr_eq(target, &interface)) {
         diag.push_error(format!("Forwarded slot '{source}' has an incompatible interface"), node);
-        return true;
+        return false;
     }
     if let Some(existing) = insertion_points.get(source.as_str()) {
         diag.push_error(format!("The slot '{source}' can only appear once in an element"), node);
         diag.push_note(format!("The slot '{source}' is already used here"), &existing.node);
-        return true;
+        return false;
     }
     if parent.borrow().children.iter().any(|c| c.borrow().slot_target.as_ref() == Some(target)) {
         diag.push_error(format!("Duplicate assignment to slot '{target}'"), node);
-        return true;
+        return false;
     }
     let proxy = Element {
         id: source.clone(),
@@ -192,5 +192,5 @@ pub(super) fn create_forwarding(
         },
     );
     parent.borrow_mut().children.push(proxy);
-    true
+    false
 }

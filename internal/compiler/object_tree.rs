@@ -1751,14 +1751,12 @@ impl Element {
                 declared_slots,
                 diag,
             ) {
-                continue;
+                r.borrow_mut().forwarded_slots.push(SlotForwarding {
+                    target,
+                    source,
+                    expression_node: expression_node.into(),
+                });
             }
-
-            r.borrow_mut().forwarded_slots.push(SlotForwarding {
-                target,
-                source,
-                expression_node: expression_node.into(),
-            });
         }
 
         for forwarding in r.borrow().forwarded_slots.clone() {
