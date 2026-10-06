@@ -280,7 +280,16 @@ fn embed_image(
 
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
-        return match load_image(_file, _scale_factor, _font_collection) {
+        let loaded = read_file(&_file).and_then(|data| {
+            warn_if_animated(&data, diag, source_location);
+            load_image_from_bytes(
+                &data,
+                _file.canon_path.extension().and_then(std::ffi::OsStr::to_str),
+                _scale_factor,
+                _font_collection,
+            )
+        });
+        return match loaded {
             Ok((img, source_format, original_size)) => {
                 let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
                     img,
@@ -565,22 +574,46 @@ fn load_image_from_bytes(
 }
 
 #[cfg(feature = "renderer-software")]
-fn load_image(
-    file: crate::fileaccess::VirtualFile,
-    scale_factor: f32,
-    font_collection: Option<&SharedFontCollection>,
-) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    use std::ffi::OsStr;
+fn read_file(
+    file: &crate::fileaccess::VirtualFile,
+) -> image::ImageResult<std::borrow::Cow<'static, [u8]>> {
+    Ok(match file.builtin_contents {
+        Some(buffer) => buffer.into(),
+        None => std::fs::read(&file.canon_path)?.into(),
+    })
+}
 
-    let extension = file.canon_path.extension().and_then(OsStr::to_str);
-
-    let data = if let Some(buffer) = file.builtin_contents {
-        buffer.to_vec()
-    } else {
-        std::fs::read(&file.canon_path)?
+/// Warns that an embedded texture keeps only the first frame of an animated image.
+#[cfg(feature = "renderer-software")]
+fn warn_if_animated(
+    data: &[u8],
+    diag: &mut BuildDiagnostics,
+    source_location: &Option<crate::diagnostics::SourceLocation>,
+) {
+    use image::AnimationDecoder;
+    let cursor = || std::io::Cursor::new(data);
+    let frames = match image::guess_format(data) {
+        Ok(image::ImageFormat::Png) => image::codecs::png::PngDecoder::new(cursor())
+            .and_then(
+                |decoder| if decoder.is_apng()? { decoder.apng().map(Some) } else { Ok(None) },
+            )
+            .map(|decoder| decoder.map(|decoder| decoder.into_frames())),
+        #[cfg(feature = "image-default-formats")]
+        Ok(image::ImageFormat::Gif) => {
+            image::codecs::gif::GifDecoder::new(cursor()).map(|decoder| Some(decoder.into_frames()))
+        }
+        #[cfg(feature = "image-default-formats")]
+        Ok(image::ImageFormat::WebP) => image::codecs::webp::WebPDecoder::new(cursor())
+            .map(|decoder| decoder.has_animation().then(|| decoder.into_frames())),
+        _ => return,
     };
-
-    load_image_from_bytes(&data, extension, scale_factor, font_collection)
+    if frames.ok().flatten().is_some_and(|frames| frames.take(2).filter(Result::is_ok).count() == 2)
+    {
+        diag.push_warning(
+            "Only the first frame of this animated image is embedded for the software renderer. Use a still image instead".into(),
+            source_location,
+        );
+    }
 }
 
 fn embed_data_uri(
@@ -624,6 +657,7 @@ fn embed_data_uri(
 
     #[cfg(feature = "renderer-software")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
+        warn_if_animated(&decoded_data, diag, source_location);
         match load_image_from_bytes(
             &decoded_data,
             Some(&extension),

@@ -839,6 +839,22 @@ fn build(l: &mut Loader) {
         /// ```
         /// \default smooth
         in property <ImageRendering> image-rendering;
+        /// Plays the animation of an animated GIF, PNG, or WebP `source`.
+        /// Set it to `false` to pause on the current frame, and back to `true` to resume.
+        ///
+        /// The animation repeats as many times as the image file specifies, then stays on its last frame.
+        ///
+        /// In Rust, enable the `image-default-formats` feature of the `slint` crate for GIF and WebP.
+        /// Images that the compiler embeds for the software renderer show only their first frame.
+        ///
+        /// ```slint
+        /// Image {
+        ///     source: @image-url("animation.gif");
+        ///     running: false;
+        /// }
+        /// ```
+        /// \default true
+        in property <bool> running: true;
 
         @deprecated in property <angle> rotation-angle <=> transform-rotation;
     } }

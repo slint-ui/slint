@@ -565,6 +565,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.prettierignore$", LicenseLocation::NoLicense),
             ("\\.bazelignore$", LicenseLocation::NoLicense),
             ("\\.npmignore$", LicenseLocation::NoLicense),
+            ("\\.gif$", LicenseLocation::NoLicense),
             ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.html$", LicenseLocation::NoLicense),
             ("\\.java$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),

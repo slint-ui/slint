@@ -255,7 +255,9 @@ path = [
 
   "internal/compiler/tests/syntax/slint-sc/image_2x2.png",
   "internal/compiler/tests/syntax/slint-sc/image.svg",
+  "internal/core/graphics/image/testdata/**",
 
+  "docs/astro/src/content/docs/reference/elements/animation.gif",
   "docs/astro/src/content/docs/reference/language/images/logo.png",
 
   "tests/screenshots/**/**.png",

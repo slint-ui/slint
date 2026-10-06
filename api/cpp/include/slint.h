@@ -658,6 +658,24 @@ cbindgen_private::Path::~Path()
     slint_path_fitted_cache_free(&fitted_path);
 }
 
+cbindgen_private::ImageItem::ImageItem()
+{
+    slint_image_animation_init(&animation);
+}
+cbindgen_private::ImageItem::~ImageItem()
+{
+    slint_image_animation_free(&animation);
+}
+
+cbindgen_private::ClippedImage::ClippedImage()
+{
+    slint_image_animation_init(&animation);
+}
+cbindgen_private::ClippedImage::~ClippedImage()
+{
+    slint_image_animation_free(&animation);
+}
+
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
     slint_system_tray_icon_data_init(&data);
