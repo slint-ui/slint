@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -65,6 +65,37 @@ test("cached preview resources survive a server restart without large HTML or lo
     assert.deepEqual(gunzipSync(Buffer.concat(chunks)), await readFile(new URL("../runtime/wasm/slint_wasm_interpreter_bg.wasm", import.meta.url)));
   } finally {
     await client.close();
+  }
+});
+
+test("file-backed edits retain identity and reject stale validation", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-edit-cycle-"));
+  const path = join(directory, "button.slint");
+  try {
+    let source = await readFile(new URL("../examples/button.slint", import.meta.url), "utf8");
+    const edits = [text => text, text => text.replace("#dc2626", "#2563eb"), text => text.replace("click me!", "press me"), text => text.replace("200px", "224px"), text => text.replaceAll("\n", "\r\n")];
+    for (let index = 0; index < edits.length; index++) {
+      source = edits[index](source);
+      await writeFile(path, source);
+      const revision = index + 1;
+      const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision } });
+      assert.equal(validation.structuredContent.status, "valid");
+      const rendered = await client.call("tools/call", { name: "render_slint", arguments: { path, revision, validatedSourceHash: validation.structuredContent.sourceHash } });
+      assert.equal(rendered.isError, undefined);
+      assert.equal(rendered.structuredContent.sourcePath, await realpath(path));
+      assert.equal(rendered.structuredContent.revision, revision);
+      assert.equal(rendered.structuredContent.source, source);
+      assert.equal(rendered.structuredContent.sourceHash, validation.structuredContent.sourceHash);
+    }
+    const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } });
+    await writeFile(path, source.replace("press me", "changed"));
+    const stale = await client.call("tools/call", { name: "render_slint", arguments: { path, revision: 6, validatedSourceHash: validation.structuredContent.sourceHash } });
+    assert.equal(stale.isError, true);
+    assert.match(stale.structuredContent.message, /changed after validation/);
+  } finally {
+    await client.close();
+    await rm(directory, { recursive: true, force: true });
   }
 });
 

@@ -6,6 +6,7 @@ import { dirname, join, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { snapshotProject, readProjectResource } from "./project.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const { version } = JSON.parse(await readFile(join(root, "plugin.json"), "utf8"));
@@ -38,11 +39,15 @@ const sourceSchema = {
   type: "object",
   properties: {
     source: { type: "string", minLength: 1, maxLength: 65536 },
+    path: { type: "string", description: "Absolute saved .slint source path. Prefer this to duplicating the source string." },
+    projectRoot: { type: "string", description: "Absolute root containing relative imports and assets. Defaults to the source directory." },
+    validatedSourceHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The sourceHash returned by validate_slint. Rendering fails if the saved file has changed." },
     revision: { type: "integer", minimum: 1 },
     width: { type: "integer", minimum: 64, maximum: 2048, default: 320 },
     height: { type: "integer", minimum: 64, maximum: 2048, default: 160 },
   },
-  required: ["source", "revision"],
+  required: ["revision"],
+  oneOf: [{ required: ["source"] }, { required: ["path"] }],
   additionalProperties: false,
 };
 const renderOutputSchema = {
@@ -51,6 +56,7 @@ const renderOutputSchema = {
     source: { type: "string" }, revision: { type: "integer" },
     width: { type: "integer" }, height: { type: "integer" },
     sourceHash: { type: "string" }, runtimeVersion: { type: "string" }, runtimeRevision: { type: "string" },
+    sourcePath: { type: "string" }, projectRoot: { type: "string" }, project: { type: "object" },
   },
   required: ["source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision"],
   additionalProperties: false,
@@ -65,7 +71,7 @@ const tools = [
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview exact Slint source with the Wasm interpreter built from the validator's monorepo checkout. For simple Button requests, reuse the starter below and change only requested properties. Preserve implicit centering and the component's state-color defaults; do not add x/y or hover/pressed overrides unless requested. Save with apply_patch, validate, check structuredContent.status === 'valid', and render the same bytes and revision in one code-mode execution. Match dimensions to the Window. Only slint-button.slint is supplied as a bundled custom import. UI edits arrive in slintEdit model context. The CLI returns metadata without an inline UI. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash from validate_slint; the server checks the saved bytes. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. UI edits arrive in slintEdit model context. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -81,15 +87,21 @@ const tools = [
   },
 ];
 
-function render(args) {
-  const { source, revision, width = 320, height = 160 } = args;
-  if (typeof source !== "string" || !source.length || source.length > 65536 ||
-      !Number.isSafeInteger(revision) || revision < 1 ||
-      !Number.isSafeInteger(width) || width < 64 || width > 2048 ||
-      !Number.isSafeInteger(height) || height < 64 || height > 2048) {
-    throw new Error("Provide Slint source, a positive revision, and dimensions from 64 to 2048 pixels.");
+async function render(args) {
+  let { source } = args;
+  const { revision, width = 320, height = 160 } = args;
+  if (!Number.isSafeInteger(revision) || revision < 1 || !Number.isSafeInteger(width) || width < 64 || width > 2048 || !Number.isSafeInteger(height) || height < 64 || height > 2048) throw new Error("Provide a positive revision and dimensions from 64 to 2048 pixels.");
+  let project;
+  if (args.path) {
+    if (source !== undefined) throw new Error("Choose either a saved path or source text.");
+    const snapshot = await snapshotProject(args.path, args.projectRoot, component, args.validatedSourceHash);
+    ({ source, ...project } = snapshot);
+  } else if (args.projectRoot || args.validatedSourceHash) {
+    throw new Error("A saved source path is required for projectRoot or validatedSourceHash.");
   }
+  if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
   const structuredContent = { source, revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
+  if (project) Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, project });
   return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: presentation };
 }
 
@@ -104,22 +116,23 @@ async function handle(message) {
       { uri: "slint://components/button.slint", name: "slint-button", mimeType: "text/plain" },
       ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
     ] };
-    case "resources/templates/list": return { resourceTemplates: [] };
+    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
     case "resources/read": {
       const uri = message.params?.uri;
+      if (typeof uri === "string" && uri.startsWith("slint://project/")) return { contents: [await readProjectResource(uri)] };
       if (uri === "slint://components/button.slint") return { contents: [{ uri, mimeType: "text/plain", text: component }] };
       if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
       return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
-        ui: { prefersBorder: true },
+        ui: { prefersBorder: true, csp: { resourceDomains: ["blob:"] } },
         "openai/ui": { availableDisplayModes: ["inline"] },
       } }] };
     }
     case "tools/call": {
       const args = message.params?.arguments ?? {};
       try {
-        if (message.params?.name === "show_slint_button") return render({ source: example, revision: 1 });
-        if (message.params?.name === "render_slint") return render(args);
+        if (message.params?.name === "show_slint_button") return await render({ source: example, revision: 1 });
+        if (message.params?.name === "render_slint") return await render(args);
         if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");
         if (typeof args.path !== "string" || !isAbsolute(args.path) || !Number.isSafeInteger(args.revision) || args.revision < 1) throw new Error("Provide an absolute source path and positive revision.");
         const { stdout } = await run(process.env.SLINT_PYTHON_BIN || "python3", [join(root, "scripts/check-source.py"), args.path, "--revision", String(args.revision)], { timeout: 45000, maxBuffer: 1024 * 1024, windowsHide: true });
