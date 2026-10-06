@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
 import argparse
 import asyncio
 import hashlib
@@ -17,26 +20,63 @@ class LspClient:
 
     async def send(self, message):
         payload = json.dumps(message).encode()
-        self.process.stdin.write(f"Content-Length: {len(payload)}\r\n\r\n".encode() + payload)
+        self.process.stdin.write(
+            f"Content-Length: {len(payload)}\r\n\r\n".encode() + payload
+        )
         await self.process.stdin.drain()
 
     async def receive(self):
         while True:
             header = await self.process.stdout.readuntil(b"\r\n\r\n")
-            length = next(int(line.split(b":", 1)[1]) for line in header.split(b"\r\n") if line.lower().startswith(b"content-length:"))
+            length = next(
+                int(line.split(b":", 1)[1])
+                for line in header.split(b"\r\n")
+                if line.lower().startswith(b"content-length:")
+            )
             message = json.loads(await self.process.stdout.readexactly(length))
             if "method" in message and "id" in message:
-                result = [{} for _ in message.get("params", {}).get("items", [])] if message["method"] == "workspace/configuration" else None
-                await self.send({"jsonrpc": "2.0", "id": message["id"], "result": result})
+                result = (
+                    [{} for _ in message.get("params", {}).get("items", [])]
+                    if message["method"] == "workspace/configuration"
+                    else None
+                )
+                await self.send(
+                    {"jsonrpc": "2.0", "id": message["id"], "result": result}
+                )
             else:
                 return message
 
     async def start(self):
         version = subprocess.check_output([self.binary, "--version"], text=True).strip()
         if version != f"slint-lsp {RUNTIME['version']}":
-            raise ValueError(f"LSP differs from the built preview runtime. Found: {version}")
-        self.process = await asyncio.create_subprocess_exec(self.binary, "-I", str(Path(__file__).resolve().parent.parent / "components"), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-        await self.send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"processId": os.getpid(), "rootUri": Path.cwd().as_uri(), "capabilities": {"textDocument": {"publishDiagnostics": {"versionSupport": True}}, "workspace": {"configuration": True}}}})
+            raise ValueError(
+                f"LSP differs from the built preview runtime. Found: {version}"
+            )
+        self.process = await asyncio.create_subprocess_exec(
+            self.binary,
+            "-I",
+            str(Path(__file__).resolve().parent.parent / "components"),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await self.send(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "processId": os.getpid(),
+                    "rootUri": Path.cwd().as_uri(),
+                    "capabilities": {
+                        "textDocument": {
+                            "publishDiagnostics": {"versionSupport": True}
+                        },
+                        "workspace": {"configuration": True},
+                    },
+                },
+            }
+        )
         while (await asyncio.wait_for(self.receive(), 15)).get("id") != 1:
             pass
         await self.send({"jsonrpc": "2.0", "method": "initialized", "params": {}})
@@ -45,30 +85,61 @@ class LspClient:
         uri = Path(path).resolve().as_uri()
         if type(revision) is not int or revision < 1:
             raise ValueError("Source revisions must be positive integers")
-        await self.send({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": uri, "languageId": "slint", "version": revision, "text": source}}})
+        await self.send(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "slint",
+                        "version": revision,
+                        "text": source,
+                    }
+                },
+            }
+        )
         diagnostics = []
         while True:
             message = await asyncio.wait_for(self.receive(), 15)
             if message.get("method") != "textDocument/publishDiagnostics":
                 continue
             published = message["params"]
-            diagnostics.extend({**item, "uri": published["uri"]} for item in published["diagnostics"])
+            diagnostics.extend(
+                {**item, "uri": published["uri"]} for item in published["diagnostics"]
+            )
             if published["uri"] == uri and published.get("version") == revision:
                 break
-        return {"runtimeVersion": RUNTIME["version"], "runtimeRevision": RUNTIME["revision"], "revision": revision, "sourceHash": hashlib.sha256(source.encode()).hexdigest(), "status": "error" if any(item.get("severity") == 1 for item in diagnostics) else "valid", "diagnostics": diagnostics}
+        return {
+            "runtimeVersion": RUNTIME["version"],
+            "runtimeRevision": RUNTIME["revision"],
+            "revision": revision,
+            "sourceHash": hashlib.sha256(source.encode()).hexdigest(),
+            "status": "error"
+            if any(item.get("severity") == 1 for item in diagnostics)
+            else "valid",
+            "diagnostics": diagnostics,
+        }
 
     async def close(self):
-        if getattr(self, "process", None) is not None and self.process.returncode is None:
+        if (
+            getattr(self, "process", None) is not None
+            and self.process.returncode is None
+        ):
             self.process.terminate()
             await self.process.wait()
 
 
 async def main(args):
-    binary = str(PLUGIN_ROOT / "runtime" / ("slint-lsp.exe" if os.name == "nt" else "slint-lsp"))
+    binary = str(
+        PLUGIN_ROOT / "runtime" / ("slint-lsp.exe" if os.name == "nt" else "slint-lsp")
+    )
     client = LspClient(binary)
     try:
         await client.start()
-        result = await client.check(args.path, Path(args.path).read_bytes().decode("utf-8"), args.revision)
+        result = await client.check(
+            args.path, Path(args.path).read_bytes().decode("utf-8"), args.revision
+        )
         print(json.dumps(result), flush=True)
         return int(result["status"] == "error")
     finally:
@@ -76,7 +147,9 @@ async def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Return revision-specific diagnostics from Slint's LSP")
+    parser = argparse.ArgumentParser(
+        description="Return revision-specific diagnostics from Slint's LSP"
+    )
     parser.add_argument("path")
     parser.add_argument("--revision", type=int, default=1)
     try:
