@@ -5702,19 +5702,20 @@ fn compile_builtin_function_call(
 /// Builds the C++ snippet that, for each inner repeater in `templates`, calls
 /// `ensure_updated` on the sub-component and updates `max_total`.
 fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count: usize) -> String {
-    templates
-        .iter()
-        .filter_map(|e| match e {
-            llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
-                let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
-                Some(format!(
-                    "sub_comp->{inner_rep_id}.track_instance_changes();\n\
-                     max_total = std::max(max_total, {static_count} + sub_comp->{inner_rep_id}.len());\n"
-                ))
-            }
-            _ => None,
-        })
-        .collect()
+    let mut code = format!("size_t row_total = {static_count};\n");
+    for e in templates {
+        if let llr::RowChildTemplateInfo::Repeated { repeater_index, .. } = e {
+            let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+            write!(
+                code,
+                "sub_comp->{inner_rep_id}.track_instance_changes();\n\
+                 row_total += sub_comp->{inner_rep_id}.len();\n"
+            )
+            .unwrap();
+        }
+    }
+    code.push_str("max_total = std::max(max_total, row_total);\n");
+    code
 }
 
 fn generate_repeater_loop_code(
