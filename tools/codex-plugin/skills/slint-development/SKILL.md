@@ -53,7 +53,7 @@ if (checked.isError || checked.structuredContent.status !== "valid") {
 Render the exact bytes that passed validation, with the same revision and matching Window dimensions.
 A tool response confirms submission.
 Matching `slintPreview.state === "ready"` in model context acknowledges compilation, showing the instance, and a paint opportunity.
-Use matching source path, revision, and hash; do not treat stale, draft, or missing acknowledgements as success.
+Use matching source path, revision, and hash; do not treat stale or missing acknowledgements as success.
 `slintPreview.state === "error"` carries frontend diagnostics; report or repair that error rather than claiming the preview succeeded.
 This acknowledgement does not independently verify pixels; the user can still inspect the visible result.
 The CLI can use the tools and skill but does not provide an inline visualization surface.
@@ -63,9 +63,4 @@ Read that saved file and check its hash before patching.
 Preserve its path and increment the revision for each edit; reconcile external changes before patching stale source.
 Validate the entry file after changes to an imported component, then render that entry with its original project root.
 
-When the user submits "Apply my Slint changes", read `slintEdit` from the accompanying model context.
-Check its base source hash before changing the working file.
-Use `slintEdit.sourcePath` and `projectRoot` to locate that file; never create a replacement file for an existing edit.
-Apply only the requested properties, preserve other source, validate, and render the next revision.
-If the edit context is missing or stale, reconcile it with the user rather than guessing.
 Component edits do not require rebuilding or publishing the plugin.
