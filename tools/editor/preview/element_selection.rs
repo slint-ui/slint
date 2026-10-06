@@ -117,8 +117,12 @@ impl HighlightPositionsModel {
         });
         let model = Rc::new(Self { rows: rows.into(), change_tracker: Default::default() });
         let model_weak = Rc::downgrade(&model);
+        let queue = i_slint_core::window::WindowInner::from_pub(component_instance.window())
+            .context()
+            .change_handler_queue();
         let component_instance = component_instance.as_weak();
         model.change_tracker.init_delayed(
+            queue,
             (model_weak, component_instance, location),
             |(_, component_instance, location)| {
                 component_instance

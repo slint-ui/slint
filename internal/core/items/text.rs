@@ -1159,6 +1159,7 @@ impl Item for TextInput {
         // Seed the mirror so the change handler doesn't treat the initial text as external.
         self.internal_text.set(self.text());
         self.text_change_tracker.init_delayed(
+            self_rc.slint_context().change_handler_queue(),
             self_rc.downgrade(),
             |self_weak| {
                 self_weak

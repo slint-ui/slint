@@ -290,7 +290,6 @@ pub fn update_timers_and_animations() {
             // zero-duration timers in the pending list are due.
             crate::animations::update_animations(Default::default());
             crate::timers::TimerList::maybe_activate_timers(Default::default());
-            crate::properties::ChangeTracker::run_change_handlers();
         }
     }
 }

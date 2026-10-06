@@ -110,8 +110,8 @@ fn set_property_state_binding_impl<VT: VTableMetaDropInPlace + 'static>(
 }
 
 /// Initialize `change_tracker` to evaluate `eval` on the component `self_rc`
-/// and call `notify` when the result changes. The component must outlive the
-/// change tracker.
+/// and call `notify` from `queue` when the result changes.
+/// The component must outlive the change tracker.
 #[inline]
 pub fn change_tracker_init_erased<
     T: Default + PartialEq + 'static,
@@ -119,12 +119,14 @@ pub fn change_tracker_init_erased<
     X,
 >(
     change_tracker: &super::ChangeTracker,
+    queue: &super::ChangeHandlerQueue,
     self_rc: &VRcMapped<VT, X>,
     eval: fn(Pin<&X>, &()) -> T,
     notify: fn(Pin<&X>, &T),
 ) {
     change_tracker_init_impl(
         change_tracker,
+        queue,
         VRcMapped::downgrade_erased_fn(self_rc, eval),
         VRcMapped::downgrade_erased_fn(self_rc, notify),
     )
@@ -135,10 +137,12 @@ fn change_tracker_init_impl<
     VT: VTableMetaDropInPlace + 'static,
 >(
     change_tracker: &super::ChangeTracker,
+    queue: &super::ChangeHandlerQueue,
     eval: ErasedWeakFn<VT, T>,
     notify: ErasedWeakFn<VT, (), T>,
 ) {
     change_tracker.init(
+        queue,
         (eval, notify),
         |(eval, _)| eval.upgrade_and_call(&()).expect("change tracker on dropped component"),
         |(_, notify), value| {

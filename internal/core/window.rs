@@ -874,7 +874,9 @@ impl WindowInner {
             for overlay in self.overlays.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
             }
-            changed |= crate::properties::ChangeTracker::run_change_handlers_once();
+            changed |= self
+                .try_context()
+                .is_some_and(|ctx| ctx.platform_context().run_change_handlers_once());
             if !changed {
                 return;
             }
@@ -1701,6 +1703,7 @@ impl WindowInner {
         // Track visibility
         let visibility_clips = item.visibility_clips();
         self.focus_item_visibility_tracker.init(
+            self.context().change_handler_queue(),
             (item.downgrade(), self.window_adapter_weak.clone(), visibility_clips),
             |(_, _, visibility_clips)| {
                 visibility_clips
@@ -1734,6 +1737,7 @@ impl WindowInner {
         on_moved: fn(&ItemRc, &Rc<dyn WindowAdapter>),
     ) {
         self.focus_item_position_tracker.init(
+            self.context().change_handler_queue(),
             (item.downgrade(), self.window_adapter_weak.clone(), on_moved),
             |(item, _, _)| {
                 let Some(item) = item.upgrade() else { return Default::default() };

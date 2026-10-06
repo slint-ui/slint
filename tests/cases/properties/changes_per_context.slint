@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The `changed` handlers of a component run on the event loop of the context it was created
+// with, not on the current one.
+
+global Glob {
+    in-out property <int> value: 1;
+    out property <int> changes;
+    changed value => {
+        changes += 1;
+    }
+}
+
+export component TestCase inherits Window {
+    in property <int> value: 1;
+    out property <int> changes;
+    changed value => {
+        changes += 1;
+    }
+    in-out property <int> global-value <=> Glob.value;
+    out property <int> global-changes: Glob.changes;
+}
+
+/*
+```rust
+let new_context = || i_slint_core::SlintContext::new(Box::new(
+    i_slint_backend_testing::TestingBackend::new(Default::default()),
+));
+// The handlers must not run on the current context, so `ctx` must be another one.
+let current = i_slint_core::SlintContext::current().unwrap_or_else(new_context);
+let ctx = new_context();
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
+
+instance.set_value(5);
+instance.set_global_value(5);
+current.run_change_handlers();
+assert_eq!(instance.get_changes(), 0);
+assert_eq!(instance.get_global_changes(), 0);
+
+ctx.update_timers_and_animations();
+assert_eq!(instance.get_changes(), 1);
+assert_eq!(instance.get_global_changes(), 1);
+```
+*/
