@@ -11,7 +11,7 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, Model, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
@@ -251,7 +251,19 @@ impl FileTreeController {
             self.selected_path.as_deref(),
             &self.active_folder_path,
         );
-        project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        let current = project.get_file_tree();
+        if let Some(model) = current.as_any().downcast_ref::<VecModel<FileTreeNode>>()
+            && model.row_count() == rows.len()
+            && model.iter().zip(&rows).all(|(old, new)| old.path == new.path)
+        {
+            for (index, (old, new)) in model.iter().zip(rows).enumerate() {
+                if old != new {
+                    model.set_row_data(index, new);
+                }
+            }
+        } else {
+            project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        }
         project.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
         );
@@ -699,6 +711,47 @@ mod tests {
 
     fn labels(rows: &[FileTreeNode]) -> Vec<String> {
         rows.iter().map(|row| row.label.to_string()).collect()
+    }
+
+    #[test]
+    fn publish_replaces_model_when_rows_change() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let project = editor.global::<Project>();
+        let tree = TempTree::new();
+        let folder = tree.dir("components");
+        tree.file("components/child.slint");
+        let source = tree.file("a.slint");
+        tree.file("z.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+        controller.publish(&project);
+        let initial = project.get_file_tree();
+        let initial_labels = labels(&initial.iter().collect::<Vec<_>>());
+
+        controller.toggle(&folder, &project);
+        let expanded = project.get_file_tree();
+        assert_ne!(expanded, initial);
+        assert_eq!(
+            labels(&expanded.iter().collect::<Vec<_>>())[1..],
+            ["components", "child.slint", "a.slint", "z.slint"]
+        );
+
+        controller.toggle(&folder, &project);
+        let collapsed = project.get_file_tree();
+        assert_ne!(collapsed, expanded);
+        assert_eq!(labels(&collapsed.iter().collect::<Vec<_>>()), initial_labels);
+
+        controller.rename_file(&source, "zz.slint").unwrap();
+        controller.publish(&project);
+        let renamed = project.get_file_tree();
+        assert_ne!(renamed, collapsed);
+        assert_eq!(renamed.row_count(), collapsed.row_count());
+        assert_eq!(
+            labels(&renamed.iter().collect::<Vec<_>>())[1..],
+            ["components", "z.slint", "zz.slint"]
+        );
     }
 
     #[test]
