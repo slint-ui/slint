@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { HeadlessSlider, StraightSurface } from "../../../examples/slots/sliders.slint";
+
+export component TestCase inherits Window {
+    width: 260px;
+    height: 180px;
+    in-out property <float> minimum: 90;
+    in-out property <float> maximum: 10;
+    in-out property <float> step: 7;
+    in-out property <float> value: 50;
+    out property <float> position: supplied.position;
+    out property <int> changes;
+    out property <bool> test: root.position == 0.5;
+    public function request(value: float) { slider.set-value(value); }
+    public function seek(position: float) { supplied.seek(position); }
+
+    slider := HeadlessSlider {
+        minimum: root.minimum;
+        maximum: root.maximum;
+        step: root.step;
+        value <=> root.value;
+        changed(value) => { root.changes += 1; }
+        surface << supplied := StraightSurface { }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let slider = slint_testing::ElementHandle::find_by_element_type_name(&instance, "HeadlessSlider").next().unwrap();
+let key = |key: Key| {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+};
+for (minimum, maximum) in [(10., 90.), (90., 10.)] {
+    instance.set_minimum(minimum);
+    instance.set_maximum(maximum);
+    instance.set_step(7.);
+    instance.set_value(50.);
+    assert_eq!(instance.get_position(), 0.5);
+    assert_eq!(slider.accessible_value_minimum(), Some(10.));
+    assert_eq!(slider.accessible_value_maximum(), Some(90.));
+    instance.invoke_request(46.);
+    assert_eq!(instance.get_value(), 45.);
+    instance.invoke_request(89.);
+    assert_eq!(instance.get_value(), 87.);
+    instance.invoke_request(90.);
+    assert_eq!(instance.get_value(), 90.);
+    assert_eq!(instance.get_position(), 1.);
+    instance.invoke_request(-20.);
+    assert_eq!(instance.get_value(), 10.);
+    assert_eq!(instance.get_position(), 0.);
+    instance.invoke_seek(0.5);
+    assert_eq!(instance.get_value(), 52.);
+    assert!((instance.get_position() - 0.525).abs() < 0.0001);
+    key(Key::Home);
+    assert_eq!(instance.get_value(), 10.);
+    key(Key::End);
+    assert_eq!(instance.get_value(), 90.);
+    instance.invoke_seek(-1.);
+    assert_eq!(instance.get_value(), 10.);
+    slider.invoke_accessible_increment_action();
+    assert_eq!(instance.get_value(), 17.);
+    slider.invoke_accessible_decrement_action();
+    assert_eq!(instance.get_value(), 10.);
+    instance.invoke_seek(2.);
+    assert_eq!(instance.get_value(), 90.);
+    let changes = instance.get_changes();
+    instance.set_value(200.);
+    assert_eq!(instance.get_position(), 1.);
+    instance.set_value(-20.);
+    assert_eq!(instance.get_position(), 0.);
+    assert_eq!(instance.get_changes(), changes);
+    for step in [0., -1.] {
+        instance.set_step(step);
+        instance.invoke_request(36.5);
+        assert_eq!(instance.get_value(), 36.5);
+    }
+}
+instance.set_minimum(30.);
+instance.set_maximum(30.);
+assert_eq!(instance.get_position(), 0.);
+assert_eq!(slider.accessible_value_minimum(), Some(30.));
+assert_eq!(slider.accessible_value_maximum(), Some(30.));
+instance.invoke_seek(0.5);
+assert_eq!(instance.get_value(), 30.);
+instance.invoke_request(200.);
+assert_eq!(instance.get_value(), 30.);
+assert_eq!(instance.get_position(), 0.);
+```
+*/

@@ -18,13 +18,15 @@ export component HeadlessSlider {
     in-out property <float> value;
     callback changed(value: float);
     slot <SliderSurface> surface;
+    private property <float> lower: min(root.minimum, root.maximum);
+    private property <float> upper: max(root.minimum, root.maximum);
 
     forward-focus: keys;
     accessible-role: slider;
     accessible-enabled: root.enabled;
     accessible-value: root.value;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
+    accessible-value-minimum: root.lower;
+    accessible-value-maximum: root.upper;
     accessible-value-step: root.step;
     accessible-action-increment => { root.set-value(root.value + root.step); }
     accessible-action-decrement => { root.set-value(root.value - root.step); }
@@ -32,11 +34,10 @@ export component HeadlessSlider {
 
     public function set-value(requested: float) {
         if !root.enabled { return; }
-        let upper = max(root.minimum, root.maximum);
-        let bounded = clamp(requested, root.minimum, upper);
-        let snapped = root.step > 0 && bounded > root.minimum && bounded < upper
-            ? root.minimum + round((bounded - root.minimum) / root.step) * root.step : bounded;
-        let next = clamp(snapped, root.minimum, upper);
+        let bounded = clamp(requested, root.lower, root.upper);
+        let snapped = root.step > 0 && bounded > root.lower && bounded < root.upper
+            ? root.lower + round((bounded - root.lower) / root.step) * root.step : bounded;
+        let next = clamp(snapped, root.lower, root.upper);
         if next != root.value {
             root.value = next;
             root.changed(next);
@@ -46,12 +47,12 @@ export component HeadlessSlider {
     surface {
         enabled: root.enabled;
         focused: keys.has-focus;
-        position: root.maximum > root.minimum
-            ? clamp((root.value - root.minimum) / (root.maximum - root.minimum), 0, 1) : 0;
+        position: root.upper > root.lower
+            ? clamp((root.value - root.lower) / (root.upper - root.lower), 0, 1) : 0;
         seek(position) => {
             if root.enabled {
                 keys.focus();
-                root.set-value(root.minimum + clamp(position, 0, 1) * max(0, root.maximum - root.minimum));
+                root.set-value(root.lower + clamp(position, 0, 1) * (root.upper - root.lower));
             }
         }
     }
@@ -66,9 +67,9 @@ export component HeadlessSlider {
             } else if event.text == Key.LeftArrow || event.text == Key.DownArrow {
                 root.set-value(root.value - root.step);
             } else if event.text == Key.Home {
-                root.set-value(root.minimum);
+                root.set-value(root.lower);
             } else if event.text == Key.End {
-                root.set-value(root.maximum);
+                root.set-value(root.upper);
             } else { return reject; }
             return accept;
         }
