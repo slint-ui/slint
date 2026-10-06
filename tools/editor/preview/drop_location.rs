@@ -823,12 +823,12 @@ pub fn workspace_edit_compiles(
     let Ok(result) = text_edit::apply_workspace_edit(document_cache, workspace_edit) else {
         return preview::CompilationResult::ChangeFails;
     };
-    edited_text_compiles(document_cache, result)
+    edited_text_compiles(document_cache, &result)
 }
 
 pub fn edited_text_compiles(
     document_cache: &i_slint_editor_preview::DocumentCache,
-    mut result: Vec<text_edit::EditedText>,
+    result: &[text_edit::EditedText],
 ) -> preview::CompilationResult {
     if result.is_empty() {
         return preview::CompilationResult::NoChange;
@@ -839,15 +839,15 @@ pub fn edited_text_compiles(
     let mut document_cache = document_cache.snapshot().expect("This is not loading anything!");
 
     // Fill in changed sources:
-    for (u, c) in result.drain(..).map(|mut r| {
-        let contents = std::mem::take(&mut r.contents);
-        (r.url.clone(), contents)
-    }) {
+    for text_edit::EditedText { url, contents } in result {
         diag = BuildDiagnostics::default(); // reset errors that might be due to missing changes elsewhere
 
-        let _ = i_slint_editor_preview::util::poll_once(
-            document_cache.load_url(&u, None, c, &mut diag),
-        );
+        let _ = i_slint_editor_preview::util::poll_once(document_cache.load_url(
+            url,
+            None,
+            contents.clone(),
+            &mut diag,
+        ));
     }
 
     if diag.has_errors() {
