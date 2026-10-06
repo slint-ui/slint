@@ -722,11 +722,11 @@ impl Component {
                 for child in &self.root_element.borrow().children {
                     if child.borrow().slot_target.as_deref() == Some(name.as_str()) {
                         diagnostics.push_error(
-                            format!(
-                                "Remove the assignment to slot '{name}' or its default placeholder"
-                            ),
+                            format!("Cannot override the slot '{name}'"),
                             &*child.borrow(),
                         );
+                        diagnostics
+                            .push_note(format!("'{name}' is already declared here"), &cip.node);
                     }
                 }
             }
