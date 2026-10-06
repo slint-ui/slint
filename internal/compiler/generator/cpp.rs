@@ -2122,6 +2122,19 @@ fn generate_item_tree(
     ));
 
     target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "slint_context".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] slint::cbindgen_private::Option<slint::cbindgen_private::SlintContext>* result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
             ty: "static const slint::private_api::ItemTreeVTable".into(),
@@ -2138,7 +2151,7 @@ fn generate_item_tree(
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, \
+                supported_accessibility_actions, element_infos, window_adapter, slint_context, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
