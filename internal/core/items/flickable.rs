@@ -973,7 +973,7 @@ impl FlickableDataInner {
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 &geo,
             );
-            let velocity_estimation = self.velocity_rb.estimate_velocity();
+            let estimated_velocity = self.velocity_rb.estimate_velocity().map(|v| v.velocity);
             let release_time = Self::backend_now(flick_rc);
 
             // The release simulation generic over the Dimension
@@ -1024,15 +1024,12 @@ impl FlickableDataInner {
 
             let x_simulation = release_simulation(
                 Dimension::X,
-                velocity_estimation.as_ref().map(|v| v.velocity.x),
+                estimated_velocity.as_ref().map(|v| v.x),
                 inside_bounds_x,
             );
 
-            let y_simulation = release_simulation(
-                Dimension::Y,
-                velocity_estimation.map(|v| v.velocity.y),
-                inside_bounds_y,
-            );
+            let y_simulation =
+                release_simulation(Dimension::Y, estimated_velocity.map(|v| v.y), inside_bounds_y);
 
             if x_simulation.is_some() || y_simulation.is_some() {
                 (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
