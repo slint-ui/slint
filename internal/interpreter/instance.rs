@@ -746,14 +746,6 @@ impl Instance {
         if let Some(adapter) = window_adapter {
             let _ = vrc.window_adapter.set(adapter);
         }
-        // A tray has no window to reach the context through; see `SystemTrayIcon::set_context`.
-        if public.top_level_type == i_slint_compiler::llr::TopLevelComponentType::SystemTrayIcon {
-            i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(vrc.clone()), 0)
-                .downcast::<i_slint_core::items::SystemTrayIcon>()
-                .expect("the root item of a SystemTrayIcon-rooted component is a SystemTrayIcon")
-                .as_pin_ref()
-                .set_context(&vrc.globals.context);
-        }
         // Set the outer-tree handle before finalizing so bindings that
         // read absolute coordinates during `install_bindings` /
         // `init_code` can resolve `parent_node` through the host.

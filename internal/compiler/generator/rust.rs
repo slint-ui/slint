@@ -398,36 +398,18 @@ fn generate_public_component(
     // SystemTrayIcon-rooted components don't have a `WindowAdapter`. Skip the
     // eager creation calls in `new` / `new_with_context` so instantiating
     // a tray doesn't spin up a hidden window adapter as a side effect.
-    let (eager_create_window, init_with_context, ensure_tree_instantiated): (
-        Option<TokenStream>,
-        TokenStream,
-        Option<TokenStream>,
-    ) = match llr.top_level_type {
+    let (eager_create_window, ensure_tree_instantiated) = match llr.top_level_type {
         llr::TopLevelComponentType::Window => (
             Some(quote!(
                 // ensure that the window exist as this point so further call to window() don't panic
                 inner.globals.get().unwrap().window_adapter_ref()?;
             )),
-            quote!(),
             Some(quote!(
                 let window = inner.globals.get().unwrap().window_adapter_ref()?;
                 sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
             )),
         ),
-        llr::TopLevelComponentType::SystemTrayIcon => {
-            let tray_field = tray_field.as_ref().unwrap();
-            (
-                None,
-                // A tray has no window to reach a context through, so hand it over here.
-                quote!(
-                    #inner_component_id::FIELD_OFFSETS
-                        .#tray_field()
-                        .apply_pin(sp::VRc::as_pin_ref(&inner))
-                        .set_context(&ctx);
-                ),
-                None,
-            )
-        }
+        llr::TopLevelComponentType::SystemTrayIcon => (None, None),
     };
 
     #[cfg(feature = "bundle-translations")]
@@ -554,12 +536,9 @@ fn generate_public_component(
 
             #[cfg(#experimental)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
-                let inner = #inner_component_id::new(ctx.clone())?;
+                let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
-
-                #init_with_context
-
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
                 #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
