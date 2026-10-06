@@ -617,4 +617,6 @@ pub struct ConicGradientCommand {
     pub center_x: f32,
     pub center_y: f32,
     pub clip: GradientClip,
+    /// Clockwise rotation of the whole gradient, in radians.
+    pub rotation: f32,
 }
