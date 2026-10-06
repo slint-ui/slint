@@ -469,6 +469,7 @@ pub struct DeclaredSlot {
     pub interface: Option<Rc<Component>>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
+    inherited: bool,
     has_rejected_placeholder: bool,
 }
 
@@ -731,6 +732,10 @@ impl Component {
             }
         }
         for (name, node) in declared_slot_nodes.iter() {
+            if self.declared_slots.borrow().iter().any(|slot| slot.inherited && &slot.name == name)
+            {
+                continue;
+            }
             let has_rejected_placeholder = self
                 .declared_slots
                 .borrow()
@@ -1708,6 +1713,34 @@ impl Element {
         for declaration in node.SlotDeclaration() {
             Self::assert_experimental_slots(diag, &declaration, "named slots");
             declared_slots.push(typed_slots::declaration(declaration, tr, diag));
+        }
+
+        if node.parent().is_some_and(|parent| parent.kind() == SyntaxKind::Component)
+            && let ElementType::Component(base) = &r.borrow().base_type
+        {
+            for slot in declared_slots.iter() {
+                if typed_slots::lookup_slot(base, &slot.name).is_some() {
+                    diag.push_error(
+                        format!(
+                            "Cannot redeclare slot '{}' inherited from '{}'",
+                            slot.name, base.id
+                        ),
+                        &slot.name_node,
+                    );
+                }
+            }
+            let inherited_slots = base
+                .declared_slots
+                .borrow()
+                .iter()
+                .filter(|slot| {
+                    slot.interface.is_none()
+                        && !declared_slots.iter().any(|declared| declared.name == slot.name)
+                })
+                .cloned()
+                .map(|slot| DeclaredSlot { inherited: true, ..slot })
+                .collect::<Vec<_>>();
+            declared_slots.extend(inherited_slots);
         }
 
         for se in node.children() {

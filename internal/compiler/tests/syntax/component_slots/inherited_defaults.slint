@@ -13,7 +13,6 @@ component Base {
 }
 
 export component Derived inherits Base {
-    slot content;
     content {
         Rectangle {
             min-width: 30px;
@@ -22,12 +21,10 @@ export component Derived inherits Base {
 }
 
 export component EmptyDefault inherits Derived {
-    slot content;
     content { }
 }
 
 export component MixedAssignment inherits Base {
-    slot content;
     content {
         Rectangle { }
     }
@@ -37,7 +34,6 @@ export component MixedAssignment inherits Base {
 }
 
 export component NestedOverride inherits Base {
-    slot content;
     VerticalLayout {
 //  >             <error{'Base' cannot have children. Only components with @children can have children}
         content {
@@ -45,5 +41,13 @@ export component NestedOverride inherits Base {
             Rectangle { }
         }
 //      <error{Place the default placeholder for inherited slot 'content' at the component root}
+    }
+}
+
+export component RedeclaredSlot inherits Base {
+    slot content;
+//       >     <error{Cannot redeclare slot 'content' inherited from 'Base'}
+    content {
+        Rectangle { }
     }
 }
