@@ -255,6 +255,7 @@ mod decoding {
         data: &[u8],
         format: ImageFormat,
     ) -> ImageResult<Option<(Format, Option<NonZeroU32>)>> {
+        #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
         Ok(match format {
             #[cfg(feature = "image-default-formats")]
             ImageFormat::Gif => {
