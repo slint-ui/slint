@@ -60,8 +60,16 @@ pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    resource_urls: Option<js_sys::Map>,
 ) -> Result<CompilationResult, JsValue> {
-    compile_from_string_with_style(source, base_url, String::new(), optional_import_callback).await
+    compile_from_string_with_style(
+        source,
+        base_url,
+        String::new(),
+        optional_import_callback,
+        resource_urls,
+    )
+    .await
 }
 
 /// Same as [`compile_from_string`], but also takes a style parameter
@@ -71,10 +79,18 @@ pub async fn compile_from_string_with_style(
     base_url: String,
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    resource_urls: Option<js_sys::Map>,
 ) -> Result<CompilationResult, JsValue> {
     #[allow(deprecated)]
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = true;
+    if let Some(resource_urls) = resource_urls {
+        compiler.compiler_configuration(i_slint_core::InternalToken).resource_url_mapper =
+            Some(Rc::new(move |url| {
+                let mapped = resource_urls.get(&JsValue::from_str(url.as_str())).as_string();
+                Box::pin(async move { mapped.and_then(|value| value.parse().ok()) })
+            }));
+    }
     if !style.is_empty() {
         compiler.set_style(style)
     }
