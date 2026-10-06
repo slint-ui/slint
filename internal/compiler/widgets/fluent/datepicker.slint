@@ -11,7 +11,7 @@ import { Date, DatePickerBase } from "../common/datepicker_base.slint";
 export { Date }
 
 export component DatePickerPopup inherits PopupWindow {
-    in property <string> title: "Select date";
+    in property <string> title: @tr("Select date");
     in property <Date> date <=> base.date;
 
     callback canceled();
