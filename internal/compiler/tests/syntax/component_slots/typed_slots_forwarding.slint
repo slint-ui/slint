@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction { in property <bool> enabled; }
+component Host {
+    slot <Interaction> control;
+    control { }
+}
+export component UntypedSource {
+    slot input;
+    Host { control << input; }
+//                    >   <error{Declare slot 'input' with the interface required by 'control'}
+    input { }
+}
+export component DuplicatePlaceholder {
+    slot <Interaction> input;
+    input { }
+//  >       <note{The slot 'input' is already used here}
+    input { }
+//  >       <error{The slot 'input' can only appear once in an element}
+}
+export component PlaceholderBeforeForwarding {
+    slot <Interaction> input;
+    input { }
+//  >       <note{The slot 'input' is already used here}
+    Host { control << input; }
+//                    >   <error{The slot 'input' can only appear once in an element}
+}
+export component ForwardingBeforePlaceholder {
+    slot <Interaction> input;
+    Host { control << input; }
+//                    >   <note{The slot 'input' is already used here}
+    input { }
+//  >       <error{The slot 'input' can only appear once in an element}
+}
+export component DuplicateForwarding {
+    slot <Interaction> input;
+    Host { control << input; }
+//                    >   <note{The slot 'input' is already used here}
+    Host { control << input; }
+//                    >   <error{The slot 'input' can only appear once in an element}
+}

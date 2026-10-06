@@ -88,8 +88,9 @@ pub(super) fn create_placeholder(
     else {
         return false;
     };
-    if insertion_points.contains_key(name.as_str()) {
+    if let Some(existing) = insertion_points.get(name.as_str()) {
         diag.push_error(format!("The slot '{name}' can only appear once in an element"), node);
+        diag.push_note(format!("The slot '{name}' is already used here"), &existing.node);
         return true;
     }
     let element_node: syntax_nodes::Element = node.child_node(SyntaxKind::Element).unwrap().into();
@@ -164,8 +165,9 @@ pub(super) fn create_forwarding(
         diag.push_error(format!("Forwarded slot '{source}' has an incompatible interface"), node);
         return true;
     }
-    if insertion_points.contains_key(source.as_str()) {
+    if let Some(existing) = insertion_points.get(source.as_str()) {
         diag.push_error(format!("The slot '{source}' can only appear once in an element"), node);
+        diag.push_note(format!("The slot '{source}' is already used here"), &existing.node);
         return true;
     }
     if parent.borrow().children.iter().any(|c| c.borrow().slot_target.as_ref() == Some(target)) {
