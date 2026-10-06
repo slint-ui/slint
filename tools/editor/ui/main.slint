@@ -195,8 +195,7 @@ export component EditorUi inherits Window {
     private property <length> requested-left-width: Style.panes.left-width;
     private property <length> requested-inspector-width: Style.panes.inspector-width;
     private property <bool> inspector-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
-    private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width
-        - Style.panes.splitter-size * (root.inspector-visible ? 2 : 1);
+    private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width;
     private property <length> extra-left-width: root.requested-left-width - Style.panes.left-width;
     private property <length> extra-inspector-width: root.inspector-visible
         ? root.requested-inspector-width - Style.panes.inspector-width : 0px;
@@ -431,17 +430,6 @@ export component EditorUi inherits Window {
                             create-new-slint-file => { root.create-new-slint-file(); }
                         }
 
-                        if !root.sidebars-collapsed: PaneWidthDivider {
-                            resize-label: @tr("Project pane resize");
-                            value: root.displayed-left-width;
-                            value-minimum: Style.panes.left-width;
-                            value-maximum: root.left-width-maximum;
-                            saved-width: root.left-pane-width;
-                            width-requested(value) => { root.requested-left-width = value; }
-                            resized(value) => { root.left-pane-resized(value); }
-                            reset => { root.left-pane-reset(); }
-                        }
-
                         canvas-viewport := Rectangle {
                             clip: true;
 
@@ -463,18 +451,6 @@ export component EditorUi inherits Window {
                             }
                         }
 
-                        if root.inspector-visible && !root.sidebars-collapsed: PaneWidthDivider {
-                            resize-label: @tr("Inspector pane resize");
-                            reversed: true;
-                            value: root.displayed-inspector-width;
-                            value-minimum: Style.panes.inspector-width;
-                            value-maximum: root.inspector-width-maximum;
-                            saved-width: root.inspector-pane-width;
-                            width-requested(value) => { root.requested-inspector-width = value; }
-                            resized(value) => { root.inspector-pane-resized(value); }
-                            reset => { root.inspector-pane-reset(); }
-                        }
-
                         if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
                             width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
@@ -492,6 +468,37 @@ export component EditorUi inherits Window {
                             }
                         }
                     }
+                }
+
+                if !root.sidebars-collapsed: PaneWidthDivider {
+                    x: root.displayed-left-width - self.width / 2;
+                    y: Style.shell.top-bar-height;
+                    height: parent.height - self.y;
+                    z: 1;
+                    resize-label: @tr("Project pane resize");
+                    value: root.displayed-left-width;
+                    value-minimum: Style.panes.left-width;
+                    value-maximum: root.left-width-maximum;
+                    saved-width: root.left-pane-width;
+                    width-requested(value) => { root.requested-left-width = value; }
+                    resized(value) => { root.left-pane-resized(value); }
+                    reset => { root.left-pane-reset(); }
+                }
+
+                if root.inspector-visible && !root.sidebars-collapsed: PaneWidthDivider {
+                    x: parent.width - root.displayed-inspector-width - self.width / 2;
+                    y: Style.shell.top-bar-height;
+                    height: parent.height - self.y;
+                    z: 1;
+                    resize-label: @tr("Inspector pane resize");
+                    reversed: true;
+                    value: root.displayed-inspector-width;
+                    value-minimum: Style.panes.inspector-width;
+                    value-maximum: root.inspector-width-maximum;
+                    saved-width: root.inspector-pane-width;
+                    width-requested(value) => { root.requested-inspector-width = value; }
+                    resized(value) => { root.inspector-pane-resized(value); }
+                    reset => { root.inspector-pane-reset(); }
                 }
 
                 if root.sidebars-collapsed: Rectangle {

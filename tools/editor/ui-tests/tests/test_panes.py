@@ -1,5 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cspell:ignore tobytes
 
 import json
 from pathlib import Path
@@ -12,6 +13,7 @@ from ui_driver import (
     element,
     first_window,
     launch_editor,
+    screenshot,
     select_outline_row,
     wait_until,
 )
@@ -161,6 +163,56 @@ def test_wide_inspector_fields_follow_pane_width(
         )
         assert control.size.width == pytest.approx(initial_width + 96, abs=1)
         assert source_file.read_bytes() == source
+
+
+def test_pane_resize_handles_preserve_idle_edges(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Main.slint"
+    ) as editor:
+        window = first_window(editor)
+        left = element(window, "Project and elements")
+        right = element(window, "Inspector and outline")
+        canvas = element(window, "Editor canvas")
+        assert canvas.absolute_position.x == left.absolute_position.x + left.size.width
+        assert (
+            right.absolute_position.x == canvas.absolute_position.x + canvas.size.width
+        )
+        away = slint_testing.LogicalPosition(10, left.absolute_position.y - 10)
+        window.dispatch_event(slint_testing.PointerMoveEvent(away))
+        idle = screenshot(window)
+        scale = idle.width / window.root_element.size.width
+        y = round((left.absolute_position.y + 10) * scale)
+        for label, border_x, interior_x in [
+            ("Project pane resize", left.size.width - 1, left.size.width - 2),
+            (
+                "Inspector pane resize",
+                right.absolute_position.x,
+                right.absolute_position.x + 1,
+            ),
+        ]:
+            assert idle.getpixel((round(border_x * scale), y)) != idle.getpixel(
+                (round(interior_x * scale), y)
+            )
+            bounds = (
+                round((border_x - 3) * scale),
+                y,
+                round((border_x + 4) * scale),
+                y + round(10 * scale),
+            )
+            idle_edge = idle.crop(bounds).tobytes()
+            divider = element(window, label)
+            window.dispatch_event(
+                slint_testing.PointerMoveEvent(
+                    slint_testing.LogicalPosition(center(divider).x, y / scale + 5)
+                )
+            )
+            assert screenshot(window).crop(bounds).tobytes() != idle_edge
+            window.dispatch_event(slint_testing.PointerMoveEvent(away))
+            assert screenshot(window).crop(bounds).tobytes() == idle_edge
 
 
 def test_pane_sizes_persist_across_relaunch(

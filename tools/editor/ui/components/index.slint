@@ -42,6 +42,11 @@ export global EditorWindow {
     in-out property <length> height;
 }
 
+export component EdgeDivider inherits Rectangle {
+    width: Metrics.border-width;
+    background: Colors.border;
+}
+
 component ResizeDivider inherits FocusScope {
     in property <bool> vertical: false;
     in property <bool> reversed: false;
@@ -119,6 +124,7 @@ component ResizeDivider inherits FocusScope {
     }
 
     Rectangle {
+        visible: !root.vertical || touch.has-hover || touch.pressed || root.has-focus;
         x: root.vertical ? (parent.width - self.width) / 2 : 0px;
         y: root.vertical ? 0px : (parent.height - self.height) / 2;
         width: root.vertical ? Metrics.border-width : parent.width;
