@@ -21,10 +21,11 @@ Save, validate, and render in one execution:
    `error` means Slint diagnostics; `failure` means a validator or setup problem.
 3. Call `render_slint` with that path, revision, matching `validatedProjectHash`, and logical canvas dimensions.
    Use the canonical `projectRoot` returned by validation.
-4. Call `get_preview_screenshot` with the returned `previewId`, revision, and source hash.
-   Inspect the image before claiming visual verification.
-   If capture is pending, wait briefly and retry without rendering again.
-   Limit retries to 15 seconds; report unavailable verification if no image arrives.
+After the render execution returns, call `get_preview_screenshot` in a separate execution with the returned `previewId`, revision, and source hash.
+This gives the host an opportunity to open the preview before verification.
+Inspect the image before claiming visual verification.
+If capture is pending, wait briefly and retry without rendering again.
+Limit retries to 15 seconds; report unavailable verification if no image arrives.
 
 Relative imports and re-exports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
 Dependencies must stay inside the project root.
