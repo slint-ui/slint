@@ -63,6 +63,63 @@ function visit(node: SourceNode, apply: (node: SourceNode) => void) {
     });
 }
 for (const target of ["preview", "export"] as const) {
+    test(`${target}: inherited text visibility compiles and preserves icon sizing`, async () => {
+        const capture = JSON.parse(
+            await readFixture("fixtures/source/inherited-visibility.json"),
+        ) as SourceCapture;
+        const prefix = await generate(capture, target);
+        const source = `${prefix}
+            export component Interactive inherits Window {
+                width: 180px; height: 80px; background: white;
+                private property <bool> show-icon: true;
+                FlexboxLayout { alignment: start; cross-axis-alignment: start;
+                    VisibilityButton { horizontal-stretch: 0; vertical-stretch: 0;
+                        show-icon: root.show-icon;
+                    }
+                }
+                TouchArea { clicked => { root.show-icon = !root.show-icon; } }
+            }`;
+        const p = await mountPreview();
+        p.send({
+            type: "preview-source",
+            revision: 1,
+            source,
+            exportPackage: { source, files: [] },
+        });
+        await p.ready(1);
+        const canvas = p.element("#preview-canvas");
+        canvas.style.outline = "none";
+        for (const shown of [true, false, true]) {
+            await expect
+                .poll(async () => bounds(await canvasPixels(p), 2))
+                .toEqual({ x: 0, y: 0, width: shown ? 68 : 40, height: 40 });
+            const pixels = await canvasPixels(p);
+            expect(bounds(pixels, 0)).toEqual({
+                x: shown ? 28 : 0,
+                y: 10,
+                width: 40,
+                height: 20,
+            });
+            expect(bounds(pixels, 1) !== undefined).toBe(shown);
+            canvas.style.pointerEvents = "auto";
+            const rect = canvas.getBoundingClientRect();
+            const Pointer = (p.win as Window & typeof globalThis).PointerEvent;
+            for (const type of ["pointerdown", "pointerup"])
+                canvas.dispatchEvent(
+                    new Pointer(type, {
+                        bubbles: true,
+                        pointerId: 1,
+                        pointerType: "mouse",
+                        isPrimary: true,
+                        button: 0,
+                        buttons: type === "pointerdown" ? 1 : 0,
+                        clientX: rect.left + 10,
+                        clientY: rect.top + 10,
+                    }),
+                );
+        }
+    });
+
     test(`${target}: structurally different variants keep overflow helpers together with globally unique ids`, async () => {
         const capture = await fixture(false);
         const definition = requireValue(capture.components).definitions[0];

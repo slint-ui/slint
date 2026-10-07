@@ -89,10 +89,22 @@ function applyContract(
     contract: ComponentContract | undefined,
     names: ReturnType<typeof contractNames>,
     model?: Element,
+    inheritedConditions: ReadonlySet<string> = new Set(),
 ): Element {
     const refs = contract?.bindings[model?.origin?.id ?? tree.origin?.id ?? ""];
+    const visibility =
+        refs?.visible && !tree.role ? names.get(refs.visible) : undefined;
+    const condition = visibility ? `root.${visibility.name}` : tree.condition;
+    const childConditions = condition
+        ? new Set([...inheritedConditions, condition])
+        : inheritedConditions;
     const result: Element = {
         ...tree,
+        // An ancestor already controls visibility under the same condition.
+        condition:
+            condition && inheritedConditions.has(condition)
+                ? undefined
+                : condition,
         bindings: tree.bindings.map((b) => {
             const property =
                 b.name === "text" && refs?.characters
@@ -114,13 +126,10 @@ function applyContract(
                     elementKey(model.children[i]) === elementKey(child)
                     ? model.children[i]
                     : undefined,
+                childConditions,
             ),
         ),
     };
-    if (refs?.visible && !tree.role) {
-        const property = names.get(refs.visible);
-        if (property) result.condition = `root.${property.name}`;
-    }
     return result;
 }
 function normalizeBindingOrder(tree: Element): Element {
