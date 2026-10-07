@@ -277,7 +277,6 @@ impl ItemConsts for Flickable {
 impl Flickable {
     /// Overrides the scrolling physics that depend on the platform otherwise.
     /// For Slint's internal tests.
-    #[doc(hidden)]
     pub fn set_physics(self: Pin<&Self>, bounce: AutoBool, carry_momentum: AutoBool) {
         Self::FIELD_OFFSETS.bounce().apply_pin(self).set(bounce);
         Self::FIELD_OFFSETS.carry_momentum().apply_pin(self).set(carry_momentum);
