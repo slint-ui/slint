@@ -209,8 +209,7 @@ fontique = { workspace = true }
 criterion = "0.8"
 
 [lints.rust]
-# `slint_ios_scroll_physics` makes Flickable scroll like on iOS on any platform, for replaying iPhone captures.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)", "cfg(slint_ios_scroll_physics)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
 
 [lints.clippy]
 # Coord is an alias for f32 in most architectures, but not always, so the cast
