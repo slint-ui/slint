@@ -24,6 +24,7 @@ let appliedGeneration = -1;
 let rendering = false;
 let runtime;
 let instance;
+let pendingCapture;
 let zoom;
 const codePanel = document.getElementById("code-panel");
 const previewPanel = document.getElementById("preview-panel");
@@ -108,7 +109,7 @@ function report(state, revision, diagnostics, sourceHash) {
   window.parent.postMessage({
     jsonrpc: "2.0", id: "slint-context-" + revision + "-" + state,
     method: "ui/update-model-context",
-    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, sourcePath: desired.sourcePath, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
+    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, previewId: desired.previewId, screenshot: desired.screenshot, sourcePath: desired.sourcePath, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
   }, "*");
 }
 function showError(error, acknowledge = true) {
@@ -135,6 +136,41 @@ function setSource(input) {
   updateCode();
   generation += 1;
   void render().catch(showError);
+}
+function captureFrame() {
+  const current = pendingCapture;
+  if (!current || current.token !== generation) return;
+  pendingCapture = undefined;
+  const capturedAt = Date.now();
+  try {
+    canvas.toBlob(blob => {
+      void publishCapture(current, blob, capturedAt).catch(error => console.error("Slint capture unavailable", error));
+    }, "image/png");
+  } catch (error) {
+    void publishCapture(current, undefined, capturedAt, String(error)).catch(error => console.error("Slint capture unavailable", error));
+  }
+}
+async function publishCapture(current, blob, capturedAt, error) {
+  if (current.token !== generation) return;
+  const args = { previewId: current.previewId, captureToken: current.captureToken, revision: current.revision, sourceHash: current.sourceHash };
+  if (error || !blob) args.error = error || "The canvas did not return an image.";
+  else if (blob.size > 4 * 1024 * 1024) args.error = "The canvas capture exceeds 4 MiB.";
+  else {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+    Object.assign(args, { data: btoa(binary), capturedAt });
+  }
+  if (current.token !== generation) return;
+  let result = await hostRequest("tools/call", { name: "publish_preview_capture", arguments: args });
+  if (result.isError && !args.error) {
+    const { data, capturedAt, ...identity } = args;
+    result = await hostRequest("tools/call", { name: "publish_preview_capture", arguments: { ...identity, error: (result.structuredContent?.message || "The host rejected the capture.").slice(0, 1024) } });
+  }
+  if (result.isError) throw new Error(result.structuredContent?.message || "The host rejected the capture.");
+  if (current.token !== generation) return;
+  desired.screenshot = result.structuredContent;
+  report("ready", current.revision, current.diagnostics, current.sourceHash);
 }
 async function render() {
   if (!runtime || !desired || rendering) return;
@@ -181,6 +217,7 @@ async function render() {
           if (!(typeof error === "string" && error.includes("control flow"))) throw error;
         }
         instance = await instancePromise;
+        await instance.on_after_rendering(captureFrame);
       }
       await instance.show();
       component.free();
@@ -192,6 +229,11 @@ async function render() {
       zoom.setSize(current.width, current.height);
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (token !== generation) continue;
+      if (current.captureToken) {
+        pendingCapture = { ...current, token, diagnostics };
+        desired.screenshot = { status: "pending" };
+        await instance.request_redraw();
+      }
       report("ready", current.revision, diagnostics, current.sourceHash);
     }
   } finally { rendering = false; }
@@ -201,14 +243,15 @@ let rejectBridge;
 const bridgeReady = new Promise((resolve, reject) => { resolveBridge = resolve; rejectBridge = reject; });
 const resourceRequests = new Map();
 let resourceRequestId = 0;
-function readRuntimeResource(uri) {
+function hostRequest(method, params) {
   return new Promise((resolve, reject) => {
     const id = `slint-runtime-${++resourceRequestId}`;
-    const timeout = setTimeout(() => { resourceRequests.delete(id); reject(new Error("The host did not return a Slint runtime resource.")); }, 30000);
+    const timeout = setTimeout(() => { resourceRequests.delete(id); reject(new Error("The host did not respond to the Slint preview request.")); }, 30000);
     resourceRequests.set(id, { resolve, reject, timeout });
-    window.parent.postMessage({ jsonrpc: "2.0", id, method: "resources/read", params: { uri } }, "*");
+    window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
   });
 }
+const readRuntimeResource = uri => hostRequest("resources/read", { uri });
 async function readBytes(uris) {
   const chunks = [];
   for (let offset = 0; offset < uris.length; offset += 4) {
@@ -263,7 +306,7 @@ window.addEventListener("message", (event) => {
   }
   if (message.method === "ui/notifications/host-context-changed") applyHostContext(message.params);
   if (message.method === "ui/notifications/tool-input") setSource(message.params?.arguments);
-  if (message.method === "ui/notifications/tool-result") setSource(message.params?.structuredContent);
+  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, captureToken: message.params?._meta?.captureToken });
 });
 if (window.parent !== window) {
   window.parent.postMessage({

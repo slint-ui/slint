@@ -4,11 +4,11 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-preview.mjs",
-    "test": "python3 tests/check_source.py && node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs tests/runtime-readiness.mjs"
+    "test": "python3 tests/check_source.py && node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs tests/runtime-readiness.mjs tests/captures.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
     "shiki": "4.5.0"
   },
-  "version": "0.16.0"
+  "version": "0.17.0"
 }

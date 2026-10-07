@@ -10,6 +10,8 @@ import { build } from "esbuild";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const runtime = process.env.SLINT_PLUGIN_RUNTIME_DIR || join(root, "runtime");
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const glue = await readFile(join(runtime, "wasm/slint_wasm_interpreter.js"), "utf8");
+if (!["on_after_rendering(", "request_redraw("].every(method => glue.includes(method))) throw new Error("Rebuild the Slint Wasm runtime to enable preview screenshots.");
 const bundle = await build({
   entryPoints: [join(root, "preview/main.mjs")],
   bundle: true,
@@ -37,7 +39,7 @@ for (const [token, value] of Object.entries(assets)) {
   html = html.replace(token, () => value);
 }
 const digest = createHash("sha256").update(html);
-for (const file of ["package.json", "server.mjs", "project.mjs", "runtime-assets.mjs", "scripts/check-source.py"]) digest.update(await readFile(join(root, file)));
+for (const file of ["package.json", "server.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "scripts/check-source.py"]) digest.update(await readFile(join(root, file)));
 for (const file of ["runtime.json", "wasm/slint_wasm_interpreter.js", "wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(runtime, file)));
 const metadata = { version, buildId: digest.digest("hex").slice(0, 12) };
 await writeFile(join(runtime, "preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));

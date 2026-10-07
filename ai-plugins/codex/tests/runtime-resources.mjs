@@ -92,6 +92,17 @@ test("file-backed edits retain identity and reject stale validation", async () =
       assert.equal(rendered.structuredContent.sourceHash, validation.structuredContent.sourceHash);
       assert.equal(rendered.structuredContent.sourceHash, createHash("sha256").update(source).digest("hex"));
       assert.equal(rendered.structuredContent.runtimeRevision, validation.structuredContent.runtimeRevision);
+      const query = { previewId: rendered.structuredContent.previewId, revision, sourceHash: rendered.structuredContent.sourceHash };
+      assert.equal((await client.call("tools/call", { name: "get_preview_screenshot", arguments: query })).structuredContent.status, "pending");
+      const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9BkAAAAASUVORK5CYII=";
+      const stored = await client.call("tools/call", { name: "publish_preview_capture", arguments: { ...query, captureToken: rendered._meta.captureToken, data: png, capturedAt: Date.now() } });
+      assert.equal(stored.structuredContent.status, "ready");
+      const screenshot = await client.call("tools/call", { name: "get_preview_screenshot", arguments: query });
+      assert.equal(screenshot.content[0].type, "image");
+      assert.equal(screenshot.content[0].mimeType, "image/png");
+      assert.equal(screenshot.content[0].data, png);
+      assert.equal(screenshot.structuredContent.sourceHash, query.sourceHash);
+      assert.equal((await client.call("tools/call", { name: "get_preview_screenshot", arguments: { ...query, revision: revision + 1 } })).isError, true);
     }
     const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } });
     await writeFile(path, source.replace("press me", "changed"));
@@ -110,7 +121,8 @@ test("invalid Slint and render arguments return errors", async () => {
   const path = join(directory, "invalid.slint");
   try {
     const { tools } = await client.call("tools/list");
-    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint"]);
+    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint", "get_preview_screenshot", "publish_preview_capture"]);
+    assert.deepEqual(tools.find(tool => tool.name === "publish_preview_capture")._meta.ui.visibility, ["app"]);
     const statuses = tools.find(tool => tool.name === "validate_slint").outputSchema.properties.status.enum;
     assert.deepEqual(statuses, ["valid", "error", "failure"]);
     const source = "export component Broken inherits Window { width: banana; }";
@@ -140,7 +152,7 @@ test("source-only installs start without exposing unavailable preview tools", as
     const root = join(directory, "codex");
     await mkdir(join(root, "examples"), { recursive: true });
     await mkdir(join(root, "components"));
-    for (const file of ["server.mjs", "project.mjs", "runtime-assets.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
+    for (const file of ["server.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
       await copyFile(new URL("../" + file, import.meta.url), join(root, file));
     }
     await copyFile(new URL("../../icon.svg", import.meta.url), join(directory, "icon.svg"));

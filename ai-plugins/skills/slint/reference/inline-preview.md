@@ -21,6 +21,10 @@ Save, validate, and render in one execution:
    `error` means Slint diagnostics; `failure` means a validator or setup problem.
 3. Call `render_slint` with that path, revision, matching `validatedProjectHash`, and logical canvas dimensions.
    Use the canonical `projectRoot` returned by validation.
+4. Call `get_preview_screenshot` with the returned `previewId`, revision, and source hash.
+   Inspect the image before claiming visual verification.
+   If capture is pending, wait briefly and retry without rendering again.
+   Limit retries to 15 seconds; report unavailable verification if no image arrives.
 
 Relative imports and re-exports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
 Dependencies must stay inside the project root.
@@ -41,3 +45,14 @@ A matching `slintPreview.state` of `ready` acknowledges compilation, showing the
 An `error` acknowledgement carries frontend diagnostics.
 These acknowledgements may arrive asynchronously; do not claim visual verification from submission alone.
 Ask the user to inspect the inline preview when it is not available to your inspection tools.
+
+## Screenshot verification
+
+The screenshot is captured from the inline Wasm canvas immediately after drawing the submitted source revision.
+It includes Slint pixels without the host header, view controls, or CSS zoom.
+Transparent pixels stay transparent; their displayed background depends on the image viewer.
+It does not show later user interactions or changes in application state.
+Check the image's source identity before reviewing layout, text, colors, and clipping.
+A ready render acknowledgement confirms compilation and display, not appearance.
+If the screenshot tool reports an error or an expired capture, say that visual verification was unavailable.
+Do not use an image from another revision as evidence for the current edit.
