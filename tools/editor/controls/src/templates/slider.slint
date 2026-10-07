@@ -1,0 +1,156 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SliderTemplate {
+    in property <bool> enabled: true;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> step: 1;
+    in property <float> page-step: root.keyboard-step * 10;
+    in-out property <float> value;
+    in property <Orientation> orientation: horizontal;
+    in property <bool> inverted: false;
+    in property <length> handle-width: 20px;
+    in property <length> handle-height: 20px;
+    in property <length> track-thickness: 4px;
+    out property <bool> has-focus: keys.has-focus;
+    out property <bool> hovered: root.enabled && pointer.has-hover
+        && pointer.mouse-x >= 0px && pointer.mouse-x < root.width
+        && pointer.mouse-y >= 0px && pointer.mouse-y < root.height;
+    out property <bool> pressed: root.enabled && root.drag-active;
+    out property <float> position: root.upper > root.lower
+        ? clamp((root.value - root.lower) / (root.upper - root.lower), 0, 1) : 0;
+    out property <float> visual-position: root.reversed ? 1 - root.position : root.position;
+    callback changed(value: float);
+
+    slot track;
+    slot handle;
+
+    private property <float> lower: min(root.minimum, root.maximum);
+    private property <float> upper: max(root.minimum, root.maximum);
+    private property <float> keyboard-step: root.step > 0 ? root.step : (root.upper - root.lower) / 100;
+    private property <bool> vertical: root.orientation == Orientation.vertical;
+    private property <bool> reversed: root.vertical != root.inverted;
+    private property <length> travel: max(0px, root.vertical
+        ? root.height - root.handle-height : root.width - root.handle-width);
+    private property <length> inset: ((root.vertical ? root.height : root.width) - root.travel) / 2;
+    private property <bool> drag-active;
+    private property <length> grab-offset;
+    private property <length> last-coordinate;
+
+    preferred-width: root.vertical ? 32px : 200px;
+    preferred-height: root.vertical ? 200px : 32px;
+    min-width: root.handle-width;
+    min-height: root.handle-height;
+    horizontal-stretch: root.vertical ? 0 : 1;
+    vertical-stretch: root.vertical ? 1 : 0;
+    forward-focus: keys;
+    accessible-role: slider;
+    accessible-enabled: root.enabled;
+    accessible-value: clamp(root.value, root.lower, root.upper);
+    accessible-value-minimum: root.lower;
+    accessible-value-maximum: root.upper;
+    accessible-value-step: root.keyboard-step;
+    accessible-action-increment => { root.set-value(root.value + root.keyboard-step); }
+    accessible-action-decrement => { root.set-value(root.value - root.keyboard-step); }
+    accessible-action-set-value(value) => {
+        if value.is-float() { root.set-value(value.to-float()); }
+    }
+
+    public function set-value(requested: float) {
+        if !root.enabled { return; }
+        let bounded = clamp(requested, root.lower, root.upper);
+        let snapped = root.step > 0 && bounded > root.lower && bounded < root.upper
+            ? root.lower + round((bounded - root.lower) / root.step) * root.step : bounded;
+        let next = clamp(snapped, root.lower, root.upper);
+        if next != root.value {
+            root.value = next;
+            root.changed(next);
+        }
+    }
+
+    public function set-position(position: float) {
+        root.set-value(root.lower + clamp(position, 0, 1) * (root.upper - root.lower));
+    }
+
+    function update-pointer() {
+        if !root.drag-active || !root.enabled || root.travel <= 0px { return; }
+        let coordinate = root.vertical ? pointer.mouse-y : pointer.mouse-x;
+        root.last-coordinate = coordinate;
+        let visual = clamp((coordinate - root.grab-offset - root.inset) / root.travel, 0, 1);
+        root.set-position(root.reversed ? 1 - visual : visual);
+    }
+
+    changed enabled => { if !root.enabled { root.drag-active = false; } }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                keys.focus();
+                let coordinate = root.vertical ? self.mouse-y : self.mouse-x;
+                let on-handle = self.mouse-x >= handle-box.x && self.mouse-x <= handle-box.x + handle-box.width
+                    && self.mouse-y >= handle-box.y && self.mouse-y <= handle-box.y + handle-box.height;
+                root.grab-offset = on-handle ? coordinate - (root.inset + root.travel * root.visual-position) : 0px;
+                root.last-coordinate = coordinate;
+                root.drag-active = true;
+                if !on-handle { root.update-pointer(); }
+            } else if event.kind == PointerEventKind.move && root.drag-active {
+                if (root.vertical ? self.mouse-y : self.mouse-x) != root.last-coordinate { root.update-pointer(); }
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                if (root.vertical ? self.mouse-y : self.mouse-x) != root.last-coordinate { root.update-pointer(); }
+                root.drag-active = false;
+            } else if event.kind == PointerEventKind.cancel {
+                root.drag-active = false;
+            }
+        }
+    }
+
+    Rectangle {
+        x: root.vertical ? (root.width - self.width) / 2 : root.inset;
+        y: root.vertical ? root.inset : (root.height - self.height) / 2;
+        width: root.vertical ? root.track-thickness : root.travel;
+        height: root.vertical ? root.travel : root.track-thickness;
+        track { }
+    }
+
+    handle-box := Rectangle {
+        x: root.vertical ? (root.width - self.width) / 2
+            : root.inset + root.travel * root.visual-position - self.width / 2;
+        y: root.vertical ? root.inset + root.travel * root.visual-position - self.height / 2
+            : (root.height - self.height) / 2;
+        width: root.handle-width;
+        height: root.handle-height;
+        handle { }
+    }
+
+    keys := FocusScope {
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if !root.enabled || event.modifiers.control || event.modifiers.alt { return reject; }
+            if event.text == Key.Escape && root.drag-active {
+                root.drag-active = false;
+                return accept;
+            }
+            if root.drag-active { return reject; }
+            let direction = root.inverted ? -1 : 1;
+            if event.text == Key.RightArrow || event.text == Key.UpArrow {
+                root.set-value(root.value + direction * root.keyboard-step);
+            } else if event.text == Key.LeftArrow || event.text == Key.DownArrow {
+                root.set-value(root.value - direction * root.keyboard-step);
+            } else if event.text == Key.PageUp {
+                root.set-value(root.value + max(0, root.page-step));
+            } else if event.text == Key.PageDown {
+                root.set-value(root.value - max(0, root.page-step));
+            } else if event.text == Key.Home {
+                root.set-value(root.lower);
+            } else if event.text == Key.End {
+                root.set-value(root.upper);
+            } else { return reject; }
+            return accept;
+        }
+    }
+}

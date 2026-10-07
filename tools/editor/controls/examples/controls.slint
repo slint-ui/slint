@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import { ButtonExamples } from "buttons.slint";
+import { SliderExamples } from "sliders.slint";
+
+export component ControlsDemo inherits Window {
+    title: "Reusable controls";
+    width: 720px;
+    height: 860px;
+    ScrollView {
+        horizontal-scrollbar-policy: always-off;
+        content-width: self.width;
+        VerticalLayout {
+            padding: 16px;
+            spacing: 8px;
+            Text {
+                text: "Buttons";
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+            ButtonExamples { }
+
+            Rectangle {
+                height: 1px;
+                background: #d1d5db;
+            }
+
+            Text {
+                text: "Sliders";
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+            SliderExamples { }
+        }
+    }
+}

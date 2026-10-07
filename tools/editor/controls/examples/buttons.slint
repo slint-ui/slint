@@ -4,10 +4,9 @@
 import { Button, BasicTheme } from "../src/basic.slint";
 import { ButtonTemplate } from "../src/templates.slint";
 
-export component ButtonsDemo inherits Window {
-    title: "Reusable buttons";
-    width: 560px;
-    height: 360px;
+export component ButtonExamples inherits Rectangle {
+    preferred-height: 360px;
+    vertical-stretch: 0;
     in-out property <int> activations;
     in-out property <int> toggles;
 

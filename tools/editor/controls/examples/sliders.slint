@@ -1,0 +1,109 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Slider, Button } from "../src/basic.slint";
+import { SliderTemplate } from "../src/templates.slint";
+
+export component SliderExamples inherits Rectangle {
+    preferred-height: 420px;
+    vertical-stretch: 0;
+    in-out property <float> value: 40;
+    in-out property <bool> sliders-enabled: true;
+    out property <int> changes;
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text {
+            text: "One behavior, replaceable track and handle visuals";
+        }
+
+        Button {
+            text: "Enable sliders";
+            checkable: true;
+            checked <=> root.sliders-enabled;
+        }
+
+        HorizontalLayout {
+            spacing: 24px;
+            VerticalLayout {
+                spacing: 12px;
+                Text {
+                    text: "Basic linear slider";
+                }
+
+                Slider {
+                    accessible-label: "Basic slider";
+                    enabled: root.sliders-enabled;
+                    value <=> root.value;
+                    changed(value) => { root.changes += 1; }
+                }
+
+                Text {
+                    text: "Basic style with a square handle";
+                }
+
+                Slider {
+                    accessible-label: "Square handle slider";
+                    enabled: root.sliders-enabled;
+                    value <=> root.value;
+                    handle-width: 16px;
+                    handle-height: 24px;
+                    handle-radius: 3px;
+                    fill-color: #0d9488;
+                    handle-color: #0d9488;
+                    changed(value) => { root.changes += 1; }
+                }
+
+                Text {
+                    text: "Template with custom visuals";
+                }
+
+                custom := SliderTemplate {
+                    accessible-label: "Custom slider";
+                    enabled: root.sliders-enabled;
+                    value <=> root.value;
+                    track-thickness: 8px;
+                    handle-width: 14px;
+                    handle-height: 26px;
+                    track << Rectangle {
+                        background: custom.enabled ? #fcd34d : #e5e7eb;
+                        border-radius: 4px;
+                    }
+                    handle << Rectangle {
+                        background: custom.enabled ? #92400e : #9ca3af;
+                        border-radius: 3px;
+                        border-width: custom.has-focus ? 2px : 0px;
+                        border-color: #111827;
+                    }
+                    changed(value) => { root.changes += 1; }
+                }
+            }
+
+            Slider {
+                accessible-label: "Vertical slider";
+                orientation: vertical;
+                enabled: root.sliders-enabled;
+                value <=> root.value;
+                changed(value) => { root.changes += 1; }
+            }
+
+            Slider {
+                accessible-label: "Inverted vertical slider";
+                orientation: vertical;
+                inverted: true;
+                enabled: root.sliders-enabled;
+                value <=> root.value;
+                changed(value) => { root.changes += 1; }
+            }
+        }
+
+        Text {
+            text: "Value: \{root.value} · User changes: \{root.changes}";
+        }
+
+        Text {
+            text: "Drag or click the track. Use arrows, Page Up/Down, Home, or End.";
+            wrap: word-wrap;
+        }
+    }
+}

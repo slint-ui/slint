@@ -1,0 +1,172 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    Slider,
+    BasicTheme,
+} from "../../../tools/editor/controls/src/basic.slint";
+export { BasicTheme }
+component CustomSlider inherits Slider {
+    track-color: #123456;
+    fill-color: #abcdef;
+    handle-color: #654321;
+    handle {
+        Rectangle {
+            background: root.handle-color;
+            border-radius: 0px;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 480px;
+    height: 280px;
+    in-out property <float> value: 50;
+    in-out property <bool> enabled: true;
+    in-out property <bool> vertical;
+    in-out property <bool> inverted;
+    in-out property <brush> custom-color: #fedcba;
+    out property <int> changes;
+    out property <bool> pressed: slider.pressed;
+    out property <brush> handle-color: slider.handle-color;
+    out property <brush> fill-color: slider.fill-color;
+    out property <brush> track-color: slider.track-color;
+    out property <bool> focus-border-correct: slider.has-focus && slider.handle-border-color == BasicTheme.focus;
+    out property <bool> test: custom.track-color == #123456 && custom.fill-color == #abcdef
+        && custom.handle-color == #654321 && bound.handle-color == root.custom-color;
+    public function focus-other() { other.focus(); }
+    slider := Slider {
+        accessible-label: "Pointer slider";
+        x: 20px;
+        y: 20px;
+        width: root.vertical ? 40px : 220px;
+        height: root.vertical ? 220px : 40px;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+        inverted: root.inverted;
+        value <=> root.value;
+        enabled: root.enabled;
+        changed(value) => { root.changes += 1; }
+    }
+
+    custom := CustomSlider {
+        accessible-label: "Custom slider";
+        x: 260px;
+        y: 20px;
+        width: 200px;
+        height: 40px;
+        enabled: root.enabled;
+    }
+
+    bound := Slider {
+        accessible-label: "Bound slider";
+        x: 260px;
+        y: 80px;
+        width: 200px;
+        height: 40px;
+        enabled: root.enabled;
+        handle-color: root.custom-color;
+        handle << Rectangle {
+            background: bound.handle-color;
+            border-radius: 2px;
+        }
+    }
+
+    other := FocusScope {
+        x: 260px;
+        y: 160px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let palette = instance.global::<BasicTheme<'_>>();
+let button = PointerEventButton::Left;
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let click = |x, y| slint_testing::send_mouse_click(&instance, x, y);
+let move_to = |position| instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+let press = |position| instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+let release = |position| instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+let outside = point(470., 260.);
+move_to(outside);
+assert_eq!(instance.get_handle_color(), palette.get_accent());
+click(180., 40.);
+assert_eq!(instance.get_value(), 75.);
+assert_eq!(instance.get_changes(), 1);
+assert!(instance.get_focus_border_correct());
+assert_eq!(instance.get_handle_color(), palette.get_accent_hover());
+press(point(185., 40.));
+assert!(instance.get_pressed());
+assert_eq!(instance.get_value(), 75.);
+assert_eq!(instance.get_handle_color(), palette.get_accent_pressed());
+move_to(point(205., 40.));
+assert_eq!(instance.get_value(), 85.);
+move_to(point(260., 40.));
+assert_eq!(instance.get_value(), 100.);
+release(point(260., 40.));
+assert!(!instance.get_pressed());
+
+instance.set_value(50.5);
+click(135., 40.);
+assert_eq!(instance.get_value(), 50.5);
+instance.set_value(50.);
+press(point(130., 40.));
+move_to(point(150., 40.));
+let before = instance.get_changes();
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), false);
+assert!(!instance.get_pressed());
+move_to(point(200., 40.));
+release(point(200., 40.));
+assert_eq!(instance.get_value(), 60.);
+assert_eq!(instance.get_changes(), before);
+
+press(point(150., 40.));
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_pressed());
+assert_eq!(instance.get_handle_color(), palette.get_disabled_foreground());
+assert_eq!(instance.get_fill_color(), palette.get_disabled_foreground());
+assert_eq!(instance.get_track_color(), palette.get_disabled_background());
+assert!(instance.get_test());
+move_to(point(200., 40.));
+instance.set_enabled(true);
+release(point(200., 40.));
+assert_eq!(instance.get_value(), 60.);
+assert_eq!(instance.get_changes(), before);
+
+for vertical in [false, true] {
+    instance.set_vertical(vertical);
+    for inverted in [false, true] {
+        instance.set_inverted(inverted);
+        instance.set_value(50.);
+        let (low, high) = if vertical { (point(40., 30.), point(40., 230.)) }
+            else { (point(30., 40.), point(230., 40.)) };
+        let reversed = vertical != inverted;
+        click(low.x, low.y);
+        assert_eq!(instance.get_value(), if reversed { 100. } else { 0. });
+        click(high.x, high.y);
+        assert_eq!(instance.get_value(), if reversed { 0. } else { 100. });
+    }
+}
+for position in [point(320., 40.), point(320., 100.)] {
+    move_to(position);
+    press(position);
+    assert!(instance.get_test());
+    instance.set_custom_color(slint::Color::from_rgb_u8(0xff, 0, 0).into());
+    assert!(instance.get_test());
+    instance.set_enabled(false);
+    slint::platform::update_timers_and_animations();
+    assert!(instance.get_test());
+    instance.set_enabled(true);
+    release(position);
+}
+instance.invoke_focus_other();
+move_to(outside);
+assert!(!instance.get_focus_border_correct());
+```
+*/

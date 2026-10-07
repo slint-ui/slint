@@ -52,12 +52,50 @@ Replaced default content doesn't contribute to the button's preferred size.
 Override `accessible-label` when the action needs a different description.
 Nested interactive controls handle their own activation and don't automatically activate the outer button.
 
+## Slider Behavior
+
+Import `SliderTemplate` from `src/templates.slint` for a linear slider without visuals.
+Import `Slider` from `src/basic.slint` for a default track, filled range, and handle.
+Both support horizontal and vertical orientations, and `inverted` reverses the direction.
+Vertical sliders place the minimum at the bottom by default.
+
+`minimum`, `maximum`, `step`, and `value` define the range.
+Reversed bounds use the smaller value as the lower bound.
+Positive steps snap relative to that lower bound; zero or negative steps allow continuous values.
+Both endpoints remain reachable when the range isn't divisible by the step.
+`position` is the normalized value, and `visual-position` accounts for orientation and inversion.
+Values assigned outside the range display at the nearest endpoint.
+
+Clicking the track sets the value immediately.
+Dragging the handle preserves the pointer's grab offset and updates the value while dragging.
+`pressed`, `hovered`, and `has-focus` expose interaction state.
+Escape, pointer cancellation, or disabling the slider ends the drag and keeps the last value.
+
+Arrow keys move by `step`, or one percent of the range for continuous sliders.
+Inversion reverses arrow keys.
+Page Up and Page Down use `page-step`, which defaults to ten keyboard steps.
+Home and End select the lower and upper bounds.
+Accessibility actions share the same clamping and snapping path.
+
+`changed(value: float)` reports interaction changes, including `set-value()` and `set-position()` requests.
+It fires only when the value changes.
+Assigning `value` directly doesn't emit it.
+Disabled sliders ignore interaction requests.
+
+Replace `track` and `handle` to provide custom visuals while keeping linear interaction behavior.
+The template places those visuals using `handle-width`, `handle-height`, and `track-thickness`.
+The Basic style exposes track, fill, and handle brushes, radii, and handle border properties.
+Caller brush bindings remain active across disabled, pressed, and hovered states.
+Circular or other nonlinear pointer mappings need a separate interaction surface; changing the visuals alone doesn't change the linear mapping.
+
 ## Example
 
-From the repository root, open the example in the visual editor:
+From the repository root, open the combined button and slider showcase in the visual editor:
 
 ```powershell
 $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
 $env:SLINT_BACKEND = "winit-skia"
-cargo +1.95.0 run -p slint-editor -- tools/editor/controls/examples/buttons.slint
+cargo +1.95.0 run -p slint-editor -- tools/editor/controls/examples/controls.slint
 ```
+
+The `buttons.slint` and `sliders.slint` files define sections of this single app.
