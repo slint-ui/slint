@@ -611,6 +611,8 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
+        let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
+        let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
         if phase != TouchPhase::Started
             && delta != LogicalVector::default()
             && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
@@ -618,13 +620,12 @@ impl FlickableDataInner {
             // Release the capture immediately, this event is not meant for this Flickable.
             self.capture_events = None;
             self.last_scroll_event = None;
+            content_x.remove_binding();
+            content_y.remove_binding();
             self.running_animation = None;
             self.velocity_rb = Default::default();
             return InputEventResult::EventIgnored;
         }
-
-        let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-        let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
