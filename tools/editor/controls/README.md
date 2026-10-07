@@ -88,9 +88,21 @@ The Basic style exposes track, fill, and handle brushes, radii, and handle borde
 Caller brush bindings remain active across disabled, pressed, and hovered states.
 Circular or other nonlinear pointer mappings need a separate interaction surface; changing the visuals alone doesn't change the linear mapping.
 
+### Straight and Circular Surfaces
+
+The [surface example](examples/slider-surfaces.slint) supplies straight and circular interaction surfaces to the same example host, `HeadlessSlider`.
+Its typed `surface` slot requires `SliderSurface`: enabled state, normalized position, focus state, and a `seek` callback.
+The host owns range limits, snapping, keyboard behavior, accessibility, and change callbacks.
+This example host is separate from the reusable linear `SliderTemplate`.
+
+`StraightSurface` maps horizontal pointer position to the value.
+`CircularSurface` maps pointer angle along a 270-degree arc.
+Requests in the bottom gap clamp to the nearest endpoint; pointer input at the center is ignored.
+Both surfaces share the showcase value and enable toggle with the other sliders.
+
 ## Example
 
-From the repository root, open the combined button and slider showcase in the visual editor:
+From the repository root, open the combined button, slider, and combo box showcase in the visual editor:
 
 ```powershell
 $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
@@ -98,4 +110,4 @@ $env:SLINT_BACKEND = "winit-skia"
 cargo +1.95.0 run -p slint-editor -- tools/editor/controls/examples/controls.slint
 ```
 
-The `buttons.slint` and `sliders.slint` files define sections of this single app.
+The `buttons.slint`, `sliders.slint`, and `combo-boxes.slint` files define sections of this single app.

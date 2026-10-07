@@ -3,9 +3,10 @@
 
 import { Slider, Button } from "../src/basic.slint";
 import { SliderTemplate } from "../src/templates.slint";
+import { SliderSurfaceExamples } from "slider-surfaces.slint";
 
 export component SliderExamples inherits Rectangle {
-    preferred-height: 420px;
+    preferred-height: 720px;
     vertical-stretch: 0;
     in-out property <float> value: 40;
     in-out property <bool> sliders-enabled: true;
@@ -104,6 +105,12 @@ export component SliderExamples inherits Rectangle {
         Text {
             text: "Drag or click the track. Use arrows, Page Up/Down, Home, or End.";
             wrap: word-wrap;
+        }
+
+        SliderSurfaceExamples {
+            value <=> root.value;
+            sliders-enabled: root.sliders-enabled;
+            changed(value) => { root.changes += 1; }
         }
     }
 }
