@@ -110,7 +110,7 @@ impl Scene {
                     break;
                 }
                 self.future_items_index += 1;
-                if item.pos.y_length() + item.size.height_length() < self.current_line {
+                if item.pos.y_length() + item.size.height_length() <= self.current_line {
                     continue;
                 }
                 self.items[i] = item;
@@ -625,4 +625,76 @@ pub struct ConicGradientCommand {
     pub clip: GradientClip,
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
+}
+
+#[test]
+fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
+    // Two dirty boxes with a gap at lines 10..20, so `next_line` jumps from line 10 to 20.
+    let mut dirty_region = PhysicalRegion {
+        rectangles: [euclid::Box2D::zero(); super::PHYSICAL_REGION_MAX_SIZE],
+        count: 2,
+    };
+    dirty_region.rectangles[0] = euclid::Box2D::new((0, 0).into(), (10, 10).into());
+    dirty_region.rectangles[1] = euclid::Box2D::new((0, 20).into(), (10, 30).into());
+
+    let item = |y, height, z| SceneItem {
+        pos: PhysicalPoint::new(0, y),
+        size: PhysicalSize::new(10, height),
+        z,
+        command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+    };
+    // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
+    let mut scene =
+        Scene::new(alloc::vec![item(15, 5, 1), item(15, 6, 2)], Default::default(), dirty_region);
+
+    while scene.current_line.get() < 10 {
+        scene.next_line();
+    }
+    assert_eq!(scene.current_line.get(), 20);
+
+    let active: Vec<_> = scene.items[..scene.current_items_index].iter().map(|i| i.z).collect();
+    assert_eq!(active, [2]);
+}
+
+#[test]
+fn next_line_keeps_exactly_the_items_on_the_current_line() {
+    let mut dirty_region = PhysicalRegion {
+        rectangles: [euclid::Box2D::zero(); super::PHYSICAL_REGION_MAX_SIZE],
+        count: 3,
+    };
+    dirty_region.rectangles[0] = euclid::Box2D::new((0, 0).into(), (100, 40).into());
+    dirty_region.rectangles[1] = euclid::Box2D::new((0, 55).into(), (100, 80).into());
+    dirty_region.rectangles[2] = euclid::Box2D::new((0, 90).into(), (100, 120).into());
+
+    // Deterministic mix of tall and short items starting and ending at varied lines.
+    // Heights start at 1 because next_line expects non-empty items.
+    let mut seed = 0x2545_f491_u32;
+    let mut next = |max: u32| {
+        seed ^= seed << 13;
+        seed ^= seed >> 17;
+        seed ^= seed << 5;
+        (seed % max) as i16
+    };
+    let items: Vec<SceneItem> = (0..200)
+        .map(|z| SceneItem {
+            pos: PhysicalPoint::new(0, next(120)),
+            size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
+            z,
+            command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        })
+        .collect();
+
+    let mut scene = Scene::new(items.clone(), Default::default(), dirty_region);
+    while scene.current_line.get() < 120 {
+        let line = scene.current_line.get();
+        let mut expected: Vec<_> = items
+            .iter()
+            .filter(|i| i.pos.y <= line && line < i.pos.y + i.size.height)
+            .map(|i| i.z)
+            .collect();
+        expected.sort_unstable_by(|a, b| b.cmp(a));
+        let active: Vec<_> = scene.items[..scene.current_items_index].iter().map(|i| i.z).collect();
+        assert_eq!(active, expected, "line {line}");
+        scene.next_line();
+    }
 }
