@@ -718,8 +718,7 @@ fn generate_shared_globals(
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
-                    let adapter = self.context.platform().create_window_adapter()?;
-                    sp::WindowInner::from_pub(adapter.window()).set_context(self.context.clone());
+                    let adapter = self.context.create_window_adapter()?;
                     let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                     sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                     #apply_constant_scale_factor

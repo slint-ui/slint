@@ -2042,9 +2042,14 @@ impl WindowInner {
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
     pub fn create_child_window_adapter(&self, kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
-        self.window_adapter()
+        let adapter = self
+            .window_adapter()
             .internal(crate::InternalToken)
-            .and_then(|s| s.create_child_window_adapter(kind))
+            .and_then(|s| s.create_child_window_adapter(kind))?;
+        if let Some(ctx) = self.try_context() {
+            WindowInner::from_pub(adapter.window()).set_context(ctx.clone());
+        }
+        Some(adapter)
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.

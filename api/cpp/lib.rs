@@ -42,6 +42,10 @@ pub fn with_platform<R>(
     with_global_context(|ctx| f(ctx.platform()))?
 }
 
+// Without the selector, the application installs the platform itself.
+#[cfg(not(feature = "i-slint-backend-selector"))]
+use i_slint_core::with_existing_context as with_global_context;
+
 #[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
     f: impl FnOnce(
@@ -100,7 +104,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }
