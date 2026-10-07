@@ -37,6 +37,9 @@ const menuToggle = document.getElementById("view-menu-toggle");
 const menu = document.getElementById("view-menu");
 const views = [...menu.querySelectorAll("button")];
 let hostTheme;
+let hostContext = {};
+let activeView;
+let requestedSideMode = false;
 const colorScheme = matchMedia("(prefers-color-scheme: dark)");
 let highlightRequest = 0;
 function updateCode() {
@@ -89,6 +92,7 @@ document.addEventListener("focusin", event => {
   if (!menu.contains(event.target) && !menuToggle.contains(event.target)) closeMenu();
 });
 function applyHostContext(context) {
+  hostContext = { ...hostContext, ...context };
   if (context?.theme === "light" || context?.theme === "dark") {
     hostTheme = context.theme;
     menu.style.colorScheme = hostTheme;
@@ -114,7 +118,7 @@ function report(state, revision, diagnostics, sourceHash) {
   window.parent.postMessage({
     jsonrpc: "2.0", id: "slint-context-" + revision + "-" + state,
     method: "ui/update-model-context",
-    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, previewId: desired.previewId, screenshot: desired.screenshot, sourcePath: desired.sourcePath, sourceState: desired.sourceState, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
+    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, previewId: desired.previewId, screenshot: desired.screenshot, viewId: desired.viewId, sourcePath: desired.sourcePath, sourceState: desired.sourceState, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
   }, "*");
 }
 function showError(error, acknowledge = true) {
@@ -149,7 +153,32 @@ async function reloadFile() {
     }
   } finally { loadingFile = false; }
 }
+async function requestSideMode() {
+  await bridgeReady;
+  if (requestedSideMode || hostContext.displayMode === "fullscreen" || !hostContext.availableDisplayModes?.includes("fullscreen")) return;
+  requestedSideMode = true;
+  const result = await hostRequest("ui/request-display-mode", { mode: "fullscreen" });
+  applyHostContext({ displayMode: result.mode });
+}
+async function watchView(viewId, previewId = "00000000-0000-0000-0000-000000000000") {
+  await bridgeReady;
+  while (activeView === viewId) {
+    const resource = await readRuntimeResource(`slint://view/${viewId}/${previewId}/next`);
+    if (activeView !== viewId) return;
+    const result = JSON.parse(resource.contents[0].text);
+    if (result.status === "closed") return;
+    if (result.status === "idle") continue;
+    previewId = result.structuredContent.previewId;
+    receiveResult(result);
+  }
+}
 function receiveResult(result) {
+  if (result?._meta?.surface === "side") void requestSideMode().catch(error => console.error("Side view unavailable", error));
+  if (result?.structuredContent?.viewId && activeView !== result.structuredContent.viewId) {
+    activeView = result.structuredContent.viewId;
+    if (result.structuredContent.status === "awaiting-source") { status.hidden = false; status.textContent = "Ask Codex to preview a Slint file in this view."; }
+    void watchView(activeView, result.structuredContent.previewId).catch(showError);
+  }
   if (result?._meta?.file) void openFile(result._meta.file).catch(showError);
   setSource({ ...result?.structuredContent, ...result?._meta?.preview, captureToken: result?._meta?.captureToken, captureId: result?._meta?.captureId, automaticSize: result?._meta?.automaticSize });
 }
@@ -374,7 +403,7 @@ window.addEventListener("message", (event) => {
 if (window.parent !== window) {
   window.parent.postMessage({
     jsonrpc: "2.0", id: "slint-init", method: "ui/initialize",
-    params: { protocolVersion: "2026-01-26", appInfo: { name: "slint-inline", version: buildInfo.version }, appCapabilities: {} },
+    params: { protocolVersion: "2026-01-26", appInfo: { name: "slint-inline", version: buildInfo.version }, appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] } },
   }, "*");
 }
 const legacyMetadata = window.openai?.toolResponseMetadata;

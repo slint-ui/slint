@@ -70,3 +70,16 @@ Do not use an image from another revision as evidence for the current edit.
 Opening a `.slint` file through the host file entrypoint shows the current host buffer and follows its resource updates.
 When model context reports `sourceState: unsaved`, preserve that buffer and reconcile it with the saved file before applying source edits.
 The viewer does not write the opened file.
+
+## Continue beside the chat
+
+Count follow-up edits to the same source item in this conversation; creating it initially is not an edit.
+On the third follow-up edit, say “Let’s now work on this beside the chat.”
+Validate the edit and call `open_slint_preview` instead of creating another inline render.
+Use the same source path, project root, new revision, validation hash, and canvas dimensions.
+Keep the returned `viewId` for all further changes to this item.
+After each later edit, validate and call `update_slint_preview` with that view ID.
+This updates the existing Wasm view without another inline preview.
+The view’s model context reports its current preview ID and source identity for screenshot verification.
+Honor an explicit request to stay inline or move to the side earlier.
+The host controls panel placement and chrome; do not promise a view without a header.

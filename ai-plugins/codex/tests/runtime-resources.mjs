@@ -142,7 +142,7 @@ test("invalid Slint and render arguments return errors", async () => {
   const path = join(directory, "invalid.slint");
   try {
     const { tools } = await client.call("tools/list");
-    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint", "get_preview_screenshot", "publish_preview_capture", "open_slint_file", "load_slint_file_preview"]);
+    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint", "get_preview_screenshot", "publish_preview_capture", "open_slint_file", "load_slint_file_preview", "open_slint_preview", "update_slint_preview"]);
     assert.deepEqual(tools.find(tool => tool.name === "publish_preview_capture")._meta.ui.visibility, ["app"]);
     const statuses = tools.find(tool => tool.name === "validate_slint").outputSchema.properties.status.enum;
     assert.deepEqual(statuses, ["valid", "error", "failure"]);
@@ -173,7 +173,7 @@ test("source-only installs start without exposing unavailable preview tools", as
     const root = join(directory, "codex");
     await mkdir(join(root, "examples"), { recursive: true });
     await mkdir(join(root, "components"));
-    for (const file of ["server.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
+    for (const file of ["server.mjs", "views.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
       await copyFile(new URL("../" + file, import.meta.url), join(root, file));
     }
     await copyFile(new URL("../../icon.svg", import.meta.url), join(directory, "icon.svg"));
@@ -285,5 +285,34 @@ test("file entrypoints render host buffers with imports without overwriting save
     const next = await client.call("tools/call", { name: "load_slint_file_preview", arguments: { source, revision: 2 }, _meta: { "openai/resource": { path } } });
     assert.equal(next.structuredContent.sourceState, "saved");
     assert.equal(next.structuredContent.sourceHash, result.structuredContent.sourceHash);
+  } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test("side previews update in place without returning another UI opener", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-side-view-"));
+  const path = join(directory, "main.slint");
+  try {
+    const empty = await client.call("tools/call", { name: "open_slint_preview", arguments: {} });
+    assert.equal(empty.structuredContent.status, "awaiting-source");
+    const viewId = empty.structuredContent.viewId;
+    let source = await readFile(new URL("../examples/button.slint", import.meta.url), "utf8");
+    await writeFile(path, source);
+    let validated = (await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 1 } })).structuredContent;
+    const first = await client.call("tools/call", { name: "update_slint_preview", arguments: { viewId, path, revision: 1, validatedProjectHash: validated.projectHash } });
+    assert.equal(first.isError, undefined, JSON.stringify(first));
+    assert.equal(first._meta, undefined);
+    assert.equal(first.structuredContent.viewId, viewId);
+    const waiting = client.call("resources/read", { uri: `slint://view/${viewId}/${first.structuredContent.previewId}/next` });
+    source = source.replace("#dc2626", "#2563eb"); await writeFile(path, source);
+    validated = (await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 2 } })).structuredContent;
+    const second = await client.call("tools/call", { name: "update_slint_preview", arguments: { viewId, path, revision: 2, validatedProjectHash: validated.projectHash } });
+    assert.equal(second._meta, undefined);
+    assert.equal(second.structuredContent.viewId, viewId);
+    const live = JSON.parse((await waiting).contents[0].text);
+    assert.equal(live._meta.preview.source, source);
+    assert.equal(live.structuredContent.sourceHash, second.structuredContent.sourceHash);
+    const tool = (await client.call("tools/list")).tools.find(tool => tool.name === "open_slint_preview");
+    assert.deepEqual(tool._meta["openai/ui"].entrypoints, [{ type: "thread" }]);
   } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
 });

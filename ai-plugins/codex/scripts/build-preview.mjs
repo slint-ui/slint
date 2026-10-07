@@ -39,7 +39,7 @@ for (const [token, value] of Object.entries(assets)) {
   html = html.replace(token, () => value);
 }
 const digest = createHash("sha256").update(html);
-for (const file of ["package.json", "server.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "scripts/check-source.py"]) digest.update(await readFile(join(root, file)));
+for (const file of ["package.json", "server.mjs", "views.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "scripts/check-source.py"]) digest.update(await readFile(join(root, file)));
 for (const file of ["runtime.json", "wasm/slint_wasm_interpreter.js", "wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(runtime, file)));
 const metadata = { version, buildId: digest.digest("hex").slice(0, 12) };
 await writeFile(join(runtime, "preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));
