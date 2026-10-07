@@ -134,7 +134,6 @@ export component TextEditBase inherits Rectangle {
             content-height: max(self.visible-height, text-input.preferred-height);
 
             text-input := TextInput {
-                enabled: true;
                 single-line: false;
                 wrap: word-wrap;
                 selection-background-color: root.selection-background-color;
@@ -185,7 +184,6 @@ export component TextEditBase inherits Rectangle {
         x: scroll-view.x;
         y: scroll-view.y;
         width: scroll-view.width;
-        vertical-alignment: top;
         text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
         font-size: text-input.font-size;
         font-italic: text-input.font-italic;
