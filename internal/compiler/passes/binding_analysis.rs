@@ -1225,6 +1225,19 @@ fn recurse_expression(
                     );
                 }
             }
+            BuiltinFunction::HasSelection => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    let item = item.upgrade().unwrap();
+                    for name in
+                        ["text", "cursor-position-byte-offset", "anchor-position-byte-offset"]
+                    {
+                        vis(
+                            &NamedReference::new(&item, SmolStr::new_static(name)).into(),
+                            ReadType::NativeRead,
+                        );
+                    }
+                }
+            }
             BuiltinFunction::GetWindowDefaultFontSize => {
                 let root =
                     elem.borrow().enclosing_component.upgrade().unwrap().root_element.clone();

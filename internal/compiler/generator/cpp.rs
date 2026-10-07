@@ -5553,6 +5553,16 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
         }
+        BuiltinFunction::HasSelection => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, _) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint_textinput_has_selection(&{item})")
+                })
+            } else {
+                panic!("internal error: invalid args to has-selection {arguments:?}")
+            }
+        }
         BuiltinFunction::ItemFontMetrics => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);

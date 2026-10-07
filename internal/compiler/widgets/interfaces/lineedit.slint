@@ -13,6 +13,7 @@ export interface LineEdit {
     in property <bool> read-only;
 
     out property <bool> has-focus;
+    @shadowable out property <bool> has-selection;
 
     in-out property <string> text;
 
