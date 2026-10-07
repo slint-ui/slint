@@ -210,39 +210,46 @@ export component LeftPane inherits Rectangle {
             }
         }
 
-        HorizontalResizeDivider {
-            resize-label: "Elements pane resize";
-            value: root.elements-height;
-            value-maximum: max(Style.panes.minimum, root.height - Style.panes.files-minimum);
-            drag-started => {
-                root.drag-start-height = root.elements-height;
-            }
-            dragged(delta) => {
-                root.elements-height = root.clamp-elements-height(
-                    max(Style.panes.minimum, root.drag-start-height - delta),
-                );
-            }
-            drag-finished(delta) => {
-                if delta != 0px {
-                    root.elements-pane-resized(root.clamp-elements-height(
-                        max(Style.panes.minimum, root.drag-start-height - delta),
-                    ));
-                }
-            }
-            value-set(height) => {
-                let clamped-height = root.clamp-elements-height(max(Style.panes.minimum, height));
-                root.elements-height = clamped-height;
-                root.elements-pane-resized(clamped-height);
-            }
-            reset-requested => {
-                root.elements-pane-reset();
-            }
+        elements-divider-slot := Rectangle {
+            height: Style.panes.splitter-size;
         }
 
         ElementPalette {
             height: root.elements-height;
             image-mode: root.image-mode;
             drag-started => { root.drag-started(); }
+        }
+    }
+
+    HorizontalResizeDivider {
+        x: 0px;
+        y: elements-divider-slot.absolute-position.y - root.absolute-position.y;
+        width: root.width;
+        resize-label: "Elements pane resize";
+        value: root.elements-height;
+        value-maximum: max(Style.panes.minimum, root.height - Style.panes.files-minimum);
+        drag-started => {
+            root.drag-start-height = root.elements-height;
+        }
+        dragged(delta) => {
+            root.elements-height = root.clamp-elements-height(
+                max(Style.panes.minimum, root.drag-start-height - delta),
+            );
+        }
+        drag-finished(delta) => {
+            if delta != 0px {
+                root.elements-pane-resized(root.clamp-elements-height(
+                    max(Style.panes.minimum, root.drag-start-height - delta),
+                ));
+            }
+        }
+        value-set(height) => {
+            let clamped-height = root.clamp-elements-height(max(Style.panes.minimum, height));
+            root.elements-height = clamped-height;
+            root.elements-pane-resized(clamped-height);
+        }
+        reset-requested => {
+            root.elements-pane-reset();
         }
     }
 }

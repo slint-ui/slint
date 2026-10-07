@@ -2404,6 +2404,83 @@ mod tests {
         assert_narrow_window_drag_and_increment_match("Inspector pane resize", INSPECTOR_PANE, -1.);
     }
 
+    #[test]
+    fn pane_resize_hit_areas_keep_the_cursor_during_drag() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        for (label, vertical, reversed) in [
+            ("Project pane resize", true, false),
+            ("Inspector pane resize", true, true),
+            ("Elements pane resize", false, false),
+            ("Outline pane resize", false, false),
+        ] {
+            let editor = super::create_ui().unwrap();
+            editor.show().unwrap();
+            slint::platform::update_timers_and_animations();
+            let hit_size = editor.global::<super::Style>().get_panes().resize_hit_size;
+            let divider =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = divider.absolute_position();
+            let size = divider.size();
+            let start = if vertical {
+                LogicalPosition::new(
+                    position.x + if reversed { size.width - hit_size + 1. } else { hit_size - 1. },
+                    position.y + size.height / 2.,
+                )
+            } else {
+                LogicalPosition::new(position.x + size.width / 2., position.y + hit_size - 1.)
+            };
+            let cursor = || {
+                i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                    window.mouse_cursor()
+                })
+            };
+            let expected = MouseCursorInner::BuiltIn(if vertical {
+                BuiltInMouseCursor::EwResize
+            } else {
+                BuiltInMouseCursor::NsResize
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+            assert_eq!(cursor(), expected, "hovering the enlarged hit area of {label}");
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position: start,
+                button: PointerEventButton::Left,
+            });
+            let canvas = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Editor canvas",
+            )
+            .next()
+            .unwrap();
+            let canvas_position = canvas.absolute_position();
+            let canvas_size = canvas.size();
+            let end = if vertical {
+                LogicalPosition::new(canvas_position.x + canvas_size.width / 2., start.y + 30.)
+            } else {
+                LogicalPosition::new(
+                    start.x + 30.,
+                    editor.global::<super::Style>().get_shell().height - 10.,
+                )
+            };
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+            assert_eq!(cursor(), expected, "dragging {label} away from the separator");
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position: end,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(
+                    canvas_position.x + canvas_size.width / 2.,
+                    canvas_position.y + canvas_size.height / 2.,
+                ),
+            });
+            assert_ne!(cursor(), expected, "leaving {label} after release");
+        }
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),

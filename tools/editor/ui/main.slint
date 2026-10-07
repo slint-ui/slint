@@ -478,6 +478,7 @@ export component EditorUi inherits Window {
                 }
 
                 if !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
                     width: max(Metrics.border-width, Style.scroll-indicator.inset);
                     x: canvas-viewport.absolute-position.x - parent.absolute-position.x - self.width;
                     y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
@@ -506,6 +507,7 @@ export component EditorUi inherits Window {
                 }
 
                 if root.inspector-visible && !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
                     x: canvas-viewport.absolute-position.x + canvas-viewport.width - parent.absolute-position.x;
                     y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
                     height: canvas-viewport.height;

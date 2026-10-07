@@ -50,6 +50,7 @@ export component EdgeDivider inherits Rectangle {
 component ResizeDivider inherits FocusScope {
     in property <bool> vertical: false;
     in property <bool> reversed: false;
+    in property <bool> resize-enabled: true;
     in property <string> resize-label;
     in property <color> line-color: Colors.border;
     in property <length> value: Style.panes.minimum;
@@ -117,7 +118,7 @@ component ResizeDivider inherits FocusScope {
 
     Rectangle {
         width: parent.width;
-        height: parent.height;
+        height: root.vertical ? parent.height : Style.panes.splitter-size;
         border-width: root.has-focus ? Metrics.border-width : 0px;
         border-color: Colors.focus;
         background: touch.has-hover || touch.pressed
@@ -128,15 +129,17 @@ component ResizeDivider inherits FocusScope {
     Rectangle {
         visible: !root.vertical || touch.has-hover || touch.pressed || root.has-focus;
         x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
-        y: root.vertical ? 0px : (parent.height - self.height) / 2;
+        y: root.vertical ? 0px : (Style.panes.splitter-size - self.height) / 2;
         width: root.vertical ? Metrics.border-width : parent.width;
         height: root.vertical ? parent.height : Metrics.border-width;
         background: root.line-color;
     }
 
     touch := TouchArea {
-        width: parent.width;
-        height: parent.height;
+        x: root.vertical && root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.resize-hit-size : parent.width;
+        height: root.vertical ? parent.height : Style.panes.resize-hit-size;
+        enabled: root.resize-enabled || self.pressed;
         mouse-cursor: root.vertical ? ew-resize : ns-resize;
         private property <length> press-position;
         private property <length> drag-delta;
@@ -172,7 +175,8 @@ component ResizeDivider inherits FocusScope {
 }
 
 export component HorizontalResizeDivider inherits ResizeDivider {
-    height: Style.panes.splitter-size;
+    height: Style.panes.resize-hit-size;
+    z: 1;
 }
 
 export component VerticalResizeDivider inherits ResizeDivider {
