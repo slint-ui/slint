@@ -414,11 +414,13 @@ export function imageFillSource(
     const imagePropertiesDepth = imageDepth + 1;
     const tileScale = fill.scaleMode === "TILE" ? (fill.tileScale ?? 1) : 1;
     const fit =
-        fill.scaleMode === "FIT"
-            ? "contain"
-            : fill.scaleMode === "CROP" && fill.crop !== undefined
-              ? "fill"
-              : "cover";
+        fill.scaleMode === "STRETCH"
+            ? "fill"
+            : fill.scaleMode === "FIT"
+              ? "contain"
+              : fill.scaleMode === "CROP" && fill.crop !== undefined
+                ? "fill"
+                : "cover";
     const lines = [
         ...(rounded
             ? [
@@ -450,9 +452,11 @@ export function imageFillSource(
             imagePropertiesDepth,
         ),
         property("source", paint(fill), imagePropertiesDepth),
-        ...(fit === "fill" || fill.scaleMode === "TILE"
-            ? []
-            : [property("image-fit", fit, imagePropertiesDepth)]),
+        ...(fill.scaleMode === "STRETCH"
+            ? [property("image-fit", "fill", imagePropertiesDepth)]
+            : fit === "fill" || fill.scaleMode === "TILE"
+              ? []
+              : [property("image-fit", fit, imagePropertiesDepth)]),
     ];
     if (fill.scaleMode === "TILE") {
         lines.push(
