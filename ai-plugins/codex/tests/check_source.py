@@ -21,10 +21,20 @@ class DiagnosticClient(validator.LspClient):
     async def send(self, message):
         if message.get("method") == "textDocument/didOpen":
             document = message["params"]["textDocument"]
-            entry = {"uri": document["uri"], "version": document["version"], "diagnostics": []}
-            dependency = {"uri": "file:///card.slint", "diagnostics": [{"severity": 1, "message": "invalid expression"}]}
+            entry = {
+                "uri": document["uri"],
+                "version": document["version"],
+                "diagnostics": [],
+            }
+            dependency = {
+                "uri": "file:///card.slint",
+                "diagnostics": [{"severity": 1, "message": "invalid expression"}],
+            }
             ordered = [entry, dependency] if self.entry_first else [dependency, entry]
-            self.messages = [{"method": "textDocument/publishDiagnostics", "params": item} for item in ordered]
+            self.messages = [
+                {"method": "textDocument/publishDiagnostics", "params": item}
+                for item in ordered
+            ]
         else:
             self.messages.append({"id": message["id"], "result": []})
 
@@ -35,7 +45,9 @@ class DiagnosticClient(validator.LspClient):
 class DiagnosticTests(unittest.IsolatedAsyncioTestCase):
     async def test_import_errors_in_either_notification_order(self):
         for entry_first in [True, False]:
-            result = await DiagnosticClient(entry_first).check("main.slint", "source", 1)
+            result = await DiagnosticClient(entry_first).check(
+                "main.slint", "source", 1
+            )
             self.assertEqual(result["status"], "error")
             self.assertEqual(len(result["diagnostics"]), 1)
 
