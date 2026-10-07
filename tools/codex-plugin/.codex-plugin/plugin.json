@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "0.15.3",
+  "version": "0.15.4",
   "description": "Develop Slint applications with source validation and a Slint Wasm preview.",
   "author": { "name": "SixtyFPS GmbH" },
   "skills": "./skills/",
@@ -12,8 +12,8 @@
     "developerName": "SixtyFPS GmbH",
     "category": "Developer tools",
     "capabilities": ["Read", "Interactive"],
-    "logo": "./assets/slint.svg",
-    "composerIcon": "./assets/slint.svg",
+    "logo": "./runtime/slint.svg",
+    "composerIcon": "./runtime/slint.svg",
     "defaultPrompt": "Help me develop a Slint application."
   }
 }

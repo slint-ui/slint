@@ -508,6 +508,15 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  tools/codex-plugin:
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      shiki:
+        specifier: 4.5.0
+        version: 4.5.0
+
   tools/figma-inspector:
     devDependencies:
       '@biomejs/biome':
