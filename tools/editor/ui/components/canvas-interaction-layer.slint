@@ -584,8 +584,6 @@ export component CanvasInteractionLayer inherits TouchArea {
             letter-spacing: Api.current-property-value-data("letter-spacing").value-float
                 * root.text-edit-scale-x * CanvasView.zoom * 1px;
             line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
-            single-line: true;
-            wrap: no-wrap;
             accessible-label: "Inline text editor";
 
             accepted => { root.commit-text-edit(); }

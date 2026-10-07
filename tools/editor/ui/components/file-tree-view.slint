@@ -107,11 +107,9 @@ component FileTreeRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: stretch;
             cross-axis-alignment: center;
             padding-left: root.style.row.padding-inline;
             padding-right: root.style.row.padding-inline;
-            spacing: 0px;
 
             if root.gutter-segments > 0: HorizontalLayout {
                 horizontal-stretch: 0;
@@ -150,7 +148,6 @@ component FileTreeRow inherits Rectangle {
             HorizontalLayout {
                 horizontal-stretch: 1;
                 spacing: root.style.row.gap;
-                alignment: stretch;
                 cross-axis-alignment: center;
                 padding-right: root.style.row.padding-inline;
                 min-height: root.style.row.height;
@@ -159,7 +156,6 @@ component FileTreeRow inherits Rectangle {
                     horizontal-stretch: 0;
                     width: root.style.row.icon-size;
                     height: root.style.row.icon-size;
-                    vertical-alignment: center;
                     source: root.folder
                         ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
                         : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
@@ -180,7 +176,6 @@ component FileTreeRow inherits Rectangle {
                         color: root.style.row.foreground;
                         font-size: root.style.row.font-size;
                         overflow: elide;
-                        wrap: no-wrap;
                     }
                 }
             }
@@ -207,8 +202,6 @@ component FileTreeRow inherits Rectangle {
                 color: root.style.row.foreground;
                 font-size: root.style.row.font-size;
                 vertical-alignment: center;
-                single-line: true;
-                wrap: no-wrap;
                 accessible-label: "Rename " + root.node.label;
                 init => {
                     self.focus();
@@ -241,7 +234,6 @@ component FileTreeRow inherits Rectangle {
         color: root.error-color;
         font-size: root.style.row.font-size;
         overflow: elide;
-        wrap: no-wrap;
     }
 
     touch := TouchArea {

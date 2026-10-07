@@ -58,8 +58,6 @@ export component InspectorColorValueField inherits Rectangle {
         clip: true;
 
         HorizontalLayout {
-            spacing: 0px;
-
             color-input := InspectorTextFieldBase {
                 style: root.style.field;
                 radius: 0px;
@@ -96,7 +94,6 @@ export component InspectorColorValueField inherits Rectangle {
                 scrub-on-suffix: true;
                 scrub-value: root.data.opacity;
                 scrub-has-minimum: true;
-                scrub-minimum: 0;
                 scrub-has-maximum: true;
                 scrub-maximum: 100;
                 accepted(text) => { return root.accept-opacity(text); }

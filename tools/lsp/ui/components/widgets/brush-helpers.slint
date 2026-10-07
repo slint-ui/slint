@@ -15,9 +15,6 @@ export component GradientIndicator {
     in property <length> border-width;
 
     Rectangle {
-        width: 100%;
-        height: 100%;
-
         Rectangle {
             border-radius: root.border-radius;
             border-width: root.border-width;
@@ -42,8 +39,6 @@ export component PickerTextInput inherits TextInput {
     text-cursor-width: 2px;
     selection-background-color: #3984ec;
     input-type: number;
-    single-line: true;
-    wrap: no-wrap;
 }
 
 export component FakeShadowText {
