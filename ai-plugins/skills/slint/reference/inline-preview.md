@@ -1,0 +1,42 @@
+# Inline Slint previews
+
+Use this workflow when `validate_slint` and `render_slint` are available.
+They validate saved source with the bundled Slint LSP and preview it with the matching Wasm interpreter.
+In CLI-only hosts, use the viewer and screenshot workflow instead.
+A source-only plugin installation does not expose preview tools until its runtime is built or installed.
+
+## Edit and preview
+
+Keep `.slint` files as the source of truth and use `apply_patch` for edits.
+Preserve existing project components, styling, and minimum or preferred dimensions.
+Set explicit root dimensions only when the component has no usable size.
+Keep a standalone preview Window transparent unless the user requests a background.
+For standalone components, use the reported preview runtime version without inspecting unrelated project manifests.
+For simple buttons, use the bundled starter described by `render_slint` and change only the requested properties.
+
+Save, validate, and render in one execution:
+
+1. Call `validate_slint` with the absolute entry `path` and a positive `revision`.
+2. Continue only when `structuredContent.status` is `valid`.
+   `error` means Slint diagnostics; `failure` means a validator or setup problem.
+3. Call `render_slint` with that path, revision, matching `validatedSourceHash`, and logical canvas dimensions.
+   Supply `projectRoot` when imports or assets extend beyond the entry file's directory.
+
+Relative imports and re-exports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.
+Dependencies must stay inside the project root.
+Network imports and include-path aliases are outside this prototype's supported scope.
+Do not rebuild the plugin for ordinary component edits.
+
+## Follow-up edits
+
+Use the preview's source path, project root, revision, and hash to identify the saved entry.
+Read the saved file and reconcile external edits before patching it.
+Keep the same entry path and increment its revision.
+After editing an imported component, validate and render the entry again with its original project root.
+The current validation token covers the entry file rather than the complete dependency graph.
+
+A render response confirms submission.
+A matching `slintPreview.state` of `ready` acknowledges compilation, showing the instance, and a paint opportunity.
+An `error` acknowledgement carries frontend diagnostics.
+These acknowledgements may arrive asynchronously; do not claim visual verification from submission alone.
+Ask the user to inspect the inline preview when it is not available to your inspection tools.

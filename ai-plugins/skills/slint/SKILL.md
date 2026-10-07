@@ -17,7 +17,10 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
-2. After editing: in an IDE with the Slint extension, trust the post-edit
+2. When `validate_slint` and `render_slint` are available, use the
+   [inline preview workflow](reference/inline-preview.md) for validation and
+   interactive previews.
+   Otherwise, after editing: in an IDE with the Slint extension, trust the post-edit
    diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
    one file and prints diagnostics, and `slint-viewer --screenshot` renders it
    (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).

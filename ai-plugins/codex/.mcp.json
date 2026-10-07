@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "slint": {
-      "command": "node",
-      "args": ["${PLUGIN_ROOT}/server.mjs"],
-      "cwd": "${PLUGIN_ROOT}"
-    }
-  }
-}

@@ -9,5 +9,6 @@
   "devDependencies": {
     "esbuild": "0.28.2",
     "shiki": "4.5.0"
-  }
+  },
+  "version": "0.15.5"
 }

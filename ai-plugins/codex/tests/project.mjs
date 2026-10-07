@@ -25,7 +25,7 @@ test("nested sources and assets survive source changes in an immutable snapshot"
     assert.equal(Buffer.from((await readProjectResource(uri)).blob, "base64").toString(), component);
     const changed = await snapshotProject(join(root, "main.slint"), root, "");
     assert.notEqual(changed.id, snapshot.id);
-    await assert.rejects(readProjectResource(uri.replace("/0", "/99999")), /Unknown project resource chunk/);
+    await assert.rejects(readProjectResource(uri.replace(/\/0$/, "/99999")), /Unknown project resource chunk/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

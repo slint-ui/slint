@@ -4,8 +4,14 @@
     "slint": {
       "type": "stdio",
       "command": "node",
-      "args": ["${PLUGIN_ROOT}/server.mjs"],
-      "cwd": "${PLUGIN_ROOT}"
+      "args": [
+        "codex/server.mjs"
+      ],
+      "cwd": "."
+    },
+    "slint-docs": {
+      "type": "http",
+      "url": "https://docs.slint.dev/mcp"
     }
   }
 }

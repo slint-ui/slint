@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -13,8 +13,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 
-function connect() {
-  const child = spawn(process.execPath, [fileURLToPath(new URL("../server.mjs", import.meta.url))]);
+function connect(path = fileURLToPath(new URL("../server.mjs", import.meta.url))) {
+  const child = spawn(process.execPath, [path]);
   const pending = new Map();
   let nextId = 0;
   let closed = false;
@@ -151,6 +151,31 @@ test("invalid Slint and render arguments return errors", async () => {
     }
   } finally {
     await client.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("source-only installs start without exposing unavailable preview tools", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "slint-source-only-"));
+  let client;
+  try {
+    const root = join(directory, "codex");
+    await mkdir(join(root, "examples"), { recursive: true });
+    await mkdir(join(root, "components"));
+    for (const file of ["server.mjs", "project.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
+      await copyFile(new URL("../" + file, import.meta.url), join(root, file));
+    }
+    await copyFile(new URL("../../icon.svg", import.meta.url), join(directory, "icon.svg"));
+    client = connect(join(root, "server.mjs"));
+    assert.equal((await client.call("initialize", {})).serverInfo.name, "slint");
+    assert.deepEqual((await client.call("tools/list")).tools, []);
+    assert.deepEqual((await client.call("resources/list")).resources, []);
+    const result = await client.call("tools/call", { name: "show_slint_button", arguments: {} });
+    assert.equal(result.isError, true);
+    assert.match(result.structuredContent.message, /Build the Codex runtime/);
+  } finally {
+    await client?.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

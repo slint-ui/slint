@@ -4,8 +4,8 @@
 import { createHighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
 import wasm from "shiki/wasm";
-import darkTheme from "../../figma-inspector/src/ui/syntax-assets/dark-theme.json";
-import lightTheme from "../../figma-inspector/src/ui/syntax-assets/light-theme.json";
+import darkTheme from "../../../tools/figma-inspector/src/ui/syntax-assets/dark-theme.json";
+import lightTheme from "../../../tools/figma-inspector/src/ui/syntax-assets/light-theme.json";
 import language from "../../../docs/common/src/utils/slint.tmLanguage.json";
 
 let highlighter;
