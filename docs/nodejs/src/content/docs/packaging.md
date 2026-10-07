@@ -3,7 +3,7 @@ title: Package Your Application
 description: Ship a Slint application written in JavaScript or TypeScript as a native executable for Windows, macOS, and Linux.
 ---
 
-<!-- cSpell: ignore appimagetool codesign entitlements hdiutil icns Inno MSIX myapp notarytool resedit signtool UDZO volname -->
+<!-- cSpell: ignore appimagetool codesign entitlements hdiutil icns Inno MSIX myapp notarytool signtool UDZO volname -->
 
 Give your users an application they start like any other,
 without installing Node.js or running `npm install`.

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore APPL resedit
+// cSpell: ignore APPL
 
 // `slint-ui pack`: turn an application into a directory with a Node.js single executable application.
 // See docs/nodejs/src/content/docs/packaging.md for the user-facing side.
