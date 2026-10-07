@@ -483,6 +483,7 @@ othercomp
 ovmf
 pagefind
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL
