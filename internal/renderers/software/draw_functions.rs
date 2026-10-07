@@ -241,30 +241,21 @@ pub(super) fn draw_texture_line(
                         }
                     }
                 } else {
+                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            alpha,
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ));
-                        pix.blend(c);
+                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        blend_coverage(pix, opaque, color, coverage);
                     }
                 }
             }
             TexturePixelFormat::RgbaPremultiplied => {
                 if color.alpha() > 0 {
+                    let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                     for pix in line_buffer {
                         let pos = pos(4).0;
-                        let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                            ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ));
-                        pix.blend(c);
+                        let coverage = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                        blend_coverage(pix, opaque, color, coverage);
                     }
                 } else if alpha == 0xff {
                     for pix in line_buffer {
@@ -291,15 +282,11 @@ pub(super) fn draw_texture_line(
                 }
             }
             TexturePixelFormat::AlphaMap => {
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                 for pix in line_buffer {
                     let pos = pos(1).0;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        ((data[pos] as u16 * alpha as u16) / 255) as u8,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ));
-                    pix.blend(c);
+                    let coverage = ((data[pos] as u16 * alpha as u16) / 255) as u8;
+                    blend_coverage(pix, opaque, color, coverage);
                 }
             }
             #[cfg(feature = "image-pixel-format-gray8")]
@@ -323,6 +310,7 @@ pub(super) fn draw_texture_line(
             TexturePixelFormat::SignedDistanceField => {
                 const RANGE: i32 = 6;
                 let factor = (362 * 256 / delta.0) * RANGE; // 362 ≃ 255 * sqrt(2)
+                let opaque = TargetPixel::from_rgb(color.red(), color.green(), color.blue());
                 for pix in line_buffer {
                     let (pos, col_f, row_f) = pos(1);
                     let (col_f, row_f) = (col_f as i32, row_f as i32);
@@ -337,16 +325,24 @@ pub(super) fn draw_texture_line(
                         debug_assert_eq!(row_f, 0);
                     }
                     let a = ((((dist >> 8) * factor) >> 16) + 128).clamp(0, 255) * alpha as i32;
-                    let c = PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        (a / 255) as u8,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ));
-                    pix.blend(c);
+                    blend_coverage(pix, opaque, color, (a / 255) as u8);
                 }
             }
         };
+    }
+}
+
+#[inline(always)]
+fn blend_coverage<T: TargetPixel>(pix: &mut T, opaque: T, color: Color, coverage: u8) {
+    match coverage {
+        0 => {}
+        0xff => *pix = opaque,
+        _ => pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+            coverage,
+            color.red(),
+            color.green(),
+            color.blue(),
+        ))),
     }
 }
 
@@ -1314,4 +1310,34 @@ fn rgb565_be_blend() {
     let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
     be.blend(color);
     assert_eq!(le.0.swap_bytes(), be.0);
+}
+
+#[test]
+fn blend_coverage_matches_blend() {
+    fn check<T: TargetPixel, K: PartialEq + core::fmt::Debug>(dest: T, key: impl Fn(T) -> K) {
+        for c in (0..=255u8).step_by(3) {
+            let color = Color::from_rgb_u8(c, c.wrapping_mul(7), 255 - c);
+            let opaque = T::from_rgb(color.red(), color.green(), color.blue());
+            for coverage in [0, 0xff] {
+                let mut expected = dest;
+                expected.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                    coverage,
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                )));
+                let mut actual = dest;
+                blend_coverage(&mut actual, opaque, color, coverage);
+                assert_eq!(key(actual), key(expected), "color {color:?}, coverage {coverage}");
+            }
+        }
+    }
+    for d in (0..=255u8).step_by(5) {
+        check(Rgb8Pixel::new(d, 255 - d, d.wrapping_mul(3)), |p| p);
+        check(PremultipliedRgbaColor { red: d / 2, green: d / 3, blue: d / 4, alpha: d }, |p| {
+            (p.red, p.green, p.blue, p.alpha)
+        });
+        check(Rgb565Pixel::from_rgb(d, 255 - d, d.wrapping_mul(3)), |p| p);
+        check(Rgb565BigEndianPixel::from_rgb(d, 255 - d, d.wrapping_mul(3)), |p| p);
+    }
 }
