@@ -9,18 +9,19 @@ import { dirname, join, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { loadRuntime } from "./runtime-assets.mjs";
 import { captureProject, snapshotProject, readProjectResource } from "./project.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-const runtimeMetadata = await readFile(join(root, "runtime/runtime.json"), "utf8")
-  .then(JSON.parse).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+const builtRuntime = await loadRuntime(join(root, "runtime"));
+const runtimeMetadata = builtRuntime?.metadata;
 const runtimeVersion = runtimeMetadata?.version;
 const uiUri = `ui://slint/preview/v${version}.html`;
 const example = await readFile(join(root, "examples/button.slint"), "utf8");
 const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
-const runtimeJavascript = runtimeMetadata ? await readFile(join(root, "runtime/wasm/slint_wasm_interpreter.js")) : Buffer.alloc(0);
-const runtimeWasm = runtimeMetadata ? await readFile(join(root, "runtime/wasm/slint_wasm_interpreter_bg.wasm")) : Buffer.alloc(0);
+const runtimeJavascript = builtRuntime?.javascript ?? Buffer.alloc(0);
+const runtimeWasm = builtRuntime?.wasm ?? Buffer.alloc(0);
 const wasmHash = createHash("sha256").update(runtimeWasm).digest("hex");
 const runtimeHash = createHash("sha256").update(runtimeJavascript).update(runtimeWasm).digest("hex");
 const javascriptUri = `slint://runtime/${runtimeHash}/javascript`;
@@ -32,10 +33,10 @@ for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
   wasmChunkUris.push(uri);
   runtimeResources.set(uri, { uri, mimeType: "application/octet-stream", blob: compressedWasm.subarray(offset, offset + 256 * 1024).toString("base64") });
 }
-const html = runtimeMetadata ? (await readFile(join(root, "runtime/preview.html"), "utf8"))
+const html = builtRuntime ? builtRuntime.html
   .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash })) : "";
 if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
-const icon = await readFile(runtimeMetadata ? join(root, "runtime/slint.svg") : join(root, "../icon.svg"));
+const icon = builtRuntime?.icon ?? await readFile(join(root, "../icon.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
 const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };

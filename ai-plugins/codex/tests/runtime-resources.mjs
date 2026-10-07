@@ -163,7 +163,7 @@ test("source-only installs start without exposing unavailable preview tools", as
     const root = join(directory, "codex");
     await mkdir(join(root, "examples"), { recursive: true });
     await mkdir(join(root, "components"));
-    for (const file of ["server.mjs", "project.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
+    for (const file of ["server.mjs", "project.mjs", "runtime-assets.mjs", "package.json", "examples/button.slint", "components/slint-button.slint"]) {
       await copyFile(new URL("../" + file, import.meta.url), join(root, file));
     }
     await copyFile(new URL("../../icon.svg", import.meta.url), join(directory, "icon.svg"));
@@ -174,6 +174,12 @@ test("source-only installs start without exposing unavailable preview tools", as
     const result = await client.call("tools/call", { name: "show_slint_button", arguments: {} });
     assert.equal(result.isError, true);
     assert.match(result.structuredContent.message, /Build the Codex runtime/);
+    await client.close();
+    await mkdir(join(root, "runtime"));
+    await copyFile(new URL("../runtime/runtime.json", import.meta.url), join(root, "runtime/runtime.json"));
+    client = connect(join(root, "server.mjs"));
+    assert.equal((await client.call("initialize", {})).serverInfo.name, "slint");
+    assert.deepEqual((await client.call("tools/list")).tools, []);
   } finally {
     await client?.close();
     await rm(directory, { recursive: true, force: true });
