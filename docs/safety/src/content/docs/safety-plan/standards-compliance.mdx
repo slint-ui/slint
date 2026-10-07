@@ -28,7 +28,8 @@ The [Tool Evaluation Report](/evaluation-report/potential-errors/) and the runti
 ## Integrity Level
 
 Slint SC is a Safety Element out of Context (SEooC).
-It's developed without a specific application function, so it has no integrity level of its own to derive.
+That's the ISO 26262 term for a component developed before anyone knows which product it goes into.
+Without a product there are no hazards to rate, so Slint SC has no integrity level of its own.
 Instead it's developed to be capable of ASIL B, and the integrator confirms that level is the one their application needs.
 
 ASIL (Automotive Safety Integrity Level) describes the risk level of something.
@@ -43,8 +44,8 @@ Where an application isn't safety related at all, the full Slint framework can b
 
 ### Impact Analysis
 
-Slint SC is a new development, not a modification of an existing item.
-There's no item, so the item-level impact analysis of ISO 26262-2 6.4.3 doesn't apply.
+ISO 26262-2 6.4.3 asks whether a vehicle system is new or changed, which the standard calls an impact analysis at the item level.
+Slint SC isn't part of a specific vehicle system, so this analysis doesn't apply.
 
 Slint SC reuses the Slint compiler, which wasn't developed to ISO 26262.
 The compiler is a tool, not an element of the product, so ISO 26262-8 Clause 11 covers it in the [Tool Evaluation Report](/evaluation-report/).
@@ -70,8 +71,8 @@ Each line is a part of the reference lifecycle, and whether it applies to Slint 
 | 2-5 | Overall safety management | Yes | See [Safety Management](/safety-plan/safety-management/). |
 | 2-6 | Project-dependent safety management | Yes | This Safety Plan. |
 | 2-7 | Production, operation, service, decommissioning | Yes, for software | See [Release and Field Monitoring](/safety-plan/release/). |
-| 3-5 | Item definition | No | No item. Replaced by the assumed context of use. |
-| 3-6 | Hazard analysis and risk assessment | No | No item, so no hazards to analyze. ASIL B is a target, see [Integrity Level](#integrity-level). |
+| 3-5 | Item definition | No | There's no specific vehicle system to define. Replaced by the assumed use. |
+| 3-6 | Hazard analysis and risk assessment | No | Without a vehicle system, there are no hazards to analyze. ASIL B is a target, see [Integrity Level](#integrity-level). |
 | 3-7 | Functional safety concept | No | Replaced by the assumed safety requirements. |
 | 4-6 | Technical safety concept | Partly | Assumed technical safety requirements on the runtime, and the hardware-software interface reduced to assumptions about the frame buffer and the display path. |
 | 4-7 | System and item integration | No | The integrator's. |
@@ -84,7 +85,7 @@ Each line is a part of the reference lifecycle, and whether it applies to Slint 
 | 8-5 | Distributed developments | Yes | Towards integrators only; see [Distributed Development](/safety-plan/development-process/#distributed-development). |
 | 8-6 to 8-10 | Supporting processes | Yes | See the [Clause Map](#iso-26262-clause-map). |
 | 8-11 | Confidence in software tools | Yes | The Slint compiler and `slint-sc-coverage`; see the [Tool Evaluation Report](/evaluation-report/). |
-| 8-12 | Qualification of software components | No | The runtime is developed under ISO 26262-6; see [Element and Route](/safety-plan/#element-and-route). |
+| 8-12 | Qualification of software components | No | The runtime is developed under ISO 26262-6; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed). |
 | 8-13 | Evaluation of hardware elements | No | Software only. |
 | 8-14 | Proven in use | No | Not claimed. |
 | 8-15, 8-16 | Interfacing and integrating systems not developed to ISO 26262 | No | Not applicable to a software element. |
@@ -117,6 +118,6 @@ Each line is a part of the reference lifecycle, and whether it applies to Slint 
 | ISO 26262-8 9.4 | Verification | [Verification](/safety-plan/verification/) |
 | ISO 26262-8 Clause 10 | Documentation management | [Lifecycle](/safety-plan/lifecycle/#once-to-set-up) |
 | ISO 26262-8 Clause 11 | Confidence in software tools | The criteria evaluation report of 11.5.1 is the [Tool Evaluation Report](/evaluation-report/). The qualification report of 11.5.2 is [Tool Qualification](/qualification-report/tool-qualification/). |
-| ISO 26262-8 Clause 12 | Qualification of software components | Not used; see [Element and Route](/safety-plan/#element-and-route). |
+| ISO 26262-8 Clause 12 | Qualification of software components | Not used; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed). |
 | ISO 26262-8 Clause 13 | Evaluation of hardware elements | Out of scope: Slint SC is software only, so evaluating the hardware it runs on is the integrator's responsibility. |
 | ISO 26262-9 Clauses 7 and 8 | Dependent failure analysis, safety analyses | [Safety Analysis](/component-documentation/safety-analysis/) |

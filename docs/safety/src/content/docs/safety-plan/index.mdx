@@ -11,15 +11,18 @@ Where an activity is already described elsewhere in this manual, the plan links 
 What can go wrong, and what we do about it, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
 The evidence from running the tests is in the [Qualification Report](/qualification-report/).
 
-## Element and Route
+## How Slint SC Is Developed
 
-SixtyFPS GmbH delivers Slint SC to integrators as a software component, for use in items up to ASIL B.
-We build no item, no hardware, and no vehicle function; the integrator builds the product and certifies it.
+SixtyFPS GmbH delivers Slint SC to integrators as a software component.
+They build it into their own products, at up to ASIL B.
+We don't build a product ourselves, so there's no vehicle function or hardware on our side.
+The integrator builds the product and certifies it.
 
 Slint SC consists of tools and a runtime, and each takes its own route through ISO 26262:
 
 * The `slint-sc` runtime ships in the integrator's binary.
-  It's developed as a Safety Element out of Context under ISO 26262-6, tailored as ISO 26262-2 6.4.5.7 allows; see [Tailoring](/safety-plan/standards-compliance/#tailoring).
+  It's developed under ISO 26262-6 as a Safety Element out of Context: a component developed before anyone knows which product it goes into.
+  See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what that changes.
 * The Slint compiler in `--slint-sc` mode and `slint-sc-coverage` don't ship.
   They're tools, covered by ISO 26262-8 Clause 11 in the [Tool Evaluation Report](/evaluation-report/).
 
