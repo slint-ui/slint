@@ -1057,17 +1057,22 @@ mod tests {
     }
 
     #[test]
-    fn config_overrides_take_precedence_over_project_file() {
+    fn config_overrides_replace_collections_and_fall_back_when_removed() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "style": "material" }"#).unwrap();
+        std::fs::write(&project_path, r#"{ "style": "material", "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#).unwrap();
         write_document(&document_path);
 
         let mut session = session();
+        let startup_paths = vec![temp.path().join("startup")];
+        let startup_libraries =
+            HashMap::from([("startup".into(), temp.path().join("startup-lib"))]);
         session.set_startup_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
                 project: ProjectFileData {
+                    include_paths: Some(startup_paths.clone()),
+                    library_paths: Some(startup_libraries.clone()),
                     style: Some("cosmic".into()),
                     enable_experimental_features: Some(true),
                     ..Default::default()
@@ -1077,27 +1082,61 @@ mod tests {
             ..Default::default()
         });
         load_document(&mut session, &document_path).unwrap();
-        assert_eq!(session.preview_config.style, "cosmic");
-        assert!(session.preview_config.enable_experimental);
 
-        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
-            compiler: Overrides {
-                project: ProjectFileData {
-                    style: Some("cupertino".into()),
-                    enable_experimental_features: Some(false),
+        for (paths, libraries) in [
+            (
+                vec![temp.path().join("workspace")],
+                HashMap::from([("workspace".into(), temp.path().join("workspace-lib"))]),
+            ),
+            (Vec::new(), HashMap::new()),
+        ] {
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides {
+                    project: ProjectFileData {
+                        include_paths: Some(paths.clone()),
+                        library_paths: Some(libraries.clone()),
+                        style: Some("cupertino".into()),
+                        enable_experimental_features: Some(false),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
                 ..Default::default()
-            },
-            ..Default::default()
-        }))
-        .unwrap();
-        assert_eq!(session.preview_config.style, "cupertino");
-        assert!(!session.preview_config.enable_experimental);
-
+            }))
+            .unwrap();
+            assert_eq!(session.preview_config.include_paths, paths);
+            assert_eq!(session.preview_config.library_paths, libraries);
+            assert_eq!(session.preview_config.style, "cupertino");
+            assert!(!session.preview_config.enable_experimental);
+        }
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert_eq!(session.preview_config.include_paths, startup_paths);
+        assert_eq!(session.preview_config.library_paths, startup_libraries);
         assert_eq!(session.preview_config.style, "cosmic");
         assert!(session.preview_config.enable_experimental);
+        session.set_startup_config_overrides(Default::default());
+        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert_eq!(session.preview_config.include_paths, vec![temp.path().join("project")]);
+        assert_eq!(
+            session.preview_config.library_paths,
+            HashMap::from([("project".into(), temp.path().join("project-lib"))])
+        );
+        assert_eq!(session.preview_config.style, "material");
+    }
+
+    #[test]
+    fn workspace_hide_ui_wins_when_supplied() {
+        for (startup, workspace, expected) in [
+            (Some(true), Some(false), Some(false)),
+            (Some(false), Some(true), Some(true)),
+            (Some(true), None, Some(true)),
+            (None, Some(false), Some(false)),
+            (Some(true), Some(true), Some(true)),
+        ] {
+            let mut overrides = SessionConfigOverrides { hide_ui: startup, ..Default::default() };
+            overrides.merge(SessionConfigOverrides { hide_ui: workspace, ..Default::default() });
+            assert_eq!(overrides.hide_ui, expected);
+        }
     }
 
     #[test]
