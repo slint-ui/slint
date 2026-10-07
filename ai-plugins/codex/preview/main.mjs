@@ -26,6 +26,10 @@ let runtime;
 let instance;
 let pendingCapture;
 let previewDiagnostics = [];
+let openedFile;
+let fileRevision = 0;
+let loadingFile = false;
+let fileChanged = false;
 let zoom;
 const codePanel = document.getElementById("code-panel");
 const previewPanel = document.getElementById("preview-panel");
@@ -110,7 +114,7 @@ function report(state, revision, diagnostics, sourceHash) {
   window.parent.postMessage({
     jsonrpc: "2.0", id: "slint-context-" + revision + "-" + state,
     method: "ui/update-model-context",
-    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, previewId: desired.previewId, screenshot: desired.screenshot, sourcePath: desired.sourcePath, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
+    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, previewId: desired.previewId, screenshot: desired.screenshot, sourcePath: desired.sourcePath, sourceState: desired.sourceState, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
   }, "*");
 }
 function showError(error, acknowledge = true) {
@@ -119,6 +123,35 @@ function showError(error, acknowledge = true) {
   canvas.dataset.stale = String(Boolean(instance));
   console.error(error);
   if (acknowledge && desired) report("error", desired.revision, [{ level: "error", message: String(error) }], desired.sourceHash);
+}
+async function openFile(file) {
+  if (!file?.resourceUri || openedFile?.resourceUri === file.resourceUri) return;
+  if (openedFile) await hostRequest("resources/unsubscribe", { uri: openedFile.resourceUri }).catch(() => {});
+  openedFile = file;
+  await bridgeReady;
+  await hostRequest("resources/subscribe", { uri: file.resourceUri }).catch(error => console.error("File updates unavailable", error));
+  await reloadFile();
+}
+async function reloadFile() {
+  fileChanged = true;
+  if (loadingFile) return;
+  loadingFile = true;
+  try {
+    while (fileChanged) {
+      fileChanged = false;
+      const file = openedFile;
+      const resource = (await readRuntimeResource(file.resourceUri)).contents[0];
+      const source = resource.text ?? new TextDecoder().decode(Uint8Array.from(atob(resource.blob), char => char.charCodeAt(0)));
+      const result = await hostRequest("tools/call", { name: "load_slint_file_preview", arguments: { source, revision: ++fileRevision } });
+      if (file !== openedFile) continue;
+      if (result.isError) showError(result.structuredContent.message || result.structuredContent.diagnostics.map(item => item.message).join("\n"), false);
+      else receiveResult(result);
+    }
+  } finally { loadingFile = false; }
+}
+function receiveResult(result) {
+  if (result?._meta?.file) void openFile(result._meta.file).catch(showError);
+  setSource({ ...result?.structuredContent, ...result?._meta?.preview, captureToken: result?._meta?.captureToken, captureId: result?._meta?.captureId, automaticSize: result?._meta?.automaticSize });
 }
 function setSource(input) {
   if (!input?.project?.id || typeof input.source !== "string" || !input.source.length || input.source.length > 65536) return;
@@ -230,6 +263,13 @@ async function render() {
       zoom.setSize(current.width, current.height);
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (token !== generation) continue;
+      if (current.automaticSize) {
+        current.width = Math.round(canvas.width / devicePixelRatio);
+        current.height = Math.round(canvas.height / devicePixelRatio);
+        canvas.style.width = current.width + "px";
+        canvas.style.height = current.height + "px";
+        zoom.setSize(current.width, current.height);
+      }
       if (current.captureToken) {
         previewDiagnostics = diagnostics;
         pendingCapture = { ...current, token, diagnostics };
@@ -324,8 +364,12 @@ window.addEventListener("message", (event) => {
     else request.resolve(message.result);
   }
   if (message.method === "ui/notifications/host-context-changed") applyHostContext(message.params);
-  if (message.method === "ui/notifications/tool-input") setSource(message.params?.arguments);
-  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, ...message.params?._meta?.preview, captureToken: message.params?._meta?.captureToken, captureId: message.params?._meta?.captureId });
+  if (message.method === "ui/notifications/tool-input") {
+    if (message.params?.arguments?.file) void openFile(message.params.arguments.file).catch(showError);
+    else setSource(message.params?.arguments);
+  }
+  if (message.method === "notifications/resources/updated" && message.params?.uri === openedFile?.resourceUri) void reloadFile().catch(showError);
+  if (message.method === "ui/notifications/tool-result") receiveResult(message.params);
 });
 if (window.parent !== window) {
   window.parent.postMessage({
@@ -336,7 +380,7 @@ if (window.parent !== window) {
 const legacyMetadata = window.openai?.toolResponseMetadata;
 const legacyResult = legacyMetadata?.mcp_tool_result ?? legacyMetadata?.call_tool_result;
 const legacyUi = legacyResult?._meta ?? legacyMetadata;
-setSource({ ...window.openai?.toolOutput, ...legacyUi?.preview, captureToken: legacyUi?.captureToken, captureId: legacyUi?.captureId });
+receiveResult({ structuredContent: window.openai?.toolOutput, _meta: legacyUi });
 try {
   if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
   await bridgeReady;

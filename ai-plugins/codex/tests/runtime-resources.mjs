@@ -142,7 +142,7 @@ test("invalid Slint and render arguments return errors", async () => {
   const path = join(directory, "invalid.slint");
   try {
     const { tools } = await client.call("tools/list");
-    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint", "get_preview_screenshot", "publish_preview_capture"]);
+    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint", "get_preview_screenshot", "publish_preview_capture", "open_slint_file", "load_slint_file_preview"]);
     assert.deepEqual(tools.find(tool => tool.name === "publish_preview_capture")._meta.ui.visibility, ["app"]);
     const statuses = tools.find(tool => tool.name === "validate_slint").outputSchema.properties.status.enum;
     assert.deepEqual(statuses, ["valid", "error", "failure"]);
@@ -257,4 +257,33 @@ test("a project changed during validation receives no validation token", async (
     assert.equal(result.structuredContent.projectHash, undefined);
     assert.match(result.structuredContent.message, /project changed during validation/);
   } finally {await client?.close();await rm(directory,{recursive:true,force:true});}
+});
+
+test("file entrypoints render host buffers with imports without overwriting saved source", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-file-view-"));
+  const path = join(directory, "main.slint");
+  try {
+    const saved = 'import { Card } from "card.slint"; export component Preview inherits Window {width:320px;height:160px;Card{}}';
+    await writeFile(path, saved);
+    await writeFile(join(directory, "card.slint"), 'export component Card inherits Rectangle { background: red; }');
+    const opened = await client.call("tools/call", { name: "open_slint_file", arguments: { file: { name: "main.slint", resourceUri: "host-resource://opaque" } } });
+    assert.equal(opened.structuredContent.status, "opening-file");
+    assert.equal(opened._meta.file.resourceUri, "host-resource://opaque");
+    const tool = (await client.call("tools/list")).tools.find(tool => tool.name === "open_slint_file");
+    assert.deepEqual(tool._meta["openai/ui"].entrypoints, [{ type: "file", extensions: [".slint"] }]);
+    const source = saved.replace("320px", "400px");
+    const args = { source, revision: 1 };
+    assert.equal((await client.call("tools/call", { name: "load_slint_file_preview", arguments: args })).isError, true);
+    const result = await client.call("tools/call", { name: "load_slint_file_preview", arguments: args, _meta: { "openai/resource": { path } } });
+    assert.equal(result.isError, undefined, JSON.stringify(result));
+    assert.equal(result.structuredContent.sourceState, "unsaved");
+    assert.equal(result._meta.preview.source, source);
+    assert(result._meta.preview.project.files["card.slint"]);
+    assert.equal(await readFile(path, "utf8"), saved);
+    await writeFile(path, source);
+    const next = await client.call("tools/call", { name: "load_slint_file_preview", arguments: { source, revision: 2 }, _meta: { "openai/resource": { path } } });
+    assert.equal(next.structuredContent.sourceState, "saved");
+    assert.equal(next.structuredContent.sourceHash, result.structuredContent.sourceHash);
+  } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
 });

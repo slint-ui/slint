@@ -27,7 +27,7 @@ function references(source) {
   return paths;
 }
 
-export async function captureProject(path, projectRoot, buttonSource, runtimeRevision) {
+export async function captureProject(path, projectRoot, buttonSource, runtimeRevision, entrySource) {
   if (!isAbsolute(path) || (projectRoot && !isAbsolute(projectRoot))) throw new Error("Source path and project root must be absolute.");
   const sourcePath = await realpath(path);
   const root = await realpath(projectRoot || dirname(sourcePath));
@@ -46,7 +46,7 @@ export async function captureProject(path, projectRoot, buttonSource, runtimeRev
     if (Object.keys(files).length >= 128) throw new Error("A preview supports at most 128 dependency files.");
     const extension = extname(actual).toLowerCase();
     if (extension !== ".slint" && !types[extension]) throw new Error(`Unsupported preview dependency: ${key}`);
-    const bytes = bundled ? Buffer.from(buttonSource) : await readFile(actual);
+    const bytes = absolute === sourcePath && entrySource !== undefined ? Buffer.from(entrySource) : bundled ? Buffer.from(buttonSource) : await readFile(actual);
     total += bytes.length;
     if (bytes.length > 8 * 1024 * 1024 || total > 16 * 1024 * 1024) throw new Error("Preview dependencies exceed the 16 MiB total or 8 MiB per-file limit.");
     files[key] = { mimeType: extension === ".slint" ? "text/plain" : types[extension], data: bytes.toString("base64"), hash: hash(bytes) };
@@ -72,8 +72,8 @@ export async function captureProject(path, projectRoot, buttonSource, runtimeRev
   return { id: hash(JSON.stringify(snapshot)), snapshot };
 }
 
-export async function snapshotProject(path, projectRoot, buttonSource, validatedProjectHash, runtimeRevision) {
-  const { id, snapshot } = await captureProject(path, projectRoot, buttonSource, runtimeRevision);
+export async function snapshotProject(path, projectRoot, buttonSource, validatedProjectHash, runtimeRevision, entrySource) {
+  const { id, snapshot } = await captureProject(path, projectRoot, buttonSource, runtimeRevision, entrySource);
   if (validatedProjectHash !== undefined && id !== validatedProjectHash) throw new Error("The project changed after validation. Validate it again before rendering.");
   await mkdir(cache, { recursive: true, mode: 0o700 });
   const cacheInfo = await lstat(cache);
