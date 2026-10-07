@@ -1018,6 +1018,27 @@ public:
                 &inner, slint::private_api::string_to_slice(domain));
     }
 
+    /// Sets a custom file loader for the compiler.
+    /// The callback is invoked with a path and should return the file contents as a SharedString, or std::nullopt if the file is not found.
+    template<std::invocable<std::string_view> F>
+        requires(std::is_convertible_v<std::invoke_result_t<F, std::string_view>, std::optional<SharedString>>)
+    void set_file_loader(F callback)
+    {
+        using namespace cbindgen_private;
+        auto actual_cb = [](void *data, Slice<uint8_t> path, SharedString *out) -> bool {
+            std::string_view path_str(reinterpret_cast<const char *>(path.ptr), path.len);
+            auto result = (*reinterpret_cast<F *>(data))(path_str);
+            if (result.has_value()) {
+                *out = result.value();
+                return true;
+            }
+            return false;
+        };
+        cbindgen_private::slint_interpreter_component_compiler_set_file_loader(
+                &inner, actual_cb, new F(std::move(callback)),
+                [](void *data) { delete reinterpret_cast<F *>(data); });
+    }
+
     /// Returns the include paths the component compiler is currently configured with.
     slint::SharedVector<slint::SharedString> include_paths() const
     {

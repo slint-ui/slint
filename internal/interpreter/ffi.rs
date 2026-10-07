@@ -822,6 +822,56 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_do
         .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().to_string())
 }
 
+pub struct FileLoaderUserData {
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+}
+
+impl Drop for FileLoaderUserData {
+    fn drop(&mut self) {
+        if let Some(x) = self.drop_user_data {
+            x(self.user_data)
+        }
+    }
+}
+
+impl FileLoaderUserData {
+    pub unsafe fn new(
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+    ) -> Self {
+        Self { user_data, drop_user_data, callback }
+    }
+}
+
+/// Set a custom file loader for the compiler.
+/// The callback is invoked with a path and should return the file contents as a SharedString, or None if the file is not found.
+/// The user_data pointer is passed to the callback and cleaned up by drop_user_data when the compiler is dropped.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
+    compiler: &mut ComponentCompilerOpaque,
+    callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) {
+    let ud = unsafe { FileLoaderUserData::new(user_data, drop_user_data, callback) };
+    compiler.as_component_compiler_mut().set_file_loader(move |path| {
+        let path_str = path.to_string_lossy();
+        let path_slice = Slice::from_slice(path_str.as_bytes());
+        let mut result = SharedString::default();
+        let found = (ud.callback)(ud.user_data, path_slice, &mut result);
+        Box::pin(async move {
+            if found {
+                Some(Ok(result.to_string()))
+            } else {
+                None
+            }
+        })
+    });
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_get_style(
     compiler: &ComponentCompilerOpaque,
