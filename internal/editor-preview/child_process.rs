@@ -105,10 +105,10 @@ impl ChildProcessLspToPreview {
     }
 
     pub(crate) fn send_running(&self, message: &LspToPreviewMessage) {
-        if let Some(inner) = self.inner.borrow().as_ref() {
-            if let Ok(message) = serde_json::to_string(message) {
-                let _ = inner.to_child_sender.send(message);
-            }
+        if let Some(inner) = self.inner.borrow().as_ref()
+            && let Ok(message) = serde_json::to_string(message)
+        {
+            let _ = inner.to_child_sender.send(message);
         }
     }
 }
@@ -126,10 +126,10 @@ impl crate::LspToPreview for ChildProcessLspToPreview {
     fn send(&self, message: &LspToPreviewMessage) {
         if self.preview_is_running() {
             self.send_running(message);
-        } else if matches!(message, LspToPreviewMessage::ShowPreview(_)) {
-            if let Err(error) = self.start_preview() {
-                tracing::error!("Failed starting preview: {error}");
-            }
+        } else if matches!(message, LspToPreviewMessage::ShowPreview(_))
+            && let Err(error) = self.start_preview()
+        {
+            tracing::error!("Failed starting preview: {error}");
         }
     }
 

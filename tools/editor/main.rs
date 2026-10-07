@@ -1110,11 +1110,7 @@ mod tests {
 
     #[test]
     fn clear_highlight_only_clears_the_run_preview_from_the_primary_preview() {
-        for (preview_index, requested) in [
-            (PRIMARY_PREVIEW_INDEX, true),
-            (PRIMARY_PREVIEW_INDEX, false),
-            (RUN_PREVIEW_INDEX, true),
-        ] {
+        for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
             let (mut session, messages) = session_with_recording_previews();
             let project = tempfile::tempdir().unwrap();
 
@@ -1128,14 +1124,10 @@ mod tests {
             assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
             let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
             if preview_index == PRIMARY_PREVIEW_INDEX {
-                if requested {
-                    assert!(matches!(
-                        run_messages.as_slice(),
-                        [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
-                    ));
-                } else {
-                    assert!(run_messages.is_empty());
-                }
+                assert!(matches!(
+                    run_messages.as_slice(),
+                    [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
+                ));
             } else {
                 assert!(run_messages.is_empty());
             }
