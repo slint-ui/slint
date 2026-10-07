@@ -16,7 +16,7 @@ The activities run in this order.
 | --- | --- | --- | --- | --- |
 | R-01 | Check this Safety Plan and the scope of the release | 2-6.4.6.8 | Safety Manager | A revision of the Safety Plan, if needed; the language subset and features the release covers |
 | R-02 | Cut the release branch, and freeze it | 8-7 | Release Manager | The release branch |
-| R-03 | Run every suite on the evidence toolchain, and on the embedded target | 6-9, 6-10, 6-11 | Verification Lead | [Test Results](/qualification-report/test-results/), [Test Coverage](/qualification-report/test-coverage/), and the [Traceability Matrix](/qualification-report/traceability-matrix/), generated from the run |
+| R-03 | Run every suite on the evidence toolchain, on the 64-bit host and on a 32-bit target configuration; see [Test Environment and Targets](/safety-plan/verification/#test-environment-and-targets) | 6-9, 6-10 | Verification Lead | [Test Results](/qualification-report/test-results/), [Test Coverage](/qualification-report/test-coverage/), and the [Traceability Matrix](/qualification-report/traceability-matrix/), generated from the run |
 | R-04 | Qualify the tools of this version | 8-11 | Technical Lead Compiler | [Tool Qualification](/qualification-report/tool-qualification/) |
 | R-05 | Close every open safety anomaly, or justify it | 2-5.4.3 | Safety Manager | [Known Problems](/user-manual/known-problems/) for this release, with a reviewed rationale for each open entry |
 | R-06 | Update the safety case | 2-6.4.8 | Safety Manager | The safety case: the argument that this release meets its assumed safety requirements, with links to the evidence of R-03 to R-05 |
@@ -28,7 +28,7 @@ After the freeze, only fixes for safety anomalies land on the release branch.
 
 :::caution[TODO]
 The release branching isn't decided yet; see [Development Phases](/safety-plan/development-phases/).
-R-03 doesn't run on an embedded target yet, and R-06 has no safety case to update.
+R-03 doesn't run on a 32-bit target configuration yet, and R-06 has no safety case to update.
 :::
 
 ## After a Release
