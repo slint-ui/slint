@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -13,8 +13,8 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 
-function connect(path = fileURLToPath(new URL("../server.mjs", import.meta.url))) {
-  const child = spawn(process.execPath, [path]);
+function connect(path = fileURLToPath(new URL("../server.mjs", import.meta.url)), env = {}) {
+  const child = spawn(process.execPath, [path], { env: { ...process.env, ...env } });
   const pending = new Map();
   let nextId = 0;
   let closed = false;
@@ -84,7 +84,7 @@ test("file-backed edits retain identity and reject stale validation", async () =
       const revision = index + 1;
       const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision } });
       assert.equal(validation.structuredContent.status, "valid");
-      const rendered = await client.call("tools/call", { name: "render_slint", arguments: { path, revision, validatedSourceHash: validation.structuredContent.sourceHash } });
+      const rendered = await client.call("tools/call", { name: "render_slint", arguments: { path, revision, validatedSourceHash: validation.structuredContent.sourceHash, validatedProjectHash: validation.structuredContent.projectHash } });
       assert.equal(rendered.isError, undefined);
       assert.equal(rendered.structuredContent.sourcePath, await realpath(path));
       assert.equal(rendered.structuredContent.revision, revision);
@@ -93,7 +93,7 @@ test("file-backed edits retain identity and reject stale validation", async () =
     }
     const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } });
     await writeFile(path, source.replace("press me", "changed"));
-    const stale = await client.call("tools/call", { name: "render_slint", arguments: { path, revision: 6, validatedSourceHash: validation.structuredContent.sourceHash } });
+    const stale = await client.call("tools/call", { name: "render_slint", arguments: { path, revision: 6, validatedSourceHash: validation.structuredContent.sourceHash, validatedProjectHash: validation.structuredContent.projectHash } });
     assert.equal(stale.isError, true);
     assert.match(stale.structuredContent.message, /changed after validation/);
   } finally {
@@ -196,4 +196,48 @@ test("validation reports imported syntax errors consistently", async () => {
     await writeFile(join(directory, "card.slint"), 'export component Card inherits Rectangle { background: blue; }');
     assert.equal((await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } })).structuredContent.status, "valid");
   } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+
+test("project validation rejects changed imports and assets before rendering", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-project-validation-"));
+  const path = join(directory, "main.slint");
+  try {
+    await writeFile(path, 'import { Card } from "card.slint"; export component Preview inherits Window {width:320px;height:160px;Card{}}');
+    const card = join(directory, "card.slint");
+    const image = join(directory, "check.svg");
+    await writeFile(card, 'export component Card inherits Rectangle {Image {source:@image-url("check.svg");}}');
+    await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>');
+    const checked = (await client.call("tools/call", {name:"validate_slint",arguments:{path,revision:1}})).structuredContent;
+    assert.equal(checked.status, "valid");
+    const args = {path, revision:1, validatedSourceHash:checked.sourceHash, validatedProjectHash:checked.projectHash};
+    assert.equal((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.project.id, checked.projectHash);
+    const original = await readFile(card, "utf8");
+    await writeFile(card, original + "\n");
+    assert.match((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.message, /project changed after validation/);
+    await writeFile(card, original);
+    await writeFile(image, '<svg xmlns="http://www.w3.org/2000/svg" width="9" height="8"/>');
+    assert.match((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.message, /project changed after validation/);
+    assert.equal((await client.call("tools/call", {name:"render_slint",arguments:{path,revision:2}})).isError, true);
+  } finally {await client.close();await rm(directory,{recursive:true,force:true});}
+});
+
+
+test("a project changed during validation receives no validation token", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "slint-validation-race-"));
+  const path = join(directory, "main.slint");
+  const fake = join(directory, "validator.mjs");
+  let client;
+  try {
+    await writeFile(path, 'import { Card } from "card.slint"; export component Preview inherits Window {Card{}}');
+    await writeFile(join(directory, "card.slint"), 'export component Card inherits Rectangle {}');
+    await writeFile(fake, '#!/usr/bin/env node\nimport fs from "node:fs"; import {createHash} from "node:crypto"; import path from "node:path"; const entry=process.argv[3]; fs.appendFileSync(path.join(path.dirname(entry),"card.slint"),"\\n"); console.log(JSON.stringify({status:"valid", sourceHash:createHash("sha256").update(fs.readFileSync(entry)).digest("hex")}));');
+    await chmod(fake, 0o755);
+    client = connect(undefined, { SLINT_PYTHON_BIN: fake });
+    const result = await client.call("tools/call", {name:"validate_slint",arguments:{path,revision:1}});
+    assert.equal(result.isError, true);
+    assert.equal(result.structuredContent.projectHash, undefined);
+    assert.match(result.structuredContent.message, /project changed during validation/);
+  } finally {await client?.close();await rm(directory,{recursive:true,force:true});}
 });
