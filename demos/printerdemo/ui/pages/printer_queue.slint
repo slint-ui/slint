@@ -175,15 +175,11 @@ component NarrowPrintQueueElement {
 
         fake-shadow := Rectangle {
             y: 1px;
-            width: 100%;
-            height: 100%;
             background: #dfdfdf;
             border-radius: 10px;
         }
 
         Rectangle {
-            width: 100%;
-            height: 100%;
             background: white;
             border-radius: 10px;
             border-width: 1px;
@@ -384,7 +380,6 @@ component WidePrintQueueElement inherits Rectangle {
                 clicked => {
                     root.pause-job();
                 }
-                button-type: ButtonType.Primary;
                 text: @tr("Pause");
                 icon: @image-url("../images/pause.svg");
             }
