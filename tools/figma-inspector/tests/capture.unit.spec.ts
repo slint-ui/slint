@@ -1578,6 +1578,165 @@ test.each([false, true])(
     },
 );
 
+test("captures solid vector leaves as SVG without exporting PNG", async () => {
+    const node = {
+        ...text,
+        type: "VECTOR",
+        id: "solid-vector",
+        name: "Solid vector",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+    } as unknown as SceneNode;
+    const captured = await captureSource(
+        node,
+        Symbol("mixed"),
+        async () =>
+            '<svg width="24" height="24"><path d="M0 0h24v24H0z" fill="red"/></svg>\n',
+        undefined,
+        async () => {
+            throw Error("PNG export must not run");
+        },
+    );
+    expect(captured.work).toMatchObject({ pngExports: 0, svgExports: 1 });
+    expect(captured.source.root.exports?.png).toBeUndefined();
+    const result = await normalizeSource(captured.source);
+    expect(result).toMatchObject({
+        ok: true,
+        snapshot: { root: { kind: "svg", sourceType: "VECTOR" } },
+    });
+    if (!result.ok || result.empty || result.snapshot.root.kind !== "svg")
+        return;
+    expect(result.snapshot.root.raster).toBeUndefined();
+});
+
+test("native vector SVG exports preserve the complete node box", async () => {
+    const settings: ExportSettings[] = [];
+    const node = {
+        ...text,
+        type: "VECTOR",
+        id: "native-vector",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        exportAsync: async (value: ExportSettings) => {
+            settings.push(value);
+            return '<svg width="24" height="24"><path d="M0 0h24v24H0z" fill="red"/></svg>\n';
+        },
+    } as unknown as SceneNode;
+    const captured = await captureSource(node, Symbol("mixed"));
+    expect(settings).toEqual([
+        expect.objectContaining({
+            format: "SVG_STRING",
+            contentsOnly: true,
+            useAbsoluteBounds: true,
+        }),
+    ]);
+    expect(captured.source.root.exports?.pngOmitted).toBe("svg");
+});
+
+test.each(["BACKGROUND_BLUR", "LAYER_BLUR"])(
+    "keeps vectors under %s on PNG",
+    async (type) => {
+        const pngBytes = new Uint8Array(
+            await readFile("fixtures/authored/square.png"),
+        );
+        const leaf = {
+            ...text,
+            type: "VECTOR",
+            id: "blurred-vector",
+            effects: [],
+            fills: [solid(1, 0, 0)],
+            strokes: [],
+        };
+        const root = {
+            ...text,
+            type: "FRAME",
+            id: "blur-parent",
+            effects: [{ type, radius: 4, visible: true }],
+            children: [leaf],
+        } as unknown as SceneNode;
+        const captured = await captureSource(
+            root,
+            Symbol("mixed"),
+            async () => {
+                throw Error("SVG export must not run");
+            },
+            undefined,
+            async () => pngBytes,
+        );
+        expect(captured.work).toMatchObject({ pngExports: 1, svgExports: 0 });
+        expect(captured.source.root.children?.[0].exports?.png?.value).toBe(
+            pngBytes,
+        );
+    },
+);
+
+test.each([
+    { effects: [{ type: "BACKGROUND_BLUR", radius: 4, visible: true }] },
+    { effects: [{ type: "LAYER_BLUR", radius: 4, visible: true }] },
+    { isMask: true },
+    { blendMode: "MULTIPLY" },
+    { fills: [{ ...solid(1, 0, 0), blendMode: "MULTIPLY" }] },
+    { fills: [{ type: "IMAGE", imageHash: null }] },
+])("keeps context-sensitive vectors on PNG: %j", async (properties) => {
+    const pngBytes = new Uint8Array(
+        await readFile("fixtures/authored/square.png"),
+    );
+    const node = {
+        ...text,
+        type: "VECTOR",
+        id: "raster-vector",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        ...properties,
+    } as unknown as SceneNode;
+    const captured = await captureSource(
+        node,
+        Symbol("mixed"),
+        async () => {
+            throw Error("SVG export must not run");
+        },
+        undefined,
+        async () => pngBytes,
+    );
+    expect(captured.work).toMatchObject({ pngExports: 1, svgExports: 0 });
+    expect(captured.source.root.exports?.png?.value).toBe(pngBytes);
+});
+
+test.each(["malformed", "rejected"])(
+    "falls back to PNG when vector SVG is %s",
+    async (outcome) => {
+        const pngBytes = new Uint8Array(
+            await readFile("fixtures/authored/square.png"),
+        );
+        const node = {
+            ...text,
+            type: "VECTOR",
+            id: "fallback-vector",
+            effects: [],
+            fills: [solid(1, 0, 0)],
+            strokes: [],
+        } as unknown as SceneNode;
+        const captured = await captureSource(
+            node,
+            Symbol("mixed"),
+            async () => {
+                if (outcome === "rejected") throw Error("Native export failed");
+                return "invalid SVG";
+            },
+            undefined,
+            async () => pngBytes,
+        );
+        expect(captured.work).toMatchObject({ pngExports: 1, svgExports: 1 });
+        expect(captured.source.root.exports?.pngOmitted).toBeUndefined();
+        expect(await normalizeSource(captured.source)).toMatchObject({
+            ok: true,
+        });
+    },
+);
+
 test("captures Material Symbols ligatures when node-level weight is mixed", async () => {
     const mixedValue = Symbol("figma.mixed");
     const icon = {
