@@ -3,7 +3,13 @@
 
 use slint::{Model, SharedString};
 
-slint::include_modules!();
+pub mod backend {
+    pub mod ui {
+        slint::include_modules!();
+    }
+}
+
+pub use backend::ui::*;
 
 pub fn init(blogicb_api: BLogicBAPI) {
     blogicb_api.set_crank1(SharedString::from("1"));

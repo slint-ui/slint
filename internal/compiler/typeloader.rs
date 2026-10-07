@@ -59,7 +59,8 @@ pub enum ImportKind {
 pub struct LibraryInfo {
     pub name: String,
     pub package: String,
-    pub module: Option<String>,
+    #[cfg(feature = "rust")]
+    pub module: Option<proc_macro2::TokenStream>,
     pub exports: Vec<ExportedName>,
 }
 
@@ -1196,14 +1197,27 @@ impl TypeLoader {
                         "DEP_{}_SLINT_LIBRARY_PACKAGE",
                         maybe_library_import.to_uppercase()
                     )) {
+                        #[cfg(feature = "rust")]
+                        let module = std::env::var(format!(
+                            "DEP_{}_SLINT_LIBRARY_MODULE",
+                            maybe_library_import.to_uppercase()
+                        ))
+                        .ok()
+                        .as_deref()
+                        .map(crate::generator::rust::parse_rust_module)
+                        .transpose()
+                        .unwrap_or_else(|error| {
+                            state.borrow_mut().diag.push_error(
+                                error.to_string(),
+                                &import.import_uri_token,
+                            );
+                            None
+                        });
                         import.library_info = Some(LibraryInfo {
                             name: library_name,
                             package: library_package,
-                            module: std::env::var(format!(
-                                "DEP_{}_SLINT_LIBRARY_MODULE",
-                                maybe_library_import.to_uppercase()
-                            ))
-                            .ok(),
+                            #[cfg(feature = "rust")]
+                            module,
                             exports: Vec::new(),
                         });
                     } else {
