@@ -1,0 +1,60 @@
+---
+title: Lifecycle
+description: The safety lifecycle of Slint SC, and the activities set up once for it.
+---
+
+**Addresses:** ISO 26262-2 6.4.6
+
+Slint SC is developed continuously, and released in versions.
+Its lifecycle has four parts, each started by an event rather than a date:
+
+1. **[Once, to set up](#once-to-set-up):** the plans, processes, and specifications that every change and release relies on.
+   They're revisited when the scope or the process changes.
+2. **[On every change](/safety-plan/development-phases/#on-every-change):** the ISO 26262-6 sub-phases, from requirement to verified implementation, in one pull request.
+3. **[On every release](/safety-plan/release/#on-every-release):** baseline, evidence run, confirmation measures, assessment, and release.
+4. **[After a release](/safety-plan/release/#after-a-release):** field monitoring, fixes, and end of support.
+
+Each activity names its objective, the role responsible, and its work product, as ISO 26262-2 6.4.6.6 asks.
+Its timing is the event of its part.
+The tasks, the effort, and the release dates are planned in the project plan, which references this Safety Plan.
+
+## V-Model per Change
+
+The V-model of ISO 26262-6 applies to each change.
+A change states or updates its requirement paragraph, updates the design where needed, implements it, and adds the tests that verify it, all in one pull request.
+CI then checks traceability and coverage before the change can merge.
+
+Running the sub-phases per change, and combining them in one pull request, is tailoring of the kind ISO 26262-2 5.4.6.1 a and d describe.
+The V-model still holds inside the pull request: the requirement and its tests exist before the change merges.
+
+## Progression
+
+A release cycle starts only once every activity of [Once, to Set Up](#once-to-set-up) is in place.
+If one starts with a setup activity incomplete, the Safety Manager records why that doesn't cause unreasonable risk, as ISO 26262-2 6.4.7.1 asks.
+
+## Once, to Set Up
+
+| ID | Activity | Clause | Responsible | Work product |
+| --- | --- | --- | --- | --- |
+| S-01 | Keep this Safety Plan current, and track progress against it | 2-6.4.6.2 | Safety Manager | This Safety Plan |
+| S-02 | Define the interface to integrators | 8-5 | Safety Manager | A development interface agreement template, with the activities each side is responsible for |
+| S-03 | Specify the assumed safety requirements of Slint SC | 2-6.4.5.7 | Safety Manager, Technical Lead Runtime | [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/) |
+| S-04 | State the assumptions of use the integrator must confirm | 2-6.4.5.7 | Safety Manager | [Assumptions of Use](/user-manual/#assumptions-of-use) |
+| S-05 | Plan software development | 6-5 | Technical Lead Runtime | [Development Process](/safety-plan/development-process/), [Coding Standards](/safety-plan/coding-standards/) |
+| S-06 | Define the verification strategy | 6-9, 6-10, 8-9 | Verification Lead | [Verification](/safety-plan/verification/), [Test Suites](/safety-plan/test-suites/), [Coverage Criteria](/safety-plan/test-coverage/) |
+| S-07 | Define change management, with an impact analysis per change | 8-8 | Release Manager | [Change Management](/safety-plan/development-process/#change-management) |
+| S-08 | Define configuration management and release branching | 8-7 | Release Manager | [Configuration Management](/safety-plan/development-process/#configuration-management) |
+| S-09 | Define documentation management: how each work product is identified, versioned, reviewed, and approved | 8-10 | Safety Manager | This Safety Manual, versioned with the repository |
+| S-10 | Classify and qualify the tools | 8-11 | Technical Lead Compiler | [Tool Evaluation Report](/evaluation-report/) |
+| S-11 | Make the test suite runnable on an integrator's target | 6-11 | Verification Lead | The test suite as a [deliverable](/safety-plan/deliverables/), with instructions in the User Manual |
+| S-12 | Analyze the architecture for faults and dependent failures, including freedom from interference with the integrator's code | 9-6, 9-7, 9-8 | Technical Lead Runtime | [Safety Analysis](/component-documentation/safety-analysis/) |
+| S-13 | Define the support period of each release line | 2-7 | Project Manager | Support policy |
+| S-14 | Define field monitoring | 2-7.4.2.3 | Field Monitoring Owner | [After a Release](/safety-plan/release/#after-a-release) |
+
+:::caution[TODO]
+Missing: S-02, S-11, S-13, and S-14 entirely.
+S-07 and S-08 lack the impact analysis and the release branching.
+S-09 lacks review and approval records.
+S-10 doesn't yet classify the Rust toolchain or CI.
+S-12 lacks a dependent failure analysis.
+:::

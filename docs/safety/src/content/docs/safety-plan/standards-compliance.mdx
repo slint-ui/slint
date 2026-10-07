@@ -1,0 +1,122 @@
+---
+title: Standards Compliance
+description: The standard Slint SC targets, and which clause is addressed where.
+---
+
+This chapter names the standard Slint SC targets and the integrity level it's developed for.
+It then maps each clause to the chapter that addresses it.
+
+## Standard in Scope
+
+Slint SC targets **ISO 26262:2018** at **ASIL B**.
+Every clause number in this package refers to that edition.
+
+Nothing in this package is specific to one application domain.
+Slint SC renders a safety-related user interface; what that interface controls or reports is the integrator's concern.
+
+## Safety Requirements
+
+**Addresses:** ISO 26262-8 Clause 6
+
+The standard tells us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but it doesn't tell us how to write those requirements for a GUI toolkit.
+
+Slint SC states them on three levels.
+The [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/) say what an integrator needs from Slint SC, derived from its assumed use.
+The [Language Specification](/reference/language/) says what the language and the runtime must do, one identified paragraph at a time, and each paragraph is traced to the tests that verify it.
+The [Tool Evaluation Report](/evaluation-report/potential-errors/) and the runtime's [Safety Analysis](/component-documentation/safety-analysis/) say what can go wrong instead, and what detects or constrains each of those.
+
+## Integrity Level
+
+Slint SC is a Safety Element out of Context (SEooC).
+It's developed without a specific application function, so it has no integrity level of its own to derive.
+Instead it's developed to be capable of ASIL B, and the integrator confirms that level is the one their application needs.
+
+ASIL (Automotive Safety Integrity Level) describes the risk level of something.
+ASIL D=highest, C=high, B=medium, A=low risk, QM = not safety critical.
+Without an application function there's no HARA (Hazard Analysis and Risk Assessment) to derive an ASIL from, so ASIL B is a target rather than a result.
+
+Where an application isn't safety related at all, the full Slint framework can be used instead, and none of this applies.
+
+## Tailoring
+
+**Addresses:** ISO 26262-2 6.4.5
+
+### Impact Analysis
+
+Slint SC is a new development, not a modification of an existing item.
+There's no item, so the item-level impact analysis of ISO 26262-2 6.4.3 doesn't apply.
+
+Slint SC reuses the Slint compiler, which wasn't developed to ISO 26262.
+The compiler is a tool, not an element of the product, so ISO 26262-8 Clause 11 covers it in the [Tool Evaluation Report](/evaluation-report/).
+
+Each change to Slint SC runs through the change impact analysis of ISO 26262-8 Clause 8 instead; see [Development Phases](/safety-plan/development-phases/).
+
+### Safety Element out of Context
+
+ISO 26262-2 6.4.5.7 lets an SEooC tailor the lifecycle, provided that:
+
+1. its requirements are derived from assumptions about its intended use and context, and
+2. the integrator validates those assumptions in their target application.
+
+Slint SC meets (1) with its [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/) and the [Assumptions of Use](/user-manual/#assumptions-of-use).
+The User Manual hands (2) to the integrator.
+
+### Parts of the Lifecycle
+
+Each line is a part of the reference lifecycle, and whether it applies to Slint SC.
+
+| Part / Clause | Topic | Applies | Rationale |
+| --- | --- | --- | --- |
+| 2-5 | Overall safety management | Yes | See [Safety Management](/safety-plan/safety-management/). |
+| 2-6 | Project-dependent safety management | Yes | This Safety Plan. |
+| 2-7 | Production, operation, service, decommissioning | Yes, for software | See [Release and Field Monitoring](/safety-plan/release/). |
+| 3-5 | Item definition | No | No item. Replaced by the assumed context of use. |
+| 3-6 | Hazard analysis and risk assessment | No | No item, so no hazards to analyze. ASIL B is a target, see [Integrity Level](#integrity-level). |
+| 3-7 | Functional safety concept | No | Replaced by the assumed safety requirements. |
+| 4-6 | Technical safety concept | Partly | Assumed technical safety requirements on the runtime, and the hardware-software interface reduced to assumptions about the frame buffer and the display path. |
+| 4-7 | System and item integration | No | The integrator's. |
+| 4-8 | Safety validation | No | The integrator's, see [User Responsibility](/user-manual/#user-responsibility). |
+| 5 | Hardware | No | Slint SC is software only. |
+| 6-5 to 6-10 | Software development | Yes | Per change, see [Lifecycle](/safety-plan/lifecycle/#v-model-per-change). |
+| 6-11 | Testing of the embedded software | Partly | The target environment is the integrator's. We provide a test suite they can run on it; see [Deliverables](/safety-plan/deliverables/). |
+| 6 Annex C | Software configuration | Yes | The runtime has one configuration; the integrator's `.slint` input configures the generated code. |
+| 7-5, 7-6 | Production planning and production | Yes, reduced | Producing software is building and distributing a release; see [Release and Field Monitoring](/safety-plan/release/). |
+| 8-5 | Distributed developments | Yes | Towards integrators only; see [Distributed Development](/safety-plan/development-process/#distributed-development). |
+| 8-6 to 8-10 | Supporting processes | Yes | See the [Clause Map](#iso-26262-clause-map). |
+| 8-11 | Confidence in software tools | Yes | The Slint compiler and `slint-sc-coverage`; see the [Tool Evaluation Report](/evaluation-report/). |
+| 8-12 | Qualification of software components | No | The runtime is developed under ISO 26262-6; see [Element and Route](/safety-plan/#element-and-route). |
+| 8-13 | Evaluation of hardware elements | No | Software only. |
+| 8-14 | Proven in use | No | Not claimed. |
+| 8-15, 8-16 | Interfacing and integrating systems not developed to ISO 26262 | No | Not applicable to a software element. |
+| 9-5 | ASIL decomposition | No | Not used. |
+| 9-6, 9-7, 9-8 | Coexistence, dependent failures, safety analyses | Yes | See [Safety Analysis](/component-documentation/safety-analysis/). |
+
+## ISO 26262 Clause Map
+
+| Clause | Topic | Where |
+| --- | --- | --- |
+| ISO 26262-2 Clause 5 | Overall safety management | [Safety Management](/safety-plan/safety-management/) |
+| ISO 26262-2 6.4.2 | Roles and responsibilities | [Roles](/safety-plan/safety-management/#roles-and-responsibilities) |
+| ISO 26262-2 6.4.5 | Tailoring | [Tailoring](#tailoring) |
+| ISO 26262-2 6.4.6 | Safety plan | This [Safety Plan](/safety-plan/), and the [Lifecycle](/safety-plan/lifecycle/) |
+| ISO 26262-2 6.4.8 | Safety case | [Release and Field Monitoring](/safety-plan/release/#on-every-release) |
+| ISO 26262-2 6.4.9 to 6.4.12 | Confirmation measures | [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures) |
+| ISO 26262-2 6.4.13 | Release | [Release and Field Monitoring](/safety-plan/release/) |
+| ISO 26262-2 Clause 7 | After release | [After a Release](/safety-plan/release/#after-a-release) |
+| ISO 26262-4 Clause 8 | Safety validation | At the vehicle level, so it belongs to the integrator. See [User Responsibility](/user-manual/#user-responsibility). Our own verification is in [Verification](/safety-plan/verification/). |
+| ISO 26262-6 Clause 5 | Planning of software development | [Development Process](/safety-plan/development-process/), [Coding Standards](/safety-plan/coding-standards/) |
+| ISO 26262-6 Clause 6 | Software safety requirements | [Safety Requirements](#safety-requirements) |
+| ISO 26262-6 Clause 7 | Software architectural design | [Architecture Design](/safety-plan/architecture/#architectural-design), and the [Safety Analysis](/component-documentation/safety-analysis/) of 7.4.10 |
+| ISO 26262-6 Clause 8 | Software unit design and implementation | [Development Phases](/safety-plan/development-phases/), [Coding Standards](/safety-plan/coding-standards/) |
+| ISO 26262-6 Clauses 9 and 10 | Unit verification, integration and verification | [Verification](/safety-plan/verification/), [Test Suites](/safety-plan/test-suites/), [Coverage Criteria](/safety-plan/test-coverage/) |
+| ISO 26262-6 Clause 11 | Testing of the embedded software | Partly the integrator's; see [Tailoring](#parts-of-the-lifecycle) |
+| ISO 26262-8 Clause 5 | Distributed development | [Distributed Development](/safety-plan/development-process/#distributed-development) |
+| ISO 26262-8 Clause 6 | Safety requirements | [Safety Requirements](#safety-requirements). 6.4.3.2 asks each safety requirement to reference its source one level up, what realizes it one level down, and the verification specification that checks it. |
+| ISO 26262-8 Clause 7 | Configuration management | [Configuration Management](/safety-plan/development-process/#configuration-management) |
+| ISO 26262-8 Clause 8 | Change management | [Change Management](/safety-plan/development-process/#change-management), and [Development Phases](/safety-plan/development-phases/) for the change workflow itself. |
+| ISO 26262-8 9.4 | Verification | [Verification](/safety-plan/verification/) |
+| ISO 26262-8 Clause 10 | Documentation management | [Lifecycle](/safety-plan/lifecycle/#once-to-set-up) |
+| ISO 26262-8 Clause 11 | Confidence in software tools | The criteria evaluation report of 11.5.1 is the [Tool Evaluation Report](/evaluation-report/). The qualification report of 11.5.2 is [Tool Qualification](/qualification-report/tool-qualification/). |
+| ISO 26262-8 Clause 12 | Qualification of software components | Not used; see [Element and Route](/safety-plan/#element-and-route). |
+| ISO 26262-8 Clause 13 | Evaluation of hardware elements | Out of scope: Slint SC is software only, so evaluating the hardware it runs on is the integrator's responsibility. |
+| ISO 26262-9 Clauses 7 and 8 | Dependent failure analysis, safety analyses | [Safety Analysis](/component-documentation/safety-analysis/) |
