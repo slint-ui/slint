@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import initialize, { compile_from_string, run_event_loop, register_font_from_memory } from "slint-runtime";
 import { highlight } from "./syntax.mjs";
 import { installPreviewZoom } from "./zoom.mjs";
 import { openRuntimeCache } from "./runtime-cache.mjs";
@@ -118,7 +119,7 @@ function showError(error, acknowledge = true) {
   if (acknowledge && desired) report("error", desired.revision, [{ level: "error", message: String(error) }], desired.sourceHash);
 }
 function setSource(input) {
-  if (!input || typeof input.source !== "string" || !input.source.length || input.source.length > 65536) return;
+  if (!input?.project?.id || typeof input.source !== "string" || !input.source.length || input.source.length > 65536) return;
   if (!Number.isSafeInteger(input.revision) || input.revision < (desired?.revision ?? 0)) return;
   const next = { width: 320, height: 160, ...input };
   if (!Number.isSafeInteger(next.width) || next.width < 64 || next.width > 2048 ||
@@ -275,23 +276,12 @@ try {
   if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
   await bridgeReady;
   const cache = await openRuntimeCache();
-  const cacheKey = runtimeInfo.javascriptUri + ":" + runtimeInfo.wasmHash;
+  const cacheKey = runtimeInfo.wasmHash;
   let cached = await cache?.read(cacheKey);
   if (cached) {
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", cached.wasm)), byte => byte.toString(16).padStart(2, "0")).join("");
     if (hash !== runtimeInfo.wasmHash) cached = undefined;
   }
-  const javascript = cached?.javascript ?? (await readRuntimeResource(runtimeInfo.javascriptUri)).contents[0].text;
-  const initializer = javascript.match(/\b(\w+)\s+as\s+default\b/)?.[1];
-  if (!initializer) throw new Error("The built Slint runtime has no initializer.");
-  const slint = await new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.type = "module";
-    window.addEventListener("slint-runtime-module-ready", event => resolve(event.detail), { once: true });
-    script.textContent = javascript + `\nwindow.dispatchEvent(new CustomEvent("slint-runtime-module-ready", { detail: { default: ${initializer}, compile_from_string, run_event_loop, register_font_from_memory } }));`;
-    script.addEventListener("error", () => reject(new Error("The host could not initialize the Slint runtime module.")));
-    document.head.appendChild(script);
-  });
   let wasm = cached?.wasm;
   if (!wasm) {
     const compressed = await readBytes(runtimeInfo.wasmChunkUris);
@@ -303,11 +293,11 @@ try {
     throw new Error("The Slint runtime resources do not match this preview.");
   }
   const module = await WebAssembly.compile(wasm);
-  await slint.default({ module_or_path: module });
+  await initialize({ module_or_path: module });
   if (cache) {
     if (cached) cache.close();
-    else void cache.write({ key: cacheKey, javascript, wasm }).finally(() => cache.close());
+    else void cache.write({ key: cacheKey, wasm }).finally(() => cache.close());
   }
-  runtime = slint;
+  runtime = { compile_from_string, run_event_loop, register_font_from_memory };
   await render();
 } catch (error) { showError(error); }

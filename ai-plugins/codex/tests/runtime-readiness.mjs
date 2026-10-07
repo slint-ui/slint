@@ -14,7 +14,6 @@ async function fixture(root, revision) {
   const executable = join(root, process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp");
   await writeFile(executable, "test executable");
   await chmod(executable, 0o755);
-  await writeFile(join(root, "wasm/slint_wasm_interpreter.js"), "export default {};");
   await writeFile(join(root, "wasm/slint_wasm_interpreter_bg.wasm"), Buffer.from([0,97,115,109,1,0,0,0]));
   await writeFile(join(root, "preview.html"), "<!doctype html>");
   await writeFile(join(root, "slint.svg"), "<svg/>");

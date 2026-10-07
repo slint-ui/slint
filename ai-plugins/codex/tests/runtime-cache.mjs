@@ -33,16 +33,16 @@ test("runtime cache keeps only the latest runtime and survives a new connection"
   globalThis.indexedDB = storage(records);
   try {
     const first = await openRuntimeCache();
-    await first.write({ key: "one", javascript: "first", wasm: new Uint8Array([1, 2]).buffer });
+    await first.write({ key: "one", wasm: new Uint8Array([1, 2]).buffer });
     first.close();
     const reopened = await openRuntimeCache();
     assert.deepEqual(new Uint8Array((await reopened.read("one")).wasm), new Uint8Array([1, 2]));
     assert.equal(await reopened.read("changed-runtime"), undefined);
-    await reopened.write({ key: "two", javascript: "second", wasm: new ArrayBuffer(3) });
+    await reopened.write({ key: "two", wasm: new ArrayBuffer(3) });
     assert.equal(records.size, 1);
     assert.equal(await reopened.read("one"), undefined);
-    assert.equal((await reopened.read("two")).javascript, "second");
-    records.set("current", { key: "two", javascript: "second", wasm: "invalid" });
+    assert.equal((await reopened.read("two")).wasm.byteLength, 3);
+    records.set("current", { key: "two", wasm: "invalid" });
     assert.equal(await reopened.read("two"), undefined);
     reopened.close();
   } finally { globalThis.indexedDB = original; }
