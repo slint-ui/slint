@@ -147,8 +147,13 @@ impl Item for Flickable {
             |self_weak, (x_out_of_bounds, y_out_of_bounds, geo)| {
                 let Some(flick_rc) = self_weak.upgrade() else { return };
                 let Some(flick) = flick_rc.downcast::<Flickable>() else { return };
-                let Ok(mut inner) = flick.data.inner.try_borrow_mut() else { return };
-                inner.move_within_limits(&flick_rc, *x_out_of_bounds, *y_out_of_bounds, geo);
+                FlickableDataInner::move_within_limits(
+                    flick.data.inner.try_borrow_mut().ok().as_deref_mut(),
+                    &flick_rc,
+                    *x_out_of_bounds,
+                    *y_out_of_bounds,
+                    geo,
+                );
             },
         );
     }
@@ -843,7 +848,7 @@ impl FlickableDataInner {
     }
 
     fn move_within_limits(
-        &mut self,
+        mut self_: Option<&mut Self>,
         flick_rc: &ItemRc,
         x_out_of_bounds: bool,
         y_out_of_bounds: bool,
@@ -854,8 +859,10 @@ impl FlickableDataInner {
             return;
         }
         let flick = flick.as_pin_ref();
-        let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::X));
-        let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::Y));
+        let use_bounce_x = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::X))
+            && self_.is_some();
+        let use_bounce_y = FlickAnimation::use_bounce(effective_bounce(flick, geo, Dimension::Y))
+            && self_.is_some();
         let vpx = flick.content_x();
         let vpy = flick.content_y();
         let p = ensure_in_bound(
@@ -866,13 +873,14 @@ impl FlickableDataInner {
             use_bounce_y,
         );
 
-        let interacting = self.capture_events.is_some();
         let x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
         if x_out_of_bounds && !x.has_binding() {
             if !use_bounce_x {
                 x.set(p.x_length());
-            } else if !interacting {
-                self.start_spring_back(flick, flick_rc, Dimension::X, geo);
+            } else if let Some(inner) = self_.as_deref_mut()
+                && inner.capture_events.is_none()
+            {
+                inner.start_spring_back(flick, flick_rc, Dimension::X, geo);
             }
         }
 
@@ -880,8 +888,10 @@ impl FlickableDataInner {
         if y_out_of_bounds && !y.has_binding() {
             if !use_bounce_y {
                 y.set(p.y_length());
-            } else if !interacting {
-                self.start_spring_back(flick, flick_rc, Dimension::Y, geo);
+            } else if let Some(inner) = self_
+                && inner.capture_events.is_none()
+            {
+                inner.start_spring_back(flick, flick_rc, Dimension::Y, geo);
             }
         }
     }
@@ -893,7 +903,7 @@ impl FlickableDataInner {
             LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
             &geo,
         );
-        self.move_within_limits(flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
+        Self::move_within_limits(Some(self), flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
     }
 
     /// The backend's clock, falling back to the animation tick without a window.
