@@ -103,18 +103,15 @@ function geometry(
         !(node.kind === "svg" && node.raster !== undefined)
     )
         lines.push(property("opacity", node.opacity, depth));
+    // Figma rotates counterclockwise around the captured local origin.
     if (node.rotation !== 0)
         lines.push(
             property(
                 "transform-rotation",
-                `${number(node.rotation)}deg`,
+                `${number(-node.rotation)}deg`,
                 depth,
             ),
-            property(
-                "transform-origin",
-                "{ x: self.width / 2, y: self.height / 2 }",
-                depth,
-            ),
+            property("transform-origin", "{ x: 0px, y: 0px }", depth),
         );
     return lines;
 }
