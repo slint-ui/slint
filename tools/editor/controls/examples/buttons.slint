@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, BasicTheme } from "../src/basic.slint";
+import { ButtonTemplate } from "../src/templates.slint";
+
+export component ButtonsDemo inherits Window {
+    title: "Reusable buttons";
+    width: 560px;
+    height: 360px;
+    in-out property <int> activations;
+    in-out property <int> toggles;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text {
+            text: "Default style and visual replacements share button behavior";
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            Button {
+                text: "Basic";
+                clicked => { root.activations += 1; }
+            }
+
+            Button {
+                text: "Primary";
+                primary: true;
+                clicked => { root.activations += 1; }
+            }
+
+            Button {
+                text: "Toggle";
+                checkable: true;
+                toggled(checked) => { root.toggles += 1; }
+                clicked => { root.activations += 1; }
+            }
+
+            Button {
+                text: "Disabled";
+                enabled: false;
+            }
+        }
+
+        custom := Button {
+            text: "Custom content";
+            content << HorizontalLayout {
+                spacing: 8px;
+                Text {
+                    text: "Custom content";
+                    color: custom.foreground;
+                    accessible-role: none;
+                }
+
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 6px;
+                    background: BasicTheme.accent;
+                }
+            }
+            clicked => { root.activations += 1; }
+        }
+
+        bare := ButtonTemplate {
+            text: "A style built on the template";
+            min-height: 40px;
+            content-padding-left: 16px;
+            content-padding-right: 16px;
+            background << Rectangle {
+                background: bare.pressed ? #0f766e : bare.hovered ? #0d9488 : #14b8a6;
+                border-radius: 20px;
+                border-width: bare.has-focus ? 2px : 0px;
+                border-color: #134e4a;
+            }
+            content << Text {
+                text: bare.text;
+                color: white;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+            clicked => { root.activations += 1; }
+        }
+
+        Text {
+            text: "Activations: \{root.activations}, toggles: \{root.toggles}";
+        }
+
+        Text {
+            text: "Click a button, or focus it and release Space or Enter to activate it.";
+            wrap: word-wrap;
+        }
+    }
+}

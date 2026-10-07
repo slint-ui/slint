@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "../../../controls/src/basic.slint";
+import { Style, ButtonStyle, PaintStyle } from "../../style.slint";
+
+export component EditorButton inherits Button {
+    in property <ButtonStyle> style: Style.primary-button;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : root.pressed || root.checked ? root.style.appearance.pressed
+        : root.hovered ? root.style.appearance.hover : root.style.appearance.normal;
+
+    min-width: root.style.width;
+    height: root.style.height;
+    content-padding: 0px;
+    content-padding-left: root.style.padding-inline;
+    content-padding-right: root.style.padding-inline;
+    spacing: root.style.gap;
+    font-size: root.style.text.size;
+    font-weight: root.style.text.weight;
+    border-radius: root.style.radius;
+    border-width: root.has-focus ? root.style.border-width : 0px;
+    border-color: root.has-focus ? root.style.appearance.focus-border : root.paint.border;
+    background-color: root.paint.background;
+    foreground: root.paint.foreground;
+    opacity: root.enabled ? 1 : root.style.disabled-opacity;
+}
