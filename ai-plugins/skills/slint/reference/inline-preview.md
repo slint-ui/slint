@@ -19,7 +19,7 @@ Save, validate, and render in one execution:
 1. Call `validate_slint` with the absolute entry `path`, a positive `revision`, and the project root when needed.
 2. Continue only when `structuredContent.status` is `valid`.
    `error` means Slint diagnostics; `failure` means a validator or setup problem.
-3. Call `render_slint` with that path, revision, matching `validatedSourceHash` and `validatedProjectHash`, and logical canvas dimensions.
+3. Call `render_slint` with that path, revision, matching `validatedProjectHash`, and logical canvas dimensions.
    Use the canonical `projectRoot` returned by validation.
 
 Relative imports and re-exports, PNG/JPEG/SVG/WebP images, and TTF/OTF fonts are supported.

@@ -43,17 +43,14 @@ const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUr
 const sourceSchema = {
   type: "object",
   properties: {
-    source: { type: "string", minLength: 1, maxLength: 65536 },
-    path: { type: "string", description: "Absolute saved .slint source path. Prefer this to duplicating the source string." },
+    path: { type: "string", description: "Absolute saved .slint source path." },
     projectRoot: { type: "string", description: "Absolute root containing relative imports and assets. Defaults to the source directory." },
-    validatedSourceHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The sourceHash returned by validate_slint. Rendering fails if the saved file has changed." },
     validatedProjectHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The projectHash returned by validate_slint, covering the entry, dependencies, assets, and runtime revision." },
     revision: { type: "integer", minimum: 1 },
     width: { type: "integer", minimum: 64, maximum: 2048, default: 320 },
     height: { type: "integer", minimum: 64, maximum: 2048, default: 160 },
   },
-  required: ["revision"],
-  oneOf: [{ required: ["source"] }, { required: ["path", "validatedSourceHash", "validatedProjectHash"] }],
+  required: ["path", "revision", "validatedProjectHash"],
   additionalProperties: false,
 };
 const renderOutputSchema = {
@@ -77,16 +74,8 @@ const tools = [
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash and validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
     inputSchema: sourceSchema,
-    outputSchema: renderOutputSchema,
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-    _meta: presentation,
-  },
-  {
-    name: "show_slint_button", title: "Show Slint Button", icons,
-    description: "Show the transparent Window and reusable Button starter. Use render_slint for subsequent source changes.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: presentation,
@@ -94,21 +83,13 @@ const tools = [
 ];
 
 async function render(args) {
-  let { source } = args;
   const { revision, width = 320, height = 160 } = args;
   if (!Number.isSafeInteger(revision) || revision < 1 || !Number.isSafeInteger(width) || width < 64 || width > 2048 || !Number.isSafeInteger(height) || height < 64 || height > 2048) throw new Error("Provide a positive revision and dimensions from 64 to 2048 pixels.");
-  let project;
-  if (args.path) {
-    if (source !== undefined) throw new Error("Choose either a saved path or source text.");
-    if (!args.validatedSourceHash || !args.validatedProjectHash) throw new Error("Validate the saved project and provide both validation hashes before rendering.");
-    const snapshot = await snapshotProject(args.path, args.projectRoot, component, args.validatedSourceHash, args.validatedProjectHash, runtimeMetadata.revision);
-    ({ source, ...project } = snapshot);
-  } else if (args.projectRoot || args.validatedSourceHash || args.validatedProjectHash) {
-    throw new Error("A saved source path is required for projectRoot or validatedSourceHash.");
-  }
+  if (typeof args.path !== "string" || !isAbsolute(args.path) || !args.validatedProjectHash || args.source !== undefined) throw new Error("Provide an absolute saved path and validatedProjectHash before rendering.");
+  const { source, ...project } = await snapshotProject(args.path, args.projectRoot, component, args.validatedProjectHash, runtimeMetadata.revision);
   if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
   const structuredContent = { source, revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
-  if (project) Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, project });
+  Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, project });
   return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: presentation };
 }
 
@@ -120,14 +101,12 @@ async function handle(message) {
     case "tools/list": return { tools: runtimeMetadata ? tools : [] };
     case "resources/list": return { resources: runtimeMetadata ? [
       { uri: uiUri, name: "slint-preview", title: "Slint Preview", mimeType: "text/html;profile=mcp-app" },
-      { uri: "slint://components/button.slint", name: "slint-button", mimeType: "text/plain" },
       ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
     ] : [] };
     case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
     case "resources/read": {
       const uri = message.params?.uri;
       if (typeof uri === "string" && uri.startsWith("slint://project/")) return { contents: [await readProjectResource(uri)] };
-      if (uri === "slint://components/button.slint") return { contents: [{ uri, mimeType: "text/plain", text: component }] };
       if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
       return { contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html, _meta: {
@@ -139,7 +118,6 @@ async function handle(message) {
       const args = message.params?.arguments ?? {};
       try {
         if (!runtimeMetadata) throw new Error("Build the Codex runtime in the Slint monorepo or install a platform package to enable preview tools.");
-        if (message.params?.name === "show_slint_button") return await render({ source: example, revision: 1 });
         if (message.params?.name === "render_slint") return await render(args);
         if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");
         if (typeof args.path !== "string" || !isAbsolute(args.path) || !Number.isSafeInteger(args.revision) || args.revision < 1) throw new Error("Provide an absolute source path and positive revision.");
