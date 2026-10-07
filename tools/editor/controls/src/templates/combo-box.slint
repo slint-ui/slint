@@ -1,0 +1,200 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface ComboBoxPopupSurface {
+    in property <bool> enabled;
+    in property <[string]> model;
+    in property <int> current-index;
+    in property <int> highlighted-index;
+    in property <length> anchor-height;
+    in property <length> popup-width;
+    in property <length> popup-height;
+    in property <length> popup-padding;
+    in property <length> item-height;
+    in property <int> maximum-visible-items;
+    out property <bool> opened;
+    out property <bool> focused;
+    callback highlight(index: int);
+    callback selected(index: int);
+    callback key-event(event: KeyEvent) -> EventResult;
+    public function open();
+    public function close();
+}
+
+export component ComboBoxTemplate {
+    in property <bool> enabled: true;
+    in property <[string]> model;
+    in-out property <int> current-index: root.count > 0 ? 0 : -1;
+    out property <string> current-text: root.current-index >= 0 && root.current-index < root.count
+        ? root.model[root.current-index] : "";
+    in property <string> placeholder;
+    in property <string> display-text: root.current-index >= 0 && root.current-index < root.count
+        ? root.current-text : root.placeholder;
+    out property <int> count: root.model.length;
+    out property <int> highlighted-index: root.highlight-index;
+    out property <bool> expanded: popup.opened;
+    out property <bool> has-focus: root.enabled && (keys.has-focus || popup.focused);
+    out property <bool> hovered: root.enabled && pointer.has-hover;
+    out property <bool> pressed: root.enabled && pointer.pressed;
+    in property <length> content-padding: 6px;
+    in property <length> content-padding-inline: 12px;
+    in property <length> indicator-width: 16px;
+    in property <length> spacing: 8px;
+    in property <length> item-height: 32px;
+    in property <int> maximum-visible-items: 8;
+    in property <length> popup-padding: 4px;
+    in property <length> popup-width: root.width;
+    in property <length> popup-height: min(root.count, max(1, root.maximum-visible-items)) * root.item-height
+        + 2 * root.popup-padding;
+    callback activated(index: int);
+    callback highlighted(index: int);
+
+    slot background;
+    slot content;
+    slot indicator;
+    slot <ComboBoxPopupSurface> popup;
+
+    private property <int> highlight-index: -1;
+
+    min-width: 120px;
+    min-height: 32px;
+    preferred-width: 200px;
+    preferred-height: 32px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: keys;
+    accessible-role: combobox;
+    accessible-enabled: root.enabled;
+    accessible-value: root.current-text;
+    accessible-expandable: root.enabled && root.count > 0;
+    accessible-expanded: root.expanded;
+    accessible-action-default => { root.open(); }
+    accessible-action-expand => { root.open(); }
+    accessible-action-set-value(value) => { root.select(root.model.index-of(value)); }
+
+    public function open() {
+        if !root.enabled || root.count == 0 || root.expanded { return; }
+        root.highlight-index = clamp(root.current-index, 0, root.count - 1);
+        keys.focus();
+        popup.open();
+    }
+
+    public function close() {
+        popup.close();
+        if root.enabled { keys.focus(); }
+    }
+
+    public function highlight(index: int) {
+        if !root.enabled || !root.expanded || index < 0 || index >= root.count { return; }
+        if root.highlight-index != index {
+            root.highlight-index = index;
+            root.highlighted(index);
+        }
+    }
+
+    public function select(index: int) {
+        if !root.enabled || index < 0 || index >= root.count { return; }
+        root.current-index = index;
+        root.close();
+        root.activated(index);
+    }
+
+    function synchronize-model() {
+        if root.count == 0 {
+            root.current-index = -1;
+            root.highlight-index = -1;
+            popup.close();
+        } else {
+            if root.current-index < -1 || root.current-index >= root.count {
+                root.current-index = clamp(root.current-index, -1, root.count - 1);
+            }
+            if root.expanded { root.highlight-index = clamp(root.highlight-index, 0, root.count - 1); }
+        }
+    }
+    changed model => { root.synchronize-model(); }
+    changed count => { root.synchronize-model(); }
+    changed enabled => { if !root.enabled { popup.close(); } }
+
+    function handle-key(event: KeyEvent) -> EventResult {
+        if !root.enabled || root.count == 0 || event.modifiers.control { return reject; }
+        if event.text == Key.Escape && root.expanded {
+            root.close();
+            return accept;
+        }
+        if event.text == Key.Tab && root.expanded {
+            root.close();
+            return reject;
+        }
+        if event.text == Key.F4 || (event.modifiers.alt && event.text == Key.DownArrow) {
+            if root.expanded { root.close(); } else { root.open(); }
+            return accept;
+        }
+        if event.modifiers.alt && event.text == Key.UpArrow && root.expanded {
+            root.close();
+            return accept;
+        }
+        if event.modifiers.alt { return reject; }
+        if event.text == Key.Return || event.text == Key.Space {
+            if root.expanded { root.select(root.highlight-index); } else { root.open(); }
+            return accept;
+        }
+        let current = root.expanded ? root.highlight-index : root.current-index;
+        let next = event.text == Key.DownArrow ? min(current + 1, root.count - 1)
+            : event.text == Key.UpArrow ? max(current - 1, 0)
+            : event.text == Key.Home ? 0
+            : event.text == Key.End ? root.count - 1
+            : event.text == Key.PageDown ? min(current + max(1, root.maximum-visible-items), root.count - 1)
+            : event.text == Key.PageUp ? max(current - max(1, root.maximum-visible-items), 0) : -1;
+        if next < 0 { return reject; }
+        if root.expanded { root.highlight(next); }
+        else if next != root.current-index { root.select(next); }
+        return accept;
+    }
+
+    background { }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.count > 0 ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            if root.expanded { root.close(); } else { root.open(); }
+        }
+    }
+
+    HorizontalLayout {
+        padding-top: root.content-padding;
+        padding-bottom: root.content-padding;
+        padding-left: root.content-padding-inline;
+        padding-right: root.content-padding-inline;
+        spacing: root.spacing;
+        content { }
+
+        Rectangle {
+            width: root.indicator-width;
+            indicator { }
+        }
+    }
+
+    keys := FocusScope {
+        width: 0px;
+        height: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => { return root.handle-key(event); }
+    }
+
+    popup {
+        enabled: root.enabled;
+        model: root.model;
+        current-index: root.current-index;
+        highlighted-index: root.highlighted-index;
+        anchor-height: root.height;
+        popup-width: root.popup-width;
+        popup-height: root.popup-height;
+        popup-padding: root.popup-padding;
+        item-height: root.item-height;
+        maximum-visible-items: root.maximum-visible-items;
+        highlight(index) => { root.highlight(index); }
+        selected(index) => { root.select(index); }
+        key-event(event) => { return root.handle-key(event); }
+    }
+}

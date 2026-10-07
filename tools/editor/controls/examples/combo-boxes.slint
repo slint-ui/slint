@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBox } from "../src/basic.slint";
+import {
+    ComboBoxTemplate,
+    ComboBoxPopupTemplate,
+    ButtonTemplate,
+} from "../src/templates.slint";
+
+export component ComboBoxExamples inherits Rectangle {
+    preferred-height: 340px;
+    vertical-stretch: 0;
+    in-out property <int> activations;
+    in-out property <string> selected-text: "Contain";
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text {
+            text: "A selection model with replaceable field and popup visuals";
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            spacing: 16px;
+            ComboBox {
+                accessible-label: "Image fit";
+                model: ["Contain", "Cover", "Fill", "None"];
+                activated(index) => { root.activations += 1; root.selected-text = self.current-text; }
+            }
+
+            ComboBox {
+                accessible-label: "Disabled combo box";
+                model: ["Disabled"];
+                enabled: false;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 16px;
+            ComboBox {
+                accessible-label: "Choose a size";
+                model: ["Small", "Medium", "Large", "Extra large"];
+                current-index: -1;
+                placeholder: "Choose a size";
+                background-color: #f0fdfa;
+                foreground: #115e59;
+                highlighted-background: #0d9488;
+                activated(index) => { root.activations += 1; root.selected-text = self.current-text; }
+            }
+
+            ComboBox {
+                accessible-label: "Scrollable options";
+                model: [
+                    "Zero",
+                    "One",
+                    "Two",
+                    "Three",
+                    "Four",
+                    "Five",
+                    "Six",
+                    "Seven",
+                    "Eight",
+                    "Nine"
+                ];
+                maximum-visible-items: 4;
+                activated(index) => { root.activations += 1; root.selected-text = self.current-text; }
+            }
+        }
+
+        custom := ComboBoxTemplate {
+            accessible-label: "Custom combo box";
+            model: ["First", "Second", "Third"];
+            background << Rectangle {
+                background: #fef3c7;
+                border-radius: 16px;
+            }
+            content << Text {
+                text: "Custom: " + custom.current-text;
+                color: #92400e;
+                vertical-alignment: center;
+            }
+            indicator << Text {
+                text: custom.expanded ? "−" : "+";
+                color: #92400e;
+                vertical-alignment: center;
+            }
+            popup << custom-popup := ComboBoxPopupTemplate {
+                Rectangle {
+                    background: #fffbeb;
+                    border-width: 1px;
+                    border-color: #d97706;
+                    border-radius: 4px;
+                }
+
+                VerticalLayout {
+                    padding: custom-popup.popup-padding;
+                    for value[index] in custom-popup.model: item := ButtonTemplate {
+                        text: value;
+                        height: custom-popup.item-height;
+                        focus-on-click: false;
+                        accessible-role: list-item;
+                        changed hovered => { if self.hovered { custom-popup.highlight(index); } }
+                        clicked => { custom-popup.selected(index); }
+                        background << Rectangle {
+                            background: index == custom-popup.highlighted-index ? #fcd34d : transparent;
+                        }
+                        content << Text {
+                            text: value;
+                            color: #92400e;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+            activated(index) => { root.activations += 1; root.selected-text = self.current-text; }
+        }
+
+        Text {
+            text: "Last selected: \{root.selected-text} · Activations: \{root.activations}";
+        }
+
+        Text {
+            text: "Space/Enter opens the list. Arrows highlight; Enter selects; Escape cancels.";
+            wrap: word-wrap;
+        }
+    }
+}

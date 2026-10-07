@@ -4,6 +4,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { ButtonExamples } from "buttons.slint";
 import { SliderExamples } from "sliders.slint";
+import { ComboBoxExamples } from "combo-boxes.slint";
 
 export component ControlsDemo inherits Window {
     title: "Reusable controls";
@@ -35,6 +36,19 @@ export component ControlsDemo inherits Window {
             }
 
             SliderExamples { }
+
+            Rectangle {
+                height: 1px;
+                background: #d1d5db;
+            }
+
+            Text {
+                text: "Combo boxes";
+                font-size: 22px;
+                font-weight: 600;
+            }
+
+            ComboBoxExamples { }
         }
     }
 }

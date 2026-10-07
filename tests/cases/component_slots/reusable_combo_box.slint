@@ -1,0 +1,168 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ComboBox,
+    BasicTheme,
+} from "../../../tools/editor/controls/src/basic.slint";
+export { BasicTheme }
+export component TestCase inherits Window {
+    width: 480px;
+    height: 400px;
+    in-out property <[string]> model: ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven"];
+    in-out property <int> current-index: 1;
+    in-out property <bool> enabled: true;
+    out property <string> current-text: combo.current-text;
+    out property <bool> expanded: combo.expanded;
+    out property <bool> focused: combo.has-focus;
+    out property <bool> next-focused: next.has-focus;
+    out property <int> highlighted-index: combo.highlighted-index;
+    out property <int> activations;
+    out property <int> highlights;
+    out property <brush> background-color: combo.background-color;
+    out property <brush> foreground: combo.foreground;
+    out property <bool> test: root.current-text == "One" && !root.expanded;
+    public function open() { combo.open(); }
+    public function choose(index: int) { combo.select(index); }
+    public function focus-combo() { combo.focus(); }
+    combo := ComboBox {
+        x: 20px;
+        y: 20px;
+        width: 220px;
+        height: 40px;
+        accessible-label: "Selection";
+        placeholder: "Choose an option";
+        model: root.model;
+        current-index <=> root.current-index;
+        enabled: root.enabled;
+        maximum-visible-items: 3;
+        activated(index) => { root.activations += 1; }
+        highlighted(index) => { root.highlights += 1; }
+    }
+
+    next := FocusScope {
+        x: 300px;
+        y: 20px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let combo = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Selection").next().unwrap();
+assert_eq!(combo.accessible_role(), Some(slint_testing::AccessibleRole::Combobox));
+assert_eq!(combo.accessible_expanded(), Some(false));
+let palette = instance.global::<BasicTheme<'_>>();
+let key = |key: Key| {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+    slint::platform::update_timers_and_animations();
+};
+let find_item = |text: &str| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, text)
+        .find(|item| item.accessible_role() == Some(slint_testing::AccessibleRole::ListItem))
+        .unwrap()
+};
+instance.set_current_index(2);
+assert_eq!(instance.get_current_text(), "Two");
+assert_eq!(instance.get_activations(), 0);
+combo.invoke_accessible_expand_action();
+assert!(instance.get_expanded());
+assert_eq!(combo.accessible_expanded(), Some(true));
+assert!(instance.get_focused());
+assert_eq!(instance.get_highlighted_index(), 2);
+assert!(find_item("Two").size().width > 150.);
+key(Key::DownArrow);
+assert_eq!(instance.get_highlighted_index(), 3);
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_highlights(), 1);
+key(Key::Escape);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_activations(), 0);
+
+key(Key::Space);
+assert!(instance.get_expanded());
+key(Key::End);
+assert_eq!(instance.get_highlighted_index(), 7);
+assert_eq!(instance.get_current_index(), 2);
+let item = find_item("Seven");
+let position = item.absolute_position();
+assert!(position.y >= 0. && position.y < 110.);
+key(Key::Return);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), 7);
+assert_eq!(instance.get_current_text(), "Seven");
+assert_eq!(instance.get_activations(), 1);
+key(Key::UpArrow);
+assert_eq!(instance.get_current_index(), 6);
+assert_eq!(instance.get_activations(), 2);
+key(Key::Home);
+assert_eq!(instance.get_current_index(), 0);
+key(Key::UpArrow);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_activations(), 3);
+
+instance.invoke_open();
+find_item("One").mock_single_click(PointerEventButton::Left);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_activations(), 4);
+instance.invoke_open();
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_activations(), 5);
+instance.invoke_open();
+key(Key::Tab);
+assert!(!instance.get_expanded());
+assert!(instance.get_next_focused());
+
+combo.set_accessible_value("Four");
+assert_eq!(instance.get_current_index(), 4);
+assert_eq!(instance.get_activations(), 6);
+combo.set_accessible_value("Unknown");
+instance.invoke_choose(-1);
+instance.invoke_choose(100);
+assert_eq!(instance.get_current_index(), 4);
+assert_eq!(instance.get_activations(), 6);
+instance.invoke_open();
+slint_testing::send_mouse_click(&instance, 420., 300.);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), 4);
+
+instance.invoke_open();
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_background_color(), palette.get_disabled_background());
+assert_eq!(instance.get_foreground(), palette.get_disabled_foreground());
+let count = instance.get_activations();
+combo.invoke_accessible_expand_action();
+combo.set_accessible_value("Zero");
+instance.invoke_open();
+instance.invoke_choose(0);
+key(Key::Home);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), 4);
+assert_eq!(instance.get_activations(), count);
+
+instance.set_enabled(true);
+instance.invoke_open();
+instance.set_model(std::rc::Rc::new(slint::VecModel::from(vec!["Only".into()])).into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_highlighted_index(), 0);
+instance.set_model(std::rc::Rc::new(slint::VecModel::<slint::SharedString>::default()).into());
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_index(), -1);
+assert_eq!(instance.get_current_text(), "");
+instance.invoke_open();
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_activations(), count);
+```
+*/
