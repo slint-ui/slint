@@ -548,6 +548,7 @@ export struct FieldAppearance {
     disabled: PaintStyle,
     muted: color,
     selection: color,
+    selection-foreground: color,
 }
 
 export struct FieldStyle {
@@ -647,6 +648,7 @@ export struct ColorPalette {
     subtle-selection: color,
     focus-background: color,
     text-selection: color,
+    text-selection-foreground: color,
     on-accent: color,
     danger: color,
 }
@@ -791,7 +793,8 @@ export global LightTheme {
         selection: root.accent.with-alpha(0.14),
         subtle-selection: root.accent.with-alpha(0.10),
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
+        text-selection: #2563eb,
+        text-selection-foreground: #ffffff,
         on-accent: #ffffff,
         danger: #cf222e,
     };
@@ -1011,6 +1014,7 @@ export global LightTheme {
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
+        selection-foreground: LightTheme.colors.text-selection-foreground,
     };
 
     out property <FieldAppearance> inspector-field: {
@@ -1020,6 +1024,7 @@ export global LightTheme {
         disabled: { background: ( #f5f5f5).with-alpha(0.65), foreground: LightTheme.colors.muted, border: #d9d9d9},
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
+        selection-foreground: LightTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
@@ -1076,7 +1081,8 @@ export global DarkTheme {
         selection: root.accent.with-alpha(0.14),
         subtle-selection: root.accent.with-alpha(0.10),
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
+        text-selection: #93c5fd,
+        text-selection-foreground: #111827,
         on-accent: #ffffff,
         danger: #ff7b72,
     };
@@ -1296,6 +1302,7 @@ export global DarkTheme {
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
+        selection-foreground: DarkTheme.colors.text-selection-foreground,
     };
 
     out property <FieldAppearance> inspector-field: {
@@ -1305,6 +1312,7 @@ export global DarkTheme {
         disabled: { background: ( #383838).with-alpha(0.65), foreground: DarkTheme.colors.muted, border: #4b4b4b},
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
+        selection-foreground: DarkTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
