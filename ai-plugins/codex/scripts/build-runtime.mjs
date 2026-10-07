@@ -26,19 +26,19 @@ async function run(command, args, cwd = repository, extra = {}) {
 
 const runtime = await mkdtemp(join(pluginRoot, ".runtime-build-"));
 try {
-await run("cargo", ["build", "--locked", "-p", "slint-lsp", "--bin", "slint-lsp", "--no-default-features", "--features", "backend-winit,renderer-software"]);
-await run("wasm-pack", ["build", "--release", "--target", "web", "--no-opt", "--out-dir", join(runtime, "wasm"), "--", "--locked", "--features", "console_error_panic_hook"], join(repository, "api/wasm-interpreter"));
-const executable = process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp";
-await copyFile(join(target, "debug", executable), join(runtime, executable));
-await chmod(join(runtime, executable), 0o755);
-if (process.platform !== "win32") await run("strip", ["-S", join(runtime, executable)]);
-const lspVersion = execFileSync(join(runtime, executable), ["--version"], { encoding: "utf8" }).trim();
-const wasmPackage = JSON.parse(await readFile(join(runtime, "wasm/package.json"), "utf8"));
-if (lspVersion !== `slint-lsp ${wasmPackage.version}`) throw new Error("LSP and Wasm versions differ.");
-const currentRevision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
-if (currentRevision !== revision) throw new Error("Repository revision changed during the build. Rebuild the runtime.");
-await writeFile(join(runtime, "runtime.json"), JSON.stringify({ version: wasmPackage.version, revision, platform: process.platform, architecture: process.arch }, null, 2) + "\n");
-await run(process.execPath, [join(pluginRoot, "scripts/build-preview.mjs")], repository, { SLINT_PLUGIN_RUNTIME_DIR: runtime });
-await publishRuntime(runtime, destination);
-console.log(`Built Slint ${wasmPackage.version} from ${revision}.`);
+  await run("cargo", ["build", "--locked", "-p", "slint-lsp", "--bin", "slint-lsp", "--no-default-features", "--features", "backend-winit,renderer-software"]);
+  await run("wasm-pack", ["build", "--release", "--target", "web", "--no-opt", "--out-dir", join(runtime, "wasm"), "--", "--locked", "--features", "console_error_panic_hook"], join(repository, "api/wasm-interpreter"));
+  const executable = process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp";
+  await copyFile(join(target, "debug", executable), join(runtime, executable));
+  await chmod(join(runtime, executable), 0o755);
+  if (process.platform !== "win32") await run("strip", ["-S", join(runtime, executable)]);
+  const lspVersion = execFileSync(join(runtime, executable), ["--version"], { encoding: "utf8" }).trim();
+  const wasmPackage = JSON.parse(await readFile(join(runtime, "wasm/package.json"), "utf8"));
+  if (lspVersion !== `slint-lsp ${wasmPackage.version}`) throw new Error("LSP and Wasm versions differ.");
+  const currentRevision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
+  if (currentRevision !== revision) throw new Error("Repository revision changed during the build. Rebuild the runtime.");
+  await writeFile(join(runtime, "runtime.json"), JSON.stringify({ version: wasmPackage.version, revision, platform: process.platform, architecture: process.arch }, null, 2) + "\n");
+  await run(process.execPath, [join(pluginRoot, "scripts/build-preview.mjs")], repository, { SLINT_PLUGIN_RUNTIME_DIR: runtime });
+  await publishRuntime(runtime, destination);
+  console.log(`Built Slint ${wasmPackage.version} from ${revision}.`);
 } finally { await rm(runtime, { recursive: true, force: true }); }
