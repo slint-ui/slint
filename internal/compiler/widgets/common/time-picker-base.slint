@@ -17,15 +17,13 @@ component TimeSelector inherits Rectangle {
     in property <bool> selected;
     in property <int> value;
     in property <TimeSelectorStyle> style;
-    callback clicked <=> touch-area.clicked;
+    callback clicked;
 
     width: max(48px, text-label.min-width);
     height: max(48px, text-label.min-height);
     border-radius: max(root.width, root.height) / 2;
     vertical-stretch: 0;
     horizontal-stretch: 0;
-
-    touch-area := TouchArea { }
 
     text-label := Text {
         text: root.value;
@@ -54,10 +52,11 @@ export component Clock {
     in property <bool> two-columns;
     in property <ClockStyle> style;
     in property <int> total;
-    in-out property <int> current-item;
+    in property <int> current-item;
     in property <int> current-value;
 
-    callback current-item-changed(index: int);
+    callback current-value-changed(value: int);
+    callback value-selected();
 
     property <length> radius: max(root.width, root.height) / 2;
     property <length> picker-diameter: 48px;
@@ -67,6 +66,7 @@ export component Clock {
     property <length> radius-outer: root.center - root.outer-padding;
     property <length> radius-inner: root.center - root.inner-padding;
     property <int> half-total: root.total / 2;
+    property <int> steps-per-turn: root.two-columns ? root.half-total : root.total;
     property <angle> rotation: 0.25turn;
     property <length> current-x: get-index-x(root.current-value);
     property <length> current-y: get-index-y(root.current-value);
@@ -136,7 +136,25 @@ export component Clock {
         }
 
         clicked => {
-            root.set-current-item(index);
+            root.current-value-changed(val);
+            root.value-selected();
+        }
+    }
+
+    TouchArea {
+        pointer-event(event) => {
+            if event.button != PointerEventButton.left {
+                return;
+            }
+            if event.kind == PointerEventKind.down {
+                root.current-value-changed(root.value-at(self.mouse-x, self.mouse-y));
+            } else if event.kind == PointerEventKind.up {
+                root.value-selected();
+            }
+        }
+
+        moved => {
+            root.current-value-changed(root.value-at(self.mouse-x, self.mouse-y));
         }
     }
 
@@ -171,8 +189,17 @@ export component Clock {
         root.center + (root.radius-outer / 1px * sin(root.value-to-angle(value))) * 1px
     }
 
-    function set-current-item(index: int) {
-        root.current-item-changed(index);
+    pure function value-at(x: length, y: length) -> int {
+        let dx = (x - root.width / 2) / 1px;
+        let dy = (y - root.height / 2) / 1px;
+        let step = mod(round(mod(atan2(dx, -dy) / 1turn + 1, 1) * root.steps-per-turn), root.steps-per-turn);
+        if !root.two-columns {
+            return root.total == 12 && step == 0 ? 12 : step;
+        }
+        if sqrt(dx * dx + dy * dy) * 1px < (root.radius-outer + root.radius-inner) / 2 {
+            return step == 0 ? 0 : step + root.half-total;
+        }
+        step == 0 ? root.half-total : step
     }
 }
 
@@ -467,12 +494,12 @@ export component TimePickerBase {
                 total: root.minutes-selected ? 60 : root.use-24-hour-format ? 24 : 12;
                 current-value: root.minutes-selected ? root.current-time.minute : root.current-time.hour;
 
-                current-item-changed(index) => {
-                    root.update-time-by-item(index);
+                current-value-changed(value) => {
+                    root.update-time-by-value(value);
+                }
 
-                    if !root.minutes-selected {
-                        root.minutes-selected = true;
-                    }
+                value-selected => {
+                    root.minutes-selected = true;
                 }
             }
         }
@@ -511,10 +538,6 @@ export component TimePickerBase {
 
     changed time => {
         root.current-time = root.time;
-    }
-
-    function update-time-by-item(index: int) {
-        root.update-time-by-value(root.current-model[index]);
     }
 
     function update-time-by-value(value: int) {
