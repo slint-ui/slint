@@ -384,12 +384,12 @@ export struct ElementInformation {
     offset: int,
 }
 
-export struct EditorComment {
+export struct EditorAnnotation {
     id: string,
     text: string,
 }
 
-export struct EditorCommentMarker {
+export struct EditorAnnotationMarker {
     source-uri: string,
     offset: int,
     label: string,
@@ -529,12 +529,12 @@ export global Api {
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
-    in property <[EditorComment]> element-comments;
-    in property <[EditorCommentMarker]> comment-markers;
-    callback add-element-comment(string);
-    callback remove-element-comment(string);
-    callback mark-element-comments-read();
-    callback select-comment-element(string, int, int);
+    in property <[EditorAnnotation]> element-annotations;
+    in property <[EditorAnnotationMarker]> annotation-markers;
+    callback add-element-annotation(string);
+    callback remove-element-annotation(string);
+    callback mark-element-annotations-read();
+    callback select-annotation-element(string, int, int);
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;

@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use serde_json::{Value, json};
-use slint_editor_mcp::{EditorComment, ProjectComments, project_resource_uri, scan_projects};
+use slint_editor_mcp::{EditorAnnotation, ProjectAnnotations, project_resource_uri, scan_projects};
 use std::collections::BTreeMap;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
-const MENTION_SEARCH_TOOL: &str = "search_visual_editor_comments";
-const GET_COMMENTS_TOOL: &str = "get_visual_editor_comments";
+const MENTION_SEARCH_TOOL: &str = "search_visual_editor_annotations";
+const GET_ANNOTATIONS_TOOL: &str = "get_visual_editor_annotations";
 
 fn main() -> io::Result<()> {
     let stdin = io::stdin();
@@ -40,7 +40,7 @@ fn handle_request(request_text: &str) -> Option<Value> {
         "ping" => Ok(json!({})),
         "resources/list" => list_resources(),
         "resources/read" => read_resource(request.get("params")),
-        "tools/list" => Ok(json!({ "tools": [get_comments_tool(), mention_search_tool()] })),
+        "tools/list" => Ok(json!({ "tools": [get_annotations_tool(), mention_search_tool()] })),
         "tools/call" => call_tool(request.get("params")),
         "notifications/initialized" => return None,
         _ => {
@@ -70,7 +70,7 @@ fn initialize_result() -> Value {
             "name": "slint-editor-mcp",
             "version": env!("CARGO_PKG_VERSION")
         },
-        "instructions": "Attach current visual editor comments from Slint projects to the next prompt."
+        "instructions": "Attach current visual editor annotations from Slint projects to the next prompt."
     })
 }
 
@@ -78,7 +78,7 @@ fn mention_search_tool() -> Value {
     json!({
         "name": MENTION_SEARCH_TOOL,
         "title": "Slint Visual Editor",
-        "description": "Find projects with comments in running Slint visual editors.",
+        "description": "Find projects with annotations in running Slint visual editors.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -99,11 +99,11 @@ fn mention_search_tool() -> Value {
     })
 }
 
-fn get_comments_tool() -> Value {
+fn get_annotations_tool() -> Value {
     json!({
-        "name": GET_COMMENTS_TOOL,
-        "title": "Get Slint Visual Editor Comments",
-        "description": "Get comments from running Slint visual editors whose projects are within the working directory.",
+        "name": GET_ANNOTATIONS_TOOL,
+        "title": "Get Slint Visual Editor Annotations",
+        "description": "Get annotations from running Slint visual editors whose projects are within the working directory.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -125,7 +125,7 @@ fn get_comments_tool() -> Value {
 }
 
 fn list_resources() -> Result<Value, String> {
-    let resources = comment_scopes()?
+    let resources = annotation_scopes()?
         .into_iter()
         .map(|project| {
             let title = project_title(&project);
@@ -133,7 +133,7 @@ fn list_resources() -> Result<Value, String> {
                 "uri": project_resource_uri(&project.project_root),
                 "name": title,
                 "title": title,
-                "description": format!("{} from the visual editor for {}", comment_count(project.comments.len()), project.project_root.display()),
+                "description": format!("{} from the visual editor for {}", annotation_count(project.annotations.len()), project.project_root.display()),
                 "mimeType": "text/markdown"
             })
         })
@@ -151,7 +151,7 @@ fn read_resource(params: Option<&Value>) -> Result<Value, String> {
         "contents": [{
             "uri": uri,
             "mimeType": "text/markdown",
-            "text": format_project_comments(&project)
+            "text": format_project_annotations(&project)
         }]
     }))
 }
@@ -161,8 +161,8 @@ fn call_tool(params: Option<&Value>) -> Result<Value, String> {
     let name = params.get("name").and_then(Value::as_str).unwrap_or("");
     let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
     match name {
-        GET_COMMENTS_TOOL => Ok(tool_result(get_visual_editor_comments(&arguments))),
-        MENTION_SEARCH_TOOL => Ok(tool_result(search_visual_editor_comments(&arguments))),
+        GET_ANNOTATIONS_TOOL => Ok(tool_result(get_visual_editor_annotations(&arguments))),
+        MENTION_SEARCH_TOOL => Ok(tool_result(search_visual_editor_annotations(&arguments))),
         _ => Err(format!("Unknown tool: {name}")),
     }
 }
@@ -176,33 +176,33 @@ fn tool_result(result: Result<Value, String>) -> Value {
     })
 }
 
-fn get_visual_editor_comments(arguments: &Value) -> Result<Value, String> {
+fn get_visual_editor_annotations(arguments: &Value) -> Result<Value, String> {
     let working_directory = parse_working_directory(arguments)?;
     let projects =
-        scan_projects().map_err(|error| format!("Could not scan editor comments: {error}"))?;
+        scan_projects().map_err(|error| format!("Could not scan editor annotations: {error}"))?;
     let projects = projects_beneath(&working_directory, projects);
-    Ok(comments_tool_result(&working_directory, &projects))
+    Ok(annotations_tool_result(&working_directory, &projects))
 }
 
-fn comments_tool_result(working_directory: &Path, projects: &[ProjectComments]) -> Value {
-    let comment_count = projects.iter().map(|project| project.comments.len()).sum::<usize>();
+fn annotations_tool_result(working_directory: &Path, projects: &[ProjectAnnotations]) -> Value {
+    let annotation_count = projects.iter().map(|project| project.annotations.len()).sum::<usize>();
     let structured_projects = projects
         .iter()
         .map(|project| {
             json!({
                 "projectRoot": project.project_root,
-                "comments": project.comments.iter().map(structured_comment).collect::<Vec<_>>()
+                "annotations": project.annotations.iter().map(structured_annotation).collect::<Vec<_>>()
             })
         })
         .collect::<Vec<_>>();
     json!({
         "content": [{
             "type": "text",
-            "text": format_directory_comments(working_directory, projects)
+            "text": format_directory_annotations(working_directory, projects)
         }],
         "structuredContent": {
             "workingDirectory": working_directory,
-            "commentCount": comment_count,
+            "annotationCount": annotation_count,
             "projects": structured_projects
         }
     })
@@ -227,8 +227,8 @@ fn parse_working_directory(arguments: &Value) -> Result<PathBuf, String> {
 
 fn projects_beneath(
     working_directory: &Path,
-    projects: Vec<ProjectComments>,
-) -> Vec<ProjectComments> {
+    projects: Vec<ProjectAnnotations>,
+) -> Vec<ProjectAnnotations> {
     projects
         .into_iter()
         .filter(|project| {
@@ -239,26 +239,26 @@ fn projects_beneath(
         .collect()
 }
 
-fn structured_comment(comment: &EditorComment) -> Value {
+fn structured_annotation(annotation: &EditorAnnotation) -> Value {
     json!({
-        "id": comment.id,
-        "text": comment.text,
-        "file": comment.file,
-        "range": comment.range,
-        "component": comment.component,
-        "elementType": comment.element_type,
-        "elementId": comment.element_id
+        "id": annotation.id,
+        "text": annotation.text,
+        "file": annotation.file,
+        "range": annotation.range,
+        "component": annotation.component,
+        "elementType": annotation.element_type,
+        "elementId": annotation.element_id
     })
 }
 
-fn search_visual_editor_comments(arguments: &Value) -> Result<Value, String> {
+fn search_visual_editor_annotations(arguments: &Value) -> Result<Value, String> {
     let path = arguments.get("path").and_then(Value::as_array).ok_or("Missing path")?;
     let query = arguments.get("query").and_then(Value::as_str).ok_or("Missing query")?;
     let items = if path.is_empty() { search_resource_items(query)? } else { Vec::new() };
     Ok(json!({
         "content": [{
             "type": "text",
-            "text": format!("Found {} Slint visual editor comment resource(s).", items.len())
+            "text": format!("Found {} Slint visual editor annotation resource(s).", items.len())
         }],
         "structuredContent": { "items": items }
     }))
@@ -266,13 +266,13 @@ fn search_visual_editor_comments(arguments: &Value) -> Result<Value, String> {
 
 fn search_resource_items(query: &str) -> Result<Vec<Value>, String> {
     let normalized_query = query.to_lowercase();
-    Ok(comment_scopes()?
+    Ok(annotation_scopes()?
         .into_iter()
         .filter_map(|project| {
             let title = project_title(&project);
             let subtitle = format!(
                 "{} · {}",
-                comment_count(project.comments.len()),
+                annotation_count(project.annotations.len()),
                 project.project_root.display()
             );
             let searchable_text = format!("{title} {subtitle}").to_lowercase();
@@ -288,26 +288,26 @@ fn search_resource_items(query: &str) -> Result<Vec<Value>, String> {
         .collect())
 }
 
-fn find_project(uri: &str) -> Result<ProjectComments, String> {
-    comment_scopes()?
+fn find_project(uri: &str) -> Result<ProjectAnnotations, String> {
+    annotation_scopes()?
         .into_iter()
         .find(|project| project_resource_uri(&project.project_root) == uri)
         .ok_or_else(|| format!("Unknown resource URI: {uri}"))
 }
 
-fn comment_scopes() -> Result<Vec<ProjectComments>, String> {
+fn annotation_scopes() -> Result<Vec<ProjectAnnotations>, String> {
     let projects =
-        scan_projects().map_err(|error| format!("Could not scan editor comments: {error}"))?;
-    Ok(expand_comment_scopes(projects))
+        scan_projects().map_err(|error| format!("Could not scan editor annotations: {error}"))?;
+    Ok(expand_annotation_scopes(projects))
 }
 
-fn expand_comment_scopes(projects: Vec<ProjectComments>) -> Vec<ProjectComments> {
-    let mut scopes = BTreeMap::<PathBuf, Vec<EditorComment>>::new();
+fn expand_annotation_scopes(projects: Vec<ProjectAnnotations>) -> Vec<ProjectAnnotations> {
+    let mut scopes = BTreeMap::<PathBuf, Vec<EditorAnnotation>>::new();
     for project in projects {
         let repository_root = repository_root(&project.project_root);
         let mut scope = project.project_root.as_path();
         loop {
-            scopes.entry(scope.to_owned()).or_default().extend(project.comments.iter().cloned());
+            scopes.entry(scope.to_owned()).or_default().extend(project.annotations.iter().cloned());
             if repository_root.as_deref().is_none_or(|repository_root| scope == repository_root) {
                 break;
             }
@@ -319,7 +319,7 @@ fn expand_comment_scopes(projects: Vec<ProjectComments>) -> Vec<ProjectComments>
     }
     scopes
         .into_iter()
-        .map(|(project_root, comments)| ProjectComments { project_root, comments })
+        .map(|(project_root, annotations)| ProjectAnnotations { project_root, annotations })
         .collect()
 }
 
@@ -327,7 +327,7 @@ fn repository_root(project_root: &Path) -> Option<PathBuf> {
     project_root.ancestors().find(|directory| directory.join(".git").exists()).map(Path::to_owned)
 }
 
-fn project_title(project: &ProjectComments) -> String {
+fn project_title(project: &ProjectAnnotations) -> String {
     let name = project
         .project_root
         .file_name()
@@ -335,68 +335,71 @@ fn project_title(project: &ProjectComments) -> String {
         .filter(|name| !name.is_empty())
         .map(str::to_owned)
         .unwrap_or_else(|| project.project_root.to_string_lossy().into_owned());
-    format!("Comments for {name} — {}", comment_count(project.comments.len()))
+    format!("Annotations for {name} — {}", annotation_count(project.annotations.len()))
 }
 
-fn comment_count(count: usize) -> String {
-    format!("{count} {}", if count == 1 { "comment" } else { "comments" })
+fn annotation_count(count: usize) -> String {
+    format!("{count} {}", if count == 1 { "annotation" } else { "annotations" })
 }
 
-fn format_project_comments(project: &ProjectComments) -> String {
+fn format_project_annotations(project: &ProjectAnnotations) -> String {
     let mut markdown =
-        format!("# Visual Editor Comments\n\nProject: `{}`\n", project.project_root.display());
-    if project.comments.is_empty() {
-        markdown.push_str("\nNo comments.\n");
+        format!("# Visual Editor Annotations\n\nProject: `{}`\n", project.project_root.display());
+    if project.annotations.is_empty() {
+        markdown.push_str("\nNo annotations.\n");
         return markdown;
     }
-    for comment in &project.comments {
+    for annotation in &project.annotations {
         markdown.push('\n');
-        markdown.push_str(&format_comment(comment, "##"));
+        markdown.push_str(&format_annotation(annotation, "##"));
     }
     markdown
 }
 
-fn format_directory_comments(working_directory: &Path, projects: &[ProjectComments]) -> String {
+fn format_directory_annotations(
+    working_directory: &Path,
+    projects: &[ProjectAnnotations],
+) -> String {
     let mut markdown = format!(
-        "# Visual Editor Comments\n\nWorking directory: `{}`\n",
+        "# Visual Editor Annotations\n\nWorking directory: `{}`\n",
         working_directory.display()
     );
     if projects.is_empty() {
-        markdown.push_str("\nNo matching visual editor comments are available.\n");
+        markdown.push_str("\nNo matching visual editor annotations are available.\n");
         return markdown;
     }
     for project in projects {
         markdown.push_str(&format!("\n## Project: `{}`\n", project.project_root.display()));
-        for comment in &project.comments {
+        for annotation in &project.annotations {
             markdown.push('\n');
-            markdown.push_str(&format_comment(comment, "###"));
+            markdown.push_str(&format_annotation(annotation, "###"));
         }
     }
     markdown
 }
 
-fn format_comment(comment: &EditorComment, heading: &str) -> String {
-    let element_id = comment
+fn format_annotation(annotation: &EditorAnnotation, heading: &str) -> String {
+    let element_id = annotation
         .element_id
         .as_deref()
         .map(|element_id| format!(" #{element_id}"))
         .unwrap_or_default();
-    let component = comment
+    let component = annotation
         .component
         .as_deref()
         .map(|component| format!(" in `{component}`"))
         .unwrap_or_default();
     format!(
         "{heading} {}{}{}\n\n- File: `{}`\n- Range: {}:{}–{}:{}\n\n{}\n",
-        comment.element_type,
+        annotation.element_type,
         element_id,
         component,
-        comment.file.display(),
-        comment.range.start.line + 1,
-        comment.range.start.character + 1,
-        comment.range.end.line + 1,
-        comment.range.end.character + 1,
-        comment.text
+        annotation.file.display(),
+        annotation.range.start.line + 1,
+        annotation.range.start.character + 1,
+        annotation.range.end.line + 1,
+        annotation.range.end.character + 1,
+        annotation.text
     )
 }
 
@@ -416,10 +419,10 @@ fn error_response(id: Value, code: i32, message: &str) -> Value {
 mod tests {
     use super::*;
 
-    fn comment(id: &str, file: impl Into<PathBuf>) -> EditorComment {
-        EditorComment {
+    fn annotation(id: &str, file: impl Into<PathBuf>) -> EditorAnnotation {
+        EditorAnnotation {
             id: id.into(),
-            text: format!("Comment {id}"),
+            text: format!("Annotation {id}"),
             file: file.into(),
             range: slint_editor_mcp::SourceRange {
                 start: slint_editor_mcp::SourcePosition { line: 2, character: 4 },
@@ -431,14 +434,14 @@ mod tests {
         }
     }
 
-    fn project(root: &str, id: &str) -> ProjectComments {
-        ProjectComments {
+    fn project(root: &str, id: &str) -> ProjectAnnotations {
+        ProjectAnnotations {
             project_root: root.into(),
-            comments: vec![comment(id, format!("{root}/main.slint"))],
+            annotations: vec![annotation(id, format!("{root}/main.slint"))],
         }
     }
 
-    fn sample_projects() -> Vec<ProjectComments> {
+    fn sample_projects() -> Vec<ProjectAnnotations> {
         [
             ("/projects/slint", "root"),
             ("/projects/slint/examples/gallery", "gallery"),
@@ -454,7 +457,7 @@ mod tests {
     fn project_ids(working_directory: &str) -> Vec<String> {
         projects_beneath(Path::new(working_directory), sample_projects())
             .into_iter()
-            .map(|project| project.comments[0].id.clone())
+            .map(|project| project.annotations[0].id.clone())
             .collect()
     }
 
@@ -466,12 +469,13 @@ mod tests {
 
         let tools = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
         let tools = tools["result"]["tools"].as_array().unwrap();
-        let get_comments = tools.iter().find(|tool| tool["name"] == GET_COMMENTS_TOOL).unwrap();
-        assert_eq!(get_comments["inputSchema"]["required"], json!(["workingDirectory"]));
-        assert_eq!(get_comments["annotations"]["readOnlyHint"], true);
-        assert_eq!(get_comments["annotations"]["destructiveHint"], false);
-        assert_eq!(get_comments["annotations"]["idempotentHint"], true);
-        assert_eq!(get_comments["annotations"]["openWorldHint"], false);
+        let get_annotations =
+            tools.iter().find(|tool| tool["name"] == GET_ANNOTATIONS_TOOL).unwrap();
+        assert_eq!(get_annotations["inputSchema"]["required"], json!(["workingDirectory"]));
+        assert_eq!(get_annotations["annotations"]["readOnlyHint"], true);
+        assert_eq!(get_annotations["annotations"]["destructiveHint"], false);
+        assert_eq!(get_annotations["annotations"]["idempotentHint"], true);
+        assert_eq!(get_annotations["annotations"]["openWorldHint"], false);
         let mention_search = tools.iter().find(|tool| tool["name"] == MENTION_SEARCH_TOOL).unwrap();
         assert_eq!(mention_search["_meta"]["openai/extensions"]["mentions/search"], json!({}));
     }
@@ -530,7 +534,7 @@ mod tests {
     #[test]
     fn reports_a_malformed_working_directory_as_a_tool_error() {
         let response = handle_request(
-            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_visual_editor_comments","arguments":{"workingDirectory":"relative/path"}}}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_visual_editor_annotations","arguments":{"workingDirectory":"relative/path"}}}"#,
         )
         .unwrap();
 
@@ -551,9 +555,9 @@ mod tests {
         let gallery = project_root.join("examples/gallery");
         std::fs::create_dir_all(&gallery).unwrap();
         let published_root = project_root.join("examples/../examples/gallery");
-        let projects = vec![ProjectComments {
+        let projects = vec![ProjectAnnotations {
             project_root: published_root.clone(),
-            comments: vec![comment("gallery", published_root.join("main.slint"))],
+            annotations: vec![annotation("gallery", published_root.join("main.slint"))],
         }];
 
         let matches = projects_beneath(&std::fs::canonicalize(&project_root).unwrap(), projects);
@@ -563,42 +567,42 @@ mod tests {
     }
 
     #[test]
-    fn returns_readable_markdown_and_structured_comment_metadata() {
+    fn returns_readable_markdown_and_structured_annotation_metadata() {
         let projects = vec![project("/projects/slint/examples/gallery", "gallery")];
-        let result = comments_tool_result(Path::new("/projects/slint"), &projects);
+        let result = annotations_tool_result(Path::new("/projects/slint"), &projects);
 
         assert_eq!(result["structuredContent"]["workingDirectory"], "/projects/slint");
-        assert_eq!(result["structuredContent"]["commentCount"], 1);
+        assert_eq!(result["structuredContent"]["annotationCount"], 1);
         assert_eq!(
             result["structuredContent"]["projects"][0]["projectRoot"],
             "/projects/slint/examples/gallery"
         );
-        assert_eq!(result["structuredContent"]["projects"][0]["comments"][0]["id"], "gallery");
+        assert_eq!(result["structuredContent"]["projects"][0]["annotations"][0]["id"], "gallery");
         assert_eq!(
-            result["structuredContent"]["projects"][0]["comments"][0]["elementType"],
+            result["structuredContent"]["projects"][0]["annotations"][0]["elementType"],
             "Rectangle"
         );
         let markdown = result["content"][0]["text"].as_str().unwrap();
         for expected in [
             "Working directory: `/projects/slint`",
             "Project: `/projects/slint/examples/gallery`",
-            "Comment gallery",
+            "Annotation gallery",
         ] {
             assert!(markdown.contains(expected), "missing {expected:?} in {markdown:?}");
         }
     }
 
     #[test]
-    fn reports_zero_matching_comments() {
-        let result = comments_tool_result(Path::new("/projects/slint"), &[]);
+    fn reports_zero_matching_annotations() {
+        let result = annotations_tool_result(Path::new("/projects/slint"), &[]);
 
-        assert_eq!(result["structuredContent"]["commentCount"], 0);
+        assert_eq!(result["structuredContent"]["annotationCount"], 0);
         assert_eq!(result["structuredContent"]["projects"], json!([]));
         assert!(
             result["content"][0]["text"]
                 .as_str()
                 .unwrap()
-                .contains("No matching visual editor comments are available.")
+                .contains("No matching visual editor annotations are available.")
         );
     }
 
@@ -626,17 +630,17 @@ mod tests {
     }
 
     #[test]
-    fn formats_singular_and_plural_comment_counts() {
-        for (count, expected) in [(0, "0 comments"), (1, "1 comment"), (2, "2 comments")] {
-            assert_eq!(comment_count(count), expected);
+    fn formats_singular_and_plural_annotation_counts() {
+        for (count, expected) in [(0, "0 annotations"), (1, "1 annotation"), (2, "2 annotations")] {
+            assert_eq!(annotation_count(count), expected);
         }
     }
 
     #[test]
-    fn formats_comment_context_with_one_based_positions() {
-        let project = ProjectComments {
+    fn formats_annotation_context_with_one_based_positions() {
+        let project = ProjectAnnotations {
             project_root: "/projects/slint".into(),
-            comments: vec![EditorComment {
+            annotations: vec![EditorAnnotation {
                 id: "one".into(),
                 text: "Align this with the toolbar.".into(),
                 file: "/projects/slint/ui/main.slint".into(),
@@ -650,7 +654,7 @@ mod tests {
             }],
         };
 
-        let markdown = format_project_comments(&project);
+        let markdown = format_project_annotations(&project);
         for expected in [
             "Project: `/projects/slint`",
             "## Rectangle #toolbar in `MainWindow`",
@@ -663,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    fn aggregates_editor_comments_into_parent_repository_directories() {
+    fn aggregates_editor_annotations_into_parent_repository_directories() {
         let repository = tempfile::tempdir().unwrap();
         std::fs::create_dir(repository.path().join(".git")).unwrap();
         let gallery = repository.path().join("examples/gallery");
@@ -673,21 +677,21 @@ mod tests {
         std::fs::create_dir_all(&gallery).unwrap();
         std::fs::create_dir_all(&todo).unwrap();
 
-        let scopes = expand_comment_scopes(vec![
-            ProjectComments {
+        let scopes = expand_annotation_scopes(vec![
+            ProjectAnnotations {
                 project_root: gallery.clone(),
-                comments: vec![comment("gallery", gallery.join("main.slint"))],
+                annotations: vec![annotation("gallery", gallery.join("main.slint"))],
             },
-            ProjectComments {
+            ProjectAnnotations {
                 project_root: todo.clone(),
-                comments: vec![comment("todo", todo.join("main.slint"))],
+                annotations: vec![annotation("todo", todo.join("main.slint"))],
             },
         ]);
-        let comments_in_scope = |directory: &Path| {
+        let annotations_in_scope = |directory: &Path| {
             scopes
                 .iter()
                 .find(|scope| scope.project_root == directory)
-                .map(|scope| scope.comments.len())
+                .map(|scope| scope.annotations.len())
         };
 
         for (directory, expected_count) in [
@@ -699,7 +703,7 @@ mod tests {
             (repository.path().parent().unwrap(), None),
         ] {
             assert_eq!(
-                comments_in_scope(directory),
+                annotations_in_scope(directory),
                 expected_count,
                 "unexpected scope {directory:?}"
             );

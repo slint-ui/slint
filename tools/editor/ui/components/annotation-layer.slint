@@ -7,7 +7,7 @@ import { Colors, Metrics, Theme, Typography } from "../style.slint";
 import { CanvasView } from "canvas-view.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
-component CommentPin inherits Rectangle {
+component AnnotationPin inherits Rectangle {
     in property <int> count;
     in property <bool> unread;
     in property <string> element-label;
@@ -20,14 +20,14 @@ component CommentPin inherits Rectangle {
     border-color: Colors.accent;
     background: root.unread ? Colors.accent : Colors.surface;
     accessible-role: AccessibleRole.button;
-    accessible-label: root.count > 0 ? "Comments for " + root.element-label : "Add comment to " + root.element-label;
+    accessible-label: root.count > 0 ? "Annotations for " + root.element-label : "Add annotation to " + root.element-label;
     accessible-value: root.count > 0 ? "\{root.count}" + (root.unread ? " unread" : "") : "";
     accessible-action-default => { root.clicked(); }
 
     if root.count == 0: Image {
         width: 20px;
         height: 20px;
-        source: @image-url("../assets/add-comment.svg");
+        source: @image-url("../assets/add-annotation.svg");
         colorize: Colors.accent;
     }
     if root.count > 0: Text {
@@ -53,14 +53,14 @@ component CommentPin inherits Rectangle {
     }
 }
 
-export component CommentLayer inherits Rectangle {
+export component AnnotationLayer inherits Rectangle {
     in property <Point> preview-origin;
     private property <bool> panel-open;
     private property <bool> composing;
     private property <string> draft;
     private property <string> element-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
     private property <string> element-label: Api.current-element.id != "" ? Api.current-element.id : Api.current-element.type-name;
-    private property <int> comment-count: Api.element-comments.length;
+    private property <int> annotation-count: Api.element-annotations.length;
     private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset) : [];
     private property <SelectionRectangle> selection: root.selections[Api.selection.highlight-index];
@@ -70,14 +70,14 @@ export component CommentLayer inherits Rectangle {
     changed element-key => {
         root.draft = "";
         root.composing = false;
-        root.panel-open = root.comment-count > 0;
-        if root.panel-open { Api.mark-element-comments-read(); }
+        root.panel-open = root.annotation-count > 0;
+        if root.panel-open { Api.mark-element-annotations-read(); }
     }
-    changed comment-count => {
-        if root.comment-count > 0 {
+    changed annotation-count => {
+        if root.annotation-count > 0 {
             root.panel-open = true;
         }
-        if root.panel-open { Api.mark-element-comments-read(); }
+        if root.panel-open { Api.mark-element-annotations-read(); }
     }
 
     pure function pin-position(geometry: SelectionRectangle) -> Point {
@@ -89,16 +89,16 @@ export component CommentLayer inherits Rectangle {
         };
     }
 
-    function open-comments(compose: bool) {
+    function open-annotations(compose: bool) {
         root.panel-open = true;
         root.composing = compose;
         root.draft = "";
-        Api.mark-element-comments-read();
+        Api.mark-element-annotations-read();
     }
 
-    for marker in Api.comment-markers: Rectangle {
+    for marker in Api.annotation-markers: Rectangle {
         private property <[SelectionRectangle]> positions: Api.highlight-positions(marker.source-uri, marker.offset);
-        for geometry[instance-index] in self.positions: CommentPin {
+        for geometry[instance-index] in self.positions: AnnotationPin {
             private property <Point> position: root.pin-position(geometry);
             x: self.position.x;
             y: self.position.y;
@@ -106,17 +106,17 @@ export component CommentLayer inherits Rectangle {
             unread: marker.unread;
             element-label: marker.label;
             clicked => {
-                Api.select-comment-element(marker.source-uri, marker.offset, instance-index);
-                root.open-comments(false);
+                Api.select-annotation-element(marker.source-uri, marker.offset, instance-index);
+                root.open-annotations(false);
             }
         }
     }
 
-    if root.has-selection && root.comment-count == 0: CommentPin {
+    if root.has-selection && root.annotation-count == 0: AnnotationPin {
         x: root.selected-pin-position.x;
         y: root.selected-pin-position.y;
         element-label: root.element-label;
-        clicked => { root.open-comments(true); }
+        clicked => { root.open-annotations(true); }
     }
 
     if root.panel-open && root.has-selection: panel := Rectangle {
@@ -133,7 +133,7 @@ export component CommentLayer inherits Rectangle {
         drop-shadow-blur: Theme.floating-shadow.blur;
         drop-shadow-offset-y: Theme.floating-shadow.offset-y;
         accessible-role: AccessibleRole.region;
-        accessible-label: "Element comments";
+        accessible-label: "Element annotations";
 
         Rectangle {
             x: panel.x > root.selected-pin-position.x ? root.selected-pin-position.x + 30px - panel.x : panel.width;
@@ -162,14 +162,14 @@ export component CommentLayer inherits Rectangle {
                     padding: 12px;
                     spacing: 8px;
                     VerticalLayout {
-                        Text { text: "Comments"; color: Colors.foreground; font-size: Typography.body.size; font-weight: 500; }
+                        Text { text: "Annotations"; color: Colors.foreground; font-size: Typography.body.size; font-weight: 500; }
                         Text { text: root.element-label + " · " + Api.current-element.type-name; color: Colors.muted; font-size: Typography.caption.size; overflow: elide; }
                     }
                     Rectangle {
                         width: 28px;
                         height: 28px;
                         accessible-role: AccessibleRole.button;
-                        accessible-label: "Collapse comments";
+                        accessible-label: "Collapse annotations";
                         accessible-action-default => { root.panel-open = false; }
                         Text { text: "×"; color: Colors.muted; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
                         TouchArea { mouse-cursor: pointer; clicked => { root.panel-open = false; } }
@@ -177,33 +177,33 @@ export component CommentLayer inherits Rectangle {
                 }
                 Rectangle { height: 1px; background: Colors.subtle-border; }
 
-                comment-scroll := EditorScrollView {
+                annotation-scroll := EditorScrollView {
                     min-height: 0px;
-                    preferred-height: comment-list.preferred-height;
+                    preferred-height: annotation-list.preferred-height;
                     max-height: max(0px, root.height - 240px);
                     horizontal-scrollbar-policy: always-off;
                     VerticalLayout {
-                        comment-list := VerticalLayout {
-                            for comment[index] in Api.element-comments: VerticalLayout {
+                        annotation-list := VerticalLayout {
+                            for annotation[index] in Api.element-annotations: VerticalLayout {
                                 padding: 12px;
                                 spacing: 8px;
                                 HorizontalLayout {
-                                    Text { horizontal-stretch: 1; text: "Comment \{index + 1} of \{root.comment-count}"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; }
+                                    Text { horizontal-stretch: 1; text: "Annotation \{index + 1} of \{root.annotation-count}"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; }
                                     Rectangle {
                                         width: 64px;
                                         height: 28px;
                                         accessible-role: AccessibleRole.button;
-                                        accessible-label: "Resolve comment \{comment.id}";
-                                        accessible-action-default => { Api.remove-element-comment(comment.id); }
+                                        accessible-label: "Resolve annotation \{annotation.id}";
+                                        accessible-action-default => { Api.remove-element-annotation(annotation.id); }
                                         Text { text: "✓ Resolve"; color: Colors.accent; font-size: Typography.caption.size; horizontal-alignment: right; vertical-alignment: center; }
-                                        TouchArea { mouse-cursor: pointer; clicked => { Api.remove-element-comment(comment.id); } }
+                                        TouchArea { mouse-cursor: pointer; clicked => { Api.remove-element-annotation(annotation.id); } }
                                     }
                                 }
-                                Text { text: comment.text; color: Colors.foreground; font-size: Typography.body.size; wrap: word-wrap; }
+                                Text { text: annotation.text; color: Colors.foreground; font-size: Typography.body.size; wrap: word-wrap; }
                                 Rectangle { height: 1px; background: Colors.subtle-border; }
                             }
-                            if root.comment-count == 0 && !root.composing: Text {
-                                text: "All comments resolved";
+                            if root.annotation-count == 0 && !root.composing: Text {
+                                text: "All annotations resolved";
                                 color: Colors.muted;
                                 font-size: Typography.body.size;
                             }
@@ -214,13 +214,13 @@ export component CommentLayer inherits Rectangle {
                 if !root.composing: HorizontalLayout {
                     padding: 12px;
                     alignment: start;
-                    Button { horizontal-stretch: 0; text: "Add comment"; clicked => { root.open-comments(true); } }
+                    Button { horizontal-stretch: 0; text: "Add annotation"; clicked => { root.open-annotations(true); } }
                 }
 
                 if root.composing: VerticalLayout {
                     padding: 12px;
                     spacing: 8px;
-                    Text { text: "New comment"; color: Colors.foreground; font-size: Typography.body.size; }
+                    Text { text: "New annotation"; color: Colors.foreground; font-size: Typography.body.size; }
                     Rectangle {
                         height: 88px;
                         border-radius: Metrics.radius-small;
@@ -237,7 +237,7 @@ export component CommentLayer inherits Rectangle {
                             font-size: Typography.body.size;
                             wrap: word-wrap;
                             single-line: false;
-                            accessible-label: "Comment text";
+                            accessible-label: "Annotation text";
                             selection-background-color: Colors.selection;
                             selection-foreground-color: Colors.foreground;
                             init => { self.focus(); }
@@ -246,13 +246,13 @@ export component CommentLayer inherits Rectangle {
                     HorizontalLayout {
                         spacing: 8px;
                         alignment: end;
-                        Button { text: "Cancel"; clicked => { root.composing = false; root.draft = ""; if root.comment-count == 0 { root.panel-open = false; } } }
+                        Button { text: "Cancel"; clicked => { root.composing = false; root.draft = ""; if root.annotation-count == 0 { root.panel-open = false; } } }
                         Button {
-                            text: "Add comment";
+                            text: "Add annotation";
                             primary: true;
                             enabled: root.draft != "";
                             clicked => {
-                                Api.add-element-comment(root.draft);
+                                Api.add-element-annotation(root.draft);
                                 root.draft = "";
                                 root.composing = false;
                             }

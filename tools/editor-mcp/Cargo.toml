@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-editor-mcp"
-description = "MCP server for comments from the Slint visual editor"
+description = "MCP server for annotations from the Slint visual editor"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

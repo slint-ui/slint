@@ -16,7 +16,7 @@ from ui_driver import (
 )
 
 
-def test_canvas_comments_survive_deselection_and_resolve(
+def test_canvas_annotations_survive_deselection_and_resolve(
     editor_binary, editor_environment, fixture_project, tmp_path
 ):
     source = fixture_project / "Main.slint"
@@ -25,7 +25,7 @@ def test_canvas_comments_survive_deselection_and_resolve(
         wait_for_source(source, original)
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        pin = element(window, "Add comment to root-rectangle")
+        pin = element(window, "Add annotation to root-rectangle")
         position = center(pin)
         for event in (
             slint_testing.PointerPressEvent(
@@ -36,52 +36,54 @@ def test_canvas_comments_survive_deselection_and_resolve(
             ),
         ):
             window.dispatch_event(event)
-        expect(query(window, "Element comments")).to_be_visible()
+        expect(query(window, "Element annotations")).to_be_visible()
         element(window, "Cancel").invoke_accessible_default_action()
-        expect(query(window, "Element comments")).to_be_hidden()
+        expect(query(window, "Element annotations")).to_be_hidden()
 
         for text in (
             "Increase the corner radius.",
             "Keep the field aligned with the button.",
         ):
-            if query(window, "Element comments").find_all():
-                element(window, "Add comment").invoke_accessible_default_action()
+            if query(window, "Element annotations").find_all():
+                element(window, "Add annotation").invoke_accessible_default_action()
             else:
                 element(
-                    window, "Add comment to root-rectangle"
+                    window, "Add annotation to root-rectangle"
                 ).invoke_accessible_default_action()
-            element(window, "Comment text").accessible_value = text
-            element(window, "Add comment").invoke_accessible_default_action()
-        pin = element(window, "Comments for root-rectangle")
+            element(window, "Annotation text").accessible_value = text
+            element(window, "Add annotation").invoke_accessible_default_action()
+        pin = element(window, "Annotations for root-rectangle")
         expect(pin).to_have_value("2")
-        expect(query(window, "Add comment to root-rectangle")).to_be_hidden()
-        screenshot(window).save(tmp_path / "canvas-comments.png")
+        expect(query(window, "Add annotation to root-rectangle")).to_be_hidden()
+        screenshot(window).save(tmp_path / "canvas-annotations.png")
 
         select_outline_row(window, "root-image")
-        expect(query(window, "Element comments")).to_be_hidden()
-        expect(query(window, "Comments for root-rectangle")).to_be_visible()
+        expect(query(window, "Element annotations")).to_be_hidden()
+        expect(query(window, "Annotations for root-rectangle")).to_be_visible()
         element(
-            window, "Comments for root-rectangle"
+            window, "Annotations for root-rectangle"
         ).invoke_accessible_default_action()
-        expect(query(window, "Element comments")).to_be_visible()
-        element(window, "Collapse comments").invoke_accessible_default_action()
-        expect(query(window, "Element comments")).to_be_hidden()
+        expect(query(window, "Element annotations")).to_be_visible()
+        element(window, "Collapse annotations").invoke_accessible_default_action()
+        expect(query(window, "Element annotations")).to_be_hidden()
 
-        before = element(window, "Comments for root-rectangle").absolute_position.x
+        before = element(window, "Annotations for root-rectangle").absolute_position.x
         updated = original.replace(b"x: 40px;", b"x: 70px;", 1)
         source.write_bytes(updated)
         wait_for_source(source, updated)
         expect.poll(
-            lambda: element(window, "Comments for root-rectangle").absolute_position.x
+            lambda: (
+                element(window, "Annotations for root-rectangle").absolute_position.x
+            )
         ).to_equal(pytest.approx(before + 30))
 
         element(
-            window, "Comments for root-rectangle"
+            window, "Annotations for root-rectangle"
         ).invoke_accessible_default_action()
         for identifier in ("1", "2"):
             element(
-                window, "Resolve comment " + identifier
+                window, "Resolve annotation " + identifier
             ).invoke_accessible_default_action()
-        expect(query(window, "Comments for root-rectangle")).to_be_hidden()
-        expect(query(window, "Add comment to root-rectangle")).to_be_visible()
+        expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
+        expect(query(window, "Add annotation to root-rectangle")).to_be_visible()
         assert source.read_bytes() == updated

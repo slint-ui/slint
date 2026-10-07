@@ -10,15 +10,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const SNAPSHOT_VERSION: u32 = 1;
-const SNAPSHOT_DIRECTORY_NAME: &str = "slint-visual-editor-comments";
+const SNAPSHOT_DIRECTORY_NAME: &str = "slint-visual-editor-annotations";
 static PUBLISHER_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-/// A comment attached to an element in a Slint source file.
+/// An annotation attached to an element in a Slint source file.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct EditorComment {
-    /// The comment identifier within its editor instance.
+pub struct EditorAnnotation {
+    /// The annotation identifier within its editor instance.
     pub id: String,
-    /// The user's comment text.
+    /// The user's annotation text.
     pub text: String,
     /// The absolute path of the Slint source file.
     pub file: PathBuf,
@@ -50,7 +50,7 @@ pub struct SourcePosition {
     pub character: u32,
 }
 
-/// Publishes one visual editor instance's current comments.
+/// Publishes one visual editor instance's current annotations.
 pub struct SnapshotPublisher {
     snapshot_path: PathBuf,
     staged_path: PathBuf,
@@ -63,23 +63,23 @@ impl SnapshotPublisher {
         Self::in_directory(snapshot_directory())
     }
 
-    /// Replaces this editor instance's published comments.
-    pub fn publish(&self, project_root: &Path, comments: &[EditorComment]) -> io::Result<()> {
-        if comments.is_empty() {
+    /// Replaces this editor instance's published annotations.
+    pub fn publish(&self, project_root: &Path, annotations: &[EditorAnnotation]) -> io::Result<()> {
+        if annotations.is_empty() {
             return self.remove();
         }
         let snapshot = EditorSnapshot {
             version: SNAPSHOT_VERSION,
             editor_id: self.editor_id.clone(),
             project_root: project_root.to_path_buf(),
-            comments: comments.to_vec(),
+            annotations: annotations.to_vec(),
         };
         let serialized = serde_json::to_vec(&snapshot).map_err(io::Error::other)?;
         fs::write(&self.staged_path, serialized)?;
         replace_file(&self.staged_path, &self.snapshot_path)
     }
 
-    /// Removes this editor instance's published comments.
+    /// Removes this editor instance's published annotations.
     pub fn remove(&self) -> io::Result<()> {
         remove_if_present(&self.snapshot_path)
     }
@@ -103,12 +103,12 @@ impl Drop for SnapshotPublisher {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// All comments published by running editors for one project.
-pub struct ProjectComments {
+/// All annotations published by running editors for one project.
+pub struct ProjectAnnotations {
     /// The shared project root.
     pub project_root: PathBuf,
-    /// Comments from every running editor for this project.
-    pub comments: Vec<EditorComment>,
+    /// Annotations from every running editor for this project.
+    pub annotations: Vec<EditorAnnotation>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -116,15 +116,15 @@ struct EditorSnapshot {
     version: u32,
     editor_id: String,
     project_root: PathBuf,
-    comments: Vec<EditorComment>,
+    annotations: Vec<EditorAnnotation>,
 }
 
 /// Reads and groups every currently published snapshot.
-pub fn scan_projects() -> io::Result<Vec<ProjectComments>> {
+pub fn scan_projects() -> io::Result<Vec<ProjectAnnotations>> {
     scan_projects_in(&snapshot_directory())
 }
 
-/// Returns the MCP resource URI for a project's comments.
+/// Returns the MCP resource URI for a project's annotations.
 pub fn project_resource_uri(project_root: &Path) -> String {
     let encoded_path = project_root
         .to_string_lossy()
@@ -132,7 +132,7 @@ pub fn project_resource_uri(project_root: &Path) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
-    format!("slint-visual-editor://project/{encoded_path}/comments")
+    format!("slint-visual-editor://project/{encoded_path}/annotations")
 }
 
 fn snapshot_directory() -> PathBuf {
@@ -165,7 +165,7 @@ fn remove_if_present(path: &Path) -> io::Result<()> {
     }
 }
 
-fn scan_projects_in(directory: &Path) -> io::Result<Vec<ProjectComments>> {
+fn scan_projects_in(directory: &Path) -> io::Result<Vec<ProjectAnnotations>> {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -177,13 +177,13 @@ fn scan_projects_in(directory: &Path) -> io::Result<Vec<ProjectComments>> {
         .filter_map(|entry| fs::read(entry.path()).ok())
         .filter_map(|contents| serde_json::from_slice::<EditorSnapshot>(&contents).ok())
         .filter(|snapshot| snapshot.version == SNAPSHOT_VERSION);
-    let mut projects = BTreeMap::<PathBuf, Vec<EditorComment>>::new();
+    let mut projects = BTreeMap::<PathBuf, Vec<EditorAnnotation>>::new();
     for snapshot in snapshots {
-        projects.entry(snapshot.project_root).or_default().extend(snapshot.comments);
+        projects.entry(snapshot.project_root).or_default().extend(snapshot.annotations);
     }
     Ok(projects
         .into_iter()
-        .map(|(project_root, comments)| ProjectComments { project_root, comments })
+        .map(|(project_root, annotations)| ProjectAnnotations { project_root, annotations })
         .collect())
 }
 
@@ -191,10 +191,10 @@ fn scan_projects_in(directory: &Path) -> io::Result<Vec<ProjectComments>> {
 mod tests {
     use super::*;
 
-    fn comment(id: &str, file: &str) -> EditorComment {
-        EditorComment {
+    fn annotation(id: &str, file: &str) -> EditorAnnotation {
+        EditorAnnotation {
             id: id.into(),
-            text: format!("Comment {id}"),
+            text: format!("Annotation {id}"),
             file: file.into(),
             range: SourceRange {
                 start: SourcePosition { line: 2, character: 4 },
@@ -212,22 +212,22 @@ mod tests {
         let publisher = SnapshotPublisher::in_directory(temporary_directory.path().into()).unwrap();
         let project_root = Path::new("/projects/one");
 
-        publisher.publish(project_root, &[comment("one", "/projects/one/main.slint")]).unwrap();
+        publisher.publish(project_root, &[annotation("one", "/projects/one/main.slint")]).unwrap();
         let projects = scan_projects_in(temporary_directory.path()).unwrap();
         assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].comments[0].id, "one");
+        assert_eq!(projects[0].annotations[0].id, "one");
 
-        publisher.publish(project_root, &[comment("two", "/projects/one/main.slint")]).unwrap();
+        publisher.publish(project_root, &[annotation("two", "/projects/one/main.slint")]).unwrap();
         let projects = scan_projects_in(temporary_directory.path()).unwrap();
         assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].comments[0].id, "two");
+        assert_eq!(projects[0].annotations[0].id, "two");
 
         publisher.remove().unwrap();
         assert!(scan_projects_in(temporary_directory.path()).unwrap().is_empty());
     }
 
     #[test]
-    fn publishing_no_comments_removes_the_snapshot() {
+    fn publishing_no_annotations_removes_the_snapshot() {
         let temporary_directory = tempfile::tempdir().unwrap();
         let publisher = SnapshotPublisher::in_directory(temporary_directory.path().into()).unwrap();
         let project_root = Path::new("/projects/one");
@@ -235,7 +235,7 @@ mod tests {
         publisher.publish(project_root, &[]).unwrap();
         assert!(!publisher.snapshot_path.exists());
 
-        publisher.publish(project_root, &[comment("one", "/projects/one/main.slint")]).unwrap();
+        publisher.publish(project_root, &[annotation("one", "/projects/one/main.slint")]).unwrap();
         assert!(publisher.snapshot_path.exists());
 
         publisher.publish(project_root, &[]).unwrap();
@@ -251,19 +251,19 @@ mod tests {
         let third = SnapshotPublisher::in_directory(temporary_directory.path().into()).unwrap();
 
         first
-            .publish(Path::new("/projects/one"), &[comment("one", "/projects/one/one.slint")])
+            .publish(Path::new("/projects/one"), &[annotation("one", "/projects/one/one.slint")])
             .unwrap();
         second
-            .publish(Path::new("/projects/one"), &[comment("two", "/projects/one/two.slint")])
+            .publish(Path::new("/projects/one"), &[annotation("two", "/projects/one/two.slint")])
             .unwrap();
         third
-            .publish(Path::new("/projects/two"), &[comment("three", "/projects/two/main.slint")])
+            .publish(Path::new("/projects/two"), &[annotation("three", "/projects/two/main.slint")])
             .unwrap();
 
         let projects = scan_projects_in(temporary_directory.path()).unwrap();
         assert_eq!(projects.len(), 2);
-        assert_eq!(projects[0].comments.len(), 2);
-        assert_eq!(projects[1].comments.len(), 1);
+        assert_eq!(projects[0].annotations.len(), 2);
+        assert_eq!(projects[1].annotations.len(), 1);
     }
 
     #[test]
@@ -272,7 +272,7 @@ mod tests {
         fs::write(temporary_directory.path().join("malformed.json"), b"not json").unwrap();
         fs::write(
             temporary_directory.path().join("future.json"),
-            br#"{"version":2,"editor_id":"future","project_root":"/future","comments":[]}"#,
+            br#"{"version":2,"editor_id":"future","project_root":"/future","annotations":[]}"#,
         )
         .unwrap();
 

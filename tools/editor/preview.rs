@@ -32,7 +32,7 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_editor_mcp::{
-    EditorComment as SnapshotComment, SnapshotPublisher, SourcePosition, SourceRange,
+    EditorAnnotation as SnapshotAnnotation, SnapshotPublisher, SourcePosition, SourceRange,
 };
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
@@ -76,8 +76,8 @@ pub fn initialize(
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
-        api.set_element_comments(preview_state.element_comments_model.clone().into());
-        api.set_comment_markers(preview_state.comment_markers_model.clone().into());
+        api.set_element_annotations(preview_state.element_annotations_model.clone().into());
+        api.set_annotation_markers(preview_state.annotation_markers_model.clone().into());
     });
 
     #[cfg(feature = "system-testing")]
@@ -255,16 +255,16 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
 }
 
 #[derive(Default)]
-struct EditorComments {
+struct EditorAnnotations {
     publisher: Option<SnapshotPublisher>,
     project_root: PathBuf,
-    comments: Vec<StoredEditorComment>,
+    annotations: Vec<StoredEditorAnnotation>,
     next_id: u64,
 }
 
-struct StoredEditorComment {
+struct StoredEditorAnnotation {
     selection: SourceElement,
-    snapshot: SnapshotComment,
+    snapshot: SnapshotAnnotation,
     unread: bool,
 }
 
@@ -283,84 +283,92 @@ impl SourceElement {
     }
 }
 
-impl EditorComments {
+impl EditorAnnotations {
     fn new(project_root: &Path) -> Self {
         let publisher = SnapshotPublisher::new()
-            .map_err(|error| tracing::warn!("Failed to create comment snapshot: {error}"))
+            .map_err(|error| tracing::warn!("Failed to create annotation snapshot: {error}"))
             .ok();
         let result = Self {
             publisher,
             project_root: project_root.to_path_buf(),
-            comments: Vec::new(),
+            annotations: Vec::new(),
             next_id: 1,
         };
         result.publish();
         result
     }
 
-    fn add(&mut self, selection: SourceElement, mut comment: SnapshotComment) {
-        comment.id = self.next_id.to_string();
+    fn add(&mut self, selection: SourceElement, mut annotation: SnapshotAnnotation) {
+        annotation.id = self.next_id.to_string();
         self.next_id += 1;
-        self.comments.push(StoredEditorComment { selection, snapshot: comment, unread: true });
+        self.annotations.push(StoredEditorAnnotation {
+            selection,
+            snapshot: annotation,
+            unread: true,
+        });
         self.publish();
     }
 
     fn remove(&mut self, id: &str) {
-        let old_length = self.comments.len();
-        self.comments.retain(|comment| comment.snapshot.id != id);
-        if self.comments.len() != old_length {
+        let old_length = self.annotations.len();
+        self.annotations.retain(|annotation| annotation.snapshot.id != id);
+        if self.annotations.len() != old_length {
             self.publish();
         }
     }
 
-    fn visible(&self, selection: &SourceElement) -> Vec<ui::EditorComment> {
-        self.comments
+    fn visible(&self, selection: &SourceElement) -> Vec<ui::EditorAnnotation> {
+        self.annotations
             .iter()
-            .filter(|comment| comment.selection == *selection)
-            .map(|comment| ui::EditorComment {
-                id: comment.snapshot.id.as_str().into(),
-                text: comment.snapshot.text.as_str().into(),
+            .filter(|annotation| annotation.selection == *selection)
+            .map(|annotation| ui::EditorAnnotation {
+                id: annotation.snapshot.id.as_str().into(),
+                text: annotation.snapshot.text.as_str().into(),
             })
             .collect()
     }
 
     fn mark_read(&mut self, selection: &SourceElement) {
-        for comment in &mut self.comments {
-            if comment.selection == *selection {
-                comment.unread = false;
+        for annotation in &mut self.annotations {
+            if annotation.selection == *selection {
+                annotation.unread = false;
             }
         }
     }
 
-    fn markers(&self) -> Vec<ui::EditorCommentMarker> {
+    fn markers(&self) -> Vec<ui::EditorAnnotationMarker> {
         let mut markers =
-            std::collections::BTreeMap::<&SourceElement, ui::EditorCommentMarker>::new();
-        for comment in &self.comments {
-            let Ok(uri) = Url::from_file_path(&comment.selection.path) else { continue };
-            let marker =
-                markers.entry(&comment.selection).or_insert_with(|| ui::EditorCommentMarker {
+            std::collections::BTreeMap::<&SourceElement, ui::EditorAnnotationMarker>::new();
+        for annotation in &self.annotations {
+            let Ok(uri) = Url::from_file_path(&annotation.selection.path) else { continue };
+            let marker = markers.entry(&annotation.selection).or_insert_with(|| {
+                ui::EditorAnnotationMarker {
                     source_uri: uri.as_str().into(),
-                    offset: u32::from(comment.selection.offset) as i32,
-                    label: comment
+                    offset: u32::from(annotation.selection.offset) as i32,
+                    label: annotation
                         .snapshot
                         .element_id
                         .as_deref()
-                        .unwrap_or(&comment.snapshot.element_type)
+                        .unwrap_or(&annotation.snapshot.element_type)
                         .into(),
                     ..Default::default()
-                });
+                }
+            });
             marker.count += 1;
-            marker.unread |= comment.unread;
+            marker.unread |= annotation.unread;
         }
         markers.into_values().collect()
     }
 
     fn publish(&self) {
         let Some(publisher) = &self.publisher else { return };
-        let comments =
-            self.comments.iter().map(|comment| comment.snapshot.clone()).collect::<Vec<_>>();
-        if let Err(error) = publisher.publish(&self.project_root, &comments) {
-            tracing::warn!("Failed to publish comment snapshot: {error}");
+        let annotations = self
+            .annotations
+            .iter()
+            .map(|annotation| annotation.snapshot.clone())
+            .collect::<Vec<_>>();
+        if let Err(error) = publisher.publish(&self.project_root, &annotations) {
+            tracing::warn!("Failed to publish annotation snapshot: {error}");
         }
     }
 }
@@ -399,9 +407,9 @@ pub struct PreviewState {
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
-    comments: EditorComments,
-    element_comments_model: Rc<slint::VecModel<ui::EditorComment>>,
-    comment_markers_model: Rc<slint::VecModel<ui::EditorCommentMarker>>,
+    annotations: EditorAnnotations,
+    element_annotations_model: Rc<slint::VecModel<ui::EditorAnnotation>>,
+    annotation_markers_model: Rc<slint::VecModel<ui::EditorAnnotationMarker>>,
 
     pub to_lsp: RefCell<Option<Rc<dyn i_slint_editor_preview::PreviewToLsp>>>,
 
@@ -532,12 +540,12 @@ fn reset_project_state(root: Url) {
         state.current_load_behavior = None;
         state.loading_state = PreviewFutureState::Pending;
         state.current_previewed_component = None;
-        state.comments = root
+        state.annotations = root
             .to_file_path()
-            .map(|project_root| EditorComments::new(&project_root))
+            .map(|project_root| EditorAnnotations::new(&project_root))
             .unwrap_or_default();
-        state.element_comments_model.set_vec(Vec::new());
-        state.comment_markers_model.set_vec(Vec::new());
+        state.element_annotations_model.set_vec(Vec::new());
+        state.annotation_markers_model.set_vec(Vec::new());
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -2860,7 +2868,7 @@ fn set_selected_element(
         preview_state.selected = selection;
         preview_state.notify_editor_about_selection_after_update =
             notify_editor_about_selection_after_update;
-        set_visible_element_comments(preview_state, preview_state.selected.as_ref());
+        set_visible_element_annotations(preview_state, preview_state.selected.as_ref());
 
         (preview_state.to_lsp.borrow().clone().unwrap(), preview_state.format(), selection_cleared)
     });
@@ -2883,7 +2891,7 @@ fn set_selected_element(
     }
 }
 
-fn add_element_comment(text: SharedString) {
+fn add_element_annotation(text: SharedString) {
     if text.is_empty() {
         return;
     }
@@ -2892,35 +2900,35 @@ fn add_element_comment(text: SharedString) {
     };
     let Some(source_element) = SourceElement::from_selection(&selection) else { return };
     let Some(element_node) = selection.as_element_node() else { return };
-    let Some(comment) = snapshot_comment(&element_node, text.to_string()) else { return };
+    let Some(annotation) = snapshot_annotation(&element_node, text.to_string()) else { return };
 
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.comments.add(source_element, comment);
-        set_visible_element_comments(preview_state, Some(&selection));
+        preview_state.annotations.add(source_element, annotation);
+        set_visible_element_annotations(preview_state, Some(&selection));
     });
 }
 
-fn remove_element_comment(id: SharedString) {
+fn remove_element_annotation(id: SharedString) {
     let selection = selected_element();
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.comments.remove(id.as_str());
-        set_visible_element_comments(preview_state, selection.as_ref());
+        preview_state.annotations.remove(id.as_str());
+        set_visible_element_annotations(preview_state, selection.as_ref());
     });
 }
 
-fn mark_element_comments_read() {
+fn mark_element_annotations_read() {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let Some(selection) =
             preview_state.selected.as_ref().and_then(SourceElement::from_selection)
         else {
             return;
         };
-        preview_state.comments.mark_read(&selection);
-        set_visible_element_comments(preview_state, preview_state.selected.as_ref());
+        preview_state.annotations.mark_read(&selection);
+        set_visible_element_annotations(preview_state, preview_state.selected.as_ref());
     });
 }
 
-fn select_comment_element(source_uri: SharedString, offset: i32, instance_index: i32) {
+fn select_annotation_element(source_uri: SharedString, offset: i32, instance_index: i32) {
     let Ok(uri) = Url::parse(source_uri.as_str()) else { return };
     let Ok(offset) = u32::try_from(offset) else { return };
     let Ok(instance_index) = usize::try_from(instance_index) else { return };
@@ -2934,11 +2942,11 @@ fn select_comment_element(source_uri: SharedString, offset: i32, instance_index:
     );
 }
 
-fn snapshot_comment(
+fn snapshot_annotation(
     element_node: &i_slint_editor_preview::ElementRcNode,
     text: String,
-) -> Option<SnapshotComment> {
-    let (file, range) = comment_location(element_node)?;
+) -> Option<SnapshotAnnotation> {
+    let (file, range) = annotation_location(element_node)?;
     let (component, element_type, element_id) = element_node.with_element_node(|node| {
         let mut ancestor = node.parent();
         let mut component = None;
@@ -2965,7 +2973,7 @@ fn snapshot_comment(
         (component, element_type, element_id)
     });
 
-    Some(SnapshotComment {
+    Some(SnapshotAnnotation {
         id: String::new(),
         text,
         file,
@@ -2976,7 +2984,7 @@ fn snapshot_comment(
     })
 }
 
-fn comment_location(
+fn annotation_location(
     element_node: &i_slint_editor_preview::ElementRcNode,
 ) -> Option<(PathBuf, SourceRange)> {
     element_node.with_element_node(|node| {
@@ -3002,22 +3010,22 @@ fn comment_location(
     })
 }
 
-fn set_visible_element_comments(
+fn set_visible_element_annotations(
     preview_state: &PreviewState,
     selection: Option<&ElementSelection>,
 ) {
     use slint::Model;
 
-    let comments = selection
+    let annotations = selection
         .and_then(SourceElement::from_selection)
-        .map(|selection| preview_state.comments.visible(&selection))
+        .map(|selection| preview_state.annotations.visible(&selection))
         .unwrap_or_default();
-    if preview_state.element_comments_model.iter().ne(comments.iter().cloned()) {
-        preview_state.element_comments_model.set_vec(comments);
+    if preview_state.element_annotations_model.iter().ne(annotations.iter().cloned()) {
+        preview_state.element_annotations_model.set_vec(annotations);
     }
-    let markers = preview_state.comments.markers();
-    if preview_state.comment_markers_model.iter().ne(markers.iter().cloned()) {
-        preview_state.comment_markers_model.set_vec(markers);
+    let markers = preview_state.annotations.markers();
+    if preview_state.annotation_markers_model.iter().ne(markers.iter().cloned()) {
+        preview_state.annotation_markers_model.set_vec(markers);
     }
 }
 
@@ -3459,7 +3467,7 @@ mod tests {
     }
 
     #[test]
-    fn opening_project_clears_comments_and_reassigns_the_snapshot() {
+    fn opening_project_clears_annotations_and_reassigns_the_snapshot() {
         reset_preview_state(Default::default());
         let old_project = tempfile::tempdir().unwrap();
         let new_project = tempfile::tempdir().unwrap();
@@ -3469,34 +3477,34 @@ mod tests {
         };
         let old_file = old_project.path().join("main.slint");
         PREVIEW_STATE.with_borrow_mut(|state| {
-            state.comments = EditorComments::new(old_project.path());
-            state.comments.add(
+            state.annotations = EditorAnnotations::new(old_project.path());
+            state.annotations.add(
                 SourceElement { path: old_file.clone(), offset: TextSize::from(12) },
-                stored_comment(&old_file, range, "Old"),
+                stored_annotation(&old_file, range, "Old"),
             );
             state
-                .element_comments_model
-                .push(ui::EditorComment { id: "1".into(), text: "Old".into() });
+                .element_annotations_model
+                .push(ui::EditorAnnotation { id: "1".into(), text: "Old".into() });
         });
 
         reset_project_state(Url::from_directory_path(new_project.path()).unwrap());
 
         PREVIEW_STATE.with_borrow_mut(|state| {
-            assert!(state.comments.comments.is_empty());
-            assert_eq!(state.comments.project_root, new_project.path());
-            assert_eq!(state.element_comments_model.row_count(), 0);
+            assert!(state.annotations.annotations.is_empty());
+            assert_eq!(state.annotations.project_root, new_project.path());
+            assert_eq!(state.element_annotations_model.row_count(), 0);
             let new_file = new_project.path().join("main.slint");
-            state.comments.add(
+            state.annotations.add(
                 SourceElement { path: new_file.clone(), offset: TextSize::from(12) },
-                stored_comment(&new_file, range, "New"),
+                stored_annotation(&new_file, range, "New"),
             );
         });
         let projects = slint_editor_mcp::scan_projects().unwrap();
         assert!(!projects.iter().any(|project| project.project_root == old_project.path()));
         let published =
             projects.iter().find(|project| project.project_root == new_project.path()).unwrap();
-        assert_eq!(published.comments.len(), 1);
-        assert_eq!(published.comments[0].text, "New");
+        assert_eq!(published.annotations.len(), 1);
+        assert_eq!(published.annotations[0].text, "New");
         reset_preview_state(Default::default());
     }
 
@@ -3849,8 +3857,8 @@ export component Main {
         (root, path)
     }
 
-    fn stored_comment(file: &Path, range: SourceRange, text: &str) -> SnapshotComment {
-        SnapshotComment {
+    fn stored_annotation(file: &Path, range: SourceRange, text: &str) -> SnapshotAnnotation {
+        SnapshotAnnotation {
             id: String::new(),
             text: text.into(),
             file: file.into(),
@@ -3862,7 +3870,7 @@ export component Main {
     }
 
     #[test]
-    fn editor_comments_assign_ids_filter_by_source_element_and_remove() {
+    fn editor_annotations_assign_ids_filter_by_source_element_and_remove() {
         let first_range = SourceRange {
             start: SourcePosition { line: 1, character: 2 },
             end: SourcePosition { line: 3, character: 4 },
@@ -3874,36 +3882,36 @@ export component Main {
         let file = Path::new("/project/main.slint");
         let first_element = SourceElement { path: file.into(), offset: TextSize::from(12) };
         let second_element = SourceElement { path: file.into(), offset: TextSize::from(24) };
-        let mut comments = EditorComments { next_id: 1, ..Default::default() };
+        let mut annotations = EditorAnnotations { next_id: 1, ..Default::default() };
 
-        comments.add(first_element.clone(), stored_comment(file, first_range, "First"));
-        comments.add(second_element.clone(), stored_comment(file, second_range, "Second"));
+        annotations.add(first_element.clone(), stored_annotation(file, first_range, "First"));
+        annotations.add(second_element.clone(), stored_annotation(file, second_range, "Second"));
 
-        let visible = comments.visible(&first_element);
+        let visible = annotations.visible(&first_element);
         assert_eq!(visible.len(), 1);
         assert_eq!(visible[0].id, "1");
         assert_eq!(visible[0].text, "First");
 
-        comments.add(first_element.clone(), stored_comment(file, first_range, "Another"));
-        let markers = comments.markers();
+        annotations.add(first_element.clone(), stored_annotation(file, first_range, "Another"));
+        let markers = annotations.markers();
         assert_eq!(markers.len(), 2);
         assert_eq!(markers[0].count, 2);
         assert!(markers.iter().all(|marker| marker.unread));
-        comments.mark_read(&first_element);
-        let markers = comments.markers();
+        annotations.mark_read(&first_element);
+        let markers = annotations.markers();
         assert!(!markers[0].unread);
         assert!(markers[1].unread);
 
-        comments.remove("1");
-        assert_eq!(comments.markers()[0].count, 1);
-        comments.remove("3");
-        assert!(comments.visible(&first_element).is_empty());
-        assert_eq!(comments.visible(&second_element)[0].id, "2");
-        assert_eq!(comments.markers().len(), 1);
+        annotations.remove("1");
+        assert_eq!(annotations.markers()[0].count, 1);
+        annotations.remove("3");
+        assert!(annotations.visible(&first_element).is_empty());
+        assert_eq!(annotations.visible(&second_element)[0].id, "2");
+        assert_eq!(annotations.markers().len(), 1);
     }
 
     #[test]
-    fn selected_element_comments_are_published_to_the_ui_model() {
+    fn selected_element_annotations_are_published_to_the_ui_model() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
@@ -3919,24 +3927,24 @@ export component Main {
         };
         let mut preview_state = PreviewState {
             api: <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api),
-            comments: EditorComments { next_id: 1, ..Default::default() },
+            annotations: EditorAnnotations { next_id: 1, ..Default::default() },
             ..Default::default()
         };
-        api.set_element_comments(preview_state.element_comments_model.clone().into());
-        preview_state.comments.add(
+        api.set_element_annotations(preview_state.element_annotations_model.clone().into());
+        preview_state.annotations.add(
             SourceElement::from_selection(&selection).unwrap(),
-            stored_comment(file, range, "Visible"),
+            stored_annotation(file, range, "Visible"),
         );
 
-        set_visible_element_comments(&preview_state, Some(&selection));
+        set_visible_element_annotations(&preview_state, Some(&selection));
 
-        let model = api.get_element_comments();
+        let model = api.get_element_annotations();
         assert_eq!(model.row_count(), 1);
         assert_eq!(model.row_data(0).unwrap().text, "Visible");
     }
 
     #[test]
-    fn add_comment_publishes_source_declared_element_ids() {
+    fn add_annotation_publishes_source_declared_element_ids() {
         let source = r#"export component Main { named-element := Text { text: "😀"; } Text {} }"#;
         let component_instance = test::interpret_test("fluent", source);
         let path = main_test_file_name();
@@ -3954,25 +3962,25 @@ export component Main {
                 offset: named_offset,
                 instance_index: 0,
             });
-            preview_state.comments = EditorComments::new(project.path());
+            preview_state.annotations = EditorAnnotations::new(project.path());
         });
 
-        add_element_comment("Named".into());
+        add_element_annotation("Named".into());
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.selected =
                 Some(ElementSelection { path, offset: anonymous_offset, instance_index: 0 });
         });
-        add_element_comment("Anonymous".into());
+        add_element_annotation("Anonymous".into());
 
-        let project_comments = slint_editor_mcp::scan_projects()
+        let project_annotations = slint_editor_mcp::scan_projects()
             .unwrap()
             .into_iter()
-            .find(|comments| comments.project_root == project.path())
+            .find(|annotations| annotations.project_root == project.path())
             .unwrap();
-        assert_eq!(project_comments.comments.len(), 2);
-        assert_eq!(project_comments.comments[0].element_id.as_deref(), Some("named-element"));
-        assert_eq!(project_comments.comments[0].range.end.character, expected_utf16_end);
-        assert_eq!(project_comments.comments[1].element_id, None);
+        assert_eq!(project_annotations.annotations.len(), 2);
+        assert_eq!(project_annotations.annotations[0].element_id.as_deref(), Some("named-element"));
+        assert_eq!(project_annotations.annotations[0].range.end.character, expected_utf16_end);
+        assert_eq!(project_annotations.annotations[1].element_id, None);
 
         PREVIEW_STATE.with_borrow_mut(|preview_state| *preview_state = PreviewState::default());
     }
