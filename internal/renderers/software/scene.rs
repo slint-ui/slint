@@ -264,10 +264,9 @@ impl Scene {
                 };
                 opaque_format && buffer.extra.alpha == 255
             }
-            SceneCommand::LinearGradient { linear_gradient_index } => {
-                self.vectors.linear_gradients[*linear_gradient_index as usize]
-                    .covers_line(&PhysicalRect { origin: item.pos, size: item.size }, line)
-            }
+            SceneCommand::LinearGradient { linear_gradient_index } => self.vectors.linear_gradients
+                [*linear_gradient_index as usize]
+                .covers_line(&PhysicalRect { origin: item.pos, size: item.size }, line),
             _ => false,
         }
     }

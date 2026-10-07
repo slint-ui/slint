@@ -835,7 +835,8 @@ impl super::LinearGradientCommand {
             0 => self.vertical_position(rect, line).is_some(),
             255 => {
                 let (fill_left, fill_right) = self.fills_beyond_edges();
-                (fill_left || self.left_clip.get() >= 0) && (fill_right || self.right_clip.get() >= 0)
+                (fill_left || self.left_clip.get() >= 0)
+                    && (fill_right || self.right_clip.get() >= 0)
             }
             _ => false,
         }
