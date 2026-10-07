@@ -51,7 +51,9 @@ export async function snapshotProject(path, projectRoot, buttonSource, validated
     if (bytes.length > 8 * 1024 * 1024 || total > 16 * 1024 * 1024) throw new Error("Preview dependencies exceed the 16 MiB total or 8 MiB per-file limit.");
     files[key] = { mimeType: extension === ".slint" ? "text/plain" : types[extension], data: bytes.toString("base64"), hash: hash(bytes) };
     if (extension !== ".slint") return;
-    if (bytes.length > 65536) throw new Error("Each Slint source file must be at most 64 KiB.");
+    const sourceLimit = absolute === sourcePath ? 65536 : 1024 * 1024;
+    if (bytes.length > sourceLimit) throw new Error(absolute === sourcePath
+      ? "The entry source must be at most 64 KiB." : "Imported Slint source must be at most 1 MiB.");
     for (const dependency of references(bytes.toString("utf8"))) {
       if (dependency === "std-widgets.slint" || dependency.startsWith("data:")) continue;
       if (isAbsolute(dependency)) throw new Error("Preview dependencies must use relative project paths.");

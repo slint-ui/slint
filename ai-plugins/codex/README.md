@@ -65,7 +65,7 @@ Empty image URLs remain empty images and do not create file dependencies.
 Dependencies stay inside the declared root, including symlink targets.
 Network dependencies, include-path aliases, and absolute dependency references are unsupported.
 Snapshots are immutable, private to the local user, and retain the latest 32 submissions in the system temporary directory.
-Each snapshot allows 128 files, 8 MiB per file, and 16 MiB total; each Slint file allows 64 KiB.
+Each snapshot allows 128 files, 8 MiB per file, and 16 MiB total; the entry allows 64 KiB and imported Slint sources allow 1 MiB.
 An expired snapshot needs a fresh render submission.
 
 ## Publishing and team packages
