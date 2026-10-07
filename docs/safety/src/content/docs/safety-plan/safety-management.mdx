@@ -17,6 +17,31 @@ Each commitment names where it's implemented, so it can be checked rather than t
 * Known safety-critical problems are recorded, with the fix and the test that covers each. See [Known Problems](/user-manual/known-problems/).
 * The process and the tooling are improved as we go, and what can be automated is automated.
 
+## Safety Culture
+
+**Addresses:** ISO 26262-2 5.4.2.1, Annex B
+
+A safety culture shows in what people do, not in what a policy says.
+Each practice below answers a row of ISO 26262-2 Table B.1, and names where it's enforced.
+
+| Practice | Where |
+| --- | --- |
+| Every decision about safety can be traced to the person who made it. | [Roles](#roles-and-responsibilities); review approvals and commits in GitHub |
+| Safety comes before schedule: a release with an open safety question waits. | The Safety Manager can block a release; see [R-05](/safety-plan/release/#on-every-release) |
+| Nobody checks their own work. | Every change is reviewed by someone other than its author ([C-07](/safety-plan/development-phases/#on-every-change)); the [confirmation measures](#confirmation-measures) are independent of the authors; TÜV Nord assesses the result |
+| Problems are found when they're made, not at the end. | A change brings its requirement and its tests in the same pull request, and CI checks traceability and coverage before it merges |
+| Anyone can raise a safety problem, and is thanked for it. | Employees, outside contributors, and integrators report safety anomalies the same way, and each report reaches the Safety Manager; see [O-03](#organization-level-prerequisites) and [F-01](/safety-plan/release/#after-a-release) |
+| Disagreement is welcome, and reviewers aren't picked to agree. | The reviewer of a safety-relevant change isn't chosen by its author |
+| We learn from what went wrong. | Safety anomalies and audit findings lead to a change in the process, not only in the code |
+| The work is planned and resourced. | The project plan includes the safety activities of this plan |
+
+:::caution[TODO]
+Three practices have nothing that enforces them yet:
+how a reviewer is assigned to a safety-relevant change,
+how anomalies and audit findings feed back into the process, such as a review after each release,
+and the reporting channel of O-03.
+:::
+
 ## Organization-Level Prerequisites
 
 **Addresses:** ISO 26262-2 Clause 5
@@ -25,7 +50,7 @@ ISO 26262-2 6.3.1 makes these a prerequisite of the project's safety management.
 
 | ID | Prerequisite | Clause | Responsible | How |
 | --- | --- | --- | --- | --- |
-| O-01 | Safety culture, and rules and processes for functional safety | 5.4.2 | Project Manager | This Safety Plan, and the commitments of the [Safety Policy](#safety-policy) |
+| O-01 | Safety culture, and rules and processes for functional safety | 5.4.2 | Project Manager | This Safety Plan, the [Safety Policy](#safety-policy), and the practices of [Safety Culture](#safety-culture) |
 | O-02 | Communication with cybersecurity and quality | 5.4.2.3 | Safety Manager | Security advisories that affect Slint SC go to the Safety Manager |
 | O-03 | Management of safety anomalies | 5.4.3 | Safety Manager | Issues labeled as safety anomalies, analyzed, and closed only with a rationale reviewed by someone other than its author; anything not closed is escalated. They feed [Known Problems](/user-manual/known-problems/). |
 | O-04 | Competence management | 5.4.4 | Project Manager | Competence criteria for each role, and training records |
