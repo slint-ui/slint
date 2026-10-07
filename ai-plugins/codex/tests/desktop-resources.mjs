@@ -46,6 +46,9 @@ try {
   assert.equal(server.tools.render_slint.outputSchema.properties.source, undefined);
   assert.equal(server.tools.render_slint.outputSchema.properties.project, undefined);
   assert(server.tools.render_slint.outputSchema.properties.projectHash);
+  assert.deepEqual(server.tools.open_slint_file._meta["openai/ui"].entrypoints, [{ type: "file", extensions: [".slint"] }]);
+  assert.deepEqual(server.tools.open_slint_preview._meta["openai/ui"].entrypoints, [{ type: "thread" }]);
+  assert.equal(server.tools.update_slint_preview._meta, undefined);
   const preview = server.resources.find(resource => resource.mimeType === "text/html;profile=mcp-app");
   assert(preview, "The installed plugin has no preview resource.");
   const read = uri => call("mcpServer/resource/read", { server: server.name, uri });

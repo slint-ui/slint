@@ -9,6 +9,7 @@ import { dirname, join, isAbsolute, extname } from "node:path";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createViewStore } from "./views.mjs";
 import { createCaptureStore } from "./captures.mjs";
 import { loadRuntime } from "./runtime-assets.mjs";
 import { captureProject, snapshotProject, readProjectResource } from "./project.mjs";
@@ -39,6 +40,7 @@ const icon = builtRuntime?.icon ?? await readFile(join(root, "../icon.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
 const captures = createCaptureStore();
+const views = createViewStore();
 const viewPresentation = { ui: { resourceUri: viewUri }, "openai/outputTemplate": viewUri };
 const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };
 const sourceSchema = {
@@ -108,6 +110,19 @@ const tools = [
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: { ui: { visibility: ["app"] } },
   },
+  {
+    name: "open_slint_preview", title: "Slint Preview", icons,
+    description: "Open one persistent Slint preview beside the conversation. On the third follow-up edit to the same item, say 'Let’s now work on this beside the chat' and call this instead of another inline render. Provide saved source and its validation hash. Subsequent edits use update_slint_preview with the returned viewId. Empty input opens the thread entrypoint awaiting source.",
+    inputSchema: { ...sourceSchema, required: [] },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ...viewPresentation, "openai/ui": { entrypoints: [{ type: "thread" }] } },
+  },
+  {
+    name: "update_slint_preview", title: "Update Slint Preview", icons,
+    description: "Update the existing side preview after editing and validating the same saved source. Pass its viewId, canonical path, new revision, and validatedProjectHash. This updates the open view without creating another inline preview. Read the updated screenshot before claiming visual verification.",
+    inputSchema: { ...sourceSchema, properties: { ...sourceSchema.properties, viewId: { type: "string" } }, required: [...sourceSchema.required, "viewId"] },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  },
 ];
 
 async function render(args, entrySource) {
@@ -154,9 +169,11 @@ async function handle(message) {
       { uri: viewUri, name: "slint-view", title: "Slint File Preview", mimeType: "text/html;profile=mcp-app" },
       ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
     ] : [] };
-    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://capture/{previewId}/{captureId}/next", name: "capture-request", description: "Wait for a new screenshot request for an open preview." }, { uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
+    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://view/{viewId}/{previewId}/next", name: "view-update", description: "Wait for the next source revision in a persistent Slint view." }, { uriTemplate: "slint://capture/{previewId}/{captureId}/next", name: "capture-request", description: "Wait for a new screenshot request for an open preview." }, { uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
     case "resources/read": {
       const uri = message.params?.uri;
+      const viewRequest = typeof uri === "string" && uri.match(/^slint:\/\/view\/([a-f0-9-]{36})\/([a-f0-9-]{36})\/next$/);
+      if (viewRequest) return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await views.wait(viewRequest[1], viewRequest[2])) }] };
       const captureRequest = typeof uri === "string" && uri.match(/^slint:\/\/capture\/([a-f0-9-]{36})\/([a-f0-9-]{36})\/next$/);
       if (captureRequest) return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await captures.wait(captureRequest[1], captureRequest[2])) }] };
       if (typeof uri === "string" && uri.startsWith("slint://project/")) return { contents: [await readProjectResource(uri)] };
@@ -171,6 +188,15 @@ async function handle(message) {
       const args = message.params?.arguments ?? {};
       try {
         if (!runtimeMetadata) throw new Error("Build the Codex runtime in the Slint monorepo or install a platform package to enable preview tools.");
+        if (message.params?.name === "open_slint_preview") {
+          const result = await views.create(args.path ? await render(args) : { structuredContent: { status: "awaiting-source" }, content: [{ type: "text", text: "Slint side preview opened. Provide saved source to update this view." }] });
+          result._meta = { ...result._meta, ...viewPresentation, surface: "side" };
+          return result;
+        }
+        if (message.params?.name === "update_slint_preview") {
+          const result = await views.update(args.viewId, await render(args));
+          return { structuredContent: result.structuredContent, content: [{ type: "text", text: "Slint side preview updated." }] };
+        }
         if (message.params?.name === "open_slint_file") {
           if (typeof args.file?.name !== "string" || extname(args.file.name) !== ".slint" || typeof args.file.resourceUri !== "string" || !args.file.resourceUri.trim()) throw new Error("Provide a .slint host file resource.");
           return { structuredContent: { status: "opening-file", fileName: args.file.name }, content: [{ type: "text", text: "Slint file preview opened." }], _meta: { ...viewPresentation, file: args.file } };
@@ -222,7 +248,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   try {
     message = JSON.parse(line);
     if (message.id === undefined) continue;
-    if (message.method === "resources/read" && message.params?.uri?.startsWith("slint://capture/")) {
+    if (message.method === "resources/read" && typeof message.params?.uri === "string" && /^slint:\/\/(?:capture|view)\//.test(message.params.uri)) {
       const id = message.id;
       void handle(message).then(result => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n"), error => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32602, message: error.message } }) + "\n"));
       continue;
@@ -235,3 +261,4 @@ for await (const line of createInterface({ input: process.stdin })) {
 }
 
 captures.close();
+views.close();

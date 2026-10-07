@@ -115,3 +115,12 @@ It uses the path granted by the host to resolve project dependencies and validat
 File-resource subscriptions reload the preview when the host reports a change.
 Unsaved entry contents are rendered without overwriting the saved file; imported files are read from disk.
 Hosts must support file entrypoints, path grants, and resource subscriptions for this workflow.
+
+## Persistent side preview
+
+`open_slint_preview` registers a thread entrypoint and opens a saved, validated source in the side view.
+Its fullscreen display preference is a host hint; the view requests that mode once when supported and accepts the returned placement.
+`update_slint_preview` updates the same view ID and returns no UI opener, avoiding repeated inline previews.
+The shared skill moves work to the side on the third follow-up edit to the same item.
+Initial creation does not count as an edit, and explicit user presentation preferences take precedence.
+Source payloads remain in UI-only metadata and the existing screenshot workflow verifies each revision.
