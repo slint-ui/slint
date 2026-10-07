@@ -1154,6 +1154,9 @@ impl FlickableData {
                                 flick, delta, flick_rc,
                             ) {
                                 inner.last_scroll_event = None;
+                                if inner.capture_events == Some(CaptureEvents::WheelStart) {
+                                    inner.capture_events = None;
+                                }
                                 InputEventFilterResult::ForwardEvent
                             } else if inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
                                 && inner.capture_events.is_none()

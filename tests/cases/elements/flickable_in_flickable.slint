@@ -213,6 +213,35 @@ assert_eq!(instance.get_nested_y(), nested_y);
 ```
 
 ```rust
+// Touch pad gestures scroll the inner horizontally (The animation of the inner shall also be executed)
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+const DISTANCE_THRESHOLD: f32 = 8.;
+const NUMBER_MOVES: usize = 10;
+let instance = TestCase::new().unwrap();
+let wheel = |pos: LogicalPoint, delta_x: f32, phase| {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pos, delta_x, delta_y: 0., phase }));
+};
+let gesture = |pos: LogicalPoint, delta_x: f32| {
+    wheel(pos, 0., TouchPhase::Started);
+    slint_testing::mock_elapsed_time(10);
+    for _ in 0..NUMBER_MOVES {
+        wheel(pos, delta_x / NUMBER_MOVES as f32, TouchPhase::Moved);
+        slint_testing::mock_elapsed_time(10);
+    }
+    wheel(pos, 0., TouchPhase::Ended);
+};
+
+// Overlapping location of the Outer and inner Flickable
+const LOCATION_OUTER_INNER: LogicalPoint = LogicalPoint::new(175., 175.);
+
+gesture(LOCATION_OUTER_INNER, -100.);
+assert_eq!(instance.get_inner_x(), 100. - DISTANCE_THRESHOLD);
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_inner_x() > 100. - DISTANCE_THRESHOLD, "The simulation must be ongoing: {:?}", instance.get_inner_x());
+```
+
+```rust
 use slint::platform::WindowEvent;
 use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
 
