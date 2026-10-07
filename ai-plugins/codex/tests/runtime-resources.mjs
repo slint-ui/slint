@@ -179,3 +179,21 @@ test("source-only installs start without exposing unavailable preview tools", as
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+
+test("validation reports imported syntax errors consistently", async () => {
+  const client = connect();
+  const directory = await mkdtemp(join(tmpdir(), "slint-import-diagnostics-"));
+  const path = join(directory, "main.slint");
+  try {
+    await writeFile(path, 'import { Card } from "card.slint"; export component Preview inherits Window {width:320px;height:160px;Card{}}');
+    await writeFile(join(directory, "card.slint"), 'export component Card inherits Rectangle { background: ; }');
+    for (let revision = 1; revision <= 5; revision++) {
+      const result = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision } });
+      assert.equal(result.structuredContent.status, "error");
+      assert(result.structuredContent.diagnostics.some(d => d.severity === 1 && d.uri.endsWith("/card.slint")));
+    }
+    await writeFile(join(directory, "card.slint"), 'export component Card inherits Rectangle { background: blue; }');
+    assert.equal((await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } })).structuredContent.status, "valid");
+  } finally { await client.close(); await rm(directory, { recursive: true, force: true }); }
+});

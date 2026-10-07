@@ -99,17 +99,23 @@ class LspClient:
                 },
             }
         )
-        diagnostics = []
+        # Slint processes didOpen and publishes its complete diagnostic batch before
+        # handling the next request; its per-file notification order is unspecified.
+        await self.send({"jsonrpc": "2.0", "id": 2, "method": "textDocument/documentSymbol", "params": {"textDocument": {"uri": uri}}})
+        published_by_uri = {}
+        entry_seen = False
         while True:
             message = await asyncio.wait_for(self.receive(), 15)
+            if message.get("id") == 2:
+                if "error" in message or not entry_seen:
+                    raise ValueError("The LSP did not complete source diagnostics")
+                break
             if message.get("method") != "textDocument/publishDiagnostics":
                 continue
             published = message["params"]
-            diagnostics.extend(
-                {**item, "uri": published["uri"]} for item in published["diagnostics"]
-            )
-            if published["uri"] == uri and published.get("version") == revision:
-                break
+            published_by_uri[published["uri"]] = [{**item, "uri": published["uri"]} for item in published["diagnostics"]]
+            entry_seen |= published["uri"] == uri and published.get("version") == revision
+        diagnostics = [item for items in published_by_uri.values() for item in items]
         return {
             "runtimeVersion": RUNTIME["version"],
             "runtimeRevision": RUNTIME["revision"],

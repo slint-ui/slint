@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-preview.mjs",
-    "test": "node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs"
+    "test": "python3 tests/check_source.py && node --test tests/project.mjs tests/runtime-cache.mjs tests/runtime-resources.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
