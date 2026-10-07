@@ -142,10 +142,7 @@ impl Springboard {
     }
 
     pub fn close(&self) {
-        let _ = self.task_sender.send(Box::new(|task| {
-            task.error.clear();
-            task.close();
-        }));
+        let _ = self.task_sender.send(Box::new(|task| task.close()));
     }
 }
 
@@ -162,7 +159,6 @@ impl LspToPreview for Springboard {
     fn shutdown<'a>(&'a self) -> Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
         let (acknowledge, completion) = oneshot::channel();
         let _ = self.task_sender.send(Box::new(move |task| {
-            task.error.clear();
             task.close();
             let _ = acknowledge.send(());
         }));
@@ -386,7 +382,6 @@ impl SpringboardTask {
                 self.error.clear();
             }
             ConnectionEvent::Message(PreviewToLspMessage::Exited) => {
-                self.error.clear();
                 self.close();
                 return;
             }
@@ -403,7 +398,6 @@ impl SpringboardTask {
             }
             ConnectionEvent::Ended { error } => {
                 if error.is_none() && self.connection_state == ui::ConnectionState::Connected {
-                    self.error.clear();
                     self.close();
                 } else {
                     self.fail_endpoint(
@@ -457,6 +451,7 @@ impl SpringboardTask {
     }
 
     fn close(&mut self) {
+        self.error.clear();
         self.preview = None;
         self.discovery = None;
         self.viewers.clear();
@@ -469,7 +464,6 @@ impl SpringboardTask {
 
     fn send(&mut self, message: LspToPreviewMessage) {
         if matches!(message, LspToPreviewMessage::Quit) {
-            self.error.clear();
             self.close();
             return;
         }
@@ -478,7 +472,7 @@ impl SpringboardTask {
         }
         if let Some(preview) = &self.preview {
             let send = |message| match preview {
-                Endpoint::Local { preview, .. } => preview.send_running(message),
+                Endpoint::Local { preview, .. } => preview.send_running(&message),
                 Endpoint::Remote { connection, .. }
                     if self.connection_state == ui::ConnectionState::Connected =>
                 {
@@ -486,11 +480,12 @@ impl SpringboardTask {
                 }
                 Endpoint::Remote { .. } => {}
             };
-            send(&message);
-            if matches!(message, LspToPreviewMessage::ShowPreview(_)) {
-                if let Some(highlight) = &self.highlight {
-                    send(highlight);
-                }
+            let highlight = matches!(message, LspToPreviewMessage::ShowPreview(_))
+                .then(|| self.highlight.clone())
+                .flatten();
+            send(message);
+            if let Some(highlight) = highlight {
+                send(highlight);
             }
         }
     }
@@ -1324,74 +1319,104 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejected_cached_token_is_invalidated_before_real_code_pairing() {
+    async fn restarted_viewers_invalidate_tokens_and_allow_pairing_or_plaintext_retry() {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, discovered) = controller("echo_child");
-                controller.start();
-                let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
-                let fullname = discover(
-                    &controller,
-                    &discovered,
-                    remote::tests::service("Restarted", first.connection.local_port()),
-                )
-                .await;
-                select(&controller, 1);
-                let ConnectionMessage::PairingStarted { code, .. } = first
-                    .event(|event| matches!(event, ConnectionMessage::PairingStarted { .. }))
-                    .await
-                else {
-                    unreachable!()
-                };
-                wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::PairingRequired
-                })
-                .await;
-                answer(&controller, PairingAnswer::Code(code));
-                wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::Connected
-                })
-                .await;
-                initial_request(&mut upstream).await;
-                let expected = fullname.clone();
-                let old_credentials =
-                    inspect(&controller, move |task| task.credentials[&expected]).await;
-                controller.close();
-                first.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
-                drop(first);
-                let mut replacement = Viewer::start(PairingPolicy::Generated, 0).await;
-                controller.start();
-                discover(
-                    &controller,
-                    &discovered,
-                    remote::tests::service("Restarted", replacement.connection.local_port()),
-                )
-                .await;
-                select(&controller, 1);
-                let ConnectionMessage::PairingStarted { code, .. } = replacement
-                    .event(|event| matches!(event, ConnectionMessage::PairingStarted { .. }))
-                    .await
-                else {
-                    unreachable!()
-                };
-                wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::PairingRequired
-                        && task.credentials.is_empty()
-                })
-                .await;
-                answer(&controller, PairingAnswer::Code(code));
-                wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::Connected
-                })
-                .await;
-                initial_request(&mut upstream).await;
-                assert_ne!(
-                    inspect(&controller, move |task| task.credentials[&fullname]).await,
-                    old_credentials
-                );
-                compile_source(&controller, &mut replacement, 88).await;
-                controller.close();
+                for replacement_requires_pairing in [true, false] {
+                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    controller.start();
+                    let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
+                    let fullname = discover(
+                        &controller,
+                        &discovered,
+                        remote::tests::service("Restarted", first.connection.local_port()),
+                    )
+                    .await;
+                    select(&controller, 1);
+                    let ConnectionMessage::PairingStarted { code, .. } = first
+                        .event(|event| matches!(event, ConnectionMessage::PairingStarted { .. }))
+                        .await
+                    else {
+                        unreachable!()
+                    };
+                    wait_condition(&controller, |task| {
+                        task.connection_state == ui::ConnectionState::PairingRequired
+                    })
+                    .await;
+                    answer(&controller, PairingAnswer::Code(code));
+                    wait_condition(&controller, |task| {
+                        task.connection_state == ui::ConnectionState::Connected
+                    })
+                    .await;
+                    initial_request(&mut upstream).await;
+                    let expected = fullname.clone();
+                    let old_credentials =
+                        inspect(&controller, move |task| task.credentials[&expected]).await;
+                    controller.close();
+                    first
+                        .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
+                        .await;
+                    drop(first);
+                    let mut replacement = Viewer::start(
+                        if replacement_requires_pairing {
+                            PairingPolicy::Generated
+                        } else {
+                            PairingPolicy::Disabled
+                        },
+                        0,
+                    )
+                    .await;
+                    controller.start();
+                    discover(
+                        &controller,
+                        &discovered,
+                        remote::tests::service("Restarted", replacement.connection.local_port()),
+                    )
+                    .await;
+                    select(&controller, 1);
+                    if replacement_requires_pairing {
+                        let ConnectionMessage::PairingStarted { code, .. } = replacement
+                            .event(|event| {
+                                matches!(event, ConnectionMessage::PairingStarted { .. })
+                            })
+                            .await
+                        else {
+                            unreachable!()
+                        };
+                        wait_condition(&controller, |task| {
+                            task.connection_state == ui::ConnectionState::PairingRequired
+                                && task.credentials.is_empty()
+                        })
+                        .await;
+                        answer(&controller, PairingAnswer::Code(code));
+                        wait_condition(&controller, |task| {
+                            task.connection_state == ui::ConnectionState::Connected
+                        })
+                        .await;
+                    } else {
+                        wait_condition(&controller, |task| {
+                            task.connection_state == ui::ConnectionState::Failed
+                                && task.credentials.is_empty()
+                        })
+                        .await;
+                        assert!(upstream.try_recv().is_err());
+                        replacement
+                            .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
+                            .await;
+                        select(&controller, 1);
+                        accept_plaintext(&controller).await;
+                    }
+                    initial_request(&mut upstream).await;
+                    if replacement_requires_pairing {
+                        assert_ne!(
+                            inspect(&controller, move |task| task.credentials[&fullname]).await,
+                            old_credentials
+                        );
+                    }
+                    compile_source(&controller, &mut replacement, 88).await;
+                    controller.close();
+                }
             })
             .await;
     }

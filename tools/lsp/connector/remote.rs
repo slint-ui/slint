@@ -24,6 +24,7 @@ use i_slint_editor_preview::remote_authentication::{
     self, AuthenticationError, PairingAnswer as PairingSubmission, PairingCredentials,
     PairingPrompt,
 };
+use i_slint_editor_preview::remote_client::{self, CONNECT_TIMEOUT, PING_INTERVAL, PONG_TIMEOUT};
 use i_slint_live_preview::protocol::pairing::{MAX_ATTEMPTS, Token, TokenId};
 use i_slint_live_preview::protocol::session;
 use i_slint_live_preview::protocol::{
@@ -35,18 +36,8 @@ use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
 use crate::editor_preview::LspToPreviews;
 
-/// How often the keepalive probes the remote viewer.
-const PING_INTERVAL: Duration = Duration::from_secs(5);
-/// Without a pong for this long, the connection counts as dead.
-/// Mobile devices abort a backgrounded app's connections without notifying
-/// the peer, so the socket alone can't tell us.
-const PONG_TIMEOUT: Duration = Duration::from_secs(15);
 /// Pause between reconnect attempts.
 const RECONNECT_DELAY: Duration = Duration::from_secs(3);
-/// Cap on a single connection attempt.
-/// A device that blocks network for a backgrounded viewer can swallow
-/// packets; an uncapped dial would then hang for minutes on TCP retransmissions.
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Why a dial attempt produced no session.
 enum ConnectError {
     /// Worth retrying on a timer: nothing listening, socket died, superseded.
@@ -408,23 +399,26 @@ impl RemoteLspToPreview {
             opening,
             ready,
         ));
-        if let Some(mut old) = shared.connection.lock().await.replace(RemoteLspConnection {
+        let mut connection = shared.connection.lock().await;
+        let old = connection.replace(RemoteLspConnection {
             sender: socket_sender,
             sealing,
             task,
             replaced,
-        }) {
+        });
+        *shared.connected_target.borrow_mut() = Some(target.clone());
+        let _ = installed.send(initial_request);
+        drop(connection);
+        if let Some(mut old) = old {
             tracing::info!("Closing previous connection to remote preview server");
             old.replaced.store(true, Ordering::Relaxed);
             // Close handshake so the old viewer sees a clean end of session
             // instead of a connection reset.
-            old.sender.close().await.ok();
             old.task.abort();
+            i_slint_editor_preview::spawn_local(async move {
+                remote_client::close(&mut old.sender).await;
+            });
         }
-
-        *shared.connected_target.borrow_mut() = Some(target.clone());
-
-        let _ = installed.send(initial_request);
 
         Ok(())
     }
@@ -667,11 +661,12 @@ impl RemoteLspToPreview {
         async move {
             shared.bump_generation();
             shared.connected_target.borrow_mut().take();
-            if let Some(mut connection) = shared.connection.lock().await.take() {
+            let connection = shared.connection.lock().await.take();
+            if let Some(mut connection) = connection {
                 // Close handshake so the viewer sees a clean end of session
                 // instead of a connection reset.
-                connection.sender.close().await.ok();
                 connection.task.abort();
+                remote_client::close(&mut connection.sender).await;
             }
         }
     }
@@ -696,12 +691,7 @@ impl RemotePreviewSender {
     /// the reconnect loop would only dial it again, and by then
     /// the peer already has everything the connection was going to give it.
     fn send(&self, message: PreviewToLspMessage) {
-        if !matches!(
-            message,
-            PreviewToLspMessage::Diagnostics { .. }
-                | PreviewToLspMessage::DebugMessage { .. }
-                | PreviewToLspMessage::RequestState { .. }
-        ) {
+        if !remote_client::is_allowed_message(&message) {
             tracing::warn!(
                 "Ignoring message that a remote preview server may not send: {message:?}"
             );
@@ -1626,6 +1616,79 @@ mod tests {
     }
 
     type RawViewer = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
+
+    #[tokio::test]
+    async fn replacement_reads_initial_state_while_previous_socket_is_stalled() {
+        use tokio_tungstenite::tungstenite::Message as ServerMessage;
+
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (finish, finished) = tokio::sync::oneshot::channel();
+                let old_port = raw_viewer(move |mut socket| async move {
+                    socket
+                        .send(ServerMessage::Binary(
+                            postcard::to_allocvec(&PreviewToLspMessage::PairingReady)
+                                .unwrap()
+                                .into(),
+                        ))
+                        .await
+                        .unwrap();
+                    assert!(matches!(
+                        socket.next().await.unwrap().unwrap(),
+                        ServerMessage::Binary(_)
+                    ));
+                    socket
+                        .send(ServerMessage::Binary(
+                            postcard::to_allocvec(&PreviewToLspMessage::PairingAccepted)
+                                .unwrap()
+                                .into(),
+                        ))
+                        .await
+                        .unwrap();
+                    finished.await.unwrap();
+                })
+                .await;
+                let (sender, mut upstream) = mpsc::unbounded_channel();
+                let connector = RemoteLspToPreview::new(sender, Weak::new());
+                let accept = async {
+                    wait_for_prompt(&connector).await;
+                    connector.accept_unpaired_connection();
+                };
+                let (result, ()) = tokio::join!(connector.connect(["127.0.0.1"], old_port), accept);
+                result.unwrap();
+                connector
+                    .shared
+                    .connection
+                    .lock()
+                    .await
+                    .as_mut()
+                    .unwrap()
+                    .sender
+                    .feed(Message::binary(vec![0; 16 * 1024 * 1024]))
+                    .await
+                    .unwrap();
+                let (viewer, _viewer_events) = listen(0, PairingPolicy::Disabled).await;
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    let accept = async {
+                        wait_for_prompt(&connector).await;
+                        connector.accept_unpaired_connection();
+                    };
+                    let (result, ()) =
+                        tokio::join!(connector.connect(["127.0.0.1"], viewer.local_port()), accept);
+                    result.unwrap();
+                    assert!(matches!(
+                        upstream.recv().await,
+                        Some(PreviewToLspMessage::RequestState { .. })
+                    ));
+                })
+                .await
+                .unwrap();
+                assert!(connector.shared.connection.try_lock().is_some());
+                connector.disconnect().await;
+                finish.send(()).unwrap();
+            })
+            .await;
+    }
 
     /// Stand in for a peer that completes the WebSocket upgrade and then
     /// misbehaves in a way the real viewer never would, so its handshake

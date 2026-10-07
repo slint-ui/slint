@@ -339,8 +339,6 @@ async fn lsp_main(
                             project,
                         ).await {
                             tracing::warn!("Failed to switch project: {error}");
-                        } else {
-                            editor_preview::LspToPreview::shutdown(&springboard).await;
                         }
                     }
                     None => break Ok(()),
@@ -625,7 +623,7 @@ async fn switch_project(
     open_initial_preview(&mut next_session, file_watcher, &next_project_root, project.preview)
         .await?;
 
-    session.send_to_preview(RUN_PREVIEW_INDEX, &LspToPreviewMessage::Quit);
+    session.previews[RUN_PREVIEW_INDEX].to_preview.shutdown().await;
     session.send_to_preview(
         RUN_PREVIEW_INDEX,
         &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
@@ -886,11 +884,13 @@ mod tests {
                 .iter()
                 .all(|message| !matches!(message, LspToPreviewMessage::Quit))
         );
-        assert!(
+        assert_eq!(
             messages[RUN_PREVIEW_INDEX]
                 .borrow()
                 .iter()
-                .any(|message| matches!(message, LspToPreviewMessage::Quit))
+                .filter(|message| matches!(message, LspToPreviewMessage::Quit))
+                .count(),
+            1
         );
         assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::HighlightFromEditor { url: None, .. })
