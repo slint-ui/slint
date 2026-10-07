@@ -16,15 +16,6 @@ use crate::animations::simulations::rubber_band;
 use crate::animations::simulations::{Parameter, PositionSimulation, Simulation};
 use crate::items::AutoBool;
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalVector, RectLengths};
-#[cfg(not(feature = "std"))]
-use num_traits::Float;
-
-/// `FlickAnimation::carried_momentum`'s growth curve: `carried = CARRY_SCALE *
-/// current_velocity.abs().powf(CARRY_EXPONENT)`. Fit by log-log least squares (R² = 0.76)
-/// against 112 real same-direction repeat flicks (a rapid flick starting while the previous
-/// one was still gliding), captured from a live iOS UIScrollView via XCTest.
-const CARRY_SCALE: f32 = 0.3522;
-const CARRY_EXPONENT: f32 = 1.1674;
 
 pub enum FlickAnimationParameter {
     /// Cover a fixed distance in a fixed duration, e.g. wheel scrolling.
@@ -130,7 +121,7 @@ impl FlickAnimation {
 
     pub fn minimum_flick_velocity_animation() -> f32 {
         #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
-        return 250.;
+        return 200.;
         #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
         return 50.;
     }
@@ -156,12 +147,7 @@ impl FlickAnimation {
             AutoBool::Off => false,
         };
         let same_direction = new_estimated_velocity.signum() == current_velocity.signum();
-        if current_velocity == 0. || !cm || !same_direction {
-            return 0.;
-        }
-
-        current_velocity.signum()
-            * f32::min(CARRY_SCALE * f32::powf(current_velocity.abs(), CARRY_EXPONENT), 40000.0)
+        if cm && same_direction { current_velocity } else { 0. }
     }
 
     /// Whether to bounce or not depending on the bounce variable
