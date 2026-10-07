@@ -93,7 +93,10 @@ Pass the `previewId`, revision, and source hash returned by `render_slint`.
 The tool returns a PNG image content block when ready, or a pending, unavailable, or error status.
 It rejects source identity mismatches.
 The preview captures once after drawing a source revision and publishes through an app-only tool.
-This does not capture later user interactions.
+For later runtime state, call the screenshot tool once with `fresh: true`, then retrieve using the returned `captureId` without repeating `fresh`.
+The open preview redraws its existing instance without recompiling source or resetting interaction state.
+A waiting resource request delivers the capture command without continuous screenshot recording or blocking other MCP calls.
+Fresh capture requests require an active preview; a closed preview remains pending until the caller stops waiting.
 Captures exclude host controls and CSS zoom.
 The cache retains 32 submissions with a maximum PNG size of 4 MiB and dimensions of 4096 pixels.
 Captures are private local files and survive MCP server restarts.

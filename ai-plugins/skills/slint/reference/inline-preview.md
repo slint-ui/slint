@@ -55,7 +55,11 @@ Ask the user to inspect the inline preview when it is not available to your insp
 The screenshot is captured from the inline Wasm canvas immediately after drawing the submitted source revision.
 It includes Slint pixels without the host header, view controls, or CSS zoom.
 Transparent pixels stay transparent; their displayed background depends on the image viewer.
-It does not show later user interactions or changes in application state.
+To verify later interactions or application state, call `get_preview_screenshot` once with `fresh: true`.
+Keep the same preview ID, revision, and source hash.
+Retrieve the result using its returned `captureId`, omitting `fresh` on retries.
+The preview requests a new draw of the existing component, preserving clicks, input, popup state, and other runtime values.
+An active preview must remain open to answer a fresh capture request.
 Check the image's source identity before reviewing layout, text, colors, and clipping.
 A ready render acknowledgement confirms compilation and display, not appearance.
 If the screenshot tool reports an error or an expired capture, say that visual verification was unavailable.

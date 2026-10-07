@@ -25,6 +25,7 @@ let rendering = false;
 let runtime;
 let instance;
 let pendingCapture;
+let previewDiagnostics = [];
 let zoom;
 const codePanel = document.getElementById("code-panel");
 const previewPanel = document.getElementById("preview-panel");
@@ -152,7 +153,7 @@ function captureFrame() {
 }
 async function publishCapture(current, blob, capturedAt, error) {
   if (current.token !== generation) return;
-  const args = { previewId: current.previewId, captureToken: current.captureToken, revision: current.revision, sourceHash: current.sourceHash };
+  const args = { previewId: current.previewId, captureToken: current.captureToken, captureId: current.captureId, revision: current.revision, sourceHash: current.sourceHash };
   if (error || !blob) args.error = error || "The canvas did not return an image.";
   else if (blob.size > 4 * 1024 * 1024) args.error = "The canvas capture exceeds 4 MiB.";
   else {
@@ -230,13 +231,31 @@ async function render() {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (token !== generation) continue;
       if (current.captureToken) {
+        previewDiagnostics = diagnostics;
         pendingCapture = { ...current, token, diagnostics };
         desired.screenshot = { status: "pending" };
         await instance.request_redraw();
       }
       report("ready", current.revision, diagnostics, current.sourceHash);
+      if (current.captureId) void watchCaptureRequests(current, token).catch(error => console.error("Live capture unavailable", error));
     }
   } finally { rendering = false; }
+}
+async function watchCaptureRequests(current, token) {
+  let after = current.captureId;
+  while (token === generation) {
+    const uri = `slint://capture/${current.previewId}/${after}/next`;
+    const result = await readRuntimeResource(uri);
+    if (token !== generation) return;
+    const request = JSON.parse(result.contents[0].text);
+    if (request.status === "unavailable") return;
+    if (request.status === "idle") continue;
+    after = request.captureId;
+    if (request.revision !== desired.revision || request.sourceHash !== desired.sourceHash) throw new Error("The live capture request does not match the displayed source.");
+    pendingCapture = { ...desired, captureId: after, token, diagnostics: previewDiagnostics };
+    desired.screenshot = { status: "pending", captureId: after };
+    await instance.request_redraw();
+  }
 }
 let resolveBridge;
 let rejectBridge;
@@ -306,7 +325,7 @@ window.addEventListener("message", (event) => {
   }
   if (message.method === "ui/notifications/host-context-changed") applyHostContext(message.params);
   if (message.method === "ui/notifications/tool-input") setSource(message.params?.arguments);
-  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, ...message.params?._meta?.preview, captureToken: message.params?._meta?.captureToken });
+  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, ...message.params?._meta?.preview, captureToken: message.params?._meta?.captureToken, captureId: message.params?._meta?.captureId });
 });
 if (window.parent !== window) {
   window.parent.postMessage({
@@ -317,7 +336,7 @@ if (window.parent !== window) {
 const legacyMetadata = window.openai?.toolResponseMetadata;
 const legacyResult = legacyMetadata?.mcp_tool_result ?? legacyMetadata?.call_tool_result;
 const legacyUi = legacyResult?._meta ?? legacyMetadata;
-setSource({ ...window.openai?.toolOutput, ...legacyUi?.preview, captureToken: legacyUi?.captureToken });
+setSource({ ...window.openai?.toolOutput, ...legacyUi?.preview, captureToken: legacyUi?.captureToken, captureId: legacyUi?.captureId });
 try {
   if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
   await bridgeReady;

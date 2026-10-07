@@ -19,7 +19,7 @@ test("captures preserve source identity across connections and reject mismatches
     const query = { previewId: record.previewId, revision: record.revision, sourceHash: record.sourceHash };
     assert.equal((await store.get(query)).status, "pending");
     assert.equal((await store.get(query)).captureToken, undefined);
-    const submission = { ...query, captureToken: record.captureToken, data: png, capturedAt: Date.now() };
+    const submission = { ...query, captureToken: record.captureToken, captureId: record.captureId, data: png, capturedAt: Date.now() };
     await assert.rejects(store.publish({ ...submission, captureToken: "wrong" }), /unauthorized/);
     await assert.rejects(store.publish({ ...submission, revision: 2 }), /does not match/);
     await assert.rejects(store.publish({ ...submission, sourceHash: "c".repeat(64) }), /does not match/);
@@ -43,7 +43,7 @@ test("invalid captures remain pending and capture failures are explicit", async 
   const directory = await mkdtemp(join(tmpdir(), "slint-capture-invalid-"));
   try {
     const store = createCaptureStore(directory), record = await store.create(identity);
-    const args = { previewId: record.previewId, captureToken: record.captureToken, revision: 1, sourceHash: identity.sourceHash, capturedAt: Date.now() };
+    const args = { previewId: record.previewId, captureToken: record.captureToken, captureId: record.captureId, revision: 1, sourceHash: identity.sourceHash, capturedAt: Date.now() };
     for (const data of ["bad!", "AAAA", "A".repeat(5592412)]) await assert.rejects(store.publish({ ...args, data }), /PNG/);
     const oversized = Buffer.from(png, "base64");
     oversized.writeUInt32BE(4097, 16);
@@ -65,5 +65,37 @@ test("capture retention is bounded and expired captures are unavailable", async 
     const missing = await store.get({ previewId: "00000000-0000-0000-0000-000000000000", revision: 1, sourceHash: identity.sourceHash });
     assert.equal(missing.status, "unavailable");
     assert.equal(missing.data, undefined);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("fresh captures preserve source identity and reject superseded images", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "slint-capture-fresh-"));
+  try {
+    const store = createCaptureStore(directory), record = await store.create(identity);
+    const query = { previewId: record.previewId, revision: 1, sourceHash: identity.sourceHash };
+    const first = { ...query, captureToken: record.captureToken, captureId: record.captureId, data: png, capturedAt: 1 };
+    await store.publish(first);
+    const priorPending = await store.request(query);
+    const waiting = store.wait(record.previewId, priorPending.captureId, 1000);
+    const requester = createCaptureStore(directory);
+    const fresh = await requester.request(query);
+    assert.equal(fresh.status, "pending");
+    assert.notEqual(fresh.captureId, record.captureId);
+    assert.notEqual(fresh.captureId, priorPending.captureId);
+    assert.equal((await waiting).captureId, fresh.captureId);
+    assert.equal((await store.get({ ...query, captureId: fresh.captureId })).data, undefined);
+
+    await assert.rejects(store.get({ ...query, captureId: record.captureId }), /superseded/);
+    await assert.rejects(store.publish(first), /superseded/);
+    await store.publish({ ...first, captureId: fresh.captureId, capturedAt: 2 });
+    const image = await createCaptureStore(directory).get({ ...query, captureId: fresh.captureId });
+    assert.equal(image.capturedAt, 2);
+    assert.equal(image.revision, 1);
+    assert.equal(image.sourceHash, identity.sourceHash);
+    assert.equal(image.data, png);
+    assert.equal((await store.wait(record.previewId, fresh.captureId, 1)).status, "idle");
+    const closing = store.wait(record.previewId, fresh.captureId);
+    store.close();
+    assert.equal((await closing).status, "unavailable");
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

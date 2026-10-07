@@ -100,13 +100,29 @@ test("file-backed edits retain identity and reject stale validation", async () =
       const query = { previewId: rendered.structuredContent.previewId, revision, sourceHash: rendered.structuredContent.sourceHash };
       assert.equal((await client.call("tools/call", { name: "get_preview_screenshot", arguments: query })).structuredContent.status, "pending");
       const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9BkAAAAASUVORK5CYII=";
-      const stored = await client.call("tools/call", { name: "publish_preview_capture", arguments: { ...query, captureToken: rendered._meta.captureToken, data: png, capturedAt: Date.now() } });
+      const stored = await client.call("tools/call", { name: "publish_preview_capture", arguments: { ...query, captureToken: rendered._meta.captureToken, captureId: rendered._meta.captureId, data: png, capturedAt: Date.now() } });
       assert.equal(stored.structuredContent.status, "ready");
       const screenshot = await client.call("tools/call", { name: "get_preview_screenshot", arguments: query });
       assert.equal(screenshot.content[0].type, "image");
       assert.equal(screenshot.content[0].mimeType, "image/png");
       assert.equal(screenshot.content[0].data, png);
       assert.equal(screenshot.structuredContent.sourceHash, query.sourceHash);
+      if (index === 0) {
+        const uri = `slint://capture/${query.previewId}/${rendered._meta.captureId}/next`;
+        const waiting = client.call("resources/read", { uri });
+        const requester = connect();
+        let requested;
+        try { requested = await requester.call("tools/call", { name: "get_preview_screenshot", arguments: { ...query, fresh: true } }); }
+        finally { await requester.close(); }
+        assert.equal(requested.structuredContent.status, "pending");
+        const captureId = requested.structuredContent.captureId;
+        assert.equal(JSON.parse((await waiting).contents[0].text).captureId, captureId);
+        assert.equal((await client.call("tools/call", { name: "get_preview_screenshot", arguments: { ...query, captureId: rendered._meta.captureId } })).isError, true);
+        await client.call("tools/call", { name: "publish_preview_capture", arguments: { ...query, captureToken: rendered._meta.captureToken, captureId, data: png, capturedAt: Date.now() } });
+        const fresh = await client.call("tools/call", { name: "get_preview_screenshot", arguments: { ...query, captureId } });
+        assert.equal(fresh.content[0].type, "image");
+        assert.equal(fresh.structuredContent.captureId, captureId);
+      }
       assert.equal((await client.call("tools/call", { name: "get_preview_screenshot", arguments: { ...query, revision: revision + 1 } })).isError, true);
     }
     const validation = await client.call("tools/call", { name: "validate_slint", arguments: { path, revision: 6 } });
