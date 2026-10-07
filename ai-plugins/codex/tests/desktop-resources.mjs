@@ -43,6 +43,9 @@ try {
   assert(server, "Install and enable Slint from Slint before running this test.");
   assert.equal(server.toolsError, null);
   assert(server.tools.get_preview_screenshot, "The installed plugin has no screenshot tool.");
+  assert.equal(server.tools.render_slint.outputSchema.properties.source, undefined);
+  assert.equal(server.tools.render_slint.outputSchema.properties.project, undefined);
+  assert(server.tools.render_slint.outputSchema.properties.projectHash);
   const preview = server.resources.find(resource => resource.mimeType === "text/html;profile=mcp-app");
   assert(preview, "The installed plugin has no preview resource.");
   const read = uri => call("mcpServer/resource/read", { server: server.name, uri });

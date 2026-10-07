@@ -55,12 +55,12 @@ const sourceSchema = {
 const renderOutputSchema = {
   type: "object",
   properties: {
-    previewId: { type: "string" }, source: { type: "string" }, revision: { type: "integer" },
+    status: { type: "string", enum: ["submitted"] }, previewId: { type: "string" }, revision: { type: "integer" },
     width: { type: "integer" }, height: { type: "integer" },
     sourceHash: { type: "string" }, runtimeVersion: { type: "string" }, runtimeRevision: { type: "string" },
-    sourcePath: { type: "string" }, projectRoot: { type: "string" }, project: { type: "object" },
+    sourcePath: { type: "string" }, projectRoot: { type: "string" }, projectHash: { type: "string" },
   },
-  required: ["previewId", "source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot", "project"],
+  required: ["status", "previewId", "revision", "width", "height", "sourceHash", "projectHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot"],
   additionalProperties: false,
 };
 const tools = [
@@ -100,11 +100,11 @@ async function render(args) {
   if (typeof args.path !== "string" || !isAbsolute(args.path) || !args.validatedProjectHash || args.source !== undefined) throw new Error("Provide an absolute saved path and validatedProjectHash before rendering.");
   const { source, ...project } = await snapshotProject(args.path, args.projectRoot, component, args.validatedProjectHash, runtimeMetadata.revision);
   if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
-  const structuredContent = { source, revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
-  Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, project });
+  const structuredContent = { status: "submitted", revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
+  Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, projectHash: project.id });
   const capture = await captures.create({ revision, sourceHash: structuredContent.sourceHash, projectHash: project.id, runtimeRevision: runtimeMetadata.revision });
   structuredContent.previewId = capture.previewId;
-  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, captureToken: capture.captureToken } };
+  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, preview: { source, project }, captureToken: capture.captureToken } };
 }
 
 async function handle(message) {

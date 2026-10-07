@@ -88,7 +88,12 @@ test("file-backed edits retain identity and reject stale validation", async () =
       assert.equal(rendered.isError, undefined);
       assert.equal(rendered.structuredContent.sourcePath, await realpath(path));
       assert.equal(rendered.structuredContent.revision, revision);
-      assert.equal(rendered.structuredContent.source, source);
+      assert.equal(rendered._meta.preview.source, source);
+      assert.equal(rendered.structuredContent.status, "submitted");
+      assert.equal(rendered.structuredContent.source, undefined);
+      assert.equal(rendered.structuredContent.project, undefined);
+      assert.equal(rendered._meta.preview.project.id, rendered.structuredContent.projectHash);
+      assert.deepEqual(rendered.content, [{ type: "text", text: "Slint preview submitted." }]);
       assert.equal(rendered.structuredContent.sourceHash, validation.structuredContent.sourceHash);
       assert.equal(rendered.structuredContent.sourceHash, createHash("sha256").update(source).digest("hex"));
       assert.equal(rendered.structuredContent.runtimeRevision, validation.structuredContent.runtimeRevision);
@@ -208,7 +213,7 @@ test("project validation rejects changed imports and assets before rendering", a
     const checked = (await client.call("tools/call", {name:"validate_slint",arguments:{path,revision:1}})).structuredContent;
     assert.equal(checked.status, "valid");
     const args = {path, revision:1, validatedProjectHash:checked.projectHash};
-    assert.equal((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.project.id, checked.projectHash);
+    assert.equal((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.projectHash, checked.projectHash);
     const original = await readFile(card, "utf8");
     await writeFile(card, original + "\n");
     assert.match((await client.call("tools/call", {name:"render_slint",arguments:args})).structuredContent.message, /project changed after validation/);
