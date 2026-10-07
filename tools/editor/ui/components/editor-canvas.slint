@@ -7,6 +7,7 @@ import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slin
 import { Api, DropMark, ElementKind } from "../api.slint";
 import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
+import { CommentLayer } from "comment-layer.slint";
 
 component CanvasChrome inherits Rectangle {
     in property <ArtboardStyle> style: Style.artboard;
@@ -148,5 +149,9 @@ export component EditorCanvas inherits TouchArea {
             shift-pressed: root.shift-pressed;
             real-element-selected => { root.real-element-selected(); }
         }
+    }
+
+    CommentLayer {
+        preview-origin: root.preview-origin;
     }
 }

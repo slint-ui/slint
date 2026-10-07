@@ -231,6 +231,8 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_add_element_comment(super::add_element_comment);
     api.on_remove_element_comment(super::remove_element_comment);
+    api.on_mark_element_comments_read(super::mark_element_comments_read);
+    api.on_select_comment_element(super::select_comment_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_element_text(super::override_element_text);
@@ -2488,7 +2490,7 @@ mod tests {
     }
 
     #[test]
-    fn editor_comment_model_creates_remove_action() {
+    fn editor_comments_use_one_canvas_pin_and_resolve_action() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2496,16 +2498,96 @@ mod tests {
         api.set_selection(Selection { highlight_index: 0, ..Default::default() });
         api.set_current_element(ElementInformation {
             source_uri: "file:///project/main.slint".into(),
+            id: "content".into(),
+            type_name: "Rectangle".into(),
             ..Default::default()
         });
+        api.on_highlight_positions(|_, _| {
+            Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                ..Default::default()
+            }]))
+            .into()
+        });
         api.set_element_comments(comments.clone().into());
+        let markers = Rc::new(VecModel::default());
+        api.set_comment_markers(markers.clone().into());
         editor.show().unwrap();
+        assert_eq!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Add comment to content"
+            )
+            .count(),
+            1
+        );
         comments.set_vec(vec![EditorComment { id: "1".into(), text: "Visible".into() }]);
+        markers.set_vec(vec![super::EditorCommentMarker {
+            source_uri: "file:///project/main.slint".into(),
+            label: "content".into(),
+            count: 1,
+            unread: true,
+            ..Default::default()
+        }]);
 
         assert_eq!(
-            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Remove")
-                .count(),
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Comments for content"
+            )
+            .count(),
             1
+        );
+        assert_eq!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Add comment to content"
+            )
+            .count(),
+            0
+        );
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Comments for content",
+        )
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+        let resolved = Rc::new(std::cell::RefCell::new(SharedString::default()));
+        let resolved_id = resolved.clone();
+        api.on_remove_element_comment(move |id| {
+            *resolved_id.borrow_mut() = id;
+        });
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Resolve comment 1",
+        )
+        .next()
+        .unwrap()
+        .mock_single_click(PointerEventButton::Left);
+        assert_eq!(resolved.borrow().as_str(), "1");
+
+        api.set_selection(Selection { highlight_index: -1, ..Default::default() });
+        api.set_current_element(Default::default());
+        comments.set_vec(Vec::new());
+        assert_eq!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Comments for content"
+            )
+            .count(),
+            1
+        );
+        assert_eq!(
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Element comments"
+            )
+            .count(),
+            0
         );
     }
 

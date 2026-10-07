@@ -389,6 +389,14 @@ export struct EditorComment {
     text: string,
 }
 
+export struct EditorCommentMarker {
+    source-uri: string,
+    offset: int,
+    label: string,
+    count: int,
+    unread: bool,
+}
+
 export struct PaletteEntry {
     name: string,
     value: PropertyValue,
@@ -522,8 +530,11 @@ export global Api {
     // ## Property Editor
     in-out property <ElementInformation> current-element;
     in property <[EditorComment]> element-comments;
+    in property <[EditorCommentMarker]> comment-markers;
     callback add-element-comment(string);
     callback remove-element-comment(string);
+    callback mark-element-comments-read();
+    callback select-comment-element(string, int, int);
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;

@@ -12,7 +12,6 @@ import {
     InspectorValueField,
 } from "inspector/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
-import { Button, LineEdit } from "std-widgets.slint";
 
 export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
@@ -54,15 +53,6 @@ export component InspectorPane inherits Rectangle {
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
-    private property <string> comment-draft;
-    private property <string> comment-element-key: root.element-information.source-uri
-        + ":"
-        + root.element-information.offset;
-
-    changed comment-element-key => {
-        root.comment-draft = "";
-    }
-
     property <[InspectorComboOption]> image-fit-options: [
         { value: "fill", label: "fill" },
         { value: "preserve", label: "preserve" },
@@ -521,15 +511,6 @@ export component InspectorPane inherits Rectangle {
     function text-font-weight-label() -> string {
         let index = root.text-font-weight-index();
         return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
-    }
-
-    function add-comment(comment-text: string) {
-        if comment-text == "" {
-            return;
-        }
-
-        Api.add-element-comment(comment-text);
-        root.comment-draft = "";
     }
 
     EdgeDivider {
@@ -1042,72 +1023,6 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if Api.selection.highlight-index >= 0 && Api.current-element.source-uri != "": InspectorSection {
-                    title: "Comments";
-
-                    VerticalLayout {
-                        padding-left: root.style.padding;
-                        padding-right: root.style.padding;
-                        spacing: 8px;
-
-                        for comment in Api.element-comments: Rectangle {
-                            horizontal-stretch: 1;
-                            height: comment-layout.preferred-height;
-                            border-radius: Metrics.radius-small;
-                            border-width: 1px;
-                            border-color: root.style.divider;
-                            background: Colors.surface;
-
-                            comment-layout := HorizontalLayout {
-                                padding: 6px;
-                                spacing: root.style.column-gap;
-                                cross-axis-alignment: center;
-
-                                Text {
-                                    horizontal-stretch: 1;
-                                    min-height: 32px;
-                                    text: comment.text;
-                                    color: Colors.foreground;
-                                    font-size: 12px;
-                                    vertical-alignment: center;
-                                    wrap: word-wrap;
-                                }
-
-                                Button {
-                                    text: "Remove";
-                                    clicked => {
-                                        Api.remove-element-comment(comment.id);
-                                    }
-                                }
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: root.style.column-gap;
-                            cross-axis-alignment: center;
-
-                            LineEdit {
-                                min-width: 0px;
-                                horizontal-stretch: 1;
-                                text <=> root.comment-draft;
-                                placeholder-text: "Add a comment";
-                                accessible-label: "Comment";
-                                accepted(comment-text) => {
-                                    root.add-comment(comment-text);
-                                }
-                            }
-
-                            Button {
-                                text: "Add";
-                                primary: true;
-                                enabled: root.comment-draft != "";
-                                clicked => {
-                                    root.add-comment(root.comment-draft);
-                                }
-                            }
-                        }
-                    }
-                }
 
             }
         }

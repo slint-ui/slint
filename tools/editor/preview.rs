@@ -77,6 +77,7 @@ pub fn initialize(
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
         api.set_element_comments(preview_state.element_comments_model.clone().into());
+        api.set_comment_markers(preview_state.comment_markers_model.clone().into());
     });
 
     #[cfg(feature = "system-testing")]
@@ -264,9 +265,10 @@ struct EditorComments {
 struct StoredEditorComment {
     selection: SourceElement,
     snapshot: SnapshotComment,
+    unread: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct SourceElement {
     path: PathBuf,
     offset: TextSize,
@@ -299,7 +301,7 @@ impl EditorComments {
     fn add(&mut self, selection: SourceElement, mut comment: SnapshotComment) {
         comment.id = self.next_id.to_string();
         self.next_id += 1;
-        self.comments.push(StoredEditorComment { selection, snapshot: comment });
+        self.comments.push(StoredEditorComment { selection, snapshot: comment, unread: true });
         self.publish();
     }
 
@@ -320,6 +322,37 @@ impl EditorComments {
                 text: comment.snapshot.text.as_str().into(),
             })
             .collect()
+    }
+
+    fn mark_read(&mut self, selection: &SourceElement) {
+        for comment in &mut self.comments {
+            if comment.selection == *selection {
+                comment.unread = false;
+            }
+        }
+    }
+
+    fn markers(&self) -> Vec<ui::EditorCommentMarker> {
+        let mut markers =
+            std::collections::BTreeMap::<&SourceElement, ui::EditorCommentMarker>::new();
+        for comment in &self.comments {
+            let Ok(uri) = Url::from_file_path(&comment.selection.path) else { continue };
+            let marker =
+                markers.entry(&comment.selection).or_insert_with(|| ui::EditorCommentMarker {
+                    source_uri: uri.as_str().into(),
+                    offset: u32::from(comment.selection.offset) as i32,
+                    label: comment
+                        .snapshot
+                        .element_id
+                        .as_deref()
+                        .unwrap_or(&comment.snapshot.element_type)
+                        .into(),
+                    ..Default::default()
+                });
+            marker.count += 1;
+            marker.unread |= comment.unread;
+        }
+        markers.into_values().collect()
     }
 
     fn publish(&self) {
@@ -368,6 +401,7 @@ pub struct PreviewState {
     loading_state: PreviewFutureState,
     comments: EditorComments,
     element_comments_model: Rc<slint::VecModel<ui::EditorComment>>,
+    comment_markers_model: Rc<slint::VecModel<ui::EditorCommentMarker>>,
 
     pub to_lsp: RefCell<Option<Rc<dyn i_slint_editor_preview::PreviewToLsp>>>,
 
@@ -503,6 +537,7 @@ fn reset_project_state(root: Url) {
             .map(|project_root| EditorComments::new(&project_root))
             .unwrap_or_default();
         state.element_comments_model.set_vec(Vec::new());
+        state.comment_markers_model.set_vec(Vec::new());
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -2873,6 +2908,32 @@ fn remove_element_comment(id: SharedString) {
     });
 }
 
+fn mark_element_comments_read() {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let Some(selection) =
+            preview_state.selected.as_ref().and_then(SourceElement::from_selection)
+        else {
+            return;
+        };
+        preview_state.comments.mark_read(&selection);
+        set_visible_element_comments(preview_state, preview_state.selected.as_ref());
+    });
+}
+
+fn select_comment_element(source_uri: SharedString, offset: i32, instance_index: i32) {
+    let Ok(uri) = Url::parse(source_uri.as_str()) else { return };
+    let Ok(offset) = u32::try_from(offset) else { return };
+    let Ok(instance_index) = usize::try_from(instance_index) else { return };
+    element_selection::restore_selection(
+        ElementSelection {
+            path: SourcePath::from(uri),
+            offset: TextSize::from(offset),
+            instance_index,
+        },
+        SelectionNotification::Now,
+    );
+}
+
 fn snapshot_comment(
     element_node: &i_slint_editor_preview::ElementRcNode,
     text: String,
@@ -2945,11 +3006,19 @@ fn set_visible_element_comments(
     preview_state: &PreviewState,
     selection: Option<&ElementSelection>,
 ) {
+    use slint::Model;
+
     let comments = selection
         .and_then(SourceElement::from_selection)
         .map(|selection| preview_state.comments.visible(&selection))
         .unwrap_or_default();
-    preview_state.element_comments_model.set_vec(comments);
+    if preview_state.element_comments_model.iter().ne(comments.iter().cloned()) {
+        preview_state.element_comments_model.set_vec(comments);
+    }
+    let markers = preview_state.comments.markers();
+    if preview_state.comment_markers_model.iter().ne(markers.iter().cloned()) {
+        preview_state.comment_markers_model.set_vec(markers);
+    }
 }
 
 fn selected_element() -> Option<ElementSelection> {
@@ -3815,9 +3884,22 @@ export component Main {
         assert_eq!(visible[0].id, "1");
         assert_eq!(visible[0].text, "First");
 
+        comments.add(first_element.clone(), stored_comment(file, first_range, "Another"));
+        let markers = comments.markers();
+        assert_eq!(markers.len(), 2);
+        assert_eq!(markers[0].count, 2);
+        assert!(markers.iter().all(|marker| marker.unread));
+        comments.mark_read(&first_element);
+        let markers = comments.markers();
+        assert!(!markers[0].unread);
+        assert!(markers[1].unread);
+
         comments.remove("1");
+        assert_eq!(comments.markers()[0].count, 1);
+        comments.remove("3");
         assert!(comments.visible(&first_element).is_empty());
         assert_eq!(comments.visible(&second_element)[0].id, "2");
+        assert_eq!(comments.markers().len(), 1);
     }
 
     #[test]

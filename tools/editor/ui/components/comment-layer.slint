@@ -1,0 +1,265 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+import { Api, SelectionRectangle } from "../api.slint";
+import { Colors, Metrics, Theme, Typography } from "../style.slint";
+import { CanvasView } from "canvas-view.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
+
+component CommentPin inherits Rectangle {
+    in property <int> count;
+    in property <bool> unread;
+    in property <string> element-label;
+    callback clicked();
+
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Colors.accent;
+    background: root.unread ? Colors.accent : Colors.surface;
+    accessible-role: AccessibleRole.button;
+    accessible-label: root.count > 0 ? "Comments for " + root.element-label : "Add comment to " + root.element-label;
+    accessible-value: root.count > 0 ? "\{root.count}" + (root.unread ? " unread" : "") : "";
+    accessible-action-default => { root.clicked(); }
+
+    if root.count == 0: Image {
+        width: 20px;
+        height: 20px;
+        source: @image-url("../assets/add-comment.svg");
+        colorize: Colors.accent;
+    }
+    if root.count > 0: Text {
+        text: "\{root.count}";
+        color: root.unread ? Colors.on-accent : Colors.accent;
+        font-size: Typography.body.size;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.unread: Rectangle {
+        x: parent.width - 5px;
+        y: -3px;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        border-width: 2px;
+        border-color: Colors.surface;
+        background: Colors.accent;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component CommentLayer inherits Rectangle {
+    in property <Point> preview-origin;
+    private property <bool> panel-open;
+    private property <bool> composing;
+    private property <string> draft;
+    private property <string> element-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
+    private property <string> element-label: Api.current-element.id != "" ? Api.current-element.id : Api.current-element.type-name;
+    private property <int> comment-count: Api.element-comments.length;
+    private property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset) : [];
+    private property <SelectionRectangle> selection: root.selections[Api.selection.highlight-index];
+    private property <bool> has-selection: Api.selection.highlight-index >= 0 && root.selections.length > Api.selection.highlight-index;
+    private property <Point> selected-pin-position: root.pin-position(root.selection);
+
+    changed element-key => {
+        root.draft = "";
+        root.composing = false;
+        root.panel-open = root.comment-count > 0;
+        if root.panel-open { Api.mark-element-comments-read(); }
+    }
+    changed comment-count => {
+        if root.comment-count > 0 {
+            root.panel-open = true;
+        }
+        if root.panel-open { Api.mark-element-comments-read(); }
+    }
+
+    pure function pin-position(geometry: SelectionRectangle) -> Point {
+        let bounds-width = geometry.width * geometry.angle.cos().abs() + geometry.height * geometry.angle.sin().abs();
+        let bounds-height = geometry.height * geometry.angle.cos().abs() + geometry.width * geometry.angle.sin().abs();
+        return {
+            x: clamp(root.preview-origin.x + (geometry.x + geometry.width / 2 + bounds-width / 2) * CanvasView.zoom + 8px, 8px, max(8px, root.width - 38px)),
+            y: clamp(root.preview-origin.y + (geometry.y + geometry.height / 2 - bounds-height / 2) * CanvasView.zoom + 5px, 8px, max(8px, root.height - 38px)),
+        };
+    }
+
+    function open-comments(compose: bool) {
+        root.panel-open = true;
+        root.composing = compose;
+        root.draft = "";
+        Api.mark-element-comments-read();
+    }
+
+    for marker in Api.comment-markers: Rectangle {
+        private property <[SelectionRectangle]> positions: Api.highlight-positions(marker.source-uri, marker.offset);
+        for geometry[instance-index] in self.positions: CommentPin {
+            private property <Point> position: root.pin-position(geometry);
+            x: self.position.x;
+            y: self.position.y;
+            count: marker.count;
+            unread: marker.unread;
+            element-label: marker.label;
+            clicked => {
+                Api.select-comment-element(marker.source-uri, marker.offset, instance-index);
+                root.open-comments(false);
+            }
+        }
+    }
+
+    if root.has-selection && root.comment-count == 0: CommentPin {
+        x: root.selected-pin-position.x;
+        y: root.selected-pin-position.y;
+        element-label: root.element-label;
+        clicked => { root.open-comments(true); }
+    }
+
+    if root.panel-open && root.has-selection: panel := Rectangle {
+        private property <length> right-x: root.selected-pin-position.x + 46px;
+        width: min(280px, root.width - 16px);
+        height: min(panel-layout.preferred-height, root.height - 16px);
+        x: clamp(self.right-x + self.width <= root.width - 8px ? self.right-x : root.selected-pin-position.x - self.width - 16px, 8px, max(8px, root.width - self.width - 8px));
+        y: clamp(root.selected-pin-position.y - 8px, 8px, max(8px, root.height - self.height - 8px));
+        background: Colors.surface;
+        border-width: 1px;
+        border-color: Colors.border;
+        border-radius: Metrics.radius-large;
+        drop-shadow-color: Theme.floating-shadow.color;
+        drop-shadow-blur: Theme.floating-shadow.blur;
+        drop-shadow-offset-y: Theme.floating-shadow.offset-y;
+        accessible-role: AccessibleRole.region;
+        accessible-label: "Element comments";
+
+        Rectangle {
+            x: panel.x > root.selected-pin-position.x ? root.selected-pin-position.x + 30px - panel.x : panel.width;
+            y: root.selected-pin-position.y + 15px - panel.y;
+            width: max(0px, panel.x > root.selected-pin-position.x ? -self.x : root.selected-pin-position.x - panel.x - panel.width);
+            height: 1px;
+            background: Colors.accent;
+            visible: self.y >= 0px && self.y <= panel.height;
+        }
+
+        TouchArea { }
+
+        FocusScope {
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.panel-open = false;
+                    root.composing = false;
+                    return accept;
+                }
+                return reject;
+            }
+
+            panel-layout := VerticalLayout {
+                spacing: 0px;
+                HorizontalLayout {
+                    padding: 12px;
+                    spacing: 8px;
+                    VerticalLayout {
+                        Text { text: "Comments"; color: Colors.foreground; font-size: Typography.body.size; font-weight: 500; }
+                        Text { text: root.element-label + " · " + Api.current-element.type-name; color: Colors.muted; font-size: Typography.caption.size; overflow: elide; }
+                    }
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: "Collapse comments";
+                        accessible-action-default => { root.panel-open = false; }
+                        Text { text: "×"; color: Colors.muted; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.panel-open = false; } }
+                    }
+                }
+                Rectangle { height: 1px; background: Colors.subtle-border; }
+
+                comment-scroll := EditorScrollView {
+                    min-height: 0px;
+                    preferred-height: comment-list.preferred-height;
+                    max-height: max(0px, root.height - 240px);
+                    horizontal-scrollbar-policy: always-off;
+                    VerticalLayout {
+                        comment-list := VerticalLayout {
+                            for comment[index] in Api.element-comments: VerticalLayout {
+                                padding: 12px;
+                                spacing: 8px;
+                                HorizontalLayout {
+                                    Text { horizontal-stretch: 1; text: "Comment \{index + 1} of \{root.comment-count}"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; }
+                                    Rectangle {
+                                        width: 64px;
+                                        height: 28px;
+                                        accessible-role: AccessibleRole.button;
+                                        accessible-label: "Resolve comment \{comment.id}";
+                                        accessible-action-default => { Api.remove-element-comment(comment.id); }
+                                        Text { text: "✓ Resolve"; color: Colors.accent; font-size: Typography.caption.size; horizontal-alignment: right; vertical-alignment: center; }
+                                        TouchArea { mouse-cursor: pointer; clicked => { Api.remove-element-comment(comment.id); } }
+                                    }
+                                }
+                                Text { text: comment.text; color: Colors.foreground; font-size: Typography.body.size; wrap: word-wrap; }
+                                Rectangle { height: 1px; background: Colors.subtle-border; }
+                            }
+                            if root.comment-count == 0 && !root.composing: Text {
+                                text: "All comments resolved";
+                                color: Colors.muted;
+                                font-size: Typography.body.size;
+                            }
+                        }
+                    }
+                }
+
+                if !root.composing: HorizontalLayout {
+                    padding: 12px;
+                    alignment: start;
+                    Button { horizontal-stretch: 0; text: "Add comment"; clicked => { root.open-comments(true); } }
+                }
+
+                if root.composing: VerticalLayout {
+                    padding: 12px;
+                    spacing: 8px;
+                    Text { text: "New comment"; color: Colors.foreground; font-size: Typography.body.size; }
+                    Rectangle {
+                        height: 88px;
+                        border-radius: Metrics.radius-small;
+                        border-width: 1px;
+                        border-color: Colors.border;
+                        background: Colors.subtle;
+                        input := TextInput {
+                            x: 8px;
+                            y: 8px;
+                            width: parent.width - 16px;
+                            height: parent.height - 16px;
+                            text <=> root.draft;
+                            color: Colors.foreground;
+                            font-size: Typography.body.size;
+                            wrap: word-wrap;
+                            single-line: false;
+                            accessible-label: "Comment text";
+                            selection-background-color: Colors.selection;
+                            selection-foreground-color: Colors.foreground;
+                            init => { self.focus(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+                        Button { text: "Cancel"; clicked => { root.composing = false; root.draft = ""; if root.comment-count == 0 { root.panel-open = false; } } }
+                        Button {
+                            text: "Add comment";
+                            primary: true;
+                            enabled: root.draft != "";
+                            clicked => {
+                                Api.add-element-comment(root.draft);
+                                root.draft = "";
+                                root.composing = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
