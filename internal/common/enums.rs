@@ -345,7 +345,8 @@ macro_rules! for_each_enums {
             enum InputType {
                 /// The default value. This will render all characters normally
                 Text,
-                /// This will render all characters with a character that defaults to "*"
+                /// This will render all characters with a character that defaults to "*".
+                /// The text can't be copied or cut to the clipboard.
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
