@@ -395,7 +395,7 @@ impl Instance {
             return Err(i_slint_core::api::PlatformError::Other(e.clone()));
         }
         let context = &self.globals.context;
-        let adapter = context.platform().create_window_adapter().inspect_err(|e| {
+        let adapter = context.create_window_adapter().inspect_err(|e| {
             let msg = e.to_string();
             if let Some(root) = &outermost_root {
                 let _ = root.window_adapter_error.set(msg.clone());
@@ -405,7 +405,6 @@ impl Instance {
         // Point the renderer at its adapter right away: font registration in
         // `pre_init_code` and image decoding need the renderer's Slint context
         // before `attach_to_window` runs `set_component` on show.
-        i_slint_core::window::WindowInner::from_pub(adapter.window()).set_context(context.clone());
         adapter.renderer().set_window_adapter(&adapter);
         // A freshly created adapter belongs to the outermost root instance;
         // caching it only on a sub-tree would leave the root creating a
