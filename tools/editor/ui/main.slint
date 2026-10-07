@@ -487,6 +487,8 @@ export component EditorUi inherits Window {
                     value: root.displayed-left-width;
                     value-minimum: Style.panes.left-width;
                     value-maximum: root.left-width-maximum;
+                    preferred-value: root.requested-left-width;
+                    preferred-maximum: Style.panes.maximum-width;
                     drag-started => { root.width-at-press = root.requested-left-width; }
                     dragged(delta) => {
                         root.dragged-left-width = (root.width-at-press + delta)
@@ -513,6 +515,8 @@ export component EditorUi inherits Window {
                     value: root.displayed-inspector-width;
                     value-minimum: Style.panes.inspector-width;
                     value-maximum: root.inspector-width-maximum;
+                    preferred-value: root.requested-inspector-width;
+                    preferred-maximum: Style.panes.maximum-width;
                     drag-started => { root.width-at-press = root.requested-inspector-width; }
                     dragged(delta) => {
                         root.dragged-inspector-width = (root.width-at-press - delta)

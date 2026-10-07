@@ -56,6 +56,8 @@ component ResizeDivider inherits FocusScope {
     in property <length> value-minimum: Style.panes.minimum;
     in property <length> value-maximum: Style.panes.minimum;
     in property <length> value-step: 8px;
+    in property <length> preferred-value: root.value;
+    in property <length> preferred-maximum: root.value-maximum;
     callback drag-started();
     callback dragged(length);
     callback drag-finished(length);
@@ -73,10 +75,10 @@ component ResizeDivider inherits FocusScope {
     accessible-value-maximum: root.value-maximum / 1px;
     accessible-value-step: root.value-step / 1px;
     accessible-action-increment => {
-        root.value-set(min(root.value + root.value-step, root.value-maximum));
+        root.value-set(min(root.preferred-value + root.value-step, root.preferred-maximum));
     }
     accessible-action-decrement => {
-        root.value-set(max(root.value - root.value-step, root.value-minimum));
+        root.value-set(max(root.preferred-value - root.value-step, root.value-minimum));
     }
     key-pressed(event) => {
         if event.modifiers.control && event.text == Key.Home {
@@ -85,12 +87,12 @@ component ResizeDivider inherits FocusScope {
         }
         if (!root.vertical && event.text == Key.UpArrow)
             || (root.vertical && event.text == (root.reversed ? Key.LeftArrow : Key.RightArrow)) {
-            root.value-set(min(root.value + root.value-step, root.value-maximum));
+            root.accessible-action-increment();
             return accept;
         }
         if (!root.vertical && event.text == Key.DownArrow)
             || (root.vertical && event.text == (root.reversed ? Key.RightArrow : Key.LeftArrow)) {
-            root.value-set(max(root.value - root.value-step, root.value-minimum));
+            root.accessible-action-decrement();
             return accept;
         }
         if event.text == Key.Home {
@@ -98,7 +100,7 @@ component ResizeDivider inherits FocusScope {
             return accept;
         }
         if event.text == Key.End {
-            root.value-set(root.value-maximum);
+            root.value-set(root.preferred-maximum);
             return accept;
         }
         return reject;
@@ -108,7 +110,7 @@ component ResizeDivider inherits FocusScope {
         if value.is-float() {
             root.value-set(value.to-float().clamp(
                 root.value-minimum / 1px,
-                root.value-maximum / 1px,
+                root.preferred-maximum / 1px,
             ) * 1px);
         }
     }
