@@ -6,11 +6,12 @@ The validator and preview interpreter are built from the same checkout, without 
 
 ## Build and install
 
-Use Node.js 20 or newer, Python 3, Rust, and `wasm-pack`.
+Use Node.js 20 or newer, pnpm, Python 3, Rust, and `wasm-pack`.
 Install the Wasm target with `rustup target add wasm32-unknown-unknown`.
 From the monorepo root, run:
 
 ```sh
+pnpm install --filter slint.codex.plugin --frozen-lockfile
 node tools/codex-plugin/scripts/build-runtime.mjs
 codex plugin marketplace add .
 codex plugin add slint@slint-prototype
@@ -20,6 +21,10 @@ Restart Codex and select Slint from the Slint Prototype marketplace in a new cha
 The CLI supports the development skill and tools but does not display an inline preview.
 
 The build uses the existing native LSP and Wasm interpreter crates.
+The preview template and JavaScript modules are bundled with esbuild into `runtime/preview.html`.
+Syntax highlighting uses the Figma inspector themes and the shared Slint grammar.
+Run `pnpm --filter slint.codex.plugin build` to rebuild the preview without rebuilding Slint.
+The repository logo is symlinked; the build resolves it into `runtime/slint.svg` for installation and ZIP packaging.
 Generated binaries and their source revision are stored in the ignored `runtime/` directory.
 The preview reads generated JavaScript and compressed Wasm through the host's MCP resource bridge.
 The HTML stays below 1 MiB, and each Wasm resource holds at most 256 KiB of compressed bytes.

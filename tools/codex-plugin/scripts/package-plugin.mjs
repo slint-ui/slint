@@ -18,7 +18,7 @@ try {
   const marketplace = join(staging, "slint-prototype");
   const plugin = join(marketplace, "plugins/slint");
   const executable = process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp";
-  const files = ["plugin.json", "mcp.json", ".mcp.json", ".codex-plugin/plugin.json", "server.mjs", "project.mjs", "assets/slint.svg", "components/slint-button.slint", "examples/button.slint", "skills/slint-development/SKILL.md", "scripts/check-source.py", "THIRD_PARTY_NOTICES.txt", "runtime/runtime.json", "runtime/preview.html", `runtime/${executable}`, "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"];
+  const files = ["plugin.json", "mcp.json", ".mcp.json", ".codex-plugin/plugin.json", "server.mjs", "project.mjs", "runtime/slint.svg", "components/slint-button.slint", "examples/button.slint", "skills/slint-development/SKILL.md", "scripts/check-source.py", "THIRD_PARTY_NOTICES.txt", "runtime/runtime.json", "runtime/preview.html", `runtime/${executable}`, "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"];
   for (const file of files) {
     await mkdir(dirname(join(plugin, file)), { recursive: true });
     await copyFile(join(root, file), join(plugin, file));

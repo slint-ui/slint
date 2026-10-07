@@ -5,18 +5,37 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { build } from "esbuild";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const { version } = JSON.parse(await readFile(join(root, "plugin.json"), "utf8"));
-const path = join(root, "preview/index.html");
-const pattern = /(<script id="slint-build" type="application\/json">)[\s\S]*?(<\/script>)/;
-let original = await readFile(path, "utf8");
-const zoom = (await readFile(join(root, "preview/zoom.mjs"), "utf8")).replace(/^export /gm, "");
-const cache = (await readFile(join(root, "preview/runtime-cache.mjs"), "utf8")).replace(/^export /gm, "");
-original = original.replace("__SLINT_ZOOM_SOURCE__", () => zoom + "\n" + cache);
-if (!pattern.test(original)) throw new Error("Preview build metadata is missing.");
-const digest = createHash("sha256").update(original.replace(pattern, "$1__BUILD__$2"));
-for (const file of ["plugin.json", "server.mjs", "project.mjs", "components/slint-button.slint", "scripts/check-source.py", "runtime/runtime.json", "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(root, file)));
+const bundle = await build({
+  entryPoints: [join(root, "preview/main.mjs")],
+  bundle: true,
+  write: false,
+  format: "esm",
+  platform: "browser",
+  target: "es2022",
+  minify: true,
+  legalComments: "none",
+});
+let html = await readFile(join(root, "preview/index.html"), "utf8");
+const json = value => JSON.stringify(value).replaceAll("<", "\\u003c");
+const icon = await readFile(join(root, "assets/slint.svg"));
+await writeFile(join(root, "runtime/slint.svg"), icon);
+const assets = {
+  __SLINT_PREVIEW_SCRIPT__: bundle.outputFiles[0].text.replace(/<\/script/gi, "<\\/script"),
+  __SLINT_ICON__: "data:image/svg+xml;base64," + icon.toString("base64"),
+  __SLINT_CODE_FONT__: "data:font/woff2;base64," + (await readFile(join(root, "assets/jetbrains-mono.woff2"))).toString("base64"),
+  __SLINT_EXAMPLE_SOURCE__: json(await readFile(join(root, "examples/button.slint"), "utf8")),
+  __SLINT_BUTTON_SOURCE__: json(await readFile(join(root, "components/slint-button.slint"), "utf8")),
+};
+for (const [token, value] of Object.entries(assets)) {
+  if (!html.includes(token)) throw new Error(`Preview template is missing ${token}.`);
+  html = html.replace(token, () => value);
+}
+const digest = createHash("sha256").update(html);
+for (const file of ["plugin.json", "server.mjs", "project.mjs", "scripts/check-source.py", "runtime/runtime.json", "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(root, file)));
 const metadata = { version, buildId: digest.digest("hex").slice(0, 12) };
-await writeFile(join(root, "runtime/preview.html"), original.replace(pattern, (_, before, after) => before + JSON.stringify(metadata) + after));
+await writeFile(join(root, "runtime/preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));
 console.log(JSON.stringify(metadata));

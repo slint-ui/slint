@@ -34,7 +34,7 @@ for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
 const html = (await readFile(join(root, "runtime/preview.html"), "utf8"))
   .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash }));
 if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
-const icon = await readFile(join(root, "assets/slint.svg"));
+const icon = await readFile(join(root, "runtime/slint.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
 const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };
