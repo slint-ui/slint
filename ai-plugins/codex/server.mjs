@@ -73,7 +73,7 @@ const tools = [
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted. Call get_preview_screenshot with the returned previewId, revision, and sourceHash and inspect its image before claiming visual verification. A screenshot captures the source render, not later user interactions. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted. Call get_preview_screenshot with the returned previewId, revision, and sourceHash and inspect its image before claiming visual verification. Use fresh: true on get_preview_screenshot to inspect later runtime state without recompiling. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -81,14 +81,14 @@ const tools = [
   },
   {
     name: "get_preview_screenshot", title: "Get Slint Preview Screenshot", icons,
-    description: "Get the PNG captured from the inline Slint canvas for a submitted source revision. Use previewId, revision, and sourceHash from render_slint. Inspect the returned image to verify appearance before finishing UI work. A ready render is not visual verification. If status is pending, wait briefly and retry without rendering again; if unavailable or error, report that visual verification was unavailable. The capture shows the source render, not later interactions.",
-    inputSchema: { type: "object", properties: { previewId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["previewId", "revision", "sourceHash"], additionalProperties: false },
+    description: "Get the PNG captured from the inline Slint canvas for a submitted source revision. Use previewId, revision, and sourceHash from render_slint. Inspect the returned image to verify appearance before finishing UI work. A ready render is not visual verification. If status is pending, wait briefly and retry without rendering again; if unavailable or error, report that visual verification was unavailable. Use fresh: true once to request a current-state capture without recompiling or resetting the preview. Then retrieve with the returned captureId and omit fresh on retries. This preserves the running component and its interaction state.",
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string", pattern: "^[a-f0-9]{64}$" }, fresh: { type: "boolean", default: false }, captureId: { type: "string" } }, required: ["previewId", "revision", "sourceHash"], additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "publish_preview_capture", title: "Publish Slint Preview Capture",
     description: "Publish a canvas capture or capture failure from the Slint preview app.",
-    inputSchema: { type: "object", properties: { previewId: { type: "string" }, captureToken: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string" }, data: { type: "string", maxLength: 5592408 }, capturedAt: { type: "integer", minimum: 1 }, error: { type: "string", maxLength: 1024 } }, required: ["previewId", "captureToken", "revision", "sourceHash"], additionalProperties: false },
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, captureToken: { type: "string" }, captureId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string" }, data: { type: "string", maxLength: 5592408 }, capturedAt: { type: "integer", minimum: 1 }, error: { type: "string", maxLength: 1024 } }, required: ["previewId", "captureToken", "captureId", "revision", "sourceHash"], additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: { ui: { visibility: ["app"] } },
   },
@@ -104,7 +104,7 @@ async function render(args) {
   Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, projectHash: project.id });
   const capture = await captures.create({ revision, sourceHash: structuredContent.sourceHash, projectHash: project.id, runtimeRevision: runtimeMetadata.revision });
   structuredContent.previewId = capture.previewId;
-  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, preview: { source, project }, captureToken: capture.captureToken } };
+  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, preview: { source, project }, captureToken: capture.captureToken, captureId: capture.captureId } };
 }
 
 async function handle(message) {
@@ -117,9 +117,11 @@ async function handle(message) {
       { uri: uiUri, name: "slint-preview", title: "Slint Preview", mimeType: "text/html;profile=mcp-app" },
       ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
     ] : [] };
-    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
+    case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://capture/{previewId}/{captureId}/next", name: "capture-request", description: "Wait for a new screenshot request for an open preview." }, { uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
     case "resources/read": {
       const uri = message.params?.uri;
+      const captureRequest = typeof uri === "string" && uri.match(/^slint:\/\/capture\/([a-f0-9-]{36})\/([a-f0-9-]{36})\/next$/);
+      if (captureRequest) return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(await captures.wait(captureRequest[1], captureRequest[2])) }] };
       if (typeof uri === "string" && uri.startsWith("slint://project/")) return { contents: [await readProjectResource(uri)] };
       if (runtimeResources.has(uri)) return { contents: [runtimeResources.get(uri)] };
       if (uri !== uiUri) throw new Error("Unknown Slint resource.");
@@ -137,7 +139,7 @@ async function handle(message) {
           return { structuredContent, content: [{ type: "text", text: "Slint capture result stored." }] };
         }
         if (message.params?.name === "get_preview_screenshot") {
-          const { data, ...structuredContent } = await captures.get(args);
+          const { data, ...structuredContent } = args.fresh ? await captures.request(args) : await captures.get(args);
           return { structuredContent, content: data ? [{ type: "image", mimeType: "image/png", data }] : [{ type: "text", text: structuredContent.message ?? "Slint capture pending. Wait briefly and retry." }] };
         }
         if (message.params?.name === "render_slint") return await render(args);
@@ -173,9 +175,16 @@ for await (const line of createInterface({ input: process.stdin })) {
   try {
     message = JSON.parse(line);
     if (message.id === undefined) continue;
+    if (message.method === "resources/read" && message.params?.uri?.startsWith("slint://capture/")) {
+      const id = message.id;
+      void handle(message).then(result => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, result }) + "\n"), error => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32602, message: error.message } }) + "\n"));
+      continue;
+    }
     const result = await handle(message);
     process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }) + "\n");
   } catch (error) {
     process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: message?.id ?? null, error: { code: -32602, message: error.message } }) + "\n");
   }
 }
+
+captures.close();
