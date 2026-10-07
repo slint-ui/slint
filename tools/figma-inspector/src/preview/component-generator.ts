@@ -98,7 +98,7 @@ function applyContract(
     const childConditions = condition
         ? new Set([...inheritedConditions, condition])
         : inheritedConditions;
-    const result: Element = {
+    return {
         ...tree,
         // An ancestor already controls visibility under the same condition.
         condition:
@@ -130,7 +130,6 @@ function applyContract(
             ),
         ),
     };
-    return result;
 }
 function normalizeBindingOrder(tree: Element): Element {
     return {

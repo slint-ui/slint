@@ -89,7 +89,7 @@ for (const target of ["preview", "export"] as const) {
         await p.ready(1);
         const canvas = p.element("#preview-canvas");
         canvas.style.outline = "none";
-        for (const shown of [true, false, true]) {
+        for (const [step, shown] of [true, false, true].entries()) {
             await expect
                 .poll(async () => bounds(await canvasPixels(p), 2))
                 .toEqual({ x: 0, y: 0, width: shown ? 68 : 40, height: 40 });
@@ -101,6 +101,7 @@ for (const target of ["preview", "export"] as const) {
                 height: 20,
             });
             expect(bounds(pixels, 1) !== undefined).toBe(shown);
+            if (step === 2) break;
             canvas.style.pointerEvents = "auto";
             const rect = canvas.getBoundingClientRect();
             const Pointer = (p.win as Window & typeof globalThis).PointerEvent;

@@ -235,22 +235,11 @@
       {
         "id": "VisibilityButton",
         "name": "VisibilityButton",
-        "axes": {
-          "Size": {
-            "defaultValue": "default",
-            "options": [
-              "default"
-            ]
-          }
-        },
+        "axes": {},
         "contract": {
           "version": 1,
           "properties": {
             "Show icon#1": {
-              "type": "BOOLEAN",
-              "defaultValue": true
-            },
-            "Show text#2": {
               "type": "BOOLEAN",
               "defaultValue": true
             }
@@ -267,9 +256,7 @@
         "variants": [
           {
             "id": "visibility:variant",
-            "values": {
-              "Size": "default"
-            },
+            "values": {},
             "root": {
               "id": "visibility:variant",
               "name": "Size=default",
@@ -469,9 +456,7 @@
       "visibility:instance": {
         "definitionId": "VisibilityButton",
         "variantId": "visibility:variant",
-        "values": {
-          "Size": "default"
-        }
+        "values": {}
       }
     }
   }

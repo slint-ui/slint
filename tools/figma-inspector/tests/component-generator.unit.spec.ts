@@ -427,6 +427,10 @@ describe("generator", () => {
         const { result } = await convert(source);
         expect(result.source).toContain("if root.show-icon: Rectangle");
         expect(result.source).not.toContain("if root.show-icon: Text");
+        definition.contract!.properties["Show text#2"] = {
+            type: "BOOLEAN",
+            defaultValue: true,
+        };
         definition.contract!.bindings["visibility:icon-text"].visible =
             "Show text#2";
         const independent = await convert(source);
