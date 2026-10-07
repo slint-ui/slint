@@ -342,16 +342,6 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
             (
-                "focus",
-                Type::Function(BuiltinFunction::SetFocusItem.ty()),
-                PropertyVisibility::Public,
-            ),
-            (
-                "clear-focus",
-                Type::Function(BuiltinFunction::ClearFocusItem.ty()),
-                PropertyVisibility::Public,
-            ),
-            (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN.enums.DialogButtonRole.clone()),
                 PropertyVisibility::Constexpr,
@@ -373,6 +363,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
+        .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
 }
 
 /// lookup reserved property injected in every item
@@ -429,12 +420,17 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     PropertyLookupResult::invalid(name)
 }
 
+pub fn reserved_member_functions()
+-> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
+    IntoIterator::into_iter([
+        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
+        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+    ])
+}
+
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
-    for (m, e) in [
-        ("focus", BuiltinFunction::SetFocusItem), // match for callable "focus" property
-        ("clear-focus", BuiltinFunction::ClearFocusItem), // match for callable "clear-focus" property
-    ] {
+    for (m, e, _) in reserved_member_functions() {
         if m == name {
             return Some(e);
         }

@@ -583,6 +583,12 @@ pub struct LinearGradientCommand {
     pub clip: GradientClip,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct PremultipliedGradientStop {
+    pub color: PremultipliedRgbaColor,
+    pub position: f32,
+}
+
 /// Radial gradient that interpolates colors from the center outward
 ///
 /// Unlike LinearGradientCommand, radial gradients don't have clipping fields
@@ -591,7 +597,7 @@ pub struct LinearGradientCommand {
 #[derive(Debug)]
 pub struct RadialGradientCommand {
     /// The gradient stops (colors and positions)
-    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<PremultipliedGradientStop>,
     /// Center in physical pixels, relative to the clipped rect's top-left corner.
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
@@ -611,7 +617,7 @@ pub struct RadialGradientCommand {
 pub struct ConicGradientCommand {
     /// The gradient stops (colors and normalized angle positions)
     /// Position 0 = 0 degrees (north), 1 = 360 degrees
-    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<PremultipliedGradientStop>,
     /// Center in physical pixels, relative to the clipped rect's top-left corner.
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,

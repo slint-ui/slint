@@ -517,7 +517,7 @@ export function visualSource(
     { flexItem, parent }: NodePlacement,
 ): SlintLine[] | undefined {
     const lines: SlintLine[] = [];
-    const paintBounds = node.raster?.bounds;
+    const paintBounds = node.raster?.bounds ?? node.svgBounds;
     const imageData =
         node.raster !== undefined
             ? `data:image/png;base64,${node.raster.data}`

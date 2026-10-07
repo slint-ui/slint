@@ -88,3 +88,54 @@ test("preview image URLs remain live until replacement or clearing", async () =>
     await p.ready(3);
     await expect.poll(() => revoked).toEqual(created);
 });
+
+test("identical image revisions retain their URL and skip compilation until clearing", async () => {
+    const p = await mountPreview();
+    const browser = p.win as Window & typeof globalThis;
+    const create = browser.URL.createObjectURL.bind(browser.URL);
+    const revoke = browser.URL.revokeObjectURL.bind(browser.URL);
+    const created: string[] = [],
+        revoked: string[] = [];
+    browser.URL.createObjectURL = (blob) => {
+        const url = create(blob);
+        if (blob instanceof browser.Blob && blob.type.startsWith("image/"))
+            created.push(url);
+        return url;
+    };
+    browser.URL.revokeObjectURL = (url) => {
+        if (created.includes(url)) revoked.push(url);
+        revoke(url);
+    };
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 8;
+    const context = canvas.getContext("2d");
+    if (!context) throw Error("Missing context");
+    context.fillStyle = "red";
+    context.fillRect(0, 0, 8, 8);
+    const source = `export component Demo inherits Window { width: 16px; height: 16px; background: white; Image { x: 4px; y: 4px; width: 8px; height: 8px; source: @image-url("${canvas.toDataURL()}"); } }`;
+    const packed = packPreviewAssets(source);
+    for (const revision of [1, 2]) {
+        p.send({
+            type: "preview-source",
+            revision,
+            source: packed,
+            exportPackage: { source, files: [] },
+        });
+        await p.ready(revision);
+        expect(created).toHaveLength(1);
+        expect(revoked).toEqual([]);
+        const pixels = await canvasPixels(p);
+        const offset = (8 * pixels.width + 8) * 4;
+        expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual([
+            255, 0, 0, 255,
+        ]);
+    }
+    const trace = p.messages.find(
+        (message) =>
+            message.type === "preview-complete" && message.trace.revision === 2,
+    );
+    expect(trace).toMatchObject({ trace: { outcome: "unchanged" } });
+    p.send({ type: "preview-clear", revision: 3 });
+    await p.ready(3);
+    await expect.poll(() => revoked).toEqual(created);
+});
