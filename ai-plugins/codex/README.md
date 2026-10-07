@@ -56,7 +56,7 @@ No Site account, invitation, or hosted plugin identity is required.
 
 ## File-backed previews
 
-Call `render_slint` with an absolute `path`, the next `revision`, and both `validatedSourceHash` and `validatedProjectHash` returned by `validate_slint`.
+Call `render_slint` with an absolute `path`, the next `revision`, and `validatedProjectHash` returned by `validate_slint`.
 Validation checks project fingerprints before and after the LSP operation.
 Rendering rejects changes to the entry, imports, assets, or runtime revision.
 Supply `projectRoot` when relative imports or assets need a broader root than the entry file's directory.
