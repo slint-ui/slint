@@ -22,4 +22,42 @@ Each one exists because no measure inside Slint SC can rule out the matching fai
 Slint SC's responsibility ends at the frame buffer.
 Presenting the rendered buffer on a display, and detecting when the display path fails, is yours.
 
-(TODO: list the assumptions of use that have to be confirmed.)
+## Assumptions of Use
+
+Slint SC meets its [assumed safety requirements](/component-documentation/assumed-safety-requirements/) only if each of these holds in your system.
+Confirm each one, and keep the evidence with your safety case.
+
+### Integrity and Validation
+
+| Identifier | Assumption | Why |
+| --- | --- | --- |
+| <span id="slint.aou.asil">`slint.aou.asil`</span> | The safety requirements you allocate to the user interface are ASIL B or lower. | Slint SC is developed to ASIL B; see [Integrity Level](/safety-plan/standards-compliance/#integrity-level). |
+| <span id="slint.aou.requirements">`slint.aou.requirements`</span> | The [assumed safety requirements](/component-documentation/assumed-safety-requirements/) cover what your safety concept needs from the user interface. | They're derived from an assumed use, not from your item. |
+| <span id="slint.aou.validation">`slint.aou.validation`</span> | You validate the finished system, as ISO 26262-4 Clause 8 asks. | Slint SC has no safety goals of its own to validate against. |
+| <span id="slint.aou.known-problems">`slint.aou.known-problems`</span> | You check the [Known Problems](/user-manual/known-problems/) of the release you use, and apply their workarounds. | A known problem is a failure no measure inside that release rules out. |
+
+### Building
+
+| Identifier | Assumption | Why |
+| --- | --- | --- |
+| <span id="slint.aou.toolchain">`slint.aou.toolchain`</span> | You build with a Rust toolchain qualified for ASIL B or higher; see [Prerequisites](/user-manual/get-started/prerequisites/). | The runtime and the generated code ship as source, so your toolchain compiles them. |
+| <span id="slint.aou.same-release">`slint.aou.same-release`</span> | The runtime, the compiler, and `slint-sc-coverage` all come from the same release, and you don't modify the runtime source. | The evidence holds only for the unchanged release it was produced on. |
+| <span id="slint.aou.compile">`slint.aou.compile`</span> | You compile with `--slint-sc`, and treat a non-zero exit status as a failed build; see [Slint Compiler](/user-manual/compiler/#diagnostics-and-exit-status). | The subset check only protects you if its errors stop the build. |
+| <span id="slint.aou.verify-generated">`slint.aou.verify-generated`</span> | You verify the generated code as part of your application, to ISO 26262 at your ASIL. | The compiler needs no qualification only because your verification detects its errors; see [Tool Classification](/evaluation-report/tool-classification/#slint-compiler). |
+| <span id="slint.aou.target-tests">`slint.aou.target-tests`</span> | You run the Slint SC test suite on your target, built with your toolchain. | Our evidence comes from the host; the target environment is yours. |
+
+### Running
+
+| Identifier | Assumption | Why |
+| --- | --- | --- |
+| <span id="slint.aou.render-result">`slint.aou.render-result`</span> | You check the result of `render_rgb8`, and don't present the frame buffer after an error. | After an error, the buffer still holds what it held before; see [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error). |
+| <span id="slint.aou.display-path">`slint.aou.display-path`</span> | You present the frame buffer on the display, and detect failures from the buffer onwards, such as a frozen or corrupted display. | Slint SC's responsibility ends at the frame buffer. |
+| <span id="slint.aou.timing">`slint.aou.timing`</span> | You measure the execution time and stack use of rendering and event dispatch on your target, and make sure they meet your deadlines. | Slint SC has no clock and states no timing bounds; they depend on your target and your `.slint` code. |
+| <span id="slint.aou.freedom-from-interference">`slint.aou.freedom-from-interference`</span> | No other software, a non-safety user interface included, writes to the component or its frame buffer. | Rust's type system protects them only from Rust code in the same program that doesn't use `unsafe`. |
+| <span id="slint.aou.hardware">`slint.aou.hardware`</span> | Your hardware safety measures cover random hardware faults in the memory and the processor that run Slint SC. | Slint SC is software only, and doesn't detect hardware faults. |
+| <span id="slint.aou.panic">`slint.aou.panic`</span> | Your panic handler brings the system to a safe state. | A defect in Slint SC, or in your code, can end in a panic, and the runtime has no `std` to handle it. |
+| <span id="slint.aou.input">`slint.aou.input`</span> | The touch events you pass to `dispatch_touch_event` are correct, and arrive in the order they happened. | Slint SC delivers the events it's given, and can't tell a wrong one from a real one. |
+
+:::caution[TODO]
+`slint.aou.target-tests` needs the test suite packaged for the target; see [Lifecycle](/safety-plan/lifecycle/#once-to-set-up).
+:::

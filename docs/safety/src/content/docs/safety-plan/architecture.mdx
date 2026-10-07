@@ -50,6 +50,17 @@ Three properties of the design hold by construction, so nothing has to be done t
 * Slint SC's responsibility ends at the frame buffer.
   Getting the buffer onto a display, through a display controller, a driver, or another crate, is the application's job, and no part of Slint SC takes part in it.
 
+### Dependencies
+
+The runtime has no dependencies: no other crates, no `std`, no `alloc`.
+Nothing below it needs qualifying, and it inherits no other code's failures.
+
+The compiler uses external crates, but none of its code ships in the product.
+Its dependencies are covered by its [tool qualification](/evaluation-report/).
+
+A dependency added to the runtime would be software developed outside this process.
+It would need its own evidence before it could be used, under ISO 26262-8 Clause 12.
+
 ### Static Design
 
 7.4.5 says the software architectural design shall describe its static design aspects, which address:

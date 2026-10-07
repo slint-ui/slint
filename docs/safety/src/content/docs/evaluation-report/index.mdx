@@ -26,7 +26,7 @@ The outcome of the qualification is in the [Tool Qualification](/qualification-r
 | b) Configuration | Built with the `slint-sc` feature, invoked with `--slint-sc` | Given the `.slintcov` maps the compiler writes with `--coverage`, and an `llvm-cov` export |
 | c) Use cases | [UC_COMPILE_SLINT_FILE](/evaluation-report/use-cases/#compiling-a-slint-file-into-rust) | [UC_MEASURE_SLINT_COVERAGE](/evaluation-report/use-cases/#measuring-the-coverage-of-slint-code) |
 | d) Environment | The build host | The build host, where the LLVM profiler runtime is available |
-| e) Maximum ASIL | ASIL B, assumed; see [Integrity Level](/qualification-plan/standards-compliance/#integrity-level) | ASIL B, assumed |
+| e) Maximum ASIL | ASIL B, assumed; see [Integrity Level](/safety-plan/standards-compliance/#integrity-level) | ASIL B, assumed |
 | f) Qualification methods | [Validation](/evaluation-report/qualification-method/#slint-compiler) | [Validation](/evaluation-report/qualification-method/#slint-sc-coverage) |
 
 The maximum ASIL is an assumption, since Slint SC is developed out of context.
@@ -41,6 +41,6 @@ The maximum ASIL is an assumption, since Slint SC is developed out of context.
 | a) Features, functions, and technical properties | [Reference](/reference/), and [Coverage of Slint Code](/user-manual/slint-coverage/) |
 | b) User manual | [User Manual](/user-manual/) |
 | c) Environment required for operation | [Use Cases](/evaluation-report/use-cases/) |
-| d) Behavior under anomalous operating conditions | The compiler rejects everything outside the qualified subset with a diagnostic; see [Test Suites](/qualification-plan/test-suites/#compiler-syntax-tests) |
+| d) Behavior under anomalous operating conditions | The compiler rejects everything outside the qualified subset with a diagnostic; see [Test Suites](/safety-plan/test-suites/#compiler-syntax-tests) |
 | e) Known malfunctions, and safeguards | [Known Problems](/user-manual/known-problems/) |
 | f) Measures that prevent or detect malfunctions | [Potential Errors](/evaluation-report/potential-errors/) |

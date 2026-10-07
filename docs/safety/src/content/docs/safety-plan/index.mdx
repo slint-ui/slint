@@ -1,0 +1,60 @@
+---
+title: Safety Plan
+description: How Slint SC is organized, designed, developed, verified, and released.
+---
+
+**Addresses:** ISO 26262-2 6.4.6
+
+The Safety Plan describes the safety activities of Slint SC: what they are, who does each one, when, and what it produces.
+Where an activity is already described elsewhere in this manual, the plan links to it rather than repeating it.
+
+What can go wrong, and what we do about it, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
+The evidence from running the tests is in the [Qualification Report](/qualification-report/).
+
+## Element and Route
+
+SixtyFPS GmbH delivers Slint SC to integrators as a software component, for use in items up to ASIL B.
+We build no item, no hardware, and no vehicle function; the integrator builds the product and certifies it.
+
+Slint SC consists of tools and a runtime, and each takes its own route through ISO 26262:
+
+* The `slint-sc` runtime ships in the integrator's binary.
+  It's developed as a Safety Element out of Context under ISO 26262-6, tailored as ISO 26262-2 6.4.5.7 allows; see [Tailoring](/safety-plan/standards-compliance/#tailoring).
+* The Slint compiler in `--slint-sc` mode and `slint-sc-coverage` don't ship.
+  They're tools, covered by ISO 26262-8 Clause 11 in the [Tool Evaluation Report](/evaluation-report/).
+
+The runtime isn't qualified under ISO 26262-8 Clause 12, which is meant for existing software reused without re-engineering.
+
+## Release Scope
+
+Each release states the language subset and the runtime features it covers, and the compiler rejects everything else.
+The subset is what the [Reference](/reference/) lists.
+Extending it is a change like any other.
+
+## Scope
+
+* [Standards Compliance](/safety-plan/standards-compliance/): the standard Slint SC targets, the integrity level, the tailoring, and which chapter addresses each clause.
+* [Safety Management](/safety-plan/safety-management/): what we commit to, who is responsible for what, and the confirmation measures.
+
+## Lifecycle
+
+* [Lifecycle](/safety-plan/lifecycle/): the parts of the lifecycle, and the activities set up once.
+* [Development Phases](/safety-plan/development-phases/): what every change goes through before it merges.
+* [Release and Field Monitoring](/safety-plan/release/): what every release goes through, and what happens after.
+* [Deliverables](/safety-plan/deliverables/): what each release delivers.
+
+## Design
+
+* [Architecture Design](/safety-plan/architecture/): the units that make up Slint SC, and how they fit together at build time and at run time.
+
+## Process
+
+* [Development Process](/safety-plan/development-process/): the tools, configuration management, and change management.
+* [Coding Standards](/safety-plan/coding-standards/): the rules the Rust code follows, and what enforces each one.
+
+## Verification
+
+* [Verification](/safety-plan/verification/): what is verified, and the pass criteria.
+* [Test Suites](/safety-plan/test-suites/): the suites that verify Slint SC, and how their cases are written.
+* [Coverage Criteria](/safety-plan/test-coverage/): how code coverage is measured, and the level we hold it at.
+* [Coverage Tool Verification](/safety-plan/slint-coverage/): how the tool that measures the coverage of `.slint` code is tested.

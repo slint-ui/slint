@@ -1,30 +1,28 @@
 ---
 title: Component Documentation
-description: The specification of the slint-sc runtime as a qualified software component.
+description: The specification of the slint-sc runtime, and what integrating it needs.
 ---
 
-**Addresses:** ISO 26262-8 12.5.1, from 12.4.2.1
+The `slint-sc` runtime ships inside the customer's binary.
+It's developed as a Safety Element out of Context under ISO 26262-6; see [Element and Route](/safety-plan/#element-and-route).
+This document is its specification, and lists what an integrator needs to integrate it.
 
-The `slint-sc` runtime ships inside the customer's binary, so it's qualified as a software component rather than as a tool.
-This document is its specification.
-The [Component Qualification Plan](/qualification-plan/component-qualification/) says how it's qualified.
-The [Component Qualification](/qualification-report/component-qualification/) chapter of the Qualification Report records the outcome.
-
+* [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/): the safety requirements Slint SC is developed to, derived from its assumed use.
 * [Safety Analysis](/component-documentation/safety-analysis/): what can go wrong in the runtime, and the measure or constraint that covers each error.
 
 ## Specification
 
-12.4.2.1 asks the specification of the component to include the following.
+The items follow the specification of a software component in ISO 26262-8 12.4.2.1, a list that fits any component an integrator takes in.
 
 | Item | Where |
 | --- | --- |
 | a) Unique identification | The `slint-sc` crate from `api/slint-sc`, of the release under qualification |
-| b) Maximum target ASIL | ASIL B; see [Integrity Level](/qualification-plan/standards-compliance/#integrity-level) |
-| c) Qualification activities | [Component Qualification Plan](/qualification-plan/component-qualification/) |
+| b) Maximum target ASIL | ASIL B; see [Integrity Level](/safety-plan/standards-compliance/#integrity-level) |
+| c) Development and verification activities | [Lifecycle](/safety-plan/lifecycle/) |
 | d) Requirements of the component | The [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/), one identified paragraph per requirement |
 | e) Requirements of the intended use | [User Manual](/user-manual/) |
 | f) Configuration | The crate has no features and no dependencies, so it has one configuration |
-| g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/qualification-plan/architecture/#properties) |
+| g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/safety-plan/architecture/#properties) |
 | h) Application manual | [User Manual](/user-manual/) |
 | i) Integration instructions | [Add the Runtime](/user-manual/get-started/installation/#add-the-runtime) in the User Manual |
 | j) Reactions under anomalous operating conditions | [Safety Analysis](/component-documentation/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |

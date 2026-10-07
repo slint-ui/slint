@@ -6,7 +6,7 @@ description: How the tools of Slint SC are qualified.
 **Addresses:** ISO 26262-8 11.4.4.1 f, 11.4.9
 
 This chapter states how each tool reaches the confidence level its [classification](/evaluation-report/tool-classification/) asks for.
-The runtime isn't a tool; its qualification is in the [Component Qualification Plan](/qualification-plan/component-qualification/).
+The runtime isn't a tool; it's developed under ISO 26262-6, see [Element and Route](/safety-plan/#element-and-route).
 
 ## Slint Compiler
 
@@ -19,14 +19,14 @@ Every paragraph of the [Language Specification](/reference/language/) carries an
 | --- | --- |
 | a) Evidence that the tool complies with its specified requirements | The [Traceability Matrix](/qualification-report/traceability-matrix/) |
 | b) Analysis of malfunctions found during validation | [Known Problems](/user-manual/known-problems/) |
-| c) Reaction to anomalous operating conditions | The [compiler syntax tests](/qualification-plan/test-suites/#compiler-syntax-tests) assert that everything outside the qualified subset is rejected with a diagnostic |
+| c) Reaction to anomalous operating conditions | The [compiler syntax tests](/safety-plan/test-suites/#compiler-syntax-tests) assert that everything outside the qualified subset is rejected with a diagnostic |
 
 ## slint-sc-coverage
 
 `slint-sc-coverage` is qualified by validation too.
 Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement.
-See [Coverage Tool Verification](/qualification-plan/slint-coverage/).
+See [Coverage Tool Verification](/safety-plan/slint-coverage/).
 
 ## Test Suites
 
-The suites that produce this evidence are described in [Test Suites](/qualification-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).
+The suites that produce this evidence are described in [Test Suites](/safety-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).

@@ -1,7 +1,7 @@
 # Slint SC Safety Manual
 
 Astro Starlight site for the Slint SC Safety Manual: the User Manual, the
-Qualification Plan, and the other documents of the qualification package.
+Safety Plan, and the other documents of the qualification package.
 
 Hand-written content lives in `src/content/docs/`. Everything under
 `src/content/docs/generated/` is produced by `slint-doc-generator` and
