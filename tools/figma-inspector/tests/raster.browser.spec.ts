@@ -13,6 +13,38 @@ import {
 } from "./browser-harness";
 import { compareScreenshotPixels } from "./screenshot-compare";
 
+test("radial panel gradients preserve elliptical placement and opaque child rows", async () => {
+    const normalized = await normalizeSource(
+        JSON.parse(await readFixture("fixtures/source/radial-panel.json")),
+    );
+    if (!normalized.ok || normalized.empty)
+        throw Error("Invalid radial fixture");
+    const p = await mountPreview();
+    for (const specialize of [false, true]) {
+        const result = convertSnapshot(normalized.snapshot, { specialize });
+        if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
+        const revision = specialize ? 2 : 1;
+        p.send({
+            type: "preview-source",
+            revision,
+            source: result.source,
+            exportPackage: { source: result.source, files: [] },
+        });
+        await p.ready(revision);
+        const pixels = await canvasPixels(p);
+        const scale = pixels.width / 32;
+        const pixel = (x: number, y: number) => {
+            const offset =
+                (Math.floor(y * scale) * pixels.width + Math.floor(x * scale)) *
+                4;
+            return Array.from(pixels.data.slice(offset, offset + 4));
+        };
+        expect(pixel(16, 16)).toEqual([0, 0, 0, 255]);
+        expect(pixel(16, 1)[0]).toBeGreaterThan(pixel(1, 16)[0] + 70);
+        expect(pixel(1, 16)[2]).toBeGreaterThan(230);
+    }
+});
+
 for (const name of ["asymmetric", "stroke", "mask-shadow"])
     test(`${name} matches independent authored Figma pixels`, async () => {
         const p = await mountPreview();
