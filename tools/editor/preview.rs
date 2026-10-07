@@ -84,22 +84,27 @@ pub fn initialize(
     editor_ui
         .set_outline_pane_height(settings.outline_pane_height.map_or(0.0, |height| height as f32));
 
-    let to_lsp_for_elements = to_lsp.clone();
-    editor_ui.on_elements_pane_resized(move |height| {
-        update_pane_height(PaneHeight::Elements, Some(height), &to_lsp_for_elements);
-    });
-    let to_lsp_for_outline = to_lsp.clone();
-    editor_ui.on_outline_pane_resized(move |height| {
-        update_pane_height(PaneHeight::Outline, Some(height), &to_lsp_for_outline);
-    });
-    let to_lsp_for_elements_reset = to_lsp.clone();
-    editor_ui.on_elements_pane_reset(move || {
-        update_pane_height(PaneHeight::Elements, None, &to_lsp_for_elements_reset);
-    });
-    let to_lsp_for_outline_reset = to_lsp.clone();
-    editor_ui.on_outline_pane_reset(move || {
-        update_pane_height(PaneHeight::Outline, None, &to_lsp_for_outline_reset);
-    });
+    editor_ui
+        .set_left_pane_width_preference(settings.left_pane_width.map_or(0.0, |width| width as f32));
+    editor_ui.set_inspector_pane_width_preference(
+        settings.inspector_pane_width.map_or(0.0, |width| width as f32),
+    );
+    let resize_pane = |pane| {
+        let to_lsp = to_lsp.clone();
+        move |size| update_pane_size(pane, Some(size), &to_lsp)
+    };
+    let reset_pane = |pane| {
+        let to_lsp = to_lsp.clone();
+        move || update_pane_size(pane, None, &to_lsp)
+    };
+    editor_ui.on_left_pane_resized(resize_pane(PaneSize::LeftWidth));
+    editor_ui.on_inspector_pane_resized(resize_pane(PaneSize::InspectorWidth));
+    editor_ui.on_elements_pane_resized(resize_pane(PaneSize::ElementsHeight));
+    editor_ui.on_outline_pane_resized(resize_pane(PaneSize::OutlineHeight));
+    editor_ui.on_left_pane_reset(reset_pane(PaneSize::LeftWidth));
+    editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
+    editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
+    editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
 
     to_lsp
         .send_telemetry(&mut [(
@@ -432,6 +437,12 @@ pub fn set_user_settings(name: String, contents: String) {
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
                 apply_visible_recent_projects(editor_ui, &settings);
+                editor_ui.set_inspector_pane_width_preference(
+                    settings.inspector_pane_width.map_or(0.0, |width| width as f32),
+                );
+                editor_ui.set_left_pane_width_preference(
+                    settings.left_pane_width.map_or(0.0, |width| width as f32),
+                );
                 editor_ui.set_elements_pane_height(
                     settings.elements_pane_height.map_or(0.0, |height| height as f32),
                 );
@@ -445,41 +456,38 @@ pub fn set_user_settings(name: String, contents: String) {
 }
 
 #[derive(Copy, Clone)]
-enum PaneHeight {
-    Elements,
-    Outline,
+enum PaneSize {
+    ElementsHeight,
+    OutlineHeight,
+    LeftWidth,
+    InspectorWidth,
 }
 
-fn update_pane_height(
-    pane: PaneHeight,
-    height: Option<f32>,
+fn update_pane_size(
+    pane: PaneSize,
+    size: Option<f32>,
     to_lsp: &Rc<dyn i_slint_editor_preview::PreviewToLsp>,
 ) {
-    let value = height.map(|height| height.round() as i32).filter(|height| *height > 0);
+    let value = size.map(|size| size.round() as i32).filter(|size| *size > 0);
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let target = match pane {
-            PaneHeight::Elements => &mut preview_state.settings.elements_pane_height,
-            PaneHeight::Outline => &mut preview_state.settings.outline_pane_height,
+            PaneSize::ElementsHeight => &mut preview_state.settings.elements_pane_height,
+            PaneSize::OutlineHeight => &mut preview_state.settings.outline_pane_height,
+            PaneSize::InspectorWidth => &mut preview_state.settings.inspector_pane_width,
+            PaneSize::LeftWidth => &mut preview_state.settings.left_pane_width,
         };
-        if *target == value {
-            if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
-                let height = value.map_or(0.0, |height| height as f32);
-                match pane {
-                    PaneHeight::Elements => editor_ui.set_elements_pane_height(height),
-                    PaneHeight::Outline => editor_ui.set_outline_pane_height(height),
-                }
-            }
-            return None;
-        }
+        let changed = *target != value;
         *target = value;
         if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
-            let height = value.map_or(0.0, |height| height as f32);
+            let size = value.map_or(0.0, |size| size as f32);
             match pane {
-                PaneHeight::Elements => editor_ui.set_elements_pane_height(height),
-                PaneHeight::Outline => editor_ui.set_outline_pane_height(height),
+                PaneSize::ElementsHeight => editor_ui.set_elements_pane_height(size),
+                PaneSize::OutlineHeight => editor_ui.set_outline_pane_height(size),
+                PaneSize::InspectorWidth => editor_ui.set_inspector_pane_width_preference(size),
+                PaneSize::LeftWidth => editor_ui.set_left_pane_width_preference(size),
             }
         }
-        Some(preview_state.settings.serialize())
+        changed.then(|| preview_state.settings.serialize())
     });
     let Some(contents) = update else { return };
     if let Err(error) = to_lsp
