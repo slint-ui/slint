@@ -1,6 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export struct CodeBinding {
+    name: string,
+    value: string,
+}
+
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -50,6 +55,11 @@ export struct ComponentListItem {
     components: [ComponentItem]
 }
 
+export struct InspectorNumberChange {
+    name: string,
+    value: float,
+}
+
 /// Some `Diagnostics` as raised by the compiler
 export enum DiagnosticSummary {
     NothingDetected,
@@ -80,6 +90,9 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and is being redialed. Connecting elsewhere
+    /// replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for it to be
     /// typed in here.
     PairingRequired,
@@ -88,11 +101,6 @@ export enum RemoteConnectionState {
     UnpairedWarning,
     Connected,
     Failed,
-}
-
-export enum PreviewMode {
-    Local,
-    Remote,
 }
 
 export enum UpdateState {
@@ -142,6 +150,7 @@ export struct HoveredElement {
     is-selected: bool,
     is-over-selected-element: bool,
     element-path: string,
+    source-uri: string,
     element-offset: int,
     type-name: string,
     geometry: [SelectionRectangle],
@@ -149,6 +158,12 @@ export struct HoveredElement {
 
 export global Hover {
     in-out property <HoveredElement> element;
+    in property <int> preview-generation;
+    in-out property <string> tree-source-uri;
+    in-out property <int> tree-offset: -1;
+    in-out property <string> tree-type-name;
+    out property <[SelectionRectangle]> geometry: tree-source-uri != ""
+        ? Api.highlight-positions(tree-source-uri, tree-offset) : element.geometry;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
 }
 
@@ -202,15 +217,6 @@ export struct Range {
     end: int,
 }
 
-export struct ColorData {
-    r: int,
-    g: int,
-    b: int,
-    a: int,
-    text: string,
-    short-text: string,
-}
-
 export enum PropertyValueKind {
     boolean,
     brush,
@@ -254,6 +260,32 @@ export struct FillData {
     center-y: float,
     custom-radius: bool,
     radius: float,
+}
+
+export enum ColorFieldMode {
+    source,
+    solid,
+    gradient,
+}
+
+export struct ColorFieldData {
+    mode: ColorFieldMode,
+    fill: FillData,
+    label: string,
+    unsupported: bool,
+    allow-gradient: bool,
+}
+
+export struct ColorFieldEdit {
+    valid: bool,
+    color: color,
+    expression: string,
+    display: string,
+}
+
+export struct ColorValueData {
+    color-text: string,
+    opacity: int,
 }
 
 /// Data about the property value for use in "simple" mode
@@ -402,6 +434,7 @@ export enum FileTreeNodeKind {
 
 export struct FileTreeNode {
     label: string,
+    rename-selection-end: int,
     path: string,
     parent-path: string,
     indent-level: int,
@@ -428,7 +461,6 @@ export global Api {
     in property <bool> show-preview-ui: true;
     // std-widgets are used (=> show style dropdown)
     in-out property <bool> uses-widgets;
-    in-out property <bool> always-on-top;
     in-out property <UpdateState> update-state: UpdateState.UpToDate;
     in-out property <float> update-download-progress: 0.0;
     in-out property <string> update-version;
@@ -440,8 +472,6 @@ export global Api {
     // All the components
     in property <[ComponentListItem]> known-components;
     callback library-search(string);
-    // The component currently viewed
-    out property <ComponentItem> visible-component;
 
     // ## Kinds of diagnostics seen in the last compiler run
     in property <DiagnosticSummary> diagnostic-summary;
@@ -486,161 +516,13 @@ export global Api {
 
     // ## Property Editor
     in-out property <ElementInformation> current-element;
-    in-out property <[PropertyGroup]> properties: [
-        {
-            group-name: "Geometry",
-            properties: [
-                {
-                    name: "width",
-                    type-name: "length",
-                    value: {
-                        kind: PropertyValueKind.float,
-                        value-float: 100,
-                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
-                    }
-                },
-                {
-                    name: "height",
-                    type-name: "length",
-                    value: {
-                        kind: PropertyValueKind.float,
-                        value-float: 200,
-                        visual-items: ["px", "cm", "mm", "in", "pt", "phx"],
-                    }
-                },
-                { name: "z", type-name: "float", value: {
-                    kind: PropertyValueKind.float,
-                    value-float: 10,
-                } },
-                {
-                    name: "combobox",
-                    type-name: "string",
-                    value: {
-                        kind: PropertyValueKind.enum,
-                        value-int: 1,
-                        default-selection: 0,
-                        visual-items: ["one", "twenty two", "one hundred", "infinite"],
-                    }
-                },
-            ]
-        },
-        {
-            group-name: "Button",
-            properties: [
-                {
-                    name: "text",
-                    type-name: "string",
-                    value: {
-                        is-translatable: true,
-                        kind: PropertyValueKind.string,
-                    }
-                },
-                { name: "checkable", type-name: "bool", value: {
-                    kind: PropertyValueKind.boolean,
-                } },
-                { name: "icon", type-name: "image", value: {
-                    kind: PropertyValueKind.code,
-                } },
-                {
-                    name: "brush",
-                    type-name: "brush",
-                    value: { kind: PropertyValueKind.brush, value-brush: Colors.green, value-string: "#00ff00" },
-                },
-                {
-                    name: "text-between",
-                    type-name: "string",
-                    value: {
-                        is-translatable: true,
-                        kind: PropertyValueKind.string,
-                    }
-                },
-                {
-                    name: "color",
-                    type-name: "color",
-                    value: { kind: PropertyValueKind.color, value-brush: Colors.green, value-string: "#00ff00" },
-                },
-                {
-                    name: "a-really-long-named-attribute",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.float,
-                        value-float: 10,
-                    }
-                },
-                {
-                    name: "bar",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.code,
-                        value-float: 10.5,
-                        code: 10 / 2,
-                    }
-                },
-                {
-                    name: "baz",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.code,
-                        value-float: 10.5,
-                        code: "",
-                    }
-                }
-            ]
-        },
-        {
-            group-name: "Other",
-            properties: [
-                {
-                    name: "text",
-                    type-name: "string",
-                    value: {
-                        is-translatable: true,
-                        kind: PropertyValueKind.string,
-                    }
-                },
-                { name: "checkable", type-name: "bool", value: {
-                    kind: PropertyValueKind.boolean,
-                } },
-                { name: "icon", type-name: "image", value: {
-                    kind: PropertyValueKind.code,
-                } },
-                {
-                    name: "color",
-                    type-name: "brush",
-                    value: { kind: PropertyValueKind.brush, value-brush: Colors.magenta, value-string: "#ff00ff" },
-                },
-                {
-                    name: "a-really-long-named-attribute",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.float,
-                        value-float: 10,
-                    }
-                },
-                {
-                    name: "bar",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.code,
-                        value-float: 10.5,
-                        code: 10 / 2,
-                    }
-                },
-                {
-                    name: "baz",
-                    type-name: "float",
-                    value: {
-                        kind: PropertyValueKind.code,
-                        value-float: 10.5,
-                        code: "",
-                    }
-                }
-            ]
-        }
-    ];
+    in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback current-property-value-data(property-name: string) -> PropertyValue;
     pure callback current-property-value(property-name: string, fallback: string) -> string;
+    pure callback current-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback image-source-file-name(source: string) -> string;
+    callback choose-image-file(source-uri: string) -> string;
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
@@ -658,10 +540,9 @@ export global Api {
     in-out property <int> image-nine-slice-right;
     in-out property <int> image-nine-slice-bottom;
     in-out property <int> image-nine-slice-left;
-    callback open-startup-wizard();
-    callback close-startup-wizard();
     callback file-tree-toggle(path: string);
     callback file-tree-select(path: string);
+    callback file-tree-rename(path: string, name: string) -> string;
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
     pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);
@@ -673,10 +554,11 @@ export global Api {
     // # Callbacks
 
     // ## Custom conversion functions:
-    pure callback string-is-color(string) -> bool;
-    pure callback string-to-color(string) -> color;
-    pure callback color-to-data(color) -> ColorData;
-    pure callback rgba_to_color(r: int, g: int, b: int, a: int) -> color;
+    pure callback color-value-data(color) -> ColorValueData;
+    pure callback color-value-color-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-opacity-edit(color: color, text: string) -> ColorFieldEdit;
+    pure callback color-value-with-opacity(color: color, opacity: float) -> color;
+    pure callback fill-with-color(fill: FillData, color: color) -> FillData;
 
     // ## Style:
     callback style-changed();
@@ -696,10 +578,11 @@ export global Api {
     callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
     callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
-    callback persist-selected-element-geometry();
+    callback persist-selected-element-geometry() -> bool;
     callback selected-element-rotate(rotation: angle);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
     callback override-selected-element-rotation(rotation: angle);
+    callback override-element-text(override-id: string, text: string) -> string;
 
     callback selected-element-delete();
 
@@ -735,16 +618,20 @@ export global Api {
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
+    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // ## Property Editor
     pure callback test-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
-    pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string);
+    pure callback set-code-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: string) -> bool;
+    pure callback set-code-bindings(element-url: string, element-version: int, element-offset: int, bindings: [CodeBinding]) -> bool;
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
+    pure callback string-is-single-line(value: string) -> bool;
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
     pure callback fill-brush(value: FillData) -> brush;
@@ -806,7 +693,6 @@ export global Api {
     in-out property <bool> redo-enabled: false;
 
     // ## Remote preview
-    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
     in-out property <[RemoteViewerInfo]> remote-discovered-viewers;
     in-out property <RemoteConnectionState> remote-connection-state;
     in-out property <string> remote-connection-error;
@@ -823,25 +709,4 @@ export global Api {
     /// Digits in a pairing code, from `pairing::CODE_DIGITS`.
     in-out property <int> remote-pairing-code-length;
 
-    // ## SlintPad related APIs
-    in-out property <bool> runs-in-slintpad;
-    in-out property <[{title: string, url: string}]> demos: [
-        { url: "", title: "Hello World!" },
-        { url: "examples/gallery/gallery.slint", title: "Gallery" },
-        { url: "demos/home-automation/ui/demo-debug.slint", title: "Home Automation" },
-        { url: "demos/usecases/ui/app.slint", title: "Use Cases Demo" },
-        { url: "demos/printerdemo/ui/printerdemo.slint", title: "Printer Demo" },
-        { url: "demos/energy-monitor/ui/desktop_window.slint", title: "Energy Monitor" },
-        { url: "examples/todo/ui/todo.slint", title: "Todo Demo" },
-        { url: "examples/iot-dashboard/main.slint", title: "IOT Dashboard" },
-        { url: "examples/fancy-switches/demo.slint", title: "Fancy Switches" },
-        { url: "examples/dial/dial.slint", title: "Fancy Dial" },
-        { url: "examples/orbit-animation/demo.slint", title: "Fancy Animations" },
-        { url: "examples/repeater/demo.slint", title: "Fancy Repeater" },
-        { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
-    ];
-    callback new-file();
-    callback share-permalink-to-clipboard();
-    callback load-demo(url: string);
-    callback show-about-slint();
 }

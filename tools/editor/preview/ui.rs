@@ -3,10 +3,10 @@
 
 // cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::TextRange;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{expression_tree, langtype};
 
 use i_slint_core::DataTransfer;
@@ -20,9 +20,6 @@ use smol_str::SmolStr;
 
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 use i_slint_editor_preview::component_catalog::ComponentInformation;
-
-#[cfg(target_arch = "wasm32")]
-use i_slint_editor_preview::wasm_prelude::*;
 
 fn fuzzy_filter_iter<Item: std::fmt::Debug>(
     input: &mut impl Iterator<Item = Item>,
@@ -62,19 +59,15 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 }
 
 mod brushes;
-mod conic_gradient;
-mod linear_gradient;
-mod radial_gradient;
 pub(super) use brushes::{fill_brush, fill_expression};
-mod element_library;
 pub(super) mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
-mod recent_fills;
 pub mod search_model;
 
-slint::include_modules!();
+use slint_editor::component_support::{element_library, recent_fills};
+pub use slint_editor::ui::*;
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
@@ -96,6 +89,29 @@ pub fn create_ui() -> Result<EditorUi, PlatformError> {
             })
             .clone()
     });
+    let resize_cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
+    ui.global::<EditorCursors>().on_resize_image(move |angle| {
+        let angle = angle.round().rem_euclid(180.0) as i32;
+        resize_cursors
+            .borrow_mut()
+            .entry(angle)
+            .or_insert_with(|| {
+                let svg = include_str!("../ui/assets/cursors/resize.svg")
+                    .replace("{angle}", &angle.to_string());
+                let image = slint::Image::load_from_svg_data(svg.as_bytes())
+                    .expect("valid resize cursor SVG");
+                slint::Image::from_rgba8(image.to_rgba8().expect("resize cursor pixels"))
+            })
+            .clone()
+    });
+    let scrub_horizontal_cursor = {
+        let image = slint::Image::load_from_svg_data(include_bytes!(
+            "../ui/assets/cursors/scrub-horizontal.svg"
+        ))
+        .expect("valid horizontal scrub cursor SVG");
+        slint::Image::from_rgba8(image.to_rgba8().expect("horizontal scrub cursor pixels"))
+    };
+    ui.global::<EditorCursors>().on_scrub_horizontal_image(move || scrub_horizontal_cursor.clone());
     Ok(ui)
 }
 
@@ -150,12 +166,14 @@ pub fn initialize_editor(
     api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).ok();
+        if let Some(url) = SourcePath::new(file.as_str()).to_url() {
+            lsp.ask_editor_to_show_document(url, Range::new(pos, pos), false).ok();
+        }
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
-    api.on_unselect(super::element_selection::unselect_element);
+    api.on_unselect(|| super::element_selection::unselect_element(SelectionNotification::Now));
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     hover.on_element_at(super::element_selection::hovered_element_at);
@@ -166,7 +184,7 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            PathBuf::from(path.to_string()),
+            SourcePath::new(path.as_str()),
             preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
@@ -213,6 +231,7 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
+    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
@@ -220,6 +239,8 @@ pub fn initialize_editor(
     api.on_inspector_preview(super::inspector::preview);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
+    api.on_inspector_preview_shadow(super::inspector::preview_shadow);
+    api.on_inspector_commit_shadow(super::inspector::commit_shadow);
     api.on_inspector_fill_preview(super::inspector::preview_fill);
     api.on_inspector_fill_commit(super::inspector::commit_fill);
     let editor_weak = editor_ui.as_weak();
@@ -239,8 +260,12 @@ pub fn initialize_editor(
     });
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
+    api.on_set_code_bindings(|url, version, offset, bindings| {
+        super::set_code_bindings(url, version, offset, bindings.iter())
+    });
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
+    api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
     api.on_current_property_value_data(move |property_name| {
@@ -250,6 +275,16 @@ pub fn initialize_editor(
 
         current_property_value_data(&api, property_name).unwrap_or_default()
     });
+    let color_field_api_weak = api_weak.clone();
+    api.on_current_color_field_data(move |property_name| {
+        let Some(api) = color_field_api_weak.upgrade() else {
+            return ColorFieldData::default();
+        };
+
+        current_property_value_data(&api, property_name)
+            .map(brushes::color_field_data)
+            .unwrap_or_default()
+    });
     let property_value_api_weak = api_weak.clone();
     api.on_current_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {
@@ -257,6 +292,12 @@ pub fn initialize_editor(
         };
 
         current_property_value(&api, property_name, fallback)
+    });
+    api.on_image_source_file_name(file_tree::image_source_file_name);
+    let editor_weak = editor_ui.as_weak();
+    api.on_choose_image_file(move |source_uri| {
+        let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
+        file_tree::choose_image_file(source_uri.as_str(), window)
     });
 
     api.on_get_property_value(get_property_value);
@@ -308,8 +349,7 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
         return (Default::default(), Default::default());
     };
 
-    let path = url.to_file_path().unwrap_or_default();
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+    let file_name = SourcePath::from_url(url).file_name().unwrap_or_default().to_string();
 
     (url.to_string().into(), file_name.into())
 }
@@ -322,9 +362,9 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
     let summary = diagnostics
         .iter()
         .inspect(|d| {
-            let location = d.source_file().map(|p| {
+            let location = d.source_path().map(|p| {
                 let (line, column) = d.line_column();
-                (p.to_string_lossy().to_string().into(), line, column)
+                (p.into(), line, column)
             });
 
             let level = match d.level() {
@@ -359,9 +399,8 @@ pub fn ui_set_known_components(
 ) {
     let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
     let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
+    let mut path_map: HashMap<String, (SharedString, Vec<ComponentItem>)> = Default::default();
     let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut longest_path_prefix = PathBuf::new();
 
     for (idx, ci) in known_components.iter().enumerate() {
         if ci.is_global {
@@ -382,20 +421,7 @@ pub fn ui_set_known_components(
             if let Some(library) = position.url().path().strip_prefix("/@") {
                 library_map.entry(format!("@{library}")).or_default().push(item);
             } else {
-                let path = i_slint_compiler::pathutils::clean_path(
-                    &(position.url().to_file_path().unwrap_or_default()),
-                );
-                if path != PathBuf::new() {
-                    if longest_path_prefix == PathBuf::new() {
-                        longest_path_prefix = path.clone();
-                    } else {
-                        longest_path_prefix =
-                            std::iter::zip(longest_path_prefix.components(), path.components())
-                                .take_while(|(l, p)| l == p)
-                                .map(|(l, _)| l)
-                                .collect();
-                    }
-                }
+                let path = SourcePath::from_url(position.url()).to_string();
                 path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
             }
         } else if ci.is_builtin {
@@ -433,20 +459,19 @@ pub fn ui_set_known_components(
     let std_widgets_components = sort_subset(std_widgets_map);
     let library_components = sort_subset(library_map);
 
+    let common_directory =
+        i_slint_editor_preview::util::common_directory(path_map.keys().map(String::as_str));
     let mut file_components = path_map
         .drain()
         .map(|(p, (file_url, mut v))| {
             v.sort_by_key(|i| i.name.clone());
             let model = Rc::new(make_component_model(v));
-            let name = if p == longest_path_prefix {
-                p.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                p.strip_prefix(&longest_path_prefix).unwrap_or(&p).to_string_lossy().to_string()
-            };
+            let name = p.strip_prefix(common_directory.as_str()).unwrap_or(&p);
             ComponentListItem { category: name.into(), file_url, components: model.into() }
         })
         .collect::<Vec<_>>();
-    file_components.sort_by_key(|k| PathBuf::from(k.category.to_string()));
+    file_components
+        .sort_by(|a, b| a.category.split(['/', '\\']).cmp(b.category.split(['/', '\\'])));
 
     let mut all_components = Vec::with_capacity(
         builtin_components.len() + library_components.len() + file_components.len(),
@@ -1628,6 +1653,167 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn resize_cursor_rotates_and_reuses_half_turns() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursors = editor.global::<super::EditorCursors>();
+        let horizontal = cursors.invoke_resize_image(0.);
+        assert_eq!(horizontal, cursors.invoke_resize_image(180.));
+        assert_ne!(horizontal, cursors.invoke_resize_image(90.));
+    }
+
+    #[test]
+    fn scrub_cursor_uses_fixed_pixel_size() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!(cursor.size().width, 32);
+        assert_eq!(cursor.size().height, 32);
+    }
+
+    #[test]
+    fn rotated_edge_cursor_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                angle: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+
+        let edge = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Rectangle resize right",
+        )
+        .next()
+        .unwrap();
+        let position = edge.absolute_position();
+        let size = edge.size();
+        let angle = 30_f32.to_radians();
+        let start = LogicalPosition::new(
+            position.x + size.width / 2. * angle.cos() - size.height / 2. * angle.sin(),
+            position.y + size.width / 2. * angle.sin() + size.height / 2. * angle.cos(),
+        );
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let resize_cursor = cursor();
+        assert_eq!(
+            resize_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor {
+                image: editor.global::<super::EditorCursors>().invoke_resize_image(30.),
+                hotspot_x: 16,
+                hotspot_y: 16,
+            }
+        );
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+        });
+        assert_eq!(cursor(), resize_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: LogicalPosition::new(start.x + 20., start.y + 16.),
+            button: PointerEventButton::Left,
+        });
+    }
+
+    #[test]
+    fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let radius_changed = std::rc::Rc::new(std::cell::Cell::new(false));
+        let changed = radius_changed.clone();
+        api.on_override_selected_element_border_radius(move |_, _, _| changed.set(true));
+        editor.show().unwrap();
+
+        let center = |label: &str| {
+            let element =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = element.absolute_position();
+            let size = element.size();
+            LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.)
+        };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+        editor
+            .window()
+            .dispatch_event(WindowEvent::PointerMoved { position: center("Selected Rectangle") });
+        let canvas_cursor = cursor();
+        assert_eq!(canvas_cursor, editor.global::<super::EditorCursors>().get_canvas_default());
+
+        let start = center("Rectangle radius top-left");
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+        let radius_cursor = cursor();
+        assert_ne!(radius_cursor, canvas_cursor);
+        assert_eq!(radius_cursor, editor.global::<super::EditorCursors>().get_corner_radius());
+        assert!(matches!(
+            radius_cursor,
+            i_slint_core::cursor::MouseCursorInner::CustomMouseCursor { .. }
+        ));
+
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: start,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(cursor(), radius_cursor);
+        let end = LogicalPosition::new(start.x + 20., start.y + 20.);
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+        assert!(radius_changed.get());
+        assert_eq!(cursor(), radius_cursor);
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position: end,
+            button: PointerEventButton::Left,
+        });
+    }
+
+    #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -1719,40 +1905,48 @@ mod tests {
     }
 
     #[test]
-    fn fill_picker_fits_single_paired_and_stacked_panels() {
+    fn fill_picker_placement_and_resize_keep_both_panels_visible() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
+        super::brushes::setup(&editor.global::<super::Api>());
         let session = editor.global::<super::FillSession>();
+        let bounds = editor.global::<super::EditorWindow>();
         editor.show().unwrap();
         slint::platform::update_timers_and_animations();
-        for (width, anchor, paired) in
-            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
-        {
-            editor.global::<super::EditorMetrics>().set_window_width(width);
+        for (width, anchor) in [(1360., 1200.), (1040., 330.), (540., 200.), (400., 160.)] {
+            bounds.set_width(width);
+            bounds.set_height(860.);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),
                     ..Default::default()
                 },
-                anchor_width: 24.,
+                anchor_size: slint::LogicalSize::new(24., 24.),
                 anchor_position: LogicalPosition::new(anchor, 100.),
                 ..Default::default()
             });
-            session.set_stop_panel_open(paired);
+            session.set_stop_panel_open(true);
             slint::platform::update_timers_and_animations();
-            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
-                &editor,
-                "InspectorFillPicker::picker-panel",
-            )
-            .next()
-            .unwrap();
-            let position = panel.absolute_position();
-            let size = panel.size();
-            assert!(position.x >= 8.);
-            assert!(position.x + size.width <= width - 8.);
-            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
+            let panels = ["main", "stop"].map(|name| {
+                i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    &format!("InspectorFillPicker::{name}-panel"),
+                )
+                .next()
+                .unwrap()
+            });
+            for (width, height) in [(width, 860.), (400., 380.), (240., 240.)] {
+                bounds.set_width(width);
+                bounds.set_height(height);
+                slint::platform::update_timers_and_animations();
+                for panel in &panels {
+                    let position = panel.absolute_position();
+                    let size = panel.size();
+                    assert!(position.x >= 0. && position.y >= 0.);
+                    assert!(position.x + size.width <= width);
+                    assert!(position.y + size.height <= height);
+                }
+            }
         }
     }
 
@@ -2019,6 +2213,39 @@ mod tests {
             }),
             1
         );
+    }
+
+    #[test]
+    fn title_area_double_click_toggles_maximized() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor.show().unwrap();
+
+        let title_touch_area = i_slint_backend_testing::ElementHandle::find_by_element_id(
+            &editor,
+            "EditorUi::title-touch-area",
+        )
+        .next()
+        .expect("the title touch area must be inside the window move area");
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(editor.window().is_maximized());
+
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert!(!editor.window().is_maximized());
+
+        let native_zoom_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = native_zoom_count.clone();
+        editor.on_perform_native_window_zoom(move || {
+            count.set(count.get() + 1);
+            true
+        });
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        title_touch_area.mock_single_click(PointerEventButton::Left);
+        assert_eq!(native_zoom_count.get(), 1);
+        assert!(!editor.window().is_maximized());
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {

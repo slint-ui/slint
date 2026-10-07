@@ -37,11 +37,11 @@ use i_slint_core::api::PlatformError;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
-use i_slint_core::graphics::{BorderRadius, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
-    RenderRectangle,
+    CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
+    RenderBorderRectangle, RenderImage, RenderRectangle,
 };
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextOverflow, TextWrap};
@@ -49,11 +49,11 @@ use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
-use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
+use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderer, PartialRenderingState};
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::{Brush, Color, ImageInner, StaticTextures};
+use i_slint_core::{Brush, Color, Coord, ImageInner, StaticTextures};
 #[allow(unused)]
 use num_traits::Float;
 use num_traits::NumCast;
@@ -193,7 +193,10 @@ pub trait LineBufferProvider {
     /// Called once per line, you will have to call the render_fn back with the buffer.
     ///
     /// The `line` is the y position of the line to be drawn.
-    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region)
+    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region).
+    /// Its start and length are multiples of the horizontal
+    /// [`DirtyRegionAlignment`](SoftwareRenderer::set_dirty_region_alignment).
+    /// The runs of lines it is called for begin and end on the vertical one.
     /// The `render_fn` function should be called to render the line, passing the buffer
     /// corresponding to the specified line and range.
     fn process_line(
@@ -304,6 +307,136 @@ impl PhysicalRegion {
     }
 }
 
+/// Aligns software-renderer dirty regions to a physical pixel grid.
+///
+/// Some display controllers require the origin and size of address windows to be multiples of a
+/// fixed number of pixels.
+/// The default alignment of one pixel on each axis preserves the renderer's existing behavior.
+/// Set it with [`SoftwareRenderer::set_dirty_region_alignment`].
+///
+/// The physical screen width must be a multiple of the horizontal alignment, and the physical
+/// screen height must be a multiple of the vertical alignment.
+/// This applies after [`RenderingRotation`] transforms the screen.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct DirtyRegionAlignment {
+    horizontal: u16,
+    vertical: u16,
+}
+
+impl Default for DirtyRegionAlignment {
+    fn default() -> Self {
+        Self { horizontal: 1, vertical: 1 }
+    }
+}
+
+impl DirtyRegionAlignment {
+    /// Creates a physical dirty-region alignment.
+    ///
+    /// Values of zero are treated as one.
+    pub fn new(horizontal: u16, vertical: u16) -> Self {
+        Self { horizontal: horizontal.max(1), vertical: vertical.max(1) }
+    }
+
+    /// Returns the horizontal alignment in physical pixels.
+    pub fn horizontal(self) -> u16 {
+        self.horizontal
+    }
+
+    /// Returns the vertical alignment in physical pixels.
+    pub fn vertical(self) -> u16 {
+        self.vertical
+    }
+}
+
+fn expand_dirty_region_for_alignment(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RenderingRotation,
+    alignment: DirtyRegionAlignment,
+) -> DirtyRegion {
+    let (horizontal, vertical) = if rotation.is_transpose() {
+        (alignment.vertical(), alignment.horizontal())
+    } else {
+        (alignment.horizontal(), alignment.vertical())
+    };
+    let factor = factor.get();
+    // Inflating by the full alignment is deliberately more than the `alignment - 1` pixels that
+    // snapping can add on each side: it stays a superset after the logical-to-physical rounding
+    // and is cheaper than inverse-mapping the snapped physical region back to logical space.
+    let horizontal = (horizontal as f32 / factor).ceil() as Coord;
+    let vertical = (vertical as f32 / factor).ceil() as Coord;
+    let mut expanded = DirtyRegion::default();
+    for dirty_box in dirty_region.iter() {
+        expanded.add_box(dirty_box.inflate(horizontal, vertical));
+    }
+    expanded
+}
+
+fn snap_interval_to_grid(min: i16, max: i16, granularity: u16, limit: i16) -> (i16, i16) {
+    let granularity = granularity as i32;
+    let min = min as i32;
+    let max = max as i32;
+    let limit = limit as i32;
+    let snapped_min = min.div_euclid(granularity) * granularity;
+    // The clamp can leave the extent unaligned when the screen size is not a multiple of the
+    // granularity; that configuration is rejected by the debug_assert in to_physical_region,
+    // and this is the release-mode fallback for it.
+    let snapped_max = ((max + granularity - 1).div_euclid(granularity) * granularity).min(limit);
+    (snapped_min as i16, snapped_max as i16)
+}
+
+fn to_physical_region(
+    dirty_region: &DirtyRegion,
+    factor: ScaleFactor,
+    rotation: RotationInfo,
+    size: PhysicalSize,
+    alignment: DirtyRegionAlignment,
+) -> PhysicalRegion {
+    let screen_rect = PhysicalRect::from_size(size);
+    let panel_size = size.transformed(rotation);
+    debug_assert!(
+        panel_size.width <= 0 || panel_size.width as i32 % alignment.horizontal() as i32 == 0,
+        "the screen width must be a multiple of the horizontal dirty-region alignment"
+    );
+    debug_assert!(
+        panel_size.height <= 0 || panel_size.height as i32 % alignment.vertical() as i32 == 0,
+        "the screen height must be a multiple of the vertical dirty-region alignment"
+    );
+
+    let mut physical_region = PhysicalRegion::default();
+    for dirty_box in dirty_region.iter() {
+        let Some(rect) =
+            (dirty_box.cast() * factor).to_rect().round_out().cast().intersection(&screen_rect)
+        else {
+            continue;
+        };
+        let mut aligned_box = rect.transformed(rotation).to_box2d();
+        if alignment.horizontal() > 1 {
+            (aligned_box.min.x, aligned_box.max.x) = snap_interval_to_grid(
+                aligned_box.min.x,
+                aligned_box.max.x,
+                alignment.horizontal(),
+                panel_size.width,
+            );
+        }
+        if alignment.vertical() > 1 {
+            (aligned_box.min.y, aligned_box.max.y) = snap_interval_to_grid(
+                aligned_box.min.y,
+                aligned_box.max.y,
+                alignment.vertical(),
+                panel_size.height,
+            );
+        }
+        if aligned_box.is_empty() {
+            continue;
+        }
+        debug_assert!(physical_region.count < PHYSICAL_REGION_MAX_SIZE);
+        physical_region.rectangles[physical_region.count] = aligned_box;
+        physical_region.count += 1;
+    }
+    physical_region
+}
+
 #[test]
 fn region_iter() {
     let mut region = PhysicalRegion::default();
@@ -337,6 +470,123 @@ fn region_iter() {
     assert_eq!(iter.next(), Some(r(0, 10, 10, 5)));
     assert_eq!(iter.next(), Some(r(6, 15, 3, 7)));
     assert_eq!(iter.next(), None);
+}
+
+#[test]
+fn dirty_region_alignment_snaps_minimal_region() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let aligned =
+        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(2, 2));
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(2, 4));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(10, 14));
+
+    let unaligned = to_physical_region(&dirty_region, factor, rotation, size, Default::default());
+    assert_eq!(unaligned.count, 1);
+    assert_eq!(unaligned.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(unaligned.rectangles[0].max, euclid::point2(10, 14));
+}
+
+#[test]
+fn dirty_region_alignment_expands_with_scale_factor() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.5);
+    let size = euclid::size2(48, 48);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let alignment = DirtyRegionAlignment::new(2, 2);
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let aligned = to_physical_region(&dirty_region, factor, rotation, size, alignment);
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(4, 6));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(16, 22));
+
+    // The logical expansion is in logical pixels, so it has to cover the alignment divided by
+    // the scale factor, rounded up.
+    let expanded = expand_dirty_region_for_alignment(
+        &dirty_region,
+        factor,
+        RenderingRotation::NoRotation,
+        alignment,
+    );
+    let expanded_box = expanded.iter().next().unwrap();
+    assert_eq!(expanded_box.min, euclid::point2(1.0, 3.0));
+    assert_eq!(expanded_box.max, euclid::point2(12.0, 16.0));
+
+    // What is drawn must cover what is reported as rendered.
+    let redrawn = to_physical_region(&expanded, factor, rotation, size, Default::default());
+    assert!(redrawn.rectangles[0].contains_box(&aligned.rectangles[0]));
+}
+
+#[test]
+fn dirty_region_alignment_accepts_non_power_of_two_grid() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(48, 48);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(4.0, 7.0), euclid::size2(5.0, 5.0)));
+
+    let aligned =
+        to_physical_region(&dirty_region, factor, rotation, size, DirtyRegionAlignment::new(3, 3));
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(3, 6));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(9, 12));
+}
+
+#[test]
+fn dirty_region_alignment_uses_rotated_panel_axes() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(80, 40);
+    let rotation = RotationInfo { orientation: RenderingRotation::Rotate90, screen_size: size };
+    let alignment = DirtyRegionAlignment::new(4, 8);
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(70.0, 30.0), euclid::size2(7.0, 7.0)));
+
+    let aligned = to_physical_region(&dirty_region, factor, rotation, size, alignment);
+    assert_eq!(aligned.count, 1);
+    assert_eq!(aligned.rectangles[0].min, euclid::point2(0, 64));
+    assert_eq!(aligned.rectangles[0].max, euclid::point2(12, 80));
+
+    let expanded = expand_dirty_region_for_alignment(
+        &dirty_region,
+        factor,
+        RenderingRotation::Rotate90,
+        alignment,
+    );
+    let expanded_box = expanded.iter().next().unwrap();
+    assert_eq!(expanded_box.min, euclid::point2(62.0, 26.0));
+    assert_eq!(expanded_box.max, euclid::point2(85.0, 41.0));
+}
+
+#[test]
+fn physical_region_count_excludes_clipped_rectangles() {
+    use i_slint_core::lengths::LogicalRect;
+
+    let factor = ScaleFactor::new(1.0);
+    let size = euclid::size2(64, 64);
+    let rotation = RotationInfo { orientation: RenderingRotation::NoRotation, screen_size: size };
+    let mut dirty_region = DirtyRegion::default();
+    dirty_region
+        .add_rect(LogicalRect::new(euclid::point2(100.0, 100.0), euclid::size2(10.0, 10.0)));
+    dirty_region.add_rect(LogicalRect::new(euclid::point2(3.0, 5.0), euclid::size2(7.0, 9.0)));
+
+    let physical = to_physical_region(&dirty_region, factor, rotation, size, Default::default());
+    assert_eq!(physical.count, 1);
+    assert_eq!(physical.rectangles[0].min, euclid::point2(3, 5));
+    assert_eq!(physical.rectangles[0].max, euclid::point2(10, 14));
 }
 
 /// Computes what are the x ranges that intersects the region for specified y line.
@@ -400,7 +650,7 @@ fn region_line_ranges(
         }
     }
     // check that current items are properly sorted
-    debug_assert!(line_ranges.windows(2).all(|x| x[0].end < x[1].start));
+    debug_assert!(line_ranges.array_windows().all(|[a, b]| a.end < b.start));
     next_validity
 }
 
@@ -443,6 +693,7 @@ impl<'a, T: TargetPixel> target_pixel_buffer::TargetPixelBuffer for TargetPixelS
 ///     in one single buffer
 pub struct SoftwareRenderer {
     repaint_buffer_type: Cell<RepaintBufferType>,
+    dirty_region_alignment: Cell<DirtyRegionAlignment>,
     /// This is the area which was dirty on the previous frame.
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
@@ -459,6 +710,7 @@ impl Default for SoftwareRenderer {
         Self {
             partial_rendering_state: Default::default(),
             prev_frame_dirty: Default::default(),
+            dirty_region_alignment: Default::default(),
             maybe_window_adapter: Default::default(),
             rotation: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new("software"),
@@ -504,6 +756,23 @@ impl SoftwareRenderer {
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
     pub fn repaint_buffer_type(&self) -> RepaintBufferType {
         self.repaint_buffer_type.get()
+    }
+
+    /// Aligns dirty regions to the specified physical pixel grid.
+    ///
+    /// Use this for display controllers that require aligned address windows. The pixels the
+    /// alignment adds are repainted, so the region returned by [`Self::render`] and the range
+    /// passed to [`LineBufferProvider::process_line`] can be sent to the display as they are.
+    ///
+    /// The screen dimensions must be multiples of their corresponding alignment after applying
+    /// [`RenderingRotation`].
+    pub fn set_dirty_region_alignment(&self, alignment: DirtyRegionAlignment) {
+        self.dirty_region_alignment.set(alignment);
+    }
+
+    /// Returns the physical pixel alignment for dirty regions.
+    pub fn dirty_region_alignment(&self) -> DirtyRegionAlignment {
+        self.dirty_region_alignment.get()
     }
 
     /// Set how the window need to be rotated in the buffer.
@@ -624,47 +893,13 @@ impl SoftwareRenderer {
             .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
-                match self.repaint_buffer_type.get() {
-                    RepaintBufferType::NewBuffer => {
-                        renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                        self.partial_rendering_state.clear_cache();
-                    }
-                    RepaintBufferType::ReusedBuffer => {
-                        self.partial_rendering_state.apply_dirty_region(
-                            &mut renderer,
-                            components,
-                            logical_size,
-                            None,
-                        );
-                    }
-                    RepaintBufferType::SwappedBuffers => {
-                        let dirty_region_for_this_frame =
-                            self.partial_rendering_state.apply_dirty_region(
-                                &mut renderer,
-                                components,
-                                logical_size,
-                                Some(self.prev_frame_dirty.take()),
-                            );
-                        self.prev_frame_dirty.set(dirty_region_for_this_frame);
-                    }
-                }
-
-                let rotation = RotationInfo { orientation: rotation, screen_size: size };
-                let screen_rect = PhysicalRect::from_size(size);
-                let mut i = renderer.dirty_region.iter().filter_map(|r| {
-                    (r.cast() * factor)
-                        .to_rect()
-                        .round_out()
-                        .cast()
-                        .intersection(&screen_rect)?
-                        .transformed(rotation)
-                        .into()
-                });
-                let dirty_region = PhysicalRegion {
-                    rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-                    count: renderer.dirty_region.iter().count(),
-                };
-                drop(i);
+                let dirty_region = self.compute_frame_dirty_region(
+                    &mut renderer,
+                    components,
+                    logical_size,
+                    factor,
+                    size,
+                );
 
                 renderer.actual_renderer.processor.dirty_region = dirty_region.clone();
                 if !renderer
@@ -707,6 +942,72 @@ impl SoftwareRenderer {
                 dirty_region
             })
             .unwrap_or_default()
+    }
+
+    /// Computes the dirty region for this frame according to the repaint buffer type, converts
+    /// it to the physical region to return to the caller, applying the configured
+    /// [`DirtyRegionAlignment`], and expands the logical dirty region in place so that the
+    /// partial renderer repaints every pixel the alignment added.
+    ///
+    /// This runs before the items are drawn, so `renderer`'s dirty region is what the partial
+    /// renderer culls against.
+    ///
+    /// For `SwappedBuffers`, `prev_frame_dirty` intentionally keeps the unexpanded region:
+    /// the next frame starts from a superset of it and re-applies the expansion.
+    fn compute_frame_dirty_region<T: ItemRenderer + ItemRendererFeatures>(
+        &self,
+        renderer: &mut PartialRenderer<'_, T>,
+        components: &[(ItemTreeWeak, LogicalPoint)],
+        logical_size: LogicalSize,
+        factor: ScaleFactor,
+        size: PhysicalSize,
+    ) -> PhysicalRegion {
+        match self.repaint_buffer_type.get() {
+            RepaintBufferType::NewBuffer => {
+                // NewBuffer always redraws the full screen, so skip dirty region
+                // tracking to avoid unbounded growth of the partial rendering cache.
+                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
+                self.partial_rendering_state.clear_cache();
+            }
+            RepaintBufferType::ReusedBuffer => {
+                self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    None,
+                );
+            }
+            RepaintBufferType::SwappedBuffers => {
+                let dirty_region_for_this_frame = self.partial_rendering_state.apply_dirty_region(
+                    renderer,
+                    components,
+                    logical_size,
+                    Some(self.prev_frame_dirty.take()),
+                );
+                self.prev_frame_dirty.set(dirty_region_for_this_frame);
+            }
+        }
+
+        let alignment = self.dirty_region_alignment.get();
+        let rotation = self.rotation.get();
+        let physical_region = to_physical_region(
+            &renderer.dirty_region,
+            factor,
+            RotationInfo { orientation: rotation, screen_size: size },
+            size,
+            alignment,
+        );
+        if alignment != DirtyRegionAlignment::default()
+            && self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer
+        {
+            renderer.dirty_region = expand_dirty_region_for_alignment(
+                &renderer.dirty_region,
+                factor,
+                rotation,
+                alignment,
+            );
+        }
+        physical_region
     }
 
     fn measure_frame_rendered(&self, renderer: &mut dyn ItemRenderer) {
@@ -1421,18 +1722,19 @@ fn render_window_frame_by_line(
                                 let g =
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize];
 
-                                draw_functions::draw_linear_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
                                     range_buffer,
                                     extra_left_clip,
+                                    extra_right_clip,
                                 );
                             }
                             SceneCommand::RadialGradient { radial_gradient_index } => {
                                 let g =
                                     &scene.vectors.radial_gradients[radial_gradient_index as usize];
-                                draw_functions::draw_radial_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
@@ -1444,7 +1746,7 @@ fn render_window_frame_by_line(
                             SceneCommand::ConicGradient { conic_gradient_index } => {
                                 let g =
                                     &scene.vectors.conic_gradients[conic_gradient_index as usize];
-                                draw_functions::draw_conic_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
@@ -1489,50 +1791,13 @@ fn prepare_scene(
     window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
-        match software_renderer.repaint_buffer_type.get() {
-            RepaintBufferType::NewBuffer => {
-                // NewBuffer always redraws the full screen, so skip dirty region
-                // tracking to avoid unbounded growth of the partial rendering cache.
-                renderer.dirty_region = LogicalRect::from_size(logical_size).into();
-                software_renderer.partial_rendering_state.clear_cache();
-            }
-            RepaintBufferType::ReusedBuffer => {
-                software_renderer.partial_rendering_state.apply_dirty_region(
-                    &mut renderer,
-                    components,
-                    logical_size,
-                    None,
-                );
-            }
-            RepaintBufferType::SwappedBuffers => {
-                let dirty_region_for_this_frame =
-                    software_renderer.partial_rendering_state.apply_dirty_region(
-                        &mut renderer,
-                        components,
-                        logical_size,
-                        Some(software_renderer.prev_frame_dirty.take()),
-                    );
-                software_renderer.prev_frame_dirty.set(dirty_region_for_this_frame);
-            }
-        }
-
-        let rotation =
-            RotationInfo { orientation: software_renderer.rotation.get(), screen_size: size };
-        let screen_rect = PhysicalRect::from_size(size);
-        let mut i = renderer.dirty_region.iter().filter_map(|r| {
-            (r.cast() * factor)
-                .to_rect()
-                .round_out()
-                .cast()
-                .intersection(&screen_rect)?
-                .transformed(rotation)
-                .into()
-        });
-        dirty_region = PhysicalRegion {
-            rectangles: core::array::from_fn(|_| i.next().unwrap_or_default().to_box2d()),
-            count: renderer.dirty_region.iter().count(),
-        };
-        drop(i);
+        dirty_region = software_renderer.compute_frame_dirty_region(
+            &mut renderer,
+            components,
+            logical_size,
+            factor,
+            size,
+        );
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
@@ -1563,14 +1828,10 @@ fn prepare_scene(
         prepare_scene.processor.process_rounded_rectangle(
             euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
             RoundedRectangle {
-                radius: BorderRadius::default(),
+                shape: RoundedShape::default(),
                 width: Length::new(1),
                 border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
                 inner_color: PremultipliedRgbaColor::default(),
-                left_clip: Length::default(),
-                right_clip: Length::default(),
-                top_clip: Length::default(),
-                bottom_clip: Length::default(),
             },
         )
     } // */
@@ -1624,23 +1885,140 @@ fn process_rectangle_impl(
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
     let geom_w = geom.width();
     let geom_h = geom.height();
-    let to_clipped_center = |cx: f32, cy: f32| {
-        (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
+    let (item_w, item_h) =
+        if args.rotation.is_transpose() { (geom_h, geom_w) } else { (geom_w, geom_h) };
+    let radius = PhysicalBorderRadius {
+        top_left: args.top_left_radius as _,
+        top_right: args.top_right_radius as _,
+        bottom_right: args.bottom_right_radius as _,
+        bottom_left: args.bottom_left_radius as _,
+        _unit: Default::default(),
+    };
+    // Add a small value to make sure that the clip is always positive despite floating point
+    // issues
+    const E: f32 = 0.00001;
+    let rounded_shape = RoundedShape {
+        radius,
+        top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+        bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+        left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+        right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+    };
+
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
+    let border =
+        PhysicalLength::new(if border_color.alpha == 0 { 0 } else { args.border_width as _ });
+    let gradient_clip = GradientClip {
+        shape: rounded_shape,
+        opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
+    };
+    let radial_conic_rect: PhysicalRect = clipped.round().cast();
+    let to_rect_center = |x: f32, y: f32| {
+        let (cx, cy) = match args.rotation {
+            RenderingRotation::NoRotation => (x, y),
+            RenderingRotation::Rotate90 => (geom_w - y, x),
+            RenderingRotation::Rotate180 => (geom_w - x, geom_h - y),
+            RenderingRotation::Rotate270 => (y, geom_h - x),
+        };
+        (
+            geom.min_x() + cx - radial_conic_rect.min_x() as f32,
+            geom.min_y() + cy - radial_conic_rect.min_y() as f32,
+        )
     };
 
     let color = if let Brush::LinearGradient(g) = &args.background {
         let angle = g.angle() + args.rotation.angle();
+        let axis_angle = (angle % 180. + 180.) % 180.;
         let tan = angle.to_radians().tan().abs();
-        let start = if !tan.is_finite() {
-            255.
+        // f32 `tan` of 90° is finite, so a horizontal gradient is detected from the angle.
+        let start = if axis_angle == 90. {
+            255
         } else {
             let h = tan * geom.width();
-            255. * h / (h + geom.height())
-        } as u8;
+            (255. * h / (h + geom.height())) as u8
+        };
         let mut angle = angle as i32 % 360;
         if angle < 0 {
             angle += 360;
         }
+        let invert_slope = (angle % 180) > 90;
+        let reversed = angle <= 90 || angle > 270;
+        let (fill_first, fill_last) = if reversed { (0b100, 0b010) } else { (0b010, 0b100) };
+
+        let act_rect: PhysicalRect = clipped.round().cast();
+        let act = act_rect.to_i32();
+        let clip_length = |v: i32| Length::new(v.clamp(i16::MIN.into(), i16::MAX.into()) as i16);
+        let anchored_band = |origin: f32, extent: f32, from: f32, to: f32| {
+            ((origin + extent * from).floor() as i32, (origin + extent * to).floor() as i32)
+        };
+
+        // Returns false when the segment is too thin to get a band.
+        let mut draw_segment = |mut s1: GradientStop, mut s2: GradientStop, first, last| {
+            if reversed {
+                core::mem::swap(&mut s1, &mut s2);
+                s1.position = 1. - s1.position;
+                s2.position = 1. - s2.position;
+            }
+            let mut flags = if invert_slope { 0b1 } else { 0 };
+            if first {
+                flags |= fill_first;
+            }
+            if last {
+                flags |= fill_last;
+            }
+
+            // At a `start` of 0 or 255 a band has no slope, so both ends are rounded from the
+            // geometry's origin and adjacent bands meet. Otherwise `draw_linear_gradient` derives
+            // the slope from the band's rounded size, and each end is rounded from its own edge.
+            let (band_left, band_right) = if start == 255 {
+                anchored_band(geom.min_x(), geom.width(), 1. - s2.position, 1. - s1.position)
+            } else {
+                let (adjust_left, adjust_right) = if invert_slope {
+                    (
+                        (geom.width() * s1.position).floor() as i32,
+                        (geom.width() * (1. - s2.position)).ceil() as i32,
+                    )
+                } else {
+                    (
+                        (geom.width() * (1. - s2.position)).ceil() as i32,
+                        (geom.width() * s1.position).floor() as i32,
+                    )
+                };
+                (
+                    act.min_x() - (clipped.min_x() - geom.min_x()) as i32 + adjust_left,
+                    act.max_x() + (geom.max_x() - clipped.max_x()) as i32 - adjust_right,
+                )
+            };
+            let (band_top, band_bottom) = if start == 0 {
+                anchored_band(geom.min_y(), geom.height(), s1.position, s2.position)
+            } else {
+                (
+                    act.min_y() - (clipped.min_y() - geom.min_y()) as i32
+                        + (geom.height() * s1.position).floor() as i32,
+                    act.max_y() + (geom.max_y() - clipped.max_y()) as i32
+                        - (geom.height() * (1. - s2.position)).ceil() as i32,
+                )
+            };
+            if band_right <= band_left || band_bottom <= band_top {
+                return false;
+            }
+
+            let gr = LinearGradientCommand {
+                color1: s1.color.into(),
+                color2: s2.color.into(),
+                start,
+                flags,
+                top_clip: clip_length(act.min_y() - band_top),
+                bottom_clip: clip_length(band_bottom - act.max_y()),
+                left_clip: clip_length(act.min_x() - band_left),
+                right_clip: clip_length(band_right - act.max_x()),
+                clip: gradient_clip,
+            };
+            processor.process_linear_gradient(act_rect, gr);
+            true
+        };
+
         let mut stops = g
             .stops()
             .copied()
@@ -1649,78 +2027,30 @@ fn process_rectangle_impl(
                 s
             })
             .peekable();
-        let mut idx = 0;
         let stop_count = g.stops().count();
-        while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
-            let mut flags = 0;
-            if (angle % 180) > 90 {
-                flags |= 0b1;
-            }
-            if angle <= 90 || angle > 270 {
-                core::mem::swap(&mut s1, &mut s2);
-                s1.position = 1. - s1.position;
-                s2.position = 1. - s2.position;
-                if idx == 0 {
-                    flags |= 0b100;
-                }
-                if idx == stop_count - 2 {
-                    flags |= 0b010;
-                }
-            } else {
-                if idx == 0 {
-                    flags |= 0b010;
-                }
-                if idx == stop_count - 2 {
-                    flags |= 0b100;
-                }
-            }
-
+        let mut idx = 0;
+        while let (Some(s1), Some(s2)) = (stops.next(), stops.peek().copied()) {
+            let first = idx == 0;
+            let last = idx == stop_count - 2;
             idx += 1;
-
-            let (adjust_left, adjust_right) = if (angle % 180) > 90 {
-                (
-                    (geom.width() * s1.position).floor() as i16,
-                    (geom.width() * (1. - s2.position)).ceil() as i16,
-                )
-            } else {
-                (
-                    (geom.width() * (1. - s2.position)).ceil() as i16,
-                    (geom.width() * s1.position).floor() as i16,
-                )
-            };
-
-            let gr = LinearGradientCommand {
-                color1: s1.color.into(),
-                color2: s2.color.into(),
-                start,
-                flags,
-                top_clip: Length::new(
-                    (clipped.min_y() - geom.min_y() - (geom.height() * s1.position).floor()) as i16,
-                ),
-                bottom_clip: Length::new(
-                    (geom.max_y() - clipped.max_y() - (geom.height() * (1. - s2.position)).ceil())
-                        as i16,
-                ),
-                left_clip: Length::new((clipped.min_x() - geom.min_x()) as i16 - adjust_left),
-                right_clip: Length::new((geom.max_x() - clipped.max_x()) as i16 - adjust_right),
-            };
-
-            let act_rect = clipped.round().cast();
-            let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
-            let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
-            if size_x.get() == 0 || size_y.get() == 0 {
-                // the position are too close to each other
-                // FIXME: For the first or the last, we should draw a plain color to the end
-                continue;
+            // Rounding can give stops at the same position a 1px band, and its slope wouldn't
+            // match the neighboring bands'.
+            if s1.position >= s2.position || !draw_segment(s1, s2, first, last) {
+                // The first and last segments still fill to the edge, so draw their outer color
+                // as a solid segment up to the stop.
+                if first {
+                    draw_segment(GradientStop { position: 0., ..s1 }, s1, true, false);
+                }
+                if last {
+                    draw_segment(s2, GradientStop { position: 1., ..s2 }, false, true);
+                }
             }
-
-            processor.process_linear_gradient(act_rect, gr);
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
-        let (center_x, center_y) = to_clipped_center(cx, cy);
-        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (center_x, center_y) = to_rect_center(cx, cy);
+        let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -1733,14 +2063,15 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
-            radius,
+            radius: gradient_radius,
+            clip: gradient_clip,
         };
 
-        processor.process_radial_gradient(clipped.cast(), radial_grad);
+        processor.process_radial_gradient(radial_conic_rect, radial_grad);
         Color::default()
     } else if let Brush::ConicGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
-        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (center_x, center_y) = to_rect_center(cx, cy);
         let conic_grad = ConicGradientCommand {
             stops: g
                 .stops()
@@ -1752,21 +2083,18 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
+            clip: gradient_clip,
+            rotation: args.rotation.angle().to_radians(),
         };
 
-        processor.process_conic_gradient(clipped.cast(), conic_grad);
+        processor.process_conic_gradient(radial_conic_rect, conic_grad);
         Color::default()
     } else {
         alpha_color(args.background.color(), args.alpha)
     };
 
-    let mut border_color =
-        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
     let color = PremultipliedRgbaColor::from(color);
-    let mut border = PhysicalLength::new(args.border_width as _);
-    if border_color.alpha == 0 {
-        border = PhysicalLength::new(0);
-    } else if border_color.alpha < 255 {
+    if border_color.alpha > 0 && border_color.alpha < 255 {
         // Find a color for the border which is an equivalent to blend the background and then the border.
         // In the end, the resulting of blending the background and the color is
         // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
@@ -1786,29 +2114,14 @@ fn process_rectangle_impl(
         }
     }
 
-    let radius = PhysicalBorderRadius {
-        top_left: args.top_left_radius as _,
-        top_right: args.top_right_radius as _,
-        bottom_right: args.bottom_right_radius as _,
-        bottom_left: args.bottom_left_radius as _,
-        _unit: Default::default(),
-    };
-
     if !radius.is_zero() {
-        // Add a small value to make sure that the clip is always positive despite floating point shenanigans
-        const E: f32 = 0.00001;
-
         processor.process_rounded_rectangle(
             clipped.round().cast(),
             RoundedRectangle {
-                radius,
+                shape: rounded_shape,
                 width: border,
                 border_color,
                 inner_color: color,
-                top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
-                bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
-                left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
-                right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
             },
         );
         return;
@@ -1956,19 +2269,20 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
     }
 
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, g: LinearGradientCommand) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
-            draw_functions::draw_linear_gradient(
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
                 buffer,
                 extra_left_clip,
+                extra_right_clip,
             );
         });
     }
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, g: RadialGradientCommand) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_radial_gradient(
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
@@ -1980,7 +2294,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
     }
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, g: ConicGradientCommand) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_conic_gradient(
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
@@ -3000,7 +3314,8 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             screen_size: rounded_geom.size.cast::<i16>() + euclid::size2(1, 1),
         };
 
-        let offset = offset * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
+        let offset =
+            offset.cast() * self.scale_factor + (physical_geom_f32.origin - rounded_geom.origin);
 
         // Convert to zeno commands
         let zeno_commands =
@@ -3035,7 +3350,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         // Draw stroke if specified
         let stroke_brush = path.stroke();
         let stroke_width = path.stroke_width();
-        if !stroke_brush.is_transparent() && stroke_width.get() > 0.0 {
+        if !stroke_brush.is_transparent() && stroke_width.get() > 0 as Coord {
             let stroke_color = self.alpha_color(stroke_brush.color());
             if stroke_color.alpha() > 0 {
                 let physical_stroke_width = (stroke_width.cast() * self.scale_factor).get();
@@ -3324,7 +3639,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         font: &sharedparley::parley::FontData,
         font_size: sharedparley::PhysicalLength,
         normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         color: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
@@ -3339,7 +3654,8 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             swash_offset,
             font_size.cast(),
             normalized_coords,
-        );
+        )
+        .with_synthesis(*synthesis);
 
         let global_offset: euclid::Vector2D<f32, PhysicalPx> =
             self.current_state.offset.to_vector().cast() * self.scale_factor;

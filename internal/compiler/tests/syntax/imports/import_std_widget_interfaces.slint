@@ -1,0 +1,22 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SpinnerInterface, TimePickerPopupInterface, Time } from "std-widget-interfaces.slint";
+
+export component MySpinner {
+    implement SpinnerInterface <=> self;
+
+    in property <bool> indeterminate;
+    in property <float> progress;
+}
+
+export component MyTimePicker {
+    implement TimePickerPopupInterface <=> self;
+
+    in property <string> title;
+    in property <Time> time;
+    in property <bool> use-24-hour-format;
+
+    callback accepted(time: Time);
+    callback canceled;
+}

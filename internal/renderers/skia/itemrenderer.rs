@@ -9,7 +9,6 @@ use super::{PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, P
 use i_slint_core::graphics::ApproxEq;
 use i_slint_core::graphics::ResolvedBrush;
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
-use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures,
@@ -17,8 +16,8 @@ use i_slint_core::item_rendering::{
 };
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
-    LogicalVector, PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
+    LogicalBorderRadius, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, RectLengths, ScaleFactor, SizeLengths, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique};
 use i_slint_core::window::WindowInner;
@@ -86,6 +85,12 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    /// Skia leaves anti-aliasing off by default, which keeps an upright rectangle's edges crisp.
+    /// A transform that tilts the rectangle turns those edges into stair steps instead.
+    fn needs_anti_alias(&self) -> bool {
+        !self.canvas.local_to_device_as_3x3().preserves_axis_alignment()
+    }
+
     fn render_drop_shadow_image(
         canvas: &skia_safe::Canvas,
         shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
@@ -106,26 +111,80 @@ impl<'a> SkiaItemRenderer<'a> {
             skia_safe::AlphaType::Premul,
         );
 
-        let rounded_rect = to_skia_rrect(
-            &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
-            &shadow_options.outer_radius(),
-        );
+        if let Some(radius) = shadow_options.opaque_source_radius() {
+            let radius = (radius + PhysicalBorderRadius::new_uniform(shadow_options.spread.get()))
+                .max(Default::default());
+            let rounded_rect = to_skia_rrect(
+                &PhysicalRect::new(shadow_options.shape_origin(), shape_size),
+                &radius,
+            );
+            let mut paint = crate::solid_paint(&shadow_options.color);
+            paint.set_anti_alias(true);
+            if shadow_options.blur.get() > 0. {
+                paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                    skia_safe::BlurStyle::Normal,
+                    shadow_options.blur_sigma(),
+                    None,
+                ));
+            }
+            let mut surface = canvas.new_surface(&image_info, None)?;
+            surface.canvas().clear(skia_safe::Color::TRANSPARENT);
+            surface.canvas().draw_rrect(rounded_rect, &paint);
+            return Some(surface.image_snapshot());
+        }
 
-        let mut paint = crate::solid_paint(&shadow_options.color);
-        paint.set_anti_alias(true);
+        let (background, layout) = shadow_options.source.as_ref()?;
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let source_canvas = surface.canvas();
+        source_canvas.clear(skia_safe::Color::TRANSPARENT);
+        let pad = shadow_options.blur.get() + shadow_options.spread.get();
+        source_canvas.translate((pad, pad));
+        let paint_for = |brush: Brush| {
+            let (mut paint, shader) = Self::brush_to_shader(
+                skia_safe::Paint::default(),
+                brush,
+                layout.brush_size.width_length(),
+                layout.brush_size.height_length(),
+                shadow_options.scale_factor,
+            )?;
+            paint.set_shader(shader);
+            paint.set_anti_alias(true);
+            Some(paint)
+        };
+        if !layout.background_rect.is_empty()
+            && let Some(paint) = paint_for(background.clone())
+        {
+            source_canvas.draw_rrect(
+                to_skia_rrect(&layout.background_rect, &layout.background_radius),
+                &paint,
+            );
+        }
+        if layout.border_width.get() > 0.
+            && let Some(mut paint) = paint_for(layout.border_color.clone())
+        {
+            paint.set_style(skia_safe::PaintStyle::Stroke);
+            paint.set_stroke_width(layout.border_width.get());
+            source_canvas
+                .draw_rrect(to_skia_rrect(&layout.border_rect, &layout.border_radius), &paint);
+        }
+        let source = surface.image_snapshot();
+        let mut output = canvas.new_surface(&image_info, None)?;
+        output.canvas().clear(skia_safe::Color::TRANSPARENT);
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color_filter(skia_safe::color_filters::blend(
+            crate::solid_paint(&shadow_options.color).color(),
+            skia_safe::BlendMode::SrcIn,
+        ));
         if shadow_options.blur.get() > 0. {
-            paint.set_mask_filter(skia_safe::MaskFilter::blur(
-                skia_safe::BlurStyle::Normal,
-                shadow_options.blur_sigma(),
+            paint.set_image_filter(skia_safe::image_filters::blur(
+                (shadow_options.blur_sigma(), shadow_options.blur_sigma()),
+                None,
+                None,
                 None,
             ));
         }
-
-        let mut surface = canvas.new_surface(&image_info, None)?;
-        let surface_canvas = surface.canvas();
-        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
-        surface_canvas.draw_rrect(rounded_rect, &paint);
-        Some(surface.image_snapshot())
+        output.canvas().draw_image(source, (0., 0.), Some(&paint));
+        Some(output.image_snapshot())
     }
 
     fn render_inset_shadow_image(
@@ -471,24 +530,23 @@ impl<'a> SkiaItemRenderer<'a> {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    // Same as pixel_align_origin_auto_restore() but can be used across function calls where
-    // `&self` is needed. Returns true if the caller must call `restore()` on `self.canvas`.
-    fn save_canvas_and_pixel_align_origin(&self) -> bool {
+    // Snap the alignment anchor; the caller restores the canvas when this returns true.
+    fn save_canvas_and_pixel_align_origin(&self, anchor: PhysicalPoint) -> bool {
         let local_to_device = self.canvas.local_to_device_as_3x3();
-        if !local_to_device.is_translate() || local_to_device.is_identity() {
+        if !local_to_device.is_translate() {
             return false;
         }
         let Some(device_to_local) = local_to_device.invert() else {
             return false;
         };
-        let mut target_point = local_to_device.map_point(skia_safe::Point::default());
+        let mut target_point = local_to_device.map_point(to_skia_point(anchor));
 
         target_point.x = target_point.x.round();
         target_point.y = target_point.y.round();
 
         self.canvas.save();
 
-        self.canvas.translate(device_to_local.map_point(target_point));
+        self.canvas.translate(device_to_local.map_point(target_point) - to_skia_point(anchor));
 
         true
     }
@@ -529,7 +587,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         }
 
-        let paint = match self.brush_to_paint(
+        let mut paint = match self.brush_to_paint(
             rect.background(),
             geometry.width_length(),
             geometry.height_length(),
@@ -537,6 +595,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             Some(paint) => paint,
             None => return,
         };
+        paint.set_anti_alias(self.needs_anti_alias());
         self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
     }
 
@@ -558,7 +617,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         {
             let background_rect = to_skia_rrect(&layout.background_rect, &layout.background_radius);
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
-            if !background_rect.is_rect() {
+            if !background_rect.is_rect() || self.needs_anti_alias() {
                 fill_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(background_rect, &fill_paint);
@@ -571,7 +630,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             let border_rect = to_skia_rrect(&layout.border_rect, &layout.border_radius);
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(layout.border_width.get());
-            if !border_rect.is_rect() {
+            if !border_rect.is_rect() || self.needs_anti_alias() {
                 border_paint.set_anti_alias(true);
             }
             self.canvas.draw_rrect(border_rect, &border_paint);
@@ -612,7 +671,13 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
         _cache: &CachedRenderingData,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let (horizontal, vertical) = text.alignment();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            horizontal,
+            vertical,
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
         if restore {
             self.canvas.restore();
@@ -625,7 +690,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         self_rc: &i_slint_core::items::ItemRc,
         size: LogicalSize,
     ) {
-        let restore = self.save_canvas_and_pixel_align_origin();
+        let anchor = i_slint_core::item_rendering::text_alignment_anchor(
+            size * self.scale_factor,
+            text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
+        );
+        let restore = self.save_canvas_and_pixel_align_origin(anchor);
         sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
         if restore {
             self.canvas.restore();
@@ -760,16 +830,6 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         let inset = box_shadow.inset();
         let spread = box_shadow.spread() * self.scale_factor;
 
-        // Drop shadow with no offset / blur / spread is invisible.
-        if !inset
-            && offset.x == 0.
-            && offset.y == 0.
-            && box_shadow.blur() == LogicalLength::zero()
-            && spread == PhysicalLength::zero()
-        {
-            return;
-        }
-
         let cached_shadow_image = self.box_shadow_cache.get_box_shadow(
             self_rc,
             self.image_cache,
@@ -798,7 +858,8 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             );
         } else {
             let blur = box_shadow.blur() * self.scale_factor;
-            let pad = blur.get() + spread.get().max(0.);
+            let pad = blur.get() + spread.get();
+
             self.canvas.draw_image(
                 cached_shadow_image,
                 to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),
@@ -965,7 +1026,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(self_rc)
         } else {
-            self.image_cache.release(self_rc);
+            self.layer_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -1076,6 +1137,15 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         }
     }
 
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        let transform = self.canvas.local_to_device_as_3x3();
+        if !transform.is_translate() {
+            return x;
+        }
+        let origin = transform.map_point(skia_safe::Point::default()).x;
+        (origin + x).round() - origin
+    }
+
     fn draw_glyph_run(
         &mut self,
         font: &sharedparley::parley::FontData,
@@ -1093,6 +1163,17 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         };
         let mut font = skia_safe::Font::from_typeface(type_face, font_size.get());
         font.set_subpixel(true);
+        // The typeface itself is cached (keyed on blob + variation settings, not synthesis), so
+        // faux styling has to be applied to this per-draw-call `Font` instead: skewing or
+        // emboldening the cached typeface would leak into every other run drawn with it.
+        if synthesis.embolden() {
+            font.set_embolden(true);
+        }
+        if let Some(skew_degrees) = synthesis.skew() {
+            // Skia skews text left/right relative to the y-axis; a negative skew leans glyphs
+            // to the right, matching the forward lean of real italic/oblique faces.
+            font.set_skew_x(-skew_degrees.to_radians().tan());
+        }
 
         let (glyph_ids, glyph_positions): (Vec<_>, Vec<_>) = glyphs_it
             .into_iter()

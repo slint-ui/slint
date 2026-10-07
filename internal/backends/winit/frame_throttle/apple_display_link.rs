@@ -75,9 +75,47 @@ impl Drop for CADisplayLinkFrameThrottle {
 }
 
 impl super::FrameThrottle for CADisplayLinkFrameThrottle {
-    fn request_throttled_redraw(&self, _winit_window: &winit::window::Window) {
+    fn request_throttled_redraw(&self, winit_window: &winit::window::Window) {
+        request_screen_frame_rate(&self.display_link, winit_window);
         self.display_link.setPaused(false);
     }
+}
+
+/// macOS already drives the link at the display's rate, so there is nothing to ask for.
+#[cfg(target_os = "macos")]
+fn request_screen_frame_rate(_display_link: &CADisplayLink, _winit_window: &winit::window::Window) {
+}
+
+/// Ask for the screen's full refresh rate, which iOS otherwise limits to 60Hz.
+///
+/// On iPhone the request is granted only when the bundle sets
+/// `CADisableMinimumFrameDurationOnPhone`; see the iOS platform guide under `docs/astro`.
+/// The minimum leaves the system room to halve the rate when it needs to.
+#[cfg(ios_and_friends)]
+fn request_screen_frame_rate(display_link: &CADisplayLink, winit_window: &winit::window::Window) {
+    use objc2::sel;
+    use objc2_quartz_core::CAFrameRateRange;
+
+    // -[CADisplayLink setPreferredFrameRateRange:] is only available on iOS 15.0+,
+    // while the platform guide's template still deploys back to 13.0.
+    if !display_link.respondsToSelector(sel!(setPreferredFrameRateRange:)) {
+        return;
+    }
+
+    // Ask on every redraw rather than once at creation, so that a window moving to
+    // a screen with a different rate picks the new one up.
+    let Some(millihertz) =
+        winit_window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz())
+    else {
+        return;
+    };
+    let max = millihertz as f32 / 1000.;
+    // A 60Hz screen has nothing to unlock, and asking would only widen the range
+    // downwards, leaving the system free to settle at 30.
+    if max <= 60. {
+        return;
+    }
+    display_link.setPreferredFrameRateRange(CAFrameRateRange::new(max / 2., max, max));
 }
 
 /// Register `display_link` on the main run loop and wrap it into a throttle that

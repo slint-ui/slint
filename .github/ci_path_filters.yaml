@@ -121,7 +121,6 @@ material_components:
  - *ci_config
 
 api_cpp:
- - *compiler
  - 'api/cpp/**'
  - 'cmake/**'
  - 'tools/compiler/**'
@@ -143,7 +142,6 @@ api_node:
  - '.github/workflows/node_test_reusable.yaml'
 
 api_rs:
- - *compiler
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'
  # The slint crate re-exports i-slint-core as its api

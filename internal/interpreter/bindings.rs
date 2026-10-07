@@ -4,7 +4,7 @@
 //! Install property bindings, callback handlers, two-way bindings, change
 //! callbacks and `init_code` on an already-allocated [`Instance`].
 //!
-//! Called from [`Instance::new`] right after the `SubComponentInstance` tree
+//! Called from the [`Instance`] constructors right after the `SubComponentInstance` tree
 //! has been wired up. Walks the tree recursively, visiting each sub-component
 //! (including nested ones) and copying its LLR entries onto the runtime
 //! allocations.

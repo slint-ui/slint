@@ -32,9 +32,9 @@ export component A  {
 //      >   <note{First Menu defined here}
             MenuItem { title: "ok"; }
         }
-        Menu {
-//      >   <error{Only one Menu is allowed in a ContextMenu}
-            MenuItem { title: "hello"; }
+        dup := Menu {
+//             >   <error{Only one Menu is allowed in a ContextMenu}
+            MenuItem { title: dup.title; }
         }
     }
 

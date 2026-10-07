@@ -4,7 +4,11 @@
 import { FluentFontSettings, FluentPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
+
 export component Switch {
+    implement SwitchInterface <=> self;
+
     in property <bool> enabled: true;
     in property <string> text;
     in-out property <bool> checked;
@@ -128,7 +132,7 @@ export component Switch {
         enabled <=> root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                  root.toggle-checked();
                  return accept;
             }

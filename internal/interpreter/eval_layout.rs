@@ -379,22 +379,17 @@ fn flatten_measure_cells<'a>(
 
 /// Measure callback body shared by the solve and cross-axis-info paths:
 /// re-evaluate the cell's vertical layout info with the `measure_known_w`
-/// local set to the width taffy assigned (a width it did not assign,
-/// `known_w == false`, arrives pre-resolved to the cell's preferred width, and
-/// serves a probe with neither dimension known, see `FlexboxMeasureFn` in
-/// i-slint-core). With the height known, no dimension depends on it.
+/// local set to `w`, which always holds a concrete width.
+/// See `FlexboxMeasureFn` in i-slint-core for when this is called and what the
+/// sizes mean.
 fn measure_flexbox_cell(
     ctx: &mut EvalContext,
     flat: &[FlatCell],
     index: usize,
     w: f32,
     h: f32,
-    known_h: bool,
 ) -> (f32, f32) {
     let Some(cell) = flat.get(index) else { return (w, h) };
-    if known_h {
-        return (w, h);
-    }
     match cell {
         FlatCell::Static { v_info } => {
             let prev = ctx.locals.insert(MEASURE_KNOWN_W_LOCAL.into(), Value::Number(w as f64));
@@ -430,9 +425,7 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     let fp = s.get_field("flex-props").map(to_flex_props).unwrap_or_default();
 
     let flat = flatten_measure_cells(ctx, measure_cells);
-    let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| {
-        measure_flexbox_cell(ctx, &flat, index, w, h, known_h)
-    };
+    let mut measure = |index: usize, w: f32, h: f32| measure_flexbox_cell(ctx, &flat, index, w, h);
 
     Value::LayoutCache(i_slint_core::layout::solve_flexbox_layout_with_measure(
         &FlexboxLayoutData {
@@ -546,9 +539,7 @@ pub(crate) fn flexbox_layout_info_cross_axis_with_measure(
     let (ch, cv) = (to_cells(&a[0]), to_cells(&a[1]));
     let fp = to_flex_props(&a[2]);
     let flat = flatten_measure_cells(ctx, measure_cells);
-    let mut measure = |index: usize, w: f32, h: f32, _known_w: bool, known_h: bool| {
-        measure_flexbox_cell(ctx, &flat, index, w, h, known_h)
-    };
+    let mut measure = |index: usize, w: f32, h: f32| measure_flexbox_cell(ctx, &flat, index, w, h);
     i_slint_core::layout::flexbox_layout_info_cross_axis_with_measure(
         Slice::from_slice(&ch),
         Slice::from_slice(&cv),

@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SpinBox } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    box := SpinBox {
+        value: 40;
+        enabled: false;
+    }
+
+    callback edited <=> box.edited;
+    in-out property value <=> box.value;
+    in-out property <bool> enabled <=> box.enabled;
+}
+
+/*
+
+
+```rust
+use slint::{LogicalPosition, platform::WindowEvent};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+
+let edits = Rc::new(RefCell::new(Vec::new()));
+
+instance.on_edited({
+    let edits = edits.clone();
+    move |val| {
+    edits.borrow_mut().push(val);
+}});
+
+// This position happens to work with all styles
+let position = LogicalPosition::new(40.0, 50.0);
+
+assert_eq!(instance.get_value(), 40);
+
+// Scrolling over a disabled SpinBox leaves the value alone
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
+assert_eq!(instance.get_value(), 40);
+assert!(edits.borrow().is_empty());
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
+assert_eq!(instance.get_value(), 40);
+assert!(edits.borrow().is_empty());
+
+// Once enabled, scrolling changes the value again
+instance.set_enabled(true);
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: 50.0 });
+assert_eq!(instance.get_value(), 41);
+assert_eq!(&*edits.borrow(), &[41_i32]);
+edits.borrow_mut().clear();
+
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position , delta_x: 0.0, delta_y: -10.0 });
+assert_eq!(instance.get_value(), 40);
+assert_eq!(&*edits.borrow(), &[40_i32]);
+
+```
+
+
+*/

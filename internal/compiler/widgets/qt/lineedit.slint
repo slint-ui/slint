@@ -19,7 +19,7 @@ export component LineEdit {
     forward-focus: inner;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    min-width: max(160px, layout.min-height);
+    min-width: max(160px, layout.min-width);
     min-height: max(32px, layout.min-height);
 
     native := NativeLineEdit {
@@ -47,7 +47,6 @@ export component LineEdit {
                 width: 100%;
                 height: self.width;
                 image-fit: ImageFit.contain;
-                text: inner.text;
                 source: native.clear-icon;
                 colorize: inner.text-color;
                 clear => {
@@ -59,7 +58,8 @@ export component LineEdit {
         }
 
         if root.input-type == InputType.password && !root.text.is-empty && root.has-focus: LineEditPasswordIcon {
-            width: self.source.width * 1px;
+            width: inner.min-height;
+            image-fit: ImageFit.contain;
             show-password-image: @image-url("_visibility.svg");
             hide-password-image: @image-url("_visibility_off.svg");
             colorize: inner.text-color;

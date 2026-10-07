@@ -35,7 +35,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.apk
-          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+          key: apk-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
 
       - name: Cache aab build
         id: cache-aab
@@ -43,7 +43,7 @@ jobs:
         with:
           path: |
             target/x/release/android/material-gallery.aab
-          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/ui/**', 'ui-libraries/material/Cargo.toml', 'ui-libraries/material/material.slint') }}
+          key: aab-build-${{ hashFiles('ui-libraries/material/examples/gallery/**', 'ui-libraries/material/src/**', 'ui-libraries/material/Cargo.toml') }}
 
       # 2. Install Dependencies (Run only if artifacts are missing)
       - uses: ./.github/actions/install-linux-dependencies

@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { SliderInterface } from "std-widget-interfaces.slint";
+
 export component SliderBase {
+    implement SliderInterface <=> self;
+
     in property <bool> enabled <=> touch-area.enabled;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -115,6 +119,9 @@ export component SliderBase {
     }
 
     public function set-value(value: float) {
+        if !root.enabled {
+            return;
+        }
         let clamped = max(root.minimum, min(root.maximum, value));
         if (root.value == clamped) {
             return;
@@ -130,5 +137,11 @@ export component SliderBase {
 
     public function decrement() {
         root.set-value(root.value - root.step);
+    }
+
+    public function emit-released() {
+        if root.enabled {
+            root.released(root.value);
+        }
     }
 }

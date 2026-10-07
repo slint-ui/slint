@@ -45,6 +45,15 @@ impl AccessorKind {
 }
 
 impl DeclarationKind {
+    /// The noun for this kind of declaration in messages shown to the user.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Property => "property",
+            Self::Callback => "callback",
+            Self::Function => "function",
+        }
+    }
+
     /// Accessor kinds emitted for this declaration, in the order both backends
     /// declare them.
     pub const fn accessor_kinds(self) -> &'static [AccessorKind] {

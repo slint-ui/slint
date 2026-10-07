@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for issue #10178: `font-italic: true` was a silent no-op whenever the
+// selected font has neither a true italic/oblique face nor an `ital`/`slnt` variation axis
+// (the common case for CJK fonts, which is how the bug was originally reported). "Noto Sans
+// Symbols 2" reproduces the same no-italic-face situation without needing a CJK font asset:
+// it's a static font with a single upright style. The two rows below render the same glyph
+// from that font, plain and with `font-italic: true`; if synthesis regresses to a no-op, the
+// second row renders identically to the first instead of visibly leaning.
+
+// The embed-assets (MCU-style, pre-rasterized bitmap font) pipeline has no synthesis mechanism
+// of its own -- glyphs are rasterized upright at compile time, before there is a canvas or a
+// live font to skew -- so it necessarily keeps rendering this case exactly as before.
+//ignore:software-embed-assets
+
+// Skia font rendering is not consistent across platforms (see text.slint), and no other case
+// in this directory keeps a skia reference for that reason.
+//ignore:skia
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+    VerticalLayout {
+        alignment: center;
+        Text {
+            text: "●●●";
+            font-family: "Noto Sans Symbols 2";
+            font-size: 20px;
+            color: black;
+        }
+        Text {
+            text: "●●●";
+            font-family: "Noto Sans Symbols 2";
+            font-size: 20px;
+            font-italic: true;
+            color: black;
+        }
+    }
+}

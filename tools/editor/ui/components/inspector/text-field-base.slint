@@ -1,35 +1,46 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, Typography, FieldStyle, PaintStyle } from "../../style.slint";
 
 export component InspectorTextFieldBase inherits Rectangle {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> value;
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
-    in property <length> field-padding-left: 8px;
-    in property <length> field-padding-right: 7px;
-    in property <length> content-spacing: 5px;
-    in property <length> input-font-size: 12px;
-    in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
+    in property <length> radius: root.style.radius;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
+    in property <bool> normalize-accepted: false;
+    in property <bool> show-focus-border: true;
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : input.has-focus ? root.style.appearance.focus
+        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
+    out property <color> paint-foreground: root.paint.foreground;
+    out property <bool> input-focused: input.has-focus;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
+    callback edit-started();
     callback accepted(string) -> bool;
+    callback normalized(string) -> string;
 
-    height: InspectorTokens.field-height;
-    border-radius: InspectorTokens.field-radius;
-    background: !enabled ? InspectorTokens.field-bg.with-alpha(0.65) : input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
-    border-width: input.has-focus ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    height: root.style.height;
+    border-radius: root.radius;
+    background: root.paint.background;
+    border-width: root.show-focus-border && input.has-focus ? root.style.border-width : 0px;
+    border-color: root.show-focus-border && input.has-focus
+        ? root.style.appearance.focus.border
+        : root.paint.border;
     accessible-role: AccessibleRole.text-input;
     accessible-label: root.accessible-name;
     accessible-value: input.text;
     accessible-enabled: root.enabled;
     accessible-action-set-value(value) => {
         if root.enabled {
-            root.accept-input(value);
+            root.accept-input(value, true);
         }
     }
     accessible-action-default => {
@@ -50,13 +61,26 @@ export component InspectorTextFieldBase inherits Rectangle {
         root.active-commit-key = root.commit-key;
     }
 
-    function accept-input(text: string) -> bool {
+    function begin-edit() {
+        if !root.edited {
+            root.edit-started();
+            root.edited = true;
+        }
+    }
+
+    function accept-input(text: string, normalize: bool) -> bool {
         if root.active-commit-key != root.commit-key {
             input.text = root.value;
             root.active-commit-key = root.commit-key;
             return false;
         }
-        return root.accepted(text);
+        root.begin-edit();
+        let accepted = root.accepted(text);
+        if accepted && normalize && root.normalize-accepted {
+            input.text = root.normalized(text);
+            root.edited = false;
+        }
+        return accepted;
     }
 
     touch := TouchArea {
@@ -65,9 +89,11 @@ export component InspectorTextFieldBase inherits Rectangle {
         clicked => { input.focus(); }
 
         HorizontalLayout {
-            padding-left: root.field-padding-left;
-            padding-right: root.field-padding-right;
-            spacing: root.content-spacing;
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-inline + (root.suffix-width > 0px
+                ? root.suffix-width + root.style.gap
+                : 0px);
+            spacing: root.style.gap;
             cross-axis-alignment: center;
 
             @children
@@ -80,20 +106,33 @@ export component InspectorTextFieldBase inherits Rectangle {
                 enabled: root.enabled;
                 single-line: true;
                 wrap: no-wrap;
-                color: root.input-color;
-                font-size: root.input-font-size;
+                horizontal-alignment: root.horizontal-alignment;
+                color: root.paint.foreground;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
                 vertical-alignment: center;
-                selection-background-color: InspectorTokens.accent.with-alpha(0.28);
-                text-cursor-width: 1px;
+                selection-background-color: root.style.appearance.selection;
+                text-cursor-width: root.style.border-width;
 
                 edited => {
-                    root.edited = true;
-                    if root.live-edit { root.accept-input(self.text); }
+                    root.begin-edit();
+                    if root.live-edit { root.accept-input(self.text, false); }
                 }
 
                 accepted => {
-                    if !root.accept-input(self.text) {
+                    if !root.accept-input(self.text, true) {
                         self.text = root.value;
+                    }
+                }
+
+                TouchArea {
+                    enabled: root.enabled && !input.has-focus;
+                    mouse-cursor: text;
+                    clicked => { input.focus(); }
+                    pointer-event(event) => {
+                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                            input.focus();
+                        }
                     }
                 }
 
@@ -103,12 +142,33 @@ export component InspectorTextFieldBase inherits Rectangle {
                         self.select-all();
                     }
                     if !self.has-focus && self.text != root.value {
-                        if !root.accept-input(self.text) {
+                        if !root.accept-input(self.text, true) {
                             self.text = root.value;
                         }
                     }
+                    if !self.has-focus { root.edited = false; }
                 }
             }
+
+            if root.suffix != "" && root.suffix-width == 0px: Text {
+                text: root.suffix;
+                color: root.style.appearance.muted;
+                font-size: Typography.control.size;
+                vertical-alignment: center;
+            }
+
+        }
+
+        if root.suffix != "" && root.suffix-width > 0px: fixed-suffix := Text {
+            x: parent.width - root.style.padding-inline - root.suffix-width;
+            y: 0px;
+            width: root.suffix-width;
+            height: parent.height;
+            text: root.suffix;
+            color: root.style.appearance.muted;
+            font-size: Typography.control.size;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
     }
 }

@@ -1,0 +1,48 @@
+{
+    "name": "Figma to Slint",
+    "id": "1474418299182276871",
+    "api": "1.0.0",
+    "main": "code.js",
+    "ui": "ui.html",
+    "editorType": [
+        "figma",
+        "dev"
+    ],
+    "capabilities": [
+        "codegen",
+        "vscode"
+    ],
+    "codegenLanguages": [
+        {
+            "label": "Slint",
+            "value": "slint"
+        }
+    ],
+    "codegenPreferences": [
+        {
+            "itemType": "select",
+            "propertyName": "useVariables",
+            "label": "Use Variables",
+            "options": [
+                {
+                    "label": "Yes",
+                    "value": "true"
+                },
+                {
+                    "label": "No",
+                    "value": "false",
+                    "isDefault": true
+                }
+            ],
+            "includedLanguages": [
+                "slint"
+            ]
+        }
+    ],
+    "documentAccess": "dynamic-page",
+    "networkAccess": {
+        "allowedDomains": [
+            "none"
+        ]
+    }
+}

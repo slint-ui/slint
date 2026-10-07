@@ -134,10 +134,7 @@ module.exports = grammar({
       ),
 
     property_deprecation: ($) =>
-      seq(
-        "@deprecated",
-        optional(seq("(", field("message", $.string_value), ")")),
-      ),
+      seq("@deprecated", "(", field("message", $.string_value), ")"),
 
     shadowable: (_) => "@shadowable",
 
@@ -214,7 +211,12 @@ module.exports = grammar({
       ),
 
     interface_definition: ($) =>
-      seq("interface", field("name", $.user_type_identifier), $.interface_block),
+      seq(
+        "interface",
+        field("name", $.user_type_identifier),
+        optional($.component_modifier),
+        $.interface_block,
+      ),
 
     struct_field_definition: ($) =>
       seq(

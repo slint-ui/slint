@@ -132,7 +132,7 @@ component MaterialTabBarBase inherits TabBarBase {
         width: 0;
 
         key-pressed(event) => {
-            if (event.text == "\n") {
+            if (event.text == Key.Return) {
                 root.current = root.current-focused;
                 return accept;
             }
@@ -148,7 +148,7 @@ component MaterialTabBarBase inherits TabBarBase {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
+            if (event.text == Key.Space) {
                 root.current = root.current-focused;
                 return accept;
             }

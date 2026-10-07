@@ -11,9 +11,10 @@ use crate::public_api;
 use crate::{AnimationMode, Value};
 use i_slint_compiler::expression_tree::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent};
+use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
 use i_slint_compiler::object_tree::PropertyVisibility;
 use i_slint_compiler::parser::normalize_identifier;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::item_tree::ItemTreeVTable;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -39,7 +40,12 @@ pub struct TypeLoaders {
     /// resolve elements against the exact component the definition was
     /// built from — a name lookup could hit a same-named component from
     /// another document.
-    pub originals: std::rc::Rc<[std::rc::Rc<i_slint_compiler::object_tree::Component>]>,
+    pub originals: std::rc::Rc<
+        typed_index_collections::TiVec<
+            PublicComponentIdx,
+            std::rc::Rc<i_slint_compiler::object_tree::Component>,
+        >,
+    >,
 }
 
 /// Compiled component, one per exported public component in the
@@ -48,7 +54,7 @@ pub struct TypeLoaders {
 #[derive(Clone)]
 pub struct ComponentDefinitionInner {
     pub compilation_unit: Rc<CompilationUnit>,
-    pub public_index: usize,
+    pub public_index: PublicComponentIdx,
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
     pub type_loaders: TypeLoaders,
@@ -57,17 +63,6 @@ pub struct ComponentDefinitionInner {
 impl ComponentDefinitionInner {
     pub fn name(&self) -> &str {
         self.public().name.as_str()
-    }
-
-    /// Instantiate the component.
-    pub fn create(&self) -> ComponentInstanceInner {
-        let vrc = Instance::new_with_window(
-            self.compilation_unit.clone(),
-            self.public_index,
-            None,
-            self.type_loaders.clone(),
-        );
-        ComponentInstanceInner(vrc)
     }
 
     /// Instantiate the component, reusing the given `WindowAdapter` instead
@@ -79,7 +74,35 @@ impl ComponentDefinitionInner {
         let vrc = Instance::new_with_window(
             self.compilation_unit.clone(),
             self.public_index,
-            Some(window_adapter),
+            window_adapter,
+            self.type_loaders.clone(),
+        );
+        ComponentInstanceInner(vrc)
+    }
+
+    /// Instantiate the component with `context` instead of the thread's.
+    pub fn create_with_context(
+        &self,
+        context: i_slint_core::SlintContext,
+    ) -> ComponentInstanceInner {
+        let vrc = Instance::new_with_context(
+            self.compilation_unit.clone(),
+            self.public_index,
+            self.type_loaders.clone(),
+            context,
+        );
+        ComponentInstanceInner(vrc)
+    }
+
+    #[cfg(feature = "internal")]
+    pub fn create_detached_with_existing_window(
+        &self,
+        window_adapter: i_slint_core::window::WindowAdapterRc,
+    ) -> ComponentInstanceInner {
+        let vrc = Instance::new_detached_with_window(
+            self.compilation_unit.clone(),
+            self.public_index,
+            window_adapter,
             self.type_loaders.clone(),
         );
         ComponentInstanceInner(vrc)
@@ -305,7 +328,7 @@ impl ComponentInstanceInner {
 
     /// Definition this instance was created from.
     pub fn definition(&self) -> ComponentDefinitionInner {
-        let public_index = self.0.public_component_index.unwrap_or(0);
+        let public_index = self.0.public_component_index.unwrap_or(0.into());
         ComponentDefinitionInner {
             compilation_unit: self.0.root_sub_component.compilation_unit.clone(),
             public_index,
@@ -330,8 +353,9 @@ pub fn build_from_document(
     let unit = Rc::new(unit);
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
-    type_loaders.originals = document.exported_roots().collect();
-    (0..unit.public_components.len())
+    type_loaders.originals = std::rc::Rc::new(document.exported_roots().collect());
+    unit.public_components
+        .keys()
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),
             public_index,
@@ -382,7 +406,7 @@ pub struct BuildResult {
     pub diagnostics: Vec<i_slint_compiler::diagnostics::Diagnostic>,
     pub components: std::collections::HashMap<String, ComponentDefinitionInner>,
     #[cfg(feature = "internal")]
-    pub watch_paths: Vec<std::path::PathBuf>,
+    pub watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub structs_and_enums: Vec<LangType>,
 }
@@ -390,7 +414,7 @@ pub struct BuildResult {
 /// Compile a `.slint` source string.
 pub async fn build_from_source(
     source_code: String,
-    path: std::path::PathBuf,
+    path: SourcePath,
     mut config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> BuildResult {
@@ -434,15 +458,13 @@ pub async fn build_from_source(
     // map source-level elements back to runtime items.
     config.debug_info = true;
     let diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    let (path, mut diag, loader, raw_loader) =
-        i_slint_compiler::load_root_file_with_raw_type_loader(
-            &path,
-            &path,
-            source_code,
-            diag,
-            config.clone(),
-        )
-        .await;
+    let (mut diag, loader, raw_loader) = i_slint_compiler::load_root_file_with_raw_type_loader(
+        &path,
+        source_code,
+        diag,
+        config.clone(),
+    )
+    .await;
     #[cfg(feature = "internal")]
     let watch_paths = loader.all_files_to_watch().into_iter().collect();
     let error_result = |diagnostics| BuildResult {

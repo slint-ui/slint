@@ -168,8 +168,8 @@ fn default_wgpu_surface_factory(
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wgpu-30")] {
+    core::cfg_select! {
+        feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
                 context,
                 window_handle,
@@ -177,7 +177,8 @@ fn default_wgpu_surface_factory(
                 size,
                 requested_graphics_api,
             )
-        } else {
+        }
+        _ => {
             surface_factory::<wgpu_29_surface::WGPUSurface>(
                 context,
                 window_handle,
@@ -512,6 +513,7 @@ impl SkiaRenderer {
     }
 
     /// Creates a new renderer is associated with the provided window adapter.
+    #[cfg(skia_windowed)]
     pub fn new(
         context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
@@ -541,17 +543,26 @@ impl SkiaRenderer {
         renderer
     }
 
-    /// Reset the surface to a new surface. (destroy the previously set surface if any)
-    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+    /// Releases every cache that holds a GPU-backed resource.
+    fn clear_graphics_caches(&self) {
         self.image_cache.clear_all();
+        self.layer_cache.clear_all();
         self.path_cache.clear_all();
         self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
+    }
+
+    /// Reset the surface to a new surface. (destroy the previously set surface if any)
+    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+        self.clear_graphics_caches();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
     }
 
+    /// Releases the graphics caches and destroys the surface.
     fn clear_surface(&self) {
+        self.clear_graphics_caches();
+
         let Some(surface) = self.surface.borrow_mut().take() else {
             return;
         };
@@ -576,10 +587,6 @@ impl SkiaRenderer {
     /// rendering surface. Call [`Self::set_window_handle()`] to re-associate the renderer with a new
     /// window surface for subsequent rendering.
     pub fn suspend(&self) -> Result<(), PlatformError> {
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
         // trying to create a second synchronization object and that's not allowed.
@@ -608,6 +615,15 @@ impl SkiaRenderer {
         surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
+    }
+
+    /// Adjusts the surface for a window that became transparent or opaque after it was created,
+    /// so that the scene's alpha is kept or discarded to match.
+    pub fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
+        match self.surface.borrow().as_ref() {
+            Some(surface) => surface.set_transparent(transparent),
+            None => Ok(()),
+        }
     }
 
     /// Render the scene in the previously associated window.
@@ -937,6 +953,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.image_cache.component_destroyed(component);
+        self.layer_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
         self.text_layout_cache.component_destroyed(component);
 
@@ -949,10 +966,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
+        self.clear_graphics_caches();
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.clear_cache();

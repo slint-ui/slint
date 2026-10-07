@@ -9,7 +9,7 @@ export struct ElementPresentation {
     preview-size: Size,
     corner-radius: length,
     show-thumbnail: bool,
-    drag-label: string,
+    label: string,
 }
 
 // Primitive identity and grouping are defined in preview/element_catalog.rs.
@@ -21,7 +21,7 @@ export global ElementVisuals {
                 preview-size: { width: 160px, height: 64px },
                 corner-radius: 8px,
                 show-thumbnail: false,
-                drag-label: "Rectangle drag preview",
+                label: "Rectangle",
             };
         }
         if kind == ElementKind.text {
@@ -30,7 +30,7 @@ export global ElementVisuals {
                 preview-size: { width: 220px, height: 40px },
                 corner-radius: 8px,
                 show-thumbnail: false,
-                drag-label: "Text drag preview",
+                label: "Text",
             };
         }
         if kind == ElementKind.image {
@@ -39,7 +39,7 @@ export global ElementVisuals {
                 preview-size: { width: 160px, height: 96px },
                 corner-radius: 16px,
                 show-thumbnail: true,
-                drag-label: "Image drag preview",
+                label: "Image",
             };
         }
         if kind == ElementKind.touch-area {
@@ -48,7 +48,7 @@ export global ElementVisuals {
                 preview-size: { width: 160px, height: 96px },
                 corner-radius: 0px,
                 show-thumbnail: false,
-                drag-label: "TouchArea drag preview",
+                label: "TouchArea",
             };
         }
         return {
@@ -56,7 +56,7 @@ export global ElementVisuals {
             preview-size: { width: 96px, height: 48px },
             corner-radius: 8px,
             show-thumbnail: false,
-            drag-label: "",
+            label: "",
         };
     }
 }

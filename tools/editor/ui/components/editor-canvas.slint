@@ -1,19 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, DropMark } from "../api.slint";
-import { AppState, EditorCursors, EditorMetrics, ElementKind, StudioTheme } from "common.slint";
+import { CanvasView } from "canvas-view.slint";
+import { EditorGrid } from "editor-grid.slint";
+import { Style, Metrics, ArtboardStyle, CanvasSurfaceStyle } from "../style.slint";
+import { Api, DropMark, ElementKind } from "../api.slint";
+import { AppState, EditorCursors, PreviewMetrics } from "index.slint";
 import { CanvasInteractionLayer } from "canvas-interaction-layer.slint";
 
-component PhoneChrome inherits Rectangle {
-    background: StudioTheme.phone-bg;
+component CanvasChrome inherits Rectangle {
+    in property <ArtboardStyle> style: Style.artboard;
+    background: root.style.background;
     clip: true;
 
     Rectangle {
-        x: EditorMetrics.phone-outer-padding;
-        y: EditorMetrics.phone-outer-padding;
-        width: parent.width - (2 * EditorMetrics.phone-outer-padding);
-        height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+        x: root.style.padding;
+        y: root.style.padding;
+        width: parent.width - (2 * root.style.padding);
+        height: parent.height - (2 * root.style.padding);
         accessible-role: AccessibleRole.region;
         accessible-label: "Artboard";
 
@@ -21,31 +25,31 @@ component PhoneChrome inherits Rectangle {
     }
 }
 
-export component EditorCanvas inherits Rectangle {
+export component EditorCanvas inherits TouchArea {
+    in property <ArtboardStyle> artboard-style: Style.artboard;
+    in property <CanvasSurfaceStyle> style: Style.canvas-surface;
     in property <bool> shift-pressed;
-    private property <length> phone-canvas-top: max(
-        40px,
-        (root.height - EditorMetrics.phone-portrait-height) / 2,
-    );
+    private property <Size> viewport-size: { width: root.width, height: root.height };
+    private property <Point> canvas-origin: CanvasView.canvas-origin(root.viewport-size);
+    private property <Point> preview-origin: {
+        x: root.canvas-origin.x + root.artboard-style.padding * CanvasView.zoom,
+        y: root.canvas-origin.y + root.artboard-style.padding * CanvasView.zoom,
+    };
+    init => { CanvasView.viewport-size = root.viewport-size; }
+    changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
 
     accessible-role: AccessibleRole.main;
     accessible-label: "Editor canvas";
+    accessible-value: "\{(CanvasView.zoom * 100).round()}%";
 
     callback real-element-selected();
 
-    background: StudioTheme.canvas;
-
-    for row in 28: Rectangle {
-        y: row * 32px;
-        height: 1px;
-        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    scroll-event(event) => {
+        return CanvasView.scroll({ x: event.delta-x, y: event.delta-y });
     }
+    Rectangle { background: root.style.background; }
 
-    for col in 48: Rectangle {
-        x: col * 32px;
-        width: 1px;
-        background: StudioTheme.dark ? #ffffff0a : #00000008;
-    }
+    EditorGrid { style: root.style.grid; }
 
     TouchArea {
         mouse-cursor: EditorCursors.canvas-default;
@@ -55,25 +59,16 @@ export component EditorCanvas inherits Rectangle {
         }
     }
 
-    Rectangle {
-        x: (parent.width - phone.width) / 2;
-        y: root.phone-canvas-top + 18px;
-        width: phone.width;
-        height: phone.height;
-        border-radius: EditorMetrics.phone-frame-radius;
-        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
-        drop-shadow-blur: 30px;
-        drop-shadow-offset-y: 18px;
-    }
-
-    phone := Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: root.phone-canvas-top;
-        width: EditorMetrics.phone-portrait-width;
-        height: EditorMetrics.phone-portrait-height;
-        border-radius: EditorMetrics.phone-frame-radius;
-        border-width: 1px;
-        border-color: StudioTheme.border;
+    canvas-chrome := Rectangle {
+        transform-origin: { x: 0px, y: 0px };
+        transform-scale: CanvasView.zoom;
+        x: root.canvas-origin.x;
+        y: root.canvas-origin.y;
+        width: PreviewMetrics.canvas-width;
+        height: PreviewMetrics.canvas-height;
+        border-radius: root.artboard-style.radius;
+        border-width: Metrics.border-width;
+        border-color: root.artboard-style.border;
 
         TouchArea {
             mouse-cursor: EditorCursors.canvas-default;
@@ -82,72 +77,76 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        PhoneChrome {
+        CanvasChrome {
+            style: root.artboard-style;
             ComponentContainer {
                 width: 100%;
                 height: 100%;
                 component-factory: Api.preview-area;
             }
 
-            DropArea {
-                can-drop(event) => {
-                    if AppState.palette-drag-cancelled {
-                        return DragAction.none;
-                    }
-                    if AppState.palette-drag-kind != ElementKind.none {
-                        AppState.update-palette-drag(
-                            AppState.palette-drag-kind,
-                            {
-                                x: self.absolute-position.x + event.position.x,
-                                y: self.absolute-position.y + event.position.y,
-                            },
-                        );
-                        return DragAction.copy;
-                    }
-                    return Api.can-drop(event.data, event.position.x, event.position.y, true)
-                        ? DragAction.copy : DragAction.none;
-                }
-                dropped(event) => {
-                    if AppState.palette-drag-kind != ElementKind.none {
-                        let size = AppState.palette-drag-size;
-                        Api.drop-with-geometry(
-                            event.data,
-                            event.position,
-                            {
-                                x: event.position.x - size.width / 2,
-                                y: event.position.y - size.height / 2,
-                            },
-                            size,
-                        );
-                    } else {
-                        Api.drop(event.data, event.position.x, event.position.y);
-                    }
-                    return event.proposed-action;
-                }
-            }
+        }
+    }
 
-            property <DropMark> drop-mark: Api.drop-mark;
-            if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                x: min(drop-mark.x1, drop-mark.x2);
-                y: min(drop-mark.y1, drop-mark.y2);
-                width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
-                height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
-                border-color: StudioTheme.drop-mark-foreground;
-                background: StudioTheme.drop-mark-background;
-                accessible-role: AccessibleRole.region;
-                accessible-label: "Canvas drop marker";
+    Rectangle {
+        x: root.preview-origin.x;
+        y: root.preview-origin.y;
+        width: (PreviewMetrics.canvas-width - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        height: (PreviewMetrics.canvas-height - 2 * root.artboard-style.padding) * CanvasView.zoom;
+        DropArea {
+            can-drop(event) => {
+                if AppState.palette-drag-cancelled {
+                    return DragAction.none;
+                }
+                if AppState.palette-drag-kind != ElementKind.none {
+                    AppState.update-palette-drag(
+                        AppState.palette-drag-kind,
+                        {
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        },
+                    );
+                    return DragAction.copy;
+                }
+                let preview = CanvasView.to-preview(event.position);
+                return Api.can-drop(event.data, preview.x, preview.y, true)
+                    ? DragAction.copy : DragAction.none;
+            }
+            dropped(event) => {
+                let preview = CanvasView.to-preview(event.position);
+                if AppState.palette-drag-kind != ElementKind.none {
+                    let size = AppState.palette-drag-size;
+                    Api.drop-with-geometry(
+                        event.data,
+                        preview,
+                        {
+                            x: preview.x - size.width / 2,
+                            y: preview.y - size.height / 2,
+                        },
+                        size,
+                    );
+                } else {
+                    Api.drop(event.data, preview.x, preview.y);
+                }
+                return event.proposed-action;
             }
         }
 
+        property <DropMark> drop-mark: Api.drop-mark;
+        if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+            x: min(drop-mark.x1, drop-mark.x2) * CanvasView.zoom;
+            y: min(drop-mark.y1, drop-mark.y2) * CanvasView.zoom;
+            width: max((drop-mark.x2 - drop-mark.x1).abs() * CanvasView.zoom, 2px);
+            height: max((drop-mark.y2 - drop-mark.y1).abs() * CanvasView.zoom, 2px);
+            border-color: root.style.drop-indicator.foreground;
+            background: root.style.drop-indicator.background;
+            accessible-role: AccessibleRole.region;
+            accessible-label: "Canvas drop marker";
+        }
+
         CanvasInteractionLayer {
-            x: EditorMetrics.phone-outer-padding;
-            y: EditorMetrics.phone-outer-padding;
-            width: parent.width - 2 * EditorMetrics.phone-outer-padding;
-            height: parent.height - 2 * EditorMetrics.phone-outer-padding;
             shift-pressed: root.shift-pressed;
-            real-element-selected => {
-                root.real-element-selected();
-            }
+            real-element-selected => { root.real-element-selected(); }
         }
     }
 }

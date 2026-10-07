@@ -927,7 +927,7 @@ impl RemoteLspToPreview {
         let target =
             format!("{}:{port}", addresses.first().map(String::as_str).unwrap_or_default());
         tracing::info!("Connection to remote viewer lost; reconnecting to {target}");
-        shared.emit_state(RemoteConnectionState::Connecting, target.clone(), None);
+        shared.emit_state(RemoteConnectionState::Reconnecting, target.clone(), None);
         loop {
             match Self::connect_impl(shared, addresses, port, generation).await {
                 Ok(()) => {
@@ -1204,13 +1204,15 @@ fn describe_version_mismatch(err: &tokio_tungstenite_wasm::Error) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_slint_live_preview::preview_sessions::{PreviewSession, PreviewSessionEvent};
+    use i_slint_live_preview::preview_sessions::{
+        PreviewSession, PreviewSessionEvent, PreviewSessionHandle,
+    };
     use i_slint_live_preview::protocol::PreviewComponent;
     use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy};
     use lsp_types::Url;
 
     fn test_url(file_name: &str) -> Url {
-        Url::from_file_path(crate::editor_preview::test::test_file_name(file_name)).unwrap()
+        crate::editor_preview::test::test_file_name(file_name).to_url().unwrap()
     }
 
     async fn listen(
@@ -1233,19 +1235,25 @@ mod tests {
     ) {
         let (tx, rx) = mpsc::unbounded_channel();
         let (preview_event_sender, preview_events) = mpsc::unbounded_channel();
-        let (connection, preview_session) = Connection::listen(
+        let (session_handle, session_commands) = PreviewSessionHandle::new();
+        let connection = Connection::listen_with_session_handle(
             Some(std::net::SocketAddr::from(([127, 0, 0, 1], port))),
             None,
             policy,
             move |msg| {
                 let _ = tx.send(msg);
             },
-            move |event| {
-                let _ = preview_event_sender.send(event);
-            },
+            session_handle,
         )
         .await
         .unwrap();
+        let preview_session = PreviewSession::start_with(
+            session_commands,
+            Rc::new(connection.preview_to_lsp()),
+            move |event| {
+                let _ = preview_event_sender.send(event);
+            },
+        );
         (connection, rx, preview_session, preview_events)
     }
 

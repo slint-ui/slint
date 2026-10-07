@@ -84,6 +84,9 @@ export default defineConfig({
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/HeaderSlintDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 starlightSidebarTopics([
@@ -186,6 +189,10 @@ export default defineConfig({
                                             {
                                                 label: "Structs and Enums",
                                                 slug: "guide/language/coding/structs-and-enums",
+                                            },
+                                            {
+                                                label: "Deprecating Members",
+                                                slug: "guide/language/coding/deprecation",
                                             },
                                         ],
                                     },
@@ -316,10 +323,6 @@ export default defineConfig({
                                                   slug: "guide/experimental/named-slots",
                                               },
                                               {
-                                                  label: "Deprecated Properties",
-                                                  slug: "guide/experimental/deprecated",
-                                              },
-                                              {
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
                                               },
@@ -409,6 +412,10 @@ export default defineConfig({
                                     {
                                         label: "Callbacks",
                                         slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Deprecation",
+                                        slug: "reference/language/deprecation",
                                     },
                                     {
                                         label: "Evaluation and Purity",

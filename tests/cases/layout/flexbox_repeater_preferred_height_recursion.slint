@@ -1,0 +1,69 @@
+// Copyright © 2026 The Slint Developers
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A flexbox queried for its preferred height must not re-enter the width
+// assigned to a repeated height-for-width cell while computing that width.
+export component TestCase inherits Window {
+    in property <string> label: "Short";
+    in property <float> flex-width: 120;
+
+    reference := Text {
+        x: -3000px;
+        width: root.flex-width * 1px;
+        text: root.label;
+        wrap: word-wrap;
+    }
+
+    fl := FlexboxLayout {
+        flex-direction: column;
+        flex-wrap: no-wrap;
+        width: root.flex-width * 1px;
+        height: 300px;
+
+        for _ in [0]: Text {
+            text: root.label;
+            wrap: word-wrap;
+        }
+        anchor := Rectangle { height: 1px; }
+    }
+
+    out property <length> solved-height: anchor.y;
+    out property <length> reference-height: reference.height;
+    out property <bool> test: fl.preferred-height >= 0px
+        && abs(root.solved-height - root.reference-height) < 1px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+handle->set_label("The quick brown fox jumps over the lazy dog");
+handle->set_flex_width(80);
+assert(handle->get_test());
+handle->set_label("Short");
+handle->set_flex_width(160);
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test(), "solved = {}, reference = {}", instance.get_solved_height(), instance.get_reference_height());
+instance.set_label("The quick brown fox jumps over the lazy dog".into());
+instance.set_flex_width(80.0);
+assert!(instance.get_test(), "solved = {}, reference = {}", instance.get_solved_height(), instance.get_reference_height());
+instance.set_label("Short".into());
+instance.set_flex_width(160.0);
+assert!(instance.get_test(), "solved = {}, reference = {}", instance.get_solved_height(), instance.get_reference_height());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.label = "The quick brown fox jumps over the lazy dog";
+instance.flexWidth = 80;
+assert(instance.test);
+instance.label = "Short";
+instance.flexWidth = 160;
+assert(instance.test);
+```
+*/

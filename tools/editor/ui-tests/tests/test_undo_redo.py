@@ -17,16 +17,17 @@ from canvas_interactions import (
     rotated_handle_center,
     rotation_delta,
 )
+from editor_sync import wait_for_source
 from inspector_interactions import FIELDS, edit_field, wait_for_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_driver import (
+    element,
     first_window,
     launch_editor,
     press_shortcut,
     select_fixture_element,
     wait_until,
-    window_element_with_label,
 )
 from ui_reporting import replay_stage
 
@@ -61,14 +62,11 @@ def assert_visual(
     )
     actual: OrientedFrame | None = None
 
-    def matches() -> bool | None:
+    def matches() -> bool:
         nonlocal actual
         actual = oriented_selection_frame(window, "Rectangle")
-        return (
-            True
-            if actual is not None
-            and all(abs(a - b) < 1.5 for a, b in zip(actual, expected))
-            else None
+        return actual is not None and all(
+            abs(a - b) < 1.5 for a, b in zip(actual, expected)
         )
 
     try:
@@ -88,13 +86,13 @@ def assert_visual(
         return
     radius_handle(window, "top-left")
 
-    def radius_matches() -> bool | None:
+    def radius_matches() -> bool:
         a = rotated_handle_center(
-            window_element_with_label(window, "Rectangle resize top-left"),
+            element(window, "Rectangle resize top-left"),
             values["rotation"],
         )
         r = rotated_handle_center(
-            window_element_with_label(window, "Rectangle radius top-left"),
+            element(window, "Rectangle radius top-left"),
             values["rotation"],
         )
         angle = math.radians(values["rotation"])
@@ -103,9 +101,8 @@ def assert_visual(
             dx * math.cos(angle) + dy * math.sin(angle),
             -dx * math.sin(angle) + dy * math.cos(angle),
         )
-        return (
-            True if all(abs(v - (10 + values["radius"])) < 1.5 for v in local) else None
-        )
+        expected_radius_offset = max(12, values["radius"])
+        return all(abs(v - expected_radius_offset) < 1.5 for v in local)
 
     wait_until(radius_matches)
 
@@ -127,7 +124,10 @@ def edit(
     if case.startswith("inspector-"):
         name, value = next(iter(changes.items()))
         edit_field(
-            window, FIELDS[name], str(value), slint_testing.AccessibleRole.TextInput
+            window,
+            "All corner radii" if name == "radius" else FIELDS[name],
+            str(value),
+            slint_testing.AccessibleRole.TextInput,
         )
         return
     if case == "handle-radius":
@@ -139,9 +139,9 @@ def edit(
             if case == "handle-move"
             else "Rectangle resize bottom-right"
         )
-        manual_drag(window, window_element_with_label(window, label), 24, 16, snapshot)
+        manual_drag(window, element(window, label), 24, 16, snapshot)
         return
-    handle = window_element_with_label(window, "Rectangle rotate top-left")
+    handle = element(window, "Rectangle rotate top-left")
     target_angle = changes["rotation"]
     dx, dy = rotation_delta(window, handle, target_angle, kind="Rectangle")
     manual_rotation_drag(
@@ -149,24 +149,10 @@ def edit(
     )
 
 
-SKIPS = {
-    "handle-radius": "Requires a Rust corner-radius persistence fix",
-    "inspector-rotation": "No Rectangle rotation property editor is available",
-    "inspector-radius": "No Rectangle corner-radius property editor is available",
-}
-
-
 @pytest.mark.parametrize(
     "case,changes",
-    [
-        pytest.param(
-            case,
-            changes,
-            id=case,
-            marks=pytest.mark.skip(reason=SKIPS[case]) if case in SKIPS else (),
-        )
-        for case, changes in CASES
-    ],
+    CASES,
+    ids=[case for case, _ in CASES],
 )
 def test_rectangle_undo_redo(
     editor_binary: Path,
@@ -179,9 +165,21 @@ def test_rectangle_undo_redo(
     baseline = source.read_bytes()
     expected = baseline
     for name, value in changes.items():
+        if name == "radius":
+            expected = expected.replace(
+                b"        transform-rotation: 0deg;",
+                f"        border-bottom-left-radius: {value}px;\n"
+                f"        border-bottom-right-radius: {value}px;\n"
+                "        transform-rotation: 0deg;".encode(),
+            ).replace(
+                b"        border-radius: 12px;",
+                "        border-radius: 12px;\n"
+                f"        border-top-left-radius: {value}px;\n"
+                f"        border-top-right-radius: {value}px;".encode(),
+            )
+            continue
         prop, unit = {
             "rotation": ("transform-rotation", "deg"),
-            "radius": ("border-radius", "px"),
         }.get(name, (name, "px"))
         old = f"        {prop}: {INITIAL[name]}{unit};".encode()
         assert expected.count(old) == 1
@@ -189,6 +187,7 @@ def test_rectangle_undo_redo(
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
+        wait_for_source(source, baseline)
         with replay_stage("initial"):
             select_fixture_element(window, "Rectangle")
             cx, cy, *_ = wait_until(

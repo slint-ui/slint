@@ -11,6 +11,18 @@ on:
             default: false
             required: false
             description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+        publish:
+            type: boolean
+            default: true
+            required: false
+            description: "Publish the built distributions. If false, only build and test them"
+    # The nightly snapshot calls this to build and test the wheels. A called run
+    # never publishes: leave `publish` at its default.
+    workflow_call:
+      inputs:
+        publish:
+            type: boolean
+            default: false
 
 jobs:
     build_binaries:
@@ -128,7 +140,7 @@ jobs:
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.2.0
+              uses: pypa/cibuildwheel@v4.2.1
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
@@ -180,7 +192,7 @@ jobs:
             # backend, which needs a display and the system libxkbcommon-x11
             # (dlopened at runtime, so not bundled into the manylinux wheel).
             - name: Setup headless display
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             # The wheels no longer vendor their dependencies, so provide the
             # extension's direct DT_NEEDED libraries; apt pulls the rest.
             - name: Install runtime system libraries
@@ -201,7 +213,7 @@ jobs:
               run: python3 api/python/slint/tests/registry/e2e.py
 
     publish-to-test-pypi:
-        if: ${{ github.event.inputs.release != 'true' }}
+        if: ${{ inputs.publish && github.event.inputs.release != 'true' }}
         name: >-
             Publish Python 🐍 distribution 📦 to Test PyPI
         needs: [build_binaries, ios_binaries, build_source_package, e2e_test]
@@ -223,7 +235,7 @@ jobs:
                 repository-url: https://test.pypi.org/legacy/
 
     publish-to-pypi:
-      if: ${{ github.event.inputs.release == 'true' }}
+      if: ${{ inputs.publish && github.event.inputs.release == 'true' }}
       name: >-
           Publish Python 🐍 distribution 📦 to PyPI
       needs: [build_binaries, ios_binaries, build_source_package, e2e_test]

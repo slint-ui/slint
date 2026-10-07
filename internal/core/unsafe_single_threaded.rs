@@ -44,10 +44,10 @@ macro_rules! thread_local_ {
     );
 }
 
-pub struct FakeThreadStorage<T, F = fn() -> T>(once_cell::unsync::OnceCell<T>, F);
+pub struct FakeThreadStorage<T, F = fn() -> T>(core::cell::OnceCell<T>, F);
 impl<T, F> FakeThreadStorage<T, F> {
     pub const fn new(f: F) -> Self {
-        Self(once_cell::unsync::OnceCell::new(), f)
+        Self(core::cell::OnceCell::new(), f)
     }
 }
 impl<T> FakeThreadStorage<T> {
@@ -65,7 +65,7 @@ unsafe impl<T, F> Sync for FakeThreadStorage<T, F> {}
 
 pub use thread_local_ as thread_local;
 
-pub struct OnceCell<T>(once_cell::unsync::OnceCell<T>);
+pub struct OnceCell<T>(core::cell::OnceCell<T>);
 impl<T> Default for OnceCell<T> {
     fn default() -> Self {
         Self::new()
@@ -73,7 +73,7 @@ impl<T> Default for OnceCell<T> {
 }
 impl<T> OnceCell<T> {
     pub const fn new() -> Self {
-        Self(once_cell::unsync::OnceCell::new())
+        Self(core::cell::OnceCell::new())
     }
     pub fn get(&self) -> Option<&T> {
         self.0.get()

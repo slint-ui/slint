@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "20:1",
+    "nodeName": "Multi-path icon"
+  },
+  "root": {
+    "kind": "svg",
+    "id": "20:1",
+    "name": "Multi-path icon",
+    "x": 0,
+    "y": 0,
+    "width": 32,
+    "height": 32,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "sourceType": "VECTOR",
+    "svg": "<svg width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><path d=\"M2 2h12v12H2z\" fill=\"#ff0000\"/><path d=\"M18 18h12v12H18z\" fill=\"#0000ff\"/></svg>",
+    "layoutPositioning": "auto"
+  }
+}

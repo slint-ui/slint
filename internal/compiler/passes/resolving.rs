@@ -20,11 +20,12 @@ use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
+use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -147,6 +148,17 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        } else if is_literal_only(&match_element.subject) {
+            diag.push_warning(
+                "Match subject is a constant expression, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -215,6 +227,24 @@ fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
     }
 }
 
+fn is_literal_only(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(..)
+        | Expression::StringLiteral(..)
+        | Expression::BoolLiteral(..)
+        | Expression::EnumerationValue(..) => true,
+        Expression::Cast { from, .. } => is_literal_only(from),
+        Expression::UnaryOp { sub, .. } => is_literal_only(sub),
+        Expression::BinaryExpression { lhs, rhs, .. } => {
+            is_literal_only(lhs) && is_literal_only(rhs)
+        }
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
+            is_literal_only(condition) && is_literal_only(true_expr) && is_literal_only(false_expr)
+        }
+        _ => false,
+    }
+}
+
 #[derive(PartialEq)]
 enum CaseValue {
     Number(f64, Unit),
@@ -240,21 +270,44 @@ impl CaseValue {
     }
 }
 
+// `f64` has no total order/equality (NaN), but case values are always parsed
+// literals, never NaN, so treating `CaseValue` as `Eq`/`Hash` is sound here.
+impl Eq for CaseValue {}
+
+impl std::hash::Hash for CaseValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        match self {
+            // Normalize -0.0 to 0.0 so the hash agrees with `==`, which treats them as equal.
+            CaseValue::Number(number, unit) => {
+                debug_assert!(!number.is_nan());
+                (if *number == 0.0 { 0.0 } else { *number }).to_bits().hash(state);
+                unit.hash(state);
+            }
+            CaseValue::String(string) => string.hash(state),
+            CaseValue::Bool(boolean) => boolean.hash(state),
+            CaseValue::Enumeration(value) => value.hash(state),
+        }
+    }
+}
+
 /// Reports every case whose value is already covered by an earlier case
 fn check_duplicate_cases(
     cases: &[MatchCaseInfo],
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
             continue; // not a valid literal
         };
-        if seen.contains(&value) {
+        if !seen.insert(value) {
             diag.push_error("Duplicate case value".into(), &case.node);
-        } else {
-            seen.push(value);
         }
     }
 }
@@ -279,13 +332,16 @@ fn check_exhaustiveness(
     if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
         return;
     }
-    // Prevents duplicated errors if both not a literal and not exhaustive
-    let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut covered: HashSet<&CaseValue> = HashSet::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
             return;
         };
-        covered.push(value);
+        covered.insert(value);
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
@@ -312,7 +368,7 @@ fn check_exhaustiveness(
 
     let mut missing = Vec::new();
     for value in &expected {
-        if !covered.contains(&value) {
+        if !covered.contains(value) {
             missing.push(format!("'{value}'"));
         }
     }
@@ -465,12 +521,28 @@ impl Expression {
         // new scope for locals
         ctx.local_variables.push(Vec::new());
 
+        // The block evaluates to its last statement; the value of the others is discarded
+        let value_range = node
+            .children()
+            .filter(|n| {
+                matches!(
+                    n.kind(),
+                    SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
+                )
+            })
+            .last()
+            .filter(|n| n.kind() == SyntaxKind::Expression)
+            .map(|n| n.text_range());
         let mut statements_or_exprs = node
             .children()
             .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression => {
+                SyntaxKind::Expression if Some(n.text_range()) == value_range => {
                     Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
                 }
+                SyntaxKind::Expression => Some((
+                    n.clone(),
+                    ctx.without_expected_type(|ctx| Self::from_expression_node(n.into(), ctx)),
+                )),
                 SyntaxKind::ReturnStatement => {
                     Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
                 }
@@ -546,7 +618,9 @@ impl Expression {
             Some(t) => ctx.with_expected_type(t.clone(), |ctx| {
                 Self::from_expression_node(node.Expression(), ctx)
             }),
-            None => Self::from_expression_node(node.Expression(), ctx),
+            None => {
+                ctx.without_expected_type(|ctx| Self::from_expression_node(node.Expression(), ctx))
+            }
         };
         let ty = declared_ty.unwrap_or_else(|| value.ty());
 
@@ -811,27 +885,18 @@ impl Expression {
         let resource_ref = if s.starts_with("data:") {
             ImageReference::DataUri(s)
         } else {
-            let absolute_source_path = {
-                let path = std::path::Path::new(&s);
-                if crate::pathutils::is_absolute(path) {
-                    s
-                } else {
-                    ctx.type_loader
-                        .and_then(|loader| {
-                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                        })
-                        .map(|i| i.0.to_string_lossy().into())
-                        .unwrap_or_else(|| {
-                            crate::pathutils::join(
-                                &crate::pathutils::dirname(node.source_file.path()),
-                                path,
-                            )
-                            .map(|p| p.to_string_lossy().into())
-                            .unwrap_or(s.clone())
-                        })
+            let is_absolute = crate::source_path::is_absolute(&s);
+            let resolved = ctx
+                .type_loader
+                .filter(|_| !is_absolute)
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s));
+            let path = match resolved {
+                Some(path) => path,
+                None => {
+                    node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            ImageReference::Source(path)
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
@@ -841,7 +906,9 @@ impl Expression {
             ImageReference::DataUri(_) => {
                 ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
             }
-            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            ImageReference::Source(path) if path.as_native_path().is_none() => {
+                ctx.diag.slint_sc_error("URLs in @image-url() are", &node)
+            }
             _ => {}
         }
 
@@ -2201,7 +2268,8 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
-        let array_expr = Self::from_expression_node(array_expr_n, ctx);
+        let array_expr =
+            ctx.without_expected_type(|ctx| Self::from_expression_node(array_expr_n, ctx));
         let index_expr = ctx
             .with_expected_type(Type::Int32, |ctx| {
                 Self::from_expression_node(index_expr_n.clone(), ctx)
@@ -2256,16 +2324,18 @@ impl Expression {
             })
             .collect();
 
-        let element_ty = if values.is_empty() {
-            Type::Void
-        } else {
-            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+        let element_ty = match element_expected {
+            Type::Invalid | Type::Void if values.is_empty() => Type::Void,
+            Type::Invalid | Type::Void => {
+                Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+            }
+            expected => expected,
         };
 
-        for e in values.iter_mut() {
+        for (e, n) in values.iter_mut().zip(node.Expression()) {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                &node,
+                &n,
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -2605,7 +2675,7 @@ fn lookup_qualified_name_node(
     };
 
     if let Some(depr) = result.deprecated() {
-        ctx.diag.push_property_deprecation_warning_with_message(&first_str, depr, &first);
+        ctx.diag.push_member_deprecation_warning("property", &first_str, depr, &first);
     }
 
     match result {
@@ -2768,15 +2838,11 @@ fn continue_lookup_within_element(
             lookup_result.deprecated.as_ref().filter(|_| !local_to_component)
         {
             // `@deprecated` properties only warn when accessed from outside the declaring component
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, message, &second);
         } else if let Some(deprecated) =
             crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
-            ctx.diag.push_property_deprecation_warning_with_message(
-                &prop_name,
-                &deprecated,
-                &second,
-            );
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, &deprecated, &second);
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
@@ -2785,7 +2851,7 @@ fn continue_lookup_within_element(
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("callback", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
@@ -2812,7 +2878,7 @@ fn continue_lookup_within_element(
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
         }
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("function", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
@@ -2837,14 +2903,13 @@ fn continue_lookup_within_element(
     } else {
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                ElementType::Global | ElementType::Interface => {
+                ElementType::Global | ElementType::Interface(_) => {
                     let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
                     assert!(enclosing_type.is_global() || enclosing_type.is_interface());
                     format!("'{}'", enclosing_type.id)
                 }
                 ElementType::Component(c) => format!("Element '{}'", c.id),
                 ElementType::Builtin(b) => format!("Element '{}'", b.name),
-                ElementType::Native(_) => unreachable!("the native pass comes later"),
                 ElementType::Error => {
                     assert!(ctx.diag.has_errors());
                     return;
@@ -3050,23 +3115,6 @@ fn resolve_two_way_bindings_for_element(
                     continue;
                 }
                 rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
-
-                // The derived replacement only helps callers if the target is a public property
-                // of the same element, reached through the same object. Otherwise the hint is
-                // unreachable, so require an explicit message instead.
-                if elem
-                    .borrow()
-                    .property_declarations
-                    .get(prop_name)
-                    .is_some_and(|d| d.has_derived_deprecation())
-                    && !(Rc::ptr_eq(&nr.element(), elem)
-                        && rhs_lookup.property_visibility != PropertyVisibility::Private)
-                {
-                    lookup_ctx.diag.push_error(
-                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
-                        &node,
-                    );
-                }
 
                 if !rhs_lookup.is_valid_for_assignment() {
                     match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {

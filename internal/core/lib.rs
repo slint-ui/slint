@@ -39,6 +39,8 @@ pub mod cursor;
 pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
+#[doc(hidden)]
+pub mod font_collection;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -60,6 +62,8 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
+#[cfg(test)]
+mod testing;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
@@ -99,7 +103,7 @@ pub use graphics::BorderRadius;
 #[doc(inline)]
 pub use data_transfer::DataTransfer;
 
-pub use context::{SlintContext, SlintContextWeak, with_global_context};
+pub use context::{SlintContext, SlintContextWeak, with_existing_context, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -146,14 +150,38 @@ pub fn detect_operating_system() -> OperatingSystemType {
         return os_override;
     }
 
+    #[cfg(not(target_os = "emscripten"))]
+    fn navigator_user_agent_and_platform() -> (std::string::String, std::string::String) {
+        let navigator = web_sys::window().map(|w| w.navigator());
+        let user_agent = navigator.as_ref().and_then(|n| n.user_agent().ok()).unwrap_or_default();
+        let platform = navigator.as_ref().and_then(|n| n.platform().ok()).unwrap_or_default();
+        (user_agent, platform)
+    }
+
+    #[cfg(target_os = "emscripten")]
+    #[allow(unsafe_code)]
+    fn navigator_user_agent_and_platform() -> (std::string::String, std::string::String) {
+        unsafe extern "C" {
+            fn emscripten_run_script_string(
+                script: *const core::ffi::c_char,
+            ) -> *const core::ffi::c_char;
+        }
+        let run = |script: &core::ffi::CStr| {
+            // The result points to a buffer that the next call overwrites, so copy it right away.
+            let result = unsafe { emscripten_run_script_string(script.as_ptr()) };
+            if result.is_null() {
+                return std::string::String::new();
+            }
+            unsafe { core::ffi::CStr::from_ptr(result) }.to_string_lossy().into_owned()
+        };
+        (run(c"navigator.userAgent"), run(c"navigator.platform"))
+    }
+
     // Querying the navigator involves a round-trip to JavaScript and some string processing, so
     // cache the result: it cannot change for the lifetime of the page.
     static DETECTED: std::sync::LazyLock<OperatingSystemType> = std::sync::LazyLock::new(|| {
-        let mut user_agent =
-            web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
+        let (mut user_agent, mut platform) = navigator_user_agent_and_platform();
         user_agent.make_ascii_lowercase();
-        let mut platform =
-            web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
         platform.make_ascii_lowercase();
 
         if user_agent.contains("ipad") || user_agent.contains("iphone") {
@@ -178,8 +206,8 @@ pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
 
-pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
-    crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
+pub fn open_url(url: &str, ctx: &SlintContext) -> Result<(), crate::api::PlatformError> {
+    ctx.platform().open_url(url)
 }
 
 #[cfg(target_os = "macos")]

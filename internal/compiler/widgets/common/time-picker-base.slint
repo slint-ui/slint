@@ -3,6 +3,9 @@
 
 import { ColoredTextStyle } from "./internal-components.slint";
 
+import { Time } from "std-widget-interfaces.slint";
+export { Time }
+
 export struct TimeSelectorStyle {
     foreground: brush,
     foreground-selected: brush,
@@ -327,12 +330,6 @@ export component PeriodSelector {
         border-width: root.style.border-width;
         border-color: root.style.border-brush;
     }
-}
-
-export struct Time {
-    hour: int,
-    minute: int,
-    second: int
 }
 
 export struct TimePickerStyle {

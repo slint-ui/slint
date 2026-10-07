@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:1",
+    "nodeName": "Button"
+  },
+  "root": {
+    "kind": "group",
+    "id": "1:1",
+    "name": "Button",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "children": [
+      {
+        "kind": "rectangle",
+        "id": "1:2",
+        "name": "Background",
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 72,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "fills": [
+          {
+            "kind": "linear-gradient",
+            "transform": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ]
+            ],
+            "stops": [
+              {
+                "position": 0,
+                "color": {
+                  "r": 0.1843137255,
+                  "g": 0.5019607843,
+                  "b": 0.9294117647,
+                  "a": 1
+                }
+              },
+              {
+                "position": 1,
+                "color": {
+                  "r": 0.6078431373,
+                  "g": 0.3176470588,
+                  "b": 0.8784313725,
+                  "a": 1
+                }
+              }
+            ],
+            "opacity": 1
+          }
+        ],
+        "strokes": [
+          {
+            "paint": {
+              "kind": "solid",
+              "color": {
+                "r": 0.1137254902,
+                "g": 0.3058823529,
+                "b": 0.8470588235,
+                "a": 1
+              },
+              "opacity": 1
+            },
+            "align": "INSIDE",
+            "strokeTopWeight": 1,
+            "strokeRightWeight": 1,
+            "strokeBottomWeight": 1,
+            "strokeLeftWeight": 1,
+            "dashPattern": []
+          }
+        ],
+        "layoutPositioning": "auto",
+        "cornerRadii": [
+          12,
+          12,
+          12,
+          12
+        ],
+        "clipsContent": false,
+        "containerKind": "native",
+        "layoutFallback": "freeform",
+        "shadows": []
+      },
+      {
+        "kind": "text",
+        "id": "1:3",
+        "name": "Slint",
+        "x": 0,
+        "y": 0,
+        "width": 240,
+        "height": 72,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "characters": "First\r\nSecond",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "opacity": 1
+          }
+        ],
+        "fontFamily": "Inter",
+        "fontStyle": "Regular",
+        "fontSize": 20,
+        "fontWeight": 400,
+        "textAutoResize": "none",
+        "horizontalAlign": "CENTER",
+        "verticalAlign": "CENTER",
+        "layoutPositioning": "auto",
+        "italic": false,
+        "letterSpacing": 0,
+        "lineHeightFactor": null,
+        "wrap": false,
+        "overflow": "clip",
+        "maxLines": null,
+        "runs": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "containerKind": "group",
+    "layoutFallback": "freeform"
+  }
+}

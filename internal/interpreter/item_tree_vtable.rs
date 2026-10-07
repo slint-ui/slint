@@ -9,6 +9,7 @@
 
 use crate::instance::Instance;
 use i_slint_core::SharedString;
+use i_slint_core::SlintContext;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -118,14 +119,11 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(index) else {
             return IndexRange { start: 0, end: 0 };
         };
-        // Trigger lazy instantiation: for a regular repeater this fills
-        // the model rows; for a `ComponentContainer` it evaluates the
-        // factory and stores the embedded tree on the container item.
-        self.get_ref().ensure_updated(index);
         if let Some(cc) = crate::instance::component_container_item(&sub, rep_idx) {
             return cc.subtree_range();
         }
         let repeater = &sub.repeaters[rep_idx];
+        repeater.track_instance_changes();
         let range = repeater.range();
         IndexRange { start: range.start, end: range.end }
     }
@@ -136,7 +134,6 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         subindex: usize,
         result: &mut VWeak<ItemTreeVTable, vtable::Dyn>,
     ) {
-        self.get_ref().ensure_updated(index);
         let Some((sub, rep_idx)) = self.get_ref().dynamic_at(index) else {
             return;
         };
@@ -384,10 +381,17 @@ impl i_slint_core::item_tree::ItemTree for Instance {
 
     fn item_element_infos(self: Pin<&Self>, item_index: u32, result: &mut SharedString) -> bool {
         let this = self.get_ref();
-        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
-            return false;
-        };
         let cu = &this.root_sub_component.compilation_unit;
+        // Like the code generators, answer for every item when compiled with debug
+        // info, leaving `result` empty for items the compiler synthesized (such as
+        // the wrapper of a `visible` binding). `false` means that the whole tree
+        // lacks debug info.
+        if !cu.has_debug_info {
+            return false;
+        }
+        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
+            return true;
+        };
         // The compiler stores `element_infos` per sub-component, keyed by
         // the element's tree index *within that sub-component*. Walk the
         // sub_component_path from the root, translating the flat index
@@ -418,10 +422,12 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let item_local_idx = owner_sc.items[entry.1].index_in_tree;
         if let Some(infos) = owner_sc.element_infos.get(&item_local_idx) {
             *result = infos.as_str().into();
-            true
-        } else {
-            false
         }
+        true
+    }
+
+    fn slint_context(self: Pin<&Self>, result: &mut Option<SlintContext>) {
+        *result = Some(self.get_ref().globals.context.clone());
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {

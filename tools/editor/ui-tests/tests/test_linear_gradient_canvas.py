@@ -2,21 +2,29 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import math
+import re
 from pathlib import Path
 
 import pytest
 import slint_testing
+from canvas_interactions import center_canvas_selection, zoom_canvas
+from editor_sync import wait_for_source
+from gradient_interactions import center, click, control, gesture, shifted
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    element,
+    elements,
     first_window,
     launch_editor,
     press_key,
+    press_keys,
     press_shortcut,
+    query,
+    screenshot,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -36,47 +44,289 @@ def scene(tmp_path):
     return path
 
 
-def control(window, label, role=slint_testing.AccessibleRole.Button):
-    return window_element_with_label(window, label, role)
-
-
-def click(window, label):
-    control(window, label).invoke_accessible_default_action()
-
-
-def center(element, rotation=0):
-    angle = math.radians(rotation)
-    return slint_testing.LogicalPosition(
-        x=element.absolute_position.x
-        + element.size.width / 2 * math.cos(angle)
-        - element.size.height / 2 * math.sin(angle),
-        y=element.absolute_position.y
-        + element.size.width / 2 * math.sin(angle)
-        + element.size.height / 2 * math.cos(angle),
-    )
-
-
-def shifted(point, x=0, y=0):
-    return slint_testing.LogicalPosition(x=point.x + x, y=point.y + y)
-
-
-def gesture(window, start, end):
-    button = slint_testing.PointerEventButton.Left
-    window.dispatch_event(slint_testing.PointerMoveEvent(start))
-    window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-    window.dispatch_event(slint_testing.PointerMoveEvent(end))
-    window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-
-
 def open_linear(window):
     select_outline_row(window, "fill")
     click(window, "Rectangle background color picker")
     control(window, "Gradient start")
 
 
+@pytest.mark.parametrize("text", ("ff", "12ab3"))
+def test_gradient_stop_partial_hex_typing_cancels_without_source_changes(
+    editor_binary, editor_environment, scene, tmp_path, text
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        field = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        field.invoke_accessible_default_action()
+        press_keys(window, text)
+        assert field.accessible_value == text
+        original.assert_unchanged_now()
+        screenshot(window).save(tmp_path / "partial-hex.png")
+        press_key(window, keys.Escape)
+        expect(query(window, "Close Custom")).to_be_hidden()
+        original.assert_unchanged()
+        open_linear(window)
+        assert (
+            control(
+                window, "Stop 2 color", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "264052"
+        )
+        assert (
+            control(
+                window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
+            ).accessible_value
+            == "100"
+        )
+        click(window, "Close Custom")
+        original.assert_unchanged()
+
+
+@pytest.mark.parametrize("surface", ("inline", "stop-picker", "solid-picker"))
+@pytest.mark.parametrize("alpha", ("", "7f"))
+def test_live_rgb_typing_preserves_edit_start_alpha(
+    editor_binary, editor_environment, scene, tmp_path, surface, alpha
+):
+    scene.write_text(scene.read_text().replace("#264052", "#264052" + alpha))
+    if surface == "solid-picker":
+        scene.write_text(
+            scene.read_text().replace(
+                "@linear-gradient(90deg, #568fb8 0%, #264052"
+                + alpha
+                + " 55%, #7e3b66 100%)",
+                "#264052" + alpha,
+            )
+        )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        click(window, "Rectangle background color picker")
+        label = "Stop 2 color" if surface == "inline" else "Hex color"
+        if surface == "stop-picker":
+            click(window, "Edit stop 2 color")
+        field = control(window, label, slint_testing.AccessibleRole.TextInput)
+        field.invoke_accessible_default_action()
+        press_keys(window, "123456")
+        press_key(window, keys.Return)
+        assert field.accessible_value == "123456"
+        assert control(
+            window, label + " opacity", slint_testing.AccessibleRole.TextInput
+        ).accessible_value == ("50" if alpha else "100")
+        original.assert_unchanged_now()
+        screenshot(window).save(tmp_path / "alpha-edit.png")
+        if surface == "stop-picker":
+            click(window, "Close Stop color")
+        click(window, "Close Custom")
+        expected = replace_once(
+            original.sources[Path(scene.name)],
+            ("#264052" + alpha).encode(),
+            ("#123456" + alpha).encode(),
+        )
+        original.wait_for_applied(expected, scene.name)
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        original.wait_for_applied(expected, scene.name)
+
+
+@pytest.mark.parametrize("boundary", ("accept", "blur"))
+def test_live_rgb_typing_recaptures_alpha_for_the_next_edit(
+    editor_binary, editor_environment, scene, tmp_path, boundary
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        field = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        field.invoke_accessible_default_action()
+        press_keys(window, "#abcdefab")
+        if boundary == "accept":
+            press_key(window, keys.Return)
+            press_shortcut(window, keys.Control, "a")
+        else:
+            control(
+                window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
+            ).invoke_accessible_default_action()
+            field.invoke_accessible_default_action()
+        press_keys(window, "654321")
+        press_key(window, keys.Return)
+        original.assert_unchanged_now()
+        click(window, "Close Custom")
+        expected = replace_once(
+            original.sources[Path(scene.name)], b"#264052 55%", b"#654321ab 55%"
+        )
+        original.wait_for_applied(expected, scene.name)
+
+
+@pytest.mark.parametrize("surface", ("inline", "stop-picker", "solid-picker"))
+@pytest.mark.parametrize("outcome", ("click", "revert"))
+def test_opacity_scrub_cancellation_preserves_exact_alpha(
+    editor_binary, editor_environment, scene, tmp_path, surface, outcome
+):
+    scene.write_text(scene.read_text().replace("#264052", "#2640527f"))
+    if surface == "solid-picker":
+        scene.write_text(
+            scene.read_text().replace(
+                "@linear-gradient(90deg, #568fb8 0%, #2640527f 55%, #7e3b66 100%)",
+                "#2640527f",
+            )
+        )
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        click(window, "Rectangle background color picker")
+        label = "Stop 2 color" if surface == "inline" else "Hex color"
+        if surface == "stop-picker":
+            click(window, "Edit stop 2 color")
+        scrubber = control(
+            window, label + " opacity scrubber", slint_testing.AccessibleRole.Slider
+        )
+        start = center(scrubber)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        if outcome == "revert":
+            window.dispatch_event(slint_testing.PointerMoveEvent(shifted(start, x=-20)))
+            expect(
+                control(
+                    window, label + " opacity", slint_testing.AccessibleRole.TextInput
+                )
+            ).to_have_value("30")
+            window.dispatch_event(slint_testing.PointerMoveEvent(start))
+            expect(
+                control(
+                    window, label + " opacity", slint_testing.AccessibleRole.TextInput
+                )
+            ).to_have_value("50")
+        window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
+        original.assert_unchanged_now()
+        if surface == "stop-picker":
+            click(window, "Close Stop color")
+        click(window, "Close Custom")
+        original.assert_unchanged()
+
+
+def test_gradient_stop_rows_edit_color_and_opacity_without_opening_stop_panel(
+    editor_binary, editor_environment, scene, tmp_path
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        color = control(window, "Stop 2 color", slint_testing.AccessibleRole.TextInput)
+        opacity = control(
+            window, "Stop 2 color opacity", slint_testing.AccessibleRole.TextInput
+        )
+        assert color.accessible_value == "264052"
+        assert opacity.accessible_value == "100"
+        assert not elements(window, "Close Stop color")
+
+        color.invoke_accessible_default_action()
+        press_key(window, keys.Delete)
+        control(window, "Gradient stop 3", slint_testing.AccessibleRole.Slider)
+        original.assert_unchanged_now()
+
+        color.accessible_value = "12AB34"
+        opacity.accessible_value = "50"
+        assert color.accessible_value == "12AB34"
+        assert opacity.accessible_value == "50"
+        assert not elements(window, "Close Stop color")
+        original.assert_unchanged_now()
+
+        click(window, "Close Custom")
+        expected = replace_once(
+            original.sources[Path(scene.name)],
+            b"#264052 55%",
+            b"#12ab3480 55%",
+        )
+        original.wait_for_applied(expected, scene.name)
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
+
+
+@pytest.mark.parametrize("outcome", ("commit", "revert", "cancel"))
+def test_gradient_stop_opacity_scrub_keeps_capture(
+    editor_binary, editor_environment, scene, tmp_path, outcome
+):
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
+        window = first_window(editor)
+        open_linear(window)
+        scrubber = element(
+            window,
+            "Stop 2 color opacity scrubber",
+            role=slint_testing.AccessibleRole.Slider,
+            tracking=False,
+        )
+        start = center(scrubber)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        for delta in (-10, -35, -20):
+            window.dispatch_event(
+                slint_testing.PointerMoveEvent(shifted(start, x=delta))
+            )
+            expect(
+                control(
+                    window,
+                    "Stop 2 color opacity",
+                    slint_testing.AccessibleRole.TextInput,
+                )
+            ).to_have_value(str(100 + delta))
+            assert scrubber.is_valid
+            original.assert_unchanged_now()
+
+        if outcome == "cancel":
+            press_key(window, keys.Escape)
+            window.dispatch_event(
+                slint_testing.PointerReleaseEvent(shifted(start, x=-20), button)
+            )
+            expect(query(window, "Close Custom")).to_be_hidden()
+            original.assert_unchanged()
+            return
+
+        end = shifted(start, x=-20)
+        if outcome == "revert":
+            end = start
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            expect(
+                control(
+                    window,
+                    "Stop 2 color opacity",
+                    slint_testing.AccessibleRole.TextInput,
+                )
+            ).to_have_value("100")
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        original.assert_unchanged_now()
+        click(window, "Close Custom")
+        if outcome == "revert":
+            original.assert_unchanged()
+            return
+
+        expected = replace_once(
+            original.sources[Path(scene.name)], b"#264052 55%", b"#264052cc 55%"
+        )
+        original.wait_for_applied(expected, scene.name)
+        press_shortcut(window, keys.Control, "z")
+        original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        original.wait_for_applied(expected, scene.name)
+
+
+@pytest.mark.parametrize("percent", [50, 100, 200])
 @pytest.mark.parametrize("rotation", [0, 45, 90, 180])
 def test_stop_drag_crosses_neighbors_without_losing_capture(
-    editor_binary, editor_environment, scene, tmp_path, rotation
+    editor_binary, editor_environment, scene, tmp_path, rotation, percent
 ):
     scene.write_text(
         scene.read_text().replace(
@@ -86,15 +336,19 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
+        select_outline_row(window, "fill")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
         open_linear(window)
         start = center(control(window, "Gradient stop 2"), rotation)
 
         def destination(distance):
             return shifted(
                 start,
-                x=distance * math.cos(math.radians(rotation)),
-                y=distance * math.sin(math.radians(rotation)),
+                x=distance * percent / 100 * math.cos(math.radians(rotation)),
+                y=distance * percent / 100 * math.sin(math.radians(rotation)),
             )
 
         button = slint_testing.PointerEventButton.Left
@@ -112,9 +366,8 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(destination(20), button)
         )
-        (tmp_path / "gradient-stop-marker.png").write_bytes(window.grab_window_as_png())
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -124,27 +377,28 @@ def test_linear_canvas_activation_and_colour(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
-        assert not elements_with_label(window.root_element, "Gradient start")
+        assert not elements(window, "Gradient start")
         click(window, "Rectangle background color picker")
         start = center(control(window, "Gradient start"))
         end = center(control(window, "Gradient end"))
         assert end.x - start.x == pytest.approx(200)
         assert end.y == pytest.approx(start.y)
-        assert not elements_with_label(window.root_element, "Gradient angle degrees")
+        assert not elements(window, "Gradient angle degrees")
         control(window, "Add gradient stop")
         control(window, "Gradient stop 2", slint_testing.AccessibleRole.Slider)
-        assert not elements_with_label(window.root_element, "Hex color")
-        assert not elements_with_label(window.root_element, "Close Stop color")
+        assert not elements(window, "Hex color")
+        assert not elements(window, "Close Stop color")
         click(window, "Edit stop 2 color")
         control(window, "Close Stop color")
         hex_field = control(window, "Hex color", slint_testing.AccessibleRole.TextInput)
-        assert hex_field.accessible_value == "#264052"
+        expect(hex_field).to_have_value("264052")
         click(window, "Gradient stop 1")
-        assert hex_field.accessible_value == "#568fb8"
+        expect(hex_field).to_have_value("568FB8")
         click(window, "Gradient stop 2")
-        assert hex_field.accessible_value == "#264052"
+        expect(hex_field).to_have_value("264052")
         hex_field.accessible_value = "#12ab3480"
         click(window, "Close Stop color")
         control(
@@ -162,13 +416,10 @@ def test_linear_canvas_activation_and_colour(
         ) == pytest.approx(71)
         original.assert_unchanged_now()
         click(window, "Solid")
-        assert not elements_with_label(window.root_element, "Gradient start")
+        assert not elements(window, "Gradient start")
         click(window, "Gradient")
         control(window, "Gradient start")
         original.assert_unchanged_now()
-        (tmp_path / "linear-gradient-editor.png").write_bytes(
-            window.grab_window_as_png()
-        )
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -178,6 +429,7 @@ def test_linear_endpoint_drag_and_session_history(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -188,15 +440,12 @@ def test_linear_endpoint_drag_and_session_history(
         control(window, "Add gradient stop")
         original.assert_unchanged_now()
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
+        saved = replace_once(
+            original.sources[Path(scene.name)],
+            b"@linear-gradient(90deg, #568fb8 0%, #264052 55%, #7e3b66 100%)",
+            b"@linear-gradient(90deg, #568fb8 20%, #264052 64%, #7e3b66 100%)",
         )
         original.wait_for_applied(saved, scene.name)
-        assert b"20%" in saved
         press_shortcut(window, keys.Control, "z")
         original.wait_for_applied(original.sources[Path(scene.name)], scene.name)
         press_shortcut(window, keys.Control, keys.Shift, "z")
@@ -212,16 +461,17 @@ def test_linear_double_click_and_delete(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         axis = control(window, "Gradient axis")
         axis.double_click(slint_testing.PointerEventButton.Left)
         control(window, "Gradient stop 4")
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 4")
+        assert not elements(window, "Gradient stop 4")
         click(window, "Gradient stop 2")
         press_key(window, keys.Delete)
-        assert not elements_with_label(window.root_element, "Gradient stop 3")
+        assert not elements(window, "Gradient stop 3")
         press_key(window, keys.Delete)
         control(window, "Gradient stop 2")
         control(window, "Gradient end")
@@ -236,6 +486,7 @@ def test_linear_drag_escape_restores_gesture(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, handle))
@@ -264,6 +515,7 @@ def test_linear_axis_translation_tracks_rotated_rectangles(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"), rotation)
@@ -295,7 +547,9 @@ def test_linear_layout_size_and_keyboard(
     }
 }
 """)
+    baseline = scene.read_bytes()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -312,14 +566,18 @@ def test_linear_layout_size_and_keyboard(
         click(window, "Gradient stop 1")
         press_key(window, keys.RightArrow)
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes() if b"red, blue" not in scene.read_bytes() else None
-            )
+        pattern = re.escape(baseline).replace(
+            re.escape(b"@linear-gradient(90deg, red, blue)"),
+            rb"@linear-gradient\([^()\n]+\)",
         )
-        from editor_sync import wait_for_source
 
+        def complete_source() -> bytes | None:
+            saved = scene.read_bytes()
+            return saved if saved != baseline and re.fullmatch(pattern, saved) else None
+
+        saved = wait_until(complete_source)
         wait_for_source(scene, saved)
+        assert b"red, blue" not in saved
         assert b"width: 200px" not in saved
 
 
@@ -335,6 +593,7 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -342,27 +601,24 @@ def test_linear_outside_click_accepts_before_selecting_another_rectangle(
             window, "Hex color", slint_testing.AccessibleRole.TextInput
         ).accessible_value = "#123456"
         other = wait_until(
-            lambda: next(
-                iter(window.find_elements_by_id("LinearGradientScene::other")), None
-            )
+            lambda: next(iter(elements(window, id="LinearGradientScene::other")), None)
         )
         gesture(window, center(other), center(other))
-        saved = wait_until(
-            lambda: scene.read_bytes() if b"#123456" in scene.read_bytes() else None
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
+        assert b"#123456" in saved
         assert b"background: yellow" in saved
-        assert not elements_with_label(window.root_element, "Gradient start")
-        assert not elements_with_label(window.root_element, "Close Custom")
+        assert not elements(window, "Gradient start")
+        assert not elements(window, "Close Custom")
 
 
 def test_linear_external_edit_cancels_stale_draft(
     editor_binary, editor_environment, scene
 ):
-    from editor_sync import wait_for_source
 
     original = scene.read_text()
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -372,8 +628,8 @@ def test_linear_external_edit_cancels_stale_draft(
         external = original.replace("#568fb8", "#abcdef")
         scene.write_text(external)
         wait_for_source(scene, external.encode())
-        assert not elements_with_label(window.root_element, "Gradient start")
-        assert not elements_with_label(window.root_element, "Close Custom")
+        assert not elements(window, "Gradient start")
+        assert not elements(window, "Close Custom")
         assert scene.read_text() == external
         open_linear(window)
         click(window, "Edit stop 1 color")
@@ -381,7 +637,7 @@ def test_linear_external_edit_cancels_stale_draft(
             control(
                 window, "Hex color", slint_testing.AccessibleRole.TextInput
             ).accessible_value
-            == "#abcdef"
+            == "ABCDEF"
         )
 
 
@@ -390,6 +646,7 @@ def test_linear_extended_axis_round_trip(
 ):
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, scene) as editor:
+        wait_for_source(scene, scene.read_bytes())
         window = first_window(editor)
         open_linear(window)
         start = center(control(window, "Gradient start"))
@@ -397,13 +654,7 @@ def test_linear_extended_axis_round_trip(
         end = center(control(window, "Gradient end"))
         gesture(window, end, shifted(end, x=50))
         click(window, "Close Custom")
-        saved = wait_until(
-            lambda: (
-                scene.read_bytes()
-                if scene.read_bytes() != original.sources[Path(scene.name)]
-                else None
-            )
-        )
+        saved = wait_for_source_change(scene, original.sources[Path(scene.name)])
         original.wait_for_applied(saved, scene.name)
         assert b"0% - 25%" in saved
         assert b"125%" in saved

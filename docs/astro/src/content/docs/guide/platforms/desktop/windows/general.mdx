@@ -14,24 +14,24 @@ We test Slint on these Windows versions and architectures:
 
 ## Handle the Console Window
 
-When you running an application a console window will show by [default](https://learn.microsoft.com/en-us/cpp/build/reference/subsystem-specify-subsystem?view=msvc-170).
+When you run an application, a console window is displayed by [default](https://learn.microsoft.com/en-us/cpp/build/reference/subsystem-specify-subsystem?view=msvc-170).
 
-Disable the console by specifying a `WINDOWS` subsystem.
+To disable the console, specify `WINDOWS` as a subsystem.
 
-When running the application from the command line, if the subsystem is set to windows it will no longer output stdout. To get it back consider using `FreeConsole()`.
+When you run the application from the command line, if the subsystem is set to `WINDOWS`, it will no longer output `stdout`. If you need `stdout`, consider using `FreeConsole()`.
 
-See more details at [#3235](https://github.com/slint-ui/slint/issues/3235)
+For more details, see [#3235](https://github.com/slint-ui/slint/issues/3235).
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
 
-Add the code to the top of .rs file which contains `fn main()`:
+Add the code to the top of the .rs file which contains `fn main()`:
 
 ```rust
 #![windows_subsystem = "windows"]
 ```
 
-Or if you want to keep console output in debug mode:
+If you want to keep console output in debug mode:
 
 ```rust
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -50,8 +50,8 @@ set_property(TARGET my_program APPEND PROPERTY WIN32_EXECUTABLE TRUE)
 </TabItem>
 
 <TabItem label="Python" icon="seti:python">
-Change the extension of your Python script from `.py` to `.pyw`, the default Python interpreter associated with
-Python files will launch without a console window. Alternatively, use `pythonw.exe` instead of `python.exe` to launch
+Change the extension of your Python script from `.py` to `.pyw`. The default Python interpreter associated with
+Python files then launches without a console window. Alternatively, use `pythonw.exe` instead of `python.exe` to launch
 your Python script.
 </TabItem>
 
@@ -63,7 +63,7 @@ When developing Rust applications on Windows, you might sooner or later observe 
 especially in debug builds. This is a known issue that's a combination of a high demand for stack space and MSVC defaulting to
 a stack size for the main thread that's significantly smaller compared to other operating systems.
 
-This is fixed by configuring the linker. Create a [`.cargo\config.toml`](https://doc.rust-lang.org/cargo/reference/config.html#configuration)
+You can fix this by configuring the linker. Create a [`.cargo\config.toml`](https://doc.rust-lang.org/cargo/reference/config.html#configuration)
 file in your project (note the `.cargo` sub-directory) with the following contents:
 
 ```toml

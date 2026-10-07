@@ -1,47 +1,176 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, Metrics, Typography, FieldStyle } from "../../style.slint";
+import { EditorCursors } from "../index.slint";
+
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
-export component InspectorValueField inherits Rectangle {
+export component InspectorValueField inherits FocusScope {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
     in property <int> corner-index: -1;
     in property <string> value;
-    in property <bool> enabled: true;
     in property <string> commit-key: "";
+    in property <length> radius: root.style.radius;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <bool> normalize-accepted: false;
+    in property <bool> live-edit: false;
+    in property <bool> show-focus-border: true;
+    in property <bool> scrubbable: false;
+    in property <bool> scrub-on-suffix: false;
+    in property <float> scrub-value;
+    in property <bool> scrub-has-minimum: false;
+    in property <float> scrub-minimum;
+    in property <bool> scrub-has-maximum: false;
+    in property <float> scrub-maximum;
+    out property <bool> input-focused: field.input-focused;
     callback accepted(string) -> bool;
+    callback normalized(string) -> string;
+    callback scrub-started();
+    callback scrub-preview(float) -> bool;
+    callback scrub-accepted(float) -> bool;
+    callback scrub-canceled(float);
+    private property <bool> scrubbing;
+    private property <length> scrub-start-x;
+    private property <float> scrub-initial-value;
+    private property <float> scrub-drag-value;
 
-    width: InspectorTokens.column-width;
-    height: InspectorTokens.field-height;
+    width: Style.inspector-layout.column-width;
+    height: root.style.height;
 
-    InspectorTextFieldBase {
+    changed commit-key => { root.cancel-scrub(); }
+
+    function cancel-scrub() {
+        if root.scrubbing {
+            root.scrubbing = false;
+            root.scrub-canceled(root.scrub-initial-value);
+        }
+    }
+
+    function update-scrub(mouse-x: length) {
+        let delta = (mouse-x - root.scrub-start-x) / 1px;
+        let stepped-value = (root.scrub-initial-value + delta).round();
+        let minimum-clamped = root.scrub-has-minimum ? max(root.scrub-minimum, stepped-value) : stepped-value;
+        let value = root.scrub-has-maximum ? min(root.scrub-maximum, minimum-clamped) : minimum-clamped;
+        root.scrub-drag-value = value;
+        if !root.scrub-preview(value) {
+            root.cancel-scrub();
+        }
+    }
+
+    function begin-scrub(mouse-x: length) {
+        root.focus();
+        root.scrub-started();
+        root.scrubbing = true;
+        root.scrub-start-x = mouse-x;
+        root.scrub-initial-value = root.scrub-value;
+        root.scrub-drag-value = root.scrub-value;
+    }
+
+    function finish-scrub() {
+        let value = root.scrub-drag-value;
+        root.scrubbing = false;
+        if value != root.scrub-initial-value {
+            if !root.scrub-accepted(value) {
+                root.scrub-canceled(root.scrub-initial-value);
+            }
+        } else {
+            root.scrub-canceled(root.scrub-initial-value);
+        }
+    }
+
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.scrubbing {
+            root.cancel-scrub();
+            return accept;
+        }
+        return reject;
+    }
+
+    field := InspectorTextFieldBase {
+        style: root.style;
+        radius: root.radius;
+        horizontal-alignment: root.horizontal-alignment;
+        suffix: root.suffix;
+        suffix-width: root.suffix-width;
+        normalize-accepted: root.normalize-accepted;
+        live-edit: root.live-edit;
+        show-focus-border: root.show-focus-border;
         accessible-name: root.accessible-name;
         width: parent.width;
-        value: root.value;
+        value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
         enabled: root.enabled;
         commit-key: root.commit-key;
         accepted(text) => {
             return root.accepted(text);
         }
+        normalized(text) => { return root.normalized(text); }
 
         if root.corner-index >= 0: Path {
-            width: 12px;
-            height: 12px;
+            width: Metrics.icon-small;
+            height: Metrics.icon-small;
             // Top-left, top-right, bottom-left, and bottom-right corner outlines.
             commands: root.corner-index == 0 ? "M 2 11 L 2 6 Q 2 2 6 2 L 11 2"
                 : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
                 : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
                 : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: InspectorTokens.muted;
-            stroke-width: 1px;
+            stroke: root.style.appearance.muted;
+            stroke-width: Metrics.border-width;
         }
-        if root.corner-index < 0: Text {
-            text: root.prefix;
-            color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
-            font-size: 11px;
-            vertical-alignment: center;
+        if root.corner-index < 0 && root.prefix != "": prefix-container := Rectangle {
+            width: prefix-text.preferred-width;
+            height: field.height;
+            prefix-text := Text {
+                width: self.preferred-width;
+                height: parent.height;
+                text: root.prefix;
+                color: root.style.appearance.muted;
+                font-size: Typography.caption.size - 1px;
+                vertical-alignment: center;
+            }
+            if root.scrubbable && !root.scrub-on-suffix: TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
+                accessible-role: AccessibleRole.slider;
+                accessible-label: root.accessible-name + " scrubber";
+                accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.begin-scrub(self.mouse-x);
+                    } else if event.kind == PointerEventKind.move && root.scrubbing {
+                        root.update-scrub(self.mouse-x);
+                    } else if event.kind == PointerEventKind.up && root.scrubbing {
+                        root.finish-scrub();
+                    } else if event.kind == PointerEventKind.cancel {
+                        root.cancel-scrub();
+                    }
+                }
+            }
+        }
+    }
+
+    if root.scrubbable && root.scrub-on-suffix && root.suffix != "": TouchArea {
+        x: root.width - root.style.padding-inline - root.suffix-width;
+        width: root.suffix-width;
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
+        accessible-role: AccessibleRole.slider;
+        accessible-label: root.accessible-name + " scrubber";
+        accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.begin-scrub(self.mouse-x);
+            } else if event.kind == PointerEventKind.move && root.scrubbing {
+                root.update-scrub(self.mouse-x);
+            } else if event.kind == PointerEventKind.up && root.scrubbing {
+                root.finish-scrub();
+            } else if event.kind == PointerEventKind.cancel {
+                root.cancel-scrub();
+            }
         }
     }
 }

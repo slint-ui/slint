@@ -5,7 +5,7 @@
 This module contains image and caching related types for the run-time library.
 */
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use super::CachedPath;
 use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer};
 use crate::{SharedString, slice::Slice};
@@ -20,14 +20,18 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
+                #[cfg(feature = "image-pixel-format-rgb565")]
+                SharedImageBuffer::RGB565(pixels) => pixels.as_bytes().len(),
+                #[cfg(feature = "image-pixel-format-gray8")]
+                SharedImageBuffer::Gray8(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.weight_in_bytes(),
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size().area() as usize,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -74,12 +78,12 @@ impl ImageCache {
         }))
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     pub(crate) fn load_image_from_path(&mut self, _path: &SharedString) -> Option<Image> {
         None
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<Image> {
         if path.is_empty() {
             return None;
@@ -116,7 +120,7 @@ impl ImageCache {
 
     /// Load an image by handing its URL to an `<img>` element for the browser to
     /// fetch. This is a web-only slintpad mechanism, not general network loading.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     pub(crate) fn load_as_html_image(&mut self, url: &str) -> Option<Image> {
         if url.is_empty() {
             return None;
@@ -138,7 +142,7 @@ impl ImageCache {
         })
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     pub(crate) fn load_image_from_data_uri(
         &mut self,
         uri: &str,

@@ -1137,11 +1137,7 @@ fn embed_resource(
             unreachable!("slint-sc resources in the C++ generator")
         }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file = crate::fileaccess::load_file(std::path::Path::new(
-                resource.path.as_deref().unwrap(),
-            ))
-            .unwrap(); // embedding pass ensured that the file exists
-            let data = resource_file.read();
+            let data = resource.path.as_ref().unwrap().read().unwrap(); // embedding pass ensured that the file exists
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
@@ -2126,6 +2122,19 @@ fn generate_item_tree(
     ));
 
     target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "slint_context".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] slint::cbindgen_private::Option<slint::cbindgen_private::SlintContext>* result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
             ty: "static const slint::private_api::ItemTreeVTable".into(),
@@ -2142,7 +2151,7 @@ fn generate_item_tree(
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, \
+                supported_accessibility_actions, element_infos, window_adapter, slint_context, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
@@ -2177,17 +2186,7 @@ fn generate_item_tree(
         #[cfg(feature = "bundle-translations")]
         if let Some(translations) = &root.translations {
             let lang_len = translations.languages.len();
-            create_code.push(format!(
-                "std::array<slint::cbindgen_private::Slice<uint8_t>, {lang_len}> languages {{ {} }};",
-                translations
-                    .languages
-                    .iter()
-                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
-                    .join(", ")
-            ));
-            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
-                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
-                                                                                                     translations.languages.len()));
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -3259,6 +3258,9 @@ fn generate_grid_layout_input_decl(
         let templates = root_sc.row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
         let auto_val = i_slint_common::ROW_COL_AUTO;
+        let auto_cell = format!(
+            "slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }}"
+        );
         // When static children are present: fill them via the compiled expression into a temp
         // array, then interleave with inner-repeater cells in declaration order.
         // When there are no static children: skip the array/index variables entirely to avoid
@@ -3294,15 +3296,20 @@ fn generate_grid_layout_input_decl(
                 llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
                     // Let the inner cell report its own col/row/colspan/rowspan.
+                    // An empty slot keeps its position, like in `layout_item_info` (#13726).
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
+                         for (size_t i = 0; i < {inner_rep_id}.len(); ++i) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 if (auto sub_comp = {inner_rep_id}.typed_instance_at(i)) {{\n\
+                                     sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
+                                 }} else {{\n\
+                                     result[write_idx] = {auto_cell};\n\
+                                 }}\n\
                              }}\n\
                              ++write_idx;\n\
-                         }});\n"
+                         }}\n"
                     )
                     .unwrap();
                 }
@@ -3313,7 +3320,7 @@ fn generate_grid_layout_input_decl(
         write!(
             fill_code,
             "while (write_idx < result.size()) {{\n\
-                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ false, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                 result[write_idx] = {auto_cell};\n\
                  ++write_idx;\n\
              }}\n"
         )
@@ -4191,11 +4198,10 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
-            resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-            | crate::expression_tree::ImageReference::Url(_)) => write!(
+            crate::expression_tree::ImageReference::Source(path) => write!(
                 f,
                 r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                escape_string(resource_ref.source().unwrap())
+                escape_string(&path.to_string())
             ),
             crate::expression_tree::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
@@ -4482,7 +4488,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ModelDataAssignment { level, value } => {
             let value = compile_expression(value, ctx);
-            let mut path = "self".to_string();
+            let mut owner = MemberAccess::Direct("self".to_string());
             let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
                 unreachable!()
             };
@@ -4492,7 +4498,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 par = x.parent;
                 repeater_index = x.repeater_index;
                 sc = x.sub_component;
-                write!(path, "->parent.lock().value()").unwrap();
+                owner = owner.and_then(|x| format!("{x}->parent.lock()"));
             }
             let repeater_index = repeater_index.unwrap();
             let local_reference = ctx.compilation_unit.sub_components[sc].repeated[repeater_index]
@@ -4502,8 +4508,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let index_prop =
                 llr::MemberReference::Relative { parent_level: *level, local_reference };
             let index_access = access_member(&index_prop, ctx).get_property();
-            write!(path, "->repeater_{}", usize::from(repeater_index)).unwrap();
-            format!("{path}.model_set_row_data({index_access}, {value})")
+            owner.then_named("model_owner", |path| {
+                format!(
+                    "{path}->repeater_{}.model_set_row_data({index_access}, {value})",
+                    usize::from(repeater_index)
+                )
+            })
         }
         Expression::ArrayIndexAssignment { array, index, value } => {
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
@@ -5697,22 +5707,27 @@ fn compile_builtin_function_call(
     }
 }
 
-/// Builds the C++ snippet that, for each inner repeater in `templates`, calls
-/// `ensure_updated` on the sub-component and updates `max_total`.
-fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count: usize) -> String {
-    templates
-        .iter()
-        .filter_map(|e| match e {
-            llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
-                let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
-                Some(format!(
-                    "sub_comp->{inner_rep_id}.track_instance_changes();\n\
-                     max_total = std::max(max_total, {static_count} + sub_comp->{inner_rep_id}.len());\n"
-                ))
-            }
-            _ => None,
-        })
-        .collect()
+/// Builds the C++ snippet that, for each inner repeater in `templates`, tracks
+/// instance changes and adds its length to the row total, then updates `max_total`.
+/// The snippet uses `sub_comp` and `max_total` from the caller's C++ code.
+fn build_inner_track_and_len(
+    templates: &[llr::RowChildTemplateInfo],
+    static_count: usize,
+) -> String {
+    let mut code = format!("size_t row_total = {static_count};\n");
+    for e in templates {
+        if let llr::RowChildTemplateInfo::Repeated { repeater_index, .. } = e {
+            let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+            write!(
+                code,
+                "sub_comp->{inner_rep_id}.track_instance_changes();\n\
+                 row_total += sub_comp->{inner_rep_id}.len();\n"
+            )
+            .unwrap();
+        }
+    }
+    code.push_str("max_total = std::max(max_total, row_total);\n");
+    code
 }
 
 fn generate_repeater_loop_code(
@@ -5728,11 +5743,11 @@ fn generate_repeater_loop_code(
     if llr::has_inner_repeaters(row_child_templates) {
         let templates = row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
-        let inner_ensure = build_inner_ensure_code(templates, static_count);
+        let inner_track_and_len = build_inner_track_and_len(templates, static_count);
         let rs_init = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
             format!("{rs}_array[{repeater_idx}] = {dynamic_stride_var_name};")
         });
-        dynamic_loop_code(repeater_id, static_count, inner_ensure, rs_init)
+        dynamic_loop_code(repeater_id, static_count, inner_track_and_len, rs_init)
     } else {
         let step = row_child_templates.as_deref().map_or(1, |t| t.len());
         let rs_init = repeater_steps_var_name
@@ -5804,7 +5819,7 @@ fn generate_with_layout_item_info(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "max_total",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         // Only box layouts set a cross size, and their repeaters
                         // never have row templates.
                         debug_assert!(repeated_cross_size.is_none());
@@ -5815,7 +5830,7 @@ fn generate_with_layout_item_info(
                             "{{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 {rs_init}
                                 auto start_offset = cells_vector.size();
@@ -5922,12 +5937,11 @@ fn generate_with_layout_item_info(
 /// `solve_flexbox_layout_with_measure` and
 /// `flexbox_layout_info_cross_axis_with_measure` calls. For each static
 /// height-for-width cell, `measure_cells[i]` carries its vertical
-/// `LayoutInfo` expression, which reads the `measure_known_w` local. taffy
-/// calls the callback with at most one of width/height known (the cross
-/// axis): with the width known we recompute that cell's height at it, with
-/// the height known no dimension changes. A call with neither dimension known
-/// is a content-size probe (see `FlexboxMeasureFn` in i-slint-core): it
-/// measures the height at the default width.
+/// `LayoutInfo` expression, which reads the `measure_known_w` local.
+/// For a height-for-width cell the lambda recomputes its height at the width it
+/// is given, and hands any other cell straight back.
+/// See `FlexboxMeasureFn` in i-slint-core for when it is called and what the
+/// sizes mean.
 fn generate_flexbox_measure_lambda(
     measure_cells: &[llr::FlexboxMeasureCell],
     ctx: &EvaluationContext,
@@ -5984,13 +5998,9 @@ fn generate_flexbox_measure_lambda(
         }
         format!("[[maybe_unused]] uintptr_t cursor = 0;\n{steps}")
     };
-    // A dimension taffy didn't assign (`known_* == false`) arrives pre-resolved
-    // to the cell's preferred size by resolve_measure_defaults in i-slint-core.
     format!(
-        "[&](uintptr_t index, float w, float h, [[maybe_unused]] bool known_w, bool known_h) \
+        "[&](uintptr_t index, float w, float h) \
          -> std::pair<float, float> {{\n\
-            if (known_h)\n\
-                return {{ w, h }};\n\
             [[maybe_unused]] float {MEASURE_KNOWN_W_LOCAL} = w;\n\
             {v_body}\
             return {{ w, h }};\n\
@@ -6178,13 +6188,13 @@ fn generate_with_grid_input_data(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "total_item_count",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         format!(
                             "{maybe_bool} new_row = {new_row};
                             {{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 size_t total_item_count = max_total;
                                 {rs_init}
@@ -6309,16 +6319,21 @@ fn generate_translation(
             ..Default::default()
         }));
     }
+    // The runtime keeps this array by reference, so it must have static storage duration.
     declarations.push(Declaration::Var(Var {
-        ty: "uint32_t".into(),
-        name: "slint_translation_bundle_decimal_separators".into(),
+        ty: "const slint::cbindgen_private::TranslationsBundled".into(),
+        name: "slint_translation_bundle_languages".into(),
         array_size: Some(translations.languages.len()),
         init: Some(format!(
             "{{ {} }}",
             translations
                 .languages
                 .iter()
-                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
+                .map(|(l, s)| format_smolstr!(
+                    "{{ slint::private_api::string_to_slice({:?}), {} }}",
+                    l.as_str(),
+                    *s as u32
+                ))
                 .join(", ")
         )),
         ..Default::default()

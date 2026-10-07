@@ -1,0 +1,21 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A state forwards the base's binding for 'w' through a compiler-made property, which shows in the chain as its element.
+component Base {
+    in-out property <length> a;
+    in-out property <length> w: inner.width;
+    inner := Rectangle { width: root.a; }
+//                              >     <error{The binding for the property 'width' is part of a binding loop (b.a -> inner.width -> b -> b.w -> b.a)}
+}
+export component Test inherits Window {
+    property <bool> c;
+    b := Base {
+//       >   <note{'w' is part of the binding loop reported for 'width' at line 8}
+        a: self.w;
+//         >     <note{'a' is part of the binding loop reported for 'width' at line 8}
+        states [
+            s when c: { w: 3px; }
+        ]
+    }
+}

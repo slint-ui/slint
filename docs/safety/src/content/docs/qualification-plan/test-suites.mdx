@@ -1,5 +1,5 @@
 ---
-title: Test Cases
+title: Test Suites
 description: The test suites that verify Slint SC, how their cases are written, and what they establish.
 ---
 This chapter describes how Slint SC is tested.
@@ -38,7 +38,8 @@ For each case, the driver in `api/slint-sc/tests/driver.rs`:
 4. Runs the resulting binary.
 5. Compares the screenshots the case took, if it took any, against the PNG references in `api/slint-sc/tests/references/`.
 6. Measures the coverage of the case's `.slint` code and compares it with the caret lines the case states it in, if it states it.
-   The cases under `coverage/` test that reporting and have to state theirs; see [Coverage Tool Verification](/qualification-plan/slint-coverage/).
+   Every case that states it tests that reporting.
+   The cases under `coverage/` test nothing else, so they have to state theirs; see [Coverage Tool Verification](/qualification-plan/slint-coverage/).
 
 Step 3 is itself a test.
 The runtime is the only `--extern` passed to `rustc`,
@@ -84,7 +85,7 @@ The evidence runs in two directions, and the build enforces both.
 From the requirements down, every requirement paragraph in the specification and the API reference is declared by at least one test.
 A paragraph without one fails the build, so the Traceability Matrix can't develop gaps as the subset grows.
 
-From the code up, every line, function, and code region of the runtime is executed by the suites.
+From the code up, every line, function, code region, and branch outcome of the runtime is executed by the suites.
 Coverage is measured on the runtime alone, since that's the code that ships in the product, and the build fails below 100% with no exceptions.
 Nothing reaches a product binary unexercised.
 

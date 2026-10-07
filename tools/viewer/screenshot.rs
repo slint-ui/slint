@@ -18,28 +18,14 @@ use crate::{
 /// Build the best headless renderer compiled into the viewer. Skia's software
 /// rasterizer is preferred when available; otherwise we fall back to Slint's
 /// own software renderer.
-#[cfg(all(
-    any(
-        feature = "renderer-skia",
-        feature = "renderer-skia-opengl",
-        feature = "renderer-skia-vulkan",
-    ),
-    not(target_os = "android"),
-))]
+#[cfg(all(enable_skia, not(target_os = "android")))]
 fn create_renderer() -> Box<dyn Renderer> {
     Box::new(i_slint_renderer_skia::SkiaRenderer::default_software(
         &i_slint_renderer_skia::SkiaSharedContext::default(),
     ))
 }
 
-#[cfg(not(all(
-    any(
-        feature = "renderer-skia",
-        feature = "renderer-skia-opengl",
-        feature = "renderer-skia-vulkan",
-    ),
-    not(target_os = "android"),
-)))]
+#[cfg(not(all(enable_skia, not(target_os = "android"))))]
 fn create_renderer() -> Box<dyn Renderer> {
     Box::new(i_slint_renderer_software::SoftwareRenderer::new())
 }

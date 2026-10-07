@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface TextEdit {
+    in property <bool> enabled;
+    in property <string> font-family;
+    in property <bool> font-italic;
+    in property <length> font-size;
+    in property <TextHorizontalAlignment> horizontal-alignment;
+    in property <InputMethodHints> input-method-hints;
+    in property <string> placeholder-text;
+    in property <bool> read-only;
+    in property <TextWrap> wrap;
+
+    out property <bool> has-focus;
+    out property <length> visible-height;
+    out property <length> visible-width;
+
+    in-out property <length> content-height;
+    in-out property <length> content-width;
+    in-out property <length> content-x;
+    in-out property <length> content-y;
+    in-out property <string> text;
+
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
+
+    public function set-selection-offsets(anchor: int, focus: int);
+    public function select-all();
+    public function clear-selection();
+    public function cut();
+    public function copy();
+    public function paste();
+    public function undo();
+    public function redo();
+}

@@ -3,7 +3,7 @@
 
 [package]
 name = "printerdemo"
-version = "1.18.0"
+version = "1.19.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 build = "build.rs"
@@ -36,3 +36,18 @@ default = ["slint/default"]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["console"] }
 console_error_panic_hook = "0.1.5"
+
+[package.metadata.android.sdk]
+min_sdk_version = 23
+target_sdk_version = 36
+
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+orientation = "sensorLandscape"
+
+[[package.metadata.android.application.activity.meta_data]]
+name = "android.app.lib_name"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]

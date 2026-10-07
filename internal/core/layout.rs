@@ -551,9 +551,13 @@ impl GridLayoutOrganizedData {
                 let row_in_rep = cell_in_rep / step;
                 let col_in_rep = cell_in_rep % step;
                 let jump_pos = (ri_start_cell - cell_nr_adj) as usize * 4;
-                let data_base = self[jump_pos] as usize;
-                let stride = self[jump_pos + 1] as usize;
-                final_idx = data_base + row_in_rep as usize * stride + col_in_rep as usize * 4;
+                // #13723
+                let Some(&[data_base, stride]) = self.get(jump_pos..jump_pos + 2) else {
+                    return (0, 0);
+                };
+                final_idx = data_base as usize
+                    + row_in_rep as usize * stride as usize
+                    + col_in_rep as usize * 4;
                 break;
             }
             // Each repeater occupies 1 jump cell in the static area but cells_in_repeater cells logically
@@ -564,7 +568,7 @@ impl GridLayoutOrganizedData {
             final_idx = ((cell_number - cell_nr_adj) * 4) as usize;
         }
         let offset = if orientation == Orientation::Horizontal { 0 } else { 2 };
-        (self[final_idx + offset], self[final_idx + offset + 1])
+        self.get(final_idx + offset..final_idx + offset + 2).map_or((0, 0), |s| (s[0], s[1]))
     }
 
     fn max_value(
@@ -1921,48 +1925,50 @@ impl<'a> FlexboxLayoutCacheGenerator<'a> {
 /// Measure callback for height-for-width items in a FlexboxLayout.
 ///
 /// Called by taffy during the flex solve for items that need dynamic sizing.
-/// Receives `(child_index, width, height, known_width, known_height)` where
-/// `known_width`/`known_height` say whether taffy has already determined that
-/// dimension; a dimension it has not is pre-resolved to the cell's preferred
-/// size. Returns `(width, height)`.
+/// Receives `(child_index, width, height)` and returns `(width, height)`.
 ///
-/// A call with neither dimension known is a content-size probe. Its result
-/// must be a self-consistent pair (each dimension measured at the other):
-/// taffy caches it and reuses one dimension for a later query with the other
-/// one known.
+/// `resolve_measure_defaults` answers a query whose height taffy has already
+/// settled, so the callback is only asked for a height taffy still needs.
+/// `height` is therefore the cell's preferred height, or 0 past the last cell.
+/// Hand it back for a cell whose height does not depend on its width; it is
+/// not a constraint.
+/// `width` is the one taffy assigned, or the cell's preferred width when it
+/// has assigned none.
+/// Return it unchanged.
+/// Taffy can use a returned width when it has settled the height instead,
+/// but `resolve_measure_defaults` answers that query without asking.
 ///
-/// `None` means the caller has no callback of its own and takes the entry
-/// point's default: the item's preferred size for a solve, and nothing (so an
-/// item taffy sizes from its content falls back to its min constraint) for the
-/// minimum pass of the cross-axis info. Taffy itself is always given a
-/// callback, so a forgotten one is a compile error rather than a silently
-/// zero-sized item.
-pub type FlexboxMeasureFn<'a> =
-    Option<&'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)>;
-
-/// The default measure: report back the sizes `resolve_measure_defaults`
-/// pre-resolved from the cells data, i.e. the item's preferred size for any
-/// dimension taffy has not pinned down.
-fn identity_measure(_: usize, w: Coord, h: Coord, _: bool, _: bool) -> (Coord, Coord) {
-    (w, h)
-}
+/// The result must be a self-consistent pair, each dimension measured at the
+/// other: taffy caches it, and answers a later query for one dimension with
+/// the half of the pair it kept.
+///
+/// `None` means the caller has no callback of its own, so a dimension taffy
+/// has not assigned falls back to the cell's preferred size.
+/// Taffy itself is always given a callback, so a forgotten one is a compile
+/// error rather than a silently zero-sized item.
+pub type FlexboxMeasureFn<'a> = Option<&'a mut dyn FnMut(usize, Coord, Coord) -> (Coord, Coord)>;
 
 /// The measure that reports nothing, so an item taffy sizes from its content
-/// falls back to its min constraint. Unlike [`identity_measure`] this one is
-/// taffy-facing: it does not go through [`resolve_measure_defaults`], which
-/// would resolve the unknown dimensions to the preferred size only to have them
-/// thrown away.
+/// falls back to its min constraint.
+/// It is taffy-facing: it does not go through
+/// [`resolve_measure_defaults`], which would resolve the unknown dimensions to
+/// the preferred size only to have them thrown away.
 fn zero_measure(_: usize, _: Option<Coord>, _: Option<Coord>) -> (Coord, Coord) {
     (0 as Coord, 0 as Coord)
 }
 
 /// Adapt a [`FlexboxMeasureFn`] to the taffy-facing closure: resolve the
 /// dimensions taffy did not supply to the cell's preferred size, so the
-/// callback always receives concrete sizes plus which ones were known.
-fn resolve_measure_defaults<'a>(
+/// callback always receives concrete ones.
+///
+/// It answers two kinds of query itself, returning the pre-resolved pair:
+///
+/// - one whose height taffy has already settled,
+/// - any query at all when there is no callback.
+fn resolve_measure_defaults<'a, 'm: 'a>(
     cells_h: &'a [LayoutItemInfo],
     cells_v: &'a [LayoutItemInfo],
-    measure: &'a mut dyn FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord),
+    mut measure: FlexboxMeasureFn<'m>,
 ) -> impl FnMut(usize, Option<Coord>, Option<Coord>) -> (Coord, Coord) + 'a {
     move |index, known_w, known_h| {
         let w = known_w.unwrap_or_else(|| {
@@ -1971,7 +1977,16 @@ fn resolve_measure_defaults<'a>(
         let h = known_h.unwrap_or_else(|| {
             cells_v.get(index).map_or(0 as Coord, |c| c.constraint.preferred_bounded())
         });
-        measure(index, w, h, known_w.is_some(), known_h.is_some())
+        // Answering here rather than measuring saves the work.
+        // Taffy keeps the height it settled and discards the one a callback
+        // returns, so the measurement (a text shaping, for a wrapped `Text`)
+        // would be thrown away.
+        // The callback returns the width unchanged, so the pair is the same
+        // either way.
+        match (known_h, measure.as_mut()) {
+            (None, Some(measure)) => measure(index, w, h),
+            _ => (w, h),
+        }
     }
 }
 
@@ -2045,11 +2060,9 @@ pub fn solve_flexbox_layout_with_measure(
         }
     };
 
-    // The compiler omits the callback only for layouts without
-    // height-for-width cells, so the pre-computed height is correct for
+    // A `None` callback is safe here: the compiler omits one only for layouts
+    // without height-for-width cells, whose pre-computed height is correct for
     // whatever width taffy assigns.
-    let mut identity = identity_measure;
-    let measure = measure.unwrap_or(&mut identity);
     let mut measure = resolve_measure_defaults(&data.cells_h, &data.cells_v, measure);
     builder.compute_layout(available_width, available_height, &mut measure);
 
@@ -2423,26 +2436,15 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
     let mut zero = zero_measure;
     builder.compute_layout(available_width, available_height, &mut zero);
     let cross_size = cross_of(builder.container_size());
-    let mut resolved = measure.map(|m| resolve_measure_defaults(&cells_h, &cells_v, m));
-
     // The pass above resolved every `auto` cross size to the item's minimum.
-    // Measure again with the identity callback, which resolves `auto` to the
-    // item's preferred size instead, and sums the flex lines when the items
-    // wrap.
+    // Measure again, which resolves `auto` to the item's preferred size
+    // instead, and sums the flex lines when the items wrap.
     let preferred = {
         let mut builder = flexbox_taffy::FlexboxTaffyBuilder::new(params(
             flexbox_taffy::CrossAxisSizing::FromMeasure,
         ));
-        let mut identity = identity_measure;
-        let mut fallback = resolve_measure_defaults(&cells_h, &cells_v, &mut identity);
-        builder.compute_layout(
-            available_width,
-            available_height,
-            match resolved.as_mut() {
-                Some(m) => m,
-                None => &mut fallback,
-            },
-        );
+        let mut resolved = resolve_measure_defaults(&cells_h, &cells_v, measure);
+        builder.compute_layout(available_width, available_height, &mut resolved);
         cross_of(builder.container_size())
     };
 
@@ -2559,16 +2561,14 @@ pub(crate) mod ffi {
     }
 
     /// The measure callback for C FFI. Returns (width, height) via out pointers.
-    /// A dimension taffy has not determined (`known_* == false`) is pre-resolved
-    /// to the cell's preferred size.
+    /// A dimension taffy has not determined arrives pre-resolved to the cell's
+    /// preferred size, so both are concrete.
     /// A null function pointer means no measure callback.
     pub type FlexboxMeasureFnC = unsafe extern "C" fn(
         user_data: *mut core::ffi::c_void,
         child_index: usize,
         width: Coord,
         height: Coord,
-        known_width: bool,
-        known_height: bool,
         out_width: *mut Coord,
         out_height: *mut Coord,
     );
@@ -2583,7 +2583,7 @@ pub(crate) mod ffi {
     unsafe fn measure_closure_from_c(
         measure_fn: *const core::ffi::c_void,
         measure_user_data: *mut core::ffi::c_void,
-    ) -> Option<impl FnMut(usize, Coord, Coord, bool, bool) -> (Coord, Coord)> {
+    ) -> Option<impl FnMut(usize, Coord, Coord) -> (Coord, Coord)> {
         const {
             assert!(
                 core::mem::size_of::<*const core::ffi::c_void>()
@@ -2596,22 +2596,13 @@ pub(crate) mod ffi {
         let c_measure = unsafe {
             core::mem::transmute::<*const core::ffi::c_void, FlexboxMeasureFnC>(measure_fn)
         };
-        Some(move |child_index: usize, w: Coord, h: Coord, known_w: bool, known_h: bool| {
+        Some(move |child_index: usize, w: Coord, h: Coord| {
             let mut out_w: Coord = 0 as _;
             let mut out_h: Coord = 0 as _;
             // Safety: c_measure is a valid function pointer provided by the caller,
             // and out_w/out_h are valid mutable pointers.
             unsafe {
-                c_measure(
-                    measure_user_data,
-                    child_index,
-                    w,
-                    h,
-                    known_w,
-                    known_h,
-                    &mut out_w,
-                    &mut out_h,
-                );
+                c_measure(measure_user_data, child_index, w, h, &mut out_w, &mut out_h);
             }
             (out_w, out_h)
         })
@@ -3092,6 +3083,31 @@ mod tests {
         assert_eq!(layout_cache_v_access(0, 0, 4, 2), 0.);
         assert_eq!(layout_cache_v_access(0, 1, 4, 2), 50.);
         assert_eq!(layout_cache_v_access(0, 2, 4, 2), 100.);
+    }
+
+    #[test]
+    fn test_solve_grid_layout_with_more_cells_than_organized() {
+        // #13723
+        let cell = GridLayoutInputData { new_row: true, ..Default::default() };
+        let steps = [1_u32];
+        let (organized_data, _) = organize_grid_layout_impl(
+            Slice::from_slice(&[cell]),
+            Slice::from_slice(&[0, 1]),
+            Slice::from_slice(&steps),
+        );
+        let data =
+            GridLayoutData { organized_data, size: 100., spacing: 0., padding: Padding::default() };
+        let constraints = [LayoutItemInfo::default(), LayoutItemInfo::default()];
+        for orientation in [Orientation::Horizontal, Orientation::Vertical] {
+            let result = solve_grid_layout(
+                &data,
+                Slice::from_slice(&constraints),
+                orientation,
+                Slice::from_slice(&[0, 2]),
+                Slice::from_slice(&steps),
+            );
+            assert_eq!(result.as_slice(), &[2., 2., 0., 100., 0., 0.]);
+        }
     }
 
     #[test]

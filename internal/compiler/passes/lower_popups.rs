@@ -86,21 +86,8 @@ fn lower_popup_window(
         return;
     }
 
-    // Remove the popup_window_element from its parent
-    let mut parent_element_borrowed = parent_element.borrow_mut();
-    let index = parent_element_borrowed
-        .children
-        .iter()
-        .position(|child| Rc::ptr_eq(child, popup_window_element))
-        .expect("PopupWindow must be a child of its parent");
-    parent_element_borrowed.children.remove(index);
-    parent_element_borrowed.has_popup_child = true;
-    drop(parent_element_borrowed);
-    for parent_cip in parent_component.child_insertion_points.borrow_mut().values_mut() {
-        if Rc::ptr_eq(&parent_cip.parent, parent_element) && parent_cip.insertion_index > index {
-            parent_cip.insertion_index -= 1;
-        }
-    }
+    remove_child_element(popup_window_element, parent_element);
+    parent_element.borrow_mut().has_popup_child = true;
 
     let map_close_on_click_value = |b: &BindingExpression| {
         let Expression::BoolLiteral(v) = b.expression.ignore_debug_hooks() else {
@@ -218,7 +205,10 @@ fn lower_popup_window(
     {
         let mut popup_mut = popup_comp.root_element.borrow_mut();
         let name = format_smolstr!("popup-{}-dummy", popup_mut.id);
-        popup_mut.property_declarations.insert(name.clone(), Type::LogicalLength.into());
+        popup_mut.property_declarations.insert(
+            name.clone(),
+            PropertyDeclaration { synthesized: true, ..Type::LogicalLength.into() },
+        );
         drop(popup_mut);
         let dummy1 = NamedReference::new(&popup_comp.root_element, name.clone());
         let dummy2 = NamedReference::new(&popup_comp.root_element, name.clone());

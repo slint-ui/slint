@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_core::cursor::MouseCursorInner;
-use i_slint_core::input::{FocusEventResult, InternalKeyEvent, KeyEventType};
+use i_slint_core::input::{FocusEventResult, InternalKeyEvent, KeyEventType, key_codes};
 use i_slint_core::platform::PointerEventButton;
 
 use super::*;
@@ -133,9 +133,15 @@ impl Item for NativeCheckBox {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
+        if !self.enabled() {
+            return KeyEventResult::EventIgnored;
+        }
         match event.event_type {
             KeyEventType::KeyPressed
-                if event.key_event.text == " " || event.key_event.text == "\n" =>
+                if matches!(
+                    event.key_event.text.chars().next(),
+                    Some(key_codes::Space | key_codes::Return)
+                ) =>
             {
                 Self::FIELD_OFFSETS.checked().apply_pin(self).set(!self.checked());
                 Self::FIELD_OFFSETS.toggled().apply_pin(self).call(&());

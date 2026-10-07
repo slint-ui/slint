@@ -54,9 +54,10 @@ pub fn run_bevy_app_with_slint(
         smol::channel::bounded::<wgpu::Texture>(2);
 
     let wgpu_device = device.clone();
+    let wgpu_queue = queue.clone();
 
     let create_texture = move |label, width, height| {
-        wgpu_device.create_texture(&wgpu::TextureDescriptor {
+        let texture = wgpu_device.create_texture(&wgpu::TextureDescriptor {
             label: Some(label),
             size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
             mip_level_count: 1,
@@ -68,7 +69,24 @@ pub fn run_bevy_app_with_slint(
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
-        })
+        });
+        // Skia imports the texture through the native graphics API, which bypasses wgpu's lazy
+        // zero-initialization, so clear it before handing it to Slint.
+        let mut encoder = wgpu_device.create_command_encoder(&Default::default());
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &texture.create_view(&Default::default()),
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            ..Default::default()
+        });
+        wgpu_queue.submit([encoder.finish()]);
+        texture
     };
 
     let front_buffer = create_texture("Front Buffer", 640, 480);

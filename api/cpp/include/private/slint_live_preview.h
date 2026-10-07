@@ -135,6 +135,28 @@ inline slint::LogicalSize from_slint_value(const slint::interpreter::Value &val,
                                 float(s.get_field("height").value().to_number().value()) });
 }
 
+inline slint::interpreter::Value into_slint_value(const slint::cbindgen_private::Edges &val)
+{
+    slint::interpreter::Struct s;
+    s.set_field("left", val.left);
+    s.set_field("top", val.top);
+    s.set_field("right", val.right);
+    s.set_field("bottom", val.bottom);
+    return s;
+}
+
+inline slint::cbindgen_private::Edges from_slint_value(const slint::interpreter::Value &val,
+                                                       const slint::cbindgen_private::Edges *)
+{
+    auto s = val.to_struct().value();
+    return slint::cbindgen_private::Edges {
+        .left = float(s.get_field("left").value().to_number().value()),
+        .top = float(s.get_field("top").value().to_number().value()),
+        .right = float(s.get_field("right").value().to_number().value()),
+        .bottom = float(s.get_field("bottom").value().to_number().value()),
+    };
+}
+
 class LiveReloadingComponent
 {
     const cbindgen_private::LiveReloadingComponentInner *inner;
@@ -145,13 +167,14 @@ public:
                            const slint::SharedVector<slint::SharedString> &include_paths,
                            const slint::SharedVector<slint::SharedString> &libraries,
                            std::string_view style, std::string_view translation_domain,
-                           bool no_default_translation_context)
+                           bool no_default_translation_context,
+                           std::string_view bundled_translations_path)
     {
         assert_main_thread();
         inner = cbindgen_private::slint_live_preview_new(
                 string_to_slice(file_name), string_to_slice(component_name), &include_paths,
                 &libraries, string_to_slice(style), string_to_slice(translation_domain),
-                no_default_translation_context);
+                no_default_translation_context, string_to_slice(bundled_translations_path));
     }
 
     LiveReloadingComponent(const LiveReloadingComponent &other) : inner(other.inner)

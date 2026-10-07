@@ -8,7 +8,7 @@
 
 [package]
 name = "i-slint-compiler-fuzz"
-version = "0.0.0"
+version = "1.19.0"
 publish = false
 edition = "2024"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"

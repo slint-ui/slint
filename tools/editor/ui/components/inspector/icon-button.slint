@@ -1,20 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, PaintStyle, Metrics, ButtonStyle } from "../../style.slint";
 
 export component InspectorIconButton inherits Rectangle {
+    in property <ButtonStyle> style: Style.inspector-icon-button;
     in property <string> kind;
     in property <string> label: root.kind;
     in property <bool> selected: false;
+    in property <bool> focus-on-click: true;
     callback clicked;
+    private property <PaintStyle> paint: root.selected ? root.style.appearance.pressed
+        : touch.has-hover || button-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
-    width: 18px;
-    height: 18px;
-    border-radius: 3.5px;
-    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover || button-focus.has-focus ? InspectorTokens.field-bg : transparent;
-    border-width: button-focus.has-focus ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    width: root.style.height;
+    height: root.style.height;
+    border-radius: root.style.radius;
+    background: root.paint.background;
+    border-width: button-focus.has-focus ? root.style.border-width : 0px;
+    border-color: button-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
     accessible-role: button;
     accessible-label: root.label;
     accessible-checked: root.selected;
@@ -32,20 +36,27 @@ export component InspectorIconButton inherits Rectangle {
         }
     }
 
+    if root.kind == "close": Image {
+        width: root.style.height;
+        height: self.width;
+        source: @image-url("../../../../lsp/ui/assets/close.svg");
+        colorize: root.paint.foreground;
+    }
+
     if root.kind == "eye": Rectangle {
         x: 3.5px;
         y: 5.5px;
         width: 11px;
         height: 7px;
-        border-width: 1px;
-        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
         border-radius: 5.5px;
 
         Rectangle {
             width: 3px;
             height: 3px;
             border-radius: 1.5px;
-            background: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+            background: root.paint.foreground;
         }
     }
 
@@ -54,44 +65,29 @@ export component InspectorIconButton inherits Rectangle {
         y: 3px;
         width: 6px;
         height: 11px;
-        border-width: 1px;
-        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
-        border-radius: 4px;
+        border-width: Metrics.border-width;
+        border-color: root.paint.foreground;
+        border-radius: Metrics.radius-small;
         transform-rotation: 28deg;
     }
 
-    if root.kind == "type-grid": Rectangle {
-        for row in 2: Rectangle {
-            for col in 2: Rectangle {
-                x: 4px + col * 6px;
-                y: 4px + row * 6px;
-                width: 3px;
-                height: 3px;
-                border-radius: 1.5px;
-                border-width: 1px;
-                border-color: InspectorTokens.text;
-            }
-        }
-    }
-
-    if root.kind == "sliders": Rectangle {
-        for col in 3: Rectangle {
-            x: 4px + col * 4.5px;
-            y: 4px;
-            width: 1px;
-            height: 10px;
-            background: InspectorTokens.text;
-            border-radius: 1px;
-        }
-        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
-        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
-        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+    if root.kind == "folder": Image {
+        x: 3px;
+        y: 3px;
+        width: 13px;
+        height: 13px;
+        source: @image-url("../../assets/primer-folder-open.svg");
+        colorize: root.paint.foreground;
     }
 
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            button-focus.focus();
+            if root.focus-on-click {
+                button-focus.focus();
+            } else {
+                button-focus.clear-focus();
+            }
             root.clicked();
         }
     }

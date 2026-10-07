@@ -128,10 +128,9 @@ fn load_component(component: &Rc<i_slint_compiler::object_tree::Component>) -> C
                 }
                 break;
             }
-            i_slint_compiler::langtype::ElementType::Native(_) => unreachable!(),
             i_slint_compiler::langtype::ElementType::Error => unreachable!(),
             i_slint_compiler::langtype::ElementType::Global => break,
-            i_slint_compiler::langtype::ElementType::Interface => break,
+            i_slint_compiler::langtype::ElementType::Interface(_) => break,
         };
         elem = e;
     }
@@ -155,7 +154,7 @@ fn load_style(style_name: String) -> Style {
     }
 
     let doc = loader
-        .get_document(&loader.resolve_import_path(None, "std-widgets.slint").unwrap().0)
+        .get_document(&loader.resolve_import_path(None, "std-widgets.slint").unwrap())
         .unwrap();
 
     let mut style = Style::default();

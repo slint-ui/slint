@@ -420,6 +420,10 @@ struct FlickableDataInner {
     /// We use two heuristics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
+    /// When a touch pad gesture (wheel events with phases) that went through this Flickable started.
+    /// The first Flickable that can scroll it then takes it over.
+    /// A timestamp, because the Ended phase doesn't reach the children of the Flickable that took it over.
+    wheel_gesture_start: Option<Instant>,
 
     /// Ringbuffer to store the last move deltas. From those data the velocity can be
     /// calculated required for the animation after the release event
@@ -432,6 +436,14 @@ struct FlickableDataInner {
 }
 
 impl FlickableDataInner {
+    fn subtract_distance_threshold(delta: Coord) -> Coord {
+        if delta >= 0 as Coord {
+            (delta - DISTANCE_THRESHOLD.0).max(0 as Coord)
+        } else {
+            (delta + DISTANCE_THRESHOLD.0).min(0 as Coord)
+        }
+    }
+
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
         self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
@@ -462,8 +474,7 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        if phase != TouchPhase::Started
-            && delta != LogicalVector::default()
+        if delta != LogicalVector::default()
             && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
         {
             // Release the capture immediately, this event is not meant for this Flickable.
@@ -472,6 +483,20 @@ impl FlickableDataInner {
             self.running_animation = None;
             self.velocity_rb = VelocityRingBuffer::default();
             return InputEventResult::EventIgnored;
+        }
+
+        if phase == TouchPhase::Moved
+            && self.capture_events.is_none()
+            && self.wheel_gesture_start.take().is_some_and(|start| {
+                crate::animations::current_tick() - start < SCROLL_FILTER_DURATION
+            })
+        {
+            self.velocity_rb = VelocityRingBuffer::default();
+            self.capture_events = Some(CaptureEvents::MouseWheel);
+
+            // Otherwise we'd jump instead of starting the drag smoothly.
+            delta.x = Self::subtract_distance_threshold(delta.x);
+            delta.y = Self::subtract_distance_threshold(delta.y);
         }
 
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -509,8 +534,6 @@ impl FlickableDataInner {
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Started => {
-                self.velocity_rb = VelocityRingBuffer::default();
-                self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
             TouchPhase::Moved => {
@@ -745,46 +768,29 @@ impl FlickableData {
             }
             MouseEvent::Wheel { position, delta_x, delta_y, phase } => {
                 match phase {
-                    TouchPhase::Cancelled => {
-                        // Qt sends the Cancelled Phase
-                        // If we recently handled a wheel event, intercept it to prevent children from grabbing
-                        // the scroll event
-                        let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                        if FlickableDataInner::is_allowed_scroll_direction(flick, delta, flick_rc)
-                            && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                        {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            inner.last_scroll_event = None;
-                            InputEventFilterResult::ForwardEvent
-                        }
+                    TouchPhase::Started => {
+                        inner.wheel_gesture_start = Some(crate::animations::current_tick())
                     }
-                    TouchPhase::Started => InputEventFilterResult::Intercept,
-                    TouchPhase::Moved => {
-                        if inner.capture_events.is_some() {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            // If we recently handled a wheel event, intercept it to prevent children from grabbing
-                            // the scroll event
-                            let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                            if FlickableDataInner::is_allowed_scroll_direction(
-                                flick, delta, flick_rc,
-                            ) && inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
-                            {
-                                InputEventFilterResult::Intercept
-                            } else {
-                                inner.last_scroll_event = None;
-                                InputEventFilterResult::ForwardEvent
-                            }
-                        }
-                    }
-                    TouchPhase::Ended => {
-                        if inner.capture_events.is_some() {
-                            InputEventFilterResult::Intercept
-                        } else {
-                            InputEventFilterResult::ForwardEvent
-                        }
-                    }
+                    TouchPhase::Ended => inner.wheel_gesture_start = None,
+                    TouchPhase::Moved | TouchPhase::Cancelled => {}
+                }
+                if inner.capture_events.is_some() {
+                    InputEventFilterResult::Intercept
+                } else if *phase == TouchPhase::Ended {
+                    InputEventFilterResult::ForwardEvent
+                } else if inner.should_capture_scroll(SCROLL_FILTER_DURATION, *position)
+                    && FlickableDataInner::is_allowed_scroll_direction(
+                        flick,
+                        Self::scroll_delta(window_adapter, *delta_x, *delta_y),
+                        flick_rc,
+                    )
+                {
+                    // If we recently handled a wheel event, intercept it to prevent children from grabbing
+                    // the scroll event
+                    InputEventFilterResult::Intercept
+                } else {
+                    inner.last_scroll_event = None;
+                    InputEventFilterResult::ForwardEvent
                 }
             }
             // Not the left button
@@ -878,12 +884,13 @@ impl FlickableData {
                 // the mouse in the flickables coordinate system and never the content coordinate
                 // system.
                 if let Some((_pressed_time, _pressed_mouse_position)) = inner.pressed_mouse_state {
-                    let mouse_delta = *position - inner.last_mouse_position;
+                    let mut mouse_delta = *position - inner.last_mouse_position;
                     inner.velocity_rb.push(crate::animations::current_tick(), mouse_delta);
 
                     let is_capturing = inner
                         .capture_events
                         .is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen);
+
                     if is_capturing
                         || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {
@@ -893,6 +900,14 @@ impl FlickableData {
                         let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
                         let current_content_position =
                             LogicalPoint::from_lengths(content_x.get(), content_y.get());
+
+                        if !is_capturing && event.is_from_touch() {
+                            // Otherwise we'd jump instead of starting the drag smoothly.
+                            mouse_delta.x =
+                                FlickableDataInner::subtract_distance_threshold(mouse_delta.x);
+                            mouse_delta.y =
+                                FlickableDataInner::subtract_distance_threshold(mouse_delta.y);
+                        }
 
                         // We calculate the new content position by adding the mouse delta in the flickable
                         // coordinate system to the current content position.

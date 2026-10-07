@@ -4,7 +4,11 @@
 import { CosmicFontSettings, CosmicPalette } from "styling.slint";
 import { StateLayer } from "components.slint";
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
+
 export component Button {
+    implement ButtonInterface <=> self;
+
     in property <string> text;
     in property <image> icon;
     in property <length> icon-size: 20px;
@@ -31,7 +35,11 @@ export component Button {
     accessible-checkable: root.checkable;
     accessible-checked: root.checked;
     accessible-label: root.text;
-    accessible-action-default => { state-layer.clicked(); }
+    accessible-action-default => {
+        if (root.enabled) {
+            state-layer.clicked();
+        }
+    }
 
     states [
         disabled when !root.enabled : {

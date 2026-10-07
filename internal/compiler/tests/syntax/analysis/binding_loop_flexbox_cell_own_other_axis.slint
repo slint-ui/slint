@@ -1,0 +1,142 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A flexbox cell sized from its own other axis. The solve reads the cell's
+// explicit size constraints on both axes and produces one cache for both, so
+// the read comes back to the solve. A box or grid layout solves one axis at a
+// time and takes the cell's cross size straight from its own geometry, so the
+// same markup is fine there.
+//
+// The cases, in order: one per orientation, since the solve declares both and
+// dropping either lets a shape through; a constraint that isn't a plain size;
+// a repeated component cell, which is measured through its own root; a
+// locally-set constraint on a cell that carries its own layout-info, which
+// `to_apply` keeps while dropping the inherited 'min-height' next to it; and a
+// runtime 'flex-direction', which the solve handles without knowing the axis
+// relation.
+//
+// Then the components that set the constraint inside themselves, where
+// `to_apply` drops it — declared anyway, because it reaches the element's own
+// geometry: 'CardSelf' directly, 'CardHelper' through a property, 'CardFn'
+// through a function, 'CardAlias' through a two-way binding, and 'CardX'
+// through 'x' rather than a size.
+
+component CardHelper {
+    property <length> helper: self.width;
+//                            >         <error{The binding for the property 'helper' is part of a binding loop (CardHelper.helper -> CardHelper.min-height -> FlexboxLayout -> CardHelper.width -> CardHelper.helper)↵Compute 'helper' without depending on a size or a position the layout produces}
+    min-height: root.helper;
+//              >          <note{'min-height' is part of the binding loop reported for 'helper' at line 25}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardFn {
+    pure function helper() -> length { self.width }
+//  >                                             <error{The binding for the property 'helper' is part of a binding loop (CardFn.helper -> CardFn.min-height -> FlexboxLayout -> CardFn.width -> CardFn.helper)↵Compute 'helper' without depending on a size or a position the layout produces}
+    min-height: self.helper();
+//              >            <note{'min-height' is part of the binding loop reported for 'helper' at line 35}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardAlias {
+    property <length> alias <=> self.width;
+//                          >             <error{The binding for the property 'alias' is part of a binding loop (CardAlias.alias -> CardAlias.min-height -> FlexboxLayout -> CardAlias.width -> CardAlias.alias)↵Compute 'alias' without depending on a size or a position the layout produces}
+    min-height: root.alias;
+//              >         <note{'min-height' is part of the binding loop reported for 'alias' at line 45}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardX {
+    min-height: self.x;
+//              >     <error{The binding for the property 'min-height' is part of a binding loop (CardX.x -> CardX.min-height -> FlexboxLayout -> CardX.x)↵Compute 'min-height' without depending on a size or a position the layout produces}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component CardSelf {
+    min-height: self.width;
+//              >         <error{The binding for the property 'min-height' is part of a binding loop (CardSelf.width -> CardSelf.min-height -> FlexboxLayout -> CardSelf.width)↵Compute 'min-height' without depending on a size or a position the layout produces}
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+component Card {
+    min-height: inner.min-height;
+    inner := VerticalLayout {
+        Text { text: "a text long enough to wrap"; wrap: word-wrap; }
+    }
+}
+
+export component Demo inherits Window {
+    width: 300px;
+    height: 200px;
+    in property <bool> horizontal;
+
+    FlexboxLayout {
+        Rectangle { width: self.height; }
+//                         >          <error{The binding for the property 'width' is part of a binding loop (Rectangle.width -> FlexboxLayout -> Rectangle.height -> Rectangle.width)↵Compute 'width' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        Rectangle { height: self.width; }
+//                          >         <error{The binding for the property 'height' is part of a binding loop (Rectangle.height -> FlexboxLayout -> Rectangle.width -> Rectangle.height)↵Compute 'height' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        Rectangle { min-width: self.height; }
+//                             >          <error{The binding for the property 'min-width' is part of a binding loop (Rectangle.min-width -> FlexboxLayout -> Rectangle.height -> Rectangle.min-width)↵Compute 'min-width' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        for i in 2: Card { width: self.height; }
+//                                >          <error{The binding for the property 'width' is part of a binding loop (Card.width -> FlexboxLayout -> Card.height -> Card.width)↵Compute 'width' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        for i in 2: CardSelf { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        Card { width: self.height; }
+//                    >          <error{The binding for the property 'width' is part of a binding loop (Card.width -> FlexboxLayout -> Card.height -> Card.width)↵Compute 'width' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        flex-direction: root.horizontal ? row : column;
+        Rectangle { width: self.height; }
+//                         >          <error{The binding for the property 'width' is part of a binding loop (Rectangle.width -> FlexboxLayout -> Rectangle.height -> Rectangle.width)↵Compute 'width' without depending on a size or a position the layout produces}
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        CardSelf { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        CardHelper { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        CardFn { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        CardAlias { }
+    }
+
+    FlexboxLayout {
+        flex-direction: column;
+        CardX { }
+    }
+}

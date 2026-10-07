@@ -10,8 +10,8 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use crate::source_path::SourcePath;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use i_slint_common::sharedfontique::{self, fontique, skrifa};
@@ -29,8 +29,8 @@ struct Font {
 #[cfg(feature = "renderer-software")]
 pub struct FontCollection {
     pub collection: sharedfontique::Collection,
-    pub custom_font_paths: HashMap<fontique::FamilyId, std::path::PathBuf>,
-    pub custom_fonts: HashMap<std::path::PathBuf, fontique::QueryFont>,
+    pub custom_font_paths: HashMap<fontique::FamilyId, SourcePath>,
+    pub custom_fonts: BTreeMap<SourcePath, fontique::QueryFont>,
 }
 
 /// Built once and shared (by reference) between the font and image passes. The
@@ -50,13 +50,13 @@ pub type SharedFontCollection = std::sync::Arc<
 pub fn read_custom_fonts<'a>(
     all_docs: impl Iterator<Item = &'a Document>,
     diag: &mut BuildDiagnostics,
-) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+) -> Vec<(SourcePath, Vec<u8>)> {
     let mut fonts = Vec::new();
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            match std::fs::read(font_path.as_str()) {
+            match font_path.read() {
                 Err(e) => diag.push_error(format!("Error loading font: {e}"), import_token),
-                Ok(bytes) => fonts.push((font_path.as_str().into(), bytes)),
+                Ok(bytes) => fonts.push((font_path.clone(), bytes.into_owned())),
             }
         }
     }
@@ -65,14 +65,12 @@ pub fn read_custom_fonts<'a>(
 
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
 #[cfg(feature = "renderer-software")]
-pub fn shared_font_collection(
-    custom_fonts: Vec<(std::path::PathBuf, Vec<u8>)>,
-) -> SharedFontCollection {
+pub fn shared_font_collection(custom_fonts: Vec<(SourcePath, Vec<u8>)>) -> SharedFontCollection {
     let init: Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync> =
         Box::new(move || {
             let mut collection = sharedfontique::create_collection(true);
             let mut custom_font_paths = HashMap::new();
-            let mut custom_font_map = HashMap::new();
+            let mut custom_font_map = BTreeMap::new();
             for (path, bytes) in custom_fonts {
                 if let Some(font) = collection
                     .register_fonts(bytes.into(), None)
@@ -103,7 +101,7 @@ pub fn embed_glyphs<'a>(
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
     _font_weights: Vec<u16>,
-    _characters_seen: HashSet<char>,
+    _characters_seen: BTreeSet<char>,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -116,7 +114,7 @@ pub fn embed_glyphs(
     compiler_config: &CompilerConfiguration,
     mut pixel_sizes: Vec<i16>,
     font_weights: Vec<u16>,
-    mut characters_seen: HashSet<char>,
+    mut characters_seen: BTreeSet<char>,
     font_collection: &SharedFontCollection,
     diag: &mut BuildDiagnostics,
 ) {
@@ -166,13 +164,17 @@ pub fn embed_glyphs(
 
     let mut custom_face_error = false;
 
-    let default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = if !collection
+    let default_fonts: Vec<(SourcePath, fontique::QueryFont)> = if !collection
         .default_fonts
         .is_empty()
     {
-        collection.default_fonts.as_ref().clone()
+        collection
+            .default_fonts
+            .iter()
+            .map(|(path, font)| (SourcePath::File(path.clone()), font.clone()))
+            .collect()
     } else {
-        let mut default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = Vec::new();
+        let mut default_fonts: Vec<(SourcePath, fontique::QueryFont)> = Vec::new();
 
         for c in doc.exported_roots() {
             let (family, source_location) = c
@@ -181,47 +183,45 @@ pub fn embed_glyphs(
                 .binding("default-font-family")
                 .and_then(|binding| match binding.value_expression() {
                     Expression::StringLiteral(family) => {
-                        Some((Some(family.clone()), binding.span.clone()))
+                        Some((Some(family.clone()).filter(|f| !f.is_empty()), binding.span.clone()))
                     }
                     _ => None,
                 })
                 .unwrap_or_default();
+            // A family that comes from the style has no span of its own.
+            let source_location = source_location.or_else(|| generic_diag_location.clone());
 
-            let font = {
-                let mut query = collection.query();
-
-                query.set_families(
-                    family
-                        .as_ref()
-                        .map(|family| fontique::QueryFamily::from(family.as_str()))
-                        .into_iter()
-                        .chain(
-                            sharedfontique::FALLBACK_FAMILIES
-                                .into_iter()
-                                .map(fontique::QueryFamily::Generic),
-                        ),
-                );
-
-                let mut font = None;
-
-                query.matches_with(|queried_font| {
-                    font = Some(queried_font.clone());
-                    fontique::QueryStatus::Stop
+            // Query the requested family on its own, so that falling back to a generic one
+            // can be reported instead of silently embedding a different font.
+            let font = family
+                .as_ref()
+                .and_then(|family| {
+                    collection.first_match([fontique::QueryFamily::from(family.as_str())])
+                })
+                .or_else(|| {
+                    let fallback = collection.first_match(
+                        sharedfontique::FALLBACK_FAMILIES
+                            .into_iter()
+                            .map(fontique::QueryFamily::Generic),
+                    )?;
+                    if let Some(family) = &family {
+                        diag.push_warning(
+                            format!(
+                                r#"no font found for family '{family}', embedding the default font instead; add the font with 'import "my-font.ttf";'"#
+                            ),
+                            &source_location,
+                        );
+                    }
+                    Some(fallback)
                 });
-                font
-            };
 
             match font {
                 None => {
-                    if let Some(source_location) = source_location {
-                        diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
-                    } else {
-                        diag.push_error(
-                            "internal error: could not determine a default font for sans-serif"
-                                .to_string(),
-                            &generic_diag_location,
-                        );
-                    };
+                    diag.push_error(
+                        r#"no font found to embed: install a font, or add one with 'import "my-font.ttf";'"#
+                            .to_string(),
+                        &generic_diag_location,
+                    );
                 }
                 Some(query_font) => {
                     if let Some(font_info) = collection
@@ -232,7 +232,9 @@ pub fn embed_glyphs(
                             path.clone()
                         } else {
                             match &font_info.source().kind {
-                                fontique::SourceKind::Path(path) => path.to_path_buf(),
+                                fontique::SourceKind::Path(path) => {
+                                    SourcePath::File(path.to_path_buf())
+                                }
                                 fontique::SourceKind::Memory(_) => {
                                     diag.push_error(
                                     "internal error: memory fonts are not supported in the compiler"
@@ -258,10 +260,10 @@ pub fn embed_glyphs(
         return;
     }
 
-    let register_embedded_font = |path: &std::path::Path, embedded_bitmap_font: BitmapFont| {
+    let register_embedded_font = |path: &SourcePath, embedded_bitmap_font: BitmapFont| {
         let resource_id = doc.embedded_file_resources.borrow_mut().push_and_get_key(
             crate::embedded_resources::EmbeddedResources {
-                path: Some(path.to_string_lossy().as_ref().into()),
+                path: Some(path.clone()),
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
                     embedded_bitmap_font,
                 ),
@@ -277,13 +279,10 @@ pub fn embed_glyphs(
         }
     };
 
-    let mut embed_font_by_path = |path: &std::path::Path, font: &fontique::QueryFont| {
+    let mut embed_font_by_path = |path: &SourcePath, font: &fontique::QueryFont| {
         let Some(family_name) = collection.family_name(font.family.0).to_owned() else {
             diag.push_error(
-                format!(
-                    "internal error: TrueType font without family name encountered: {}",
-                    path.display()
-                ),
+                format!("internal error: TrueType font without family name encountered: {path}"),
                 &generic_diag_location,
             );
             return;
@@ -291,7 +290,7 @@ pub fn embed_glyphs(
 
         let Some(font_ref) = skrifa::FontRef::from_index(font.blob.data(), font.index).ok() else {
             diag.push_error(
-                format!("internal error: failed to parse font: {}", path.display()),
+                format!("internal error: failed to parse font: {path}"),
                 &generic_diag_location,
             );
             return;
@@ -387,7 +386,7 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
-    let mut character_map: Vec<CharacterMapEntry> = character_coverage
+    let character_map: Vec<CharacterMapEntry> = character_coverage
         .filter(|code_point| {
             core::iter::once(&font)
                 .chain(fallback_fonts.iter())
@@ -410,8 +409,6 @@ fn embed_font(
     #[cfg(not(feature = "sdf-fonts"))]
     let glyphs =
         embed_alpha_map_glyphs(pixel_sizes, &character_map, &font, fallback_fonts, &coords_i16);
-
-    character_map.sort_by_key(|entry| entry.code_point);
 
     let font_ref = skrifa::FontRef::from_index(font.font.blob.data(), font.font.index).unwrap();
     let location = skrifa::instance::LocationRef::new(normalized_coords);
@@ -747,7 +744,7 @@ pub fn collect_font_weights_used(component: &Rc<Component>, weights_seen: &mut V
     });
 }
 
-pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut HashSet<char>) {
+pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTreeSet<char>) {
     visit_all_expressions(component, |expr, _| {
         expr.visit_recursive(&mut |expr| {
             if let Expression::StringLiteral(string) = expr {

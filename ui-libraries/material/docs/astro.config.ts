@@ -7,49 +7,20 @@ import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlig
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
     slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
-import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { unified } from "@astrojs/markdown-remark";
 
-import sitemap from "@astrojs/sitemap";
-import tailwind from "@astrojs/tailwind";
-import mdx from "@astrojs/mdx";
-import partytown from "@astrojs/partytown";
-import compress from "astro-compress";
-import type { AstroIntegration } from "astro";
-
-import astrowind from "./vendor/integration";
-
-import {
-    readingTimeRemarkPlugin,
-    responsiveTablesRehypePlugin,
-    lazyImagesRehypePlugin,
-} from "./src/utils/frontmatter";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const hasExternalScripts = false;
-const whenExternalScripts = (
-    items: (() => AstroIntegration) | (() => AstroIntegration)[] = [],
-) =>
-    hasExternalScripts
-        ? Array.isArray(items)
-            ? items.map((item) => item())
-            : [items()]
-        : [];
+const base = process.env.MATERIAL_DOCS_BASE_PATH || "/";
 
 // https://astro.build/config
 export default defineConfig({
+    site: "https://material.slint.dev",
+    base,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
-        remarkPlugins: [readingTimeRemarkPlugin],
-        rehypePlugins: [
-            responsiveTablesRehypePlugin,
-            lazyImagesRehypePlugin,
-            rehypeExternalLinksSlint,
-        ],
+        processor: unified(slintStarlightMarkdownRehypeExternalLinksOnly()),
     },
     integrations: [
         starlight({
@@ -58,9 +29,9 @@ export default defineConfig({
                 src: "./src/assets/slint-logo-small-light.svg",
             },
             customCss: [
+                "./src/assets/styles/starlight-material-supplement.css",
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
-                "./src/assets/styles/starlight-material-supplement.css",
             ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
@@ -69,6 +40,8 @@ export default defineConfig({
             },
             sidebar: [
                 { label: "Getting Started", link: "getting-started" },
+                { label: "Releases", link: "releases" },
+                { label: "Changelog", link: "changelog" },
                 {
                     label: "Components",
                     items: [{ autogenerate: { directory: "components" } }],
@@ -81,56 +54,7 @@ export default defineConfig({
             ],
             social: slintStarlightSocial,
             favicon: "favicon.svg",
-            head: slintStarlightFaviconHead((filename) => `/${filename}`),
-        }),
-        tailwind({
-            applyBaseStyles: false,
-        }),
-        sitemap(),
-        mdx(),
-
-        ...whenExternalScripts(() =>
-            partytown({
-                config: { forward: ["dataLayer.push"] },
-            }),
-        ),
-
-        compress({
-            CSS: true,
-            HTML: {
-                "html-minifier-terser": {
-                    removeAttributeQuotes: false,
-                },
-            },
-            Image: false,
-            JavaScript: true,
-            SVG: false,
-            Logger: 1,
-        }),
-
-        astrowind({
-            config: "./src/config.yaml",
+            head: slintStarlightFaviconHead((filename) => `${base}${filename}`),
         }),
     ],
-    image: {
-        domains: ["cdn.pixabay.com"],
-    },
-    vite: {
-        environments: {
-            prerender: {
-                resolve: {
-                    // Starlight requires js-yaml 4's default export during prerendering.
-                    noExternal: ["js-yaml"],
-                },
-            },
-        },
-        build: {
-            cssMinify: false,
-        },
-        resolve: {
-            alias: {
-                "~": path.resolve(__dirname, "./src"),
-            },
-        },
-    },
 });

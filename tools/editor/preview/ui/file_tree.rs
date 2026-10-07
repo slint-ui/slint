@@ -5,13 +5,13 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use i_slint_core::platform::Clipboard;
 use i_slint_live_preview::protocol::PreviewComponent;
 use lsp_types::Url;
-use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
+use slint::{Image, Model, ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, Project};
 
@@ -34,11 +34,23 @@ pub fn setup(
     let controller_for_create = controller.clone();
     let project_weak_for_create = project_weak.clone();
     project.on_create_new_slint_file(move || {
-        if let Some(project) = project_weak_for_create.upgrade()
-            && let Some(controller) = controller_for_create.borrow_mut().as_mut()
-        {
-            controller.create_new_slint_file(&project);
-        }
+        let Some(project) = project_weak_for_create.upgrade() else {
+            return Default::default();
+        };
+        let mut controller = controller_for_create.borrow_mut();
+        let Some(controller) = controller.as_mut() else {
+            return Default::default();
+        };
+        controller.create_new_slint_file(&project).err().map_or_else(
+            SharedString::default,
+            |error| {
+                tracing::warn!(
+                    "Failed to create a Slint file in {}: {error}",
+                    controller.root.display()
+                );
+                error.to_shared_string()
+            },
+        )
     });
 
     let controller_for_select = controller.clone();
@@ -54,11 +66,45 @@ pub fn setup(
     });
 
     let controller_for_toggle = controller.clone();
+    let project_weak_for_toggle = project_weak.clone();
     api.on_file_tree_toggle(move |path| {
-        if let Some(project) = project_weak.upgrade()
+        if let Some(project) = project_weak_for_toggle.upgrade()
             && let Some(controller) = controller_for_toggle.borrow_mut().as_mut()
         {
             controller.toggle(Path::new(path.as_str()), &project);
+        }
+    });
+
+    let controller_for_rename = controller.clone();
+    api.on_file_tree_rename(move |path, name| {
+        let Some(api) = api_weak.upgrade() else { return tr::tr!("No editor available").into() };
+        let Some(project) = project_weak.upgrade() else {
+            return tr::tr!("No project available").into();
+        };
+        if super::super::file_edit_pending() {
+            return tr::tr!("Wait for the pending edit to finish").into();
+        }
+        let mut controller = controller_for_rename.borrow_mut();
+        let Some(controller) = controller.as_mut() else {
+            return tr::tr!("No project available").into();
+        };
+        match controller.rename_file(Path::new(path.as_str()), name.as_str()) {
+            Ok((path, selected)) => {
+                super::super::invalidate_file_history();
+                controller.publish(&project);
+                if selected {
+                    if is_slint_file(&path) {
+                        super::super::request_preview_path(&path, None);
+                    } else if is_image_file(&path) {
+                        api.set_selected_image_asset(load_image_asset_preview(
+                            &controller.root,
+                            &path,
+                        ));
+                    }
+                }
+                SharedString::default()
+            }
+            Err(error) => error.into(),
         }
     });
 
@@ -106,8 +152,10 @@ impl FileTreeController {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
-
         if is_slint_file(&path) {
+            if self.selected_path.as_deref() == Some(&path) {
+                return;
+            }
             super::super::request_preview_path(&path, None);
         } else if is_image_file(&path) {
             self.select(&path);
@@ -121,18 +169,13 @@ impl FileTreeController {
         }
     }
 
-    fn create_new_slint_file(&mut self, project: &Project<'_>) {
-        match create_new_component_file(&self.root) {
-            Ok(path) => {
-                self.publish(project);
-                if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
-                    tracing::warn!("Failed to open new Slint file {}", path.display());
-                }
-            }
-            Err(error) => {
-                tracing::warn!("Failed to create a Slint file in {}: {error}", self.root.display());
-            }
+    fn create_new_slint_file(&mut self, project: &Project<'_>) -> std::io::Result<()> {
+        let path = create_new_component_file(&self.root)?;
+        self.publish(project);
+        if !super::super::request_preview_path(&path, Some(NEW_COMPONENT_NAME.into())) {
+            tracing::warn!("Failed to open new Slint file {}", path.display());
         }
+        Ok(())
     }
 
     fn select(&mut self, path: &Path) {
@@ -162,6 +205,45 @@ impl FileTreeController {
         self.publish(project);
     }
 
+    fn rename_file(&mut self, path: &Path, name: &str) -> Result<(PathBuf, bool), String> {
+        let path = self.path_in_root(path).ok_or_else(|| tr::tr!("File is outside the project"))?;
+        if !std::fs::symlink_metadata(&path).is_ok_and(|metadata| metadata.file_type().is_file()) {
+            return Err(tr::tr!("Only files can be renamed"));
+        }
+        let mut components = Path::new(name).components();
+        if !matches!(components.next(), Some(Component::Normal(_)))
+            || components.next().is_some()
+            || name.contains('\\')
+        {
+            return Err(tr::tr!("Enter a valid file name"));
+        }
+
+        let target = path.parent().ok_or_else(|| tr::tr!("File has no parent folder"))?.join(name);
+        if target == path {
+            return Ok((path, self.selected_path.as_ref() == Some(&target)));
+        }
+        let selected = self.selected_path.as_ref() == Some(&path);
+        if selected && file_surface_kind(&path) != file_surface_kind(&target) {
+            return Err(tr::tr!("Keep the file type when renaming the open file"));
+        }
+
+        match std::fs::symlink_metadata(&target) {
+            Ok(_) => return Err(tr::tr!("A file with that name already exists")),
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(tr::tr!("Could not rename file: {}", error));
+            }
+            Err(_) => {}
+        }
+        if let Err(error) = std::fs::rename(&path, &target) {
+            return Err(tr::tr!("Could not rename file: {}", error));
+        }
+        let target = std::fs::canonicalize(&target).unwrap_or(target);
+        if selected {
+            self.selected_path = Some(target.clone());
+        }
+        Ok((target, selected))
+    }
+
     fn publish(&self, project: &Project<'_>) {
         let rows = build_file_tree_rows(
             &self.root,
@@ -169,7 +251,19 @@ impl FileTreeController {
             self.selected_path.as_deref(),
             &self.active_folder_path,
         );
-        project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        let current = project.get_file_tree();
+        if let Some(model) = current.as_any().downcast_ref::<VecModel<FileTreeNode>>()
+            && model.row_count() == rows.len()
+            && model.iter().zip(&rows).all(|(old, new)| old.path == new.path)
+        {
+            for (index, (old, new)) in model.iter().zip(rows).enumerate() {
+                if old != new {
+                    model.set_row_data(index, new);
+                }
+            }
+        } else {
+            project.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        }
         project.set_selected_project_file(
             selected_project_file(&self.root, self.selected_path.as_deref()).into(),
         );
@@ -261,6 +355,91 @@ fn is_image_file(path: &Path) -> bool {
     path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
         matches!(extension.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "svg")
     })
+}
+
+pub(super) fn image_source_file_name(source: SharedString) -> SharedString {
+    let source = source.trim();
+    if source.is_empty() {
+        return tr::tr!("No image selected").into();
+    }
+
+    image_url_path(source)
+        .and_then(|path| {
+            path.file_name().map(|name| SharedString::from(name.to_string_lossy().as_ref()))
+        })
+        .unwrap_or_else(|| tr::tr!("Custom expression").into())
+}
+
+fn image_url_path(source: &str) -> Option<PathBuf> {
+    let source = source.strip_prefix("@image-url(")?.trim_start();
+    let length = i_slint_compiler::lexer::lex_string(source, &mut Default::default());
+    let (literal, rest) = source.split_at(length);
+    let rest = rest.trim();
+    if rest != ")" && !(rest.starts_with(',') && rest.ends_with(')')) {
+        return None;
+    }
+    i_slint_compiler::literals::unescape_string(literal)
+        .map(|path| PathBuf::from(path.replace('\\', "/")))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn choose_image_file(
+    source_uri: &str,
+    window: Option<slint::WindowHandle>,
+) -> SharedString {
+    let Some(source_path) = source_path(source_uri) else {
+        return Default::default();
+    };
+    let Some(source_directory) = source_path.parent() else {
+        return Default::default();
+    };
+
+    let dialog = crate::file_dialog::create(window)
+        .set_title(tr::tr!("Choose Image"))
+        .set_directory(source_directory)
+        .add_filter(tr::tr!("Images"), &["png", "jpg", "jpeg", "svg"]);
+    let Some(image_path) = dialog.pick_file() else {
+        return Default::default();
+    };
+
+    image_url_expression(&source_path, &image_path).unwrap_or_default().into()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(super) fn choose_image_file(
+    _source_uri: &str,
+    _window: Option<slint::WindowHandle>,
+) -> SharedString {
+    Default::default()
+}
+
+fn source_path(source_uri: &str) -> Option<PathBuf> {
+    i_slint_compiler::source_path::SourcePath::from(Url::parse(source_uri).ok()?).into_native_path()
+}
+
+fn image_url_expression(source_path: &Path, image_path: &Path) -> Option<String> {
+    let source_directory = source_path.parent()?;
+    let relative_path = pathdiff::diff_paths(image_path, source_directory)
+        .unwrap_or_else(|| image_path.to_path_buf());
+    let path = relative_path.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+    Some(format!("@image-url(\"{}\")", escape_slint_string(&path)))
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum FileSurfaceKind {
+    Component,
+    Image,
+    Unsupported,
+}
+
+fn file_surface_kind(path: &Path) -> FileSurfaceKind {
+    if is_slint_file(path) {
+        FileSurfaceKind::Component
+    } else if is_image_file(path) {
+        FileSurfaceKind::Image
+    } else {
+        FileSurfaceKind::Unsupported
+    }
 }
 
 fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
@@ -384,6 +563,7 @@ fn append_node(
     let children = if is_folder { read_directory_entries(path) } else { Vec::new() };
     rows.push(FileTreeNode {
         label: label_for_path(path),
+        rename_selection_end: rename_selection_end(path, is_folder),
         path: path_to_shared_string(path),
         parent_path: parent.map(path_to_shared_string).unwrap_or_default(),
         indent_level,
@@ -448,6 +628,14 @@ fn label_for_path(path: &Path) -> SharedString {
     path.file_name()
         .map(|name| name.to_string_lossy().to_shared_string())
         .unwrap_or_else(|| path.display().to_string().into())
+}
+
+fn rename_selection_end(path: &Path, is_folder: bool) -> i32 {
+    let name = path.file_name().map(|name| name.to_string_lossy()).unwrap_or_default();
+    if is_folder {
+        return name.len() as i32;
+    }
+    path.file_stem().map(|stem| stem.to_string_lossy().len() as i32).unwrap_or(name.len() as i32)
 }
 
 fn path_to_shared_string(path: &Path) -> SharedString {
@@ -523,6 +711,47 @@ mod tests {
 
     fn labels(rows: &[FileTreeNode]) -> Vec<String> {
         rows.iter().map(|row| row.label.to_string()).collect()
+    }
+
+    #[test]
+    fn publish_replaces_model_when_rows_change() {
+        use slint::ComponentHandle;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::super::EditorUi::new().unwrap();
+        let project = editor.global::<Project>();
+        let tree = TempTree::new();
+        let folder = tree.dir("components");
+        tree.file("components/child.slint");
+        let source = tree.file("a.slint");
+        tree.file("z.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+        controller.publish(&project);
+        let initial = project.get_file_tree();
+        let initial_labels = labels(&initial.iter().collect::<Vec<_>>());
+
+        controller.toggle(&folder, &project);
+        let expanded = project.get_file_tree();
+        assert_ne!(expanded, initial);
+        assert_eq!(
+            labels(&expanded.iter().collect::<Vec<_>>())[1..],
+            ["components", "child.slint", "a.slint", "z.slint"]
+        );
+
+        controller.toggle(&folder, &project);
+        let collapsed = project.get_file_tree();
+        assert_ne!(collapsed, expanded);
+        assert_eq!(labels(&collapsed.iter().collect::<Vec<_>>()), initial_labels);
+
+        controller.rename_file(&source, "zz.slint").unwrap();
+        controller.publish(&project);
+        let renamed = project.get_file_tree();
+        assert_ne!(renamed, collapsed);
+        assert_eq!(renamed.row_count(), collapsed.row_count());
+        assert_eq!(
+            labels(&renamed.iter().collect::<Vec<_>>())[1..],
+            ["components", "z.slint", "zz.slint"]
+        );
     }
 
     #[test]
@@ -648,6 +877,57 @@ mod tests {
         assert_eq!(
             rows.iter().find(|row| row.label == "source.slint").unwrap().kind,
             FileTreeNodeKind::File
+        );
+    }
+
+    #[test]
+    fn image_source_field_shows_only_the_file_name() {
+        for source in [
+            r#"@image-url("assets/icons/checker.svg")"#,
+            r#"@image-url("assets/check\u{65}r.svg")"#,
+            r#"@image-url("assets\\icons\\checker.svg")"#,
+            r#"@image-url("C:\\project\\assets\\checker.svg")"#,
+            r#"@image-url("assets\\icons/checker.svg")"#,
+        ] {
+            assert_eq!(image_source_file_name(source.into()), "checker.svg");
+        }
+        assert_eq!(
+            image_source_file_name(r#"@image-url("assets/panel.png", nine-slice(1 2 3 4))"#.into()),
+            "panel.png"
+        );
+        assert_eq!(
+            image_source_file_name(
+                r#"enabled ? @image-url("on.svg") : @image-url("off.svg")"#.into()
+            ),
+            "Custom expression"
+        );
+        assert_eq!(image_source_file_name(SharedString::default()), "No image selected");
+    }
+
+    #[test]
+    fn image_picker_normalizes_source_uri_separators() {
+        // `\` only separates directories in a Windows path.
+        #[cfg(windows)]
+        {
+            let source = std::env::temp_dir().join("ui/pages/main.slint");
+            let uri = Url::from_file_path(&source).unwrap();
+            let windows_path = ["/ui", "pages", "main.slint"].join("%5C");
+            let uri = uri.as_str().replace("/ui/pages/main.slint", &windows_path);
+            assert_eq!(source_path(&uri), Some(source));
+        }
+        assert!(source_path("https://example.com/main.slint").is_none());
+        assert!(source_path("vscode-remote://host/main.slint").is_none());
+    }
+
+    #[test]
+    fn chosen_image_is_relative_to_the_edited_slint_file() {
+        assert_eq!(
+            image_url_expression(
+                Path::new("ui/pages/main.slint"),
+                Path::new("ui/assets/panel.png"),
+            )
+            .as_deref(),
+            Some(r#"@image-url("../assets/panel.png")"#)
         );
     }
 
@@ -779,6 +1059,110 @@ mod tests {
 
         assert!(is_directory(&dir));
         assert!(!is_directory(&file));
+    }
+
+    #[test]
+    fn rename_file_moves_file_and_selection() {
+        let tree = TempTree::new();
+        let source = tree.file("old.slint");
+        fs::write(&source, "original").unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(source.clone()));
+
+        let (target, selected) = controller.rename_file(&source, "new.slint").unwrap();
+
+        assert!(selected);
+        assert!(!source.exists());
+        assert_eq!(fs::read_to_string(&target).unwrap(), "original");
+        assert_eq!(controller.selected_path, Some(target));
+    }
+
+    #[test]
+    fn rename_file_does_not_replace_existing_file() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let target = tree.file("target.slint");
+        fs::write(&target, "keep").unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "target.slint").unwrap_err(),
+            "A file with that name already exists"
+        );
+        assert!(source.exists());
+        assert_eq!(fs::read_to_string(target).unwrap(), "keep");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rename_file_does_not_replace_dangling_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let target = tree.root.join("target.slint");
+        symlink("missing.slint", &target).unwrap();
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "target.slint").unwrap_err(),
+            "A file with that name already exists"
+        );
+        assert!(source.exists());
+        assert!(fs::symlink_metadata(target).unwrap().file_type().is_symlink());
+    }
+
+    #[test]
+    fn rename_file_rejects_surface_change_for_selected_file() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), Some(source.clone()));
+
+        assert_eq!(
+            controller.rename_file(&source, "source.png").unwrap_err(),
+            "Keep the file type when renaming the open file"
+        );
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn rename_file_rejects_folders_and_paths() {
+        let tree = TempTree::new();
+        let folder = tree.dir("folder");
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&folder, "renamed").unwrap_err(),
+            "Only files can be renamed"
+        );
+        for name in ["", ".", "..", "nested/name.slint", "nested\\name.slint"] {
+            assert!(controller.rename_file(&source, name).is_err());
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rename_file_rejects_windows_prefix() {
+        let tree = TempTree::new();
+        let source = tree.file("source.slint");
+        let mut controller = FileTreeController::new(tree.root.clone(), None);
+
+        assert_eq!(
+            controller.rename_file(&source, "C:name.slint").unwrap_err(),
+            "Enter a valid file name"
+        );
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn rename_selection_excludes_only_the_last_extension() {
+        let path = Path::new("archive.tar.gz");
+        let dot_file = Path::new(".gitignore");
+        let unicode = Path::new("föö.slint");
+
+        assert_eq!(rename_selection_end(path, false), "archive.tar".len() as i32);
+        assert_eq!(rename_selection_end(dot_file, false), ".gitignore".len() as i32);
+        assert_eq!(rename_selection_end(unicode, false), "föö".len() as i32);
     }
 
     #[test]

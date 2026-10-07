@@ -33,7 +33,7 @@ pub fn generate(
         .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
         .source_file
         .path()
-        .to_string_lossy();
+        .to_string();
 
     for p in &llr.public_components {
         generate_public_component(&mut file, p, &llr, compiler_config, &main_file);
@@ -136,7 +136,7 @@ fn generate_public_component(
             "{{ nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
-                nullptr, nullptr, nullptr, nullptr, \
+                nullptr, nullptr, nullptr, nullptr, nullptr, \
                 slint::private_api::drop_in_place<{component_id}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
@@ -160,11 +160,12 @@ fn generate_public_component(
                 .join(", ")
         }),
         format!(
-            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {});",
+            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {}, {:?});",
             component.name,
             compiler_config.style.as_ref().unwrap_or(&String::new()),
             compiler_config.translation_domain.as_ref().unwrap_or(&String::new()),
             compiler_config.default_translation_context == crate::DefaultTranslationContext::None,
+            compiler_config.absolute_bundled_translations_path().unwrap_or_default(),
         ),
         format!(
             "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"

@@ -1,0 +1,101 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "source:1",
+    "name": "Captured rectangle",
+    "type": "GROUP",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 4,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": {
+            "r": 1,
+            "g": 0,
+            "b": 0
+          },
+          "opacity": 1
+        }
+      ],
+      "strokes": [],
+      "effects": []
+    },
+    "children": [
+      {
+        "id": "mask",
+        "name": "Rectangular mask",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 20,
+          "y": 10,
+          "width": 40,
+          "height": 30,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "isMask": true,
+          "maskType": "VECTOR"
+        }
+      },
+      {
+        "id": "content",
+        "name": "Masked content",
+        "type": "RECTANGLE",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "width": 100,
+          "height": 60,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": []
+        }
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

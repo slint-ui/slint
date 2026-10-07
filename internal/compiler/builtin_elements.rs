@@ -113,7 +113,10 @@ fn default(ty: &Type, text: &str) -> Option<ConstantExpression> {
             }
         }
         value if value.starts_with(|c: char| c.is_ascii_alphabetic()) => {
-            let (qualifier, value) = value.split_once('.').unwrap();
+            // Handling enums
+            let (qualifier, value) = value.split_once('.').unwrap_or_else(|| panic!(
+                "enum values must contain also the qualifier in the format `qualifier.value`: {value}"
+            ));
             let Type::Enumeration(enumeration) = ty else {
                 panic!("enum default `{qualifier}.{value}` on a property of type {ty}")
             };
@@ -637,12 +640,14 @@ fn build(l: &mut Loader) {
         in property <length> border-bottom-right-radius;
         //! ## Drop Shadows
         //!
-        //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
-        //! an element, it's possible to set the following `drop-shadow` properties:
-        //!
-        //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
-        //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
-        //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+        //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
+        //! The fill and border alpha determine the shadow's shape and strength.
+        //! These semantics correspond to CSS `filter: drop-shadow()`, with an additional spread property.
+        //! A rectangle with a transparent fill and an opaque border casts a border-shaped shadow.
+        //! The offset shadow can remain visible through transparent parts of the rectangle.
+        //! Children don't contribute to the shadow; a rectangle without a background or border casts no shadow.
+        //! The Vello GPU renderer blurs shadows of opaque backgrounds only.
+        //! Shadows of translucent or border-only rectangles render without blur on that renderer.
         //!
         //! ### drop-shadow-blur
         //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
@@ -664,7 +669,9 @@ fn build(l: &mut Loader) {
         //! ### drop-shadow-spread
         //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
         //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
-        //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
+        //! Positive spread also thickens borders inward; negative spread thins them.
+        //! Supported by the Skia, FemtoVG, and Vello renderers.
+        //! The Qt backend ignores spread.
         //!
         //! ## Inner Shadows
         //!
@@ -900,9 +907,9 @@ fn build(l: &mut Loader) {
         in property <int> source-clip-x;
         ///
         in property <int> source-clip-y;
-        /// \default source.width - source.clip-x
+        /// \default source.width - source-clip-x
         in property <int> source-clip-width;
-        /// \default source.height - source.clip-y
+        /// \default source.height - source-clip-y
         in property <int> source-clip-height;
         //! Properties in source image coordinates that define the region of the source image that is rendered.
         //! By default the entire source image is visible:
@@ -1542,9 +1549,8 @@ fn build(l: &mut Loader) {
         /// respectively, the element becomes scrollable.
         ///
         /// When unset, the `content-width` and `content-height` are
-        /// calculated automatically based on the `Flickable`'s children. This isn't the
-        /// case when using a `for` loop to populate the elements. This is a bug tracked in
-        /// issue [#407](https://github.com/slint-ui/slint/issues/407).
+        /// calculated automatically based on the `Flickable`'s layout children,
+        /// including ones populated with a `for`/`if`.
         /// The maximum and preferred size of the `Flickable` are based on the content size.
         ///
         /// Note that the `Flickable` doesn't create a scrollbar.
@@ -1576,10 +1582,10 @@ fn build(l: &mut Loader) {
         ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
         ///    to the coordinates of the press event exceeds 8 logical pixels.
         ///
-        /// If no element underneath claims a press, the `Flickable` itself only intercepts it when it can actually pan in some direction,
-        /// i.e. when its `content-width`/`content-height` exceed its own size, or its content is currently scrolled away from the origin.
-        /// Otherwise the event is forwarded to elements underneath it,
-        /// the same way wheel/scroll events already are (see below).
+        /// A quick click is a press and release within 100ms that doesn't start a flick.
+        /// If no element inside the `Flickable` handles a quick click, the click goes to the elements behind the `Flickable`.
+        /// This happens whether or not the `Flickable` can scroll.
+        /// Once a flick starts, or if the release comes after 100ms, the click isn't passed on.
         ///
         /// ## Wheel/Scroll Event Interaction
         ///
@@ -1681,6 +1687,10 @@ fn build(l: &mut Loader) {
         ///
         /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
+        ///
+        /// A quick click is a press and release within 100ms, without moving the pointer.
+        /// If no child handles a quick click, the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
@@ -2226,6 +2236,9 @@ fn build(l: &mut Loader) {
     }
 
     item! { BoxShadow: Empty {
+        in property <brush> background;
+        in property <brush> border-color;
+        in property <length> border-width;
         in property <length> border-top-left-radius;
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;

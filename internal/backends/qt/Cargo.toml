@@ -14,6 +14,8 @@ version.workspace = true
 links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependencies's build script
 
 [features]
+image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
+image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 rtti = ["i-slint-core/rtti"]
 default = ["enable"]
 enable = ["dep:cpp", "dep:lyon_path", "dep:pin-project", "dep:pin-weak", "dep:qttypes", "dep:cpp_build"]
@@ -26,7 +28,7 @@ i-slint-common = { workspace = true }
 i-slint-core-macros = { workspace = true }
 i-slint-core = { workspace = true, features = ["std", "shared-parley"] }
 
-const-field-offset = { version = "0.2", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { workspace = true }
 
 cpp = { version = "0.5.5", optional = true }

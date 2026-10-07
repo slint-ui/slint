@@ -121,7 +121,7 @@ component FluentTabBarBase inherits TabBarBase {
         // Do not react on clicks
         width: 0px;
         key-pressed(event) => {
-            if (event.text == "\n") {
+            if (event.text == Key.Return) {
                 root.current = root.current-focused;
                 return accept;
             }
@@ -136,7 +136,7 @@ component FluentTabBarBase inherits TabBarBase {
             return reject;
         }
         key-released(event) => {
-            if (event.text == " ") {
+            if (event.text == Key.Space) {
                 root.current = root.current-focused;
                 return accept;
             }

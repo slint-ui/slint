@@ -1,51 +1,45 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, EditorSurfaceMode, ElementInformation, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EdgeDivider, EditorAngles, EditorMetrics, HorizontalResizeDivider, StudioTheme } from "common.slint";
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
+import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
-import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
-import { InspectorInfoIcon } from "inspector/info-icon.slint";
-import { InspectorValueField } from "inspector/value-field.slint";
-import { InspectorEditableField } from "inspector/editable-field.slint";
-import { InspectorComboBox } from "inspector/combo-box.slint";
-import { InspectorColorField } from "inspector/color-field.slint";
-import { InspectorCodeField } from "inspector/code-field.slint";
-import { InspectorReadOnlyField } from "inspector/read-only-field.slint";
-import { InspectorCopyButton } from "inspector/copy-button.slint";
-import { InspectorSyntaxField } from "inspector/syntax-field.slint";
-import { InspectorSection } from "inspector/section.slint";
-import { InspectorEffectDial } from "inspector/effect-dial.slint";
-import { InspectorEffectSlider } from "inspector/effect-slider.slint";
-import { InspectorPropertyRow } from "inspector/property-row.slint";
-import { InspectorRotationKnob } from "inspector/rotation-knob.slint";
-import { InspectorCornerEditor } from "inspector/corner-editor.slint";
-import { ScrollView } from "std-widgets.slint";
-
+import {
+    InspectorCodeField, InspectorColorField, InspectorComboBox, InspectorComboOption,
+    InspectorCornerEditor, InspectorEditableField, InspectorEffectDial, InspectorEffectSlider,
+    InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorPropertyRow, InspectorRotationKnob, InspectorSection,
+    InspectorValueField,
+} from "inspector/index.slint";
+import { EditorScrollView } from "editor-scroll-view.slint";
 
 export component InspectorPane inherits Rectangle {
+    in property <InspectorStyle> style: Style.inspector-layout;
     in property <ElementInformation> element-information;
+    private property <angle> shadow-drag-angle;
+    private property <bool> shadow-distance-dragging;
 
-    callback element-selected();
+    out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
+
     callback outline-drag-started();
     callback outline-pane-resized(length);
     callback outline-pane-reset();
 
-    width: EditorMetrics.inspector-pane-width;
-    background: InspectorTokens.panel-bg;
+    width: Style.panes.inspector-width;
+    background: Colors.surface;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
-    property <length> content-x: 1px;
+    property <length> content-x: Metrics.border-width;
     in property <length> outline-pane-height: 0px;
-    property <length> split-height: 6px;
+    property <length> split-height: Style.panes.splitter-size;
     property <length> default-outline-height: (root.height - root.split-height) / 2;
     property <length> requested-outline-height: root.outline-pane-height > 0px
         ? root.outline-pane-height
         : root.default-outline-height;
     private property <length> dragged-outline-height: 0px;
     property <length> outline-height: min(
-        max(120px, root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height),
-        max(120px, root.height - root.split-height - 120px),
+        max(Style.panes.minimum, root.dragged-outline-height > 0px ? root.dragged-outline-height : root.requested-outline-height),
+        max(Style.panes.minimum, root.height - root.split-height - Style.panes.minimum),
     );
     property <length> inspector-height: root.height - root.split-height - root.outline-height;
     private property <length> drag-start-height;
@@ -58,22 +52,11 @@ export component InspectorPane inherits Rectangle {
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
-    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     property <[InspectorComboOption]> image-fit-options: [
         { value: "fill", label: "fill" },
         { value: "preserve", label: "preserve" },
         { value: "contain", label: "contain" },
         { value: "cover", label: "cover" },
-    ];
-    property <[InspectorComboOption]> image-horizontal-alignment-options: [
-        { value: "center", label: "center" },
-        { value: "left", label: "left" },
-        { value: "right", label: "right" },
-    ];
-    property <[InspectorComboOption]> image-vertical-alignment-options: [
-        { value: "center", label: "center" },
-        { value: "top", label: "top" },
-        { value: "bottom", label: "bottom" },
     ];
     property <[InspectorComboOption]> text-font-weight-options: [
         { value: "100", label: "Thin" },
@@ -104,7 +87,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     function clamp-outline-height(height: length) -> length {
-        return min(height, max(120px, root.height - root.split-height - 120px));
+        return min(height, max(Style.panes.minimum, root.height - root.split-height - Style.panes.minimum));
     }
 
     function is-rectangle-selection() -> bool {
@@ -119,12 +102,8 @@ export component InspectorPane inherits Rectangle {
         return root.has-backend-rect() && root.element-information.type-name == "Image";
     }
 
-    function has-backend-image-selection() -> bool {
-        return root.has-backend-rect() && root.element-information.type-name == "Image";
-    }
-
     function is-root-selection() -> bool {
-        return !root.has-backend-rect();
+        return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
 
     function selected-x() -> length {
@@ -195,6 +174,23 @@ export component InspectorPane inherits Rectangle {
         return false;
     }
 
+    function preview-geometry-property(name: string, value: float) -> bool {
+        if !root.has-backend-rect() {
+            return false;
+        }
+        Api.override-selected-element-geometry(
+            name == "x" ? value * 1px : root.selected-x(),
+            name == "y" ? value * 1px : root.selected-y(),
+            name == "width" ? value * 1px : root.selected-width(),
+            name == "height" ? value * 1px : root.selected-height(),
+        );
+        return true;
+    }
+
+    function accept-geometry-scrub() -> bool {
+        return Api.persist-selected-element-geometry();
+    }
+
     function commit-code(property-name: string, value: string) -> bool {
         if value == "" || root.element-information.source-uri == "" {
             return false;
@@ -208,14 +204,13 @@ export component InspectorPane inherits Rectangle {
         ) {
             return false;
         }
-        Api.set-code-binding(
+        return Api.set-code-binding(
             root.element-information.source-uri,
             root.element-information.source-version,
             root.element-information.offset,
             property-name,
             value,
         );
-        return true;
     }
 
     function commit-px-code(property-name: string, value: string) -> bool {
@@ -263,18 +258,13 @@ export component InspectorPane inherits Rectangle {
         return property.code;
     }
 
-    function remove-code(property-name: string) -> bool {
-        if root.element-information.source-uri == "" {
-            return false;
-        }
-        Api.set-code-binding(
+    function commit-codes(bindings: [CodeBinding]) -> bool {
+        return Api.set-code-bindings(
             root.element-information.source-uri,
             root.element-information.source-version,
             root.element-information.offset,
-            property-name,
-            "",
+            bindings,
         );
-        return true;
     }
 
     function has-shadow-property(prefix: string) -> bool {
@@ -356,76 +346,62 @@ export component InspectorPane inherits Rectangle {
     }
 
     function commit-shadow-number(property-name: string, value: float) -> bool {
-        return root.commit-code(property-name, "\{value.round()}px");
+        return Api.inspector-commit-shadow(root.inspector-key, [{ name: property-name, value: value.round() }]);
     }
 
-    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+    pure function shadow-offset-changes(angle: angle, distance: float) -> [InspectorNumberChange] {
         let prefix = root.current-shadow-prefix();
         let x = (angle.cos() * distance).round();
         let y = (angle.sin() * distance).round();
-        return root.commit-shadow-number(prefix + "offset-x", x)
-            && root.commit-shadow-number(prefix + "offset-y", y);
+        return [
+            { name: prefix + "offset-x", value: x == 0 ? 0 : x },
+            { name: prefix + "offset-y", value: y == 0 ? 0 : y },
+        ];
     }
 
-    function remove-shadow-family(prefix: string) -> bool {
-        return root.remove-code(prefix + "color")
-            && root.remove-code(prefix + "blur")
-            && root.remove-code(prefix + "spread")
-            && root.remove-code(prefix + "offset-x")
-            && root.remove-code(prefix + "offset-y");
+    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+        return Api.inspector-commit-shadow(root.inspector-key, root.shadow-offset-changes(angle, distance));
     }
 
-    function ensure-shadow-defaults(prefix: string) -> bool {
+    function shadow-code(property-name: string, fallback: string) -> string {
+        let code = Api.current-property-value-data(property-name).code;
+        return code != "" ? code : fallback;
+    }
+
+    function shadow-bindings(prefix: string, enabled: bool) -> [CodeBinding] {
         let color = prefix == "inner-shadow-" ? "#00000030" : "#00000040";
-        return (Api.current-property-value-data(prefix + "color").code != "" || root.commit-code(prefix + "color", color))
-            && (Api.current-property-value-data(prefix + "blur").code != "" || root.commit-shadow-number(prefix + "blur", 16))
-            && (Api.current-property-value-data(prefix + "spread").code != "" || root.commit-shadow-number(prefix + "spread", 0))
-            && (Api.current-property-value-data(prefix + "offset-x").code != "" || root.commit-shadow-number(prefix + "offset-x", 0))
-            && (Api.current-property-value-data(prefix + "offset-y").code != "" || root.commit-shadow-number(prefix + "offset-y", 8));
+        return [
+            { name: prefix + "color", value: enabled ? root.shadow-code(prefix + "color", color) : "" },
+            { name: prefix + "blur", value: enabled ? root.shadow-code(prefix + "blur", "16px") : "" },
+            { name: prefix + "spread", value: enabled ? root.shadow-code(prefix + "spread", "0px") : "" },
+            { name: prefix + "offset-x", value: enabled ? root.shadow-code(prefix + "offset-x", "0px") : "" },
+            { name: prefix + "offset-y", value: enabled ? root.shadow-code(prefix + "offset-y", "8px") : "" },
+        ];
     }
 
     function set-rectangle-effect(value: string) -> bool {
-        if value == "none" {
-            return root.remove-shadow-family("drop-shadow-")
-                && root.remove-shadow-family("inner-shadow-");
+        if value != "none" && value != "drop" && value != "inner" {
+            return false;
         }
-        if value == "drop" {
-            return root.remove-shadow-family("inner-shadow-")
-                && root.ensure-shadow-defaults("drop-shadow-");
-        }
-        if value == "inner" {
-            return root.remove-shadow-family("drop-shadow-")
-                && root.ensure-shadow-defaults("inner-shadow-");
-        }
-        return false;
+        Api.inspector-cancel();
+        root.shadow-distance-dragging = false;
+        let drop = root.shadow-bindings("drop-shadow-", value == "drop");
+        let inner = root.shadow-bindings("inner-shadow-", value == "inner");
+        return root.commit-codes([
+            drop[0], drop[1], drop[2], drop[3], drop[4],
+            inner[0], inner[1], inner[2], inner[3], inner[4],
+        ]);
     }
 
     function quote(value: string) -> string {
         return "\"" + value + "\"";
     }
 
-    function image-source-value() -> string {
-        return Api.current-property-value("source", "");
-    }
-
-    function rectangle-background-code() -> string {
-        return Api.current-property-value("background", "");
-    }
-
-    function rectangle-background-swatch() -> brush {
-        return root.property-brush("background");
-    }
-
-    function text-color-code() -> string {
-        return Api.current-property-value("color", "");
-    }
-
-    function text-color-swatch() -> brush {
-        return root.property-brush("color");
-    }
-
-    function text-content-code() -> string {
-        return Api.current-property-value("text", "\"\"");
+    function choose-image-source() {
+        let expression = Api.choose-image-file(root.element-information.source-uri);
+        if expression != "" {
+            root.commit-code("source", expression);
+        }
     }
 
     function text-font-family-value() -> string {
@@ -460,10 +436,10 @@ export component InspectorPane inherits Rectangle {
 
     function image-horizontal-alignment-index() -> int {
         let value = Api.current-property-value("horizontal-alignment", "center");
-        if value == "center" {
+        if value == "left" {
             return 0;
         }
-        if value == "left" {
+        if value == "center" {
             return 1;
         }
         if value == "right" {
@@ -472,17 +448,12 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-horizontal-alignment-value() -> string {
-        let index = root.image-horizontal-alignment-index();
-        return index >= 0 ? root.image-horizontal-alignment-options[index].value : "center";
-    }
-
     function image-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "center");
-        if value == "center" {
+        if value == "top" {
             return 0;
         }
-        if value == "top" {
+        if value == "center" {
             return 1;
         }
         if value == "bottom" {
@@ -491,9 +462,17 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-vertical-alignment-value() -> string {
-        let index = root.image-vertical-alignment-index();
-        return index >= 0 ? root.image-vertical-alignment-options[index].value : "center";
+    function set-image-alignment(column: int, row: int) -> bool {
+        if column < 0 || column > 2 || row < 0 || row > 2 {
+            return false;
+        }
+        if column == root.image-horizontal-alignment-index() && row == root.image-vertical-alignment-index() {
+            return true;
+        }
+        return root.commit-codes([
+            { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
+            { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
+        ]);
     }
 
     function text-font-weight-index() -> int {
@@ -533,30 +512,12 @@ export component InspectorPane inherits Rectangle {
         return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
     }
 
-    function image-width-label() -> string {
-        return Api.selected-image-asset.image.width + "";
-    }
-
-    function image-height-label() -> string {
-        return Api.selected-image-asset.image.height + "";
-    }
-
-    function image-nine-slice-expression() -> string {
-        return Api.image-nine-slice-expression(
-            Api.selected-image-asset.relative-path,
-            Api.image-nine-slice-top,
-            Api.image-nine-slice-right,
-            Api.image-nine-slice-bottom,
-            Api.image-nine-slice-left,
-        );
-    }
-
     EdgeDivider {
         x: 0px;
-        background: InspectorTokens.divider;
+        background: root.style.divider;
     }
 
-    inspector-scroll := ScrollView {
+    inspector-scroll := EditorScrollView {
         x: root.content-x;
         y: 0px;
         width: root.width - root.content-x;
@@ -565,7 +526,7 @@ export component InspectorPane inherits Rectangle {
         content-height: content.height;
         content-y <=> root.inspector-scroll-y;
         mouse-drag-pan-enabled: false;
-        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
         content := Rectangle {
@@ -576,99 +537,59 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if root.image-mode: InspectorSection {
-                    title: "Image";
-
-                    VerticalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        spacing: 6px;
-
-                        InspectorReadOnlyField {
-                            prefix: "File";
-                            value: Api.selected-image-asset.relative-path;
-                            wide: true;
-                        }
-
-                        HorizontalLayout {
-                            spacing: InspectorTokens.column-gap;
-
-                            InspectorReadOnlyField {
-                                prefix: "Fmt";
-                                value: Api.selected-image-asset.format;
-                            }
-
-                            InspectorReadOnlyField {
-                                prefix: "W";
-                                value: root.image-width-label();
-                            }
-                        }
-
-                        InspectorReadOnlyField {
-                            prefix: "H";
-                            value: root.image-height-label();
-                        }
-                    }
-                }
-
-                if root.image-mode: InspectorSection {
-                    title: "Nine-Slice";
-
-                    VerticalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        padding-right: InspectorTokens.side-padding;
-                        spacing: 6px;
-
-                        InspectorSyntaxField {
-                            value: root.image-nine-slice-expression();
-                        }
-
-                        HorizontalLayout {
-                            alignment: end;
-
-                            InspectorCopyButton {
-                                clicked => {
-                                    Api.copy-nine-slice-expression(root.image-nine-slice-expression());
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
                     title: "Geometry";
                     InspectorPropertyRow {
                         label: "Position";
                         InspectorValueField {
-                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
+                            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position X"; prefix: "X";
                             value: root.selected-x-label(); commit-key: root.field-key("x");
+                            scrubbable: true; scrub-value: root.selected-x() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("x", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("x", value); }
                             accepted(text) => { return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label()); }
                         }
                         InspectorValueField {
-                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
+                            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Position Y"; prefix: "Y";
                             value: root.selected-y-label(); commit-key: root.field-key("y");
+                            scrubbable: true; scrub-value: root.selected-y() / 1px;
+                            scrub-preview(value) => { return root.preview-geometry-property("y", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("y", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label()); }
                         }
                     }
                     InspectorPropertyRow {
                         label: "Size";
                         InspectorValueField {
-                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
+                            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Width"; prefix: "W";
                             value: root.selected-width-label(); commit-key: root.field-key("width");
+                            scrubbable: true; scrub-value: root.selected-width() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("width", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("width", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label()); }
                         }
                         InspectorValueField {
-                            width: (parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap) / 2;
+                            width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
                             accessible-name: "Height"; prefix: "H";
                             value: root.selected-height-label(); commit-key: root.field-key("height");
+                            scrubbable: true; scrub-value: root.selected-height() / 1px;
+                            scrub-has-minimum: true; scrub-minimum: 1;
+                            scrub-preview(value) => { return root.preview-geometry-property("height", value); }
+                            scrub-accepted(value) => { return root.accept-geometry-scrub(); }
+                            scrub-canceled(value) => { root.preview-geometry-property("height", value); }
                             accepted(text) => { return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text); }
                         }
                     }
                     InspectorPropertyRow {
                         label: "Rotation";
-                        height: 36px;
+                        height: Metrics.control-large;
                         knob := InspectorRotationKnob {
                             value: root.control-values[0];
                             commit-key: root.inspector-key;
@@ -677,21 +598,35 @@ export component InspectorPane inherits Rectangle {
                             canceled => { Api.inspector-cancel(); }
                         }
                         InspectorValueField {
-                            width: parent.width - InspectorTokens.label-width - 2 * InspectorTokens.side-padding - 2 * InspectorTokens.row-gap - knob.width;
+                            width: parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap - knob.width;
                             accessible-name: "Rotation"; prefix: "°";
                             value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
                             commit-key: root.inspector-key;
+                            scrubbable: true; scrub-value: knob.visual-value;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "transform-rotation", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("transform-rotation", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
                             accepted(text) => { return text.is-float() && root.commit-inspector("transform-rotation", text.to-float()); }
                         }
                     }
                 }
 
-                if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                if (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "APPEARANCE";
                     use-shared-title: true;
 
-                    InspectorPropertyRow {
-                        label: root.is-text-selection() ? "Color" : "Fill";
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-small;
+
+                        Text {
+                            height: Metrics.icon-small;
+                            text: root.is-text-selection() ? "Color" : "Fill";
+                            color: Colors.muted;
+                            font-size: Typography.control.size;
+                            vertical-alignment: center;
+                        }
 
                         if root.is-root-selection(): InspectorColorField {
                             property <PropertyValue> background-value: Api.current-property-value-data("background");
@@ -702,7 +637,7 @@ export component InspectorPane inherits Rectangle {
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -711,13 +646,13 @@ export component InspectorPane inherits Rectangle {
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.rectangle-background-code();
-                            swatch: root.rectangle-background-swatch();
+                            value: Api.current-property-value("background", "");
+                            swatch: root.property-brush("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
                             property-name: "background";
-                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("background", text);
                             }
@@ -726,23 +661,23 @@ export component InspectorPane inherits Rectangle {
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: "Text color";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.text-color-code();
-                            swatch: root.text-color-swatch();
+                            value: Api.current-property-value("color", "");
+                            swatch: root.property-brush("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
                             session-key: root.fill-session-key("color");
                             property-name: "color";
-                            width: parent.width - 2 * InspectorTokens.side-padding - InspectorTokens.label-width - InspectorTokens.row-gap;
+                            width: root.width - 2 * root.style.padding;
                             accepted(text) => {
                                 return root.commit-code("color", text);
                             }
                         }
                     }
                     if root.is-rectangle-selection(): HorizontalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        padding-right: InspectorTokens.side-padding;
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
                         InspectorCornerEditor {
-                            width: root.width - 2 * InspectorTokens.side-padding - 1px;
+                            width: root.width - 2 * root.style.padding - Metrics.border-width;
                             values: [root.control-values[1], root.control-values[2], root.control-values[3], root.control-values[4]];
                             maximum: min(root.selected-width(), root.selected-height()) / 2px;
                             selection-key: root.selection-key;
@@ -756,13 +691,65 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.is-rectangle-selection(): InspectorSection {
+                if root.is-rectangle-selection(): InspectorSection {
+                    title: "Border";
+
+                    InspectorPropertyRow {
+                        label: "Width";
+                        InspectorValueField {
+                            property <PropertyValue> border-value: Api.current-property-value-data("border-width");
+                            accessible-name: "Border width";
+                            value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : root.property-length-label("border-width", "0");
+                            suffix: "px";
+                            suffix-width: Metrics.icon-small;
+                            commit-key: root.inspector-key;
+                            scrubbable: true;
+                            scrub-on-suffix: true;
+                            scrub-value: self.border-value.value-float;
+                            scrub-has-minimum: true;
+                            scrub-minimum: 0;
+                            scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "border-width", value); }
+                            scrub-accepted(value) => { return root.commit-inspector("border-width", value); }
+                            scrub-canceled(value) => { Api.inspector-cancel(); }
+                            accepted(text) => { return text.is-float() && root.commit-inspector("border-width", text.to-float()); }
+                        }
+                    }
+
+                    VerticalLayout {
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-small;
+
+                        Text {
+                            height: Metrics.icon-small;
+                            text: @tr("Color");
+                            color: Colors.muted;
+                            font-size: Typography.control.size;
+                            vertical-alignment: center;
+                        }
+
+                        InspectorColorField {
+                            accessible-name: "Border color";
+                            target-size: { width: root.selected-width(), height: root.selected-height() };
+                            value: Api.current-property-value("border-color", "");
+                            swatch: root.property-brush("border-color");
+                            commit-key: root.field-key("border-color");
+                            preview-key: root.field-key("border-color");
+                            session-key: root.fill-session-key("border-color");
+                            property-name: "border-color";
+                            width: root.width - 2 * root.style.padding;
+                            accepted(text) => { return root.commit-code("border-color", text); }
+                        }
+                    }
+                }
+
+                if root.is-rectangle-selection(): InspectorSection {
                     title: "Effects";
 
                     VerticalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        padding-right: InspectorTokens.side-padding;
-                        spacing: 6px;
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-compact;
 
                         InspectorComboBox {
                             accessible-name: "Rectangle effect";
@@ -770,51 +757,51 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
-                            popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                            popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
                             }
                         }
 
-                        if root.rectangle-effect-index() != 0: HorizontalLayout {
-                            spacing: InspectorTokens.column-gap;
-                            cross-axis-alignment: center;
+                        if root.rectangle-effect-index() != 0: VerticalLayout {
+                            spacing: Metrics.space-small;
 
-                            InspectorEffectDial {
-                                accessible-name: "Shadow angle";
-                                commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
-                                value: root.shadow-angle();
-                                accepted(angle) => {
-                                    return root.commit-shadow-offsets(angle, root.shadow-distance());
-                                }
+                            Text {
+                                height: Metrics.icon-small;
+                                text: "Color";
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                                vertical-alignment: center;
                             }
 
-                            VerticalLayout {
-                                spacing: 4px;
-
-                                Text {
-                                    height: 12px;
-                                    text: "Color";
-                                    color: InspectorTokens.text;
-                                    font-size: 11px;
-                                    font-weight: 600;
-                                    vertical-alignment: center;
-                                }
-
-                                InspectorColorField {
-                                    accessible-name: "Shadow color";
-                                    target-size: { width: root.selected-width(), height: root.selected-height() };
-                                    value: root.shadow-color-code();
-                                    swatch: root.shadow-color-swatch();
-                                    commit-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    preview-key: root.field-key(root.current-shadow-prefix() + "color");
-                                    session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
-                                    property-name: root.current-shadow-prefix() + "color";
-                                    accepted(text) => {
-                                        return root.commit-code(root.current-shadow-prefix() + "color", text);
-                                    }
+                            InspectorColorField {
+                                accessible-name: "Shadow color";
+                                target-size: { width: root.selected-width(), height: root.selected-height() };
+                                value: root.shadow-color-code();
+                                swatch: root.shadow-color-swatch();
+                                wide: true;
+                                commit-key: root.field-key(root.current-shadow-prefix() + "color");
+                                preview-key: root.field-key(root.current-shadow-prefix() + "color");
+                                session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
+                                property-name: root.current-shadow-prefix() + "color";
+                                accepted(text) => {
+                                    return root.commit-code(root.current-shadow-prefix() + "color", text);
                                 }
                             }
+                        }
+
+                        if root.rectangle-effect-index() != 0: InspectorEffectDial {
+                            accessible-name: "Shadow angle";
+                            commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
+                            value: root.shadow-angle();
+                            preview(angle) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(angle, root.shadow-distance()));
+                            }
+                            accepted(angle) => {
+                                return root.commit-shadow-offsets(angle, root.shadow-distance());
+                            }
+                            canceled => { Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -824,9 +811,19 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 96;
                             commit-key: root.field-key(root.current-shadow-prefix() + "offset");
-                            accepted(value) => {
-                                return root.commit-shadow-offsets(root.shadow-angle(), value);
+                            started => {
+                                root.shadow-drag-angle = root.shadow-angle();
+                                root.shadow-distance-dragging = true;
                             }
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, root.shadow-offset-changes(root.shadow-drag-angle, value));
+                            }
+                            accepted(value) => {
+                                let accepted = root.commit-shadow-offsets(root.shadow-distance-dragging ? root.shadow-drag-angle : root.shadow-angle(), value);
+                                root.shadow-distance-dragging = false;
+                                return accepted;
+                            }
+                            canceled => { root.shadow-distance-dragging = false; Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -836,9 +833,13 @@ export component InspectorPane inherits Rectangle {
                             minimum: 0;
                             maximum: 128;
                             commit-key: root.field-key(root.current-shadow-prefix() + "blur");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "blur", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
@@ -848,43 +849,53 @@ export component InspectorPane inherits Rectangle {
                             minimum: -64;
                             maximum: 64;
                             commit-key: root.field-key(root.current-shadow-prefix() + "spread");
+                            preview(value) => {
+                                return Api.inspector-preview-shadow(root.inspector-key, [{ name: root.current-shadow-prefix() + "spread", value: value }]);
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }
+                            canceled => { Api.inspector-cancel(); }
                         }
                     }
                 }
 
-                if !root.image-mode && root.has-backend-image-selection(): InspectorSection {
+                if root.is-image-selection(): InspectorSection {
                     title: "Image";
 
                     VerticalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        padding-right: InspectorTokens.side-padding;
-                        spacing: 6px;
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
+                        spacing: Metrics.space-compact;
 
-                        InspectorCodeField {
-                            accessible-name: "Image source";
-                            prefix: "Source";
-                            value: root.image-source-value();
-                            commit-key: root.field-key("source");
-                            accepted(text) => {
-                                return root.commit-code("source", text);
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
+
+                            Text {
+                                text: "Source";
+                                color: Colors.foreground;
+                                font-size: Typography.caption.size;
+                                font-weight: FontWeight.semi-bold;
+                            }
+
+                            InspectorImageSourceField {
+                                value: Api.image-source-file-name(Api.current-property-value("source", ""));
+                                browse => { root.choose-image-source(); }
                             }
                         }
 
                         VerticalLayout {
-                            spacing: 5px;
+                            spacing: Metrics.space-compact;
 
                             HorizontalLayout {
-                                spacing: 6px;
+                                spacing: Metrics.space-compact;
                                 cross-axis-alignment: center;
 
                                 Text {
                                     text: "Image fit";
-                                    color: InspectorTokens.text;
-                                    font-size: 11px;
-                                    font-weight: 600;
+                                    color: Colors.foreground;
+                                    font-size: Typography.caption.size;
+                                    font-weight: FontWeight.semi-bold;
                                     vertical-alignment: center;
                                 }
 
@@ -901,54 +912,56 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
-                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
                                 }
                             }
                         }
 
-                        HorizontalLayout {
-                            spacing: InspectorTokens.column-gap;
+                        VerticalLayout {
+                            spacing: Metrics.space-compact;
 
-                            InspectorComboBox {
-                                accessible-name: "Image horizontal alignment";
-                                prefix: "H";
-                                value: root.image-horizontal-alignment-value();
-                                selected-index: root.image-horizontal-alignment-index();
-                                options: root.image-horizontal-alignment-options;
-                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
-                                accepted(text) => {
-                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                            HorizontalLayout {
+                                width: root.style.content-width;
+                                spacing: Metrics.space-compact;
+
+                                Text {
+                                    text: @tr("Alignment");
+                                    color: Colors.foreground;
+                                    font-size: Typography.caption.size;
+                                    font-weight: FontWeight.semi-bold;
+                                    horizontal-stretch: 1;
+                                }
+
+                                Text {
+                                    text: alignment.selected-label == "" ? @tr("Custom") : alignment.selected-label;
+                                    color: Colors.muted;
+                                    font-size: Typography.caption.size;
+                                    horizontal-alignment: right;
                                 }
                             }
 
-                            InspectorComboBox {
-                                accessible-name: "Image vertical alignment";
-                                prefix: "V";
-                                value: root.image-vertical-alignment-value();
-                                selected-index: root.image-vertical-alignment-index();
-                                options: root.image-vertical-alignment-options;
-                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
-                                accepted(text) => {
-                                    return text != "" && root.commit-code("vertical-alignment", text);
-                                }
+                            alignment := InspectorImageAlignment {
+                                selected-column: root.image-horizontal-alignment-index();
+                                selected-row: root.image-vertical-alignment-index();
+                                chosen(column, row) => { root.set-image-alignment(column, row); }
                             }
                         }
                     }
                 }
 
-                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                if root.is-text-selection(): InspectorSection {
                     title: "Content";
 
                     HorizontalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        padding-right: InspectorTokens.side-padding;
+                        padding-left: root.style.padding;
+                        padding-right: root.style.padding;
 
                         InspectorCodeField {
                             accessible-name: "Text content";
                             prefix: "Text";
-                            value: root.text-content-code();
+                            value: Api.current-property-value("text", "\"\"");
                             commit-key: root.field-key("text");
                             accepted(text) => {
                                 return root.commit-code("text", text);
@@ -957,12 +970,12 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                if root.is-text-selection(): InspectorSection {
                     title: "Typography";
 
                     VerticalLayout {
-                        padding-left: InspectorTokens.side-padding;
-                        spacing: 6px;
+                        padding-left: root.style.padding;
+                        spacing: Metrics.space-compact;
 
                         InspectorEditableField {
                             accessible-name: "Font family";
@@ -975,14 +988,14 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         HorizontalLayout {
-                            spacing: InspectorTokens.column-gap;
+                            spacing: root.style.column-gap;
 
                             InspectorComboBox {
                                 accessible-name: "Font weight";
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
-                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
+                                popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("font-weight", text);
                                 }
@@ -1009,7 +1022,7 @@ export component InspectorPane inherits Rectangle {
     HorizontalResizeDivider {
         resize-label: "Outline pane resize";
         value: root.outline-height;
-        value-maximum: max(120px, root.height - root.split-height - 120px);
+        value-maximum: max(Style.panes.minimum, root.height - root.split-height - Style.panes.minimum);
         x: root.content-x;
         y: root.inspector-height;
         width: root.width - root.content-x;
@@ -1019,18 +1032,18 @@ export component InspectorPane inherits Rectangle {
         }
         dragged(delta) => {
             root.dragged-outline-height = root.clamp-outline-height(
-                max(120px, root.drag-start-height - delta),
+                max(Style.panes.minimum, root.drag-start-height - delta),
             );
         }
         drag-finished(delta) => {
             if delta != 0px {
                 root.outline-pane-resized(root.clamp-outline-height(
-                    max(120px, root.drag-start-height - delta),
+                    max(Style.panes.minimum, root.drag-start-height - delta),
                 ));
             }
         }
         value-set(height) => {
-            let clamped-height = root.clamp-outline-height(max(120px, height));
+            let clamped-height = root.clamp-outline-height(max(Style.panes.minimum, height));
             root.dragged-outline-height = clamped-height;
             root.outline-pane-resized(clamped-height);
         }
@@ -1039,12 +1052,11 @@ export component InspectorPane inherits Rectangle {
         }
     }
 
-    OutlinePane {
+    outline-pane := OutlinePane {
         x: root.content-x;
         y: root.inspector-height + root.split-height;
         width: root.width - root.content-x;
         height: root.outline-height;
-        element-selected => { root.element-selected(); }
         drag-started => { root.outline-drag-started(); }
     }
 }

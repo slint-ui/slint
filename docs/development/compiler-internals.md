@@ -138,3 +138,13 @@ cargo run -p slint-compiler -- -f cpp path/to/file.slint > path/to/file.slint.cp
 ```
 
 This is invaluable when debugging code generation issues — you can see exactly what the generators emit without running a full build of an application.
+
+### Binding Loop Chains
+
+A binding loop diagnostic shows each property the compiler invents, such as `layoutinfo-h` and `layout-cache-v`, as only its element,
+because the source can never name them.
+Set `SLINT_FULL_BINDING_LOOP_CHAIN` to keep them, which is what you want when the loop is the compiler's own doing:
+
+```sh
+SLINT_FULL_BINDING_LOOP_CHAIN=1 cargo run -p slint-compiler -- -f rust -o /dev/null path/to/file.slint
+```

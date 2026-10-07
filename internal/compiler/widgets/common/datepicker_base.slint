@@ -4,11 +4,8 @@
 import { ScrollView, LineEdit } from "std-widgets-impl.slint";
 import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, ColoredTextStyle } from "./internal-components.slint";
 
-export struct Date {
-    year: int,
-    month: int,
-    day: int,
-}
+import { Date } from "std-widget-interfaces.slint";
+export { Date }
 
 export struct CalendarDelegateStyle {
     font-size: length,
@@ -59,8 +56,9 @@ component CalendarDelegate {
     accessible-role: button;
     accessible-checkable: true;
     accessible-checked: root.selected;
+    accessible-enabled: root.enabled;
     accessible-label: root.text;
-    accessible-action-default => { touch-area.clicked(); }
+    accessible-action-default => { if (root.enabled) { touch-area.clicked(); } }
 
     touch-area := TouchArea {
         enabled: root.enabled;
@@ -71,7 +69,7 @@ component CalendarDelegate {
         enabled: root.enabled;
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 touch-area.clicked();
                  return accept;
             }

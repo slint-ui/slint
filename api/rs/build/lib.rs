@@ -208,7 +208,7 @@ impl CompilerConfiguration {
         path: impl Into<std::path::PathBuf>,
     ) -> CompilerConfiguration {
         let mut config = self.config;
-        config.translation_path_bundle = Some(path.into());
+        config.bundled_translations_path = Some(path.into());
         Self { config }
     }
 
@@ -299,7 +299,7 @@ impl CompilerConfiguration {
             to_absolute_path(path);
         }
 
-        if let Some(path) = config.translation_path_bundle.as_mut() {
+        if let Some(path) = config.bundled_translations_path.as_mut() {
             to_absolute_path(path);
         }
 
@@ -533,7 +533,7 @@ pub fn compile_with_config(
         }
     }
     // Cargo scans a directory dependency recursively, so this also catches an added language.
-    if let Some(bundle_path) = &config.config.translation_path_bundle {
+    if let Some(bundle_path) = &config.config.bundled_translations_path {
         println!("cargo:rerun-if-changed={}", bundle_path.display());
     }
 
@@ -609,9 +609,9 @@ pub fn compile_with_output_path(
 
     let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
 
-    for x in &diag.all_loaded_files {
+    for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         if x.is_absolute() {
-            dependencies.push(x.clone());
+            dependencies.push(x.to_path_buf());
         }
     }
 
@@ -626,10 +626,8 @@ pub fn compile_with_output_path(
     dependencies.push(input_slint_file_path.as_ref().to_path_buf());
 
     for er in doc.embedded_file_resources.borrow().iter() {
-        if let Some(resource) = er.path.as_deref()
-            && !resource.starts_with("builtin:")
-        {
-            dependencies.push(Path::new(resource).to_path_buf());
+        if let Some(resource) = er.path.as_ref().and_then(|p| p.as_native_path()) {
+            dependencies.push(resource.to_path_buf());
         }
     }
 

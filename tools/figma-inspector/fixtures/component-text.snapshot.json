@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "10:1",
+    "nodeName": "Text Component"
+  },
+  "root": {
+    "kind": "component",
+    "id": "10:1",
+    "name": "Text Component",
+    "x": 0,
+    "y": 0,
+    "width": 160,
+    "height": 48,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": "fixed",
+    "layoutSizingVertical": "fixed",
+    "fills": [
+      {
+        "kind": "solid",
+        "color": {
+          "r": 0.12,
+          "g": 0.32,
+          "b": 0.84,
+          "a": 1
+        },
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "autoLayout": {
+      "direction": "horizontal",
+      "paddingLeft": 16,
+      "paddingRight": 16,
+      "paddingTop": 12,
+      "paddingBottom": 12,
+      "itemSpacing": 8,
+      "primaryAlignment": "center",
+      "counterAlignment": "center",
+      "wrap": false,
+      "counterAxisSpacing": 8,
+      "counterAxisAlignContent": "start"
+    },
+    "children": [
+      {
+        "kind": "text",
+        "id": "10:2",
+        "name": "Label",
+        "x": 0,
+        "y": 0,
+        "width": 96,
+        "height": 24,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": "hug",
+        "layoutSizingVertical": "fixed",
+        "characters": "Component",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "opacity": 1
+          }
+        ],
+        "fontFamily": "Inter",
+        "fontStyle": "Regular",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "textAutoResize": "width-and-height",
+        "horizontalAlign": "CENTER",
+        "verticalAlign": "CENTER",
+        "layoutPositioning": "auto",
+        "italic": false,
+        "letterSpacing": 0,
+        "lineHeightFactor": null,
+        "wrap": false,
+        "overflow": "clip",
+        "maxLines": null,
+        "runs": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      12,
+      12,
+      12,
+      12
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}

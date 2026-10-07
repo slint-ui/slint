@@ -6,6 +6,7 @@
 use super::*;
 use i_slint_core::cursor::MouseCursorInner;
 use i_slint_core::graphics::euclid;
+use i_slint_core::input::key_codes;
 
 #[allow(nonstandard_style)]
 #[allow(unused)]
@@ -333,14 +334,20 @@ impl Item for NativeButton {
     ) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed
-                if event.key_event.text == " " || event.key_event.text == "\n" =>
+                if matches!(
+                    event.key_event.text.chars().next(),
+                    Some(key_codes::Space | key_codes::Return)
+                ) =>
             {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(true);
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
             KeyEventType::KeyReleased
-                if event.key_event.text == " " || event.key_event.text == "\n" =>
+                if matches!(
+                    event.key_event.text.chars().next(),
+                    Some(key_codes::Space | key_codes::Return)
+                ) =>
             {
                 self.activate();
                 KeyEventResult::EventAccepted

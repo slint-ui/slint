@@ -126,8 +126,13 @@ impl<T> ItemCache<T> {
     ///
     /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_item_tree`]
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
-        let component_ptr: *const _ =
-            crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
+        self.component_destroyed_at(crate::item_tree::ItemTreeRef::as_ptr(component));
+    }
+
+    /// Like [`Self::component_destroyed`], for a component that is already gone,
+    /// given the address that [`crate::item_tree::ItemTreeRef::as_ptr`] returned for it.
+    pub fn component_destroyed_at(&self, component_ptr: core::ptr::NonNull<u8>) {
+        let component_ptr: *const _ = component_ptr.cast().as_ptr();
         self.map.borrow_mut().remove(&component_ptr);
     }
 
@@ -350,9 +355,12 @@ pub trait RenderBorderRectangle {
 /// the renderers that stroke the border centered on a path: the border is drawn entirely
 /// inside the item's geometry, the background doesn't extend under an opaque border, and
 /// brushes are resolved against the full border box.
+#[derive(Clone, Debug, PartialEq)]
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the outer border box, adjusted for the border width.
+    pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
     pub background_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `background_rect`.
@@ -414,6 +422,7 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
@@ -495,6 +504,26 @@ pub trait RenderString: HasFont {
     fn link_color(self: Pin<&Self>) -> Color {
         Default::default()
     }
+}
+
+/// Returns the text box's alignment anchor in physical pixels.
+/// Renderers can snap this point while preserving the box dimensions used for layout.
+pub fn text_alignment_anchor(
+    size: euclid::Size2D<f32, PhysicalPx>,
+    horizontal: TextHorizontalAlignment,
+    vertical: TextVerticalAlignment,
+) -> euclid::Point2D<f32, PhysicalPx> {
+    let x = match horizontal {
+        TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => 0.0,
+        TextHorizontalAlignment::Center => size.width / 2.0,
+        TextHorizontalAlignment::End | TextHorizontalAlignment::Right => size.width,
+    };
+    let y = match vertical {
+        TextVerticalAlignment::Top => 0.0,
+        TextVerticalAlignment::Center => size.height / 2.0,
+        TextVerticalAlignment::Bottom => size.height,
+    };
+    euclid::Point2D::new(x, y)
 }
 
 /// Trait for an item that represents an Text towards the renderer

@@ -1,0 +1,19 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import Default from "@astrojs/starlight/components/Head.astro";
+import { markdownHref } from "../utils/markdown-endpoint.ts";
+
+const { entry } = Astro.locals.starlightRoute;
+---
+
+<Default />
+{
+    entry.id !== "404" && (
+        <link
+            rel="alternate"
+            type="text/markdown"
+            href={markdownHref(entry.id, import.meta.env.BASE_URL)}
+        />
+    )
+}

@@ -27,10 +27,20 @@ export component TestCase inherits Window {
                 background: @radial-gradient(circle, yellow, blue, red, green);
             }
         }
+
+        // Scrolling vertical like the outer, at the bottom right
+        nested := Flickable {
+            x: 400px;
+            y: 900px;
+            width: 70px;
+            height: 70px;
+            content-height: 5000px;
+        }
     }
 
     out property<length> outer_y: - outer.content-y;
     out property<length> inner_x: - inner.content-x;
+    out property<length> nested_y: - nested.content-y;
 
     out property <bool> test: outer.content-x == 0 && inner.content-y == 0;
 
@@ -139,6 +149,65 @@ assert_eq!(instance.get_outer_y(), 50.);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 0.0, delta_y: 10.0 });
 assert_eq!(instance.get_inner_x(), 30.);
 assert_eq!(instance.get_outer_y(), 40., "Scrolling vertical on the outer was not done. Because the inner is only horizontal");
+```
+
+```rust
+// Touch pad gestures (#13421)
+use slint::platform::WindowEvent;
+use slint_testing::{BackendMouseEvent, LogicalPoint, TouchPhase};
+const DISTANCE_THRESHOLD: f32 = 8.;
+let instance = TestCase::new().unwrap();
+let wheel = |pos: LogicalPoint, delta_y: f32, phase| {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: pos, delta_x: 0., delta_y, phase }));
+    slint_testing::mock_elapsed_time(16);
+};
+let gesture = |pos: LogicalPoint, delta_y: f32| {
+    wheel(pos, 0., TouchPhase::Started);
+    wheel(pos, delta_y, TouchPhase::Moved);
+    wheel(pos, delta_y, TouchPhase::Moved);
+    wheel(pos, 0., TouchPhase::Ended);
+    slint_testing::mock_elapsed_time(3000);
+};
+
+// Overlapping location of the Outer and inner Flickable
+const LOCATION_OUTER_INNER: LogicalPoint = LogicalPoint::new(175., 175.);
+// Overlapping location of the Outer and the nested Flickable
+const LOCATION_OUTER_NESTED: LogicalPoint = LogicalPoint::new(445., 445.);
+
+wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Started);
+wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
+wheel(LOCATION_OUTER_INNER, -20., TouchPhase::Moved);
+assert_eq!(instance.get_inner_x(), 0.);
+assert_eq!(instance.get_outer_y(), 40. - DISTANCE_THRESHOLD, "The outer follows the gesture because the inner cannot scroll vertically");
+wheel(LOCATION_OUTER_INNER, 0., TouchPhase::Ended);
+slint_testing::mock_elapsed_time(3000);
+
+// The inner one didn't get the end of that gesture: a mouse wheel is still animated
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel { position: LOCATION_OUTER_INNER, delta_x: -30., delta_y: 0., phase: TouchPhase::Moved }));
+slint_testing::mock_elapsed_time(16);
+assert!(instance.get_inner_x() > 0. && instance.get_inner_x() < 30., "Mouse wheel is animated: {}", instance.get_inner_x());
+slint_testing::mock_elapsed_time(3000);
+assert!((instance.get_inner_x() - 30.).abs() < 0.01, "{}", instance.get_inner_x());
+let inner_x = instance.get_inner_x();
+
+gesture(LOCATION_OUTER_INNER, -300.);
+assert_eq!(instance.get_inner_x(), inner_x);
+assert_eq!(instance.get_outer_y(), 500.);
+
+gesture(LOCATION_OUTER_NESTED, -20.);
+assert_eq!(instance.get_outer_y(), 500.);
+assert!(instance.get_nested_y() > 0., "Scrolling the nested one that can scroll vertically: {}", instance.get_nested_y());
+let nested_y = instance.get_nested_y();
+
+wheel(LOCATION_OUTER_NESTED, -20., TouchPhase::Moved);
+slint_testing::mock_elapsed_time(3000);
+assert_eq!(instance.get_outer_y(), 500.);
+assert!(instance.get_nested_y() > nested_y, "Mouse wheel scrolls the nested one: {} > {}", instance.get_nested_y(), nested_y);
+let nested_y = instance.get_nested_y();
+
+gesture(LOCATION_OUTER_INNER, 20.);
+assert!(instance.get_outer_y() < 500., "Scrolling the outer again: {}", instance.get_outer_y());
+assert_eq!(instance.get_nested_y(), nested_y);
 ```
 
 */

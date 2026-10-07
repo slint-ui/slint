@@ -1,0 +1,195 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
+import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
+
+import { Api, ColorFieldEdit, ColorValueData } from "../../api.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+import { InspectorValueField } from "value-field.slint";
+
+export component InspectorColorValueField inherits Rectangle {
+    in property <ColorFieldStyle> style: Style.color-field;
+    in property <string> accessible-name: "";
+    in property <color> value;
+    in property <bool> enabled: true;
+    in property <bool> live-edit: false;
+    in property <bool> swatch-enabled: true;
+    in property <string> swatch-accessible-name: root.accessible-name + " color picker";
+    in property <string> commit-key: "";
+    out property <bool> input-focused: color-input.input-focused || opacity-input.input-focused;
+    callback accepted(color, string) -> bool;
+    callback preview(color) -> bool;
+    callback scrub-accepted(color) -> bool;
+    callback scrub-canceled(color);
+    callback swatch-activated();
+    callback remove-requested();
+    accepted(color, expression) => { return root.preview(color); }
+    scrub-accepted(color) => { return root.preview(color); }
+    scrub-canceled(color) => { root.preview(color); }
+    private property <ColorValueData> data: Api.color-value-data(root.value);
+    private property <ColorFieldEdit> color-edit;
+    private property <ColorFieldEdit> opacity-edit;
+    private property <color> color-edit-original;
+    private property <color> scrub-original;
+
+    preferred-width: Style.inspector-layout.column-width;
+    height: root.style.field.height;
+
+    public function focus-swatch() {
+        swatch-focus.focus();
+    }
+
+    function accept-color(text: string) -> bool {
+        root.color-edit = Api.color-value-color-edit(root.color-edit-original, text);
+        return root.color-edit.valid && root.accepted(root.color-edit.color, root.color-edit.expression);
+    }
+
+    function accept-opacity(text: string) -> bool {
+        root.opacity-edit = Api.color-value-opacity-edit(root.value, text);
+        return root.opacity-edit.valid && root.accepted(root.opacity-edit.color, root.opacity-edit.expression);
+    }
+
+    segmented-field := Rectangle {
+        x: 0px;
+        y: 0px;
+        border-radius: root.style.field.radius;
+        background: root.style.field.appearance.normal.background;
+        clip: true;
+
+        HorizontalLayout {
+            spacing: 0px;
+
+            color-input := InspectorTextFieldBase {
+                style: root.style.field;
+                radius: 0px;
+                show-focus-border: false;
+                accessible-name: root.accessible-name;
+                width: parent.width - root.style.opacity-width;
+                enabled: root.enabled;
+                live-edit: root.live-edit;
+                value: root.data.color-text;
+                commit-key: root.commit-key;
+                normalize-accepted: true;
+                edit-started => { root.color-edit-original = root.value; }
+                accepted(text) => { return root.accept-color(text); }
+                normalized(text) => { return root.color-edit.display; }
+
+                Rectangle { width: root.style.field.height; }
+            }
+
+            opacity-input := InspectorValueField {
+                style: root.style.field;
+                radius: 0px;
+                show-focus-border: false;
+                accessible-name: root.accessible-name + " opacity";
+                width: root.style.opacity-width;
+                enabled: root.enabled;
+                live-edit: root.live-edit;
+                horizontal-alignment: right;
+                suffix: "%";
+                suffix-width: Metrics.icon-small;
+                value: "\{root.data.opacity}";
+                commit-key: root.commit-key;
+                normalize-accepted: true;
+                scrubbable: true;
+                scrub-on-suffix: true;
+                scrub-value: root.data.opacity;
+                scrub-has-minimum: true;
+                scrub-minimum: 0;
+                scrub-has-maximum: true;
+                scrub-maximum: 100;
+                accepted(text) => { return root.accept-opacity(text); }
+                normalized(text) => { return root.opacity-edit.display; }
+                scrub-started => { root.scrub-original = root.value; }
+                scrub-preview(value) => {
+                    return root.preview(Api.color-value-with-opacity(root.scrub-original, value));
+                }
+                scrub-accepted(value) => {
+                    return root.scrub-accepted(Api.color-value-with-opacity(root.scrub-original, value));
+                }
+                scrub-canceled(value) => {
+                    root.scrub-canceled(root.scrub-original);
+                }
+            }
+        }
+
+        Rectangle {
+            x: parent.width - root.style.opacity-width;
+            width: Metrics.border-width;
+            background: root.style.divider;
+        }
+
+        if root.input-focused: Rectangle {
+            x: opacity-input.input-focused ? parent.width - root.style.opacity-width : 0px;
+            y: 0px;
+            width: opacity-input.input-focused ? root.style.opacity-width : parent.width - root.style.opacity-width;
+            height: parent.height;
+            clip: true;
+
+            Rectangle {
+                x: opacity-input.input-focused ? -(segmented-field.width - root.style.opacity-width) : 0px;
+                y: 0px;
+                width: segmented-field.width;
+                height: segmented-field.height;
+                border-radius: root.style.field.radius;
+                border-width: root.style.field.border-width;
+                border-color: root.style.field.appearance.focus.border;
+            }
+        }
+
+        if root.input-focused: Rectangle {
+            x: parent.width - root.style.opacity-width;
+            y: 0px;
+            width: root.style.field.border-width;
+            height: parent.height;
+            background: root.style.field.appearance.focus.border;
+        }
+    }
+
+    swatch-focus := FocusScope {
+        x: root.style.field.padding-inline;
+        width: root.style.field.height;
+        height: parent.height;
+        enabled: root.enabled && root.swatch-enabled;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " {
+                root.swatch-activated();
+                return accept;
+            }
+            if event.text == Key.Delete || event.text == Key.Backspace {
+                root.remove-requested();
+                return accept;
+            }
+            return reject;
+        }
+
+        ColorIndicator {
+            x: (parent.width - root.style.swatch-size) / 2;
+            y: (parent.height - root.style.swatch-size) / 2;
+            width: root.style.swatch-size;
+            height: root.style.swatch-size;
+            border-radius: self.width / 2;
+            border-width: Metrics.border-width;
+            outline-color: root.style.swatch-border;
+            color: root.value;
+            checker-light: root.style.checker.light;
+            checker-dark: root.style.checker.dark;
+        }
+
+        TouchArea {
+            enabled: root.enabled && root.swatch-enabled;
+            mouse-cursor: pointer;
+            accessible-role: AccessibleRole.button;
+            accessible-label: root.swatch-accessible-name;
+            clicked => {
+                root.swatch-activated();
+                swatch-focus.focus();
+            }
+            accessible-action-default => {
+                root.swatch-activated();
+                swatch-focus.focus();
+            }
+        }
+    }
+}

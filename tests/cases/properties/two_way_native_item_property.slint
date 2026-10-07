@@ -1,0 +1,167 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Several elements aliasing the same property of a native item: each one keeps its own
+// storage for it, so the value has to reach all of them, whichever one is written.
+// `preferred-width` reads that storage back, since the text layout uses it.
+// This is the shape the Qt style's TabWidget produces, where every tab's `current` is
+// aliased onto the first tab's.
+
+export component TestCase inherits Window {
+    in-out property <string> text-of-t0 <=> t0.text;
+    in-out property <string> text-of-t2 <=> t2.text;
+    in-out property <string> text-of-t4 <=> t4.text;
+
+    t0 := Text {
+        text: "a rather long piece of text";
+    }
+
+    t1 := Text {
+        text <=> t0.text;
+    }
+
+    t2 := Text {
+        text <=> t1.text;
+    }
+
+    t3 := Text {
+        text <=> t2.text;
+    }
+
+    t4 := Text {
+        text <=> t3.text;
+    }
+
+    out property <length> w: t0.preferred-width;
+    out property <bool> chain-ok: w > 10px && t1.preferred-width == w
+        && t2.preferred-width == w
+        && t3.preferred-width == w
+        && t4.preferred-width == w;
+
+    // An `if` or `for` body is its own component, so these aliases stay two properties
+    // linked together, and a row links to `t0.text` again every time it is created.
+    in-out property <bool> cond: true;
+    in-out property <int> row-count: 2;
+
+    repeated := HorizontalLayout {
+        spacing: 0px;
+        padding: 0px;
+
+        if cond: Text {
+            text <=> t0.text;
+        }
+
+        for i in row-count: Text {
+            text <=> t0.text;
+        }
+    }
+
+    // A layout holding repeaters keeps the layout info of the rows it first saw, so this
+    // stays a sum over three rows even after `cond` or `row-count` change.
+    out property <bool> repeated-ok: abs(repeated.preferred-width - 3 * w) < 0.1px;
+
+    out property <bool> test: chain-ok && repeated-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let check = |label| {
+    assert!(instance.get_chain_ok(), "chain, {label}");
+    assert!(instance.get_repeated_ok(), "repeated, {label}");
+};
+check("initially");
+
+// Whichever one of them is written, all the others follow.
+instance.set_text_of_t2("short".into());
+assert_eq!(instance.get_text_of_t0(), "short");
+assert_eq!(instance.get_text_of_t4(), "short");
+check("after writing the middle one");
+
+instance.set_text_of_t4("a considerably longer piece of text".into());
+assert_eq!(instance.get_text_of_t0(), "a considerably longer piece of text");
+check("after writing the last one");
+
+instance.set_text_of_t0("medium length".into());
+assert_eq!(instance.get_text_of_t2(), "medium length");
+check("after writing the first one");
+
+// Rows that come and go link to `t0.text` again each time, which has to leave the
+// links between the other five alone.
+for i in 0..3 {
+    instance.set_cond(false);
+    instance.set_row_count(1);
+    instance.set_cond(true);
+    instance.set_row_count(4);
+    instance.set_text_of_t2(slint::format!("text number {i}"));
+    assert_eq!(instance.get_text_of_t4(), slint::format!("text number {i}"));
+    assert!(instance.get_chain_ok(), "chain, after {i} rounds of new rows");
+}
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto check = [&] {
+    assert(instance.get_chain_ok());
+    assert(instance.get_repeated_ok());
+};
+check();
+
+instance.set_text_of_t2("short");
+assert_eq(instance.get_text_of_t0(), "short");
+assert_eq(instance.get_text_of_t4(), "short");
+check();
+
+instance.set_text_of_t4("a considerably longer piece of text");
+assert_eq(instance.get_text_of_t0(), "a considerably longer piece of text");
+check();
+
+instance.set_text_of_t0("medium length");
+assert_eq(instance.get_text_of_t2(), "medium length");
+check();
+
+for (int i = 0; i < 3; ++i) {
+    instance.set_cond(false);
+    instance.set_row_count(1);
+    instance.set_cond(true);
+    instance.set_row_count(4);
+    auto text = slint::SharedString("text number ") + slint::SharedString::from_number(i);
+    instance.set_text_of_t2(text);
+    assert_eq(instance.get_text_of_t4(), text);
+    assert(instance.get_chain_ok());
+}
+```
+
+```js
+var instance = new slint.TestCase({});
+function check(label) {
+    assert(instance.chain_ok, "chain, " + label);
+    assert(instance.repeated_ok, "repeated, " + label);
+}
+check("initially");
+
+instance.text_of_t2 = "short";
+assert.equal(instance.text_of_t0, "short");
+assert.equal(instance.text_of_t4, "short");
+check("after writing the middle one");
+
+instance.text_of_t4 = "a considerably longer piece of text";
+assert.equal(instance.text_of_t0, "a considerably longer piece of text");
+check("after writing the last one");
+
+instance.text_of_t0 = "medium length";
+assert.equal(instance.text_of_t2, "medium length");
+check("after writing the first one");
+
+for (let i = 0; i < 3; ++i) {
+    instance.cond = false;
+    instance.row_count = 1;
+    instance.cond = true;
+    instance.row_count = 4;
+    instance.text_of_t2 = "text number " + i;
+    assert.equal(instance.text_of_t4, "text number " + i);
+    assert(instance.chain_ok, "chain, after " + i + " rounds of new rows");
+}
+```
+*/

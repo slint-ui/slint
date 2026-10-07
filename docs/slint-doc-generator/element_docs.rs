@@ -188,14 +188,7 @@ fn strip_hidden_regions(text: &str, tag: &str) -> String {
 /// the `<NotInSC>`/`<OnlyInSC>` region the page's site doesn't render.
 #[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
 fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
-    let mut stripped =
-        strip_hidden_regions(text, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
-    // The safety manual mounts the language chapters at /language/ instead of
-    // the main documentation's /reference/language/. Doc comments write the
-    // canonical path, so links to the specification resolve on both sites.
-    if counter.sc_only {
-        stripped = stripped.replace("](/reference/language/", "](/language/");
-    }
+    let stripped = strip_hidden_regions(text, if counter.sc_only { "NotInSC" } else { "OnlyInSC" });
     let text = stripped.as_str();
     let skip_screenshots = counter.skip_screenshots;
     let mut result = String::with_capacity(text.len());

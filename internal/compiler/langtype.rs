@@ -307,6 +307,17 @@ impl Type {
         }
     }
 
+    /// The noun for a member of this type in diagnostics.
+    pub fn member_kind(&self) -> &'static str {
+        use crate::generator::accessor_names::DeclarationKind;
+        match self {
+            Type::Callback { .. } | Type::InferredCallback => DeclarationKind::Callback,
+            Type::Function { .. } => DeclarationKind::Function,
+            _ => DeclarationKind::Property,
+        }
+        .label()
+    }
+
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
@@ -475,15 +486,14 @@ pub enum ElementType {
     Component(Rc<Component>),
     /// The element is a builtin element
     Builtin(Rc<BuiltinElement>),
-    /// The native type was resolved by the resolve_native_class pass.
-    Native(Arc<NativeClass>),
     /// The base element couldn't be looked up
     #[default]
     Error,
     /// This should be the base type of the root element of a global component
     Global,
-    /// This should be the base type of the root element of an interface
-    Interface,
+    /// This should be the base type of the root element of an interface.
+    /// The payload is the interface this one inherits, if any.
+    Interface(Option<Rc<Component>>),
 }
 
 impl PartialEq for ElementType {
@@ -491,10 +501,10 @@ impl PartialEq for ElementType {
         match (self, other) {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
             (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
-            (Self::Native(a), Self::Native(b)) => Arc::ptr_eq(a, b),
-            (Self::Error, Self::Error)
-            | (Self::Global, Self::Global)
-            | (Self::Interface, Self::Interface) => true,
+            (Self::Interface(a), Self::Interface(b)) => {
+                a.as_ref().map(Rc::as_ptr) == b.as_ref().map(Rc::as_ptr)
+            }
+            (Self::Error, Self::Error) | (Self::Global, Self::Global) => true,
             _ => false,
         }
     }
@@ -503,15 +513,17 @@ impl PartialEq for ElementType {
 impl ElementType {
     /// Resolve a name written in `.slint` source.
     /// Resolve `name` in the given [`PropertyLookupMode`]. See
-    /// [`crate::object_tree::Element::lookup_property`]. Only a component can have shadowed members,
-    /// so the other bases ignore the mode.
+    /// [`crate::object_tree::Element::lookup_property`]. Only a component or an interface can have
+    /// shadowed members, so the other bases ignore the mode.
     pub fn lookup_property<'a>(
         &self,
         name: &'a str,
         mode: PropertyLookupMode,
     ) -> PropertyLookupResult<'a> {
         match self {
-            Self::Component(c) => c.root_element.borrow().lookup_property(name, mode),
+            Self::Component(c) | Self::Interface(Some(c)) => {
+                c.root_element.borrow().lookup_property(name, mode)
+            }
             Self::Builtin(b) => {
                 let resolved_name =
                     if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
@@ -545,27 +557,6 @@ impl ElementType {
                     },
                 }
             }
-            Self::Native(n) => {
-                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
-                    Cow::Owned(alias_name.to_string())
-                } else {
-                    Cow::Borrowed(name)
-                };
-                let info = n.lookup_property_info(resolved_name.as_ref());
-                PropertyLookupResult {
-                    resolved_name,
-                    property_type: info.map(|p| p.ty.clone()).unwrap_or_default(),
-                    property_visibility: PropertyVisibility::InOut,
-                    declared_pure: info.and_then(|p| p.declared_pure()),
-                    is_local_to_component: false,
-                    is_in_direct_base: false,
-                    is_shadowable: false,
-                    builtin_function: None,
-                    is_slint_sc: false,
-                    internal_name: None,
-                    deprecated: None,
-                }
-            }
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
         }
     }
@@ -573,7 +564,9 @@ impl ElementType {
     /// Return the node declaring `name` in this type or one of its bases, if there is one.
     pub fn property_declaration_node(&self, name: &str) -> Option<SyntaxNode> {
         match self {
-            Self::Component(c) => c.root_element.borrow().property_declaration_node(name),
+            Self::Component(c) | Self::Interface(Some(c)) => {
+                c.root_element.borrow().property_declaration_node(name)
+            }
             _ => None,
         }
     }
@@ -581,7 +574,7 @@ impl ElementType {
     /// List of sub properties valid for the auto completion
     pub fn property_list(&self) -> Vec<(SmolStr, Type)> {
         match self {
-            Self::Component(c) => {
+            Self::Component(c) | Self::Interface(Some(c)) => {
                 let root = c.root_element.borrow();
                 let mut r = root.base_type.property_list();
                 // A visible shadowing declaration replaces the inherited entry of the same name.
@@ -600,9 +593,6 @@ impl ElementType {
             }
             Self::Builtin(b) => {
                 b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
-            Self::Native(n) => {
-                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
             _ => Vec::new(),
         }
@@ -709,17 +699,6 @@ impl ElementType {
         }
     }
 
-    /// Assume this is a builtin type, panic if it isn't
-    pub fn as_native(&self) -> &NativeClass {
-        match self {
-            Self::Native(b) => b,
-            Self::Component(_) => {
-                panic!("This should not happen because of native class resolution")
-            }
-            _ => panic!("invalid type"),
-        }
-    }
-
     /// Assume it is a Component, panic if it isn't
     pub fn as_component(&self) -> &Rc<Component> {
         match self {
@@ -733,10 +712,9 @@ impl ElementType {
         match self {
             ElementType::Component(component) => Some(&component.id),
             ElementType::Builtin(b) => Some(&b.name),
-            ElementType::Native(_) => None, // Too late, caller should call this function before the native class lowering
             ElementType::Error => None,
             ElementType::Global => None,
-            ElementType::Interface => None,
+            ElementType::Interface(_) => None,
         }
     }
 }
@@ -746,10 +724,9 @@ impl Display for ElementType {
         match self {
             Self::Component(c) => c.id.fmt(f),
             Self::Builtin(b) => b.name.fmt(f),
-            Self::Native(b) => b.class_name.fmt(f),
             Self::Error => write!(f, "<error>"),
             Self::Global => Ok(()),
-            Self::Interface => Ok(()),
+            Self::Interface(_) => Ok(()),
         }
     }
 }
@@ -995,7 +972,7 @@ pub struct PropertyLookupResult<'a> {
     pub is_slint_sc: bool,
 
     /// Some if the property was declared with `@deprecated`: the hint message shown after
-    /// "The property 'xxx' has been deprecated." in the warning.
+    /// "The property 'xxx' has been deprecated:" in the warning.
     /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
     pub deprecated: Option<SmolStr>,
 }
@@ -1337,6 +1314,8 @@ pub struct Enumeration {
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
     pub node: Option<SourceLocation>,
+    /// Whether a built-in enum is re-exported as `slint::language::X`.
+    pub public: bool,
     /// The raw text of each `@rust-attr(...)` on the declaration, captured at
     /// build time so the Rust generator does not need the syntax tree.
     pub rust_attributes: Vec<SmolStr>,
@@ -1425,6 +1404,15 @@ pub struct EnumerationValue {
 impl PartialEq for EnumerationValue {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.enumeration, &other.enumeration) && self.value == other.value
+    }
+}
+
+impl Eq for EnumerationValue {}
+
+impl std::hash::Hash for EnumerationValue {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.enumeration).hash(state);
+        self.value.hash(state);
     }
 }
 

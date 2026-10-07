@@ -40,6 +40,12 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush>;
 
+    /// Snaps a selection edge for both its highlight and glyph clip.
+    /// The input and result are physical x coordinates relative to the item.
+    fn snap_selection_x(&self, x: f32) -> f32 {
+        x.round()
+    }
+
     /// Draws the glyphs provided by glyphs_it with the specified font, font_size, and brush at the
     /// given y offset. The `normalized_coords` are F2Dot14 values in fvar axis order for variable
     /// font rendering. The `synthesis` contains design-space variation settings and faux
@@ -235,7 +241,13 @@ impl TextParagraph {
                                 &ellipsis_font,
                                 font_size,
                                 run.normalized_coords(),
-                                &run.synthesis(),
+                                // Never synthesize italic for the ellipsis itself: it's a
+                                // narrow, low-value case (a punctuation-like glyph, not a
+                                // language's own text) not worth the complexity of tracking a
+                                // separate font/synthesis for the ellipsis's own standalone
+                                // "…" layout, so it always renders upright regardless of the
+                                // elided run's style.
+                                &fontique::Synthesis::default(),
                                 default_fill_brush.clone(),
                                 para_y,
                                 &mut core::iter::once(ellipsis_glyph),

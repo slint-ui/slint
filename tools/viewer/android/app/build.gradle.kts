@@ -32,7 +32,7 @@ val bundleVersionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull()?.plus
 val abis = (project.findProperty("slint.abi") as String?)?.let { listOf(it) } ?: abiVersionCodeOffset.keys.toList()
 
 // Mirror `[package.metadata.android]` in tools/viewer/Cargo.toml so the AAB
-// and the cargo-apk APK match.
+// and the cargo-apk2 APK match.
 android {
     namespace = "dev.slint.viewer"
     compileSdk = 36
@@ -56,6 +56,12 @@ android {
                 keyPassword = storePassword
             }
         }
+    }
+
+    // Play's encrypted dependency listing; F-Droid rejects APKs carrying it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     buildTypes {

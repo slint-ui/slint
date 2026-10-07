@@ -22,7 +22,8 @@ struct TestTranslator : public slint::Translator
     slint::SharedString ntranslate(uint64_t n, std::string_view singular, std::string_view plural,
                                    std::string_view context) const override
     {
-        return slint::SharedString("ntranslate(n=") + slint::SharedString::from_number(n)
+        return slint::SharedString("ntranslate(n=")
+                + slint::SharedString::from_number(static_cast<double>(n))
                 + ", singular=" + singular + ", plural=" + plural + ", context=" + context + ")";
     }
 };

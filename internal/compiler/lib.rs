@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inlines namedreference pathutils
+// cSpell: ignore inlines namedreference
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -34,7 +34,7 @@ pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
-pub mod pathutils;
+pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
@@ -44,7 +44,7 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
-use std::path::Path;
+use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -113,12 +113,12 @@ pub enum ComponentSelection {
 /// This is a dyn-compatible version of:
 ///
 /// ```ignore
-/// async fn(String) -> Option<std::io::Result<String>>
+/// async fn(SourcePath) -> Option<std::io::Result<String>>
 /// ```
 ///
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
-    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+    Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
 pub type ResourceUrlMapper =
     Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
@@ -174,7 +174,7 @@ pub struct CompilerConfiguration {
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
-    pub translation_path_bundle: Option<std::path::PathBuf>,
+    pub bundled_translations_path: Option<std::path::PathBuf>,
     /// Default translation context
     pub default_translation_context: DefaultTranslationContext,
 
@@ -220,6 +220,19 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn absolute_bundled_translations_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.bundled_translations_path.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
@@ -319,7 +332,7 @@ impl CompilerConfiguration {
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
-            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+            bundled_translations_path: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
             library_name: None,
@@ -391,47 +404,34 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
+/// `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, _) =
-        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
-
-    (path, diagnostics, loader)
+    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
+    (diagnostics, loader)
 }
 
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes, just like `load_root_file`.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
-/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and another `TypeLoader` with a minimal
+/// set of passes applied to it.
 pub async fn load_root_file_with_raw_type_loader(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (
-    std::path::PathBuf,
-    diagnostics::BuildDiagnostics,
-    typeloader::TypeLoader,
-    Option<typeloader::TypeLoader>,
-) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, raw_type_loader) =
-        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
-
-    (path, diagnostics, loader, raw_type_loader)
+    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    (diagnostics, loader, raw_type_loader)
 }
 
 /// Returns true and emits an error if experimental features should be disabled.

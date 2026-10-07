@@ -346,7 +346,32 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             if let Some(mut b) = to_elem.binding_mut(to.name()) {
                 let b = &mut *b;
                 remove_from_binding_expression(b, &to);
-                if !same_component || b.priority < old_binding.priority || !b.has_binding() {
+                if same_component
+                    && let Some(location) = b.state_change()
+                    && let Some(other_location) = old_binding.state_change()
+                {
+                    diag.push_error(
+                        format!(
+                            "'{}' and '{}' are one property because of a two-way binding, so a state can only change one of them",
+                            to.name(),
+                            remove.name()
+                        ),
+                        location,
+                    );
+                    diag.push_note_with_span(
+                        format!("'{}' is changed here", remove.name()),
+                        other_location.clone(),
+                    );
+                }
+                // A state's binding also carries the value the property has while no state
+                // applies, so it isn't a competitor here: whichever end of the alias a state
+                // changed keeps its binding, or the state change is lost (#1950).
+                let rank = |binding: &BindingExpression| {
+                    (binding.state_change().is_none(), binding.priority)
+                };
+                let keep_master =
+                    !same_component || !b.has_binding() || rank(b) < rank(&old_binding);
+                if keep_master {
                     b.merge_with(&old_binding);
                 } else {
                     old_binding.merge_with(b);

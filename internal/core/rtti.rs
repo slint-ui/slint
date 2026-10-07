@@ -19,15 +19,16 @@ use core::convert::{TryFrom, TryInto};
 use core::ffi::c_void;
 use core::pin::Pin;
 
-macro_rules! declare_ValueType {
-    ($($ty:ty,)*) => {
-        pub trait ValueType: 'static + PartialEq + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
-    };
+// There is no `Path` item without the `path` feature, and `()` is in the list anyway.
+cfg_select! {
+    feature = "path" => { use crate::graphics::PathData; }
+    _ => { type PathData = (); }
 }
 
-macro_rules! declare_ValueType_2 {
+// List here the type of every member of a builtin item.
+macro_rules! declare_ValueType {
     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
-        declare_ValueType![
+        declare_ValueType![@types
             (),
             bool,
             u32,
@@ -39,7 +40,7 @@ macro_rules! declare_ValueType_2 {
             crate::SharedString,
             crate::graphics::Image,
             crate::Color,
-            crate::PathData,
+            PathData,
             crate::animations::EasingCurve,
             crate::items::StandardListViewItem,
             crate::items::TableColumn,
@@ -49,11 +50,10 @@ macro_rules! declare_ValueType_2 {
             crate::items::PointerEvent,
             crate::items::PointerScrollEvent,
             crate::lengths::LogicalLength,
-            crate::lengths::LogicalPoint,
-            crate::lengths::LogicalSize,
-            crate::lengths::LogicalEdges,
             crate::component_factory::ComponentFactory,
             crate::api::LogicalPosition,
+            crate::api::LogicalSize,
+            crate::items::Edges,
             crate::items::FontMetrics,
             crate::items::InputMethodHints,
             crate::items::MenuEntry,
@@ -66,9 +66,12 @@ macro_rules! declare_ValueType_2 {
             $(crate::items::$Name,)*
         ];
     };
+    (@types $($ty:ty,)*) => {
+        pub trait ValueType: 'static + PartialEq + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
+    };
 }
 
-i_slint_common::for_each_enums!(declare_ValueType_2);
+i_slint_common::for_each_enums!(declare_ValueType);
 
 /// What kind of animation is on a binding
 pub enum AnimatedBindingKind {
@@ -148,6 +151,11 @@ pub trait PropertyInfo<Item, Value> {
     fn set_debug_name(&self, _item: Pin<&Item>, _name: alloc::string::String) {}
 
     /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
+    ///
+    /// Every call for the same property must return the same property, otherwise a later
+    /// call detaches what an earlier one linked.
+    /// The item property links to the returned one, not the other way around,
+    /// so a binding set on the item property still reaches every link.
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
 
     /// Link another property to this property with a mapping function
@@ -284,6 +292,12 @@ where
         }
 
         let p1 = self.apply_pin(item);
+        if let Some(shared_property) = p1.check_mapped_common_property::<Value>().or_else(|| {
+            p1.check_common_property().and_then(|c| c.as_ref().check_mapped_common_property())
+        }) {
+            return shared_property;
+        }
+
         let value: Value = p1.get_internal().try_into().unwrap_or_default();
         let shared_property = Rc::pin(Property::new(value));
         Property::link_two_way_with_map_to_common_property(

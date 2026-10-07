@@ -114,12 +114,14 @@ impl Coverage {
         }
         let (start_line, start_column) = char_position(source_file, span.offset);
         let (end_line, end_column) = char_position(source_file, span.offset + span.length);
-        let path = std::path::absolute(source_file.path())
-            .unwrap_or_else(|_| source_file.path().to_path_buf());
-        let record = format!(
-            "{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {}",
-            path.display()
-        );
+        let path = match source_file.path().as_native_path() {
+            Some(path) => {
+                std::path::absolute(path).unwrap_or_else(|_| path.to_owned()).display().to_string()
+            }
+            None => source_file.path().to_string(),
+        };
+        let record =
+            format!("{kind} {name} {start_line}:{start_column}-{end_line}:{end_column} {path}");
         let mut points = self.points.borrow_mut();
         if let Some(&id) = points.ids.get(&record) {
             return Some(points.records[id].1);
@@ -1007,18 +1009,8 @@ fn emit_tree(
     }
 }
 
-/// Whether the element is an image item: its resolved native class is, or
-/// inherits, the class that declares `source`. Class selection may land on
-/// the ImageItem base or a subclass of it, so the ancestry decides.
 fn is_image_item(elem: &ElementRc) -> bool {
-    let mut class = elem.borrow().native_class();
-    while let Some(native) = class {
-        if native.class_name == "ImageItem" {
-            return true;
-        }
-        class = native.parent.clone();
-    }
-    false
+    elem.borrow().builtin_type().is_some_and(|b| b.name == "Image")
 }
 
 /// The render code: every element paints its background, if it has one, where
@@ -1099,10 +1091,8 @@ fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
     })
 }
 
-/// Whether the element is a `TouchArea`. The native class rather than the base
-/// type, which `resolve_native_classes` has replaced by then.
 fn is_touch_area(elem: &ElementRc) -> bool {
-    elem.borrow().native_class().is_some_and(|class| class.class_name == "TouchArea")
+    elem.borrow().builtin_type().is_some_and(|b| b.name == "TouchArea")
 }
 
 /// Compile a reference to a property.

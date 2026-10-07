@@ -11,6 +11,18 @@ on:
         default: false
         required: false
         description: "Release? If false, publish to test.pypi.org, if true, publish to pypi.org"
+      publish:
+        type: boolean
+        default: true
+        required: false
+        description: "Publish the built distributions. If false, only build them"
+  # The nightly snapshot calls this to build the wheels. A called run never
+  # publishes: leave `publish` at its default.
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: false
 
 env:
   # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
@@ -60,7 +72,7 @@ jobs:
           path: dist/*.tar.gz
 
   publish-to-test-pypi:
-    if: ${{ github.event.inputs.release != 'true' }}
+    if: ${{ inputs.publish && github.event.inputs.release != 'true' }}
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     environment:
@@ -85,7 +97,7 @@ jobs:
         run: uv publish dist/*
 
   publish-to-pypi:
-    if: ${{ github.event.inputs.release == 'true' }}
+    if: ${{ inputs.publish && github.event.inputs.release == 'true' }}
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     environment:

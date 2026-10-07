@@ -46,6 +46,7 @@ pub enum AccessibleStringProperty {
 /// type register, with one (unnamed) field per callback argument. The generated code relies on
 /// that: it binds the fields positionally, so a new action only needs to be added here and in
 /// the type register.
+/// cbindgen:derive-tagged-enum-destructor=true
 #[repr(u32)]
 #[derive(PartialEq, Clone)]
 pub enum AccessibilityAction {

@@ -8,14 +8,14 @@ use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_
 use crate::editor_preview::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::{Callable, Expression};
 use i_slint_compiler::langtype::{ElementType, PropertyLookupMode, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextSize, syntax_nodes};
+use i_slint_compiler::parser::{
+    SyntaxKind, SyntaxNode, SyntaxToken, TextSize, identifier_text, syntax_nodes,
+};
 use i_slint_compiler::typeregister::TypeRegister;
 use itertools::Itertools;
 use lsp_types::{
@@ -86,7 +86,7 @@ pub(crate) fn completion_at(
     if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
-                token.source_file()?.path(),
+                token.source_file()?.path().as_native_path()?,
                 token.text(),
                 offset.checked_sub(token.text_range().start())?,
             )
@@ -310,6 +310,27 @@ pub(crate) fn completion_at(
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
+                let element = q.parent()?;
+                if is_interface_root_element(&element) {
+                    if !enable_experimental {
+                        return None;
+                    }
+
+                    let component = element.parent()?;
+                    if !has_inherits_keyword(&component) {
+                        return Some(vec![
+                            CompletionItem::new_simple("inherits".into(), String::new())
+                                .with_kind(CompletionItemKind::KEYWORD),
+                        ]);
+                    }
+                    return resolve_implement_interface_name_scope(
+                        &q,
+                        &token,
+                        document_cache,
+                        snippet_support,
+                    );
+                }
+
                 // auto-complete the components
                 let global_tr = document_cache.global_type_registry();
                 let tr = q
@@ -389,12 +410,10 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::ImportIdentifierList {
         let import = syntax_nodes::ImportSpecifier::new(node.parent()?)?;
 
-        let path = document_cache
-            .resolve_import_path(
-                Some(&token.into()),
-                import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
-            )?
-            .0;
+        let path = document_cache.resolve_import_path(
+            Some(&token.into()),
+            import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
+        )?;
         let doc = document_cache.get_document_by_path(&path)?;
         return Some(
             doc.exports
@@ -457,12 +476,7 @@ pub(crate) fn completion_at(
         return Some(r);
     } else if let Some(c) = syntax_nodes::Component::new(node.clone()) {
         let id_range = c.DeclaredIdentifier().text_range();
-        if !id_range.is_empty()
-            && offset >= id_range.end()
-            && !c
-                .children_with_tokens()
-                .any(|c| c.as_token().is_some_and(|t| t.text() == "inherits"))
-        {
+        if !id_range.is_empty() && offset >= id_range.end() && !has_inherits_keyword(&c) {
             let c = CompletionItem::new_simple("inherits".into(), String::new())
                 .with_kind(CompletionItemKind::KEYWORD);
             return Some(vec![c]);
@@ -695,10 +709,7 @@ fn resolve_element_scope(
             )
         }))
         .collect::<Vec<_>>();
-    let shadowing_names: std::collections::HashSet<SmolStr> = local_declarations
-        .iter()
-        .map(|c| i_slint_compiler::parser::normalize_identifier(&c.label))
-        .collect();
+    let shadowing_names = normalized_labels(&local_declarations);
     let mut result = element_type
         .property_list()
         .into_iter()
@@ -847,17 +858,12 @@ fn resolve_expression_scope(
             i_slint_compiler::parser::NodeOrToken::Token(t) => Some(t.clone()),
         })
     {
-        let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
+        let mut available_types = normalized_labels(&r);
         build_component_import_statements_edits(
             &token,
             document_cache,
-            &mut |ci: &editor_preview::component_catalog::ComponentInformation| {
-                if !ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
-                    false
-                } else {
-                    available_types.insert(ci.name.clone());
-                    true
-                }
+            &mut |ci| {
+                ci.is_global && ci.is_exported && available_types.insert(ci.name.as_str().into())
             },
             &mut |exported_name, file, the_import| {
                 r.push(CompletionItem {
@@ -1107,6 +1113,28 @@ fn complete_path_in_string(
     )
 }
 
+fn is_interface_root_element(element: &SyntaxNode) -> bool {
+    element.parent().is_some_and(|component| {
+        component.kind() == SyntaxKind::Component
+            && component.child_text(SyntaxKind::Identifier).is_some_and(|k| k == "interface")
+    })
+}
+
+fn has_inherits_keyword(component: &SyntaxNode) -> bool {
+    component.children_with_tokens().any(|c| c.as_token().is_some_and(|t| t.text() == "inherits"))
+}
+
+fn enclosing_declaration_name(node: &SyntaxNode) -> Option<SmolStr> {
+    let mut candidate = node.clone();
+    let component = loop {
+        if candidate.kind() == SyntaxKind::Component {
+            break candidate;
+        }
+        candidate = candidate.parent()?;
+    };
+    identifier_text(&component.child_node(SyntaxKind::DeclaredIdentifier)?)
+}
+
 fn resolve_implement_interface_name_scope(
     node: &SyntaxNode,
     token: &SyntaxToken,
@@ -1120,17 +1148,20 @@ fn resolve_implement_interface_name_scope(
         .map(|document| &document.local_registry)
         .unwrap_or(&global_type_register);
 
+    let own_name = enclosing_declaration_name(node);
+
     let mut result = type_register
         .all_elements()
         .into_iter()
         .filter_map(|(key, element_type)| {
-            matches!(&element_type, ElementType::Component(component) if component.is_interface())
-                .then(|| {
-                    let mut completion =
-                        CompletionItem::new_simple(key.to_string(), "interface".into());
-                    completion.kind = Some(CompletionItemKind::INTERFACE);
-                    completion
-                })
+            (matches!(&element_type, ElementType::Component(component) if component.is_interface())
+                && Some(&key) != own_name.as_ref())
+            .then(|| {
+                let mut completion =
+                    CompletionItem::new_simple(key.to_string(), "interface".into());
+                completion.kind = Some(CompletionItemKind::INTERFACE);
+                completion
+            })
         })
         .collect::<Vec<_>>();
 
@@ -1180,15 +1211,14 @@ fn add_interfaces_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> =
-        result.iter().map(|completion| completion.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
+        &mut |component| {
             component.is_interface
                 && component.is_exported
-                && !available_types.contains(&component.name)
+                && !available_types.contains(component.name.as_str())
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
@@ -1214,15 +1244,15 @@ fn add_components_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |component: &editor_preview::component_catalog::ComponentInformation| {
+        &mut |component| {
             !component.is_global
                 && !component.is_interface
                 && component.is_exported
-                && !available_types.contains(&component.name)
+                && !available_types.contains(component.name.as_str())
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
@@ -1252,13 +1282,11 @@ fn add_types_to_import(
     document_cache: &editor_preview::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    let available_types = normalized_labels(result);
     build_type_import_statements_edits(
         token,
         document_cache,
-        &mut |type_info: &editor_preview::component_catalog::TypeInformation| {
-            !available_types.contains(&type_info.name)
-        },
+        &mut |type_info| !available_types.contains(type_info.name.as_str()),
         &mut |type_info, exported_name, file, the_import| {
             result.push(CompletionItem {
                 label: format!("{exported_name} (import from \"{file}\")"),
@@ -1273,6 +1301,20 @@ fn add_types_to_import(
     );
 }
 
+/// What `items` offer, normalized, to compare against the normalized names the catalog holds.
+///
+/// A completion carries whichever spelling of a separator its declaration used (#7492).
+fn normalized_labels(items: &[CompletionItem]) -> HashSet<SmolStr> {
+    items
+        .iter()
+        .map(|c| {
+            i_slint_compiler::parser::normalize_identifier(
+                c.filter_text.as_deref().unwrap_or(&c.label),
+            )
+        })
+        .collect()
+}
+
 /// Try to generate `import { XXX } from "foo.slint";` for every component
 ///
 /// This is used for auto-completion and also for fixup diagnostics
@@ -1285,8 +1327,7 @@ pub fn build_component_import_statements_edits(
     add_edit: &mut dyn FnMut(&str, &str, TextEdit),
 ) -> Option<()> {
     // Find out types that can be imported
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let exported_types = {
         let mut tmp = Vec::new();
@@ -1348,8 +1389,7 @@ pub fn build_type_import_statements_edits(
         TextEdit,
     ),
 ) -> Option<()> {
-    let current_file = token.source_file.path().to_owned();
-    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+    let current_uri = token.source_file.path().to_url();
 
     let mut exported_types = Vec::new();
     all_exported_types(document_cache, filter, &mut exported_types);
@@ -1461,6 +1501,29 @@ mod tests {
         };
 
         completion_at(&mut dc, token, offset, Some(&caps))
+    }
+
+    #[test]
+    fn completion_in_document_with_unknown_element() {
+        // The unknown element leaves the document in error, so the compiler skipped the passes
+        // and 'x' has no type. Completion resolves the surrounding expressions to know what is
+        // expected at the cursor, which must not panic on the untyped element.
+        for source in [
+            r#"export component Foo {
+                x := Blah { }
+                for a in x.some-model: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                if x.some-condition: Text { text: 🔺 }
+            }"#,
+            r#"export component Foo {
+                x := Blah { }
+                Text { text: x.some-property == 🔺 }
+            }"#,
+        ] {
+            assert!(get_completions(source).is_some_and(|c| !c.is_empty()), "{source}");
+        }
     }
 
     fn assert_completions_found(
@@ -2432,7 +2495,7 @@ mod tests {
     }
 
     #[test]
-    fn inherits() {
+    fn component_inherits() {
         let sources = [
             "component Bar 🔺",
             "component Bar in🔺",
@@ -2444,14 +2507,48 @@ mod tests {
             "export component Bar in🔺 Window {}",
         ];
         for source in sources {
-            tracing::debug!("Test for inherits in {source:?}");
+            tracing::debug!("Test for component inherits in {source:?}");
             let res = get_completions(source).unwrap();
-            res.iter().find(|ci| ci.label == "inherits").unwrap();
+            assert!(
+                res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} lacks 'inherits'"
+            );
         }
 
         let sources = ["component 🔺", "component Bar {}🔺", "component Bar inherits 🔺 {}", "🔺"];
         for source in sources {
             let Some(res) = get_completions(source) else { continue };
+            assert!(
+                !res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} contains 'inherits'"
+            );
+        }
+    }
+
+    #[test]
+    fn interface_inherits() {
+        let sources = [
+            "interface Bar 🔺",
+            "interface Bar in🔺",
+            "interface Bar 🔺 {}",
+            "interface Bar in🔺 Window {}",
+            "export interface Bar 🔺",
+            "export interface Bar in🔺",
+            "export interface Bar 🔺 {}",
+            "export interface Bar in🔺 Window {}",
+        ];
+        for source in sources {
+            tracing::debug!("Test for interface inherits in {source:?}");
+            let res = get_completions_experimental(source).unwrap();
+            assert!(
+                res.iter().any(|ci| ci.label == "inherits"),
+                "completion for {source:?} lacks 'inherits'"
+            );
+        }
+
+        let sources = ["interface 🔺", "interface Bar {}🔺", "interface Bar inherits 🔺 {}", "🔺"];
+        for source in sources {
+            let Some(res) = get_completions_experimental(source) else { continue };
             assert!(
                 !res.iter().any(|ci| ci.label == "inherits"),
                 "completion for {source:?} contains 'inherits'"
@@ -2646,7 +2743,6 @@ mod tests {
         main_file_with_cursor: &str,
     ) -> Option<Vec<CompletionItem>> {
         use i_slint_compiler::diagnostics::BuildDiagnostics;
-        use lsp_types::Url;
 
         const CURSOR_EMOJI: char = '🔺';
         let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
@@ -2656,8 +2752,7 @@ mod tests {
         let mut diagnostics = BuildDiagnostics::default();
 
         let types_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(types_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(types_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
             Some(1),
@@ -2666,8 +2761,7 @@ mod tests {
         ));
 
         let main_url =
-            Url::from_file_path(crate::editor_preview::test::test_file_name(main_file_name))
-                .unwrap();
+            crate::editor_preview::test::test_file_name(main_file_name).to_url().unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &main_url,
             Some(2),
@@ -2852,6 +2946,83 @@ export component TestWindow inherits Window {
         let results = get_completions_experimental(source).unwrap();
         let count = results.iter().filter(|c| c.label == "prop").count();
         assert_eq!(count, 1, "'prop' should be completed exactly once");
+    }
+
+    #[test]
+    fn interface_inherits_base_name() {
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component NotAnInterface { }
+            interface Foo inherits M🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        let completion =
+            results.iter().find(|completion| completion.label == "MyInterface").unwrap();
+        assert_eq!(completion.kind, Some(CompletionItemKind::INTERFACE));
+        assert!(!results.iter().any(|completion| completion.label == "NotAnInterface"));
+        assert!(!results.iter().any(|completion| completion.label == "Rectangle"));
+    }
+
+    #[test]
+    fn interface_inherits_does_not_offer_itself() {
+        let source = r#"
+            interface Other { property <int> x; }
+            interface Foo inherits F🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        assert_completion_found(
+            &CompletionItem { label: "Other".into(), ..Default::default() },
+            &results,
+        );
+        assert!(!results.iter().any(|completion| completion.label == "Foo"));
+    }
+
+    #[test]
+    fn component_inherits_offers_elements_not_interfaces() {
+        let source = r#"
+            interface MyInterface { property <int> x; }
+            component Foo inherits M🔺
+        "#;
+        let results = get_completions_experimental(source).unwrap();
+        assert_completion_found(
+            &CompletionItem { label: "Rectangle".into(), ..Default::default() },
+            &results,
+        );
+        assert!(!results.iter().any(|completion| completion.label == "MyInterface"));
+    }
+
+    #[test]
+    fn interface_inherits_base_name_requires_experimental() {
+        assert!(get_completions("interface Foo inherits M🔺").is_none());
+    }
+
+    #[test]
+    fn interface_inherits_base_name_suggests_import() {
+        let types_content = r#"export interface MyInterface { property <int> x; }
+"#;
+        let main_content = r#"interface Foo inherits M🔺
+"#;
+        let results = get_completions_multi_file_experimental(
+            "types.slint",
+            types_content,
+            "main.slint",
+            main_content,
+        )
+        .unwrap();
+
+        assert_completion_found(
+            &CompletionItem {
+                label: "MyInterface (import from \"types.slint\")".into(),
+                insert_text: Some("MyInterface".into()),
+                filter_text: Some("MyInterface".into()),
+                additional_text_edits: Some(vec![TextEdit {
+                    range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                    new_text: "import { MyInterface } from \"types.slint\";\n".into(),
+                }]),
+                ..Default::default()
+            },
+            &results,
+        );
     }
 
     #[test]
@@ -3142,5 +3313,25 @@ component Foo {{
             completion.insert_text.as_deref(),
             Some("export interface ${1:ExportedInterface} {\n    $0\n}")
         );
+    }
+
+    #[test]
+    fn global_in_scope_is_not_offered_for_import() {
+        // Regression test for #7492: an underscore in the name made the global be offered a
+        // second time, as an import of its normalized name.
+        let res = get_completions(
+            r#"
+export global The_Global { in property <int> hello; }
+export component Demo { property <int> foo: 🔺; }
+"#,
+        )
+        .unwrap();
+
+        let global = res.iter().find(|c| c.label == "The_Global").unwrap();
+        assert!(global.additional_text_edits.is_none());
+        assert!(!res.iter().any(|c| c.label.starts_with("The-Global")));
+
+        // A global that isn't in scope still comes with its import.
+        assert!(res.iter().any(|c| c.label == "Palette (import from \"std-widgets.slint\")"));
     }
 }

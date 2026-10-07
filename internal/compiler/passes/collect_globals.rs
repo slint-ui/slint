@@ -103,7 +103,7 @@ export component App {
 }
 "#
             .into(),
-            Some(std::path::Path::new("test.slint")),
+            Some(crate::source_path::SourcePath::new("test.slint")),
             &mut diag,
         );
         let (mut doc, diag, _) =

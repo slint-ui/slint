@@ -52,7 +52,7 @@ export component RadioButtonBase {
         }
 
         key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
+            if (event.text == Key.Space || event.text == Key.Return) {
                 touch-area.clicked();
                 return accept;
             }

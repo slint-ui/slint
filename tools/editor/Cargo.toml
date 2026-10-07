@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore nucleo zbus
+# cSpell: ignore nucleo pathdiff zbus
 
 [package]
 name = "slint-editor"
@@ -15,9 +15,16 @@ rust-version.workspace = true
 version.workspace = true
 publish = false
 
+[lib]
+path = "lib.rs"
+
 [[bin]]
 name = "slint-editor"
 path = "main.rs"
+
+[[example]]
+name = "gallery"
+path = "gallery/main.rs"
 
 [features]
 ## Discover preview targets on the local network.
@@ -41,12 +48,14 @@ futures-util = "0.3.32"
 itertools = { workspace = true }
 lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
+pathdiff = "0.2.3"
 serde = { workspace = true }
 serde_json = { workspace = true }
 slint = { workspace = true, features = ["compat-1-2", "backend-winit", "renderer-skia", "unstable-winit-030", "raw-window-handle-06"] }
 slint-interpreter = { workspace = true, features = ["compat-1-2", "internal", "internal-highlight", "internal-json", "image-default-formats"] }
 smol_str = { workspace = true }
 tokio = { version = "1.50.0", features = ["macros", "net", "rt", "sync", "time"] }
+tr = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
@@ -62,7 +71,7 @@ tempfile = "3"
 # Used by the visual editor for the auto-updater.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSBundle", "NSError", "NSDate"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
 

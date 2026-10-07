@@ -1,0 +1,14 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The compiler-made 'match-subject' and 'layoutinfo-h' show in the chain as their elements.
+export component Test inherits Window {
+//                             >     <warning{The binding for the property 'layoutinfo-h' is part of a binding loop (VerticalLayout.width -> VerticalLayout -> root -> VerticalLayout.width)↵Set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+    VerticalLayout {
+//  >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'layoutinfo-h' at line 5}
+        match self.width > 100px {
+            true: Rectangle { min-width: 200px; }
+            false: { }
+        }
+    }
+}

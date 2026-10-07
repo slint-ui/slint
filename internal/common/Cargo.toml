@@ -18,7 +18,7 @@ path = "lib.rs"
 
 [features]
 default = []
-shared-fontique = ["dep:fontique", "dep:skrifa"]
+shared-fontique = ["dep:fontique", "dep:skrifa", "dep:objc2"]
 # Lets usvg render SVG `<text>` through fontique. Pulled in by consumers that already
 # depend on resvg (i-slint-core's `svg`, the compiler's `renderer-software`). The `svg`
 # submodule only builds when `shared-fontique` is also on, so `svg` does not force it.
@@ -38,6 +38,9 @@ derive_more = { workspace = true, optional = true, features = ["error", "display
 icu_decimal = { version = "2", optional = true, features = ["compiled_data"] }
 icu_locale_core = { version = "2", optional = true }
 icu_provider = { version = "2", optional = true }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2 = { workspace = true, optional = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]

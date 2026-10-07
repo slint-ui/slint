@@ -1,13 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Colors, Metrics, SelectionFrameStyle } from "../style.slint";
 // cspell:ignore nesw
 import { CanvasCorner } from "../api.slint";
-import { EditorCursors, EditorMetrics, StudioTheme } from "common.slint";
+import { EditorCursors } from "index.slint";
+
+enum ResizeAxis { both, horizontal, vertical }
+enum CanvasEdge { top, right, bottom, left }
 
 export component MoveResizeFrame inherits Rectangle {
+    in property <SelectionFrameStyle> style: Style.selection-frame;
     in property <bool> enabled: true;
+    in property <float> geometry-scale: 1;
+    out property <bool> pointer-active: move-touch.pressed || root.resize-pressed || root.rotating;
     in property <bool> show-outline: true;
+    in property <bool> show-outline-while-moving;
     callback control-hovered();
     in property <string> accessible-prefix: "Selection";
     in property <bool> active;
@@ -27,6 +35,7 @@ export component MoveResizeFrame inherits Rectangle {
     private property <bool> resize-dragging;
     private property <bool> resize-shift-pressed;
     private property <CanvasCorner> resize-corner;
+    private property <ResizeAxis> resize-axis;
     private property <Size> resize-start-size;
     private property <Point> resize-start-pointer;
     private property <Point> resize-fixed-corner;
@@ -41,8 +50,9 @@ export component MoveResizeFrame inherits Rectangle {
     callback pointer-moved(Point);
     callback move-released(Point);
     callback moved-to(Point);
-    callback resized-to(CanvasCorner, Point, Size);
+    callback resized-to(Point, Size);
     callback rotated-to(angle);
+    callback double-clicked();
 
     public pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
@@ -69,6 +79,27 @@ export component MoveResizeFrame inherits Rectangle {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right;
     }
 
+    pure function corner-resize-cursor-angle(corner: CanvasCorner) -> angle {
+        return root.rotation + (root.corner-resize-cursor-is-forward-diagonal(corner) ? 45deg : -45deg);
+    }
+
+    pure function edge-horizontal(edge: CanvasEdge) -> bool {
+        return edge == CanvasEdge.left || edge == CanvasEdge.right;
+    }
+
+    pure function edge-name(edge: CanvasEdge) -> string {
+        if edge == CanvasEdge.top { return "top"; }
+        if edge == CanvasEdge.right { return "right"; }
+        if edge == CanvasEdge.bottom { return "bottom"; }
+        return "left";
+    }
+
+    pure function edge-corner(edge: CanvasEdge) -> CanvasCorner {
+        if edge == CanvasEdge.right { return CanvasCorner.top-right; }
+        if edge == CanvasEdge.bottom { return CanvasCorner.bottom-left; }
+        return CanvasCorner.top-left;
+    }
+
     pure function rotation-cursor-angle(corner: CanvasCorner) -> angle {
         return root.rotation + (corner == CanvasCorner.top-left ? -45deg
             : corner == CanvasCorner.top-right ? 45deg
@@ -77,26 +108,26 @@ export component MoveResizeFrame inherits Rectangle {
 
     pure function resize-handle-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
-            ? -EditorMetrics.selection-handle-size / 2
-            : root.width - EditorMetrics.selection-handle-size / 2;
+            ? -root.style.handle-size / 2
+            : root.width - root.style.handle-size / 2;
     }
 
     pure function resize-handle-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
-            ? -EditorMetrics.selection-handle-size / 2
-            : root.height - EditorMetrics.selection-handle-size / 2;
+            ? -root.style.handle-size / 2
+            : root.height - root.style.handle-size / 2;
     }
 
     pure function rotation-zone-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
-            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
-            : root.width - EditorMetrics.selection-handle-size / 2;
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.width - root.style.handle-size / 2;
     }
 
     pure function rotation-zone-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
-            ? EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-size
-            : root.height - EditorMetrics.selection-handle-size / 2;
+            ? root.style.handle-size / 2 - root.style.rotation-hit-size
+            : root.height - root.style.handle-size / 2;
     }
 
     pure function local-point-to-parent-at(point: Point, origin: Point, size: Size, rotation: angle) -> Point {
@@ -108,7 +139,7 @@ export component MoveResizeFrame inherits Rectangle {
         };
     }
 
-    pure function local-point-to-parent(point: Point) -> Point {
+    public pure function local-point-to-parent(point: Point) -> Point {
         return root.local-point-to-parent-at(
             point,
             { x: root.x, y: root.y },
@@ -183,20 +214,16 @@ export component MoveResizeFrame inherits Rectangle {
     }
 
     pure function proportional-resizing() -> bool {
-        return root.resize-pressed && root.resize-shift-pressed;
+        return root.resize-pressed && root.resize-axis == ResizeAxis.both && root.resize-shift-pressed;
     }
 
-    function store-free-resize-target(pointer: Point) {
-        let delta = root.parent-delta-to-local({
-            x: pointer.x - root.resize-start-pointer.x,
-            y: pointer.y - root.resize-start-pointer.y,
-        }, root.resize-start-rotation);
-        let target-width = root.corner-on-left(root.resize-corner)
-            ? root.resize-start-size.width - delta.x
-            : root.resize-start-size.width + delta.x;
-        let target-height = root.corner-on-top(root.resize-corner)
-            ? root.resize-start-size.height - delta.y
-            : root.resize-start-size.height + delta.y;
+    function store-free-resize-target(local-delta: Point) {
+        let target-width = root.resize-axis == ResizeAxis.vertical ? root.resize-start-size.width
+            : root.corner-on-left(root.resize-corner) ? root.resize-start-size.width - local-delta.x
+            : root.resize-start-size.width + local-delta.x;
+        let target-height = root.resize-axis == ResizeAxis.horizontal ? root.resize-start-size.height
+            : root.corner-on-top(root.resize-corner) ? root.resize-start-size.height - local-delta.y
+            : root.resize-start-size.height + local-delta.y;
         root.free-resize-position = root.position-for-fixed-corner(
             root.resize-corner,
             root.resize-fixed-corner,
@@ -208,9 +235,8 @@ export component MoveResizeFrame inherits Rectangle {
 
     function emit-resize-target() {
         if root.proportional-resizing() {
-            let side = max(max(root.free-resize-size.width, root.free-resize-size.height), 80px);
+            let side = max(max(root.free-resize-size.width, root.free-resize-size.height), 80px * root.geometry-scale);
             root.resized-to(
-                root.resize-corner,
                 root.position-for-fixed-corner(
                     root.resize-corner,
                     root.resize-fixed-corner,
@@ -220,12 +246,61 @@ export component MoveResizeFrame inherits Rectangle {
                 { width: side, height: side },
             );
         } else {
-            root.resized-to(root.resize-corner, root.free-resize-position, root.free-resize-size);
+            root.resized-to(root.free-resize-position, root.free-resize-size);
+        }
+    }
+
+    function start-resize(corner: CanvasCorner, axis: ResizeAxis, pointer: Point, shift: bool) {
+        root.resize-corner = corner;
+        root.resize-axis = axis;
+        root.resize-pressed = true;
+        root.resize-dragging = false;
+        root.resize-shift-pressed = axis == ResizeAxis.both && shift;
+        root.resize-start-size = { width: root.width, height: root.height };
+        root.resize-start-rotation = root.rotation;
+        root.resize-start-pointer = pointer;
+        root.resize-fixed-corner = root.local-point-to-parent-at(
+            root.opposite-corner-local-point(corner, root.resize-start-size),
+            { x: root.x, y: root.y },
+            root.resize-start-size,
+            root.resize-start-rotation,
+        );
+    }
+
+    function finish-resize() {
+        if root.resize-pressed && root.resize-dragging {
+            root.interaction-ended();
+        }
+        root.resize-pressed = false;
+        root.resize-dragging = false;
+        root.resize-shift-pressed = false;
+    }
+
+    function move-resize(pointer: Point, shift: bool) {
+        if !root.resize-pressed { return; }
+        let delta = {
+            x: pointer.x - root.resize-start-pointer.x,
+            y: pointer.y - root.resize-start-pointer.y,
+        };
+        let local-delta = root.parent-delta-to-local(delta, root.resize-start-rotation);
+        let moved-far-enough = root.resize-axis == ResizeAxis.horizontal
+            ? local-delta.x.abs() >= root.drag-threshold
+            : root.resize-axis == ResizeAxis.vertical
+                ? local-delta.y.abs() >= root.drag-threshold
+                : delta.x.abs() >= root.drag-threshold || delta.y.abs() >= root.drag-threshold;
+        if !root.resize-dragging && moved-far-enough {
+            root.resize-shift-pressed = root.resize-axis == ResizeAxis.both && shift;
+            root.resize-dragging = true;
+            root.interaction-started();
+        }
+        if root.resize-dragging {
+            root.store-free-resize-target(local-delta);
+            root.emit-resize-target();
         }
     }
 
     changed shift-pressed => {
-        if root.resize-pressed && root.resize-dragging {
+        if root.resize-pressed && root.resize-dragging && root.resize-axis == ResizeAxis.both {
             root.resize-shift-pressed = root.shift-pressed;
             root.emit-resize-target();
         }
@@ -243,6 +318,8 @@ export component MoveResizeFrame inherits Rectangle {
             accessible-enabled: root.moveable;
             private property <Point> move-start-position;
             private property <Point> move-start-pointer;
+
+            double-clicked => { root.double-clicked(); }
 
             changed pressed => {
                 if self.pressed {
@@ -286,8 +363,8 @@ export component MoveResizeFrame inherits Rectangle {
                 }
                 if root.move-dragging {
                     root.moved-to({
-                        x: ((self.move-start-position.x + delta.x) / 1px).round() * 1px,
-                        y: ((self.move-start-position.y + delta.y) / 1px).round() * 1px,
+                        x: ((self.move-start-position.x + delta.x) / (1px * root.geometry-scale)).round() * 1px * root.geometry-scale,
+                        y: ((self.move-start-position.y + delta.y) / (1px * root.geometry-scale)).round() * 1px * root.geometry-scale,
                     });
                 }
             }
@@ -296,18 +373,18 @@ export component MoveResizeFrame inherits Rectangle {
 
         @children
 
-        if root.active && !root.move-dragging: Rectangle {
-            if root.show-outline: Rectangle {
-                x: -EditorMetrics.selection-outline-width;
-                y: -EditorMetrics.selection-outline-width;
-                width: root.width + 2 * EditorMetrics.selection-outline-width;
-                height: root.height + 2 * EditorMetrics.selection-outline-width;
-                border-width: EditorMetrics.selection-outline-width;
-                border-color: StudioTheme.canvas-outline;
+        if root.active: Rectangle {
+            if root.show-outline && (!root.move-dragging || root.show-outline-while-moving): Rectangle {
+                x: -root.style.outline-width;
+                y: -root.style.outline-width;
+                width: root.width + 2 * root.style.outline-width;
+                height: root.height + 2 * root.style.outline-width;
+                border-width: root.style.outline-width;
+                border-color: root.style.accent;
             }
 
-            if root.proportional-resizing(): Path {
-                stroke: StudioTheme.accent-strong;
+            if !root.move-dragging && root.proportional-resizing(): Path {
+                stroke: Colors.focus;
                 stroke-width: 1phx;
                 viewbox-width: root.width / 1px;
                 viewbox-height: root.height / 1px;
@@ -329,11 +406,11 @@ export component MoveResizeFrame inherits Rectangle {
                 CanvasCorner.bottom-right,
                 CanvasCorner.bottom-left,
             ]: Rectangle {
-                visible: root.show-rotation-handles;
+                visible: !root.move-dragging && root.show-rotation-handles;
                 x: root.rotation-zone-x(corner);
                 y: root.rotation-zone-y(corner);
-                width: EditorMetrics.rotation-zone-size;
-                height: EditorMetrics.rotation-zone-size;
+                width: root.style.rotation-hit-size;
+                height: root.style.rotation-hit-size;
                 TouchArea {
                     mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
                     accessible-role: AccessibleRole.button;
@@ -394,7 +471,57 @@ export component MoveResizeFrame inherits Rectangle {
                 }
             }
 
-            if !root.rotating: Rectangle {
+            if !root.move-dragging && !root.rotating: Rectangle {
+                for edge in [CanvasEdge.top, CanvasEdge.right, CanvasEdge.bottom, CanvasEdge.left]: TouchArea {
+                    visible: root.show-resize-handles && root.resizable
+                        && (root.edge-horizontal(edge) ? root.height > root.style.hit-size : root.width > root.style.hit-size);
+                    enabled: root.enabled && root.resizable;
+                    x: root.edge-horizontal(edge)
+                        ? (edge == CanvasEdge.left ? -root.style.hit-size / 2 : root.width - root.style.hit-size / 2)
+                        : root.style.hit-size / 2;
+                    y: root.edge-horizontal(edge)
+                        ? root.style.hit-size / 2
+                        : (edge == CanvasEdge.top ? -root.style.hit-size / 2 : root.height - root.style.hit-size / 2);
+                    width: root.edge-horizontal(edge) ? root.style.hit-size : root.width - root.style.hit-size;
+                    height: root.edge-horizontal(edge) ? root.height - root.style.hit-size : root.style.hit-size;
+                    mouse-cursor: root.rotation.mod(180deg) == 0deg
+                        ? (root.edge-horizontal(edge) ? ew-resize : ns-resize)
+                        : MouseCursor.custom(EditorCursors.resize-image(
+                            root.rotation + (root.edge-horizontal(edge) ? 0deg : 90deg)
+                        ), 16, 16);
+                    accessible-role: AccessibleRole.button;
+                    accessible-label: root.accessible-prefix + " resize " + root.edge-name(edge);
+                    accessible-enabled: root.resizable;
+                    changed has-hover => {
+                        if self.has-hover { root.control-hovered(); }
+                    }
+
+                    changed pressed => {
+                        if self.pressed {
+                            let pointer = root.local-point-to-parent(root.child-local-point(
+                                { x: self.x, y: self.y },
+                                { x: self.mouse-x, y: self.mouse-y },
+                            ));
+                            root.start-resize(
+                                root.edge-corner(edge),
+                                root.edge-horizontal(edge) ? ResizeAxis.horizontal : ResizeAxis.vertical,
+                                pointer,
+                                false,
+                            );
+                        } else {
+                            root.finish-resize();
+                        }
+                    }
+
+                    moved => {
+                        let pointer = root.local-point-to-parent(root.child-local-point(
+                            { x: self.x, y: self.y },
+                            { x: self.mouse-x, y: self.mouse-y },
+                        ));
+                        root.move-resize(pointer, false);
+                    }
+                }
+
                 for corner in [
                     CanvasCorner.top-left,
                     CanvasCorner.top-right,
@@ -403,20 +530,23 @@ export component MoveResizeFrame inherits Rectangle {
                 ]: Rectangle {
                     x: root.resize-handle-x(corner);
                     y: root.resize-handle-y(corner);
-                    width: EditorMetrics.selection-handle-size;
-                    height: EditorMetrics.selection-handle-size;
-                    background: white;
-                    border-width: 1px;
-                    border-color: StudioTheme.accent-strong;
+                    width: root.style.handle-size;
+                    height: root.style.handle-size;
+                    background: root.style.handle-background;
+                    border-width: Metrics.border-width;
+                    border-color: Colors.focus;
                     visible: root.show-resize-handles;
 
                     TouchArea {
                         enabled: root.enabled;
                         x: (parent.width - self.width) / 2;
                         y: (parent.height - self.height) / 2;
-                        width: EditorMetrics.selection-handle-touch-size;
-                        height: EditorMetrics.selection-handle-touch-size;
-                        mouse-cursor: !root.resizable ? default : root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                        width: root.style.hit-size;
+                        height: root.style.hit-size;
+                        mouse-cursor: !root.resizable ? default
+                            : root.rotation.mod(180deg) == 0deg
+                                ? (root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize)
+                                : MouseCursor.custom(EditorCursors.resize-image(root.corner-resize-cursor-angle(corner)), 16, 16);
                         accessible-role: AccessibleRole.button;
                         accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
                         changed has-hover => {
@@ -427,7 +557,7 @@ export component MoveResizeFrame inherits Rectangle {
 
                         pointer-event(event) => {
                             self.event-shift-pressed = event.modifiers.shift;
-                            if root.resize-pressed && root.resize-dragging {
+                            if root.resize-pressed && root.resize-dragging && root.resize-axis == ResizeAxis.both {
                                 root.resize-shift-pressed = event.modifiers.shift;
                                 root.emit-resize-target();
                             }
@@ -440,54 +570,18 @@ export component MoveResizeFrame inherits Rectangle {
                                     { x: self.mouse-x, y: self.mouse-y },
                                 ));
 
-                                root.resize-corner = corner;
-                                root.resize-pressed = true;
-                                root.resize-dragging = false;
-                                root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
-                                root.resize-start-size = { width: root.width, height: root.height };
-                                root.resize-start-rotation = root.rotation;
-                                root.resize-start-pointer = pointer;
-                                root.resize-fixed-corner = root.local-point-to-parent-at(
-                                    root.opposite-corner-local-point(corner, root.resize-start-size),
-                                    { x: root.x, y: root.y },
-                                    root.resize-start-size,
-                                    root.resize-start-rotation,
-                                );
-                                root.store-free-resize-target(pointer);
+                                root.start-resize(corner, ResizeAxis.both, pointer, root.shift-pressed || self.event-shift-pressed);
                             } else {
-                                if root.resize-pressed && root.resize-dragging {
-                                    root.interaction-ended();
-                                }
-                                root.resize-pressed = false;
-                                root.resize-dragging = false;
-                                root.resize-shift-pressed = false;
+                                root.finish-resize();
                             }
                         }
 
                         moved => {
-                            if !root.resize-pressed {
-                                return;
-                            }
                             let pointer = root.local-point-to-parent(root.child-local-point(
                                 { x: parent.x + self.x, y: parent.y + self.y },
                                 { x: self.mouse-x, y: self.mouse-y },
                             ));
-                            let delta = {
-                                x: pointer.x - root.resize-start-pointer.x,
-                                y: pointer.y - root.resize-start-pointer.y,
-                            };
-                            let moved-far-enough = delta.x.abs() >= root.drag-threshold
-                                || delta.y.abs() >= root.drag-threshold;
-                            if !root.resize-dragging && moved-far-enough {
-                                root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;
-                                root.resize-dragging = true;
-                                root.interaction-started();
-                            }
-                            if !root.resize-dragging {
-                                return;
-                            }
-                            root.store-free-resize-target(pointer);
-                            root.emit-resize-target();
+                            root.move-resize(pointer, root.shift-pressed || self.event-shift-pressed);
                         }
                     }
                 }

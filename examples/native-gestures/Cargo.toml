@@ -4,7 +4,7 @@
 # cSpell: ignore nativegestures
 [package]
 name = "native-gestures"
-version = "1.18.0"
+version = "1.19.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 publish = false
@@ -31,7 +31,20 @@ slint-build = { path = "../../api/rs/build" }
 [package.metadata.android]
 package = "dev.slint.examples.nativegestures"
 build_targets = ["aarch64-linux-android"]
-target_sdk_version = 33
+
+[package.metadata.android.sdk]
+min_sdk_version = 23
+target_sdk_version = 36
 
 [package.metadata.android.application]
 label = "Native Gestures"
+
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+
+[[package.metadata.android.application.activity.meta_data]]
+name = "android.app.lib_name"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]

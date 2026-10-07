@@ -253,12 +253,18 @@ fn inline_element(
                     children,
                 });
         } else if !children.is_empty() {
-            // @children was into a PopupWindow (named slots inside popups are not supported).
-            debug_assert!(inlined_component.popup_windows.borrow().iter().any(|p| Rc::ptr_eq(
-                &p.component,
-                &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
-            )));
-            if slot_name == DEFAULT_SLOT_NAME {
+            let enclosing = inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap();
+            let in_popup = inlined_component
+                .popup_windows
+                .borrow()
+                .iter()
+                .any(|p| Rc::ptr_eq(&p.component, &enclosing));
+            if !in_popup {
+                debug_assert!(
+                    diag.has_errors(),
+                    "error_on_slot_in_inner_builtin reports @children in a Menu"
+                );
+            } else if slot_name == DEFAULT_SLOT_NAME {
                 move_children_into_popup = Some(children);
             } else {
                 diag.push_error(
@@ -589,9 +595,9 @@ fn duplicate_element_with_mapping(
     let new = Rc::new(RefCell::new(Element {
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
-        is_injected_wrapper_element: elem.is_injected_wrapper_element,
         property_declarations: elem.property_declarations.clone(),
         shadowing_members: elem.shadowing_members.clone(),
+        implement_statements: Default::default(),
         // We will do the fixup of the references in bindings later
         bindings: elem
             .bindings_including_synthetic()
@@ -780,6 +786,8 @@ fn duplicate_binding(
         expression: b.expression.clone(),
         span: b.span.clone(),
         priority: b.priority.saturating_add(priority_delta),
+        from_state: b.from_state,
+        from_source: b.from_source,
         animation: b
             .animation
             .as_ref()

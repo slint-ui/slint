@@ -138,7 +138,7 @@ component CupertinoTabBarBase inherits TabBarBase {
         width: 0px;
 
         key-pressed(event) => {
-            if (event.text == "\n") {
+            if (event.text == Key.Return) {
                 root.current = root.current-focused;
                 return accept;
             }
@@ -154,7 +154,7 @@ component CupertinoTabBarBase inherits TabBarBase {
         }
 
         key-released(event) => {
-            if (event.text == " ") {
+            if (event.text == Key.Space) {
                 root.current = root.current-focused;
                 return accept;
             }

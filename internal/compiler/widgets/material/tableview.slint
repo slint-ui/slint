@@ -5,6 +5,8 @@ import { ListView } from "../common/listview.slint";
 import { StateLayer } from "components.slint";
 import { MaterialPalette, Icons } from "styling.slint";
 
+import { StandardTableViewInterface } from "../common/std-widget-interfaces.slint";
+
 component TableViewColumn inherits Rectangle {
     in property <SortOrder> sort-order: SortOrder.unsorted;
 
@@ -113,6 +115,8 @@ component TableViewRow inherits Rectangle {
 }
 
 export component StandardTableView {
+    implement StandardTableViewInterface <=> self;
+
     private property <length> item-height: scroll-view.content-height / rows.length;
     private property <length> current-item-y: scroll-view.content-y + current-row * item-height;
     private property <length> min-header-height: 42px;
@@ -129,17 +133,19 @@ export component StandardTableView {
     in-out property <length> content-height <=> scroll-view.content-height;
     in-out property <length> content-x <=> scroll-view.content-x;
     in-out property <length> content-y <=> scroll-view.content-y;
-    @deprecated in-out property <length> viewport-width <=> content-width;
-    @deprecated in-out property <length> viewport-height <=> content-height;
-    @deprecated in-out property <length> viewport-x <=> content-x;
-    @deprecated in-out property <length> viewport-y <=> content-y;
+    @deprecated("Please use 'content-width' instead") in-out property <length> viewport-width <=> content-width;
+    @deprecated("Please use 'content-height' instead") in-out property <length> viewport-height <=> content-height;
+    @deprecated("Please use 'content-x' instead") in-out property <length> viewport-x <=> content-x;
+    @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> scroll-view.vertical-scrollbar-policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> scroll-view.horizontal-scrollbar-policy;
+    in property <bool> mouse-drag-pan-enabled <=> scroll-view.mouse-drag-pan-enabled;
 
     callback sort-ascending(column: int);
     callback sort-descending(column: int);
     callback row-pointer-event(row: int, event: PointerEvent, position: Point);
     callback current-row-changed(current-row: int);
+    callback scrolled <=> scroll-view.scrolled;
 
     public function set-current-row(index: int) {
         if(index < 0 || index >= rows.length) {

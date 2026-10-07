@@ -20,12 +20,11 @@ pub mod test;
 use crate::editor_preview::EditorSession;
 use crate::{editor_preview, util};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
@@ -653,12 +652,10 @@ pub fn show_preview_command(
     let url: Url = extract_param(params, 0, "url")?;
 
     // Normalize the URL to make sure it is encoded the same way as what the preview expect from other URLs
-    let url = editor_preview::uri_to_file(&url)
-        .and_then(|u| Url::from_file_path(u).ok())
-        .ok_or_else(|| LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "invalid document url".into(),
-        })?;
+    let url = SourcePath::from(url).to_url().ok_or_else(|| LspError {
+        code: LspErrorCode::InvalidParameter,
+        message: "invalid document url".into(),
+    })?;
 
     let component =
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
@@ -864,13 +861,7 @@ async fn run_host_language_rename_followup(
     info: editor_preview::editing::rename_component::HostLanguageRenameInfo,
     new_name: String,
 ) {
-    use i_slint_compiler::generator::accessor_names::DeclarationKind;
-
-    let kind_label = match info.kind {
-        DeclarationKind::Property => "property",
-        DeclarationKind::Callback => "callback",
-        DeclarationKind::Function => "function",
-    };
+    let kind_label = info.kind.label();
     let message = format!(
         "Slint {kind_label} '{}' is exposed to host language code. \
          Search & Replace the Rust/C++ code with the new accessors? \
@@ -1087,7 +1078,7 @@ fn get_code_actions(
     client_capabilities: &ClientCapabilities,
 ) -> Option<Vec<CodeActionOrCommand>> {
     let node = token.parent();
-    let uri = Url::from_file_path(token.source_file.path()).ok()?;
+    let uri = token.source_file.path().to_url()?;
     let mut result = Vec::new();
 
     let component = syntax_nodes::Component::new(node.clone())
@@ -1153,7 +1144,9 @@ fn get_code_actions(
         };
         if is_lookup_error {
             // Couldn't lookup the element, there is probably an error. Suggest an edit
-            let text = token.text();
+            // The catalog holds the normalized name, the token holds whichever spelling
+            // of a separator the file used.
+            let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_component_import_statements_edits(
                 &token,
                 document_cache,
@@ -1336,7 +1329,8 @@ fn get_code_actions(
                 matches!(tr.lookup_qualified(&qual.members), Type::Invalid)
             });
         if is_lookup_error {
-            let text = token.text();
+            // See the component quick-fix above for why the token is normalized.
+            let text = i_slint_compiler::parser::normalize_identifier(token.text());
             completion::build_type_import_statements_edits(
                 &token,
                 document_cache,
@@ -1790,7 +1784,7 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
 
     let diagnostics = editor_preview::editor_session::collect_diagnostics(
         &ctx.session.document_cache,
-        &all_files.iter().filter_map(editor_preview::uri_to_file).collect(),
+        &all_files.iter().map(SourcePath::from_url).collect(),
         diag,
     );
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -2669,14 +2663,11 @@ export component TestWindow inherits Window {
 }
 "#;
 
-        let types_url =
-            Url::from_file_path(editor_preview::test::test_file_name("types.slint")).unwrap();
-        let main_url =
-            Url::from_file_path(editor_preview::test::test_file_name("main.slint")).unwrap();
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();
-        spin_on::spin_on(dc.preload_builtins());
         let mut diagnostics = BuildDiagnostics::default();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
@@ -2750,6 +2741,59 @@ export component TestWindow inherits Window {
                 get_code_actions(&mut document_cache_with_import, token, &capabilities)
             });
         assert_eq!(action2, None, "import action should not appear when type is already imported");
+    }
+
+    #[test]
+    fn test_add_import_for_name_with_a_separator() {
+        // The catalog holds the normalized name while the token holds the spelling the file
+        // used, so an underscore used to mean no quick fix was offered at all (#7492).
+        let types_content = r#"export struct My_Struct { x: int }
+export component My_Component { }
+"#;
+        let main_content = r#"export component TestWindow inherits Window {
+    property <My_Struct> position;
+    My_Component { }
+}
+"#;
+        let types_url = editor_preview::test::test_file_name("types.slint").to_url().unwrap();
+        let main_url = editor_preview::test::test_file_name("main.slint").to_url().unwrap();
+
+        let mut dc = test::empty_document_cache();
+        let mut diagnostics = BuildDiagnostics::default();
+        let _ = spin_on::spin_on(dc.load_url(
+            &types_url,
+            Some(1),
+            types_content.to_string(),
+            &mut diagnostics,
+        ));
+        let _ = spin_on::spin_on(dc.load_url(
+            &main_url,
+            Some(42),
+            main_content.to_string(),
+            &mut diagnostics,
+        ));
+
+        let capabilities = ClientCapabilities::default();
+        let mut titles = |name: &str| {
+            let offset = main_content.find(name).unwrap();
+            let before = &main_content[..offset];
+            let position = Position::new(
+                before.matches('\n').count() as _,
+                (offset - before.rfind('\n').map_or(0, |nl| nl + 1)) as _,
+            );
+            token_descr(&dc, &main_url, &position)
+                .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities))
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|action| match action {
+                    CodeActionOrCommand::CodeAction(action) => Some(action.title),
+                    CodeActionOrCommand::Command(_) => None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(titles("My_Struct"), ["import { My-Struct } from \"types.slint\""]);
+        assert_eq!(titles("My_Component"), ["import { My-Component } from \"types.slint\""]);
     }
 
     #[test]

@@ -13,9 +13,9 @@ The Store accepts desktop apps in a single format, [MSIX](https://learn.microsof
 an archive holding your executable, its assets, and a manifest describing the app to Windows.
 
 <Aside type="note">
-MSIX also works outside the Store, and it isn't the only option.
+MSIX also works outside the Store, but it isn't the only option.
 [WiX](https://wixtoolset.org/) and other MSI authoring tools, installers such as [Inno Setup](https://jrsoftware.org/isinfo.php) and [NSIS](https://nsis.sourceforge.io/), and a plain `.zip` all distribute a Windows app.
-Packaging your application in these formats is left as an exercise for the reader.
+Packaging your application in these formats is outside the scope of this documentation.
 </Aside>
 
 ## Prerequisites
@@ -26,7 +26,7 @@ It comes with `makeappx`, which builds the package, and `makepri`, which builds 
 ## The Manifest
 
 An `AppxManifest.xml` at the root of the package describes it.
-This is the smallest one that will do for a Slint app:
+This is the smallest manifest that you need for a Slint app:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -78,37 +78,32 @@ This is the smallest one that will do for a Slint app:
 
 ### Full Trust
 
-A packaged app runs in an app container by default.
-That's a sandbox: the app reaches its own storage and whatever the capabilities it declares allow, and nothing else.
-An app at full trust runs as the user instead, with the same access as an unpackaged program.
+A packaged app runs in an app container by default, in a sandbox,
+with its own storage and all of its capabilities.
+In contrast, a full trust app runs on a user level, with the same access as an unpackaged app.
 
-Slint apps need full trust.
-They open the files the user selects, access the GPU to render, and call Win32 APIs,
-none of which an app container permits.
+Slint apps need full trust so that they can access files that the user selects, access the GPU to render,
+and call Win32 APIs.
 
-Three parts of the manifest declare full trust together:
+In your manifest, the following three parts are necessary to declare full trust:
 
-- `EntryPoint="Windows.FullTrustApplication"` marks the app as an ordinary executable rather than a UWP app.
+- `EntryPoint="Windows.FullTrustApplication"` marks the app as an ordinary executable.
 - `uap10:TrustLevel="mediumIL"` runs the process as the user.
-- `runFullTrust` is the capability that permits both. It's a *restricted* capability, so it lives in the `rescap` namespace and Windows lists it to the user.
+- `runFullTrust` is the required capability.
 
 ### Asset Paths
 
-Every path in the manifest resolves **inside the package**, not on your disk.
-An asset that isn't in the layout you hand to `makeappx` fails validation,
-even if it sits next to the manifest in your source tree.
+Every path in the manifest is relative within the package.
 
 ## The Visual C++ Runtime
 
-On a machine that has never had Visual Studio installed, the app can fail to start with
-*"The code execution cannot proceed because MSVCP140.dll was not found"*.
-
 Binaries built with the MSVC toolchain link the C runtime dynamically,
 and the Skia renderer adds the C++ standard library on top.
-Both ship with the [Visual C++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist), which a clean Windows install doesn't have.
+Both ship with the [Visual C++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+If you are working with a fresh Windows installation, make sure that you have the Visual C++ runtime installed.
 
-Declare a dependency on the framework package that carries them,
-and Windows installs it alongside your app:
+Declare a dependency on the framework package that carries the libraries,
+and Windows installs the runtime alongside your app:
 
 ```xml
 <Dependencies>
@@ -122,14 +117,14 @@ and Windows installs it alongside your app:
 ```
 
 <Aside type="tip">
-`dumpbin /dependents your-app.exe` lists everything the executable imports.
+`dumpbin /dependents your-app.exe` lists everything your executable imports.
 `MSVCP140.dll` and `VCRUNTIME140.dll` come from the redistributable,
-while the `api-ms-win-crt-*` entries are part of Windows and need nothing.
+while the `api-ms-win-crt-*` entries are part of Windows.
 </Aside>
 
 ## Building the Package
 
-Assemble a directory holding exactly what the package should contain, then pack it:
+Create a directory that has what your package needs, then pack it:
 
 ```powershell
 # layout/
@@ -140,13 +135,13 @@ Assemble a directory holding exactly what the package should contain, then pack 
 makeappx pack /d layout /p YourApp_1.0.0.0_x64.msix /o
 ```
 
-That completes a single architecture.
-The result is unsigned, as the Store requires, and can't be installed by hand yet.
+This completes a single architecture.
+The result is unsigned, as the Store requires, and can't be installed yet.
 
 ## Supporting Both x64 and arm64
 
 Windows on Arm runs x64 binaries through emulation.
-A native arm64 build is faster and takes little extra effort.
+A native arm64 build is faster and takes little effort.
 Build the executable for each architecture,
 assemble one layout per architecture with `ProcessorArchitecture` set accordingly in each manifest,
 pack each one, then combine them:
@@ -155,37 +150,21 @@ pack each one, then combine them:
 makeappx bundle /d slices /p YourApp_1.0.0.0_arm64_x64.msixbundle /bv 1.0.0.0 /o
 ```
 
-Everything except `ProcessorArchitecture` has to be identical between the slices,
-which is easiest to guarantee by generating each manifest from one template.
+Everything except `ProcessorArchitecture` must be identical between the slices;
+we recommend generating each manifest from one template.
 
-<Aside type="caution">
-Pass `/bv`.
-Without it `makeappx` versions the bundle after the current date and time,
-and for a bundle it's that version, not the version of the packages inside it, that identifies your app.
-</Aside>
-
-## Version Numbers
-
-A package version is four integers between 0 and 65535, and the first can't be 0.
-Two further rules apply if you publish to the Store: the **fourth field must be 0**,
-and a version can never be reused, even after the package that introduced it is deleted.
-Test uploads therefore consume real version numbers.
-See [package version numbering](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/app-package-requirements#package-version-numbering) for the details.
 
 ## Icons
 
 The manifest names one file per logo, and Windows selects among variants of that file
-by the size required and the context it's drawn in.
-With only the one file, Windows draws the small logo on a plate filled from `BackgroundColor`,
-which is the system accent color when that's `transparent`.
-A logo with a background of its own then appears as a colored square inside another colored square.
+by the size required and the context.
 
-Produce the variants in three steps.
+To produce the icon variants, follow these steps:
 
-**1. Render the small logo at each size Windows uses**: 16, 24, 32, 48, and 256.
+1. Render the small logo at each size Windows uses: 16, 24, 32, 48, and 256.
 Name each one with a `targetsize` qualifier.
 
-**2. Add an unplated variant of every size.**
+2. Add an unplated variant of every size.
 These hold the bare mark on transparency, and Windows draws them without a plate:
 [`altform-unplated`](https://learn.microsoft.com/en-us/windows/uwp/app-resources/tailor-resources-lang-scale-contrast#shell-light-theme-and-unplated-resources) on dark taskbars,
 `altform-lightunplated` on light ones.
@@ -200,8 +179,7 @@ Assets/Square44x44Logo.targetsize-48_altform-lightunplated.png  # light backgrou
 Those suffixes are [resource qualifiers](https://learn.microsoft.com/en-us/windows/uwp/app-resources/tailor-resources-lang-scale-contrast):
 a `.` separates the file name from the first qualifier, and `_` separates any further ones.
 
-**3. Build a resource index**, which is what resolves those qualifiers.
-Without one Windows uses only the file named in the manifest, and the variants are ignored.
+3. Build a resource index, which is what resolves those qualifiers.
 
 ```powershell
 makepri createconfig /cf priconfig.xml /dq en-US /o
@@ -218,8 +196,8 @@ so leave a package destined for it **unsigned**.
 You don't need a code signing certificate to publish there.
 
 For distribution outside the Store, Windows won't install a package it doesn't trust,
-and the certificate's subject has to match `Identity/Publisher` in your manifest exactly.
-See [signing a package with SignTool](https://learn.microsoft.com/en-us/windows/win32/appxpkg/how-to-sign-a-package-using-signtool).
+and the certificate's subject must match `Identity/Publisher` in your manifest exactly.
+For more information, see [signing a package with SignTool](https://learn.microsoft.com/en-us/windows/win32/appxpkg/how-to-sign-a-package-using-signtool).
 
 ## Testing Without Signing
 
@@ -231,7 +209,7 @@ Windows registers a package directly from a directory:
 Add-AppxPackage -Register layout\AppxManifest.xml
 ```
 
-The app appears in the Start menu and runs with its real package identity.
+The app appears in the `Start` menu and runs with its real package identity.
 That matters for testing: framework dependencies such as the C++ runtime reach the DLL search path only when the app starts through its identity.
 Remove it again with:
 
@@ -240,16 +218,16 @@ Get-AppxPackage YourOrganization.YourApp | Remove-AppxPackage
 ```
 
 <Aside type="tip">
-Two failures are common.
+You may run into two types of issues.
 
-`0x80070005` (access denied) usually means the deployment service can't read your layout.
+- `0x80070005` (access denied) usually means the deployment service can't read your layout.
 Grant it access:
 
 ```powershell
 icacls layout /grant "*S-1-15-2-1:(OI)(CI)(RX)" /T
 ```
 
-`0x80073D2C` means the publisher isn't in the unsigned namespace.
+- `0x80073D2C` means the publisher isn't in the unsigned namespace.
 `Add-AppxPackage -AllowUnsigned` only accepts packages whose `Publisher` carries a
 [special OID](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package) marking them as unsigned,
 so you can't use it with a real publisher identity.

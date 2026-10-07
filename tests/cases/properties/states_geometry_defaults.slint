@@ -1,0 +1,175 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property that only some states set keeps its default value while no state applies (#8852).
+
+// A component root: a binding at the use site would shadow the state, so the root fills its
+// own fallback.
+component Boxed inherits Text {
+    in property <int> step;
+    states [
+        taller when step == 0: {
+            height: 80px;
+            width: 200px;
+        }
+    ]
+}
+
+// `opacity` on the root makes this inline before the geometry passes run, so the mark has to
+// survive being copied into the use site.
+component Faded inherits Rectangle {
+    opacity: 0.9;
+    in property <int> step;
+    out property <length> inner-x: inner.x;
+    inner := Rectangle {
+        width: 40px;
+        height: 20px;
+        states [
+            moved when step == 0: {
+                x: 5px;
+            }
+        ]
+    }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+    in-out property <int> step: 1;
+
+    // No state applies, so `x` keeps centering the element.
+    centered := Rectangle {
+        width: 100px;
+        height: 50px;
+        states [
+            shifted when step == 0: {
+                x: 10px;
+            }
+        ]
+    }
+
+    // The state applies, and its value wins over the default.
+    shifted := Rectangle {
+        width: 100px;
+        height: 50px;
+        states [
+            shifted when step == 1: {
+                x: 10px;
+            }
+        ]
+    }
+
+    // Two states on one property: the fallback is at the end of the condition chain.
+    chained := Rectangle {
+        width: 60px;
+        states [
+            one when step == 0: {
+                height: 11px;
+            }
+            two when step == 1: {
+                height: 22px;
+            }
+        ]
+    }
+
+    boxed := Boxed {
+        text: "boxed";
+        step: root.step;
+    }
+
+    faded := Faded {
+        width: 100px;
+        height: 50px;
+        step: root.step;
+    }
+
+    // An animation at the use site owns a binding of its own, which the root's binding merges
+    // into: the mark has to survive that merge too.
+    animated := Boxed {
+        text: "animated";
+        step: root.step;
+        animate height { duration: 0ms; }
+    }
+
+    // No state applies, so the height is still the text's implicit height.
+    txt := Text {
+        text: "hello";
+        states [
+            taller when step == 0: {
+                height: 80px;
+            }
+        ]
+    }
+
+    // A Rectangle covers its parent when nothing sizes it.
+    filling := Rectangle {
+        states [
+            shrunk when step == 0: {
+                height: 10px;
+            }
+        ]
+    }
+
+    // An explicit value is not a state's fallback: the fill-the-parent default must not
+    // overwrite it.
+    explicit := Rectangle {
+        height: 30px;
+        states [
+            grown when step == 0: {
+                height: 90px;
+            }
+        ]
+    }
+
+    // `lower_timers` rejects a Timer whose interval is unbound; a state's counts as bound.
+    Timer {
+        running: false;
+        triggered => { }
+        states [
+            quick when step == 0: {
+                interval: 100ms;
+            }
+        ]
+    }
+
+    out property <bool> test: centered.x == 150px && centered.y == 75px
+        && shifted.x == 10px && txt.height > 0px
+        && filling.width == root.width && filling.height == root.height
+        && chained.height == 22px && boxed.height > 0px && boxed.width > 0px
+        && faded.inner-x == 30px && explicit.height == 30px && animated.height > 0px;
+    // The same elements with the other state active.
+    out property <bool> states-applied: centered.x == 10px && shifted.x == 150px
+        && txt.height == 80px && filling.height == 10px
+        && chained.height == 11px && boxed.height == 80px && boxed.width == 200px
+        && faded.inner-x == 5px && explicit.height == 90px && animated.height == 80px;
+    // No state applies to any of them.
+    out property <bool> no-state: centered.x == 150px && shifted.x == 150px && txt.height > 0px
+        && filling.height == root.height && chained.height == root.height
+        && boxed.height > 0px && boxed.width > 0px && faded.inner-x == 30px
+        && explicit.height == 30px && animated.height > 0px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_step(0);
+assert(instance.get_states_applied());
+instance.set_step(2);
+assert(instance.get_no_state());
+instance.set_step(1);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_step(0);
+assert!(instance.get_states_applied());
+instance.set_step(2);
+assert!(instance.get_no_state());
+instance.set_step(1);
+assert!(instance.get_test());
+```
+*/

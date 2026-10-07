@@ -199,8 +199,11 @@ impl PlatformTray {
         self_weak: ItemWeak,
         _context: &crate::SlintContext,
     ) -> Result<Self, Error> {
-        let mtm = MainThreadMarker::new()
-            .expect("SystemTrayIcon must be created on the main thread on macOS");
+        let mtm = MainThreadMarker::new().ok_or_else(|| {
+            Error::PlatformError(crate::platform::PlatformError::Other(
+                "SystemTrayIcon must be created on the main thread on macOS".into(),
+            ))
+        })?;
 
         let image = image_to_nsimage(params.icon)?;
 
@@ -242,7 +245,11 @@ impl PlatformTray {
             );
         }
 
-        Ok(Self { status_item, action_target, appearance_observer: observer, mtm })
+        let tray = Self { status_item, action_target, appearance_observer: observer, mtm };
+        if let Some((menu, entries_out)) = params.menu {
+            tray.rebuild_menu(menu, entries_out);
+        }
+        Ok(tray)
     }
 
     pub fn rebuild_menu(
@@ -250,7 +257,6 @@ impl PlatformTray {
         menu: vtable::VRef<'_, MenuVTable>,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
-        entries_out.clear();
         let ns_menu = build_menu(menu, &self.action_target, self.mtm, entries_out);
         // Detach the menu when there are no entries so AppKit forwards clicks
         // to the button's action (which fires slint's `clicked`). An

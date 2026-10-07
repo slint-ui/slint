@@ -21,6 +21,7 @@ Appbar
 appicon
 appiconset
 appkit
+APPL
 appmain
 appsink
 appview
@@ -66,6 +67,7 @@ brushval
 bugtracker
 buildcode
 builtinfunctions
+bunfig
 bytemuck
 calloop
 caplog
@@ -133,6 +135,7 @@ dashmap
 Datakonsult
 Datas
 datatypes
+datepickerpopup
 Datelike
 DBUILD
 DCACHE
@@ -185,6 +188,7 @@ ELCDIF
 elems
 elevatedbutton
 elit
+emcmake
 emscripten
 endforeach
 endfunction
@@ -217,6 +221,7 @@ fdroiddata
 FEFF
 FELGO
 fetchpriority
+fexceptions
 figsize
 fileaccess
 filledbutton
@@ -250,6 +255,7 @@ Fsvg
 fullsize
 Fullwidth
 fvar
+fwasm
 Fwww
 genhtml
 getattr
@@ -308,6 +314,8 @@ inputchip
 intprop
 intval
 iocp
+iphoneos
+iphonesimulator
 IRAM
 Irqs
 isinstance
@@ -384,6 +392,7 @@ linuxkms
 lipo
 Literata
 Llff
+llms
 Lmaterial
 LOADADDR
 LOWORD
@@ -472,7 +481,9 @@ optipng
 ospi
 othercomp
 ovmf
+pagefind
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL
@@ -567,6 +578,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanout
 sclk
 scopeguard
 sdkconfig
@@ -588,10 +600,12 @@ shikijs
 Shmelt
 signalsafe
 SIGUSR
+simctl
 singlefile
 singleshot
 skrifa
 slintcov
+slnt
 slintlib
 Smartwin
 smol
@@ -608,6 +622,8 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+standardlistview
+standardtableview
 startswith
 staticlib
 staticmethod
@@ -662,6 +678,7 @@ thirdparty
 thumbsup
 thumbv
 tikv
+timepickerpopup
 Tisch
 titlebar
 Tlink

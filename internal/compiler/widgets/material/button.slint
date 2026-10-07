@@ -4,6 +4,8 @@
 import { StateLayer } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
+
 component MaterialButtonBase {
     in property <string> text;
     in property <image> icon;
@@ -71,6 +73,8 @@ component MaterialButtonBase {
 
 // Default button widget with Material Design Filled Button look and feel.
 export component Button {
+    implement ButtonInterface <=> self;
+
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
     in property <bool> checkable;
@@ -94,7 +98,9 @@ export component Button {
     accessible-checked: root.checked;
     accessible-label: root.text;
     accessible-action-default => {
-        base.clicked();
+        if (root.enabled) {
+            base.clicked();
+        }
     }
 
     states [
@@ -154,7 +160,9 @@ export component TextButton {
     accessible-role: button;
     accessible-label: root.text;
     accessible-action-default => {
-        clicked();
+        if (root.enabled) {
+            clicked();
+        }
     }
 
     base := MaterialButtonBase {
@@ -183,7 +191,9 @@ export component IconButton {
 
     accessible-role: button;
     accessible-action-default => {
-        clicked();
+        if (root.enabled) {
+            clicked();
+        }
     }
 
     base := MaterialButtonBase {
