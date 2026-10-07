@@ -252,11 +252,54 @@ export function packPreviewAssets(source: string): AssetPreview {
     };
 }
 
+export function createPreviewAssetPool(): (value: unknown) => {
+    source: string;
+    dispose: () => void;
+} {
+    const entries = new Map<string, { url: string; owners: number }>();
+    return (value) =>
+        materializePreviewAssets(value, {
+            acquireAsset: (data, mime) => {
+                const key = `${mime}:${data}`;
+                let entry = entries.get(key);
+                if (!entry) {
+                    const binary = atob(data);
+                    const bytes = Uint8Array.from(binary, (character) =>
+                        character.charCodeAt(0),
+                    );
+                    entry = {
+                        url: URL.createObjectURL(
+                            new Blob([bytes], { type: mime }),
+                        ),
+                        owners: 0,
+                    };
+                    entries.set(key, entry);
+                }
+                entry.owners++;
+                const held = entry;
+                return {
+                    url: held.url,
+                    release: () => {
+                        held.owners--;
+                        if (held.owners === 0) {
+                            URL.revokeObjectURL(held.url);
+                            entries.delete(key);
+                        }
+                    },
+                };
+            },
+        });
+}
+
 export function materializePreviewAssets(
     value: unknown,
     options: {
         createObjectUrl?: (blob: Blob) => string;
         revokeObjectUrl?: (url: string) => void;
+        acquireAsset?: (
+            data: string,
+            mime: string,
+        ) => { url: string; release: () => void };
     } = {},
 ): { source: string; dispose: () => void } {
     if (!isAssetPreview(value)) throw Error("Invalid asset preview");
@@ -267,6 +310,7 @@ export function materializePreviewAssets(
         options.revokeObjectUrl ?? ((url: string) => URL.revokeObjectURL(url));
     const urls = new Map<string, string>();
     const created: string[] = [];
+    const releases: (() => void)[] = [];
     const output: string[] = [];
     const prefix = /data:(image\/(?:png|jpeg|gif|svg\+xml));base64,$/u;
     try {
@@ -286,19 +330,29 @@ export function materializePreviewAssets(
             const key = `${part}:${match[1]}`;
             let url = urls.get(key);
             if (url === undefined) {
-                const binary = atob(packed.assets[part]);
-                const bytes = new Uint8Array(binary.length);
-                for (let index = 0; index < binary.length; index++)
-                    bytes[index] = binary.charCodeAt(index);
-                const blob = new Blob([bytes], { type: match[1] });
-                url = createObjectUrl(blob);
+                if (options.acquireAsset) {
+                    const asset = options.acquireAsset(
+                        packed.assets[part],
+                        match[1],
+                    );
+                    url = asset.url;
+                    releases.push(asset.release);
+                } else {
+                    const binary = atob(packed.assets[part]);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let index = 0; index < binary.length; index++)
+                        bytes[index] = binary.charCodeAt(index);
+                    const blob = new Blob([bytes], { type: match[1] });
+                    url = createObjectUrl(blob);
+                    created.push(url);
+                }
                 urls.set(key, url);
-                created.push(url);
             }
             output.push(url);
         }
     } catch (error) {
         for (const url of created) revokeObjectUrl(url);
+        for (const release of releases) release();
         throw error;
     }
     let disposed = false;
@@ -308,6 +362,7 @@ export function materializePreviewAssets(
             if (disposed) return;
             disposed = true;
             for (const url of created) revokeObjectUrl(url);
+            for (const release of releases) release();
         },
     };
 }

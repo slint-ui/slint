@@ -107,14 +107,18 @@ export function observeComponentDependencies(
 const svgExportSettings = {
     format: "SVG_STRING",
     contentsOnly: true,
-    useAbsoluteBounds: false,
+    useAbsoluteBounds: true,
     svgOutlineText: true,
     svgIdAttribute: false,
     svgSimplifyStroke: false,
     colorProfile: "SRGB",
 } as const;
 
-const exportSvg: SvgExporter = (node) => node.exportAsync(svgExportSettings);
+const exportSvg: SvgExporter = (node) =>
+    node.exportAsync({
+        ...svgExportSettings,
+        useAbsoluteBounds: overflowingPaintBounds(node) === undefined,
+    });
 
 const pngExportSettings = {
     format: "PNG",
@@ -579,6 +583,7 @@ export async function captureSource(
         ancestors = "",
         cacheableContext = true,
         requiredByAncestor = false,
+        svgContextSafe = true,
     ): Promise<SourceNode<Bytes>> {
         const raw = node as unknown as Record<string, unknown>;
         const requiredByProperty =
@@ -881,6 +886,72 @@ export async function captureSource(
                         };
                         return;
                     }
+                    const vectorSvg =
+                        node.type === "VECTOR" &&
+                        !("children" in node) &&
+                        rasterContextSafe &&
+                        svgContextSafe &&
+                        Array.isArray(contextProperties.effects) &&
+                        contextProperties.effects.length === 0 &&
+                        [
+                            contextProperties.fills,
+                            contextProperties.strokes,
+                        ].every(
+                            (paints) =>
+                                Array.isArray(paints) &&
+                                paints.every(
+                                    (paint: {
+                                        type?: string;
+                                        blendMode?: string;
+                                    }) =>
+                                        [
+                                            "SOLID",
+                                            "GRADIENT_LINEAR",
+                                            "GRADIENT_RADIAL",
+                                        ].includes(paint.type ?? "") &&
+                                        (paint.blendMode === undefined ||
+                                            paint.blendMode === "NORMAL"),
+                                ),
+                        );
+                    if (vectorSvg) {
+                        const svg = await attempt(async () => {
+                            const load = async () => {
+                                const value = (
+                                    await scheduledSvg(
+                                        node as Parameters<SvgExporter>[0],
+                                    )
+                                ).trim();
+                                if (
+                                    !(
+                                        /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(
+                                            value,
+                                        ) ||
+                                        /^<svg(?:\s[^>]*)?\/>$/iu.test(value)
+                                    )
+                                )
+                                    throw Error(
+                                        "SVG export did not return a valid SVG document",
+                                    );
+                                return value;
+                            };
+                            return cache && rasterKey
+                                ? cache.get(
+                                      `svg:${rasterKey}`,
+                                      load,
+                                      (value) => value.length * 2,
+                                  )
+                                : load();
+                        });
+                        if (svg.value !== undefined) {
+                            result.exports = {
+                                svg,
+                                pngOmitted: "svg",
+                            };
+                            const bounds = overflowingPaintBounds(node);
+                            if (bounds) result.exports.svgBounds = bounds;
+                            return;
+                        }
+                    }
                     const raster = await readPng();
                     result.exports = {
                         svg: {},
@@ -964,6 +1035,10 @@ export async function captureSource(
                         childAncestors,
                         rasterContextSafe,
                         requiredByProperty,
+                        svgContextSafe &&
+                            (contextProperties.effects === undefined ||
+                                (Array.isArray(contextProperties.effects) &&
+                                    contextProperties.effects.length === 0)),
                     ),
                 cancelled,
             );

@@ -220,6 +220,7 @@ type SnapshotSvgNode = SnapshotGeometry &
         readonly sourceType: string;
         /** SVG provenance when Figma's SVG exporter accepts the node. */
         readonly svg?: string;
+        readonly svgBounds?: VisualBounds;
         /** Figma's raster export, retained with its density and bounds. */
         readonly raster?: SnapshotRaster;
     };
@@ -1112,6 +1113,16 @@ function validateNode(value: unknown, path: string): Diagnostic[] {
         }
         if (value.raster !== undefined)
             errors.push(...validateRaster(value.raster, `${path}.raster`));
+        if (
+            value.svgBounds !== undefined &&
+            !validVisualBounds(value.svgBounds)
+        )
+            errors.push(
+                diagnostic(
+                    "SVG paint bounds must be finite with positive dimensions",
+                    `${path}.svgBounds`,
+                ),
+            );
         if (value.svg === undefined && value.raster === undefined)
             errors.push(
                 diagnostic(

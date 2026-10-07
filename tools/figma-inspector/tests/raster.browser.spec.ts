@@ -45,6 +45,38 @@ test("radial panel gradients preserve elliptical placement and opaque child rows
     }
 });
 
+test("SVG paint bounds preserve overflow and layout placement", async () => {
+    const normalized = await normalizeSource(
+        JSON.parse(await readFixture("fixtures/source/svg-paint-bounds.json")),
+    );
+    if (!normalized.ok || normalized.empty) throw Error("Invalid SVG fixture");
+    const p = await mountPreview();
+    for (const specialize of [false, true]) {
+        const converted = convertSnapshot(normalized.snapshot, { specialize });
+        if (!converted.ok) throw Error(JSON.stringify(converted.diagnostics));
+        const revision = specialize ? 2 : 1;
+        p.send({
+            type: "preview-source",
+            revision,
+            source: converted.source,
+            exportPackage: { source: converted.source, files: [] },
+        });
+        await p.ready(revision);
+        const pixels = await canvasPixels(p);
+        const scale = pixels.width / 80;
+        const pixel = (x: number, y: number) => {
+            const offset =
+                (Math.floor(y * scale) * pixels.width + Math.floor(x * scale)) *
+                4;
+            return Array.from(pixels.data.slice(offset, offset + 4));
+        };
+        expect(pixel(16, 18)).toEqual([255, 0, 0, 255]);
+        expect(pixel(24, 24)).toEqual([0, 0, 255, 255]);
+        expect(pixel(48, 39)).toEqual([255, 0, 0, 255]);
+        expect(pixel(14, 18)).toEqual([255, 255, 255, 255]);
+    }
+});
+
 for (const name of ["asymmetric", "stroke", "mask-shadow"])
     test(`${name} matches independent authored Figma pixels`, async () => {
         const p = await mountPreview();

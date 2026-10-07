@@ -20,10 +20,7 @@ import {
     type PreviewTrigger,
     isPluginToUiMessage,
 } from "../protocol";
-import {
-    materializePreviewAssets,
-    packPreviewAssets,
-} from "../asset-transport";
+import { createPreviewAssetPool, packPreviewAssets } from "../asset-transport";
 import { PreviewController } from "../preview/controller";
 import { mountWorkspace, mountDialogFrame } from "./workspace";
 import { SourcePanelController } from "./source-panel";
@@ -67,6 +64,7 @@ if (
     throw new Error("Preview UI is missing required elements");
 }
 
+const materializeSharedPreviewAssets = createPreviewAssetPool();
 const selectionElement = selection;
 const sourceViewElement = sourceView;
 const timingTotalElement = timingTotal;
@@ -538,7 +536,9 @@ function acceptSource(
     const expandedValidation = exportValidationSource(exportPackage);
     const validation =
         expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
-            ? materializePreviewAssets(packPreviewAssets(expandedValidation))
+            ? materializeSharedPreviewAssets(
+                  packPreviewAssets(expandedValidation),
+              )
             : undefined;
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
@@ -792,7 +792,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 const decoded =
                     typeof message.source === "string"
                         ? { source: message.source, dispose: undefined }
-                        : materializePreviewAssets(message.source);
+                        : materializeSharedPreviewAssets(message.source);
                 if (decoded.dispose)
                     previewAssetDisposers.set(
                         message.revision,

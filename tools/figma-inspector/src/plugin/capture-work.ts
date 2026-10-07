@@ -54,6 +54,11 @@ export class CaptureCache {
         this.pending.clear();
         this.retained = 0;
     }
+    // Timed-out host calls cannot be aborted and may never settle. A fallback
+    // can reuse completed values without waiting for abandoned promises.
+    public discardPending(): void {
+        this.pending.clear();
+    }
     public async get<T>(
         key: string,
         load: () => Promise<T>,
