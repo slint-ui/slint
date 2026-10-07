@@ -306,7 +306,7 @@ window.addEventListener("message", (event) => {
   }
   if (message.method === "ui/notifications/host-context-changed") applyHostContext(message.params);
   if (message.method === "ui/notifications/tool-input") setSource(message.params?.arguments);
-  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, captureToken: message.params?._meta?.captureToken });
+  if (message.method === "ui/notifications/tool-result") setSource({ ...message.params?.structuredContent, ...message.params?._meta?.preview, captureToken: message.params?._meta?.captureToken });
 });
 if (window.parent !== window) {
   window.parent.postMessage({
@@ -314,7 +314,10 @@ if (window.parent !== window) {
     params: { protocolVersion: "2026-01-26", appInfo: { name: "slint-inline", version: buildInfo.version }, appCapabilities: {} },
   }, "*");
 }
-setSource(window.openai?.toolOutput ?? window.openai?.toolInput);
+const legacyMetadata = window.openai?.toolResponseMetadata;
+const legacyResult = legacyMetadata?.mcp_tool_result ?? legacyMetadata?.call_tool_result;
+const legacyUi = legacyResult?._meta ?? legacyMetadata;
+setSource({ ...window.openai?.toolOutput, ...legacyUi?.preview, captureToken: legacyUi?.captureToken });
 try {
   if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
   await bridgeReady;

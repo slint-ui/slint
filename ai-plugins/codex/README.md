@@ -97,3 +97,10 @@ This does not capture later user interactions.
 Captures exclude host controls and CSS zoom.
 The cache retains 32 submissions with a maximum PNG size of 4 MiB and dimensions of 4096 pixels.
 Captures are private local files and survive MCP server restarts.
+
+## Model and preview payloads
+
+Render results give the model submission status, canonical paths, canvas dimensions, and preview, source, project, and runtime identity.
+The complete source and dependency resource manifest are delivered to the preview in tool-result `_meta.preview`.
+Preview and Code views use that metadata; agents read canonical source files when editing.
+The screenshot tool still returns model-visible image content for visual verification.

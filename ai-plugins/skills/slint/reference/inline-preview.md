@@ -21,6 +21,9 @@ Save, validate, and render in one execution:
    `error` means Slint diagnostics; `failure` means a validator or setup problem.
 3. Call `render_slint` with that path, revision, matching `validatedProjectHash`, and logical canvas dimensions.
    Use the canonical `projectRoot` returned by validation.
+
+When reporting a render result from code-mode, output only its `structuredContent`.
+The host delivers `_meta` directly to the preview; do not print its source and resource manifest into the chat.
 After the render execution returns, call `get_preview_screenshot` in a separate execution with the returned `previewId`, revision, and source hash.
 This gives the host an opportunity to open the preview before verification.
 Inspect the image before claiming visual verification.
