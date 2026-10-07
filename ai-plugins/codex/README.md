@@ -85,3 +85,15 @@ The preview surface is transparent and follows the host's colour scheme.
 Use the hamburger menu to switch between Preview and Code.
 Keyboard zoom remains available; edits happen through the saved Slint source in chat.
 Third-party notices are in `THIRD_PARTY_NOTICES.txt`.
+
+## Preview screenshots
+
+Codex can call `get_preview_screenshot` after rendering to inspect the actual inline Slint pixels.
+Pass the `previewId`, revision, and source hash returned by `render_slint`.
+The tool returns a PNG image content block when ready, or a pending, unavailable, or error status.
+It rejects source identity mismatches.
+The preview captures once after drawing a source revision and publishes through an app-only tool.
+This does not capture later user interactions.
+Captures exclude host controls and CSS zoom.
+The cache retains 32 submissions with a maximum PNG size of 4 MiB and dimensions of 4096 pixels.
+Captures are private local files and survive MCP server restarts.

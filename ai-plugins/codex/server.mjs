@@ -9,6 +9,7 @@ import { dirname, join, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createCaptureStore } from "./captures.mjs";
 import { loadRuntime } from "./runtime-assets.mjs";
 import { captureProject, snapshotProject, readProjectResource } from "./project.mjs";
 
@@ -36,6 +37,7 @@ if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HT
 const icon = builtRuntime?.icon ?? await readFile(join(root, "../icon.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
+const captures = createCaptureStore();
 const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };
 const sourceSchema = {
   type: "object",
@@ -53,12 +55,12 @@ const sourceSchema = {
 const renderOutputSchema = {
   type: "object",
   properties: {
-    source: { type: "string" }, revision: { type: "integer" },
+    previewId: { type: "string" }, source: { type: "string" }, revision: { type: "integer" },
     width: { type: "integer" }, height: { type: "integer" },
     sourceHash: { type: "string" }, runtimeVersion: { type: "string" }, runtimeRevision: { type: "string" },
     sourcePath: { type: "string" }, projectRoot: { type: "string" }, project: { type: "object" },
   },
-  required: ["source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot", "project"],
+  required: ["previewId", "source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot", "project"],
   additionalProperties: false,
 };
 const tools = [
@@ -71,11 +73,24 @@ const tools = [
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Provide path plus validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted. Call get_preview_screenshot with the returned previewId, revision, and sourceHash and inspect its image before claiming visual verification. A screenshot captures the source render, not later user interactions. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: presentation,
+  },
+  {
+    name: "get_preview_screenshot", title: "Get Slint Preview Screenshot", icons,
+    description: "Get the PNG captured from the inline Slint canvas for a submitted source revision. Use previewId, revision, and sourceHash from render_slint. Inspect the returned image to verify appearance before finishing UI work. A ready render is not visual verification. If status is pending, wait briefly and retry without rendering again; if unavailable or error, report that visual verification was unavailable. The capture shows the source render, not later interactions.",
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string", pattern: "^[a-f0-9]{64}$" } }, required: ["previewId", "revision", "sourceHash"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  },
+  {
+    name: "publish_preview_capture", title: "Publish Slint Preview Capture",
+    description: "Publish a canvas capture or capture failure from the Slint preview app.",
+    inputSchema: { type: "object", properties: { previewId: { type: "string" }, captureToken: { type: "string" }, revision: { type: "integer", minimum: 1 }, sourceHash: { type: "string" }, data: { type: "string", maxLength: 5592408 }, capturedAt: { type: "integer", minimum: 1 }, error: { type: "string", maxLength: 1024 } }, required: ["previewId", "captureToken", "revision", "sourceHash"], additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    _meta: { ui: { visibility: ["app"] } },
   },
 ];
 
@@ -87,7 +102,9 @@ async function render(args) {
   if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
   const structuredContent = { source, revision, width, height, sourceHash: createHash("sha256").update(source).digest("hex"), runtimeVersion, runtimeRevision: runtimeMetadata.revision };
   Object.assign(structuredContent, { sourcePath: project.sourcePath, projectRoot: project.projectRoot, project });
-  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: presentation };
+  const capture = await captures.create({ revision, sourceHash: structuredContent.sourceHash, projectHash: project.id, runtimeRevision: runtimeMetadata.revision });
+  structuredContent.previewId = capture.previewId;
+  return { structuredContent, content: [{ type: "text", text: "Slint preview submitted." }], _meta: { ...presentation, captureToken: capture.captureToken } };
 }
 
 async function handle(message) {
@@ -115,6 +132,14 @@ async function handle(message) {
       const args = message.params?.arguments ?? {};
       try {
         if (!runtimeMetadata) throw new Error("Build the Codex runtime in the Slint monorepo or install a platform package to enable preview tools.");
+        if (message.params?.name === "publish_preview_capture") {
+          const structuredContent = await captures.publish(args);
+          return { structuredContent, content: [{ type: "text", text: "Slint capture result stored." }] };
+        }
+        if (message.params?.name === "get_preview_screenshot") {
+          const { data, ...structuredContent } = await captures.get(args);
+          return { structuredContent, content: data ? [{ type: "image", mimeType: "image/png", data }] : [{ type: "text", text: structuredContent.message ?? "Slint capture pending. Wait briefly and retry." }] };
+        }
         if (message.params?.name === "render_slint") return await render(args);
         if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");
         if (typeof args.path !== "string" || !isAbsolute(args.path) || !Number.isSafeInteger(args.revision) || args.revision < 1) throw new Error("Provide an absolute source path and positive revision.");

@@ -24,7 +24,7 @@ try {
     await copyFile(join(sharedRoot, file), join(plugin, file));
   }
   await cp(join(sharedRoot, "skills"), join(plugin, "skills"), { recursive: true });
-  const files = ["package.json", "mcp.json", "server.mjs", "project.mjs", "runtime-assets.mjs", "runtime/slint.svg", "components/slint-button.slint", "examples/button.slint", "scripts/check-source.py", "THIRD_PARTY_NOTICES.txt", "runtime/runtime.json", "runtime/preview.html", `runtime/${executable}`, "runtime/wasm/slint_wasm_interpreter_bg.wasm"];
+  const files = ["package.json", "mcp.json", "server.mjs", "captures.mjs", "project.mjs", "runtime-assets.mjs", "runtime/slint.svg", "components/slint-button.slint", "examples/button.slint", "scripts/check-source.py", "THIRD_PARTY_NOTICES.txt", "runtime/runtime.json", "runtime/preview.html", `runtime/${executable}`, "runtime/wasm/slint_wasm_interpreter_bg.wasm"];
   for (const file of files) {
     await mkdir(dirname(join(plugin, "codex", file)), { recursive: true });
     await copyFile(join(root, file), join(plugin, "codex", file));
