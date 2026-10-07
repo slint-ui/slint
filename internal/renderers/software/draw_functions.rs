@@ -472,6 +472,9 @@ pub(super) fn draw_rounded_rectangle_line(
         let r = Shifted::new(r);
         let y = r - Shifted::new(y);
         let (x1, x2) = arc_crossing(r, r, y);
+        if border == Shifted::ZERO {
+            return (x1, x2, x1, x2);
+        }
         let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
         (x1, x2, x3, x4)
     };
