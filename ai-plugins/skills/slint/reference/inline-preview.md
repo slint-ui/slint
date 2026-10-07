@@ -64,3 +64,9 @@ Check the image's source identity before reviewing layout, text, colors, and cli
 A ready render acknowledgement confirms compilation and display, not appearance.
 If the screenshot tool reports an error or an expired capture, say that visual verification was unavailable.
 Do not use an image from another revision as evidence for the current edit.
+
+## Opened files
+
+Opening a `.slint` file through the host file entrypoint shows the current host buffer and follows its resource updates.
+When model context reports `sourceState: unsaved`, preserve that buffer and reconcile it with the saved file before applying source edits.
+The viewer does not write the opened file.

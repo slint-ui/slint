@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import base64
 import hashlib
 import json
 import os
@@ -154,9 +155,12 @@ async def main(args):
     client = LspClient(binary)
     try:
         await client.start()
-        result = await client.check(
-            args.path, Path(args.path).read_bytes().decode("utf-8"), args.revision
+        source = (
+            base64.b64decode(args.source_base64, validate=True).decode("utf-8")
+            if args.source_base64 is not None
+            else Path(args.path).read_bytes().decode("utf-8")
         )
+        result = await client.check(args.path, source, args.revision)
         print(json.dumps(result), flush=True)
         return int(result["status"] == "error")
     finally:
@@ -169,6 +173,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("path")
     parser.add_argument("--revision", type=int, default=1)
+    parser.add_argument("--source-base64")
     try:
         sys.exit(asyncio.run(main(parser.parse_args())))
     except Exception as error:

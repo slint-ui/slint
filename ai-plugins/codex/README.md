@@ -107,3 +107,11 @@ Render results give the model submission status, canonical paths, canvas dimensi
 The complete source and dependency resource manifest are delivered to the preview in tool-result `_meta.preview`.
 Preview and Code views use that metadata; agents read canonical source files when editing.
 The screenshot tool still returns model-visible image content for visual verification.
+
+## Slint file viewer
+
+The file entrypoint opens `.slint` host resources in the Slint view.
+It uses the path granted by the host to resolve project dependencies and validates the current buffer with the native LSP.
+File-resource subscriptions reload the preview when the host reports a change.
+Unsaved entry contents are rendered without overwriting the saved file; imported files are read from disk.
+Hosts must support file entrypoints, path grants, and resource subscriptions for this workflow.
