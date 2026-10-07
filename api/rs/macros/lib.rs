@@ -436,8 +436,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     }
 
     //println!("{syntax_node:#?}");
-    let (root_component, diag, loader) =
+    let (root_component, mut diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);

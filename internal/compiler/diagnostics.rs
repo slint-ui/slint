@@ -235,6 +235,8 @@ pub enum DiagnosticLevel {
     Error,
     /// The diagnostic found is a warning.
     Warning,
+    /// The diagnostic is a suggestion that doesn't affect the compilation.
+    Info,
     /// The diagnostic is an note to further help with the error or warning
     Note,
 }
@@ -418,6 +420,12 @@ impl BuildDiagnostics {
     pub fn push_warning(&mut self, message: String, source: &dyn Spanned) {
         self.push_warning_with_span(message, source.to_source_location());
     }
+    pub fn push_info_with_span(&mut self, message: String, span: SourceLocation) {
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Info)
+    }
+    pub fn push_info(&mut self, message: String, source: &dyn Spanned) {
+        self.push_info_with_span(message, source.to_source_location());
+    }
     pub fn push_note_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Note)
     }
@@ -493,6 +501,11 @@ impl BuildDiagnostics {
         self.inner.is_empty()
     }
 
+    /// Drop the info diagnostics, for outputs that can only show them as warnings.
+    pub fn remove_infos(&mut self) {
+        self.inner.retain(|d| d.level != DiagnosticLevel::Info);
+    }
+
     #[cfg(feature = "display-diagnostics")]
     fn call_diagnostics(
         &self,
@@ -509,6 +522,7 @@ impl BuildDiagnostics {
                 let annotate_snippets_level = match d.level {
                     DiagnosticLevel::Error => annotate_snippets::Level::ERROR,
                     DiagnosticLevel::Warning => annotate_snippets::Level::WARNING,
+                    DiagnosticLevel::Info => annotate_snippets::Level::INFO,
                     DiagnosticLevel::Note => annotate_snippets::Level::NOTE,
                 };
                 let message = annotate_snippets_level.primary_title(d.message());
@@ -610,6 +624,7 @@ impl BuildDiagnostics {
                             quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const NOTE: () = (); NOTE };)
                         ));
                     },
+                    DiagnosticLevel::Info => {}
                 }
             }),
         );

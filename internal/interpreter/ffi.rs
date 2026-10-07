@@ -746,6 +746,8 @@ pub enum DiagnosticLevel {
     Error,
     /// The diagnostic belongs to a warning.
     Warning,
+    /// The diagnostic is a suggestion that doesn't affect the compilation.
+    Info,
     /// The diagnostic is a note
     Note,
 }
@@ -869,6 +871,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
             level: match diagnostic.level() {
                 i_slint_compiler::diagnostics::DiagnosticLevel::Error => DiagnosticLevel::Error,
                 i_slint_compiler::diagnostics::DiagnosticLevel::Warning => DiagnosticLevel::Warning,
+                i_slint_compiler::diagnostics::DiagnosticLevel::Info => DiagnosticLevel::Info,
                 i_slint_compiler::diagnostics::DiagnosticLevel::Note => DiagnosticLevel::Note,
                 _ => DiagnosticLevel::Warning,
             },

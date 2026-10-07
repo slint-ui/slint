@@ -339,6 +339,8 @@ def _load_file(
             for diag in diagnostics:
                 if diag.level == native.DiagnosticLevel.Warning:
                     _logger.warning(diag)
+                if diag.level == native.DiagnosticLevel.Info:
+                    _logger.info(diag)
                 if diag.level == native.DiagnosticLevel.Note:
                     _logger.debug(diag)
 
