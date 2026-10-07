@@ -132,17 +132,11 @@ impl FlickAnimation {
         carry_momentum: AutoBool,
     ) -> f32 {
         let cm = match carry_momentum {
-            AutoBool::Auto => {
-                #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
-                {
-                    true
-                }
-                // On Android this momentum carry does not exist
-                #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
-                {
-                    false
-                }
-            }
+            #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
+            AutoBool::Auto => true,
+            // On Android this momentum carry does not exist
+            #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
+            AutoBool::Auto => false,
             AutoBool::On => true,
             AutoBool::Off => false,
         };
