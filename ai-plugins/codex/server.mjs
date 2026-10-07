@@ -9,7 +9,7 @@ import { dirname, join, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { snapshotProject, readProjectResource } from "./project.mjs";
+import { captureProject, snapshotProject, readProjectResource } from "./project.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
@@ -46,12 +46,13 @@ const sourceSchema = {
     path: { type: "string", description: "Absolute saved .slint source path. Prefer this to duplicating the source string." },
     projectRoot: { type: "string", description: "Absolute root containing relative imports and assets. Defaults to the source directory." },
     validatedSourceHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The sourceHash returned by validate_slint. Rendering fails if the saved file has changed." },
+    validatedProjectHash: { type: "string", pattern: "^[a-f0-9]{64}$", description: "The projectHash returned by validate_slint, covering the entry, dependencies, assets, and runtime revision." },
     revision: { type: "integer", minimum: 1 },
     width: { type: "integer", minimum: 64, maximum: 2048, default: 320 },
     height: { type: "integer", minimum: 64, maximum: 2048, default: 160 },
   },
   required: ["revision"],
-  oneOf: [{ required: ["source"] }, { required: ["path"] }],
+  oneOf: [{ required: ["source"] }, { required: ["path", "validatedSourceHash", "validatedProjectHash"] }],
   additionalProperties: false,
 };
 const renderOutputSchema = {
@@ -68,14 +69,14 @@ const renderOutputSchema = {
 const tools = [
   {
     name: "validate_slint", title: "Validate Slint Source", icons,
-    description: "Validate a saved Slint file with the bundled language server. Success is structuredContent.status === 'valid'. Status is 'error' for Slint errors or 'failure' for validator/setup errors; never check for 'ok'. Return diagnostics, source hash, and revision. The bundled Button import is resolved automatically. Provide an absolute source path. No environment discovery is needed. Save, validate, and render in one code-mode execution, rendering only after status 'valid'.",
-    inputSchema: { type: "object", properties: { path: { type: "string" }, revision: { type: "integer", minimum: 1 } }, required: ["path", "revision"], additionalProperties: false },
-    outputSchema: { type: "object", properties: { status: { type: "string", enum: ["valid", "error", "failure"], description: "valid means no error diagnostics; error means Slint errors; failure means a validator or setup error." }, diagnostics: { type: "array" }, sourceHash: { type: "string" }, revision: { type: "integer" }, runtimeVersion: { type: "string" }, message: { type: "string" } }, required: ["status"] },
+    description: "Validate a saved Slint file with the bundled language server. Success is structuredContent.status === 'valid'. Status is 'error' for Slint errors or 'failure' for validator/setup errors; never check for 'ok'. Return diagnostics, source hash, and revision. The bundled Button import is resolved automatically. Provide an absolute source path and projectRoot for dependencies outside its directory. No environment discovery is needed. Save, validate, and render in one code-mode execution, rendering only after status 'valid'.",
+    inputSchema: { type: "object", properties: { path: { type: "string" }, projectRoot: { type: "string" }, revision: { type: "integer", minimum: 1 } }, required: ["path", "revision"], additionalProperties: false },
+    outputSchema: { type: "object", properties: { status: { type: "string", enum: ["valid", "error", "failure"], description: "valid means no error diagnostics; error means Slint errors; failure means a validator or setup error." }, diagnostics: { type: "array" }, sourceHash: { type: "string" }, projectHash: { type: "string" }, projectRoot: { type: "string" }, revision: { type: "integer" }, runtimeVersion: { type: "string" }, message: { type: "string" } }, required: ["status"] },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   },
   {
     name: "render_slint", title: "Render Slint Source", icons,
-    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash from validate_slint; the server checks the saved bytes. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
+    description: "Preview saved Slint source using the matching Wasm interpreter. Prefer path plus validatedSourceHash and validatedProjectHash from validate_slint; the server checks the saved project. Use projectRoot for relative component imports, images, and fonts. For simple Buttons, reuse the starter and change only requested properties; preserve centering and state defaults. Save, validate, check status 'valid', and render in one execution. For follow-up edits, use sourcePath, revision, and sourceHash in the preview model context, preserving the same file. A response means submitted; model-context state 'ready' acknowledges display, while 'error' contains frontend diagnostics. Starter:\n" + example,
     inputSchema: sourceSchema,
     outputSchema: renderOutputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -98,9 +99,10 @@ async function render(args) {
   let project;
   if (args.path) {
     if (source !== undefined) throw new Error("Choose either a saved path or source text.");
-    const snapshot = await snapshotProject(args.path, args.projectRoot, component, args.validatedSourceHash);
+    if (!args.validatedSourceHash || !args.validatedProjectHash) throw new Error("Validate the saved project and provide both validation hashes before rendering.");
+    const snapshot = await snapshotProject(args.path, args.projectRoot, component, args.validatedSourceHash, args.validatedProjectHash, runtimeMetadata.revision);
     ({ source, ...project } = snapshot);
-  } else if (args.projectRoot || args.validatedSourceHash) {
+  } else if (args.projectRoot || args.validatedSourceHash || args.validatedProjectHash) {
     throw new Error("A saved source path is required for projectRoot or validatedSourceHash.");
   }
   if (typeof source !== "string" || !source.length || Buffer.byteLength(source) > 65536) throw new Error("Provide non-empty Slint source of at most 64 KiB.");
@@ -140,8 +142,20 @@ async function handle(message) {
         if (message.params?.name === "render_slint") return await render(args);
         if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");
         if (typeof args.path !== "string" || !isAbsolute(args.path) || !Number.isSafeInteger(args.revision) || args.revision < 1) throw new Error("Provide an absolute source path and positive revision.");
+        let captured;
+        let captureError;
+        try { captured = await captureProject(args.path, args.projectRoot, component, runtimeMetadata.revision); }
+        catch (error) { captureError = error; }
         const { stdout } = await run(process.env.SLINT_PYTHON_BIN || "python3", [join(root, "scripts/check-source.py"), args.path, "--revision", String(args.revision)], { timeout: 45000, maxBuffer: 1024 * 1024, windowsHide: true });
         const result = JSON.parse(stdout);
+        if (result.status === "valid") {
+          if (captureError) throw captureError;
+          const after = await captureProject(args.path, args.projectRoot, component, runtimeMetadata.revision);
+          if (captured.id !== after.id || result.sourceHash !== captured.snapshot.files[captured.snapshot.entry].hash) throw new Error("The project changed during validation. Validate it again.");
+          if (result.runtimeRevision !== runtimeMetadata.revision) throw new Error("The validator runtime changed. Refresh the Slint plugin.");
+          result.projectHash = captured.id;
+          result.projectRoot = captured.snapshot.projectRoot;
+        }
         return { structuredContent: result, content: [{ type: "text", text: stdout.trim() }] };
       } catch (error) {
         const output = error.stdout?.trim() || error.stderr?.trim() || error.message;

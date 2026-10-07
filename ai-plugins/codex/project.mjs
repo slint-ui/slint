@@ -27,7 +27,7 @@ function references(source) {
   return paths;
 }
 
-export async function snapshotProject(path, projectRoot, buttonSource, validatedSourceHash) {
+export async function captureProject(path, projectRoot, buttonSource, runtimeRevision) {
   if (!isAbsolute(path) || (projectRoot && !isAbsolute(projectRoot))) throw new Error("Source path and project root must be absolute.");
   const sourcePath = await realpath(path);
   const root = await realpath(projectRoot || dirname(sourcePath));
@@ -67,9 +67,15 @@ export async function snapshotProject(path, projectRoot, buttonSource, validated
   }
   await visit(sourcePath);
   const entry = keyFor(sourcePath);
-  if (validatedSourceHash !== undefined && files[entry].hash !== validatedSourceHash) throw new Error("The saved source changed after validation. Validate it again before rendering.");
   const snapshot = { sourcePath, projectRoot: root, entry, files };
-  const id = hash(JSON.stringify(snapshot));
+  if (runtimeRevision) snapshot.runtimeRevision = runtimeRevision;
+  return { id: hash(JSON.stringify(snapshot)), snapshot };
+}
+
+export async function snapshotProject(path, projectRoot, buttonSource, validatedSourceHash, validatedProjectHash, runtimeRevision) {
+  const { id, snapshot } = await captureProject(path, projectRoot, buttonSource, runtimeRevision);
+  if (validatedSourceHash !== undefined && snapshot.files[snapshot.entry].hash !== validatedSourceHash) throw new Error("The saved source changed after validation. Validate it again before rendering.");
+  if (validatedProjectHash !== undefined && id !== validatedProjectHash) throw new Error("The project changed after validation. Validate it again before rendering.");
   await mkdir(cache, { recursive: true, mode: 0o700 });
   const cacheInfo = await lstat(cache);
   if (!cacheInfo.isDirectory() || cacheInfo.isSymbolicLink()) throw new Error("Invalid project snapshot cache directory.");
