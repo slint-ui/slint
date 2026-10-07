@@ -26,6 +26,8 @@ The preview template and JavaScript modules are bundled with esbuild into `runti
 Syntax highlighting uses the Figma inspector themes and the shared Slint grammar.
 Run `pnpm --filter slint.codex.plugin build` to rebuild the preview without rebuilding Slint.
 The repository logo is symlinked; the build resolves it into `runtime/slint.svg` for installation and ZIP packaging.
+Runtime builds are staged and replace the previous runtime only after all assets are ready.
+Missing or incomplete runtimes expose no preview tools and do not prevent server startup.
 Generated binaries and their source revision are stored in the ignored `runtime/` directory.
 The preview reads generated JavaScript and compressed Wasm through the host's MCP resource bridge.
 The HTML stays below 1 MiB, and each Wasm resource holds at most 256 KiB of compressed bytes.

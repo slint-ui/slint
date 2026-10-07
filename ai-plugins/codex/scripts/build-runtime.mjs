@@ -3,27 +3,29 @@
 
 import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile, mkdir, copyFile, chmod } from "node:fs/promises";
+import { readFile, writeFile, mkdtemp, rm, copyFile, chmod } from "node:fs/promises";
+import { publishRuntime } from "../runtime-assets.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const pluginRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repository = dirname(dirname(pluginRoot));
-const runtime = join(pluginRoot, "runtime");
+const destination = join(pluginRoot, "runtime");
 const target = process.env.CARGO_TARGET_DIR || join(repository, "target");
 const revision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
 const trackedChanges = execFileSync("git", ["diff", "HEAD", "--", "Cargo.toml", "Cargo.lock", "api", "internal", "tools/lsp"], { cwd: repository, encoding: "utf8" });
 if (trackedChanges) throw new Error("Commit Slint runtime source changes before building the plugin runtime.");
 
-async function run(command, args, cwd = repository) {
+async function run(command, args, cwd = repository, extra = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: "inherit", env: { ...process.env, CARGO_TARGET_DIR: target } });
+    const child = spawn(command, args, { cwd, stdio: "inherit", env: { ...process.env, CARGO_TARGET_DIR: target, ...extra } });
     child.on("error", reject);
     child.on("exit", code => code === 0 ? resolve() : reject(new Error(`${command} exited with ${code}`)));
   });
 }
 
-await mkdir(runtime, { recursive: true });
+const runtime = await mkdtemp(join(pluginRoot, ".runtime-build-"));
+try {
 await run("cargo", ["build", "--locked", "-p", "slint-lsp", "--bin", "slint-lsp", "--no-default-features", "--features", "backend-winit,renderer-software"]);
 await run("wasm-pack", ["build", "--release", "--target", "web", "--no-opt", "--out-dir", join(runtime, "wasm"), "--", "--locked", "--features", "console_error_panic_hook"], join(repository, "api/wasm-interpreter"));
 const executable = process.platform === "win32" ? "slint-lsp.exe" : "slint-lsp";
@@ -36,5 +38,7 @@ if (lspVersion !== `slint-lsp ${wasmPackage.version}`) throw new Error("LSP and 
 const currentRevision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" }).trim();
 if (currentRevision !== revision) throw new Error("Repository revision changed during the build. Rebuild the runtime.");
 await writeFile(join(runtime, "runtime.json"), JSON.stringify({ version: wasmPackage.version, revision, platform: process.platform, architecture: process.arch }, null, 2) + "\n");
-await run(process.execPath, [join(pluginRoot, "scripts/build-preview.mjs")]);
+await run(process.execPath, [join(pluginRoot, "scripts/build-preview.mjs")], repository, { SLINT_PLUGIN_RUNTIME_DIR: runtime });
+await publishRuntime(runtime, destination);
 console.log(`Built Slint ${wasmPackage.version} from ${revision}.`);
+} finally { await rm(runtime, { recursive: true, force: true }); }

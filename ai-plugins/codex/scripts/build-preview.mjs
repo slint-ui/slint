@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { build } from "esbuild";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const runtime = process.env.SLINT_PLUGIN_RUNTIME_DIR || join(root, "runtime");
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const bundle = await build({
   entryPoints: [join(root, "preview/main.mjs")],
@@ -22,7 +23,7 @@ const bundle = await build({
 let html = await readFile(join(root, "preview/index.html"), "utf8");
 const json = value => JSON.stringify(value).replaceAll("<", "\\u003c");
 const icon = await readFile(join(root, "assets/slint.svg"));
-await writeFile(join(root, "runtime/slint.svg"), icon);
+await writeFile(join(runtime, "slint.svg"), icon);
 const assets = {
   __SLINT_PREVIEW_SCRIPT__: bundle.outputFiles[0].text.replace(/<\/script/gi, "<\\/script"),
   __SLINT_ICON__: "data:image/svg+xml;base64," + icon.toString("base64"),
@@ -35,7 +36,8 @@ for (const [token, value] of Object.entries(assets)) {
   html = html.replace(token, () => value);
 }
 const digest = createHash("sha256").update(html);
-for (const file of ["package.json", "server.mjs", "project.mjs", "scripts/check-source.py", "runtime/runtime.json", "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(root, file)));
+for (const file of ["package.json", "server.mjs", "project.mjs", "runtime-assets.mjs", "scripts/check-source.py"]) digest.update(await readFile(join(root, file)));
+for (const file of ["runtime.json", "wasm/slint_wasm_interpreter.js", "wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(runtime, file)));
 const metadata = { version, buildId: digest.digest("hex").slice(0, 12) };
-await writeFile(join(root, "runtime/preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));
+await writeFile(join(runtime, "preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));
 console.log(JSON.stringify(metadata));
