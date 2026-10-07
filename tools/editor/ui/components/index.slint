@@ -117,7 +117,8 @@ component ResizeDivider inherits FocusScope {
     }
 
     Rectangle {
-        width: parent.width;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.splitter-size : parent.width;
         height: root.vertical ? parent.height : Style.panes.splitter-size;
         border-width: root.has-focus ? Metrics.border-width : 0px;
         border-color: Colors.focus;
