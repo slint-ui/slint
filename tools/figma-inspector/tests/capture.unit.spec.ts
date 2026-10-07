@@ -10,6 +10,7 @@ import {
     type CaptureInstrumentation,
     captureSelectionSource,
     captureSource,
+    svgExportSettings,
 } from "../src/plugin/capture";
 import { validateSnapshot } from "../src/plugin/snapshot";
 
@@ -1687,6 +1688,107 @@ test("native vector SVG exports preserve the complete node box", async () => {
         }),
     ]);
     expect(captured.source.root.exports?.pngOmitted).toBe("svg");
+});
+
+test.each([
+    {
+        absoluteTransform: [
+            [0, -1, 0],
+            [1, 0, 0],
+        ],
+    },
+    {
+        absoluteTransform: [
+            [1, 0.5, 0],
+            [0, 1, 0],
+        ],
+    },
+    {
+        absoluteTransform: [
+            [-1, 0, 0],
+            [0, 1, 0],
+        ],
+    },
+])("keeps transformed vectors on PNG: %j", async ({ absoluteTransform }) => {
+    const png = new Uint8Array(await readFile("fixtures/authored/square.png"));
+    const captured = await captureSource(
+        {
+            ...text,
+            type: "VECTOR",
+            effects: [],
+            fills: [solid(1, 0, 0)],
+            strokes: [],
+            absoluteTransform,
+        } as unknown as SceneNode,
+        Symbol("mixed"),
+        async () => '<svg width="24" height="24"/>',
+        undefined,
+        async () => png,
+    );
+    expect(captured.work).toMatchObject({ svgExports: 0, pngExports: 1 });
+    expect(captured.source.root.exports).toMatchObject({
+        svgOmitted: "png",
+        png: { value: png },
+    });
+});
+
+test("legacy SVG exports retain render bounds", () => {
+    expect(svgExportSettings).toMatchObject({
+        format: "SVG_STRING",
+        useAbsoluteBounds: false,
+    });
+});
+
+test("vector SVG cache ignores PNG scale and reads paint bounds once", async () => {
+    const cache = new CaptureCache();
+    let boundsReads = 0,
+        svgCalls = 0;
+    const node = {
+        ...text,
+        type: "VECTOR",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        absoluteTransform: [
+            [1, 0, 0],
+            [0, 1, 0],
+        ],
+        absoluteBoundingBox: { x: 0, y: 0, width: 24, height: 24 },
+        get absoluteRenderBounds() {
+            boundsReads++;
+            return { x: -2, y: -2, width: 28, height: 28 };
+        },
+        vectorPaths: [],
+        vectorNetwork: { vertices: [], segments: [] },
+    } as unknown as SceneNode;
+    for (const scale of [1, 2]) {
+        const captured = await captureSource(
+            node,
+            Symbol("mixed"),
+            async () => {
+                svgCalls++;
+                return '<svg width="28" height="28"/>';
+            },
+            undefined,
+            async () => {
+                throw Error("PNG must not run");
+            },
+            scale,
+            false,
+            undefined,
+            undefined,
+            4,
+            cache,
+        );
+        expect(captured.source.root.exports?.svgBounds).toEqual({
+            x: -2,
+            y: -2,
+            width: 28,
+            height: 28,
+        });
+    }
+    expect(svgCalls).toBe(1);
+    expect(boundsReads).toBe(2);
 });
 
 test.each(["BACKGROUND_BLUR", "LAYER_BLUR"])(

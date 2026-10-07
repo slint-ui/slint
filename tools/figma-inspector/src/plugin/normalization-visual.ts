@@ -8,6 +8,7 @@ import {
     pngDimensions,
     imageDimensions,
     utf8ToBase64,
+    validSvgDocument,
 } from "../images";
 import {
     color,
@@ -92,14 +93,6 @@ export async function exportVisual(
             : {}),
         ...(pngError === undefined ? {} : { pngError }),
     };
-}
-
-function validSvgDocument(value: string | undefined): value is string {
-    return (
-        value !== undefined &&
-        (/^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(value) ||
-            /^<svg(?:\s[^>]*)?\/>$/iu.test(value))
-    );
 }
 
 function exportFailureMessage(error: unknown, fallback: string): string {
