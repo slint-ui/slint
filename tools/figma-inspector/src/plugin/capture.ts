@@ -914,17 +914,37 @@ export async function captureSource(
                                 ),
                         );
                     if (vectorSvg) {
-                        const svg = await readSvg();
-                        const value = svg.value?.trim();
-                        if (
-                            typeof value === "string" &&
-                            (/^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(
-                                value,
-                            ) ||
-                                /^<svg(?:\s[^>]*)?\/>$/iu.test(value))
-                        ) {
+                        const svg = await attempt(async () => {
+                            const load = async () => {
+                                const value = (
+                                    await scheduledSvg(
+                                        node as Parameters<SvgExporter>[0],
+                                    )
+                                ).trim();
+                                if (
+                                    !(
+                                        /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(
+                                            value,
+                                        ) ||
+                                        /^<svg(?:\s[^>]*)?\/>$/iu.test(value)
+                                    )
+                                )
+                                    throw Error(
+                                        "SVG export did not return a valid SVG document",
+                                    );
+                                return value;
+                            };
+                            return cache && rasterKey
+                                ? cache.get(
+                                      `svg:${rasterKey}`,
+                                      load,
+                                      (value) => value.length * 2,
+                                  )
+                                : load();
+                        });
+                        if (svg.value !== undefined) {
                             result.exports = {
-                                svg: { value },
+                                svg,
                                 pngOmitted: "svg",
                             };
                             const bounds = overflowingPaintBounds(node);

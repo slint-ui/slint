@@ -5,6 +5,7 @@ import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
+import { CaptureCache } from "../src/plugin/capture-work";
 import {
     type CaptureInstrumentation,
     captureSelectionSource,
@@ -1608,6 +1609,59 @@ test("captures solid vector leaves as SVG without exporting PNG", async () => {
     if (!result.ok || result.empty || result.snapshot.root.kind !== "svg")
         return;
     expect(result.snapshot.root.raster).toBeUndefined();
+});
+
+test("reuses valid vector SVG and retries failed exports without retaining stale geometry", async () => {
+    const cache = new CaptureCache();
+    const node = {
+        ...text,
+        type: "VECTOR",
+        id: "cached-svg",
+        effects: [],
+        fills: [solid(1, 0, 0)],
+        strokes: [],
+        vectorPaths: [{ windingRule: "NONZERO", data: "M0 0h24v24H0z" }],
+        vectorNetwork: { vertices: [], segments: [] },
+        resolvedVariableModes: {},
+    };
+    const pngBytes = new Uint8Array(
+        await readFile("fixtures/authored/square.png"),
+    );
+    let svgCalls = 0,
+        pngCalls = 0;
+    const capture = () =>
+        captureSource(
+            node as unknown as SceneNode,
+            Symbol("mixed"),
+            async () => {
+                svgCalls++;
+                if (svgCalls === 1)
+                    throw Error("Transient native export failure");
+                return '<svg width="24" height="24"><path d="M0 0h24v24H0z"/></svg>';
+            },
+            undefined,
+            async () => {
+                pngCalls++;
+                return pngBytes;
+            },
+            1,
+            false,
+            undefined,
+            undefined,
+            4,
+            cache,
+        );
+    await capture();
+    await capture();
+    const reused = await capture();
+    expect([svgCalls, pngCalls]).toEqual([2, 1]);
+    expect(reused.work.svgExports).toBe(0);
+    node.vectorPaths[0].data = "M0 0h12v12H0z";
+    await capture();
+    expect(svgCalls).toBe(3);
+    cache.clear();
+    await capture();
+    expect(svgCalls).toBe(4);
 });
 
 test("native vector SVG exports preserve the complete node box", async () => {
