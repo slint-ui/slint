@@ -28,8 +28,6 @@ const assets = {
   __SLINT_PREVIEW_SCRIPT__: bundle.outputFiles[0].text.replace(/<\/script/gi, "<\\/script"),
   __SLINT_ICON__: "data:image/svg+xml;base64," + icon.toString("base64"),
   __SLINT_CODE_FONT__: "data:font/woff2;base64," + (await readFile(join(root, "assets/jetbrains-mono.woff2"))).toString("base64"),
-  __SLINT_EXAMPLE_SOURCE__: json(await readFile(join(root, "examples/button.slint"), "utf8")),
-  __SLINT_BUTTON_SOURCE__: json(await readFile(join(root, "components/slint-button.slint"), "utf8")),
 };
 for (const [token, value] of Object.entries(assets)) {
   if (!html.includes(token)) throw new Error(`Preview template is missing ${token}.`);

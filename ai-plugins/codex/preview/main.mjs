@@ -7,7 +7,6 @@ import { openRuntimeCache } from "./runtime-cache.mjs";
 
 const buildInfo = JSON.parse(document.getElementById("slint-build").textContent);
 const runtimeInfo = JSON.parse(document.getElementById("slint-runtime").textContent);
-const buttonSource = JSON.parse(document.getElementById("slint-button").textContent);
 const version = document.getElementById("version");
 version.textContent = `v${buildInfo.version}`;
 const status = document.getElementById("status");
@@ -18,8 +17,7 @@ document.addEventListener("keydown", event => {
 document.addEventListener("pointerdown", () => {
   canvas.dataset.keyboardFocus = "false";
 }, true);
-const example = JSON.parse(document.getElementById("slint-example").textContent);
-let desired = { source: example, revision: 0, width: 320, height: 160 };
+let desired;
 let generation = 0;
 let appliedGeneration = -1;
 let rendering = false;
@@ -35,7 +33,7 @@ let hostTheme;
 const colorScheme = matchMedia("(prefers-color-scheme: dark)");
 let highlightRequest = 0;
 function updateCode() {
-  const source = desired.source;
+  const source = desired?.source ?? "";
   const request = ++highlightRequest;
   const pre = document.createElement("pre");
   const code = document.createElement("code");
@@ -97,7 +95,7 @@ function applyHostContext(context) {
   updateCode();
 }
 colorScheme.addEventListener("change", updateCode);
-zoom = installPreviewZoom({ canvas, initialSize: desired });
+zoom = installPreviewZoom({ canvas, initialSize: { width: 320, height: 160 } });
 updateCode();
 new ResizeObserver(() => {
   if (window.parent === window) return;
@@ -117,15 +115,15 @@ function showError(error, acknowledge = true) {
   status.textContent = String(error);
   canvas.dataset.stale = String(Boolean(instance));
   console.error(error);
-  if (acknowledge) report("error", desired.revision, [{ level: "error", message: String(error) }], desired.sourceHash);
+  if (acknowledge && desired) report("error", desired.revision, [{ level: "error", message: String(error) }], desired.sourceHash);
 }
 function setSource(input) {
   if (!input || typeof input.source !== "string" || !input.source.length || input.source.length > 65536) return;
-  if (!Number.isSafeInteger(input.revision) || input.revision < desired.revision) return;
+  if (!Number.isSafeInteger(input.revision) || input.revision < (desired?.revision ?? 0)) return;
   const next = { width: 320, height: 160, ...input };
   if (!Number.isSafeInteger(next.width) || next.width < 64 || next.width > 2048 ||
       !Number.isSafeInteger(next.height) || next.height < 64 || next.height > 2048) return;
-  if (next.revision === desired.revision) {
+  if (next.revision === desired?.revision) {
     if (next.source !== desired.source) return;
     if (next.width === desired.width && next.height === desired.height) {
       desired = { ...desired, ...next };
@@ -138,7 +136,7 @@ function setSource(input) {
   void render().catch(showError);
 }
 async function render() {
-  if (!runtime || rendering) return;
+  if (!runtime || !desired || rendering) return;
   rendering = true;
   try {
     while (appliedGeneration !== generation) {
@@ -151,18 +149,17 @@ async function render() {
       const result = await runtime.compile_from_string(current.source, project.baseUrl, async path => {
         const key = decodeURIComponent(new URL(path, project.baseUrl).pathname).replace(project.prefix, "");
         if (project.sources.has(key)) return project.sources.get(key);
-        if (path === "slint-button.slint" || path.endsWith("/slint-button.slint")) return buttonSource;
         throw new Error("Unknown bundled import: " + path);
       }, project.images);
       const component = result.component;
-      const projectPrefix = current.project ? "file://" + project.prefix : undefined;
+      const projectPrefix = "file://" + project.prefix;
       const diagnostics = result.diagnostics.map(diagnostic => ({ ...diagnostic,
-        fileName: projectPrefix && diagnostic.fileName.startsWith(projectPrefix)
+        fileName: diagnostic.fileName.startsWith(projectPrefix)
           ? current.projectRoot + "/" + decodeURIComponent(diagnostic.fileName.slice(projectPrefix.length)) : diagnostic.fileName,
       }));
       if (token !== generation) { component?.free(); result.free(); continue; }
-      if (!component || result.error_string.trim()) {
-        const errorText = projectPrefix ? result.error_string.split(projectPrefix).join(current.projectRoot + "/") : result.error_string;
+      if (!component) {
+        const errorText = diagnostics.map(({ fileName, lineNumber, message }) => `${fileName}:${lineNumber}: ${message}`).join("\n");
         showError((instance ? "Preview paused — showing the last valid revision.\n" : "Couldn’t preview.\n") + errorText, false);
         report("error", current.revision, diagnostics, current.sourceHash);
         component?.free();
@@ -222,37 +219,30 @@ async function readBytes(uris) {
   return new Blob(chunks);
 }
 const registeredFonts = new Set();
-let preparedProject;
-function prepareProject(project, source, sourceHash) {
-  if (!project) return Promise.resolve({ baseUrl: "file:///preview.slint", prefix: "/", sources: new Map(), images: undefined });
-  if (preparedProject?.id === project.id) return preparedProject.promise;
+async function prepareProject(project, source, sourceHash) {
   const prefix = `/__slint_preview/${project.id}/`;
   const baseUrl = "file://" + prefix + project.entry.split("/").map(encodeURIComponent).join("/");
-  const promise = (async () => {
-    const sources = new Map();
-    const images = new Map();
-    for (const [name, file] of Object.entries(project.files)) {
-      const bytes = name === project.entry && file.hash === sourceHash
-        ? new TextEncoder().encode(source) : new Uint8Array(await (await readBytes(file.uris)).arrayBuffer());
-      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), byte => byte.toString(16).padStart(2, "0")).join("");
-      if (hash !== file.hash) throw new Error("A project dependency does not match this preview.");
-      if (file.mimeType === "text/plain") sources.set(name, new TextDecoder().decode(bytes));
-      else if (file.mimeType.startsWith("font/")) {
-        if (!registeredFonts.has(hash)) { runtime.register_font_from_memory(bytes); registeredFonts.add(hash); }
-      } else {
-        let binary = "";
-        for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-        const imageUrl = `data:${file.mimeType};base64,${btoa(binary)}`;
-        const image = new Image();
-        image.src = imageUrl;
-        try { await image.decode(); } catch { throw new Error("Cannot decode project image: " + name); }
-        images.set("file://" + prefix + name.split("/").map(encodeURIComponent).join("/"), imageUrl);
-      }
+  const sources = new Map();
+  const images = new Map();
+  for (const [name, file] of Object.entries(project.files)) {
+    const bytes = name === project.entry && file.hash === sourceHash
+      ? new TextEncoder().encode(source) : new Uint8Array(await (await readBytes(file.uris)).arrayBuffer());
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), byte => byte.toString(16).padStart(2, "0")).join("");
+    if (hash !== file.hash) throw new Error("A project dependency does not match this preview.");
+    if (file.mimeType === "text/plain") sources.set(name, new TextDecoder().decode(bytes));
+    else if (file.mimeType.startsWith("font/")) {
+      if (!registeredFonts.has(hash)) { runtime.register_font_from_memory(bytes); registeredFonts.add(hash); }
+    } else {
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+      const imageUrl = `data:${file.mimeType};base64,${btoa(binary)}`;
+      const image = new Image();
+      image.src = imageUrl;
+      try { await image.decode(); } catch { throw new Error("Cannot decode project image: " + name); }
+      images.set("file://" + prefix + name.split("/").map(encodeURIComponent).join("/"), imageUrl);
     }
-    return { baseUrl, prefix, sources, images };
-  })();
-  preparedProject = { id: project.id, promise };
-  return promise;
+  }
+  return { baseUrl, prefix, sources, images };
 }
 window.addEventListener("message", (event) => {
   if (event.source !== window.parent || event.data?.jsonrpc !== "2.0") return;
