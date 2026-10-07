@@ -8,6 +8,7 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
+use crate::scene::PremultipliedGradientStop;
 use derive_more::{Add, Mul, Sub};
 use i_slint_core::Color;
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
@@ -900,6 +901,39 @@ fn draw_linear_gradient(
     }
 }
 
+fn blend_stops(
+    stops: &i_slint_core::SharedVector<PremultipliedGradientStop>,
+    pixel: &mut impl TargetPixel,
+    position: f32,
+) {
+    let mut fallback = stops.first().map(|s| s.color).unwrap_or_default();
+
+    for [stop1, stop2] in stops.array_windows() {
+        if position >= stop1.position && position <= stop2.position {
+            // Interpolate between the two stops
+            let t = if stop2.position == stop1.position {
+                0.0
+            } else {
+                (position - stop1.position) / (stop2.position - stop1.position)
+            };
+            let (c1, c2) = (stop1.color, stop2.color);
+            let lerp = |a: u8, b: u8| ((1.0 - t) * a as f32 + t * b as f32) as u8;
+
+            pixel.blend(super::PremultipliedRgbaColor {
+                alpha: lerp(c1.alpha, c2.alpha),
+                red: lerp(c1.red, c2.red),
+                green: lerp(c1.green, c2.green),
+                blue: lerp(c1.blue, c2.blue),
+            });
+
+            return;
+        } else if position > stop2.position {
+            fallback = stop2.color;
+        }
+    }
+    pixel.blend(fallback);
+}
+
 /// Draw a radial gradient on a line
 fn draw_radial_gradient(
     rect: &PhysicalRect,
@@ -933,34 +967,7 @@ fn draw_radial_gradient(
         let distance = (dx * dx + dy_squared).sqrt();
         let position = (distance / max_radius).clamp(0.0, 1.0);
 
-        // Find the two gradient stops to interpolate between
-        let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
-
-        for [stop1, stop2] in g.stops.array_windows() {
-            if position >= stop1.position && position <= stop2.position {
-                // Interpolate between the two stops
-                let t = if stop2.position == stop1.position {
-                    0.0
-                } else {
-                    (position - stop1.position) / (stop2.position - stop1.position)
-                };
-
-                let c1 = stop1.color.to_argb_u8();
-                let c2 = stop2.color.to_argb_u8();
-
-                let alpha = ((1.0 - t) * c1.alpha as f32 + t * c2.alpha as f32) as u8;
-                let red = ((1.0 - t) * c1.red as f32 + t * c2.red as f32) as u8;
-                let green = ((1.0 - t) * c1.green as f32 + t * c2.green as f32) as u8;
-                let blue = ((1.0 - t) * c1.blue as f32 + t * c2.blue as f32) as u8;
-
-                color = Color::from_argb_u8(alpha, red, green, blue);
-                break;
-            } else if position > stop2.position {
-                color = stop2.color;
-            }
-        }
-
-        pixel.blend(super::PremultipliedRgbaColor::from(color));
+        blend_stops(&g.stops, pixel, position);
     }
 }
 
@@ -1006,34 +1013,7 @@ fn draw_conic_gradient(
         // Convert to position in [0, 1]
         let position = angle / (2.0 * core::f32::consts::PI);
 
-        // Find the two gradient stops to interpolate between
-        let mut color = g.stops.first().map(|s| s.color).unwrap_or_default();
-
-        for [stop1, stop2] in g.stops.array_windows() {
-            if position >= stop1.position && position <= stop2.position {
-                // Interpolate between the two stops
-                let t = if stop2.position == stop1.position {
-                    0.0
-                } else {
-                    (position - stop1.position) / (stop2.position - stop1.position)
-                };
-
-                let c1 = stop1.color.to_argb_u8();
-                let c2 = stop2.color.to_argb_u8();
-
-                let alpha = ((1.0 - t) * c1.alpha as f32 + t * c2.alpha as f32) as u8;
-                let red = ((1.0 - t) * c1.red as f32 + t * c2.red as f32) as u8;
-                let green = ((1.0 - t) * c1.green as f32 + t * c2.green as f32) as u8;
-                let blue = ((1.0 - t) * c1.blue as f32 + t * c2.blue as f32) as u8;
-
-                color = Color::from_argb_u8(alpha, red, green, blue);
-                break;
-            } else if position > stop2.position {
-                color = stop2.color;
-            }
-        }
-
-        pixel.blend(super::PremultipliedRgbaColor::from(color));
+        blend_stops(&g.stops, pixel, position);
     }
 }
 
