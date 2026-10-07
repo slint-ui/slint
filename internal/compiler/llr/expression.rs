@@ -206,6 +206,7 @@ pub enum Expression {
 
     LinearGradient {
         angle: Box<Expression>,
+        color_space: crate::expression_tree::GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -217,6 +218,7 @@ pub enum Expression {
         /// Explicit radius in the element's local coordinate space (`circle <radius>`).
         /// `None` means use the element's bbox half-diagonal.
         radius: Option<Box<Expression>>,
+        color_space: crate::expression_tree::GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -227,6 +229,7 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
+        color_space: crate::expression_tree::GradientColorSpace,
         /// First expression in the tuple is a color, second expression is the stop position (normalized angle 0-1)
         stops: Vec<(Expression, Expression)>,
     },
@@ -607,14 +610,14 @@ macro_rules! visit_impl {
                     $visitor(e);
                 }
             },
-            Expression::LinearGradient { angle, stops } => {
+            Expression::LinearGradient { angle, color_space: _, stops } => {
                 $visitor(angle);
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, radius, color_space: _, stops } => {
                 if let Some((cx, cy)) = center {
                     $visitor(cx);
                     $visitor(cy);
@@ -627,7 +630,7 @@ macro_rules! visit_impl {
                     $visitor(b);
                 }
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space: _, stops } => {
                 $visitor(from_angle);
                 if let Some((cx, cy)) = center {
                     $visitor(cx);
