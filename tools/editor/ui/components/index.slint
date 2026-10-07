@@ -1,7 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
+import { ButtonTemplate } from "../../controls/src/templates.slint";
+import {
+    Style,
+    PaintStyle,
+    Metrics,
+    Colors,
+    Typography,
+    Motion,
+    FieldStyle,
+    SidebarToggleStyle,
+    PaletteRowStyle,
+} from "../style.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
@@ -150,7 +161,6 @@ export component HorizontalResizeDivider inherits FocusScope {
         double-clicked => {
             root.reset-requested();
         }
-
     }
 }
 
@@ -236,45 +246,42 @@ export component PrimerTextInput inherits Rectangle {
     }
 }
 
-export component SidebarToggleButton inherits Rectangle {
+export component SidebarToggleButton inherits ButtonTemplate {
     in property <SidebarToggleStyle> style: Style.sidebar-toggle;
     in property <bool> active: false;
-    callback clicked;
-
     width: root.style.width;
     height: root.style.height;
-    border-radius: root.style.radius;
-    border-width: Metrics.border-width;
-    border-color: active ? root.style.selected.border : root.style.normal.border;
-    background: active ? root.style.selected.background : touch.has-hover ? root.style.hover.background : root.style.normal.background;
-    animate background, border-color { duration: Motion.fast; }
-
-    accessible-action-default => {
-        root.clicked();
-    }
-
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: Metrics.icon-large;
-        height: Metrics.icon-medium;
-        border-radius: Metrics.radius-small;
-        border-width: Metrics.focus-width;
-        border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
-        background: transparent;
-
+    text: @tr("Toggle sidebar");
+    accessible-checked: root.active;
+    background {
         Rectangle {
-            x: 7px;
-            width: 2px;
-            height: parent.height;
-            background: root.active ? root.style.selected.border : root.style.normal.foreground;
+            border-radius: root.style.radius;
+            border-width: root.has-focus ? Metrics.focus-width : Metrics.border-width;
+            border-color: root.has-focus ? Colors.focus : root.active ? root.style.selected.border : root.style.normal.border;
+            background: root.active ? root.style.selected.background : root.hovered ? root.style.hover.background : root.style.normal.background;
+            animate background, border-color { duration: Motion.fast; }
         }
     }
 
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
+    content {
+        Rectangle {
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: Metrics.icon-large;
+                height: Metrics.icon-medium;
+                border-radius: Metrics.radius-small;
+                border-width: Metrics.focus-width;
+                border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
+                background: transparent;
+
+                Rectangle {
+                    x: 7px;
+                    width: 2px;
+                    height: parent.height;
+                    background: root.active ? root.style.selected.border : root.style.normal.foreground;
+                }
+            }
         }
     }
 }
@@ -299,7 +306,10 @@ export component ComponentPaletteRow inherits Rectangle {
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
-    animate background, opacity { duration: Motion.feedback; easing: ease-out-quad; }
+    animate background, opacity {
+        duration: Motion.feedback;
+        easing: ease-out-quad;
+    }
 
     function pointer-window-position() -> Point {
         return {

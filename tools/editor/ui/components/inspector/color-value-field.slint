@@ -1,8 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonTemplate } from "../../../controls/src/templates.slint";
 import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
-import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
+import {
+    ColorIndicator,
+} from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
 import { Api, ColorFieldEdit, ColorValueData } from "../../api.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
@@ -75,7 +78,9 @@ export component InspectorColorValueField inherits Rectangle {
                 accepted(text) => { return root.accept-color(text); }
                 normalized(text) => { return root.color-edit.display; }
 
-                Rectangle { width: root.style.field.height; }
+                Rectangle {
+                    width: root.style.field.height;
+                }
             }
 
             opacity-input := InspectorValueField {
@@ -152,43 +157,33 @@ export component InspectorColorValueField inherits Rectangle {
         width: root.style.field.height;
         height: parent.height;
         enabled: root.enabled && root.swatch-enabled;
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == " " {
-                root.swatch-activated();
-                return accept;
-            }
-            if event.text == Key.Delete || event.text == Key.Backspace {
+        forward-focus: swatch-button;
+        capture-key-pressed(event) => {
+            if root.enabled && root.swatch-enabled && (event.text == Key.Delete || event.text == Key.Backspace) {
                 root.remove-requested();
                 return accept;
             }
             return reject;
         }
-
-        ColorIndicator {
-            x: (parent.width - root.style.swatch-size) / 2;
-            y: (parent.height - root.style.swatch-size) / 2;
-            width: root.style.swatch-size;
-            height: root.style.swatch-size;
-            border-radius: self.width / 2;
-            border-width: Metrics.border-width;
-            outline-color: root.style.swatch-border;
-            color: root.value;
-            checker-light: root.style.checker.light;
-            checker-dark: root.style.checker.dark;
-        }
-
-        TouchArea {
+        swatch-button := ButtonTemplate {
+            width: parent.width;
+            height: parent.height;
             enabled: root.enabled && root.swatch-enabled;
-            mouse-cursor: pointer;
-            accessible-role: AccessibleRole.button;
-            accessible-label: root.swatch-accessible-name;
-            clicked => {
-                root.swatch-activated();
-                swatch-focus.focus();
-            }
-            accessible-action-default => {
-                root.swatch-activated();
-                swatch-focus.focus();
+            text: root.swatch-accessible-name;
+            clicked => { root.swatch-activated(); }
+            content << Rectangle {
+                ColorIndicator {
+                    x: (parent.width - root.style.swatch-size) / 2;
+                    y: (parent.height - root.style.swatch-size) / 2;
+                    width: root.style.swatch-size;
+                    height: root.style.swatch-size;
+                    border-radius: self.width / 2;
+                    border-width: Metrics.border-width;
+                    outline-color: root.style.swatch-border;
+                    color: root.value;
+                    checker-light: root.style.checker.light;
+                    checker-dark: root.style.checker.dark;
+                }
             }
         }
     }

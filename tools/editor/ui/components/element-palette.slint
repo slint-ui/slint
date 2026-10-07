@@ -1,8 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonTemplate } from "../../controls/src/templates.slint";
 import { Style, Metrics, Colors, PaletteCardStyle } from "../style.slint";
-import { BodyLabel, ComponentPaletteRow, MutedLabel, SectionTitle, PrimerTextInput } from "index.slint";
+import {
+    BodyLabel,
+    ComponentPaletteRow,
+    MutedLabel,
+    SectionTitle,
+    PrimerTextInput,
+} from "index.slint";
 import { Api, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
@@ -82,30 +89,20 @@ component ElementPaletteGroup inherits VerticalLayout {
     }
     spacing: 0px;
 
-    if root.matches.length > 0: Rectangle {
+    if root.matches.length > 0: group-button := ButtonTemplate {
         height: Metrics.control-medium;
-        border-radius: Metrics.radius-small;
-        border-width: group-focus.has-focus ? Metrics.focus-width : 0px;
-        border-color: Colors.focus;
-        background: transparent;
-        accessible-role: AccessibleRole.button;
-        accessible-label: root.group.label;
+        horizontal-stretch: 1;
+        enabled: root.query == "";
+        text: root.group.label;
         accessible-expanded: root.expanded;
-        accessible-enabled: root.query == "";
-        accessible-action-default => { root.toggle(); }
-
-        group-focus := FocusScope {
-            enabled: root.query == "";
-            key-pressed(event) => {
-                if event.text == Key.Return || event.text == Key.Space {
-                    root.toggle();
-                    return accept;
-                }
-                return reject;
-            }
+        clicked => { root.toggle(); }
+        background << Rectangle {
+            border-radius: Metrics.radius-small;
+            border-width: group-button.has-focus ? Metrics.focus-width : 0px;
+            border-color: Colors.focus;
+            background: transparent;
         }
-
-        HorizontalLayout {
+        content << HorizontalLayout {
             spacing: Metrics.space-compact;
             padding-left: Metrics.space-tight;
             cross-axis-alignment: center;
@@ -116,12 +113,11 @@ component ElementPaletteGroup inherits VerticalLayout {
                 source: root.expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
                 colorize: Colors.muted;
             }
-            MutedLabel { text: root.group.label; horizontal-stretch: 1; }
-        }
-        TouchArea {
-            enabled: root.query == "";
-            mouse-cursor: self.enabled ? pointer : default;
-            clicked => { group-focus.focus(); root.toggle(); }
+
+            MutedLabel {
+                text: root.group.label;
+                horizontal-stretch: 1;
+            }
         }
     }
 
@@ -189,26 +185,28 @@ export component ElementPalette inherits Rectangle {
     in property <bool> image-mode: false;
     callback drag-started();
     VerticalLayout {
-            spacing: Metrics.space-regular;
-            padding: Metrics.space-medium;
-            padding-bottom: 0px;
+        spacing: Metrics.space-regular;
+        padding: Metrics.space-medium;
+        padding-bottom: 0px;
 
-            SectionTitle { label: "ELEMENTS"; }
-
-            search := PrimerTextInput {
-                placeholder: "Search elements…";
-                accessible-name: "Search elements";
-                background: Colors.subtle;
-            }
-
-            if root.image-mode: ElementsUnavailableNotice { }
-
-            ElementPaletteRows {
-                vertical-stretch: 1;
-                query: Api.element-library-normalize-query(search.text);
-                enabled: !root.image-mode;
-                drag-enabled: Api.known-components.length > 0;
-                drag-started => { root.drag-started(); }
-            }
+        SectionTitle {
+            label: "ELEMENTS";
         }
+
+        search := PrimerTextInput {
+            placeholder: "Search elements…";
+            accessible-name: "Search elements";
+            background: Colors.subtle;
+        }
+
+        if root.image-mode: ElementsUnavailableNotice { }
+
+        ElementPaletteRows {
+            vertical-stretch: 1;
+            query: Api.element-library-normalize-query(search.text);
+            enabled: !root.image-mode;
+            drag-enabled: Api.known-components.length > 0;
+            drag-started => { root.drag-started(); }
+        }
+    }
 }

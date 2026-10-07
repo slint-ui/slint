@@ -1,14 +1,27 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
+import { EditorButton } from "components/controls/button.slint";
+import {
+    Style,
+    PaintStyle,
+    Metrics,
+    Typography,
+    Colors,
+    DialogStyle,
+} from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
 import { Preview } from "preview.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
+import {
+    AppState,
+    EditorCursors,
+    EditorWindow,
+    SidebarToggleButton,
+} from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -17,16 +30,32 @@ import { ElementVisuals } from "components/element-presentation.slint";
 import { GradientOverlay } from "components/gradient-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
-import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
+import {
+    FillSession,
+    FillSessionRequest,
+    FillSessionTarget,
+    InspectorFillPicker,
+} from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorTopBar } from "components/top-bar.slint";
-import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
+import {
+    UpdateStatus,
+    UpdateStatusBar,
+    UpdateStatusPill,
+} from "components/update-status.slint";
 
 export {
-    Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, Hover, Preview, Project,
+    Api,
+    EditorCursors,
+    EditorWindow,
+    ElementVisuals,
+    FillSession,
+    FillSessionRequest,
+    FillSessionTarget,
+    Hover,
+    Preview,
+    Project,
 }
-
 component NewFileErrorPopup inherits PopupWindow {
     in property <DialogStyle> style: Style.dialog;
     in property <string> error;
@@ -125,35 +154,15 @@ component NewFileErrorPopup inherits PopupWindow {
                     background: root.style.footer-border;
                 }
 
-                Rectangle {
-                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
-                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
-                    width: bt.width + 2 * root.style.close-button.padding-inline;
-                    height: root.style.close-button.height;
+                EditorButton {
+                    style: root.style.close-button;
+                    text: @tr("Close");
                     x: parent.width - self.width - Metrics.space-large;
                     y: (parent.height - self.height) / 2;
                     border-width: Metrics.border-width;
-                    border-color: self.paint.border;
-                    border-radius: root.style.close-button.radius;
-                    background: self.paint.background;
-
-                    bt := Text {
-                        text: @tr("Close");
-                        color: parent.paint.foreground;
-                        font-size: root.style.close-button.text.size;
-                        font-weight: root.style.close-button.text.weight;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-
-                    close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        accessible-role: AccessibleRole.button;
-                        accessible-label: @tr("Close");
-                        clicked => {
-                            root.close();
-                            root.dismissed();
-                        }
+                    clicked => {
+                        root.close();
+                        root.dismissed();
                     }
                 }
             }
@@ -194,7 +203,6 @@ export component EditorUi inherits Window {
     private property <string> canvas-document: Api.current-element.source-uri;
     changed canvas-document => { CanvasView.manipulating = false; }
 
-
     function create-new-slint-file() {
         root.new-file-error = Project.create-new-slint-file();
         if root.new-file-error != "" {
@@ -231,11 +239,14 @@ export component EditorUi inherits Window {
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
+
             MenuSeparator { }
+
             MenuItem {
                 title: @tr("Open...");
                 activated => { Project.open-existing-project(); }
             }
+
             Menu {
                 title: @tr("Open Recent");
                 enabled: Project.recent.length > 0;
@@ -246,6 +257,7 @@ export component EditorUi inherits Window {
                 }
             }
         }
+
         Menu {
             title: @tr("Edit");
             MenuItem {
@@ -253,12 +265,14 @@ export component EditorUi inherits Window {
                 enabled: Api.undo-enabled;
                 activated => { root.apply-history(false); }
             }
+
             MenuItem {
                 title: @tr("Redo");
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
             }
         }
+
         Menu {
             title: @tr("View");
             MenuItem {
@@ -267,12 +281,14 @@ export component EditorUi inherits Window {
                 enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-400;
                 activated => { CanvasView.set-zoom(CanvasView.next-zoom-level); }
             }
+
             MenuItem {
                 title: @tr("Zoom Out");
                 shortcut: @keys(Control + HyphenMinus);
                 enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-25;
                 activated => { CanvasView.set-zoom(CanvasView.previous-zoom-level); }
             }
+
             MenuItem {
                 title: @tr("Zoom to Selection");
                 shortcut: @keys(Shift + "2");
@@ -283,6 +299,7 @@ export component EditorUi inherits Window {
                     );
                 }
             }
+
             MenuItem {
                 title: @tr("Actual Size");
                 shortcut: @keys(Control + Digit0);
@@ -290,6 +307,7 @@ export component EditorUi inherits Window {
                 activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
             }
         }
+
         Menu {
             title: @tr("Help");
             MenuItem {
@@ -376,10 +394,16 @@ export component EditorUi inherits Window {
             DropArea {
                 can-drop(event) => {
                     if AppState.palette-drag-kind != ElementKind.none {
-                        AppState.update-palette-drag(AppState.palette-drag-kind, { x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
+                        AppState.update-palette-drag(AppState.palette-drag-kind, {
+                            x: event.position.x + self.absolute-position.x,
+                            y: event.position.y + self.absolute-position.y
+                        });
                     }
                     if AppState.outline-drag-active && !AppState.outline-drag-cancelled {
-                        AppState.update-outline-drag-position({ x: event.position.x + self.absolute-position.x, y: event.position.y + self.absolute-position.y });
+                        AppState.update-outline-drag-position({
+                            x: event.position.x + self.absolute-position.x,
+                            y: event.position.y + self.absolute-position.y
+                        });
                     }
                     return DragAction.none;
                 }
@@ -497,7 +521,10 @@ export component EditorUi inherits Window {
                 }
             }
 
-            DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
+            DragPreview {
+                parent-origin: parent.absolute-position;
+                show-palette: false;
+            }
 
             fill-layer := TouchArea {
                 visible: FillSession.open;
@@ -532,6 +559,7 @@ export component EditorUi inherits Window {
                 }
                 InspectorFillPicker { }
             }
+
             canvas-pan := CanvasPanArea {
                 x: canvas-viewport.absolute-position.x - editor.absolute-position.x;
                 y: canvas-viewport.absolute-position.y - editor.absolute-position.y;

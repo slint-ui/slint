@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonTemplate } from "../../controls/src/templates.slint";
 import { Style, Metrics, TreeStyle } from "../style.slint";
 import { DropLocation, OutlineTreeNode } from "../api.slint";
 import { AppState } from "index.slint";
@@ -170,7 +171,7 @@ component EditorTreeRow {
                         && !root.pointer-in-gap
                         ? root.style.drop-background
                         : root.row-has-hover
-                            || (root.node.uri == root.hovered-source-uri && root.node.offset == root.hovered-offset)
+                        || (root.node.uri == root.hovered-source-uri && root.node.offset == root.hovered-offset)
                         ? root.style.row.hover-background
                         : transparent;
                 }
@@ -307,26 +308,27 @@ component EditorTreeRow {
                         Rectangle {
                             width: root.style.row.hit-size;
                             height: root.style.row.height;
-
-                            disclosure-touch := TouchArea {
+                            ButtonTemplate {
                                 width: root.style.row.hit-size;
                                 height: root.style.row.hit-size;
                                 y: (parent.height - self.height) / 2;
-                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
-                                clicked => {
-                                    root.toggle-expanded();
+                                enabled: root.node.has-children;
+                                focus-on-click: false;
+                                text: root.node.is-expanded ? @tr("Collapse") : @tr("Expand");
+                                accessible-expanded: root.node.is-expanded;
+                                clicked => { root.toggle-expanded(); }
+                                content << Rectangle {
+                                    Image {
+                                        visible: root.node.has-children;
+                                        opacity: root.tree-has-hover ? 1 : 0;
+                                        width: Metrics.icon-small;
+                                        height: Metrics.icon-small;
+                                        x: 0px;
+                                        y: (parent.height - self.height) / 2;
+                                        source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                                        colorize: root.style.row.muted;
+                                    }
                                 }
-                            }
-
-                            Image {
-                                visible: root.node.has-children;
-                                opacity: root.tree-has-hover ? 1 : 0;
-                                width: Metrics.icon-small;
-                                height: Metrics.icon-small;
-                                x: 0px;
-                                y: (parent.height - self.height) / 2;
-                                source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
-                                colorize: root.style.row.muted;
                             }
                         }
 

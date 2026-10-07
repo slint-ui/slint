@@ -1,7 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
+import { EditorButton } from "components/controls/button.slint";
+import {
+    Style,
+    PaintStyle,
+    Metrics,
+    Colors,
+    Motion,
+    Typography,
+    WelcomeBrandStyle,
+    ButtonStyle,
+    RecentProjectRowStyle,
+    WelcomeShellStyle,
+} from "style.slint";
 import { Project } from "project.slint";
 
 component BrandMark inherits Rectangle {
@@ -56,57 +68,33 @@ component ActionIcon inherits Rectangle {
     }
 }
 
-component WelcomeAction inherits Rectangle {
-    in property <ButtonStyle> style: Style.welcome-button;
+component WelcomeAction inherits EditorButton {
     in property <string> label;
     in property <bool> folder: false;
-    in property <bool> enabled: true;
-    callback clicked;
-    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
-        : touch.pressed ? root.style.appearance.pressed
-        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
-
-    accessible-role: AccessibleRole.button;
-    accessible-label: root.label;
-    accessible-enabled: root.enabled;
-    accessible-action-default => {
-        if root.enabled {
-            root.clicked();
-        }
+    style: Style.welcome-button;
+    text: root.label;
+    horizontal-stretch: 1;
+    animate background-color {
+        duration: Motion.feedback;
+        easing: ease-out-quad;
     }
+    content {
+        HorizontalLayout {
+            spacing: root.style.gap;
+            cross-axis-alignment: center;
+            ActionIcon {
+                icon-color: root.style.appearance.icon-color;
+                folder: root.folder;
+            }
 
-    height: root.style.height;
-    border-radius: root.style.radius;
-    background: root.paint.background;
-    border-color: root.paint.border;
-    animate background { duration: Motion.feedback; easing: ease-out-quad; }
-
-    HorizontalLayout {
-        padding-left: root.style.padding-inline;
-        padding-right: root.style.padding-inline;
-        spacing: root.style.gap;
-        cross-axis-alignment: center;
-
-        ActionIcon {
-            icon-color: root.style.appearance.icon-color;
-            folder: root.folder;
-        }
-
-        Text {
-            text: root.label;
-            color: root.paint.foreground;
-            font-size: root.style.text.size;
-            font-weight: root.style.text.weight;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
-
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
-        clicked => {
-            root.clicked();
+            Text {
+                text: root.label;
+                color: root.foreground;
+                font-size: root.style.text.size;
+                font-weight: root.style.text.weight;
+                vertical-alignment: center;
+                overflow: elide;
+            }
         }
     }
 }
@@ -132,7 +120,10 @@ component RecentProjectRow inherits Rectangle {
     height: root.style.height;
     border-radius: root.style.radius;
     background: selected ? root.style.selected-background : (touch.has-hover && enabled ? root.style.hover : transparent);
-    animate background { duration: Motion.feedback; easing: ease-out-quad; }
+    animate background {
+        duration: Motion.feedback;
+        easing: ease-out-quad;
+    }
 
     HorizontalLayout {
         padding-left: root.style.padding-left;
@@ -216,7 +207,10 @@ export component StartupWizard inherits Rectangle {
         drop-shadow-blur: root.style.shadow.blur;
         drop-shadow-offset-y: root.style.shadow.offset-y;
         drop-shadow-color: root.style.shadow.color;
-        animate width, height, x, y { duration: Motion.layout; easing: ease-out-quad; }
+        animate width, height, x, y {
+            duration: Motion.layout;
+            easing: ease-out-quad;
+        }
 
         Rectangle {
             width: root.main-width;

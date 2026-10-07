@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    EditorButton,
+} from "../../../tools/editor/ui/components/controls/button.slint";
+import {
+    SidebarToggleButton,
+} from "../../../tools/editor/ui/components/index.slint";
+import {
+    InspectorIconButton,
+} from "../../../tools/editor/ui/components/inspector/icon-button.slint";
+import {
+    InspectorSegment,
+} from "../../../tools/editor/ui/components/inspector/segment.slint";
+import {
+    InspectorColorValueField,
+} from "../../../tools/editor/ui/components/inspector/color-value-field.slint";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 300px;
+    in-out property <int> clicks;
+    in-out property <int> removals;
+    in-out property <bool> controls-enabled: true;
+    out property <bool> input-focused: input.has-focus;
+    out property <bool> icon-focused: icon.has-focus;
+    out property <bool> segment-selected: segment.selected;
+    out property <bool> test: segment.selected && sidebar.active;
+    public function focus-input() { input.focus(); }
+    VerticalLayout {
+        alignment: start;
+        input := FocusScope {
+            width: 20px;
+            height: 20px;
+        }
+
+        EditorButton {
+            text: "Editor action";
+            enabled: root.controls-enabled;
+            clicked => { root.clicks += 1; }
+        }
+
+        sidebar := SidebarToggleButton {
+            active: true;
+            enabled: root.controls-enabled;
+            clicked => { root.clicks += 1; }
+        }
+
+        icon := InspectorIconButton {
+            kind: "eye";
+            label: "Keep input focus";
+            focus-on-click: false;
+            enabled: root.controls-enabled;
+            clicked => { root.clicks += 1; }
+        }
+
+        segment := InspectorSegment {
+            width: 100px;
+            kind: "text";
+            label: "Selected segment";
+            selected: true;
+            enabled: root.controls-enabled;
+            clicked => { root.clicks += 1; }
+        }
+
+        InspectorColorValueField {
+            accessible-name: "Fill";
+            value: #123456;
+            enabled: root.controls-enabled;
+            swatch-activated => { root.clicks += 1; }
+            remove-requested => { root.removals += 1; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let find = |name: &str| {
+    slint_testing::ElementHandle::find_by_accessible_label(&instance, name)
+        .find(|element| element.accessible_role() == Some(slint_testing::AccessibleRole::Button))
+        .unwrap()
+};
+let click = |element: &slint_testing::ElementHandle| {
+    let origin = element.absolute_position();
+    let size = element.size();
+    slint_testing::send_mouse_click(&instance, origin.x + size.width / 2., origin.y + size.height / 2.);
+};
+let key = |key: Key, pressed: bool| {
+    slint_testing::send_keyboard_char(&instance, key.into(), pressed);
+};
+instance.invoke_focus_input();
+click(&find("Keep input focus"));
+assert_eq!(instance.get_clicks(), 1);
+assert!(instance.get_input_focused());
+assert!(!instance.get_icon_focused());
+
+let labels = ["Editor action", "Toggle sidebar", "Selected segment", "Fill color picker"];
+for label in labels {
+    let element = find(label);
+    let before = instance.get_clicks();
+    click(&element);
+    assert_eq!(instance.get_clicks(), before + 1);
+    key(Key::Space, true);
+    key(Key::Space, true);
+    assert_eq!(instance.get_clicks(), before + 1);
+    key(Key::Space, false);
+    assert_eq!(instance.get_clicks(), before + 2);
+    element.invoke_accessible_default_action();
+    assert_eq!(instance.get_clicks(), before + 3);
+}
+assert!(instance.get_segment_selected());
+assert!(instance.get_test());
+key(Key::Delete, true);
+key(Key::Delete, false);
+assert_eq!(instance.get_removals(), 1);
+instance.set_controls_enabled(false);
+let before = instance.get_clicks();
+for label in labels.into_iter().chain(["Keep input focus"]) {
+    let element = find(label);
+    assert_eq!(element.accessible_enabled(), Some(false));
+    click(&element);
+    element.invoke_accessible_default_action();
+}
+assert_eq!(instance.get_clicks(), before);
+key(Key::Backspace, true);
+key(Key::Backspace, false);
+assert_eq!(instance.get_removals(), 1);
+```
+*/

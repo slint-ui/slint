@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonTemplate } from "../../../controls/src/templates.slint";
 import { Colors, Metrics } from "../../style.slint";
 
-component AlignmentPoint inherits FocusScope {
+component AlignmentPoint inherits ButtonTemplate {
     in property <string> label;
     in property <bool> selected;
     callback activated();
@@ -13,38 +14,25 @@ component AlignmentPoint inherits FocusScope {
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
     accessible-checked: root.selected;
-    accessible-action-default => { root.activated(); }
-    key-pressed(event) => {
-        if event.text == Key.Return || event.text == Key.Space {
-            root.activated();
-            return accept;
-        }
-        return reject;
-    }
+    clicked => { root.activated(); }
 
-    Rectangle {
-        border-radius: 15px;
-        background: root.selected || touch.has-hover ? Colors.focus-background : transparent;
-        border-width: root.has-focus ? Metrics.focus-width * 0.75 : 0px;
-        border-color: Colors.focus;
-
+    content {
         Rectangle {
-            x: 7.5px;
-            y: 7.5px;
-            width: 15px;
-            height: 15px;
-            border-radius: 7.5px;
-            background: root.selected ? Colors.accent : Colors.surface;
-            border-width: root.selected ? 0px : Metrics.border-width * 0.75;
-            border-color: Colors.border;
-        }
-    }
+            border-radius: 15px;
+            background: root.selected || root.hovered ? Colors.focus-background : transparent;
+            border-width: root.has-focus ? Metrics.focus-width * 0.75 : 0px;
+            border-color: Colors.focus;
 
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.focus();
-            root.activated();
+            Rectangle {
+                x: 7.5px;
+                y: 7.5px;
+                width: 15px;
+                height: 15px;
+                border-radius: 7.5px;
+                background: root.selected ? Colors.accent : Colors.surface;
+                border-width: root.selected ? 0px : Metrics.border-width * 0.75;
+                border-color: Colors.border;
+            }
         }
     }
 }

@@ -1,50 +1,45 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Colors, Typography, ButtonStyle, PaletteCardStyle } from "../style.slint";
-import { BodyLabel, ComponentPaletteRow, EdgeDivider, HorizontalResizeDivider, MutedLabel, SectionTitle, PrimerTextInput, SidebarToggleButton } from "index.slint";
-import { Api, EditorSurfaceMode, ElementLibraryGroup, ElementLibraryEntry } from "../api.slint";
+import { EditorButton } from "controls/button.slint";
+import {
+    Style,
+    PaintStyle,
+    Metrics,
+    Colors,
+    Typography,
+    ButtonStyle,
+    PaletteCardStyle,
+} from "../style.slint";
+import {
+    BodyLabel,
+    ComponentPaletteRow,
+    EdgeDivider,
+    HorizontalResizeDivider,
+    MutedLabel,
+    SectionTitle,
+    PrimerTextInput,
+    SidebarToggleButton,
+} from "index.slint";
+import {
+    Api,
+    EditorSurfaceMode,
+    ElementLibraryGroup,
+    ElementLibraryEntry,
+} from "../api.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { Project } from "../project.slint";
 import { FileTreeView } from "file-tree-view.slint";
 import { ElementPalette } from "element-palette.slint";
 
-component NewSlintFileButton inherits Rectangle {
-    in property <ButtonStyle> style: Style.compact-button;
-    in property <bool> enabled: true;
-    callback clicked();
-    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
-        : touch.pressed ? root.style.appearance.pressed
-        : touch.has-hover ? root.style.appearance.hover : root.style.appearance.normal;
-
+component NewSlintFileButton inherits EditorButton {
+    style: Style.compact-button;
     width: root.style.height;
-    height: root.style.height;
-    border-radius: root.style.radius;
-    background: root.paint.background;
-    border-color: root.paint.border;
-    opacity: root.enabled ? 1 : root.style.disabled-opacity;
-    accessible-role: AccessibleRole.button;
+    content-padding-left: 0px;
+    content-padding-right: 0px;
     accessible-label: @tr("New Slint file");
-    accessible-enabled: root.enabled;
-    accessible-action-default => {
-        if root.enabled {
-            root.clicked();
-        }
-    }
-
-    Image {
-        width: Metrics.icon-medium;
-        height: Metrics.icon-medium;
-        source: @image-url("../assets/lucide/file-plus.svg");
-        colorize: root.paint.foreground;
-    }
-
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
-        clicked => { root.clicked(); }
-    }
-
+    icon: @image-url("../assets/lucide/file-plus.svg");
+    icon-size: Metrics.icon-medium;
     Tooltip {
         text: @markdown("\{@tr("New Slint file")}");
     }

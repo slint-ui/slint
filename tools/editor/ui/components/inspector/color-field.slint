@@ -1,13 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ButtonTemplate } from "../../../controls/src/templates.slint";
 import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
-import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
+import {
+    ColorIndicator,
+} from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
 import { InspectorColorValueField } from "color-value-field.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, BrushKind, ColorFieldData, ColorFieldMode } from "../../api.slint";
+import {
+    Api,
+    BrushKind,
+    ColorFieldData,
+    ColorFieldMode,
+} from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -49,20 +57,26 @@ export component InspectorColorField inherits Rectangle {
         swatch-activated => { root.show-picker(); }
     }
 
-    if root.is-gradient: gradient-field := Rectangle {
-        border-radius: root.style.field.radius;
-        background: gradient-touch.has-hover
-            ? root.style.field.appearance.hover.background
-            : root.style.field.appearance.normal.background;
-        border-width: swatch-focus.has-focus ? root.style.field.border-width : 0px;
-        border-color: root.style.field.appearance.focus.border;
-
-        HorizontalLayout {
+    if root.is-gradient: gradient-field := ButtonTemplate {
+        width: parent.width;
+        height: parent.height;
+        text: root.accessible-name + " gradient picker";
+        clicked => { root.show-picker(); }
+        background << Rectangle {
+            border-radius: root.style.field.radius;
+            background: gradient-field.hovered ? root.style.field.appearance.hover.background : root.style.field.appearance.normal.background;
+            border-width: gradient-field.has-focus || swatch-focus.has-focus ? root.style.field.border-width : 0px;
+            border-color: root.style.field.appearance.focus.border;
+        }
+        content << HorizontalLayout {
             padding-left: root.style.field.padding-inline;
             padding-right: root.style.field.padding-inline;
             spacing: root.style.field.gap;
             cross-axis-alignment: center;
-            Rectangle { width: root.style.field.height; }
+            Rectangle {
+                width: root.style.field.height;
+            }
+
             Text {
                 horizontal-stretch: 1;
                 text: root.data.label;
@@ -71,14 +85,6 @@ export component InspectorColorField inherits Rectangle {
                 font-weight: root.style.field.text.weight;
                 vertical-alignment: center;
                 overflow: elide;
-            }
-        }
-
-        gradient-touch := TouchArea {
-            mouse-cursor: pointer;
-            clicked => {
-                root.show-picker();
-                swatch-focus.focus();
             }
         }
     }
@@ -91,60 +97,44 @@ export component InspectorColorField inherits Rectangle {
         commit-key: root.commit-key;
         accepted(text) => { return root.accepted(text); }
 
-        Rectangle { width: root.style.field.height; }
+        Rectangle {
+            width: root.style.field.height;
+        }
     }
 
-    swatch-focus := FocusScope {
+    swatch-focus := ButtonTemplate {
         visible: !root.is-literal-color;
         x: root.style.field.padding-inline;
         width: root.style.field.height;
         height: parent.height;
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == " " {
-                root.show-picker();
-                return accept;
-            }
-            return reject;
-        }
+        text: root.accessible-name + " color picker";
+        clicked => { root.show-picker(); }
+        content << Rectangle {
+            swatch-circle := Rectangle {
+                x: (parent.width - root.style.swatch-size) / 2;
+                y: (parent.height - root.style.swatch-size) / 2;
+                width: root.style.swatch-size;
+                height: root.style.swatch-size;
+                border-radius: self.width / 2;
+                clip: true;
 
-        swatch-circle := Rectangle {
-            x: (parent.width - root.style.swatch-size) / 2;
-            y: (parent.height - root.style.swatch-size) / 2;
-            width: root.style.swatch-size;
-            height: root.style.swatch-size;
-            border-radius: self.width / 2;
-            clip: true;
+                if root.data.fill.kind == BrushKind.solid: ColorIndicator {
+                    width: parent.width;
+                    height: parent.height;
+                    border-radius: parent.border-radius;
+                    border-width: Metrics.border-width;
+                    outline-color: root.style.swatch-border;
+                    color: root.data.fill.color;
+                    checker-light: root.style.checker.light;
+                    checker-dark: root.style.checker.dark;
+                }
 
-            if root.data.fill.kind == BrushKind.solid: ColorIndicator {
-                width: parent.width;
-                height: parent.height;
-                border-radius: parent.border-radius;
-                border-width: Metrics.border-width;
-                outline-color: root.style.swatch-border;
-                color: root.data.fill.color;
-                checker-light: root.style.checker.light;
-                checker-dark: root.style.checker.dark;
-            }
-
-            if root.data.fill.kind != BrushKind.solid: Rectangle {
-                background: root.swatch;
-                border-radius: parent.border-radius;
-                border-width: Metrics.border-width;
-                border-color: root.style.swatch-border;
-            }
-        }
-
-        TouchArea {
-            mouse-cursor: pointer;
-            accessible-role: AccessibleRole.button;
-            accessible-label: root.accessible-name + " color picker";
-            clicked => {
-                root.show-picker();
-                swatch-focus.focus();
-            }
-            accessible-action-default => {
-                root.show-picker();
-                swatch-focus.focus();
+                if root.data.fill.kind != BrushKind.solid: Rectangle {
+                    background: root.swatch;
+                    border-radius: parent.border-radius;
+                    border-width: Metrics.border-width;
+                    border-color: root.style.swatch-border;
+                }
             }
         }
     }

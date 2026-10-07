@@ -1,8 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { EditorButton } from "controls/button.slint";
+import { ButtonTemplate } from "../../controls/src/templates.slint";
 import { EditorGrid } from "editor-grid.slint";
-import { Style, PaintStyle, Metrics, Typography, Colors, NineSliceStyle, ImageTabsStyle, ImageFieldStyle, ImageSyntaxStyle, ButtonStyle, ImageDetailsStyle, ImageAssetEditorStyle } from "../style.slint";
+import {
+    Style,
+    PaintStyle,
+    Metrics,
+    Typography,
+    Colors,
+    NineSliceStyle,
+    ImageTabsStyle,
+    ImageFieldStyle,
+    ImageSyntaxStyle,
+    ButtonStyle,
+    ImageDetailsStyle,
+    ImageAssetEditorStyle,
+} from "../style.slint";
 // cspell:ignore nesw
 
 import { Api, CanvasCorner } from "../api.slint";
@@ -41,49 +56,31 @@ component GuideHandle inherits Rectangle {
     }
 }
 
-component ImageEditorTab inherits Rectangle {
+component ImageEditorTab inherits ButtonTemplate {
     in property <ImageTabsStyle> style: Style.image-tabs;
     in property <string> label;
     in property <bool> selected;
-    callback clicked;
-
     height: root.style.height;
     horizontal-stretch: 1;
-    border-radius: root.style.radius;
-    border-width: tab-focus.has-focus ? Metrics.focus-width : selected ? Metrics.border-width : 0px;
-    border-color: tab-focus.has-focus ? root.style.focus-border : root.style.normal.border;
-    background: selected ? root.style.selected.background : touch.has-hover || tab-focus.has-focus ? root.style.hover.background : transparent;
-    accessible-role: button;
-    accessible-label: root.label;
+    text: root.label;
     accessible-checked: root.selected;
-    accessible-action-default => {
-        root.clicked();
-    }
-
-    tab-focus := FocusScope {
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == Key.Space {
-                root.clicked();
-                return accept;
-            }
-            return reject;
+    background {
+        Rectangle {
+            border-radius: root.style.radius;
+            border-width: root.has-focus ? Metrics.focus-width : root.selected ? Metrics.border-width : 0px;
+            border-color: root.has-focus ? root.style.focus-border : root.style.normal.border;
+            background: root.selected ? root.style.selected.background : root.hovered || root.has-focus ? root.style.hover.background : transparent;
         }
     }
 
-    Text {
-        text: root.label;
-        color: root.selected ? root.style.selected.foreground : root.style.normal.foreground;
-        font-size: Typography.control.size;
-        font-weight: root.selected ? FontWeight.extra-bold : FontWeight.semi-bold;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            tab-focus.focus();
-            root.clicked();
+    content {
+        Text {
+            text: root.label;
+            color: root.selected ? root.style.selected.foreground : root.style.normal.foreground;
+            font-size: Typography.control.size;
+            font-weight: root.selected ? FontWeight.extra-bold : FontWeight.semi-bold;
+            horizontal-alignment: center;
+            vertical-alignment: center;
         }
     }
 }
@@ -161,51 +158,12 @@ component FloatingSyntaxField inherits Rectangle {
     }
 }
 
-component FloatingCopyButton inherits Rectangle {
-    in property <ButtonStyle> style: Style.copy-button;
+component FloatingCopyButton inherits EditorButton {
     in property <string> label: "Copy";
-    callback clicked;
-    private property <PaintStyle> paint: touch.pressed ? root.style.appearance.pressed
-        : touch.has-hover || copy-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
-
+    style: Style.copy-button;
+    text: root.label;
     width: root.style.width;
-    height: root.style.height;
-    border-radius: root.style.radius;
-    border-width: copy-focus.has-focus ? Metrics.focus-width : Metrics.border-width;
-    border-color: copy-focus.has-focus ? root.style.appearance.focus-border : root.paint.border;
-    background: root.paint.background;
-    accessible-role: button;
-    accessible-label: root.label;
-    accessible-action-default => {
-        root.clicked();
-    }
-
-    copy-focus := FocusScope {
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == Key.Space {
-                root.clicked();
-                return accept;
-            }
-            return reject;
-        }
-    }
-
-    Text {
-        text: root.label;
-        color: root.paint.foreground;
-        font-size: root.style.text.size;
-        font-weight: root.style.text.weight;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            copy-focus.focus();
-            root.clicked();
-        }
-    }
+    border-width: root.has-focus ? Metrics.focus-width : Metrics.border-width;
 }
 
 component FloatingImageDetailsPanel inherits Rectangle {
@@ -237,7 +195,7 @@ component FloatingImageDetailsPanel inherits Rectangle {
         }
 
         FloatingReadOnlyField {
-                style: root.style.field;
+            style: root.style.field;
             width: parent.width - 2 * root.style.padding;
             prefix: "File";
             value: root.file;
@@ -381,23 +339,19 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     function set-left(display-value: length) {
-        Api.image-nine-slice-left = root.display-to-source(display-value)
-            .clamp(0, root.source-width - Api.image-nine-slice-right);
+        Api.image-nine-slice-left = root.display-to-source(display-value).clamp(0, root.source-width - Api.image-nine-slice-right);
     }
 
     function set-right(display-value: length) {
-        Api.image-nine-slice-right = root.display-to-source(display-value)
-            .clamp(0, root.source-width - Api.image-nine-slice-left);
+        Api.image-nine-slice-right = root.display-to-source(display-value).clamp(0, root.source-width - Api.image-nine-slice-left);
     }
 
     function set-top(display-value: length) {
-        Api.image-nine-slice-top = root.display-to-source(display-value)
-            .clamp(0, root.source-height - Api.image-nine-slice-bottom);
+        Api.image-nine-slice-top = root.display-to-source(display-value).clamp(0, root.source-height - Api.image-nine-slice-bottom);
     }
 
     function set-bottom(display-value: length) {
-        Api.image-nine-slice-bottom = root.display-to-source(display-value)
-            .clamp(0, root.source-height - Api.image-nine-slice-top);
+        Api.image-nine-slice-bottom = root.display-to-source(display-value).clamp(0, root.source-height - Api.image-nine-slice-top);
     }
 
     function preview-width() -> length {
@@ -457,7 +411,9 @@ export component ImageAssetEditor inherits Rectangle {
         );
     }
 
-    EditorGrid { style: root.style.canvas.grid; }
+    EditorGrid {
+        style: root.style.canvas.grid;
+    }
 
     if root.has-image(): Rectangle {
         x: (parent.width - self.width - root.left-pane-offset) / 2;
@@ -509,6 +465,7 @@ export component ImageAssetEditor inherits Rectangle {
                 font-weight: FontWeight.bold;
                 horizontal-alignment: center;
             }
+
             Text {
                 text: Api.selected-image-asset.error;
                 color: Colors.muted;
