@@ -1107,7 +1107,9 @@ impl Item for TextInput {
                             self.cut(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy | StandardShortcut::Paste | StandardShortcut::Cut => {
+                        StandardShortcut::Copy
+                        | StandardShortcut::Paste
+                        | StandardShortcut::Cut => {
                             return KeyEventResult::EventIgnored;
                         }
                         StandardShortcut::Undo if !self.read_only() => {
