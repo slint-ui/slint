@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A platform may return the same window adapter for every component, but that window
+// belongs to one context only.
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+}
+
+/*
+```rust
+use slint::platform::{Platform, PlatformError, WindowAdapter};
+use std::rc::Rc;
+
+struct SameWindow(Rc<dyn WindowAdapter>);
+
+impl Platform for SameWindow {
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        Ok(self.0.clone())
+    }
+}
+
+let adapter = i_slint_backend_testing::TestingBackend::new(Default::default())
+    .create_window_adapter()
+    .unwrap();
+
+let ctx = i_slint_core::SlintContext::new(Box::new(SameWindow(adapter.clone())));
+let _first = TestCase::new_with_context(ctx.clone()).unwrap();
+let _second = TestCase::new_with_context(ctx).unwrap();
+
+let other = i_slint_core::SlintContext::new(Box::new(SameWindow(adapter)));
+let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    TestCase::new_with_context(other)
+}));
+assert!(result.is_err(), "the window belongs to the first context");
+```
+*/
