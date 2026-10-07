@@ -30,7 +30,7 @@ use crate::animations::simulations::test_limit_property;
 /// velocity retained after one second.
 const DRAG: f32 = 0.135;
 
-/// The largest velocity that can be carried over from the friction phase
+/// The largest speed that can be carried over from the friction phase
 /// into the spring phase.
 const MAX_SPRING_TRANSFER_VELOCITY: f32 = 5000.0;
 
@@ -245,9 +245,8 @@ impl BounceFlick {
 
         let v_at_spring =
             if spring_time.is_finite() { velocity * f32::powf(DRAG, spring_time) } else { 0. };
-        // See BouncingScrollSimulation's `maxSpringTransferVelocity` clamp: only ever
-        // caps an excessively fast *positive* handoff velocity, same as upstream.
-        let spring_velocity = f32::min(v_at_spring, MAX_SPRING_TRANSFER_VELOCITY);
+        let spring_velocity =
+            v_at_spring.clamp(-MAX_SPRING_TRANSFER_VELOCITY, MAX_SPRING_TRANSFER_VELOCITY);
         (spring_time, SpringRegime::new(0., spring_velocity, SPRING_FREQUENCY, 1.))
     }
 
