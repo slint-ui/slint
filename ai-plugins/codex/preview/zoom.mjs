@@ -36,7 +36,6 @@ export function installPreviewZoom({ canvas, initialSize }) {
       viewport.scrollLeft += after.left + centerX * scale - viewBounds.left - viewport.clientWidth / 2;
       viewport.scrollTop += after.top + centerY * scale - viewBounds.top - viewport.clientHeight / 2;
     }
-    viewport.dataset.zoom = String(scale);
   }
   function step(direction) {
     const level = direction > 0 ? levels.find(value => value > scale + 0.001) : levels.findLast(value => value < scale - 0.001);

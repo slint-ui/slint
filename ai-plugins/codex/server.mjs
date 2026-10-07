@@ -157,7 +157,7 @@ async function handle(message) {
           result.projectHash = captured.id;
           result.projectRoot = captured.snapshot.projectRoot;
         }
-        return { structuredContent: result, content: [{ type: "text", text: stdout.trim() }] };
+        return { structuredContent: result, content: [{ type: "text", text: result.status === 'valid' ? 'Slint source validated.' : 'Slint validation returned diagnostics.' }] };
       } catch (error) {
         const output = error.stdout?.trim() || error.stderr?.trim() || error.message;
         let result;

@@ -19,14 +19,7 @@ document.addEventListener("pointerdown", () => {
   canvas.dataset.keyboardFocus = "false";
 }, true);
 const example = JSON.parse(document.getElementById("slint-example").textContent);
-const loadingStarted = performance.now();
-const loadingTimings = {};
-function markLoading(phase) {
-  loadingTimings[phase] = Math.round(performance.now() - loadingStarted);
-  console.info("Slint preview timing", JSON.stringify({ phase, elapsedMs: loadingTimings[phase], revision: desired.revision, runtimeHash: runtimeInfo.wasmHash, documentStartedAt: performance.timeOrigin, measuredAt: Date.now() }));
-}
 let desired = { source: example, revision: 0, width: 320, height: 160 };
-markLoading("document-ready");
 let generation = 0;
 let appliedGeneration = -1;
 let rendering = false;
@@ -43,20 +36,16 @@ const colorScheme = matchMedia("(prefers-color-scheme: dark)");
 let highlightRequest = 0;
 function updateCode() {
   const source = desired.source;
-  const revision = desired.revision;
   const request = ++highlightRequest;
   const pre = document.createElement("pre");
   const code = document.createElement("code");
   code.textContent = source;
   pre.appendChild(code);
   codePanel.replaceChildren(pre);
-  codePanel.dataset.revision = String(revision);
-  codePanel.dataset.highlight = "plain";
   if (codePanel.hidden) return;
   void highlight(source, (hostTheme ?? (colorScheme.matches ? "dark" : "light")) === "dark" ? "dark-slint" : "light-slint").then(html => {
     if (request !== highlightRequest) return;
     codePanel.innerHTML = html;
-    codePanel.dataset.highlight = "ready";
   }).catch(error => console.error("Syntax highlighting unavailable", error));
 }
 function closeMenu(returnFocus = false) {
@@ -120,13 +109,12 @@ function report(state, revision, diagnostics, sourceHash) {
   window.parent.postMessage({
     jsonrpc: "2.0", id: "slint-context-" + revision + "-" + state,
     method: "ui/update-model-context",
-    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, sourcePath: desired.sourcePath, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics, loadingTimings } } },
+    params: { structuredContent: { slintPreview: { previewVersion: buildInfo.version, buildId: buildInfo.buildId, runtimeVersion: runtimeInfo.version, runtimeRevision: runtimeInfo.revision, sourcePath: desired.sourcePath, projectRoot: desired.projectRoot, revision, sourceHash, state, diagnostics } } },
   }, "*");
 }
 function showError(error, acknowledge = true) {
   status.hidden = false;
   status.textContent = String(error);
-  document.documentElement.dataset.slint = "error";
   canvas.dataset.stale = String(Boolean(instance));
   console.error(error);
   if (acknowledge) report("error", desired.revision, [{ level: "error", message: String(error) }], desired.sourceHash);
@@ -145,7 +133,6 @@ function setSource(input) {
     }
   }
   desired = next;
-  markLoading("source-received");
   updateCode();
   generation += 1;
   void render().catch(showError);
@@ -160,16 +147,13 @@ async function render() {
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(current.source));
       current.sourceHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
       if (current.source === desired.source) desired.sourceHash = current.sourceHash;
-      markLoading("project-start");
       const project = await prepareProject(current.project, current.source, current.sourceHash);
-      markLoading("project-ready");
       const result = await runtime.compile_from_string(current.source, project.baseUrl, async path => {
         const key = decodeURIComponent(new URL(path, project.baseUrl).pathname).replace(project.prefix, "");
         if (project.sources.has(key)) return project.sources.get(key);
         if (path === "slint-button.slint" || path.endsWith("/slint-button.slint")) return buttonSource;
         throw new Error("Unknown bundled import: " + path);
       }, project.images);
-      markLoading("source-compiled");
       const component = result.component;
       const projectPrefix = current.project ? "file://" + project.prefix : undefined;
       const diagnostics = result.diagnostics.map(diagnostic => ({ ...diagnostic,
@@ -200,22 +184,16 @@ async function render() {
         }
         instance = await instancePromise;
       }
-      markLoading("window-created");
       await instance.show();
-      markLoading("window-shown");
       component.free();
       result.free();
       appliedGeneration = token;
       if (token !== generation) continue;
       canvas.dataset.stale = "false";
-      canvas.dataset.revision = String(current.revision);
       status.hidden = true;
       zoom.setSize(current.width, current.height);
-      document.documentElement.dataset.slint = "ready";
-      document.documentElement.dataset.revision = String(current.revision);
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       if (token !== generation) continue;
-      markLoading("paint-ready");
       report("ready", current.revision, diagnostics, current.sourceHash);
     }
   } finally { rendering = false; }
@@ -306,17 +284,14 @@ setSource(window.openai?.toolOutput ?? window.openai?.toolInput);
 try {
   if (window.parent === window) throw new Error("Open this Slint preview inside the chat.");
   await bridgeReady;
-  markLoading("bridge-ready");
   const cache = await openRuntimeCache();
   const cacheKey = runtimeInfo.javascriptUri + ":" + runtimeInfo.wasmHash;
   let cached = await cache?.read(cacheKey);
   if (cached) {
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", cached.wasm)), byte => byte.toString(16).padStart(2, "0")).join("");
-    if (hash !== runtimeInfo.wasmHash) { cached = undefined; markLoading("runtime-cache-rejected"); }
+    if (hash !== runtimeInfo.wasmHash) cached = undefined;
   }
-  markLoading(cached ? "runtime-cache-hit" : "runtime-cache-miss");
   const javascript = cached?.javascript ?? (await readRuntimeResource(runtimeInfo.javascriptUri)).contents[0].text;
-  markLoading("javascript-read");
   const initializer = javascript.match(/\b(\w+)\s+as\s+default\b/)?.[1];
   if (!initializer) throw new Error("The built Slint runtime has no initializer.");
   const slint = await new Promise((resolve, reject) => {
@@ -327,28 +302,22 @@ try {
     script.addEventListener("error", () => reject(new Error("The host could not initialize the Slint runtime module.")));
     document.head.appendChild(script);
   });
-  markLoading("javascript-ready");
   let wasm = cached?.wasm;
   if (!wasm) {
     const compressed = await readBytes(runtimeInfo.wasmChunkUris);
-    markLoading("wasm-read");
     wasm = await new Response(compressed.stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
-    markLoading("wasm-decompressed");
   }
   const hash = cached ? runtimeInfo.wasmHash : Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", wasm)), byte => byte.toString(16).padStart(2, "0")).join("");
   if (hash !== runtimeInfo.wasmHash) {
     cache?.close();
     throw new Error("The Slint runtime resources do not match this preview.");
   }
-  markLoading("wasm-verified");
   const module = await WebAssembly.compile(wasm);
-  markLoading("wasm-compiled");
   await slint.default({ module_or_path: module });
   if (cache) {
     if (cached) cache.close();
     else void cache.write({ key: cacheKey, javascript, wasm }).finally(() => cache.close());
   }
-  markLoading("runtime-ready");
   runtime = slint;
   await render();
 } catch (error) { showError(error); }
