@@ -1,0 +1,66 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A window with a fixed width and no height takes the height of its wrapped
+// text at that width, not at the text's single-line preferred width.
+
+export component TestCase inherits Window {
+    width: 300px;
+
+    VerticalLayout {
+        t := Text {
+            wrap: word-wrap;
+            text: "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp qqqq rrrr ssss tttt uuuu vvvv wwww xxxx";
+        }
+    }
+
+    at-300 := Text {
+        x: 0;
+        y: 0;
+        width: 300px;
+        wrap: word-wrap;
+        text: t.text;
+        visible: false;
+    }
+
+    one-line := Text {
+        x: 0;
+        y: 0;
+        text: "aaaa";
+        visible: false;
+    }
+
+    out property <length> window-width: root.width;
+    out property <length> window-height: root.height;
+    out property <length> height-at-300: at-300.height;
+    // The window size needs show(), so only the rust, cpp and js blocks check it.
+    out property <bool> test: at-300.height > 2 * one-line.height;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert_eq!(instance.get_window_width(), 300.);
+assert_eq!(instance.get_window_height(), instance.get_height_at_300());
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+handle->show();
+assert_eq(instance.get_window_width(), 300.f);
+assert_eq(instance.get_window_height(), instance.get_height_at_300());
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.show();
+assert.equal(instance.window_width, 300);
+assert.equal(instance.window_height, instance.height_at_300);
+```
+
+*/

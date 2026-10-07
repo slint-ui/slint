@@ -1095,7 +1095,7 @@ impl Item for TextInput {
                             self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy => {
+                        StandardShortcut::Copy if !self.is_password() => {
                             self.copy(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
@@ -1103,11 +1103,13 @@ impl Item for TextInput {
                             self.paste(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut if !self.read_only() => {
+                        StandardShortcut::Cut if !self.read_only() && !self.is_password() => {
                             self.cut(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste | StandardShortcut::Cut => {
+                        StandardShortcut::Copy
+                        | StandardShortcut::Paste
+                        | StandardShortcut::Cut => {
                             return KeyEventResult::EventIgnored;
                         }
                         StandardShortcut::Undo if !self.read_only() => {
@@ -1993,6 +1995,9 @@ impl TextInput {
     }
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        if self.is_password() {
+            return;
+        }
         self.copy(window_adapter, self_rc);
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
@@ -2090,6 +2095,9 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         clipboard: Clipboard,
     ) {
+        if self.is_password() {
+            return;
+        }
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;

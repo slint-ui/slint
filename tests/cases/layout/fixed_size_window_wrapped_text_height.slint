@@ -1,0 +1,44 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A window with a fixed width and height keeps that height, whatever its wrapped text needs.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 20px;
+
+    VerticalLayout {
+        t := Text {
+            wrap: word-wrap;
+            text: "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp qqqq rrrr ssss tttt uuuu vvvv wwww xxxx";
+        }
+    }
+
+    out property <length> window-height: root.height;
+    out property <bool> test: root.height == 20px;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert_eq!(instance.get_window_height(), 20.);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+handle->show();
+assert_eq(instance.get_window_height(), 20.f);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+instance.show();
+assert.equal(instance.window_height, 20);
+```
+
+*/

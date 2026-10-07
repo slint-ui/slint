@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref rescope rfold updt
+// cSpell: ignore conv gdata powf punct vref rescope rfold updt écran
 
 /*! module for the Rust code generator
 
@@ -51,6 +51,86 @@ pub fn ident(ident: &str) -> proc_macro2::Ident {
     } else {
         format_ident!("r#{}", ident)
     }
+}
+
+pub fn parse_rust_module(module: &str) -> std::io::Result<TokenStream> {
+    use syn::parse::Parser;
+
+    let path = syn::Path::parse_mod_style
+        .parse_str(module)
+        .and_then(|path| {
+            if path.leading_colon.is_some()
+                || path.segments.iter().any(|segment| {
+                    matches!(
+                        segment.ident.to_string().as_str(),
+                        "crate" | "self" | "super" | "Self"
+                    )
+                })
+            {
+                return Err(syn::Error::new_spanned(
+                    path,
+                    "expected a module path relative to the library crate's root",
+                ));
+            }
+            Ok(path)
+        })
+        .map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Invalid rust_module {module:?}: {error}"),
+            )
+        })?;
+    Ok(quote!(#path))
+}
+
+#[test]
+fn rust_module_paths() {
+    for (module, expected) in [
+        ("backend", "backend"),
+        ("backend::ui", "backend :: ui"),
+        ("backend::ui::widgets", "backend :: ui :: widgets"),
+        (" foo  ::  bar ", "foo :: bar"),
+        ("foo\n::\nbar", "foo :: bar"),
+        ("backend::r#type", "backend :: r#type"),
+        ("backend /* comment */ :: ui", "backend :: ui"),
+        ("backend::écran", "backend :: écran"),
+    ] {
+        assert_eq!(parse_rust_module(module).unwrap().to_string(), expected, "{module:?}");
+    }
+
+    for module in [
+        "",
+        " ",
+        "🍰🍔🍕",
+        "not _ valid _ code",
+        "backend-ui",
+        "backend::type",
+        "backend::",
+        "backend::::ui",
+        "backend<T>",
+        "backend::<T>::ui",
+        "backend::ui()",
+        "::backend::ui",
+        "crate::backend",
+        "self::backend",
+        "super::backend",
+        "Self::backend",
+        "backend::crate",
+        "backend::self",
+        "backend::super",
+        "backend::Self",
+        "r#self::ui",
+    ] {
+        let error = parse_rust_module(module).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{module:?}");
+        assert!(error.to_string().contains("Invalid rust_module"), "{module:?}: {error}");
+    }
+}
+
+fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> TokenStream {
+    let package = ident(&library_info.package);
+    let module = library_info.module.as_ref().map(|module| quote!(#module::));
+    quote!(#package::#module #symbol)
 }
 
 /// Returns the identifier used for the Property<()> that tracks when a
@@ -175,21 +255,14 @@ pub fn generate(
     doc: &Document,
     compiler_config: &CompilerConfiguration,
 ) -> std::io::Result<TokenStream> {
+    if let Some(module) = &compiler_config.rust_module {
+        parse_rust_module(module)?;
+    }
     if std::env::var("SLINT_LIVE_PREVIEW").is_ok() {
         return super::rust_live_preview::generate(doc, compiler_config);
     }
 
     let module_header = generate_module_header();
-    let qualified_name_ident = |symbol: &SmolStr, library_info: &LibraryInfo| {
-        let symbol = ident(symbol);
-        let package = ident(&library_info.package);
-        if let Some(module) = &library_info.module {
-            let module = ident(module);
-            quote!(#package :: #module :: #symbol)
-        } else {
-            quote!(#package :: #symbol)
-        }
-    };
 
     let library_imports = {
         let doc_used_types = doc.used_types.borrow();
@@ -197,17 +270,18 @@ pub fn generate(
             .library_types_imports
             .iter()
             .map(|(symbol, library_info)| {
-                let ident = qualified_name_ident(symbol, library_info);
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
                 quote!(
                     #[allow(unused_imports)]
-                    pub use #ident;
+                    pub use #symbol_path;
                 )
             })
             .chain(doc_used_types.library_global_imports.iter().map(|(symbol, library_info)| {
-                let ident = qualified_name_ident(symbol, library_info);
+                let symbol_path = library_symbol_path(library_info, ident(symbol));
                 let inner_symbol_name = smol_str::format_smolstr!("Inner{}", symbol);
-                let inner_ident = qualified_name_ident(&inner_symbol_name, library_info);
-                quote!(pub use #ident, #inner_ident;)
+                let inner_symbol_path =
+                    library_symbol_path(library_info, ident(&inner_symbol_name));
+                quote!(pub use #symbol_path, #inner_symbol_path;)
             }))
             .collect::<Vec<_>>()
     };
@@ -618,15 +692,7 @@ fn generate_shared_globals(
             let struct_name = format_ident!("{}SharedGlobals", library_info.name);
             let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
-            let shared_globals_type_name = if let Some(module) = library_info.module {
-                let package = ident(&library_info.package);
-                let module = ident(&module);
-                //(quote!(#shared_globals_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
-                quote!(#package::#module::#struct_name)
-            } else {
-                let package = ident(&library_info.package);
-                quote!(#package::#struct_name)
-            };
+            let shared_globals_type_name = library_symbol_path(&library_info, struct_name);
             (quote!(#shared_globals_var_name), shared_globals_type_name)
         })
         .unzip();

@@ -335,3 +335,60 @@ test("llms.txt links are root-relative without a site", async () => {
         /^- \[Intro\]\(\/docs\/guide\/intro\.md\)$/m,
     );
 });
+
+const SC_PAGE = `import SC from '@slint/common-files/src/components/SC.astro';
+import OnlyInSC from '@slint/common-files/src/components/OnlyInSC.astro';
+import NotInSC from '@slint/common-files/src/components/NotInSC.astro';
+
+## Structs
+
+<SC>
+A struct is a named structure type. \\{#sls.struct.decl}
+
+<OnlyInSC>
+A field shall not declare a default value. \\{#sls.struct.no-field-default}
+</OnlyInSC>
+</SC>
+
+<NotInSC>
+A field may declare a default value.
+</NotInSC>
+`;
+
+test("Slint SC content is omitted outside the safety manual", async () => {
+    const res = renderMarkdownResponse(entry({ body: SC_PAGE }), {
+        scSafetyManual: false,
+    });
+    assert.equal(
+        await res.text(),
+        `---
+---
+
+## Structs
+
+A struct is a named structure type.
+
+
+A field may declare a default value.
+`,
+    );
+});
+
+test("the safety manual shows Slint SC content and identifiers", async () => {
+    const res = renderMarkdownResponse(entry({ body: SC_PAGE }), {
+        scSafetyManual: true,
+    });
+    assert.equal(
+        await res.text(),
+        `---
+---
+
+## Structs
+
+A struct is a named structure type. [sls.struct.decl]
+
+A field shall not declare a default value. [sls.struct.no-field-default]
+
+`,
+    );
+});
