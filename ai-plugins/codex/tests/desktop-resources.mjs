@@ -39,8 +39,8 @@ try {
   await call("initialize", { clientInfo: { name: "slint-resource-test", version: "1" }, capabilities: { experimentalApi: true } });
   child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "initialized" }) + "\n");
   const inventory = await call("mcpServerStatus/list", { limit: 100, detail: "full" });
-  const server = inventory.data.find(entry => entry.pluginId === "slint@slint-prototype");
-  assert(server, "Install and enable Slint from Slint Prototype before running this test.");
+  const server = inventory.data.find(entry => entry.pluginId === "slint@slint" && entry.tools?.render_slint);
+  assert(server, "Install and enable Slint from Slint before running this test.");
   assert.equal(server.toolsError, null);
   const preview = server.resources.find(resource => resource.mimeType === "text/html;profile=mcp-app");
   assert(preview, "The installed plugin has no preview resource.");

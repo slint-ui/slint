@@ -1,7 +1,8 @@
 # Slint Codex plugin
 
 Develop Slint source with Codex, validate it with the native LSP, and show Slint Wasm previews inline in compatible hosts.
-The plugin source lives in this monorepo.
+The Codex implementation extends the official plugin rooted at `ai-plugins/`.
+Its shared skill and documentation MCP connection remain available to other assistants.
 The validator and preview interpreter are built from the same checkout, without a release version pin.
 
 ## Build and install
@@ -12,12 +13,12 @@ From the monorepo root, run:
 
 ```sh
 pnpm install --filter slint.codex.plugin --frozen-lockfile
-node tools/codex-plugin/scripts/build-runtime.mjs
-codex plugin marketplace add .
-codex plugin add slint@slint-prototype
+node ai-plugins/codex/scripts/build-runtime.mjs
+codex plugin marketplace add ./ai-plugins
+codex plugin add slint@slint
 ```
 
-Restart Codex and select Slint from the Slint Prototype marketplace in a new chat.
+Restart Codex and select Slint from the Slint marketplace in a new chat.
 The CLI supports the development skill and tools but does not display an inline preview.
 
 The build uses the existing native LSP and Wasm interpreter crates.
@@ -32,8 +33,8 @@ The preview verifies the reconstructed Wasm hash before initializing it.
 A browser cache retains one runtime, including its JavaScript and verified Wasm bytes.
 Changing the runtime replaces that entry; unavailable browser storage falls back to MCP resource reads.
 Loading phases are recorded in console logs and the preview acknowledgement, without additional UI.
-Run `node --test tools/codex-plugin/tests/runtime-resources.mjs` after building to check resource size and restart behavior.
-After installation, run `node tools/codex-plugin/tests/desktop-resources.mjs` to check resource delivery through Codex's backend.
+Run `pnpm --filter slint.codex.plugin test` after building to check resource size and restart behavior.
+After installation, run `node ai-plugins/codex/tests/desktop-resources.mjs` to check resource delivery through Codex's backend.
 Pass the desktop app's bundled Codex executable as its first argument to test that backend version.
 This checks the installed package and resource transport; visible inline rendering still needs a check in the app.
 The bundled native LSP supplies validation directly; agents do not need to find an LSP executable.
@@ -67,10 +68,13 @@ Snapshots are immutable, private to the local user, and retain the latest 32 sub
 Each snapshot allows 128 files, 8 MiB per file, and 16 MiB total; each Slint file allows 64 KiB.
 An expired snapshot needs a fresh render submission.
 
-## Ready-to-install team package
+## Publishing and team packages
 
-Run `node tools/codex-plugin/scripts/package-plugin.mjs /absolute/path/Slint.zip` after building.
-The archive includes the matching native LSP, Wasm, source revision, marketplace catalog, and installation instructions.
+Run `node ai-plugins/codex/scripts/package-plugin.mjs /absolute/path/Slint.zip` after building.
+The archive includes the official assistant manifests, shared skill, matching native LSP, Wasm, source revision, and marketplace catalog.
+The generated `slint-ui/ai-plugins` repository currently mirrors source from `release/1` without a build step.
+A source-only install keeps the shared skill and docs connection but exposes no preview tools.
+Public runtime artifact delivery requires a separate publishing change; native binaries remain excluded from the monorepo.
 It contains only an explicit package file list, without project snapshots, credentials, build caches, or test files.
 The generated ZIP has deterministic file ordering, timestamps, and executable permissions.
 The included native runtime works on the recorded platform and architecture; other platforms build from this checkout.

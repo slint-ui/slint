@@ -12,14 +12,15 @@ import { promisify } from "node:util";
 import { snapshotProject, readProjectResource } from "./project.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const { version } = JSON.parse(await readFile(join(root, "plugin.json"), "utf8"));
-const runtimeMetadata = JSON.parse(await readFile(join(root, "runtime/runtime.json"), "utf8"));
-const runtimeVersion = runtimeMetadata.version;
+const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const runtimeMetadata = await readFile(join(root, "runtime/runtime.json"), "utf8")
+  .then(JSON.parse).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+const runtimeVersion = runtimeMetadata?.version;
 const uiUri = `ui://slint/preview/v${version}.html`;
 const example = await readFile(join(root, "examples/button.slint"), "utf8");
 const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
-const runtimeJavascript = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter.js"));
-const runtimeWasm = await readFile(join(root, "runtime/wasm/slint_wasm_interpreter_bg.wasm"));
+const runtimeJavascript = runtimeMetadata ? await readFile(join(root, "runtime/wasm/slint_wasm_interpreter.js")) : Buffer.alloc(0);
+const runtimeWasm = runtimeMetadata ? await readFile(join(root, "runtime/wasm/slint_wasm_interpreter_bg.wasm")) : Buffer.alloc(0);
 const wasmHash = createHash("sha256").update(runtimeWasm).digest("hex");
 const runtimeHash = createHash("sha256").update(runtimeJavascript).update(runtimeWasm).digest("hex");
 const javascriptUri = `slint://runtime/${runtimeHash}/javascript`;
@@ -31,10 +32,10 @@ for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
   wasmChunkUris.push(uri);
   runtimeResources.set(uri, { uri, mimeType: "application/octet-stream", blob: compressedWasm.subarray(offset, offset + 256 * 1024).toString("base64") });
 }
-const html = (await readFile(join(root, "runtime/preview.html"), "utf8"))
-  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash }));
+const html = runtimeMetadata ? (await readFile(join(root, "runtime/preview.html"), "utf8"))
+  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash })) : "";
 if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
-const icon = await readFile(join(root, "runtime/slint.svg"));
+const icon = await readFile(runtimeMetadata ? join(root, "runtime/slint.svg") : join(root, "../icon.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
 const run = promisify(execFile);
 const presentation = { ui: { resourceUri: uiUri }, "openai/outputTemplate": uiUri };
@@ -113,12 +114,12 @@ async function handle(message) {
     case "initialize":
       return { protocolVersion: message.params?.protocolVersion ?? "2025-06-18", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "slint", title: "Slint", version, icons } };
     case "ping": return {};
-    case "tools/list": return { tools };
-    case "resources/list": return { resources: [
+    case "tools/list": return { tools: runtimeMetadata ? tools : [] };
+    case "resources/list": return { resources: runtimeMetadata ? [
       { uri: uiUri, name: "slint-preview", title: "Slint Preview", mimeType: "text/html;profile=mcp-app" },
       { uri: "slint://components/button.slint", name: "slint-button", mimeType: "text/plain" },
       ...Array.from(runtimeResources.values(), ({ uri, mimeType }) => ({ uri, mimeType, name: uri.split("/").slice(-2).join("-") })),
-    ] };
+    ] : [] };
     case "resources/templates/list": return { resourceTemplates: [{ uriTemplate: "slint://project/{snapshot}/{file}/{chunk}", name: "project-dependency", description: "Bounded dependency chunks from a submitted project snapshot." }] };
     case "resources/read": {
       const uri = message.params?.uri;
@@ -134,6 +135,7 @@ async function handle(message) {
     case "tools/call": {
       const args = message.params?.arguments ?? {};
       try {
+        if (!runtimeMetadata) throw new Error("Build the Codex runtime in the Slint monorepo or install a platform package to enable preview tools.");
         if (message.params?.name === "show_slint_button") return await render({ source: example, revision: 1 });
         if (message.params?.name === "render_slint") return await render(args);
         if (message.params?.name !== "validate_slint") throw new Error("Unknown Slint tool.");

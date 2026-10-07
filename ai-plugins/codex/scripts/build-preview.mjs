@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { build } from "esbuild";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { version } = JSON.parse(await readFile(join(root, "plugin.json"), "utf8"));
+const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const bundle = await build({
   entryPoints: [join(root, "preview/main.mjs")],
   bundle: true,
@@ -35,7 +35,7 @@ for (const [token, value] of Object.entries(assets)) {
   html = html.replace(token, () => value);
 }
 const digest = createHash("sha256").update(html);
-for (const file of ["plugin.json", "server.mjs", "project.mjs", "scripts/check-source.py", "runtime/runtime.json", "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(root, file)));
+for (const file of ["package.json", "server.mjs", "project.mjs", "scripts/check-source.py", "runtime/runtime.json", "runtime/wasm/slint_wasm_interpreter.js", "runtime/wasm/slint_wasm_interpreter_bg.wasm"]) digest.update(await readFile(join(root, file)));
 const metadata = { version, buildId: digest.digest("hex").slice(0, 12) };
 await writeFile(join(root, "runtime/preview.html"), html.replace("__SLINT_BUILD_METADATA__", json(metadata)));
 console.log(JSON.stringify(metadata));
