@@ -65,3 +65,19 @@ test("re-exported components include their assets and preserve empty images", as
     await assert.rejects(snapshotProject(join(root, "main.slint"), root, ""), /outside the declared project root/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+
+test("large imported editor styles use a separate bounded source limit", async () => {
+  const root = await mkdtemp(join(tmpdir(), "slint-large-dependency-"));
+  try {
+    const path = join(root, "main.slint");
+    await writeFile(path, 'import { Theme } from "style.slint"; export component Preview inherits Window {width:320px;height:160px;}');
+    await copyFile(new URL("../../../tools/editor/ui/style.slint", import.meta.url), join(root, "style.slint"));
+    const project = await snapshotProject(path, root, "");
+    assert(project.files["style.slint"]);
+    await writeFile(join(root, "style.slint"), '/*' + "x".repeat(1024 * 1024) + '*/');
+    await assert.rejects(snapshotProject(path, root, ""), /Imported Slint source must be at most 1 MiB/);
+    await writeFile(path, "x".repeat(65537));
+    await assert.rejects(snapshotProject(path, root, ""), /entry source must be at most 64 KiB/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
