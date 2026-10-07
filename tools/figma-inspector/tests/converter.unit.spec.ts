@@ -769,7 +769,7 @@ describe("converter", () => {
         });
     });
 
-    test("maps finite root and nested rotations to center-origin Slint transforms", async () => {
+    test("maps Figma rotation direction and origin to Slint transforms", async () => {
         const base = JSON.parse(
             await readFile("fixtures/auto-layout.snapshot.json", "utf8"),
         ) as {
@@ -792,10 +792,10 @@ describe("converter", () => {
         });
         expect(rotated.ok).toBe(true);
         if (!rotated.ok) return;
-        expect(rotated.source).toContain("transform-rotation: 17deg;");
-        expect(rotated.source).toContain("transform-rotation: -8deg;");
+        expect(rotated.source).toContain("transform-rotation: -17deg;");
+        expect(rotated.source).toContain("transform-rotation: 8deg;");
         expect(rotated.source).toContain(
-            "transform-origin: { x: self.width / 2, y: self.height / 2 };",
+            "transform-origin: { x: 0px, y: 0px };",
         );
     });
 

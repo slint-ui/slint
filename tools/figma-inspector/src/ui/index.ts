@@ -534,7 +534,9 @@ function acceptSource(
     const expandedValidation = exportValidationSource(exportPackage);
     const validation =
         expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
-            ? materializePreviewAssets(packPreviewAssets(expandedValidation))
+            ? materializePreviewAssets(packPreviewAssets(expandedValidation), {
+                  useDataUrls: isFigmaUi,
+              })
             : undefined;
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
@@ -788,7 +790,9 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 const decoded =
                     typeof message.source === "string"
                         ? { source: message.source, dispose: undefined }
-                        : materializePreviewAssets(message.source);
+                        : materializePreviewAssets(message.source, {
+                              useDataUrls: isFigmaUi,
+                          });
                 if (decoded.dispose)
                     previewAssetDisposers.set(
                         message.revision,

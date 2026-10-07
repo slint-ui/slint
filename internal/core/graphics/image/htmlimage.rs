@@ -44,6 +44,12 @@ impl HTMLImage {
             web_sys::Blob::new_with_u8_array_sequence_and_options(&blob_parts, &options).ok()?;
         let url = web_sys::Url::create_object_url_with_blob(&blob).ok()?;
 
+        let mut image = Self::new_from_url_with_data(&url, data, mime_type);
+        image.object_url = Some(url);
+        Some(image)
+    }
+
+    pub fn new_from_url_with_data(url: &str, data: &[u8], mime_type: &str) -> Self {
         let is_svg = mime_type == "image/svg+xml";
         let svg_intrinsic_size = if is_svg {
             core::str::from_utf8(data).ok().and_then(svg_intrinsic_size)
@@ -51,9 +57,7 @@ impl HTMLImage {
             None
         };
 
-        let mut image = Self::new_impl(&url, is_svg, svg_intrinsic_size);
-        image.object_url = Some(url);
-        Some(image)
+        Self::new_impl(url, is_svg, svg_intrinsic_size)
     }
 
     fn new_impl(url: &str, is_svg: bool, svg_intrinsic_size: Option<IntSize>) -> Self {
