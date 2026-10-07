@@ -89,22 +89,20 @@ function applyContract(
     contract: ComponentContract | undefined,
     names: ReturnType<typeof contractNames>,
     model?: Element,
-    inheritedConditions: ReadonlySet<string> = new Set(),
+    inheritedConditions: readonly string[] = [],
 ): Element {
     const refs = contract?.bindings[model?.origin?.id ?? tree.origin?.id ?? ""];
     const visibility =
         refs?.visible && !tree.role ? names.get(refs.visible) : undefined;
-    const condition = visibility ? `root.${visibility.name}` : tree.condition;
+    let condition = visibility ? `root.${visibility.name}` : tree.condition;
+    if (condition && inheritedConditions.includes(condition))
+        condition = undefined;
     const childConditions = condition
-        ? new Set([...inheritedConditions, condition])
+        ? [...inheritedConditions, condition]
         : inheritedConditions;
     return {
         ...tree,
-        // An ancestor already controls visibility under the same condition.
-        condition:
-            condition && inheritedConditions.has(condition)
-                ? undefined
-                : condition,
+        condition,
         bindings: tree.bindings.map((b) => {
             const property =
                 b.name === "text" && refs?.characters

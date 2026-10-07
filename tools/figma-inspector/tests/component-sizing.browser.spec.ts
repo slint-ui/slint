@@ -6,7 +6,12 @@ import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { requireValue } from "../src/preview/slint-ir";
 import type { SourceCapture, SourceNode } from "../src/plugin/source";
-import { mountPreview, canvasPixels, readFixture } from "./browser-harness";
+import {
+    mountPreview,
+    canvasPixels,
+    readFixture,
+    type Preview,
+} from "./browser-harness";
 
 type Pixels = Awaited<ReturnType<typeof canvasPixels>>;
 function bounds(pixels: Pixels, channel: number) {
@@ -62,6 +67,25 @@ function visit(node: SourceNode, apply: (node: SourceNode) => void) {
         visit(child, apply);
     });
 }
+function clickCanvas(preview: Preview) {
+    const canvas = preview.element("#preview-canvas");
+    canvas.style.pointerEvents = "auto";
+    const rect = canvas.getBoundingClientRect();
+    const Pointer = (preview.win as Window & typeof globalThis).PointerEvent;
+    for (const type of ["pointerdown", "pointerup"])
+        canvas.dispatchEvent(
+            new Pointer(type, {
+                bubbles: true,
+                pointerId: 1,
+                pointerType: "mouse",
+                isPrimary: true,
+                button: 0,
+                buttons: type === "pointerdown" ? 1 : 0,
+                clientX: rect.left + 10,
+                clientY: rect.top + 10,
+            }),
+        );
+}
 for (const target of ["preview", "export"] as const) {
     test(`${target}: inherited text visibility compiles and preserves icon sizing`, async () => {
         const capture = JSON.parse(
@@ -90,6 +114,7 @@ for (const target of ["preview", "export"] as const) {
         const canvas = p.element("#preview-canvas");
         canvas.style.outline = "none";
         for (const [step, shown] of [true, false, true].entries()) {
+            if (step) clickCanvas(p);
             await expect
                 .poll(async () => bounds(await canvasPixels(p), 2))
                 .toEqual({ x: 0, y: 0, width: shown ? 68 : 40, height: 40 });
@@ -101,23 +126,6 @@ for (const target of ["preview", "export"] as const) {
                 height: 20,
             });
             expect(bounds(pixels, 1) !== undefined).toBe(shown);
-            if (step === 2) break;
-            canvas.style.pointerEvents = "auto";
-            const rect = canvas.getBoundingClientRect();
-            const Pointer = (p.win as Window & typeof globalThis).PointerEvent;
-            for (const type of ["pointerdown", "pointerup"])
-                canvas.dispatchEvent(
-                    new Pointer(type, {
-                        bubbles: true,
-                        pointerId: 1,
-                        pointerType: "mouse",
-                        isPrimary: true,
-                        button: 0,
-                        buttons: type === "pointerdown" ? 1 : 0,
-                        clientX: rect.left + 10,
-                        clientY: rect.top + 10,
-                    }),
-                );
         }
     });
 
@@ -457,25 +465,7 @@ for (const target of ["preview", "export"] as const) {
         const widths: number[] = [];
         for (let step = 0; step < 4; step++) {
             if (step) {
-                const canvas = p.element("#preview-canvas");
-                canvas.style.pointerEvents = "auto";
-                const rect = canvas.getBoundingClientRect();
-                const Pointer = (p.win as Window & typeof globalThis)
-                    .PointerEvent;
-                for (const type of ["pointerdown", "pointerup"]) {
-                    canvas.dispatchEvent(
-                        new Pointer(type, {
-                            bubbles: true,
-                            pointerId: 1,
-                            pointerType: "mouse",
-                            isPrimary: true,
-                            button: 0,
-                            buttons: type === "pointerdown" ? 1 : 0,
-                            clientX: rect.left + 10,
-                            clientY: rect.top + 10,
-                        }),
-                    );
-                }
+                clickCanvas(p);
                 await expect
                     .poll(async () => bounds(await canvasPixels(p), 2)?.width)
                     .not.toBe(widths[step - 1]);
