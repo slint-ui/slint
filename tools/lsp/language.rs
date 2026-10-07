@@ -1703,16 +1703,27 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
-            if let Some(ip) = config_object.get("includePaths").and_then(|v| v.as_array()) {
+            if let Some(include_path_values) =
+                config_object.get("includePaths").and_then(|value| value.as_array())
+                && !include_path_values.is_empty()
+            {
                 include_paths = Some(
-                    ip.iter().filter_map(serde_json::Value::as_str).map(PathBuf::from).collect(),
+                    include_path_values
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(PathBuf::from)
+                        .collect(),
                 );
             }
-            if let Some(lp) = config_object.get("libraryPaths").and_then(|v| v.as_object()) {
+            if let Some(library_path_values) =
+                config_object.get("libraryPaths").and_then(|value| value.as_object())
+                && !library_path_values.is_empty()
+            {
                 library_paths = Some(
-                    lp.iter()
+                    library_path_values
+                        .iter()
                         .filter_map(|(key, value)| {
-                            value.as_str().map(|v| (key.to_string(), PathBuf::from(v)))
+                            value.as_str().map(|path| (key.to_string(), PathBuf::from(path)))
                         })
                         .collect(),
                 );
@@ -1847,16 +1858,50 @@ pub mod tests {
     }
 
     #[test]
-    fn configuration_parser_preserves_explicit_empty_values_and_false() {
-        let overrides = parse_configuration(vec![serde_json::json!({
-            "includePaths": [],
-            "libraryPaths": {},
-            "experimental": false
-        })]);
+    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+        for configuration in [
+            serde_json::json!({"experimental": false}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, None);
+            assert_eq!(overrides.compiler.project.library_paths, None);
+            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            for paths in ["startup", "project"] {
+                let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
+                    i_slint_compiler::generator::OutputFormat::Interpreter,
+                );
+                compiler_configuration.include_paths = vec![PathBuf::from(paths)];
+                compiler_configuration.library_paths =
+                    HashMap::from([(paths.into(), PathBuf::from(paths))]);
+                overrides.compiler.apply(None, &mut compiler_configuration);
+                assert_eq!(compiler_configuration.include_paths, vec![PathBuf::from(paths)]);
+                assert_eq!(
+                    compiler_configuration.library_paths,
+                    HashMap::from([(paths.into(), PathBuf::from(paths))])
+                );
+            }
+        }
+    }
 
-        assert_eq!(overrides.compiler.project.include_paths, Some(vec![]));
-        assert_eq!(overrides.compiler.project.library_paths, Some(HashMap::new()));
-        assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+    #[test]
+    fn configuration_parser_filters_nonempty_collections_before_replacement() {
+        for (configuration, expected_paths, expected_libraries) in [
+            (
+                serde_json::json!({"includePaths": ["workspace", 1], "libraryPaths": {"workspace": "lib", "invalid": 1}}),
+                vec![PathBuf::from("workspace")],
+                HashMap::from([("workspace".into(), PathBuf::from("lib"))]),
+            ),
+            (
+                serde_json::json!({"includePaths": [1], "libraryPaths": {"invalid": 1}}),
+                vec![],
+                HashMap::new(),
+            ),
+        ] {
+            let overrides = parse_configuration(vec![configuration]);
+            assert_eq!(overrides.compiler.project.include_paths, Some(expected_paths));
+            assert_eq!(overrides.compiler.project.library_paths, Some(expected_libraries));
+        }
     }
 
     #[test]
