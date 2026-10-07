@@ -20,21 +20,18 @@ const runtimeVersion = runtimeMetadata?.version;
 const uiUri = `ui://slint/preview/v${version}.html`;
 const example = await readFile(join(root, "examples/button.slint"), "utf8");
 const component = await readFile(join(root, "components/slint-button.slint"), "utf8");
-const runtimeJavascript = builtRuntime?.javascript ?? Buffer.alloc(0);
 const runtimeWasm = builtRuntime?.wasm ?? Buffer.alloc(0);
 const wasmHash = createHash("sha256").update(runtimeWasm).digest("hex");
-const runtimeHash = createHash("sha256").update(runtimeJavascript).update(runtimeWasm).digest("hex");
-const javascriptUri = `slint://runtime/${runtimeHash}/javascript`;
-const runtimeResources = new Map([[javascriptUri, { uri: javascriptUri, mimeType: "text/javascript", text: runtimeJavascript.toString("utf8") }]]);
+const runtimeResources = new Map();
 const compressedWasm = gzipSync(runtimeWasm);
 const wasmChunkUris = [];
 for (let offset = 0; offset < compressedWasm.length; offset += 256 * 1024) {
-  const uri = `slint://runtime/${runtimeHash}/wasm/${wasmChunkUris.length}`;
+  const uri = `slint://runtime/${wasmHash}/wasm/${wasmChunkUris.length}`;
   wasmChunkUris.push(uri);
   runtimeResources.set(uri, { uri, mimeType: "application/octet-stream", blob: compressedWasm.subarray(offset, offset + 256 * 1024).toString("base64") });
 }
 const html = builtRuntime ? builtRuntime.html
-  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, javascriptUri, wasmChunkUris, wasmHash })) : "";
+  .replace("__SLINT_RUNTIME_METADATA__", JSON.stringify({ ...runtimeMetadata, wasmChunkUris, wasmHash })) : "";
 if (Buffer.byteLength(html) >= 1024 * 1024) throw new Error("The inline Slint HTML must remain smaller than 1 MiB.");
 const icon = builtRuntime?.icon ?? await readFile(join(root, "../icon.svg"));
 const icons = [{ src: "data:image/svg+xml;base64," + icon.toString("base64"), mimeType: "image/svg+xml", sizes: ["64x64", "any"] }];
@@ -61,7 +58,7 @@ const renderOutputSchema = {
     sourceHash: { type: "string" }, runtimeVersion: { type: "string" }, runtimeRevision: { type: "string" },
     sourcePath: { type: "string" }, projectRoot: { type: "string" }, project: { type: "object" },
   },
-  required: ["source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision"],
+  required: ["source", "revision", "width", "height", "sourceHash", "runtimeVersion", "runtimeRevision", "sourcePath", "projectRoot", "project"],
   additionalProperties: false,
 };
 const tools = [

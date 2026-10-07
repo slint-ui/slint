@@ -19,6 +19,9 @@ const bundle = await build({
   target: "es2022",
   minify: true,
   legalComments: "none",
+  plugins: [{ name: "slint-runtime", setup(builder) {
+    builder.onResolve({ filter: /^slint-runtime$/ }, () => ({ path: join(runtime, "wasm/slint_wasm_interpreter.js") }));
+  } }],
 });
 let html = await readFile(join(root, "preview/index.html"), "utf8");
 const json = value => JSON.stringify(value).replaceAll("<", "\\u003c");

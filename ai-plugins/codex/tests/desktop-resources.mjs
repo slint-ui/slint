@@ -49,8 +49,7 @@ try {
   assert(Buffer.byteLength(html) < 1024 * 1024);
   assert(!html.includes("127.0.0.1"));
   const metadata = JSON.parse(html.match(/<script id="slint-runtime" type="application\/json">(.*?)<\/script>/)[1]);
-  const javascript = (await read(metadata.javascriptUri)).contents[0].text;
-  assert(javascript.includes("compile_from_string"));
+  assert.equal(metadata.javascriptUri, undefined);
   const chunks = [];
   for (const uri of metadata.wasmChunkUris) {
     const bytes = Buffer.from((await read(uri)).contents[0].blob, "base64");
@@ -65,7 +64,7 @@ try {
     for (const uri of file.uris) bytes.push(Buffer.from((await read(uri)).contents[0].blob, "base64"));
     assert.equal(createHash("sha256").update(Buffer.concat(bytes)).digest("hex"), file.hash);
   }
-  console.log(JSON.stringify({ status: "passed", server: server.name, preview: preview.uri, htmlBytes: Buffer.byteLength(html), runtimeVersion: metadata.version, runtimeReads: chunks.length + 1, projectFiles: Object.keys(project.files).length }));
+  console.log(JSON.stringify({ status: "passed", server: server.name, preview: preview.uri, htmlBytes: Buffer.byteLength(html), runtimeVersion: metadata.version, runtimeReads: chunks.length, projectFiles: Object.keys(project.files).length }));
 } finally {
   child.kill();
 }

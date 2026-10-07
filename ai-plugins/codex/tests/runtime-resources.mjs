@@ -56,8 +56,8 @@ test("cached preview resources survive a server restart without large HTML or lo
     const metadata = JSON.parse(html.match(/<script id="slint-runtime" type="application\/json">(.*?)<\/script>/)[1]);
     await client.close();
     client = connect();
-    const javascript = (await client.call("resources/read", { uri: metadata.javascriptUri })).contents[0].text;
-    assert.equal(javascript, await readFile(new URL("../runtime/wasm/slint_wasm_interpreter.js", import.meta.url), "utf8"));
+    assert.equal(metadata.javascriptUri, undefined);
+    assert(!listing.resources.some(resource => resource.mimeType === "text/javascript"));
     const chunks = [];
     for (const uri of metadata.wasmChunkUris) {
       const resource = (await client.call("resources/read", { uri })).contents[0];
@@ -110,6 +110,7 @@ test("invalid Slint and render arguments return errors", async () => {
   const path = join(directory, "invalid.slint");
   try {
     const { tools } = await client.call("tools/list");
+    assert.deepEqual(tools.map(tool => tool.name), ["validate_slint", "render_slint"]);
     const statuses = tools.find(tool => tool.name === "validate_slint").outputSchema.properties.status.enum;
     assert.deepEqual(statuses, ["valid", "error", "failure"]);
     const source = "export component Broken inherits Window { width: banana; }";
@@ -121,7 +122,7 @@ test("invalid Slint and render arguments return errors", async () => {
     const missing = await client.call("tools/call", { name: "validate_slint", arguments: { path: join(directory, "missing.slint"), revision: 1 } });
     assert.equal(missing.isError, true);
     assert.equal(missing.structuredContent.status, "failure");
-    for (const arguments_ of [{ source, revision: 0 }, { source, revision: 1, width: 0 }]) {
+    for (const arguments_ of [{ source, revision: 1 }, { source, revision: 0 }, { source, revision: 1, width: 0 }]) {
       const rendering = await client.call("tools/call", { name: "render_slint", arguments: arguments_ });
       assert.equal(rendering.isError, true);
     }

@@ -29,12 +29,11 @@ The repository logo is symlinked; the build resolves it into `runtime/slint.svg`
 Runtime builds are staged and replace the previous runtime only after all assets are ready.
 Missing or incomplete runtimes expose no preview tools and do not prevent server startup.
 Generated binaries and their source revision are stored in the ignored `runtime/` directory.
-The preview reads generated JavaScript and compressed Wasm through the host's MCP resource bridge.
+The preview bundles the required Wasm JavaScript glue and reads compressed Wasm through the host's MCP resource bridge.
 The HTML stays below 1 MiB, and each Wasm resource holds at most 256 KiB of compressed bytes.
 The preview verifies the reconstructed Wasm hash before initializing it.
-A browser cache retains one runtime, including its JavaScript and verified Wasm bytes.
+A browser cache retains one runtime, containing verified Wasm bytes.
 Changing the runtime replaces that entry; unavailable browser storage falls back to MCP resource reads.
-Loading phases are recorded in console logs and the preview acknowledgement, without additional UI.
 Run `pnpm --filter slint.codex.plugin test` after building to check resource size and restart behavior.
 After installation, run `node ai-plugins/codex/tests/desktop-resources.mjs` to check resource delivery through Codex's backend.
 Pass the desktop app's bundled Codex executable as its first argument to test that backend version.

@@ -25,7 +25,7 @@ export async function openRuntimeCache() {
     async read(key) {
       try {
         const value = await operation("readonly", store => store.get("current"));
-        return value?.key === key && value.wasm instanceof ArrayBuffer && typeof value.javascript === "string" ? value : undefined;
+        return value?.key === key && value.wasm instanceof ArrayBuffer ? value : undefined;
       } catch { return undefined; }
     },
     async write(value) {

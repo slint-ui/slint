@@ -14,14 +14,13 @@ export async function loadRuntime(root) {
     const executableInfo = await stat(executable);
     if (!executableInfo.isFile() || !executableInfo.size) return null;
     await access(executable, constants.X_OK);
-    const [javascript, wasm, html, icon] = await Promise.all([
-      readFile(join(root, "wasm/slint_wasm_interpreter.js")),
+    const [wasm, html, icon] = await Promise.all([
       readFile(join(root, "wasm/slint_wasm_interpreter_bg.wasm")),
       readFile(join(root, "preview.html"), "utf8"),
       readFile(join(root, "slint.svg")),
     ]);
-    if (!javascript.length || !wasm.length || !html.length || !icon.length || Buffer.byteLength(html) >= 1024 * 1024) return null;
-    return { metadata, javascript, wasm, html, icon };
+    if (!wasm.length || !html.length || !icon.length || Buffer.byteLength(html) >= 1024 * 1024) return null;
+    return { metadata, wasm, html, icon };
   } catch { return null; }
 }
 
