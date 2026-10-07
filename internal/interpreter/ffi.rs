@@ -825,7 +825,8 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_do
 pub struct FileLoaderUserData {
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+    callback:
+        extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
 }
 
 impl Drop for FileLoaderUserData {
@@ -840,7 +841,11 @@ impl FileLoaderUserData {
     pub unsafe fn new(
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
-        callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+        callback: extern "C" fn(
+            user_data: *mut c_void,
+            path: Slice<u8>,
+            out: *mut SharedString,
+        ) -> bool,
     ) -> Self {
         Self { user_data, drop_user_data, callback }
     }
@@ -852,7 +857,11 @@ impl FileLoaderUserData {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
     compiler: &mut ComponentCompilerOpaque,
-    callback: extern "C" fn(user_data: *mut c_void, path: Slice<u8>, out: *mut SharedString) -> bool,
+    callback: extern "C" fn(
+        user_data: *mut c_void,
+        path: Slice<u8>,
+        out: *mut SharedString,
+    ) -> bool,
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) {
@@ -862,13 +871,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
         let path_slice = Slice::from_slice(path_str.as_bytes());
         let mut result = SharedString::default();
         let found = (ud.callback)(ud.user_data, path_slice, &mut result);
-        Box::pin(async move {
-            if found {
-                Some(Ok(result.to_string()))
-            } else {
-                None
-            }
-        })
+        Box::pin(async move { if found { Some(Ok(result.to_string())) } else { None } })
     });
 }
 

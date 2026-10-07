@@ -1019,9 +1019,11 @@ public:
     }
 
     /// Sets a custom file loader for the compiler.
-    /// The callback is invoked with a path and should return the file contents as a SharedString, or std::nullopt if the file is not found.
+    /// The callback is invoked with a path and should return the file contents as a SharedString,
+    /// or std::nullopt if the file is not found.
     template<std::invocable<std::string_view> F>
-        requires(std::is_convertible_v<std::invoke_result_t<F, std::string_view>, std::optional<SharedString>>)
+        requires(std::is_convertible_v<std::invoke_result_t<F, std::string_view>,
+                                       std::optional<SharedString>>)
     void set_file_loader(F callback)
     {
         using namespace cbindgen_private;
