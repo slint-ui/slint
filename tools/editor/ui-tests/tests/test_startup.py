@@ -38,7 +38,6 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
 ) -> None:
     editor_environment["SLINT_NO_MUDA"] = "1"
 
@@ -62,7 +61,10 @@ def test_file_menu_opens_the_same_recent_project_as_the_startup_page(
         assert not elements(window, "Startup wizard")
 
         def recent_project_was_saved() -> Path | None:
-            settings_files = list(tmp_path.rglob("visual-editor-user-settings.json"))
+            settings_directory = Path(editor_environment["HOME"]).parent
+            settings_files = list(
+                settings_directory.rglob("visual-editor-user-settings.json")
+            )
             if len(settings_files) != 1:
                 return None
             contents = settings_files[0].read_text()

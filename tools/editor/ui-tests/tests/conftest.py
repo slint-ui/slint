@@ -26,7 +26,8 @@ def editor_binary() -> Path:
 
 
 @pytest.fixture
-def editor_environment(tmp_path: Path) -> dict[str, str]:
+def editor_environment(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
+    settings_directory = tmp_path_factory.mktemp("editor-settings")
     environment = os.environ.copy()
     environment.pop("SLINT_SCALE_FACTOR", None)
     environment.update(
@@ -36,8 +37,8 @@ def editor_environment(tmp_path: Path) -> dict[str, str]:
             ),
             "SLINT_EMIT_DEBUG_INFO": "1",
             "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "1",
-            "HOME": str(tmp_path / "home"),
-            "XDG_CONFIG_HOME": str(tmp_path / "config"),
+            "HOME": str(settings_directory / "home"),
+            "XDG_CONFIG_HOME": str(settings_directory / "config"),
         }
     )
     return environment

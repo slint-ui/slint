@@ -20,7 +20,10 @@ from ui_driver import (
 )
 
 
-def wait_for_pane_settings(directory: Path, expected: dict[str, int | None]) -> None:
+def wait_for_pane_settings(
+    environment: dict[str, str], expected: dict[str, int | None]
+) -> None:
+    directory = Path(environment["HOME"]).parent
     settings_path: Path | None = None
     last_settings: dict | None = None
 
@@ -88,7 +91,6 @@ def test_pane_width_drag_limits_reset_and_persistence(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
     label: str,
     pane_label: str,
     setting: str,
@@ -106,7 +108,7 @@ def test_pane_width_drag_limits_reset_and_persistence(
         assert pane.size.width == pytest.approx(minimum)
         drag_divider(window, divider, direction * delta, horizontal=True)
         assert pane.size.width == pytest.approx(minimum + delta, abs=1)
-        wait_for_pane_settings(tmp_path, {setting: minimum + delta})
+        wait_for_pane_settings(editor_environment, {setting: minimum + delta})
         element(window, "Collapse sidebars").invoke_accessible_default_action()
         element(window, "Expand sidebars").invoke_accessible_default_action()
         assert pane.size.width == pytest.approx(minimum + delta, abs=1)
@@ -127,7 +129,7 @@ def test_pane_width_drag_limits_reset_and_persistence(
         divider.accessible_value = str(minimum + delta)
         double_click(window, divider)
         assert pane.size.width == pytest.approx(minimum, abs=1)
-        wait_for_pane_settings(tmp_path, {setting: None})
+        wait_for_pane_settings(editor_environment, {setting: None})
         drag_divider(window, divider, direction * 2000, horizontal=True)
         assert pane.size.width == pytest.approx(maximum, abs=1)
         drag_divider(window, divider, -direction * 2000, horizontal=True)
@@ -253,7 +255,6 @@ def test_pane_sizes_persist_across_relaunch(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
 
@@ -289,7 +290,7 @@ def test_pane_sizes_persist_across_relaunch(
             saved_outline_y, abs=1
         )
         wait_for_pane_settings(
-            tmp_path,
+            editor_environment,
             {
                 "elements_pane_height": saved_elements_height,
                 "outline_pane_height": saved_outline_height,
@@ -312,7 +313,6 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
-    tmp_path: Path,
 ) -> None:
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
@@ -370,7 +370,7 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         search = element(window, "Search elements")
         elements.accessible_value = "120"
         assert float(elements.accessible_value.split()[0]) == 120
-        wait_for_pane_settings(tmp_path, {"elements_pane_height": 120})
+        wait_for_pane_settings(editor_environment, {"elements_pane_height": 120})
         search.accessible_value = "missing"
         no_results = element(window, "No Results")
         assert no_results.size.height >= 24
@@ -390,7 +390,7 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         double_click(window, elements)
 
         assert float(elements.accessible_value.split()[0]) == default_elements
-        wait_for_pane_settings(tmp_path, {"elements_pane_height": None})
+        wait_for_pane_settings(editor_environment, {"elements_pane_height": None})
 
     with launch_editor(
         editor_binary, editor_environment, fixture_project / "Main.slint"
