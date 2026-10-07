@@ -291,7 +291,7 @@ impl GraphicsBackend for WGPUBackend {
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
             Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_30(
-                instance, device, queue,
+                instance, device, queue, None,
             ))))
         } else {
             Ok(callback(None))
@@ -511,6 +511,7 @@ impl GraphicsBackend for WgpuTextureBackend {
             self.instance.clone(),
             self.device.clone(),
             self.queue.clone(),
+            None,
         ))))
     }
 

@@ -310,6 +310,10 @@ pub enum GraphicsAPI<'a> {
         device: wgpu_30::Device,
         /// The WGPU queue for used for command submission.
         queue: wgpu_30::Queue,
+        /// In [`RenderingState::BeforeRendering`], the frame that Slint is about to draw the
+        /// scene into, for the application to draw the window's background into first.
+        /// `None` in other states, and with renderers and platforms that don't offer it.
+        background: Option<&'a crate::graphics::wgpu_30::BackgroundTarget>,
     },
 }
 

@@ -260,8 +260,9 @@ pub fn create_graphics_api_wgpu_30(
     instance: wgpu_30::wgpu::Instance,
     device: wgpu_30::wgpu::Device,
     queue: wgpu_30::wgpu::Queue,
-) -> crate::api::GraphicsAPI<'static> {
-    crate::api::GraphicsAPI::WGPU30 { instance, device, queue }
+    background: Option<&wgpu_30::BackgroundTarget>,
+) -> crate::api::GraphicsAPI<'_> {
+    crate::api::GraphicsAPI::WGPU30 { instance, device, queue, background }
 }
 
 /// Internal module for use by cbindgen and the C++ platform API layer.

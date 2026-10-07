@@ -14,6 +14,44 @@ use alloc::boxed::Box;
 
 pub use wgpu_30 as wgpu;
 
+/// The frame that Slint is about to draw the scene into, offered in
+/// [`RenderingState::BeforeRendering`](crate::api::RenderingState::BeforeRendering)
+/// for the application to draw the window's background into first.
+///
+/// Drawing the background this way saves drawing it into a texture of the application's own
+/// and then showing that as an image, which costs a full-window pass on small GPUs.
+///
+/// The texture's format is [`wgpu::TextureFormat::Bgra8Unorm`] or
+/// [`wgpu::TextureFormat::Rgba8Unorm`], and it can also be viewed in that format's sRGB
+/// variant.
+pub struct BackgroundTarget {
+    texture: wgpu_30::Texture,
+    claimed: core::cell::Cell<bool>,
+}
+
+impl BackgroundTarget {
+    #[doc(hidden)]
+    pub fn new(texture: wgpu_30::Texture) -> Self {
+        Self { texture, claimed: Default::default() }
+    }
+
+    /// Returns the frame's texture, and lets the application draw the window's background
+    /// into it: Slint then draws the scene on top of it, rather than on the window's
+    /// background.
+    ///
+    /// The texture's contents are undefined. Before the rendering notifier returns,
+    /// submit a render pass that covers all of it.
+    pub fn claim(&self) -> &wgpu_30::Texture {
+        self.claimed.set(true);
+        &self.texture
+    }
+
+    #[doc(hidden)]
+    pub fn is_claimed(&self) -> bool {
+        self.claimed.get()
+    }
+}
+
 #[cfg(feature = "unstable-wgpu-30")]
 pub mod api {
     /*!
@@ -22,6 +60,8 @@ pub mod api {
 
     #[doc(no_inline)]
     pub use super::wgpu;
+
+    pub use super::BackgroundTarget;
 
     /// This data structure provides settings for initializing WGPU renderers.
     #[derive(Clone, Debug)]
