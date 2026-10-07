@@ -752,7 +752,9 @@ impl Window {
                 WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::CloseRequested => {
-                if self.0.request_close() {
+                if self.0.close_as_popup() {
+                    WindowEventDispatchResult::Accepted
+                } else if self.0.request_close() {
                     self.hide()?;
                     WindowEventDispatchResult::Accepted
                 } else {
