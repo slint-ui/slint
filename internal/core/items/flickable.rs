@@ -418,9 +418,9 @@ impl core::ops::Deref for FlickableDataBox {
 }
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-#[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
+#[cfg(not(any(target_os = "ios")))]
 pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
-#[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
+#[cfg(any(target_os = "ios"))]
 pub(super) const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(10 as _);
 /// Time required before we stop caring about child event if the mouse hasn't been moved
 pub(super) const DURATION_THRESHOLD: Duration = Duration::from_millis(500);

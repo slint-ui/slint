@@ -120,9 +120,9 @@ impl FlickAnimation {
     }
 
     pub fn minimum_flick_velocity_animation() -> f32 {
-        #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
+        #[cfg(any(target_os = "ios"))]
         return 200.;
-        #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
+        #[cfg(not(any(target_os = "ios")))]
         return 50.;
     }
 
@@ -132,10 +132,10 @@ impl FlickAnimation {
         carry_momentum: AutoBool,
     ) -> f32 {
         let cm = match carry_momentum {
-            #[cfg(any(target_os = "ios", slint_ios_scroll_physics))]
+            #[cfg(any(target_os = "ios"))]
             AutoBool::Auto => true,
             // On Android this momentum carry does not exist
-            #[cfg(not(any(target_os = "ios", slint_ios_scroll_physics)))]
+            #[cfg(not(any(target_os = "ios")))]
             AutoBool::Auto => false,
             AutoBool::On => true,
             AutoBool::Off => false,
@@ -148,7 +148,7 @@ impl FlickAnimation {
     /// and if `Auto` on the platform
     pub fn use_bounce(bounce: AutoBool) -> bool {
         match bounce {
-            AutoBool::Auto => cfg!(any(target_os = "ios", slint_ios_scroll_physics)),
+            AutoBool::Auto => cfg!(any(target_os = "ios")),
             AutoBool::On => true,
             AutoBool::Off => false,
         }
