@@ -719,6 +719,7 @@ impl ImageInner {
         // On the web, let the browser decode the image instead of shipping decoders in the binary.
         #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
+            let _ = cache_key;
             let mime_type = core::str::from_utf8(format.as_slice())
                 .ok()
                 .and_then(image_mime_type_from_extension)
@@ -734,13 +735,8 @@ impl ImageInner {
                 crate::debug_log!("Compressed SVG (.svgz) is not supported on the web");
                 return None;
             }
-            // Opaque iframe hosts such as Figma reject blob URLs for image loads.
-            let html_image = if let ImageCacheKey::URL(uri) = &cache_key {
-                Some(htmlimage::HTMLImage::new_from_url_with_data(uri, data.as_slice(), mime_type))
-            } else {
-                htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
-            };
-            html_image.map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
+            htmlimage::HTMLImage::new_from_data(data.as_slice(), mime_type)
+                .map(|html_image| ImageInner::HTMLImage(vtable::VRc::new(html_image)))
         }
 
         #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]

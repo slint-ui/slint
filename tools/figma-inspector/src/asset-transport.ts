@@ -255,7 +255,6 @@ export function packPreviewAssets(source: string): AssetPreview {
 export function materializePreviewAssets(
     value: unknown,
     options: {
-        useDataUrls?: boolean;
         createObjectUrl?: (blob: Blob) => string;
         revokeObjectUrl?: (url: string) => void;
     } = {},
@@ -280,11 +279,6 @@ export function materializePreviewAssets(
             const match = preceding.match(prefix);
             if (!match)
                 throw Error("Preview asset reference has no image data prefix");
-            // Figma's opaque iframe rejects blob URLs when Slint loads image assets.
-            if (options.useDataUrls) {
-                output.push(packed.assets[part]);
-                continue;
-            }
             output[output.length - 1] = preceding.slice(
                 0,
                 preceding.length - match[0].length,

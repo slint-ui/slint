@@ -167,7 +167,9 @@ function setPreviewBusy(busy: boolean): void {
 }
 
 function updateOutputProvenance(trace: TimingTrace): void {
-    disposePreviewAssets(trace.revision);
+    const rendered =
+        trace.outcome === "rendered" || trace.outcome === "unchanged";
+    if (!rendered) disposePreviewAssets(trace.revision);
     const completedOutput = pendingOutputs.get(trace.revision);
     // Retire payloads even when a newer revision owns the visible preview.
     for (const revision of pendingOutputs.keys())
@@ -177,7 +179,9 @@ function updateOutputProvenance(trace: TimingTrace): void {
         Math.max(controller.currentRevision, latestInputRevision)
     )
         return;
-    if (trace.outcome === "rendered" || trace.outcome === "unchanged") {
+    for (const revision of previewAssetDisposers.keys())
+        if (revision < trace.revision) disposePreviewAssets(revision);
+    if (rendered) {
         renderingSource = false;
         setPreviewBusy(false);
         successfulOutput = completedOutput ?? successfulOutput;
@@ -534,9 +538,7 @@ function acceptSource(
     const expandedValidation = exportValidationSource(exportPackage);
     const validation =
         expandedValidation.length <= MAX_LIVE_EXPORT_VALIDATION_LENGTH
-            ? materializePreviewAssets(packPreviewAssets(expandedValidation), {
-                  useDataUrls: isFigmaUi,
-              })
+            ? materializePreviewAssets(packPreviewAssets(expandedValidation))
             : undefined;
     const disposeSource = previewAssetDisposers.get(revision);
     previewAssetDisposers.set(revision, () => {
@@ -790,9 +792,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
                 const decoded =
                     typeof message.source === "string"
                         ? { source: message.source, dispose: undefined }
-                        : materializePreviewAssets(message.source, {
-                              useDataUrls: isFigmaUi,
-                          });
+                        : materializePreviewAssets(message.source);
                 if (decoded.dispose)
                     previewAssetDisposers.set(
                         message.revision,

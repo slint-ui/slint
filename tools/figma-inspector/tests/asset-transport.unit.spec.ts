@@ -339,23 +339,6 @@ describe("preview-assets", () => {
         expect(revoked).toEqual(["blob:test-1"]);
     });
 
-    test("preserves image data URLs for Figma without creating or revoking blob URLs", () => {
-        const data = Buffer.from("asset bytes".repeat(100)).toString("base64");
-        const source = `Image { source: @image-url("data:image/png;base64,${data}"); }\nImage { source: @image-url("data:image/png;base64,${data}"); }`;
-        const preview = materializePreviewAssets(packPreviewAssets(source), {
-            useDataUrls: true,
-            createObjectUrl: () => {
-                throw Error("Blob URLs are unavailable");
-            },
-            revokeObjectUrl: () => {
-                throw Error("No blob URL should need revocation");
-            },
-        });
-        expect(preview.source).toBe(source);
-        preview.dispose();
-        preview.dispose();
-    });
-
     test("rejects malformed asset tables and references", () => {
         for (const value of [
             {
@@ -383,14 +366,5 @@ describe("preview-assets", () => {
         ]) {
             expect(() => materializePreviewAssets(value)).toThrow();
         }
-    });
-
-    test("requires an image data prefix when materializing Figma assets", () => {
-        expect(() =>
-            materializePreviewAssets(
-                { assetVersion: 1, assets: ["YWJj"], source: [0] },
-                { useDataUrls: true },
-            ),
-        ).toThrow("image data prefix");
     });
 });

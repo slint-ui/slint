@@ -38,11 +38,25 @@ test("rotated bars occupy the bounds defined by Figma transforms", async () => {
     }
 });
 
-test("packed preview images remain visible when Figma rejects blob URLs", async () => {
+test("preview image URLs remain live until replacement or clearing", async () => {
     const p = await mountPreview();
-    (p.win as Window & typeof globalThis).URL.createObjectURL = () => {
-        throw Error("Figma rejects blob URLs in its opaque iframe");
+    const browser = p.win as Window & typeof globalThis;
+    const urls = browser.URL;
+    const create = urls.createObjectURL.bind(urls);
+    const revoke = urls.revokeObjectURL.bind(urls);
+    const created: string[] = [];
+    const revoked: string[] = [];
+    urls.createObjectURL = (blob) => {
+        const url = create(blob);
+        if (blob instanceof browser.Blob && blob.type.startsWith("image/"))
+            created.push(url);
+        return url;
     };
+    urls.revokeObjectURL = (url) => {
+        if (created.includes(url)) revoked.push(url);
+        revoke(url);
+    };
+    let previous: string[] = [];
     for (const [index, color] of ["red", "blue"].entries()) {
         const image = document.createElement("canvas");
         image.width = image.height = 8;
@@ -61,10 +75,16 @@ test("packed preview images remain visible when Figma rejects blob URLs", async 
             exportPackage: { source, files: [] },
         });
         await p.ready(revision);
+        expect(created.length).toBeGreaterThan(previous.length);
+        expect(revoked).toEqual(previous);
         const pixels = await canvasPixels(p);
         const offset = (8 * pixels.width + 8) * 4;
         expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual(
             index === 0 ? [255, 0, 0, 255] : [0, 0, 255, 255],
         );
+        previous = [...created];
     }
+    p.send({ type: "preview-clear", revision: 3 });
+    await p.ready(3);
+    await expect.poll(() => revoked).toEqual(created);
 });
