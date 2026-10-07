@@ -44,6 +44,8 @@ pub struct Scene {
 
     pub(super) current_line_ranges: Vec<core::ops::Range<i16>>,
     pub(super) range_valid_until_line: PhysicalLength,
+
+    items_valid_until_line: PhysicalLength,
 }
 
 impl Scene {
@@ -67,8 +69,10 @@ impl Scene {
             dirty_region,
             current_line_ranges: Default::default(),
             range_valid_until_line: Default::default(),
+            items_valid_until_line: Default::default(),
         };
         r.recompute_ranges();
+        r.update_items_valid_until_line();
         debug_assert_eq!(r.current_line, r.dirty_region.bounding_rect().origin.y_length());
         r
     }
@@ -78,6 +82,9 @@ impl Scene {
         self.current_line += PhysicalLength::new(1);
 
         let skipped = self.current_line >= self.range_valid_until_line && self.recompute_ranges();
+        if !skipped && self.current_line < self.items_valid_until_line {
+            return;
+        }
 
         // The items array is split in part:
         // 1. [0..i] are the items that have already been processed, that are on this line
@@ -118,6 +125,7 @@ impl Scene {
             }
             self.items[0..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
             self.current_items_index = i;
+            self.update_items_valid_until_line();
             return;
         }
 
@@ -208,6 +216,17 @@ impl Scene {
         debug_assert!(
             self.items[0..self.current_items_index].array_windows().all(|[a, b]| a.z >= b.z)
         );
+        self.update_items_valid_until_line();
+    }
+
+    fn update_items_valid_until_line(&mut self) {
+        let next_start = self.items.get(self.future_items_index).map(|i| i.pos.y_length());
+        let next_end = self.items[..self.current_items_index]
+            .iter()
+            .map(|i| i.pos.y_length() + i.size.height_length())
+            .min();
+        self.items_valid_until_line =
+            next_start.into_iter().chain(next_end).min().unwrap_or(PhysicalLength::new(i16::MAX));
     }
 
     // return true if lines were skipped
