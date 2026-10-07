@@ -2249,66 +2249,51 @@ mod tests {
     }
 
     #[test]
-    fn pane_widths_shrink_and_restore_without_changing_preferences() {
+    fn narrow_window_scales_pane_widths_without_changing_preferences() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let panes = editor.global::<super::Style>().get_panes();
         let shell = editor.global::<super::Style>().get_shell();
-        let maximum = panes.maximum_width;
-        editor.set_left_pane_width_preference(maximum);
-        editor.set_inspector_pane_width_preference(maximum);
-        let weak = editor.as_weak();
-        editor.on_left_pane_resized(move |width| {
-            weak.unwrap().set_left_pane_width_preference(width);
-        });
-        let weak = editor.as_weak();
-        editor.on_inspector_pane_resized(move |width| {
-            weak.unwrap().set_inspector_pane_width_preference(width);
-        });
+        let (left_preference, inspector_preference) = (400., 360.);
+        assert!(
+            left_preference <= panes.maximum_width && inspector_preference <= panes.maximum_width
+        );
+        editor.set_left_pane_width_preference(left_preference);
+        editor.set_inspector_pane_width_preference(inspector_preference);
+        let callback_fired = std::rc::Rc::new(std::cell::Cell::new(false));
+        let fired = callback_fired.clone();
+        editor.on_left_pane_resized(move |_| fired.set(true));
+        let fired = callback_fired.clone();
+        editor.on_inspector_pane_resized(move |_| fired.set(true));
+        let fired = callback_fired.clone();
+        editor.on_left_pane_reset(move || fired.set(true));
+        let fired = callback_fired.clone();
+        editor.on_inspector_pane_reset(move || fired.set(true));
         editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(shell.min_width, shell.height));
+        slint::platform::update_timers_and_animations();
 
         let pane = |label: &str| {
             i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
                 .next()
                 .unwrap()
         };
-        let wide = maximum * 2. + panes.canvas_minimum_width;
-        for width in [wide, shell.min_width, wide] {
-            editor.window().set_size(slint::LogicalSize::new(width, shell.height));
-            slint::platform::update_timers_and_animations();
-            let left = pane("Project and elements").size().width;
-            let right = pane("Inspector and outline").size().width;
-            assert!(left >= panes.left_width && right >= panes.inspector_width);
-            assert!(pane("Editor canvas").size().width >= panes.canvas_minimum_width - 0.1);
-            if width == wide {
-                assert_eq!(left, maximum);
-                assert_eq!(right, maximum);
-            } else {
-                for (label, delta) in [("Project pane resize", 1.), ("Inspector pane resize", -1.)]
-                {
-                    let divider = pane(label);
-                    let position = divider.absolute_position();
-                    let size = divider.size();
-                    let start = LogicalPosition::new(
-                        position.x + size.width / 2.,
-                        position.y + size.height / 2.,
-                    );
-                    let end = LogicalPosition::new(start.x + delta, start.y);
-                    editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
-                    editor.window().dispatch_event(WindowEvent::PointerPressed {
-                        position: start,
-                        button: PointerEventButton::Left,
-                    });
-                    editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
-                    editor.window().dispatch_event(WindowEvent::PointerReleased {
-                        position: end,
-                        button: PointerEventButton::Left,
-                    });
-                }
-            }
-            assert_eq!(editor.get_left_pane_width_preference(), maximum);
-            assert_eq!(editor.get_inspector_pane_width_preference(), maximum);
-        }
+        let left = pane("Project and elements").size().width;
+        let inspector = pane("Inspector and outline").size().width;
+        let canvas = pane("Editor canvas").size().width;
+        assert!((canvas - panes.canvas_minimum_width).abs() < 0.1, "canvas width {canvas}");
+        assert!((left + inspector + canvas - shell.min_width).abs() < 0.1);
+        let preferred_ratio =
+            (left_preference - panes.left_width) / (inspector_preference - panes.inspector_width);
+        let displayed_ratio = (left - panes.left_width) / (inspector - panes.inspector_width);
+        assert!(
+            (displayed_ratio - preferred_ratio).abs() < 0.01,
+            "displayed ratio {displayed_ratio} != preferred ratio {preferred_ratio}"
+        );
+
+        assert!(!callback_fired.get());
+        assert_eq!(editor.get_left_pane_width_preference(), left_preference);
+        assert_eq!(editor.get_inspector_pane_width_preference(), inspector_preference);
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
