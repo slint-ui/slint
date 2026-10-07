@@ -1169,7 +1169,7 @@ impl<'a, T> EvaluationContext<'a, T> {
                 }
                 let item = &sc.items[*item_index];
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {
-                    panic!("Failed to lookup property {prop_name} for {}", item.name)
+                    panic!("Failed to lookup property '{prop_name}' for '{}'", item.name)
                 })
             }
         }
