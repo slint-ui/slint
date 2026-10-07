@@ -110,7 +110,7 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: url.to_file_path().ok()?,
+                path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
             },
@@ -121,7 +121,7 @@ fn target_with_root(
     };
     let node = selected.as_element_node()?;
     let (path, offset) = node.path_and_offset();
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE
         .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;
@@ -416,8 +416,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let geometry =
-            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let (path, offset) = node.path_and_offset();
+        let geometry = instance
+            .component_positions(&path, offset.into())
+            .get(selected.instance_index)
+            .copied()?;
         let radii = geometry.corner_radii;
         Some(vec![
             geometry.transform_rotation,

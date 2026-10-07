@@ -33,7 +33,7 @@ pub fn generate(
         .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
         .source_file
         .path()
-        .to_string_lossy();
+        .to_string();
 
     for p in &llr.public_components {
         generate_public_component(&mut file, p, &llr, compiler_config, &main_file);
@@ -136,7 +136,7 @@ fn generate_public_component(
             "{{ nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
-                nullptr, nullptr, nullptr, nullptr, \
+                nullptr, nullptr, nullptr, nullptr, nullptr, \
                 slint::private_api::drop_in_place<{component_id}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()

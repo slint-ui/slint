@@ -9,6 +9,7 @@
 
 use crate::instance::Instance;
 use i_slint_core::SharedString;
+use i_slint_core::SlintContext;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
@@ -423,6 +424,10 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             *result = infos.as_str().into();
         }
         true
+    }
+
+    fn slint_context(self: Pin<&Self>, result: &mut Option<SlintContext>) {
+        *result = Some(self.get_ref().globals.context.clone());
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {

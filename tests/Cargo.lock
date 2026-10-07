@@ -2253,6 +2253,7 @@ dependencies = [
  "smol_str 0.3.6",
  "strum",
  "swash",
+ "syn 3.0.6",
  "typed-index-collections",
  "unicode-segmentation",
  "url",

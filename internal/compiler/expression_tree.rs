@@ -67,6 +67,7 @@ pub enum BuiltinFunction {
     /// The entries argument is an array of MenuEntry
     ShowPopupMenuInternal,
     SetSelectionOffsets,
+    HasSelection,
     ItemFontMetrics,
     /// the "42".to_float()
     StringToFloat,
@@ -249,6 +250,7 @@ declare_builtin_function_types!(
     ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type().into()) -> Type::Void,
     ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type().into()) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
+    HasSelection: (Type::ElementReference) -> Type::Bool,
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
@@ -412,6 +414,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenu
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
+            BuiltinFunction::HasSelection => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
@@ -514,6 +517,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenu
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
+            BuiltinFunction::HasSelection => true,
             BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat
@@ -2392,16 +2396,13 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
-// The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
+// The compiler resolves every `@image-url("foo.png")` into a `Source` or
 // `DataUri` reference; the resource lowering pass may then replace it with
 // `EmbeddedData`/`EmbeddedTexture` if configured.
 #[derive(Clone, Debug)]
 pub enum ImageReference {
     None,
-    /// An absolute path to a local image file on disk.
-    Path(SmolStr),
-    /// A non-`data:` URL, e.g. `builtin:/`, `http(s):`, or `user://`.
-    Url(url::Url),
+    Source(crate::source_path::SourcePath),
     /// An inline `data:` URI carrying the image content.
     DataUri(SmolStr),
     EmbeddedData {
@@ -2414,35 +2415,14 @@ pub enum ImageReference {
 }
 
 impl ImageReference {
-    /// Classify a resolved `@image-url` string (an absolute path, a URL, or a
-    /// `data:` URI) into the matching reference kind.
-    pub fn from_resolved(reference: SmolStr) -> Self {
-        if reference.starts_with("data:") {
-            return Self::DataUri(reference);
-        }
-        // A single-character scheme is a Windows drive letter (`c:\...`), i.e. a
-        // path rather than a URL.
-        match url::Url::parse(&reference) {
-            Ok(url) if url.scheme().len() > 1 => Self::Url(url),
-            _ => Self::Path(reference),
-        }
-    }
-
     /// Classify a URL returned by the resource mapper. It is already a URL, so
     /// the only distinction is a `data:` URI (kept as a string, see
     /// [`Self::DataUri`]) from any other URL.
     pub fn from_mapped_url(url: url::Url) -> Self {
-        if url.scheme() == "data" { Self::DataUri(url.as_str().into()) } else { Self::Url(url) }
-    }
-
-    /// The image source loaded at run-time for a non-embedded reference: the
-    /// path, the URL, or the `data:` URI, as the string handed to
-    /// `Image::load_from_path`. `None` for embedded references.
-    pub fn source(&self) -> Option<&str> {
-        match self {
-            Self::Path(source) | Self::DataUri(source) => Some(source),
-            Self::Url(url) => Some(url.as_str()),
-            Self::None | Self::EmbeddedData { .. } | Self::EmbeddedTexture { .. } => None,
+        if url.scheme() == "data" {
+            Self::DataUri(url.as_str().into())
+        } else {
+            Self::Source(url.into())
         }
     }
 }

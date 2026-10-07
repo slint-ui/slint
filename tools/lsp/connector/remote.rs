@@ -1212,7 +1212,7 @@ mod tests {
     use lsp_types::Url;
 
     fn test_url(file_name: &str) -> Url {
-        Url::from_file_path(crate::editor_preview::test::test_file_name(file_name)).unwrap()
+        crate::editor_preview::test::test_file_name(file_name).to_url().unwrap()
     }
 
     async fn listen(

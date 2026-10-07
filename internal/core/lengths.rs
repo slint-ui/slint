@@ -123,6 +123,17 @@ pub struct LogicalEdges {
     pub right: f32,
 }
 
+impl From<LogicalEdges> for crate::items::Edges {
+    fn from(edges: LogicalEdges) -> Self {
+        Self {
+            left: edges.left as Coord,
+            top: edges.top as Coord,
+            right: edges.right as Coord,
+            bottom: edges.bottom as Coord,
+        }
+    }
+}
+
 impl LogicalEdges {
     /// Construct a new logical edges struct from the given border values, that are assumed to be
     /// in the logical coordinate space.

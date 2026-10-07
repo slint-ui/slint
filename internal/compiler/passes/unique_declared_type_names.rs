@@ -23,7 +23,7 @@ use std::sync::Arc;
 type Identity = (SmolStr, usize);
 
 fn identity(node: &SourceLocation) -> Identity {
-    let file = node.source_file.as_ref().map(|f| f.path().to_string_lossy().into());
+    let file = node.source_file.as_ref().map(|f| smol_str::ToSmolStr::to_smolstr(f.path()));
     (file.unwrap_or_default(), node.span.offset)
 }
 

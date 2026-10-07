@@ -1434,6 +1434,19 @@ pub(crate) struct DragData {
     pub(crate) allowed: AllowedDragActions,
 }
 
+/// A press held back by an item that returned [`InputEventFilterResult::DelayForwarding`].
+/// See "Delayed Event Handling" in `docs/development/input-event-system.md`.
+struct DelayedPress {
+    /// Replays `event_for_children` when it fires; dropping it cancels the replay.
+    _timer: crate::timers::Timer,
+    /// The press in the delaying item's local frame, replayed to its children when `timer` fires.
+    event_for_children: MouseEvent,
+    /// The press in `root`'s frame, replayed from `root` on release.
+    original_event: MouseEvent,
+    /// The item the press was dispatched from: the window's root item or a popup's.
+    root: ItemWeak,
+}
+
 /// The state which a window should hold for the mouse input
 #[derive(Default)]
 pub struct MouseInputState {
@@ -1459,7 +1472,7 @@ pub struct MouseInputState {
     /// this to decide whether to deliver a Drop — matching OS DnD pipelines, where a
     /// target that didn't previously accept never receives a drop.
     pub(crate) drop_target: Option<ItemWeak>,
-    delayed: Option<(crate::timers::Timer, MouseEvent)>,
+    delayed: Option<DelayedPress>,
     /// Items that still need an Exit after a delayed or discarded dispatch.
     delayed_exit_items: Vec<ItemWeak>,
     /// The previous target displaced by a delayed press, used for click counting.
@@ -1775,7 +1788,9 @@ pub fn process_mouse_input(
         window_adapter,
         &mut result,
         mouse_input_state.top_item().as_ref(),
-        false,
+        None,
+        &root,
+        mouse_event,
     );
     let accepted = r.has_aborted();
     if matches!(mouse_event, MouseEvent::DragMove { .. }) {
@@ -1784,10 +1799,17 @@ pub fn process_mouse_input(
         result.drop_target =
             accepted.then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
     }
+    let delaying_item = mouse_input_state.item_stack.last().map(|(w, _)| w);
+    let is_move = matches!(mouse_event, MouseEvent::Moved { .. });
+    let moved_outside_delaying_item = accepted
+        && is_move
+        && delaying_item.is_some_and(|w| !result.item_stack.iter().any(|(x, _)| x == w));
+    let accepted_by_other_item = Option::zip(result.item_stack.last(), delaying_item)
+        .is_none_or(|((accepting_item, _), delaying_item)| accepting_item != delaying_item);
+    let delaying_item_still_undecided = is_move && !result.grabbed;
     if mouse_input_state.delayed.is_some()
-        && (!accepted
-            || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
-                .is_none_or(|(a, b)| a.0 != b.0))
+        && !moved_outside_delaying_item
+        && (!accepted || accepted_by_other_item || delaying_item_still_undecided)
     {
         // The speculative dispatch above may still have run `input_event_filter_before_children`
         // on items in its path or observer list before we knew it would be thrown away.
@@ -1836,8 +1858,10 @@ pub(crate) fn process_delayed_event(
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     // the take bellow will also destroy the Timer
-    let event = match mouse_input_state.delayed.take() {
-        Some(e) => e.1,
+    let (event, original_event) = match mouse_input_state.delayed.take() {
+        Some(DelayedPress { event_for_children, original_event, .. }) => {
+            (event_for_children, original_event)
+        }
         None => return mouse_input_state,
     };
 
@@ -1861,7 +1885,9 @@ pub(crate) fn process_delayed_event(
                 window_adapter,
                 &mut mouse_input_state,
                 Some(last_top_item),
-                true,
+                Some(false),
+                &top_item,
+                &original_event,
             )
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
@@ -1874,13 +1900,81 @@ pub(crate) fn process_delayed_event(
     mouse_input_state
 }
 
+// #13118
+pub(crate) fn resolve_delayed_event_on_release(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    mut mouse_input_state: MouseInputState,
+    current_event: &MouseEvent,
+) -> MouseInputState {
+    let same_pointer = match &mouse_input_state.delayed {
+        Some(DelayedPress { original_event, .. }) => {
+            original_event.touch_finger_id() == current_event.touch_finger_id()
+                && match (original_event, current_event) {
+                    (
+                        MouseEvent::Pressed { button: a, .. },
+                        MouseEvent::Released { button: b, .. },
+                    ) => a == b,
+                    _ => false,
+                }
+        }
+        None => false,
+    };
+    if !same_pointer {
+        return mouse_input_state;
+    }
+
+    let Some(DelayedPress { original_event, root, .. }) = mouse_input_state.delayed.take() else {
+        return mouse_input_state;
+    };
+    let Some(root) = root.upgrade() else {
+        return mouse_input_state;
+    };
+
+    let last_top_item = mouse_input_state.top_item_including_delayed();
+
+    let mut result = MouseInputState {
+        drag_data: mouse_input_state.drag_data.clone(),
+        drag_source: mouse_input_state.drag_source.clone(),
+        drop_target: mouse_input_state.drop_target.clone(),
+        cursor: mouse_input_state.cursor.clone(),
+        offset: mouse_input_state.offset,
+        ..Default::default()
+    };
+
+    let r = send_mouse_event_to_item(
+        &original_event,
+        root.clone(),
+        window_adapter,
+        &mut result,
+        last_top_item.as_ref(),
+        Some(true),
+        &root,
+        &original_event,
+    );
+
+    if !r.has_aborted() {
+        return mouse_input_state;
+    }
+
+    result.delayed_exit_items = mouse_input_state
+        .delayed_exit_items
+        .iter()
+        .filter(|it| !result.item_stack.iter().any(|(x, _)| x == *it))
+        .cloned()
+        .collect();
+    send_exit_events(&mouse_input_state, &mut result, original_event.position(), window_adapter);
+    result
+}
+
 fn send_mouse_event_to_item(
     mouse_event: &MouseEvent,
     item_rc: ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
     last_top_item: Option<&ItemRc>,
-    ignore_delays: bool,
+    replaying: Option<bool>,
+    root: &ItemRc,
+    original_event: &MouseEvent,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
     let geom = item_rc.geometry();
@@ -1913,7 +2007,9 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::ForwardAndIgnore => (true, true),
         InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
         InputEventFilterResult::Intercept => (false, false),
-        InputEventFilterResult::DelayForwarding(_) if ignore_delays => (true, false),
+        InputEventFilterResult::DelayForwarding(_) if replaying.is_some() => {
+            (true, replaying.unwrap())
+        }
         InputEventFilterResult::DelayForwarding(duration) => {
             let timer = WindowInner::from_pub(window_adapter.window()).context().new_timer();
             let w = Rc::downgrade(window_adapter);
@@ -1926,7 +2022,12 @@ fn send_mouse_event_to_item(
                     }
                 },
             );
-            result.delayed = Some((timer, event_for_children));
+            result.delayed = Some(DelayedPress {
+                _timer: timer,
+                event_for_children: event_for_children.clone(),
+                original_event: original_event.clone(),
+                root: root.downgrade(),
+            });
             result
                 .item_stack
                 .push((item_rc.downgrade(), InputEventFilterResult::DelayForwarding(duration)));
@@ -1948,7 +2049,9 @@ fn send_mouse_event_to_item(
                     window_adapter,
                     result,
                     last_top_item,
-                    ignore_delays,
+                    replaying,
+                    root,
+                    original_event,
                 )
             };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
@@ -1963,6 +2066,21 @@ fn send_mouse_event_to_item(
     };
 
     let r = if ignore {
+        if replaying == Some(true)
+            && matches!(filter_result, InputEventFilterResult::DelayForwarding(_))
+        {
+            // The replay's own traversal is what first reached this item (its parent's delay
+            // aborted the original dispatch before recursing this far), so it never entered
+            // `old_input_state.item_stack` for `send_exit_events` to find. Its filter already
+            // set internal press state for this same replayed press; without this, that state
+            // never clears, since replaying always treats a delaying item as pass-through.
+            item.as_ref().input_event(
+                &MouseEvent::Exit,
+                window_adapter,
+                &item_rc,
+                &mut result.cursor,
+            );
+        }
         InputEventResult::EventIgnored
     } else {
         let mut event = mouse_event.clone();

@@ -49,6 +49,8 @@ mod lower_tooltips;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
+#[cfg(test)]
+pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
 mod remove_constant_conditions;
@@ -58,6 +60,7 @@ mod repeater_component;
 pub mod resolving;
 mod unique_declared_type_names;
 mod unique_id;
+mod validate_interfaces;
 mod visible;
 mod windows;
 mod z_order;
@@ -379,6 +382,7 @@ pub fn run_import_passes(
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
+    validate_interfaces::validate_interfaces(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

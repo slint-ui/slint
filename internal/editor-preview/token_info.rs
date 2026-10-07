@@ -8,9 +8,8 @@ use i_slint_compiler::lookup::{LookupObject, LookupResult, LookupResultCallable}
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken, TextRange, syntax_nodes};
-use i_slint_compiler::pathutils::clean_path;
+use i_slint_compiler::source_path::SourcePath;
 use smol_str::{SmolStr, ToSmolStr};
-use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -20,8 +19,8 @@ pub enum TokenInfo {
     ElementRc(ElementRc),
     NamedReference(NamedReference),
     EnumerationValue(EnumerationValue),
-    FileName(std::path::PathBuf),
-    Image(std::path::PathBuf),
+    FileName(SourcePath),
+    Image(SourcePath),
     LocalProperty(syntax_nodes::PropertyDeclaration),
     LocalCallback(syntax_nodes::CallbackDeclaration),
     LocalFunction(syntax_nodes::Function),
@@ -106,7 +105,9 @@ impl TokenInfo {
             }
             TokenInfo::IncompleteNamedReference(element_type, prop_name) => {
                 let mut element_type = element_type.clone();
-                while let ElementType::Component(com) = element_type {
+                while let ElementType::Component(com) | ElementType::Interface(Some(com)) =
+                    element_type
+                {
                     if let Some((_, p)) = com.root_element.borrow().declaration(prop_name) {
                         return p.node.clone();
                     }
@@ -153,9 +154,7 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
     let mut node = token.parent();
     if node.kind() == SyntaxKind::AtImageUrl && token.kind() == SyntaxKind::StringLiteral {
         let path = i_slint_compiler::literals::unescape_string(token.text())?;
-        let path = token.source_file.path().parent().map(|p| p.to_path_buf())?.join(path);
-
-        return Some(TokenInfo::Image(clean_path(&path)));
+        return Some(TokenInfo::Image(token.source_file.path().parent().join(&path)?));
     }
 
     loop {
@@ -232,29 +231,15 @@ pub fn token_info(document_cache: &crate::DocumentCache, token: SyntaxToken) -> 
         } else if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::ExportModule) {
             let import_text =
                 node.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"').to_string();
-            let import_file = if import_text.starts_with('@') {
-                document_cache
-                    .resolve_import_path(Some(&token.clone().into()), &import_text)
-                    .map(|(path, _)| path)
-                    .unwrap_or_else(|| {
-                        clean_path(
-                            &node
-                                .source_file
-                                .path()
-                                .parent()
-                                .unwrap_or_else(|| Path::new("/"))
-                                .join(&import_text),
-                        )
-                    })
-            } else {
-                clean_path(
-                    &node
-                        .source_file
-                        .path()
-                        .parent()
-                        .unwrap_or_else(|| Path::new("/"))
-                        .join(&import_text),
-                )
+            let library_file = import_text
+                .starts_with('@')
+                .then(|| {
+                    document_cache.resolve_import_path(Some(&token.clone().into()), &import_text)
+                })
+                .flatten();
+            let import_file = match library_file {
+                Some(path) => path,
+                None => node.source_file.path().parent().join(&import_text)?,
             };
             return Some(TokenInfo::FileName(import_file));
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {

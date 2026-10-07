@@ -2,15 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
-import { InspectorIconButton } from "icon-button.slint";
 
 import { SectionTitle } from "../index.slint";
 
 export component InspectorSection inherits Rectangle {
     in property <string> title;
     in property <bool> use-shared-title: false;
-    in property <bool> show-appearance-icons: false;
-    in property <bool> show-typography-icons: false;
 
     horizontal-stretch: 1;
     height: section-layout.preferred-height;
@@ -41,23 +38,6 @@ export component InspectorSection inherits Rectangle {
                 vertical-alignment: center;
             }
 
-            if root.show-appearance-icons: HorizontalLayout {
-                x: parent.width - Style.inspector-layout.padding - self.preferred-width;
-                y: 0.5px;
-                height: Metrics.icon-large;
-                spacing: Metrics.space-regular;
-
-                InspectorIconButton { kind: "eye"; }
-                InspectorIconButton { kind: "drop"; }
-            }
-
-            if root.show-typography-icons: HorizontalLayout {
-                x: parent.width - Style.inspector-layout.padding - self.preferred-width;
-                y: 0.5px;
-                height: Metrics.icon-large;
-
-                InspectorIconButton { kind: "type-grid"; }
-            }
         }
 
         @children

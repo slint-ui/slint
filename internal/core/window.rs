@@ -669,6 +669,7 @@ pub struct WindowInner {
     /// Stack of currently active popups
     pub active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
+    overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
@@ -736,6 +737,7 @@ impl WindowInner {
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
             next_popup_id: Cell::new(NonZeroU32::MIN),
+            overlays: Default::default(),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
@@ -750,6 +752,7 @@ impl WindowInner {
     /// done with that component.
     pub fn set_component(&self, component: &ItemTreeRc) {
         self.close_all_popups();
+        self.clear_overlays();
         self.focus_item_visibility_tracker.clear();
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
@@ -801,6 +804,9 @@ impl WindowInner {
             }
             for popup in self.active_popups.borrow().iter() {
                 changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
+            }
+            for overlay in self.overlays.borrow().iter() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(overlay);
             }
             changed |= crate::properties::ChangeTracker::run_change_handlers_once();
             if !changed {
@@ -954,8 +960,11 @@ impl WindowInner {
 
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
-            mouse_input_state =
-                crate::input::process_delayed_event(&window_adapter, mouse_input_state);
+            mouse_input_state = crate::input::resolve_delayed_event_on_release(
+                &window_adapter,
+                mouse_input_state,
+                &event,
+            );
         }
 
         let parent_adapter = window_adapter
@@ -1877,18 +1886,20 @@ impl WindowInner {
         };
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
-                if !self
-                    .active_popups
-                    .borrow()
-                    .iter()
-                    .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
-                {
+                let has_child_popup =
+                    self.active_popups.borrow().iter().any(|popup| {
+                        matches!(popup.location, PopupWindowLocation::ChildWindow(..))
+                    });
+                let has_overlay = !self.overlays.borrow().is_empty();
+                if !has_child_popup && !has_overlay {
                     render_components(&[(component_weak, LogicalPoint::default())], &post_render)
                 } else {
-                    let borrow = self.active_popups.borrow();
-                    let mut item_trees = Vec::with_capacity(borrow.len() + 1);
+                    let active_popups = self.active_popups.borrow();
+                    let overlays = self.overlays.borrow();
+                    let mut item_trees =
+                        Vec::with_capacity(active_popups.len() + overlays.len() + 1);
                     item_trees.push((component_weak, LogicalPoint::default()));
-                    for popup in borrow.iter() {
+                    for popup in active_popups.iter() {
                         // If the popup is not a real window and does not have its own coordinate system.
                         // We have to draw the popup and consider the location for subelements because everything must
                         // be rendered relative to the main window position
@@ -1896,7 +1907,11 @@ impl WindowInner {
                             item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                         }
                     }
-                    drop(borrow);
+                    for overlay in overlays.iter() {
+                        item_trees.push((ItemTreeRc::downgrade(overlay), LogicalPoint::zero()));
+                    }
+                    drop(overlays);
+                    drop(active_popups);
                     render_components(&item_trees, &post_render)
                 }
             },
@@ -2030,9 +2045,14 @@ impl WindowInner {
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
     pub fn create_child_window_adapter(&self, kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
-        self.window_adapter()
+        let adapter = self
+            .window_adapter()
             .internal(crate::InternalToken)
-            .and_then(|s| s.create_child_window_adapter(kind))
+            .and_then(|s| s.create_child_window_adapter(kind))?;
+        if let Some(ctx) = self.try_context() {
+            WindowInner::from_pub(adapter.window()).set_context(ctx.clone());
+        }
+        Some(adapter)
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
@@ -2309,6 +2329,57 @@ impl WindowInner {
         }
     }
 
+    /// Adds an item tree that renders above the component and embedded popups.
+    ///
+    /// The item tree must have a `Window` root and use this window's adapter.
+    /// Overlays don't participate in input, focus, popup closing, or accessibility.
+    pub fn add_overlay(&self, component: &ItemTreeRc) -> Result<(), PlatformError> {
+        let mut overlay_window_adapter = None;
+        ItemTreeRc::borrow_pin(component)
+            .as_ref()
+            .window_adapter(false, &mut overlay_window_adapter);
+        let Some(overlay_window_adapter) = overlay_window_adapter else {
+            return Err(PlatformError::Other("The overlay has no window adapter".into()));
+        };
+        if !Rc::ptr_eq(&self.window_adapter(), &overlay_window_adapter) {
+            return Err(PlatformError::Other(
+                "The overlay must use the target window's adapter".into(),
+            ));
+        }
+
+        crate::item_tree::ensure_item_tree_instantiated(component);
+        let overlay_component = ItemTreeRc::borrow_pin(component);
+        let overlay_root = overlay_component.as_ref().get_item_ref(0);
+        let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(overlay_root)
+        else {
+            return Err(PlatformError::Other("The overlay root must be a Window".into()));
+        };
+        let size = self.window_adapter().size().to_logical(self.scale_factor()).to_euclid();
+        window_item.width.set(size.width_length());
+        window_item.height.set(size.height_length());
+
+        self.overlays.borrow_mut().push(component.clone());
+        self.window_adapter().request_redraw();
+        Ok(())
+    }
+
+    /// Removes all overlays.
+    pub fn clear_overlays(&self) {
+        if self.overlays.take().is_empty() {
+            return;
+        }
+        self.mark_overlay_region_dirty();
+    }
+
+    fn mark_overlay_region_dirty(&self) {
+        let window_adapter = self.window_adapter();
+        let size = window_adapter.size().to_logical(self.scale_factor()).to_euclid();
+        if !size.is_empty() {
+            window_adapter.renderer().mark_dirty_region(LogicalRect::from_size(size).into());
+        }
+        window_adapter.request_redraw();
+    }
+
     /// Returns the scale factor set on the window, as provided by the windowing system.
     pub fn scale_factor(&self) -> f32 {
         self.pinned_fields.as_ref().project_ref().scale_factor.get()
@@ -2373,13 +2444,19 @@ impl WindowInner {
     /// window resize event from the windowing system.
     pub(crate) fn set_window_item_geometry(&self, size: crate::lengths::LogicalSize) {
         if let Some(component_rc) = self.try_component() {
-            let component = ItemTreeRc::borrow_pin(&component_rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-            {
-                window_item.width.set(size.width_length());
-                window_item.height.set(size.height_length());
-            }
+            Self::set_item_tree_window_geometry(&component_rc, size);
+        }
+        for overlay in self.overlays.borrow().iter() {
+            Self::set_item_tree_window_geometry(overlay, size);
+        }
+    }
+
+    fn set_item_tree_window_geometry(component: &ItemTreeRc, size: crate::lengths::LogicalSize) {
+        let component = ItemTreeRc::borrow_pin(component);
+        let root_item = component.as_ref().get_item_ref(0);
+        if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item) {
+            window_item.width.set(size.width_length());
+            window_item.height.set(size.height_length());
         }
     }
 
@@ -2390,15 +2467,15 @@ impl WindowInner {
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.safe_area_insets.set(inset);
+                window_item.safe_area_insets.set(inset.into());
             }
         }
     }
 
     pub(crate) fn set_window_item_virtual_keyboard(
         &self,
-        origin: crate::lengths::LogicalPoint,
-        size: crate::lengths::LogicalSize,
+        origin: crate::api::LogicalPosition,
+        size: crate::api::LogicalSize,
     ) {
         let Some(component_rc) = self.try_component() else {
             return;
@@ -2418,13 +2495,13 @@ impl WindowInner {
     // Get geometry of the virtual keyboard if available
     pub(crate) fn window_item_virtual_keyboard(
         &self,
-    ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
+    ) -> Option<(crate::api::LogicalPosition, crate::api::LogicalSize)> {
         let component_rc = self.try_component()?;
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
         let keyboard_size = window_item.virtual_keyboard_size();
-        if keyboard_size.width == 0. as Coord || keyboard_size.height == 0. as Coord {
+        if keyboard_size.width == 0. || keyboard_size.height == 0. {
             None
         } else {
             Some((window_item.virtual_keyboard_position(), keyboard_size))
@@ -2522,35 +2599,30 @@ impl WindowInner {
     }
 
     /// Set the SlintContext.
-    /// This needs to be called once before any other functions that would use the context.
+    /// This needs to be called before any other functions that would use the context.
+    /// A platform may hand out the same window again, so setting the window's own context
+    /// again is allowed, but setting a different one panics.
     pub fn set_context(&self, ctx: crate::SlintContext) {
-        self.ctx.set(ctx).map_err(|_| ()).expect("context shouldn't have been set before")
+        if let Err(ctx) = self.ctx.set(ctx) {
+            assert!(
+                core::ptr::eq(&*self.ctx.get().unwrap().0, &*ctx.0),
+                "the window already belongs to another context"
+            );
+        }
     }
 }
 
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
-/// Resolve the [`crate::SlintContext`] associated with a component root by
-/// asking it for (or creating) its window adapter and reading the context off
-/// the resulting window. Returns `None` only when no adapter can be produced.
-pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
-    let comp_ref_pin = vtable::VRc::borrow_pin(root);
-    let mut adapter = None;
-    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
-    adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
-}
-
-/// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
-/// from the component's [`crate::SlintContext`] reached via its window adapter, or
-/// transparent if none is associated.
-pub fn accent_color(root: &crate::item_tree::ItemTreeRc) -> crate::graphics::Color {
-    let comp_ref_pin = vtable::VRc::borrow_pin(root);
-    let mut adapter = None;
-    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
-    adapter.map_or(crate::graphics::Color::default(), |a| {
-        WindowInner::from_pub(a.window()).context().accent_color()
-    })
+/// The [`crate::SlintContext`] of the item tree `root`, or the current one when the item
+/// tree doesn't know its context (C++).
+pub fn context_for_root(root: &ItemTreeRc) -> crate::SlintContext {
+    let mut result = None;
+    vtable::VRc::borrow_pin(root).as_ref().slint_context(&mut result);
+    result
+        .or_else(crate::SlintContext::current)
+        .expect("an item tree exists, so there is a current context")
 }
 
 /// This module contains the functions needed to interface with the event loop and window traits

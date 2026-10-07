@@ -8,7 +8,7 @@ TC := Rectangle {
         inner := HorizontalLayout {
             inner_inner := VerticalLayout {
                 width: parent.width;
-//                     >           <error{The binding for the property 'width' is part of a binding loop (tc.layoutinfo-h -> tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner.layoutinfo-h -> outer.layoutinfo-h -> tc.layoutinfo-h)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'outer', so its parent stops sizing itself from it}
+//                     >           <error{The binding for the property 'width' is part of a binding loop (tc.preferred-width -> tc.width -> outer.width -> inner.width -> inner-inner.width -> inner -> outer -> tc -> tc.preferred-width)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'outer', so its parent stops sizing itself from it}
                 Rectangle {}
             }
         }
@@ -21,7 +21,7 @@ export Test := Rectangle {
     VerticalLayout {  // FIXME: That's an internal property, but people might understand
         Rectangle {
             width: parent.min_width;
-//                 >               <error{The binding for the property 'width' is part of a binding loop (VerticalLayout.layoutinfo-h -> VerticalLayout.min-width -> Rectangle.width -> VerticalLayout.layoutinfo-h)↵Compute 'width' without depending on a size or a position the layout produces}
+//                 >               <error{The binding for the property 'width' is part of a binding loop (VerticalLayout.min-width -> Rectangle.width -> VerticalLayout -> VerticalLayout.min-width)↵Compute 'width' without depending on a size or a position the layout produces}
         }
     }
 
@@ -29,7 +29,7 @@ export Test := Rectangle {
     l := HorizontalLayout {  // FIXME: That's an internal property, but people might understand
         Text {
             text: "hello \{l.preferred-width/1px}x\{l.preferred-height/1px}";
-//                >                                                         <error{The binding for the property 'text' is part of a binding loop (l.layoutinfo-h -> l.preferred-width -> Text.text -> l.layoutinfo-h)↵Compute 'text' without depending on a size or a position the layout produces}
+//                >                                                         <error{The binding for the property 'text' is part of a binding loop (l.preferred-width -> Text.text -> l -> l.preferred-width)↵Compute 'text' without depending on a size or a position the layout produces}
             wrap: word-wrap;
         }
     }

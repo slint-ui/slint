@@ -1137,11 +1137,7 @@ fn embed_resource(
             unreachable!("slint-sc resources in the C++ generator")
         }
         crate::embedded_resources::EmbeddedResourcesKind::FileData => {
-            let resource_file = crate::fileaccess::load_file(std::path::Path::new(
-                resource.path.as_deref().unwrap(),
-            ))
-            .unwrap(); // embedding pass ensured that the file exists
-            let data = resource_file.read();
+            let data = resource.path.as_ref().unwrap().read().unwrap(); // embedding pass ensured that the file exists
 
             declarations.push(Declaration::Var(Var {
                 ty: "const uint8_t".into(),
@@ -2126,6 +2122,19 @@ fn generate_item_tree(
     ));
 
     target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "slint_context".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] slint::cbindgen_private::Option<slint::cbindgen_private::SlintContext>* result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
             ty: "static const slint::private_api::ItemTreeVTable".into(),
@@ -2142,7 +2151,7 @@ fn generate_item_tree(
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, \
+                supported_accessibility_actions, element_infos, window_adapter, slint_context, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
@@ -4189,11 +4198,10 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
-            resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-            | crate::expression_tree::ImageReference::Url(_)) => write!(
+            crate::expression_tree::ImageReference::Source(path) => write!(
                 f,
                 r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                escape_string(resource_ref.source().unwrap())
+                escape_string(&path.to_string())
             ),
             crate::expression_tree::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
@@ -5545,6 +5553,16 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
             }
         }
+        BuiltinFunction::HasSelection => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, _) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint_textinput_has_selection(&{item})")
+                })
+            } else {
+                panic!("internal error: invalid args to has-selection {arguments:?}")
+            }
+        }
         BuiltinFunction::ItemFontMetrics => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
@@ -5699,22 +5717,27 @@ fn compile_builtin_function_call(
     }
 }
 
-/// Builds the C++ snippet that, for each inner repeater in `templates`, calls
-/// `ensure_updated` on the sub-component and updates `max_total`.
-fn build_inner_ensure_code(templates: &[llr::RowChildTemplateInfo], static_count: usize) -> String {
-    templates
-        .iter()
-        .filter_map(|e| match e {
-            llr::RowChildTemplateInfo::Repeated { repeater_index, .. } => {
-                let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
-                Some(format!(
-                    "sub_comp->{inner_rep_id}.track_instance_changes();\n\
-                     max_total = std::max(max_total, {static_count} + sub_comp->{inner_rep_id}.len());\n"
-                ))
-            }
-            _ => None,
-        })
-        .collect()
+/// Builds the C++ snippet that, for each inner repeater in `templates`, tracks
+/// instance changes and adds its length to the row total, then updates `max_total`.
+/// The snippet uses `sub_comp` and `max_total` from the caller's C++ code.
+fn build_inner_track_and_len(
+    templates: &[llr::RowChildTemplateInfo],
+    static_count: usize,
+) -> String {
+    let mut code = format!("size_t row_total = {static_count};\n");
+    for e in templates {
+        if let llr::RowChildTemplateInfo::Repeated { repeater_index, .. } = e {
+            let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+            write!(
+                code,
+                "sub_comp->{inner_rep_id}.track_instance_changes();\n\
+                 row_total += sub_comp->{inner_rep_id}.len();\n"
+            )
+            .unwrap();
+        }
+    }
+    code.push_str("max_total = std::max(max_total, row_total);\n");
+    code
 }
 
 fn generate_repeater_loop_code(
@@ -5730,11 +5753,11 @@ fn generate_repeater_loop_code(
     if llr::has_inner_repeaters(row_child_templates) {
         let templates = row_child_templates.as_ref().unwrap();
         let static_count = llr::static_child_count(templates);
-        let inner_ensure = build_inner_ensure_code(templates, static_count);
+        let inner_track_and_len = build_inner_track_and_len(templates, static_count);
         let rs_init = repeater_steps_var_name.as_ref().map_or(String::new(), |rs| {
             format!("{rs}_array[{repeater_idx}] = {dynamic_stride_var_name};")
         });
-        dynamic_loop_code(repeater_id, static_count, inner_ensure, rs_init)
+        dynamic_loop_code(repeater_id, static_count, inner_track_and_len, rs_init)
     } else {
         let step = row_child_templates.as_deref().map_or(1, |t| t.len());
         let rs_init = repeater_steps_var_name
@@ -5806,7 +5829,7 @@ fn generate_with_layout_item_info(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "max_total",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         // Only box layouts set a cross size, and their repeaters
                         // never have row templates.
                         debug_assert!(repeated_cross_size.is_none());
@@ -5817,7 +5840,7 @@ fn generate_with_layout_item_info(
                             "{{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 {rs_init}
                                 auto start_offset = cells_vector.size();
@@ -6175,13 +6198,13 @@ fn generate_with_grid_input_data(
                     &repeater_steps_var_name,
                     repeater_idx,
                     "total_item_count",
-                    |repeater_id, static_count, inner_ensure, rs_init| {
+                    |repeater_id, static_count, inner_track_and_len, rs_init| {
                         format!(
                             "{maybe_bool} new_row = {new_row};
                             {{
                                 size_t max_total = {static_count};
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
-                                    {inner_ensure}
+                                    {inner_track_and_len}
                                 }});
                                 size_t total_item_count = max_total;
                                 {rs_init}

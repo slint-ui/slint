@@ -57,20 +57,21 @@ For comments in source code — both internal implementation notes and public AP
 
 1. Where a comment earns its place (see rule 6), describe what the code *is*, in the present tense.
    - Rationale: The comment should make sense to whoever reads the code next; what changed belongs in the commit message, not the source.
-2. A public item's documentation is its contract, and the one exception to rule 6.
+2. A item's documentation is its contract, and the one exception to rule 6.
    - It says what the item does and when to use it, not how it works inside.
+   - It is targeted at the person using that item and can explain how to use it
    - It may restate the signature,
      because it's published apart from the code and callers read it instead of the body.
    - "Public" means an item that appears in published API documentation, not merely one marked `pub`.
      Everything else falls under rule 6, where a name and signature are the documentation.
    - Rationale: Callers shouldn't have to read the implementation, and implementation details in the comment go stale as the code evolves.
-3. Explain a thing once, then cross-reference it.
+3. Explain a thing once
    - Avoid: repeating the same rationale on the trait, on each implementation, and again at the call site.
    - Use: the full explanation where the thing is defined, and "see `foo`" everywhere else.
    - Rationale: One copy can't drift out of sync with the other three, and a reader who already knows the rationale skips a reference faster than a paragraph.
 4. Never write what the code used to be, or what a review said about it.
    - Avoid: "the review found this wrong", "this used to be unrounded", "round 3", "see the commit message".
-   - Use: a bare issue reference such as `#6739` when the background is worth chasing.
+   - Use: an issue reference such as `#6739` only when the background is worth chasing.
    - Exception: a regression test may state the old, wrong behavior, since pinning it is why the test exists.
    - Rationale: The next reader needs the code's current contract, not the discussion that produced it; `git log` and `git blame` already keep the discussion.
 5. A comment shouldn't be longer than the item it describes, and rarely needs more than fifteen lines.
@@ -95,6 +96,7 @@ For comments in source code — both internal implementation notes and public AP
    - Use: a code-level fix over a reworded comment,
      such as a shared constant, a clearer name, or a cross-reference.
    - Rationale: A comment can be true and sound useful, yet still repeat what the code says.
+8. Self-documented code is better than a comment.
 
 ## Diagnostics
 
@@ -112,6 +114,26 @@ For diagnostics emitted by the Slint compiler:
 5. Use the `Display` implementation for Rust types, if they exists.
    - Rationale: The displayed text is generated from one location, keeping it consistent and allowing it to be updated easily.
 6. Diagnostic messages do not end in a period (`.`).
+
+## ChangeLog
+
+Don't edit `CHANGELOG.md` in a pull request to avoid conflicts and risk that the entry gets attached on a wrong release.
+Instead, the ChangeLog is written later from the git log, in one commit per release cycle that covers a range of commits.
+
+If a change is noteworthy, add a `ChangeLog:` trailer to the commit message:
+
+```
+ChangeLog: Fixed a GridLayout row collapsing to its min-height when a sibling cell had a fixed zero size
+```
+
+The trailer sets the wording of the entry.
+It doesn't decide whether there is one: the whole log is read, so a commit without a trailer can still get an entry.
+
+ChangeLog entries are only for noteworthy changes relevant to the end user.
+ - Only for changes that are part of the released product. (Libraries and released tools)
+ - So not for changes in the documentation or tests
+ - Should not include fixes for regressions that were never in an actual release.
+ - Not for fixes or changes to totally new components that have already their own more general changelog entry in the same release.
 
 ## Documentation, Blog, and Social
 

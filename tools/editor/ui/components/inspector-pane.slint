@@ -102,10 +102,6 @@ export component InspectorPane inherits Rectangle {
         return root.has-backend-rect() && root.element-information.type-name == "Image";
     }
 
-    function has-backend-image-selection() -> bool {
-        return root.has-backend-rect() && root.element-information.type-name == "Image";
-    }
-
     function is-root-selection() -> bool {
         return Api.selection.highlight-index >= 0 && root.element-information.id == "root";
     }
@@ -401,35 +397,11 @@ export component InspectorPane inherits Rectangle {
         return "\"" + value + "\"";
     }
 
-    function image-source-value() -> string {
-        return Api.current-property-value("source", "");
-    }
-
     function choose-image-source() {
         let expression = Api.choose-image-file(root.element-information.source-uri);
         if expression != "" {
             root.commit-code("source", expression);
         }
-    }
-
-    function rectangle-background-code() -> string {
-        return Api.current-property-value("background", "");
-    }
-
-    function rectangle-background-swatch() -> brush {
-        return root.property-brush("background");
-    }
-
-    function text-color-code() -> string {
-        return Api.current-property-value("color", "");
-    }
-
-    function text-color-swatch() -> brush {
-        return root.property-brush("color");
-    }
-
-    function text-content-code() -> string {
-        return Api.current-property-value("text", "\"\"");
     }
 
     function text-font-family-value() -> string {
@@ -674,8 +646,8 @@ export component InspectorPane inherits Rectangle {
                         if root.is-rectangle-selection(): InspectorColorField {
                             accessible-name: "Rectangle background";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.rectangle-background-code();
-                            swatch: root.rectangle-background-swatch();
+                            value: Api.current-property-value("background", "");
+                            swatch: root.property-brush("background");
                             commit-key: root.field-key("background");
                             preview-key: root.field-key("background");
                             session-key: root.fill-session-key("background");
@@ -689,8 +661,8 @@ export component InspectorPane inherits Rectangle {
                         if root.is-text-selection(): InspectorColorField {
                             accessible-name: "Text color";
                             target-size: { width: root.selected-width(), height: root.selected-height() };
-                            value: root.text-color-code();
-                            swatch: root.text-color-swatch();
+                            value: Api.current-property-value("color", "");
+                            swatch: root.property-brush("color");
                             commit-key: root.field-key("color");
                             preview-key: root.field-key("color");
                             session-key: root.fill-session-key("color");
@@ -888,7 +860,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if root.has-backend-image-selection(): InspectorSection {
+                if root.is-image-selection(): InspectorSection {
                     title: "Image";
 
                     VerticalLayout {
@@ -907,7 +879,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorImageSourceField {
-                                value: Api.image-source-file-name(root.image-source-value());
+                                value: Api.image-source-file-name(Api.current-property-value("source", ""));
                                 browse => { root.choose-image-source(); }
                             }
                         }
@@ -989,7 +961,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorCodeField {
                             accessible-name: "Text content";
                             prefix: "Text";
-                            value: root.text-content-code();
+                            value: Api.current-property-value("text", "\"\"");
                             commit-key: root.field-key("text");
                             accepted(text) => {
                                 return root.commit-code("text", text);

@@ -1722,18 +1722,19 @@ fn render_window_frame_by_line(
                                 let g =
                                     &scene.vectors.linear_gradients[linear_gradient_index as usize];
 
-                                draw_functions::draw_linear_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
                                     range_buffer,
                                     extra_left_clip,
+                                    extra_right_clip,
                                 );
                             }
                             SceneCommand::RadialGradient { radial_gradient_index } => {
                                 let g =
                                     &scene.vectors.radial_gradients[radial_gradient_index as usize];
-                                draw_functions::draw_radial_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
@@ -1745,7 +1746,7 @@ fn render_window_frame_by_line(
                             SceneCommand::ConicGradient { conic_gradient_index } => {
                                 let g =
                                     &scene.vectors.conic_gradients[conic_gradient_index as usize];
-                                draw_functions::draw_conic_gradient(
+                                draw_functions::draw_gradient_line(
                                     &PhysicalRect { origin: span.pos, size: span.size },
                                     scene.current_line,
                                     g,
@@ -1827,14 +1828,10 @@ fn prepare_scene(
         prepare_scene.processor.process_rounded_rectangle(
             euclid::rect(rect.0.x as _, rect.0.y as _, rect.1.width as _, rect.1.height as _),
             RoundedRectangle {
-                radius: BorderRadius::default(),
+                shape: RoundedShape::default(),
                 width: Length::new(1),
                 border_color: Color::from_argb_u8(128, 255, 0, 0).into(),
                 inner_color: PremultipliedRgbaColor::default(),
-                left_clip: Length::default(),
-                right_clip: Length::default(),
-                top_clip: Length::default(),
-                bottom_clip: Length::default(),
             },
         )
     } // */
@@ -1888,8 +1885,46 @@ fn process_rectangle_impl(
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
     let geom_w = geom.width();
     let geom_h = geom.height();
-    let to_clipped_center = |cx: f32, cy: f32| {
-        (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
+    let (item_w, item_h) =
+        if args.rotation.is_transpose() { (geom_h, geom_w) } else { (geom_w, geom_h) };
+    let radius = PhysicalBorderRadius {
+        top_left: args.top_left_radius as _,
+        top_right: args.top_right_radius as _,
+        bottom_right: args.bottom_right_radius as _,
+        bottom_left: args.bottom_left_radius as _,
+        _unit: Default::default(),
+    };
+    // Add a small value to make sure that the clip is always positive despite floating point
+    // issues
+    const E: f32 = 0.00001;
+    let rounded_shape = RoundedShape {
+        radius,
+        top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+        bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+        left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+        right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+    };
+
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
+    let border =
+        PhysicalLength::new(if border_color.alpha == 0 { 0 } else { args.border_width as _ });
+    let gradient_clip = GradientClip {
+        shape: rounded_shape,
+        opaque_border: if border_color.alpha == u8::MAX { border } else { PhysicalLength::new(0) },
+    };
+    let radial_conic_rect: PhysicalRect = clipped.round().cast();
+    let to_rect_center = |x: f32, y: f32| {
+        let (cx, cy) = match args.rotation {
+            RenderingRotation::NoRotation => (x, y),
+            RenderingRotation::Rotate90 => (geom_w - y, x),
+            RenderingRotation::Rotate180 => (geom_w - x, geom_h - y),
+            RenderingRotation::Rotate270 => (y, geom_h - x),
+        };
+        (
+            geom.min_x() + cx - radial_conic_rect.min_x() as f32,
+            geom.min_y() + cy - radial_conic_rect.min_y() as f32,
+        )
     };
 
     let color = if let Brush::LinearGradient(g) = &args.background {
@@ -1978,6 +2013,7 @@ fn process_rectangle_impl(
                 bottom_clip: clip_length(band_bottom - act.max_y()),
                 left_clip: clip_length(act.min_x() - band_left),
                 right_clip: clip_length(band_right - act.max_x()),
+                clip: gradient_clip,
             };
             processor.process_linear_gradient(act_rect, gr);
             true
@@ -2012,9 +2048,9 @@ fn process_rectangle_impl(
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
-        let (center_x, center_y) = to_clipped_center(cx, cy);
-        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (center_x, center_y) = to_rect_center(cx, cy);
+        let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -2027,14 +2063,15 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
-            radius,
+            radius: gradient_radius,
+            clip: gradient_clip,
         };
 
-        processor.process_radial_gradient(clipped.cast(), radial_grad);
+        processor.process_radial_gradient(radial_conic_rect, radial_grad);
         Color::default()
     } else if let Brush::ConicGradient(g) = &args.background {
-        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
-        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
+        let (center_x, center_y) = to_rect_center(cx, cy);
         let conic_grad = ConicGradientCommand {
             stops: g
                 .stops()
@@ -2046,21 +2083,18 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
+            clip: gradient_clip,
+            rotation: args.rotation.angle().to_radians(),
         };
 
-        processor.process_conic_gradient(clipped.cast(), conic_grad);
+        processor.process_conic_gradient(radial_conic_rect, conic_grad);
         Color::default()
     } else {
         alpha_color(args.background.color(), args.alpha)
     };
 
-    let mut border_color =
-        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
     let color = PremultipliedRgbaColor::from(color);
-    let mut border = PhysicalLength::new(args.border_width as _);
-    if border_color.alpha == 0 {
-        border = PhysicalLength::new(0);
-    } else if border_color.alpha < 255 {
+    if border_color.alpha > 0 && border_color.alpha < 255 {
         // Find a color for the border which is an equivalent to blend the background and then the border.
         // In the end, the resulting of blending the background and the color is
         // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
@@ -2080,29 +2114,14 @@ fn process_rectangle_impl(
         }
     }
 
-    let radius = PhysicalBorderRadius {
-        top_left: args.top_left_radius as _,
-        top_right: args.top_right_radius as _,
-        bottom_right: args.bottom_right_radius as _,
-        bottom_left: args.bottom_left_radius as _,
-        _unit: Default::default(),
-    };
-
     if !radius.is_zero() {
-        // Add a small value to make sure that the clip is always positive despite floating point shenanigans
-        const E: f32 = 0.00001;
-
         processor.process_rounded_rectangle(
             clipped.round().cast(),
             RoundedRectangle {
-                radius,
+                shape: rounded_shape,
                 width: border,
                 border_color,
                 inner_color: color,
-                top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
-                bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
-                left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
-                right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
             },
         );
         return;
@@ -2250,19 +2269,20 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
     }
 
     fn process_linear_gradient(&mut self, geometry: PhysicalRect, g: LinearGradientCommand) {
-        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, _extra_right_clip| {
-            draw_functions::draw_linear_gradient(
+        self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
                 buffer,
                 extra_left_clip,
+                extra_right_clip,
             );
         });
     }
     fn process_radial_gradient(&mut self, geometry: PhysicalRect, g: RadialGradientCommand) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_radial_gradient(
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,
@@ -2274,7 +2294,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
     }
     fn process_conic_gradient(&mut self, geometry: PhysicalRect, g: ConicGradientCommand) {
         self.foreach_ranges(&geometry, |line, buffer, extra_left_clip, extra_right_clip| {
-            draw_functions::draw_conic_gradient(
+            draw_functions::draw_gradient_line(
                 &geometry,
                 PhysicalLength::new(line),
                 &g,

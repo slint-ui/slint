@@ -21,6 +21,7 @@ Appbar
 appicon
 appiconset
 appkit
+APPL
 appmain
 appsink
 appview
@@ -134,6 +135,7 @@ dashmap
 Datakonsult
 Datas
 datatypes
+datepickerpopup
 Datelike
 DBUILD
 DCACHE
@@ -312,6 +314,8 @@ inputchip
 intprop
 intval
 iocp
+iphoneos
+iphonesimulator
 IRAM
 Irqs
 isinstance
@@ -388,6 +392,7 @@ linuxkms
 lipo
 Literata
 Llff
+llms
 Lmaterial
 LOADADDR
 LOWORD
@@ -476,7 +481,9 @@ optipng
 ospi
 othercomp
 ovmf
+pagefind
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL
@@ -593,6 +600,7 @@ shikijs
 Shmelt
 signalsafe
 SIGUSR
+simctl
 singlefile
 singleshot
 skrifa
@@ -614,6 +622,8 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+standardlistview
+standardtableview
 startswith
 staticlib
 staticmethod
@@ -668,6 +678,7 @@ thirdparty
 thumbsup
 thumbv
 tikv
+timepickerpopup
 Tisch
 titlebar
 Tlink

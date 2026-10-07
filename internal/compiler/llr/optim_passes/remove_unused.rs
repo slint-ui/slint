@@ -656,8 +656,11 @@ mod tests {
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         config.style = Some("fluent".into());
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node =
-            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
+        let doc_node = crate::parser::parse(
+            source.into(),
+            Some(crate::source_path::SourcePath::new("t.slint")),
+            &mut diags,
+        );
         let (doc, diag, _) =
             spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
         assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());

@@ -1877,16 +1877,17 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 pub(crate) fn default_cross_axis_constraint(
     elem: &ElementRc,
 ) -> Option<crate::expression_tree::Expression> {
-    let elem_b = elem.borrow();
+    own_layout_info_h(elem).map(|info| crate::expression_tree::Expression::StructFieldAccess {
+        base: Box::new(info),
+        name: "preferred".into(),
+    })
+}
 
+fn own_layout_info_h(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
     // Layouts and components with their own resolved layout_info_prop.
-    if let Some(h_nr) = elem_b.effective_layout_info_prop(Orientation::Horizontal) {
-        return Some(crate::expression_tree::Expression::StructFieldAccess {
-            base: Box::new(crate::expression_tree::Expression::PropertyReference(h_nr.clone())),
-            name: "preferred".into(),
-        });
+    if let Some(h_nr) = elem.borrow().effective_layout_info_prop(Orientation::Horizontal) {
+        return Some(crate::expression_tree::Expression::PropertyReference(h_nr.clone()));
     }
-    drop(elem_b);
 
     // Builtins and component instances (looked up via the base component).
     crate::layout::implicit_layout_info_call(
@@ -1895,10 +1896,179 @@ pub(crate) fn default_cross_axis_constraint(
         crate::layout::BuiltinFilter::All,
         None,
     )
-    .map(|expr| crate::expression_tree::Expression::StructFieldAccess {
-        base: Box::new(expr),
-        name: "preferred".into(),
-    })
+}
+
+/// The vertical layout info of a component's root that isn't in a layout.
+///
+/// `min` and `max` are measured at the root's `width` once it's set, so they follow a resize.
+/// `preferred` is measured at the root's bounded preferred width,
+/// the width a window opens at, whatever `width` holds before that.
+pub(crate) fn get_root_layout_info_v(
+    elem: &ElementRc,
+    ctx: &mut ExpressionLoweringCtx,
+    constraints: &crate::layout::LayoutConstraints,
+) -> llr_Expression {
+    use crate::expression_tree::Expression;
+    let Some(preferred_width) = bounded_preferred_width(elem, constraints) else {
+        return get_layout_info(elem, ctx, constraints, Orientation::Vertical, None);
+    };
+    if fixed_size_property(constraints, Orientation::Horizontal).is_some() {
+        return get_layout_info(
+            elem,
+            ctx,
+            constraints,
+            Orientation::Vertical,
+            Some(preferred_width),
+        );
+    }
+    let length_local = |name: &'static str| Expression::ReadLocalVariable {
+        name: name.into(),
+        ty: Type::LogicalLength,
+    };
+    // An injected wrapper (`Opacity`, …) has no `width`, its `geometry_props` point below it.
+    let width =
+        Expression::PropertyReference(elem.borrow().geometry_props.as_ref().unwrap().width.clone());
+    let measure_width = Expression::Condition {
+        condition: Box::new(Expression::BinaryExpression {
+            lhs: Box::new(width.clone()),
+            rhs: Box::new(Expression::NumberLiteral(0., crate::expression_tree::Unit::Px)),
+            op: '>',
+            source_location: None,
+        }),
+        true_expr: Box::new(width),
+        false_expr: Box::new(length_local("root_preferred_width")),
+        source_location: None,
+    };
+    let store_preferred_width = super::lower_expression::lower_expression(
+        &Expression::StoreLocalVariable {
+            name: "root_preferred_width".into(),
+            value: Box::new(preferred_width),
+        },
+        ctx,
+    );
+    let store_measure_width = super::lower_expression::lower_expression(
+        &Expression::StoreLocalVariable {
+            name: "root_measure_width".into(),
+            value: Box::new(measure_width),
+        },
+        ctx,
+    );
+    let at_width = get_layout_info(
+        elem,
+        ctx,
+        constraints,
+        Orientation::Vertical,
+        Some(length_local("root_measure_width")),
+    );
+    let ty = crate::typeregister::layout_info_type();
+    let info_local = |name: &'static str| llr_Expression::ReadLocalVariable {
+        name: name.into(),
+        ty: ty.clone().into(),
+    };
+    let at_preferred_width = llr_Expression::Condition {
+        condition: llr_Expression::BinaryExpression {
+            lhs: super::lower_expression::lower_expression(
+                &length_local("root_measure_width"),
+                ctx,
+            )
+            .into(),
+            rhs: super::lower_expression::lower_expression(
+                &length_local("root_preferred_width"),
+                ctx,
+            )
+            .into(),
+            op: '=',
+        }
+        .into(),
+        true_expr: info_local("layout_info_v_at_width").into(),
+        false_expr: get_layout_info(
+            elem,
+            ctx,
+            constraints,
+            Orientation::Vertical,
+            Some(length_local("root_preferred_width")),
+        )
+        .into(),
+    };
+    let values = ty
+        .fields
+        .keys()
+        .map(|f| {
+            let from = if f == "preferred" {
+                "layout_info_v_at_preferred_width"
+            } else {
+                "layout_info_v_at_width"
+            };
+            let read = llr_Expression::StructFieldAccess {
+                base: info_local(from).into(),
+                name: f.clone(),
+            };
+            (f.clone(), read)
+        })
+        .collect::<BTreeMap<_, _>>();
+    llr_Expression::CodeBlock(
+        [
+            store_preferred_width,
+            store_measure_width,
+            llr_Expression::StoreLocalVariable {
+                name: "layout_info_v_at_width".into(),
+                value: at_width.into(),
+            },
+            llr_Expression::StoreLocalVariable {
+                name: "layout_info_v_at_preferred_width".into(),
+                value: at_preferred_width.into(),
+            },
+            llr_Expression::Struct { ty, values },
+        ]
+        .into(),
+    )
+}
+
+/// The preferred width of an element, bounded by its constraints:
+/// its layout info with `constraints` applied as in `override_layout_info`,
+/// clamped into its min and max as in `LayoutInfo::preferred_bounded`.
+fn bounded_preferred_width(
+    elem: &ElementRc,
+    constraints: &crate::layout::LayoutConstraints,
+) -> Option<crate::expression_tree::Expression> {
+    use crate::expression_tree::Expression;
+    // A fixed width is returned as is, which keeps the layout info out of it.
+    if let Some(width) = fixed_size_property(constraints, Orientation::Horizontal) {
+        return Some(Expression::PropertyReference(width.clone()));
+    }
+    let info = own_layout_info_h(elem)?;
+    let name = SmolStr::new_static("layout_info_h");
+    let ty = info.ty();
+    let field = |field: &'static str| Expression::StructFieldAccess {
+        base: Expression::ReadLocalVariable { name: name.clone(), ty: ty.clone() }.into(),
+        name: field.into(),
+    };
+    let c = constraints.for_orientation(Orientation::Horizontal);
+    let length_constraint = |nr: &Option<NamedReference>, default: &'static str| {
+        nr.as_ref()
+            .filter(|nr| nr.ty() == Type::LogicalLength)
+            .map(|nr| Expression::PropertyReference(nr.clone()))
+            .unwrap_or_else(|| field(default))
+    };
+    let min_max = |op, lhs, rhs| Expression::MinMax {
+        ty: Type::LogicalLength,
+        op,
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    };
+    let bounded = min_max(
+        MinMaxOp::Max,
+        min_max(
+            MinMaxOp::Min,
+            length_constraint(c.preferred, "preferred"),
+            length_constraint(c.max, "max"),
+        ),
+        length_constraint(c.min, "min"),
+    );
+    Some(Expression::CodeBlock(vec![
+        Expression::StoreLocalVariable { name: name.clone(), value: Box::new(info) },
+        bounded,
+    ]))
 }
 
 /// Subtract `geometry`'s padding on the `axis` from `base`. Turns an outer size
@@ -2022,11 +2192,7 @@ pub fn get_fixed_size_root_layout_info(
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
 ) -> Option<llr_Expression> {
-    let c = constraints.for_orientation(orientation);
-    let size = c
-        .min
-        .as_ref()
-        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)?;
+    let size = fixed_size_property(constraints, orientation)?;
     let own_info = super::lower_expression::lower_expression(
         &crate::layout::implicit_layout_info_call(
             elem,
@@ -2038,6 +2204,16 @@ pub fn get_fixed_size_root_layout_info(
         ctx,
     );
     Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))
+}
+
+fn fixed_size_property(
+    constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
+) -> Option<&NamedReference> {
+    let c = constraints.for_orientation(orientation);
+    c.min
+        .as_ref()
+        .filter(|min| c.fixed && c.max.as_ref() == Some(*min) && min.ty() == Type::LogicalLength)
 }
 
 /// `layout_info` with each field that `constraints` restricts read from that constraint,

@@ -9,7 +9,7 @@ component Field inherits Rectangle {
     preferred-height: 25phx;
     l := HorizontalLayout {
         padding-left: 5phx + root.border-radius / 2;
-//                    >                            <error{The binding for the property 'padding-left' is part of a binding loop (panel.layoutinfo-h -> panel.preferred-width -> panel.width -> VerticalLayout.width -> Text.width -> VerticalLayout.layoutinfo-v -> panel.layoutinfo-v -> panel.preferred-height -> panel.height -> VerticalLayout.height -> VerticalLayout.layout-cache -> field.height -> field.border-radius -> l.padding-left -> l.layoutinfo-h -> l.preferred-width -> field.layoutinfo-h -> VerticalLayout.layoutinfo-h -> panel.layoutinfo-h)↵Compute 'padding-left' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
+//                    >                            <error{The binding for the property 'padding-left' is part of a binding loop (panel.preferred-width -> panel.width -> VerticalLayout.width -> Text.width -> VerticalLayout -> panel -> panel.preferred-height -> panel.height -> VerticalLayout.height -> VerticalLayout -> field.height -> field.border-radius -> l.padding-left -> l -> l.preferred-width -> field -> VerticalLayout -> panel -> panel.preferred-width)↵Compute 'padding-left' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
         Rectangle { }
     }
 }

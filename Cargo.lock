@@ -3569,6 +3569,7 @@ dependencies = [
  "spin_on",
  "strum",
  "swash",
+ "syn 3.0.6",
  "typed-index-collections",
  "unicode-segmentation",
  "url",
@@ -7640,6 +7641,7 @@ dependencies = [
  "fontique",
  "i-slint-compiler",
  "spin_on",
+ "tempfile",
  "toml_edit",
 ]
 

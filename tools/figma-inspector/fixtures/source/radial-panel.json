@@ -1,0 +1,37 @@
+{
+    "sourceVersion": 1,
+    "exportScale": 1,
+    "pngEnabled": false,
+    "images": {},
+    "root": {
+        "id": "panel",
+        "name": "Radial Panel",
+        "type": "FRAME",
+        "properties": {
+            "x": 0, "y": 0, "width": 32, "height": 32,
+            "visible": true, "opacity": 1, "rotation": 0,
+            "fills": [{
+                "type": "GRADIENT_RADIAL", "opacity": 1,
+                "gradientTransform": [[1, 0, 0], [0, 0.5, 0.25]],
+                "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+                    { "position": 1, "color": { "r": 0, "g": 0, "b": 1, "a": 1 } }
+                ]
+            }],
+            "strokes": [], "effects": [], "clipsContent": true
+        },
+        "errors": [],
+        "children": [{
+            "id": "row",
+            "name": "Opaque Row",
+            "type": "RECTANGLE",
+            "properties": {
+                "x": 12, "y": 12, "width": 8, "height": 8,
+                "visible": true, "opacity": 1, "rotation": 0,
+                "fills": [{ "type": "SOLID", "opacity": 1, "color": { "r": 0, "g": 0, "b": 0 } }],
+                "strokes": [], "effects": []
+            },
+            "errors": []
+        }]
+    }
+}

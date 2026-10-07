@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview as editor_preview;
 use i_slint_editor_preview::{LspToPreviews, Result, document_cache::OpenImportCallback};
 use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
@@ -377,12 +378,14 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 
     let open_import_callback = {
         let to_previews = to_previews.clone();
-        Rc::new(move |path: String| {
+        Rc::new(move |path: SourcePath| {
             let to_previews = to_previews.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read().map(std::borrow::Cow::into_owned);
+                if let SourcePath::File(_) = &path
+                    && let Some(url) = path.to_url()
+                {
                     for to_preview in &to_previews {
                         if let Ok(contents) = &contents {
                             to_preview.send(&LspToPreviewMessage::SetContents {
@@ -456,20 +459,12 @@ fn sync_file_watcher_if_needed(
 
     watcher.update_watched_paths(
         std::iter::once(root_path.to_path_buf())
-            .chain(
-                session
-                    .document_cache
-                    .all_urls_to_watch()
-                    .into_iter()
-                    // filter out builtins
-                    .filter(|url| url.scheme() == "file")
-                    .filter_map(|url| editor_preview::uri_to_file(&url)),
-            )
+            .chain(session.document_cache.all_paths_to_watch())
             .chain(session.previews.iter().filter_map(|preview| {
                 preview
                     .to_show
                     .as_ref()
-                    .and_then(|component| editor_preview::uri_to_file(&component.url))
+                    .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             })),
     )?;
     *watch_paths_revision = Some(current_revision);
@@ -571,9 +566,14 @@ async fn handle_preview_message(
             run_preview_state.highlight = Some((file.clone(), offset.into()));
             send_run_preview_highlight(session, run_preview_state);
         }
+        ClearHighlight if preview_index == PRIMARY_PREVIEW_INDEX => {
+            run_preview_state.highlight = None;
+            send_run_preview_highlight(session, run_preview_state);
+        }
 
         Diagnostics { .. }
         | ShowDocument { .. }
+        | ClearHighlight
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
@@ -606,7 +606,7 @@ async fn open_initial_preview(
 ) -> Result<()> {
     watcher.update_watched_paths(
         std::iter::once(project_root.to_path_buf())
-            .chain(editor_preview::uri_to_file(&component.url)),
+            .chain(SourcePath::from_url(&component.url).into_native_path()),
     )?;
     open_project(session, PRIMARY_PREVIEW_INDEX, project_root)?;
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await
@@ -650,10 +650,14 @@ fn send_run_preview_highlight(
     if !run_preview_state.requested {
         return;
     }
-    let Some((url, offset)) = &run_preview_state.highlight else { return };
+    let (url, offset) = run_preview_state
+        .highlight
+        .as_ref()
+        .map(|(url, offset)| (Some(url.clone()), *offset))
+        .unwrap_or((None, 0));
     session.send_to_preview(
         RUN_PREVIEW_INDEX,
-        &LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: *offset },
+        &LspToPreviewMessage::HighlightFromEditor { url, offset },
     );
 }
 
@@ -685,7 +689,7 @@ fn open_project(
 fn canonical_preview_component(
     component: &PreviewComponent,
 ) -> Option<(PreviewComponent, PathBuf)> {
-    let path = editor_preview::uri_to_file(&component.url)?;
+    let path = SourcePath::from_url(&component.url).into_native_path()?;
     let path = std::fs::canonicalize(path).ok()?;
     let url = Url::from_file_path(&path).ok()?;
     Some((PreviewComponent { url, component: component.component.clone() }, path))
@@ -700,7 +704,7 @@ fn handle_workspace_edit(
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
-                match editor_preview::uri_to_file(&url) {
+                match SourcePath::from_url(&url).into_native_path() {
                     Some(path) => {
                         if let Err(err) = std::fs::write(&path, &contents) {
                             applied = false;
@@ -835,7 +839,7 @@ mod tests {
 
     fn component(file_name: &str, name: &str) -> PreviewComponent {
         PreviewComponent {
-            url: Url::from_file_path(editor_preview::test::test_file_name(file_name)).unwrap(),
+            url: editor_preview::test::test_file_name(file_name).to_url().unwrap(),
             component: Some(name.into()),
         }
     }
@@ -1101,6 +1105,47 @@ mod tests {
     }
 
     #[test]
+    fn clear_highlight_only_clears_the_run_preview_from_the_primary_preview() {
+        for (preview_index, requested) in [
+            (PRIMARY_PREVIEW_INDEX, true),
+            (PRIMARY_PREVIEW_INDEX, false),
+            (RUN_PREVIEW_INDEX, true),
+        ] {
+            let (mut session, messages) = session_with_recording_previews();
+            let project = tempfile::tempdir().unwrap();
+            let highlight =
+                Some((Url::from_file_path(project.path().join("main.slint")).unwrap(), 42));
+            let mut run_preview_state = RunPreviewState { requested, highlight: highlight.clone() };
+
+            spin_on::spin_on(handle_preview_message(
+                PreviewToLspMessage::ClearHighlight,
+                preview_index,
+                &mut session,
+                project.path(),
+                &mut run_preview_state,
+                &Default::default(),
+            ));
+
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+            let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+            if preview_index == PRIMARY_PREVIEW_INDEX {
+                assert!(run_preview_state.highlight.is_none());
+                if requested {
+                    assert!(matches!(
+                        run_messages.as_slice(),
+                        [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
+                    ));
+                } else {
+                    assert!(run_messages.is_empty());
+                }
+            } else {
+                assert_eq!(run_preview_state.highlight, highlight);
+                assert!(run_messages.is_empty());
+            }
+        }
+    }
+
+    #[test]
     fn show_document_from_the_run_preview_is_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let project = tempfile::tempdir().unwrap();
@@ -1108,8 +1153,7 @@ mod tests {
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
-                file: Url::from_file_path(editor_preview::test::test_file_name("run.slint"))
-                    .unwrap(),
+                file: editor_preview::test::test_file_name("run.slint").to_url().unwrap(),
                 selection: Default::default(),
                 take_focus: false,
             },

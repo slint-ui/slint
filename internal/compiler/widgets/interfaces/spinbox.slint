@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface SpinBox {
+    in property <bool> enabled;
+    out property <bool> has-focus;
+    in-out property <int> value;
+    in property <int> minimum;
+    in property <int> maximum;
+    in property <bool> read-only;
+    in property <int> step-size;
+    in property <TextHorizontalAlignment> horizontal-alignment;
+
+    callback edited(value: int);
+}

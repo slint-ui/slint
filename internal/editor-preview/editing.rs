@@ -3,12 +3,10 @@
 
 use crate::DocumentCache;
 use i_slint_compiler::parser::TextSize;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_live_preview::protocol::{SourceFileVersion, VersionedUrl};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
-use std::{collections::HashMap, path::Path};
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+use std::collections::HashMap;
 
 pub mod import_edit;
 pub mod rename_component;
@@ -23,8 +21,12 @@ pub struct SingleTextEdit {
 }
 
 impl SingleTextEdit {
-    pub fn from_path(document_cache: &DocumentCache, path: &Path, edit: TextEdit) -> Option<Self> {
-        let url = Url::from_file_path(path).ok()?;
+    pub fn from_path(
+        document_cache: &DocumentCache,
+        path: &SourcePath,
+        edit: TextEdit,
+    ) -> Option<Self> {
+        let url = path.to_url()?;
         let version = document_cache.document_version_by_path(path);
         Some(Self { url, version, edit })
     }
@@ -47,10 +49,10 @@ pub fn create_text_document_edit(
 
 pub fn create_workspace_edit_from_path(
     document_cache: &DocumentCache,
-    path: &Path,
+    path: &SourcePath,
     edits: Vec<TextEdit>,
 ) -> Option<WorkspaceEdit> {
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache.document_version_by_path(path);
     Some(create_workspace_edit(url, version, edits))
 }

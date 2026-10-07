@@ -42,6 +42,10 @@ pub fn with_platform<R>(
     with_global_context(|ctx| f(ctx.platform()))?
 }
 
+// Without the selector, the application installs the platform itself.
+#[cfg(not(feature = "i-slint-backend-selector"))]
+use i_slint_core::with_existing_context as with_global_context;
+
 #[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
     f: impl FnOnce(
@@ -84,15 +88,14 @@ pub extern "C" fn slint_context_accent_color(
     root: &i_slint_core::item_tree::ItemTreeRc,
     out: &mut i_slint_core::graphics::Color,
 ) {
-    *out = i_slint_core::window::accent_color(root);
+    *out = i_slint_core::window::context_for_root(root).accent_color();
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_context_color_scheme(
     root: &i_slint_core::item_tree::ItemTreeRc,
 ) -> i_slint_core::items::ColorScheme {
-    i_slint_core::window::context_for_root(root)
-        .map_or(i_slint_core::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(root)))
+    i_slint_core::window::context_for_root(root).color_scheme(Some(root))
 }
 
 #[unsafe(no_mangle)]
@@ -101,7 +104,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }
@@ -320,7 +323,8 @@ pub unsafe extern "C" fn slint_open_url(
     win: *const WindowAdapterRcOpaque,
 ) -> bool {
     let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
-    i_slint_core::open_url(url, window_adapter.window()).is_ok()
+    let ctx = i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context();
+    i_slint_core::open_url(url, ctx).is_ok()
 }
 
 #[unsafe(no_mangle)]

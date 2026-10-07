@@ -51,9 +51,11 @@ export default defineConfig({
                 "@slint/common-files/src/styles/sls-ids.css",
             ],
             components: {
-                Footer: "@slint/common-files/src/components/Footer.astro",
+                Footer: "./src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent: "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 slintStarlightLinksValidatorPlugin({

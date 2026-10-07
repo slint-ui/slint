@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
 export component CheckBox inherits NativeCheckBox {
+    implement CheckBoxInterface <=> self;
+
     in property <length> font-size; // not implemented
     in property <int> font-weight; // not implemented
 

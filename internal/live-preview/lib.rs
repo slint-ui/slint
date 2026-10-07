@@ -20,5 +20,8 @@ pub mod live_component;
 #[cfg(feature = "preview-session")]
 pub mod preview_sessions;
 
+#[cfg(feature = "preview-session")]
+pub mod inspector;
+
 #[cfg(feature = "remote")]
 pub mod remote;

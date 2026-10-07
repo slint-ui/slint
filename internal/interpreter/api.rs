@@ -3,6 +3,7 @@
 
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -448,114 +449,6 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     }
 }
 
-impl From<i_slint_core::lengths::LogicalPoint> for Value {
-    #[inline]
-    fn from(pt: i_slint_core::lengths::LogicalPoint) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("x".to_owned(), Value::Number(pt.x as _)),
-            ("y".to_owned(), Value::Number(pt.y as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalPoint, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let x = s
-                    .get_field("x")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let y = s
-                    .get_field("y")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalPoint::new(x, y))
-            }
-            _ => Err(v),
-        }
-    }
-}
-
-impl From<i_slint_core::lengths::LogicalSize> for Value {
-    #[inline]
-    fn from(s: i_slint_core::lengths::LogicalSize) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("width".to_owned(), Value::Number(s.width as _)),
-            ("height".to_owned(), Value::Number(s.height as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalSize, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let width = s
-                    .get_field("width")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let height = s
-                    .get_field("height")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalSize::new(width, height))
-            }
-            _ => Err(v),
-        }
-    }
-}
-
-impl From<i_slint_core::lengths::LogicalEdges> for Value {
-    #[inline]
-    fn from(s: i_slint_core::lengths::LogicalEdges) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("left".to_owned(), Value::Number(s.left as _)),
-            ("right".to_owned(), Value::Number(s.right as _)),
-            ("top".to_owned(), Value::Number(s.top as _)),
-            ("bottom".to_owned(), Value::Number(s.bottom as _)),
-        ]))
-    }
-}
-impl TryFrom<Value> for i_slint_core::lengths::LogicalEdges {
-    type Error = Value;
-    #[inline]
-    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalEdges, Self::Error> {
-        match v {
-            Value::Struct(s) => {
-                let left = s
-                    .get_field("left")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let right = s
-                    .get_field("right")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let top = s
-                    .get_field("top")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                let bottom = s
-                    .get_field("bottom")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Number(0 as _))
-                    .try_into()?;
-                Ok(i_slint_core::lengths::LogicalEdges::new(left, right, top, bottom))
-            }
-            _ => Err(v),
-        }
-    }
-}
-
 impl<T: Into<Value> + TryFrom<Value> + 'static> From<ModelRc<T>> for Value {
     fn from(m: ModelRc<T>) -> Self {
         if let Some(v) = <dyn core::any::Any>::downcast_ref::<ModelRc<Value>>(&m) {
@@ -798,8 +691,10 @@ impl ComponentCompiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
@@ -840,7 +735,7 @@ impl ComponentCompiler {
 
         let r = build_compilation_result(
             source,
-            path.into(),
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -872,7 +767,7 @@ impl ComponentCompiler {
     ) -> Option<ComponentDefinition> {
         let r = build_compilation_result(
             source_code,
-            path,
+            SourcePath::new(path),
             self.config.clone(),
             AnimationMode::Running,
         )
@@ -1003,8 +898,10 @@ impl Compiler {
             Box<dyn Future<Output = Option<std::io::Result<String>>>>,
         > + 'static,
     ) {
-        self.config.open_import_callback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        #[expect(deprecated)]
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(move |path| file_loader_fallback(&path.to_legacy_path()));
+        self.config.open_import_callback = Some(open_import_callback);
     }
 
     /// Compile a .slint file
@@ -1036,15 +933,20 @@ impl Compiler {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
                     #[cfg(feature = "internal")]
-                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
+                    watch_paths: vec![SourcePath::new(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                 };
             }
         };
 
-        build_compilation_result(source, path.into(), self.config.clone(), AnimationMode::Running)
-            .await
+        build_compilation_result(
+            source,
+            SourcePath::new(path),
+            self.config.clone(),
+            AnimationMode::Running,
+        )
+        .await
     }
 
     /// Compile some .slint code
@@ -1060,6 +962,22 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
+        let path = SourcePath::new(path);
+        build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
+            .await
+    }
+
+    /// [`Self::build_from_source`] for a file that may only be reachable by URL.
+    ///
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
+    #[cfg(any(feature = "internal", feature = "internal-highlight"))]
+    pub async fn build_from_source_path(
+        &self,
+        source_code: String,
+        path: SourcePath,
+        _: i_slint_core::InternalToken,
+    ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Running)
             .await
     }
@@ -1070,7 +988,7 @@ impl Compiler {
     pub async fn build_static_from_source(
         &self,
         source_code: String,
-        path: PathBuf,
+        path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
         build_compilation_result(source_code, path, self.config.clone(), AnimationMode::Static)
@@ -1088,7 +1006,7 @@ pub(crate) enum AnimationMode {
 
 async fn build_compilation_result(
     source_code: String,
-    path: PathBuf,
+    path: SourcePath,
     config: i_slint_compiler::CompilerConfiguration,
     animation_mode: AnimationMode,
 ) -> CompilationResult {
@@ -1138,7 +1056,7 @@ pub struct CompilationResultSend {
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    watch_paths: Vec<PathBuf>,
+    watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     structs_and_enums: Vec<LangType>,
 }
@@ -1211,7 +1129,7 @@ pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
-    pub(crate) watch_paths: Vec<PathBuf>,
+    pub(crate) watch_paths: Vec<SourcePath>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
 }
@@ -1309,7 +1227,7 @@ impl CompilationResult {
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
-    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[SourcePath] {
         &self.watch_paths
     }
 
@@ -1389,13 +1307,27 @@ impl ComponentDefinition {
         ))
     }
 
+    /// Instantiate the component using an existing window without replacing its component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn create_detached_with_existing_window(
+        &self,
+        window: &Window,
+        _: i_slint_core::InternalToken,
+    ) -> Result<ComponentInstance, PlatformError> {
+        let adapter = WindowInner::from_pub(window).window_adapter();
+        Ok(ComponentInstance { inner: self.inner.create_detached_with_existing_window(adapter) })
+    }
+
     /// Private implementation of create
     pub(crate) fn create_with_options(
         &self,
         options: WindowOptions,
     ) -> Result<ComponentInstance, PlatformError> {
         let instance = match options {
-            WindowOptions::CreateNewWindow => self.inner.create(),
+            WindowOptions::CreateNewWindow => self
+                .inner
+                .create_with_context(i_slint_backend_selector::with_global_context(Clone::clone)?),
             WindowOptions::UseExistingWindow(adapter) => {
                 self.inner.create_with_existing_window(adapter)
             }
@@ -1637,6 +1569,16 @@ impl ComponentInstance {
         Ok(())
     }
 
+    /// Return the item tree without attaching it as the window's component.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn as_item_tree(
+        &self,
+        _: i_slint_core::InternalToken,
+    ) -> i_slint_core::item_tree::ItemTreeRc {
+        vtable::VRc::into_dyn(self.inner.vrc().clone())
+    }
+
     fn is_system_tray_rooted(&self) -> bool {
         self.inner.top_level_type() == i_slint_compiler::llr::TopLevelComponentType::SystemTrayIcon
     }
@@ -1837,25 +1779,21 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn component_positions(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
-    /// Find the position of the `element`.
+    /// Find source elements rendered under `position`, in selection order.
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "internal-highlight")]
-    pub fn element_positions(
+    pub fn element_candidates_at(
         &self,
-        element: &i_slint_compiler::object_tree::ElementRc,
-    ) -> Vec<crate::highlight::HighlightedRect> {
-        crate::highlight::element_positions(
-            self.inner.vrc(),
-            element,
-            crate::highlight::ElementPositionFilter::IncludeClipped,
-        )
+        position: i_slint_core::lengths::LogicalPoint,
+    ) -> Vec<crate::highlight::ElementCandidate> {
+        crate::highlight::element_candidates_at(self.inner.vrc(), position)
     }
 
     /// Find the `element` that was defined at the text position.
@@ -1864,7 +1802,7 @@ impl ComponentInstance {
     #[cfg(feature = "internal-highlight")]
     pub fn element_node_at_source_code_position(
         &self,
-        path: &Path,
+        path: &SourcePath,
         offset: u32,
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(self.inner.vrc(), path, offset)
@@ -2496,14 +2434,17 @@ fn test_multi_components() {
 }
 
 #[cfg(all(test, feature = "internal-highlight"))]
-fn compile(code: &str) -> (ComponentInstance, PathBuf) {
+fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     i_slint_backend_testing::init_no_event_loop();
     let mut compiler = Compiler::default();
     compiler.set_style("fluent".into());
-    let path = PathBuf::from("/tmp/test.slint");
+    let path = SourcePath::new("/tmp/test.slint");
 
-    let compile_result =
-        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    let compile_result = spin_on::spin_on(compiler.build_from_source_path(
+        code.to_string(),
+        path.clone(),
+        i_slint_core::InternalToken,
+    ));
 
     for d in &compile_result.diagnostics {
         eprintln!("{d}");
@@ -2547,12 +2488,12 @@ export component Foo2 inherits Window  {
     }
 }
 
-/// `element_positions` must return one rect per *instantiation*: a component
+/// `component_positions` must return one rect per *instantiation*: a component
 /// used twice yields only the queried use site's rect, and elements inside a
 /// `for` yield one rect per row.
 #[cfg(feature = "internal-highlight")]
 #[test]
-fn test_element_positions_instances_and_repeaters() {
+fn test_component_positions_instances_and_repeaters() {
     use i_slint_core::graphics::euclid;
     let code = r#"
 component MyBox inherits Rectangle {
@@ -2575,29 +2516,24 @@ export component Foo3 inherits Window {
 
     let (handle, path) = compile(code);
 
-    let element_at = |pattern: &str| {
-        let offset = code.find(pattern).unwrap() as u32;
-        let elements = handle.element_node_at_source_code_position(&path, offset);
-        assert_eq!(elements.len(), 1, "expected one element at {pattern:?}");
-        elements.into_iter().next().unwrap().0
-    };
+    let positions_at =
+        |pattern: &str| handle.component_positions(&path, code.find(pattern).unwrap() as u32);
 
     // Each MyBox use highlights only its own instance.
-    let b1_rects = handle.element_positions(&element_at("MyBox { x: 0px"));
+    let b1_rects = positions_at("MyBox { x: 0px");
     assert_eq!(b1_rects.len(), 1, "{b1_rects:?}");
     assert_eq!(b1_rects[0].rect.origin, euclid::point2(0., 0.));
 
-    let b2_rects = handle.element_positions(&element_at("MyBox { x: 200px"));
+    let b2_rects = positions_at("MyBox { x: 200px");
     assert_eq!(b2_rects.len(), 1, "{b2_rects:?}");
     assert_eq!(b2_rects[0].rect.origin, euclid::point2(200., 200.));
 
     // An element inside the component's definition maps to both uses.
-    let def_rects = handle.element_positions(&element_at("Rectangle {\n    width: 50px"));
+    let def_rects = positions_at("Rectangle {\n    width: 50px");
     assert_eq!(def_rects.len(), 2, "{def_rects:?}");
 
     // A repeated element yields one rect per row, in root coordinates.
-    let repeated = element_at("Rectangle {\n        x: xo");
-    let mut row_rects = handle.element_positions(&repeated);
+    let mut row_rects = positions_at("Rectangle {\n        x: xo");
     row_rects.sort_by(|a, b| a.rect.origin.x.total_cmp(&b.rect.origin.x));
     assert_eq!(row_rects.len(), 3, "{row_rects:?}");
     for (i, r) in row_rects.iter().enumerate() {
@@ -2610,4 +2546,222 @@ export component Foo3 inherits Window {
     let offset = code.find("Rectangle {\n        x: xo").unwrap() as u32;
     assert_eq!(handle.component_positions(&path, offset).len(), 3);
     assert!(handle.component_positions(&path, code.len() as u32 - 1).is_empty());
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_survive_compilation_result_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component Base inherits Rectangle {
+    width: 50px;
+    height: 40px;
+}
+
+component Derived inherits Base { }
+
+export component App inherits Window {
+    width: 400px;
+    height: 300px;
+    in property <bool> show-conditional: true;
+    first := Derived { x: 10px; y: 20px; }
+    second := Derived { x: 200px; y: 100px; }
+    if root.show-conditional: conditional := Rectangle {
+        x: 100px;
+        y: 200px;
+        width: 20px;
+        height: 30px;
+    }
+    optimized := Rectangle {
+        x: 300px;
+        y: 10px;
+        width: 30px;
+        height: 20px;
+        background: red;
+        redundant := Rectangle { }
+    }
+    for column in [0, 1]: Derived {
+        x: column * 60px;
+        y: 250px;
+    }
+    for column in [0, 1]: Derived {
+        x: 150px + column * 60px;
+        y: 250px;
+    }
+}
+"#;
+    let path = PathBuf::from("/virtual/round-trip.slint");
+    let result = spin_on::spin_on(Compiler::default().build_from_source(code.into(), path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    let positions_at = |pattern: &str, inside_pattern: usize| {
+        let offset = code.find(pattern).unwrap() + inside_pattern;
+        instance.component_positions(&SourcePath::new(&path), offset as u32)
+    };
+
+    let first = positions_at("Derived { x: 10px", 2);
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert_eq!(first[0].rect.origin, euclid::point2(10., 20.));
+    let second = positions_at("Derived { x: 200px", 2);
+    assert_eq!(second.len(), 1, "{second:?}");
+    assert_eq!(second[0].rect.origin, euclid::point2(200., 100.));
+
+    let definition = positions_at("Rectangle {\n    width: 50px", 3);
+    assert_eq!(definition.len(), 6, "{definition:?}");
+
+    let conditional_offset = code.find("Rectangle {\n        x: 100px").unwrap() as u32 + 4;
+    let conditional = instance.component_positions(&SourcePath::new(&path), conditional_offset);
+    assert_eq!(conditional.len(), 1, "{conditional:?}");
+    assert_eq!(conditional[0].rect.origin, euclid::point2(100., 200.));
+
+    let optimized = positions_at("Rectangle {\n        x: 300px", 3);
+    let redundant = positions_at("Rectangle { }", 3);
+    assert_eq!(optimized.len(), 1, "{optimized:?}");
+    assert_eq!(redundant.len(), 1, "{redundant:?}");
+    assert_eq!(redundant[0].rect, optimized[0].rect);
+
+    let assert_repeated_positions = |mut positions: Vec<crate::highlight::HighlightedRect>,
+                                     expected_x_positions| {
+        positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+        assert_eq!(positions.len(), 2, "{positions:?}");
+        for (geometry, expected_x) in positions.iter().zip(expected_x_positions) {
+            assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 250.));
+        }
+    };
+    for (pattern, expected_x_positions) in
+        [("Derived {\n        x: column", [0., 60.]), ("Derived {\n        x: 150px", [150., 210.])]
+    {
+        assert_repeated_positions(positions_at(pattern, 2), expected_x_positions);
+    }
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn component_positions_resolve_imported_sources_after_round_trip() {
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let imported_code = r#"
+export component Imported inherits Rectangle {
+    width: 40px;
+    height: 30px;
+}
+"#;
+    let main_code = r#"
+import { Imported } from "lib.slint";
+
+export component App inherits Window {
+    width: 200px;
+    height: 200px;
+    Imported { x: 25px; y: 35px; }
+}
+"#;
+    let main_path = PathBuf::from("/virtual/main.slint");
+    let imported_path = PathBuf::from("/virtual/lib.slint");
+    let mut compiler = Compiler::default();
+    compiler.set_file_loader({
+        let imported_path = imported_path.clone();
+        move |path| {
+            let source = (path == imported_path).then(|| Ok(imported_code.to_owned()));
+            Box::pin(std::future::ready(source))
+        }
+    });
+    let result = spin_on::spin_on(compiler.build_from_source(main_code.into(), main_path.clone()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let result = CompilationResult::from(result.into_send());
+    let instance = result.component("App").unwrap().create().unwrap();
+
+    for (path, code, pattern) in [
+        (&main_path, main_code, "Imported { x: 25px"),
+        (&imported_path, imported_code, "Rectangle"),
+    ] {
+        let offset = code.find(pattern).unwrap() as u32;
+        let positions = instance.component_positions(&SourcePath::new(path), offset);
+        assert_eq!(positions.len(), 1, "{positions:?}");
+        assert_eq!(positions[0].rect.origin, euclid::point2(25., 35.));
+        assert_eq!(positions[0].rect.size, euclid::size2(40., 30.));
+    }
+}
+
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn inlined_repeated_source_resolves_each_repeater_once() {
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::generator::OutputFormat;
+    use i_slint_core::graphics::euclid;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let code = r#"
+component RepeatedBox inherits Rectangle {
+    width: 60px;
+    height: 20px;
+    for value in [0, 1]: Rectangle {
+        x: value * 20px;
+        y: 0px;
+        width: 10px;
+        height: 10px;
+    }
+}
+
+export component App inherits Window {
+    width: 200px;
+    height: 100px;
+    first := RepeatedBox { x: 10px; y: 20px; }
+    second := RepeatedBox { x: 100px; y: 20px; }
+}
+"#;
+    let path = SourcePath::new("/virtual/inlined-repeaters.slint");
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node =
+        i_slint_compiler::parser::parse(code.into(), Some(path.clone()), &mut diagnostics);
+    let mut compiler_configuration =
+        i_slint_compiler::CompilerConfiguration::new(OutputFormat::Interpreter);
+    compiler_configuration.debug_info = true;
+    compiler_configuration.inline_all_elements = true;
+    let (document, diagnostics, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        syntax_node,
+        diagnostics,
+        compiler_configuration.clone(),
+    ));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    let definition = crate::component::build_from_document(
+        &document,
+        &compiler_configuration,
+        Default::default(),
+        AnimationMode::Running,
+    )
+    .into_iter()
+    .next()
+    .expect("component definition");
+    let definition = ComponentDefinition { inner: std::rc::Rc::new(definition) };
+
+    let repeated_offset = code.find("Rectangle {\n        x: value").unwrap();
+    let matching_repeated_elements = definition
+        .inner
+        .compilation_unit
+        .sub_components
+        .iter()
+        .flat_map(|sub_component| sub_component.debug_info.iter())
+        .flat_map(|debug_info| debug_info.repeated_elements.iter())
+        .filter(|source_location| {
+            source_location
+                .source_file
+                .as_ref()
+                .is_some_and(|source_file| source_file.path() == &path)
+                && source_location.span.offset == repeated_offset
+        })
+        .count();
+    assert_eq!(matching_repeated_elements, 2);
+
+    let instance = definition.create().unwrap();
+    let mut positions = instance.component_positions(&path, repeated_offset as u32 + 3);
+    positions.sort_by(|left, right| left.rect.origin.x.total_cmp(&right.rect.origin.x));
+    assert_eq!(positions.len(), 4, "{positions:?}");
+    for (geometry, expected_x) in positions.iter().zip([10., 30., 100., 120.]) {
+        assert_eq!(geometry.rect.origin, euclid::point2(expected_x, 20.));
+    }
 }

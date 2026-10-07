@@ -571,6 +571,7 @@ fn gen_corelib(
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
+        "LogicalSize",
         "LogicalLength",
         "MouseEvent",
     ]
@@ -1064,6 +1065,7 @@ namespace slint {
         using private_api::Point;
         struct ItemTreeVTable;
         struct ItemVTable;
+        struct SlintContext;
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;

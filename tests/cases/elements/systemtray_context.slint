@@ -6,18 +6,38 @@
 
 // A tray has no window, so its bindings must use the context it was created with.
 
+import { Palette } from "std-widgets.slint";
+
 export component TestCase inherits SystemTrayIcon {
     in property <float> value: 1.5;
     out property <string> formatted: value;
+    out property <string> separator: Platform.decimal-separator;
+    out property <ColorScheme> color-scheme: Palette.color-scheme;
+    out property <brush> accent: Palette.accent-background;
+
+    public function open(url: string) -> bool {
+        return Platform.open-url(url);
+    }
 }
 
 /*
 ```rust
-let ctx = i_slint_core::SlintContext::new(Box::new(
-    i_slint_backend_testing::TestingBackend::new(Default::default()),
-));
+let backend = i_slint_backend_testing::TestingBackend::new(Default::default());
+let opened_url = backend.open_url.clone();
+let ctx = i_slint_core::SlintContext::new(Box::new(backend));
 ctx.set_locale("de_DE.UTF-8");
-let instance = TestCase::new_with_context(ctx).unwrap();
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
 assert_eq!(instance.get_formatted(), "1,5");
+assert_eq!(instance.get_separator(), ",");
+
+ctx.set_color_scheme(slint::language::ColorScheme::Dark);
+assert_eq!(instance.get_color_scheme(), slint::language::ColorScheme::Dark);
+
+let accent = instance.get_accent();
+ctx.set_accent_color(slint::Color::from_rgb_u8(255, 0, 0));
+assert_ne!(instance.get_accent(), accent);
+
+assert!(instance.invoke_open("https://slint.dev".into()));
+assert_eq!(*opened_url.borrow(), Some("https://slint.dev".into()));
 ```
 */

@@ -71,13 +71,12 @@ pub fn get_tooltip(
         TokenInfo::EnumerationValue(v) => {
             from_slint_code(&format!("{}.{}", v.enumeration.name, v), documentation)
         }
-        TokenInfo::FileName(path) => MarkupContent {
-            kind: lsp_types::MarkupKind::Markdown,
-            value: format!("`{}`", path.to_string_lossy()),
-        },
+        TokenInfo::FileName(path) => {
+            MarkupContent { kind: lsp_types::MarkupKind::Markdown, value: format!("`{path}`") }
+        }
         TokenInfo::Image(path) => MarkupContent {
             kind: lsp_types::MarkupKind::Markdown,
-            value: format!("![{0}]({0})", path.to_string_lossy()),
+            value: format!("![{path}]({path})"),
         },
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
