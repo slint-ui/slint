@@ -98,6 +98,7 @@ fn copy_to_clipboard(global: &ui::Diagnostics<'_>) {
             let level = match diagnostic.level {
                 ui::DiagnosticLevel::Debug => "debug",
                 ui::DiagnosticLevel::Note => "note",
+                ui::DiagnosticLevel::Info => "info",
                 ui::DiagnosticLevel::Warning => "warning",
                 ui::DiagnosticLevel::Error => "error",
             };
@@ -161,6 +162,7 @@ pub fn set_diagnostics(
         let level = match diagnostic.level() {
             DiagnosticLevel::Error => ui::DiagnosticLevel::Error,
             DiagnosticLevel::Warning => ui::DiagnosticLevel::Warning,
+            DiagnosticLevel::Info => ui::DiagnosticLevel::Info,
             DiagnosticLevel::Note => ui::DiagnosticLevel::Note,
             _ => ui::DiagnosticLevel::Debug,
         };

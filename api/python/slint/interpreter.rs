@@ -101,6 +101,7 @@ impl PyDiagnostic {
         match self.0.level() {
             slint_interpreter::DiagnosticLevel::Error => PyDiagnosticLevel::Error,
             slint_interpreter::DiagnosticLevel::Warning => PyDiagnosticLevel::Warning,
+            slint_interpreter::DiagnosticLevel::Info => PyDiagnosticLevel::Info,
             slint_interpreter::DiagnosticLevel::Note => PyDiagnosticLevel::Note,
             _ => unimplemented!(),
         }
@@ -136,6 +137,7 @@ impl PyDiagnostic {
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
+    Info,
     Note,
 }
 
