@@ -90,6 +90,7 @@ pub async fn authenticate(
         match next_handshake_message(socket, deadline).await? {
             PreviewToLspMessage::PairingAccepted => {
                 if announced_token {
+                    credentials_changed(None);
                     return Err(AuthenticationError::Failed(
                         "The viewer skipped the reconnect exchange".into(),
                     ));
@@ -334,7 +335,14 @@ pub(crate) mod tests {
     pub(crate) async fn raw_peer<Future: std::future::Future<Output = ()> + Send + 'static>(
         behavior: impl FnOnce(RawSocket) -> Future + Send + 'static,
     ) -> (u16, tokio::task::JoinHandle<()>) {
-        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        raw_peer_at((std::net::Ipv4Addr::LOCALHOST, 0).into(), behavior).await
+    }
+
+    pub(crate) async fn raw_peer_at<Future: std::future::Future<Output = ()> + Send + 'static>(
+        address: std::net::SocketAddr,
+        behavior: impl FnOnce(RawSocket) -> Future + Send + 'static,
+    ) -> (u16, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind(address).await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let task = tokio::spawn(async move {
             let (socket, _) = listener.accept().await.unwrap();

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::Cell, time::Duration};
+use std::cell::Cell;
 
 use futures_util::{
     SinkExt as _, StreamExt as _,
@@ -14,11 +14,10 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite_wasm::{CloseCode, Message, WebSocketStream};
 
 use super::remote::DiscoveredViewer;
-use crate::remote_authentication::{self, PairingAnswer, PairingCredentials, PairingPrompt};
-
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const PING_INTERVAL: Duration = Duration::from_secs(5);
-const PONG_TIMEOUT: Duration = Duration::from_secs(15);
+use crate::remote_authentication::{
+    self, AuthenticationError, PairingAnswer, PairingCredentials, PairingPrompt,
+};
+use crate::remote_client::{self, CONNECT_TIMEOUT, PING_INTERVAL, PONG_TIMEOUT};
 
 pub(super) enum ConnectionEvent {
     Pairing { prompt: PairingPrompt, answer: oneshot::Sender<PairingAnswer> },
@@ -31,23 +30,23 @@ pub(super) enum ConnectionEvent {
 pub(super) struct RemoteConnection {
     sender: mpsc::UnboundedSender<LspToPreviewMessage>,
     receiver: mpsc::UnboundedReceiver<ConnectionEvent>,
-    task: tokio::task::JoinHandle<()>,
+    close_sender: Option<oneshot::Sender<()>>,
 }
 
 impl RemoteConnection {
-    #[allow(clippy::disallowed_methods)]
     pub fn connect(viewer: DiscoveredViewer, credentials: Option<PairingCredentials>) -> Self {
         let (sender, messages) = mpsc::unbounded_channel();
         let (event_sender, receiver) = mpsc::unbounded_channel();
-        let task = tokio::task::spawn_local(async move {
-            let result = run(viewer, credentials, messages, &event_sender).await;
+        let (close_sender, close_receiver) = oneshot::channel();
+        crate::spawn_local(async move {
+            let result = run(viewer, credentials, messages, &event_sender, close_receiver).await;
             let _ = event_sender.send(ConnectionEvent::Ended { error: result.err() });
         });
-        Self { sender, receiver, task }
+        Self { sender, receiver, close_sender: Some(close_sender) }
     }
 
-    pub fn send(&self, message: &LspToPreviewMessage) {
-        let _ = self.sender.send(message.clone());
+    pub fn send(&self, message: LspToPreviewMessage) {
+        let _ = self.sender.send(message);
     }
 
     pub async fn next_event(&mut self) -> Option<ConnectionEvent> {
@@ -57,7 +56,9 @@ impl RemoteConnection {
 
 impl Drop for RemoteConnection {
     fn drop(&mut self) {
-        self.task.abort();
+        if let Some(sender) = self.close_sender.take() {
+            let _ = sender.send(());
+        }
     }
 }
 
@@ -66,32 +67,47 @@ async fn run(
     credentials: Option<PairingCredentials>,
     messages: mpsc::UnboundedReceiver<LspToPreviewMessage>,
     events: &mpsc::UnboundedSender<ConnectionEvent>,
+    mut close_receiver: oneshot::Receiver<()>,
 ) -> Result<(), String> {
-    let mut socket = dial(&viewer).await?;
-    let authenticated = remote_authentication::authenticate(
-        &mut socket,
-        credentials,
-        |prompt| {
-            let (answer, receiver) = oneshot::channel();
-            let _ = events.send(ConnectionEvent::Pairing { prompt, answer });
-            Box::pin(async move { receiver.await.unwrap_or(PairingAnswer::Cancel) })
-        },
-        |credentials| {
-            let _ = events.send(ConnectionEvent::CredentialsChanged(credentials));
-        },
-    )
-    .await
-    .map_err(|error| error.to_string())?;
-    let (sender, receiver) = socket.split();
+    let mut socket = tokio::select! {
+        result = dial(&viewer) => result?,
+        _ = &mut close_receiver => return Ok(()),
+    };
+    let authenticated = tokio::select! {
+        result = remote_authentication::authenticate(
+            &mut socket,
+            credentials,
+            |prompt| {
+                let (answer, receiver) = oneshot::channel();
+                let _ = events.send(ConnectionEvent::Pairing { prompt, answer });
+                Box::pin(async move { receiver.await.unwrap_or(PairingAnswer::Cancel) })
+            },
+            |credentials| {
+                let _ = events.send(ConnectionEvent::CredentialsChanged(credentials));
+            },
+        ) => result,
+        _ = &mut close_receiver => Err(AuthenticationError::Cancelled),
+    };
+    let authenticated = match authenticated {
+        Ok(authenticated) => authenticated,
+        Err(error) => {
+            remote_client::close(&mut socket).await;
+            return Err(error.to_string());
+        }
+    };
+    let (mut sender, receiver) = socket.split();
     let _ = events.send(ConnectionEvent::Connected);
     if let Some(request) = authenticated.initial_request {
         let _ = events.send(ConnectionEvent::Message(request));
     }
     let last_pong = Cell::new(tokio::time::Instant::now());
-    tokio::select! {
+    let result = tokio::select! {
         result = receive(receiver, authenticated.opening, events, &last_pong) => result,
-        result = send(sender, authenticated.sealing, messages, &last_pong) => result,
-    }
+        result = send(&mut sender, authenticated.sealing, messages, &last_pong) => result,
+        _ = &mut close_receiver => Ok(()),
+    };
+    remote_client::close(&mut sender).await;
+    result
 }
 
 async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
@@ -141,9 +157,7 @@ async fn receive(
                 };
                 match message {
                     PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    message @ (PreviewToLspMessage::RequestState { .. }
-                    | PreviewToLspMessage::Diagnostics { .. }
-                    | PreviewToLspMessage::DebugMessage { .. }) => {
+                    message if remote_client::is_allowed_message(&message) => {
                         let _ = events.send(ConnectionEvent::Message(message));
                     }
                     message => tracing::warn!(
@@ -171,7 +185,7 @@ async fn receive(
 }
 
 async fn send(
-    mut socket: SplitSink<WebSocketStream, Message>,
+    socket: &mut SplitSink<WebSocketStream, Message>,
     mut sealing: session::Sealing,
     mut messages: mpsc::UnboundedReceiver<LspToPreviewMessage>,
     last_pong: &Cell<tokio::time::Instant>,
@@ -202,7 +216,94 @@ async fn send(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::remote_authentication::tests::{raw_peer, receive_handshake, send_handshake};
+    use crate::remote_authentication::tests::{
+        raw_peer, raw_peer_at, receive_handshake, send_handshake,
+    };
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn ipv6_scope_survives_websocket_dialing() {
+        let (port, peer) =
+            raw_peer_at((std::net::Ipv6Addr::LOCALHOST, 0).into(), |mut socket| async move {
+                assert!(matches!(
+                    socket.next().await.unwrap().unwrap(),
+                    tokio_tungstenite::tungstenite::Message::Close(_)
+                ));
+            })
+            .await;
+        let mut socket = dial(&DiscoveredViewer {
+            fullname: "ipv6".into(),
+            name: "IPv6".into(),
+            addresses: vec!["[::1%0]".into()],
+            port,
+            unavailable_reason: String::new(),
+        })
+        .await
+        .unwrap();
+        remote_client::close(&mut socket).await;
+        tokio::time::timeout(Duration::from_secs(5), peer).await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn dropping_connections_sends_close_during_pairing_consent_and_preview() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for (generated, accept) in [(true, false), (false, false), (false, true)] {
+                    let (port, peer) = raw_peer(move |mut socket| async move {
+                        send_handshake(&mut socket, &PreviewToLspMessage::PairingReady).await;
+                        assert!(matches!(
+                            receive_handshake(&mut socket).await,
+                            LspToPreviewMessage::PairingHello { .. }
+                        ));
+                        let response = if generated {
+                            let handshake =
+                                i_slint_live_preview::protocol::pairing::Handshake::with_code(
+                                    i_slint_live_preview::protocol::pairing::Role::Viewer,
+                                    "1234",
+                                );
+                            PreviewToLspMessage::PairingRequired {
+                                attempts_left: 3,
+                                expires_in_seconds: 60,
+                                element: handshake.element().clone(),
+                            }
+                        } else {
+                            PreviewToLspMessage::PairingAccepted
+                        };
+                        send_handshake(&mut socket, &response).await;
+                        assert!(matches!(
+                            socket.next().await.unwrap().unwrap(),
+                            tokio_tungstenite::tungstenite::Message::Close(_)
+                        ));
+                    })
+                    .await;
+                    let mut connection = RemoteConnection::connect(
+                        DiscoveredViewer {
+                            fullname: "closing-peer".into(),
+                            name: "Closing".into(),
+                            addresses: vec!["127.0.0.1".into()],
+                            port,
+                            unavailable_reason: String::new(),
+                        },
+                        None,
+                    );
+                    let ConnectionEvent::Pairing { answer, .. } =
+                        connection.next_event().await.unwrap()
+                    else {
+                        panic!("Expected pairing input");
+                    };
+                    if accept {
+                        assert!(answer.send(PairingAnswer::AcceptUnpaired).is_ok());
+                        assert!(matches!(
+                            connection.next_event().await,
+                            Some(ConnectionEvent::Connected)
+                        ));
+                    }
+                    drop(connection);
+                    tokio::time::timeout(Duration::from_secs(5), peer).await.unwrap().unwrap();
+                }
+            })
+            .await;
+    }
 
     #[tokio::test]
     async fn connected_peer_without_pongs_times_out() {
