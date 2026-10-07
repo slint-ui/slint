@@ -55,9 +55,9 @@ impl Scene {
         let current_line =
             dirty_region.iter_box().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
-        items.sort_unstable_by(compare_scene_item);
+        sort_items(&mut items, scene_item_key);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
-        items[..current_items_index].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+        sort_items(&mut items[..current_items_index], z_desc_key);
         let mut r = Self {
             items,
             current_line,
@@ -116,7 +116,7 @@ impl Scene {
                 self.items[i] = item;
                 i += 1;
             }
-            self.items[0..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+            sort_items(&mut self.items[0..i], z_desc_key);
             self.current_items_index = i;
             return;
         }
@@ -197,7 +197,7 @@ impl Scene {
                     self.items[i] = item;
                     i += 1;
                 }
-                self.items[sort_begin..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+                sort_items(&mut self.items[sort_begin..i], z_desc_key);
                 break;
             }
             self.items[i] = item;
@@ -266,20 +266,23 @@ pub struct SceneItem {
     pub command: SceneCommand,
 }
 
-fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
-    // First, order by line (top to bottom)
-    match a.pos.y.partial_cmp(&b.pos.y) {
-        None | Some(core::cmp::Ordering::Equal) => {}
-        Some(ord) => return ord,
-    }
-    // Then by the reverse z (front to back)
-    match a.z.partial_cmp(&b.z) {
-        None | Some(core::cmp::Ordering::Equal) => {}
-        Some(ord) => return ord.reverse(),
-    }
+/// Orders by `y` (top to bottom), then by `z` (front to back).
+fn scene_item_key(item: &SceneItem) -> u32 {
+    // Flipping the sign bit maps i16 order onto u16 order.
+    let y = (item.pos.y as u16) ^ 0x8000;
+    (y as u32) << 16 | !item.z as u32
+}
 
-    // anything else, we don't care
-    core::cmp::Ordering::Equal
+/// Orders by `z` (front to back).
+fn z_desc_key(item: &SceneItem) -> u32 {
+    !item.z as u32
+}
+
+/// Takes the key as a function pointer, so all sorts share one `sort_unstable` instantiation,
+/// which costs several KB of code.
+#[inline(never)]
+fn sort_items(items: &mut [SceneItem], key: fn(&SceneItem) -> u32) {
+    items.sort_unstable_by_key(key);
 }
 
 #[derive(Clone, Copy, Debug)]
