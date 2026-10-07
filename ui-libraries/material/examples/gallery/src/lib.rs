@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore hexdigit
+
 use std::rc::Rc;
 
 use slint::{Color, Model, ModelExt, VecModel};
@@ -357,7 +359,7 @@ mod theme {
 
             move |hex_str| {
                 let ui = ui_weak.unwrap();
-                apply_custom_color(&hex_str, &ui);
+                apply_custom_color(&hex_str, &ui)
             }
         });
     }
@@ -374,12 +376,29 @@ mod theme {
         MaterialPalette::get(ui).set_schemes(theme.schemes.into());
     }
 
-    fn apply_custom_color(hex_str: &str, ui: &MainWindow) {
-        let hex_clean = hex_str.trim().trim_start_matches('#');
-        if let Ok(rgb) = u32::from_str_radix(hex_clean, 16) {
-            let argb = 0xff00_0000 | rgb;
+    fn parse_seed_color(input: &str) -> Option<u32> {
+        let input = input.trim();
+        let hex = input.strip_prefix('#').unwrap_or(input);
+        if !matches!(hex.len(), 3 | 6) || !hex.bytes().all(|digit| digit.is_ascii_hexdigit()) {
+            return None;
+        }
+
+        let color = format!("#{hex}").parse::<css_color_parser2::Color>().ok()?;
+        Some(
+            0xff00_0000
+                | (u32::from(color.r) << 16)
+                | (u32::from(color.g) << 8)
+                | u32::from(color.b),
+        )
+    }
+
+    fn apply_custom_color(hex_str: &str, ui: &MainWindow) -> bool {
+        if let Some(argb) = parse_seed_color(hex_str) {
             let schemes = crate::color_utilities::generate_slint_schemes(argb);
             MaterialPalette::get(ui).set_schemes(schemes);
+            true
+        } else {
+            false
         }
     }
 }

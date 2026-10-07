@@ -36,7 +36,7 @@ export global MainViewAdapter {
     ];
 
     callback load_palette(index: int);
-    callback apply_dynamic_color(hex: string);
+    callback apply_dynamic_color(hex: string) -> bool;
 }
 
 export component MainView {
@@ -52,6 +52,15 @@ export component MainView {
             selected_icon: FilledIcons.dashboard
         }
     ];
+
+    property <bool> invalid_color;
+
+    function apply_custom_color(hex: string) {
+        root.invalid_color = !MainViewAdapter.apply_dynamic_color(hex);
+        if !root.invalid_color {
+            color_dialog.close();
+        }
+    }
 
     VerticalLayout {
         padding-top: root.safe-area-top;
@@ -90,6 +99,7 @@ export component MainView {
 
             activated(index) => {
                 if index == 4 {
+                    root.invalid_color = false;
                     color_dialog.show();
                 } else {
                     MainViewAdapter.load_palette(index);
@@ -108,13 +118,13 @@ export component MainView {
             actions: ["Cancel"];
 
             VerticalLayout {
-                min_width: 380px;
+                min_width: min(320px, root.width - MaterialStyleMetrics.padding_24 * 2);
                 spacing: MaterialStyleMetrics.spacing_12;
                 padding_top: MaterialStyleMetrics.padding_8;
                 padding_bottom: MaterialStyleMetrics.padding_8;
 
                 MaterialText {
-                    text: "Enter a seed color (e.g. #2379F4, #E91E63, #009688) to generate Material 3 schemes dynamically:";
+                    text: "Enter a color as #RGB or #RRGGBB to generate Material 3 schemes dynamically:";
                     wrap: word_wrap;
                 }
 
@@ -122,16 +132,19 @@ export component MainView {
                     text: "#2379F4";
                     label: "Hex Color";
                     placeholder_text: "#RRGGBB";
+                    has_error: root.invalid_color;
+                    supporting_text: root.invalid_color ? "Use 3 or 6 hexadecimal digits (0-9, A-F)." : "";
+                    edited(text) => {
+                        root.invalid_color = false;
+                    }
                     accepted(val) => {
-                        MainViewAdapter.apply_dynamic_color(val);
-                        color_dialog.close();
+                        root.apply_custom_color(val);
                     }
                 }
             }
 
             default_action_clicked => {
-                MainViewAdapter.apply_dynamic_color(color_tf.text);
-                color_dialog.close();
+                root.apply_custom_color(color_tf.text);
             }
 
             action_clicked(idx) => {
