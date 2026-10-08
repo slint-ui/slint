@@ -11,7 +11,7 @@ use super::{
 use alloc::vec::Vec;
 use i_slint_core::graphics::BorderRadius;
 use i_slint_core::graphics::boxshadow::BoxShadowOptions;
-use i_slint_core::lengths::{PhysicalPx, PointLengths, RectLengths};
+use i_slint_core::lengths::{PhysicalPx, PointLengths};
 use i_slint_core::{Brush, Color};
 #[allow(unused_imports)]
 use num_traits::Float;
@@ -95,10 +95,7 @@ pub(super) fn process_drop_shadow(
     }
     let shapes = &mut shapes[..shape_count];
     for (rect, radius, _) in shapes.iter_mut() {
-        *radius = radius
-            .min(BorderRadius::from_length(rect.width_length() / 2.))
-            .min(BorderRadius::from_length(rect.height_length() / 2.))
-            .transformed(rotation);
+        *radius = super::scale_overlapping_radii(*radius, rect.size).transformed(rotation);
         *rect = rect.translate(origin.to_vector()).transformed(rotation);
     }
     let blur = options.blur.get();
@@ -965,6 +962,7 @@ fn with_opaque_source(options: BoxShadowOptions) -> BoxShadowOptions {
 #[test]
 fn drop_shadow_stays_within_bounding_rect() {
     use euclid::{point2, size2, vec2};
+    use i_slint_core::lengths::RectLengths;
     let screen_size = PhysicalSize::new(120, 100);
     let geometry = LogicalRect::new(point2(30., 30.), size2(40., 20.));
     // (offset, blur, spread, radius) in logical pixels, and the scale factor
