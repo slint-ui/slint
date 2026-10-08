@@ -6,7 +6,7 @@ description: How a version of Slint SC is released to integrators, and what happ
 **Addresses:** ISO 26262-2 6.4.8, 6.4.13, and Clause 7
 
 A release of Slint SC is the release for production of ISO 26262-2 6.4.13: the point where a version goes to integrators.
-Every release goes through the same activities, the first one included.
+Every release goes through the same activities, the first release included.
 
 ## On Every Release
 
@@ -18,10 +18,10 @@ The activities run in this order.
 | R-02 | Cut the release branch, and freeze it | 8-7 | Release Manager | The release branch |
 | R-03 | Run every suite on the evidence toolchain, on the 64-bit host and on a 32-bit target configuration; see [Test Environment and Targets](/safety-plan/verification/#test-environment-and-targets) | 6-9, 6-10 | Verification Lead | [Test Results](/qualification-report/test-results/), [Test Coverage](/qualification-report/test-coverage/), and the [Traceability Matrix](/qualification-report/traceability-matrix/), generated from the run |
 | R-04 | Qualify the tools of this version | 8-11 | Technical Lead Compiler | [Tool Qualification](/qualification-report/tool-qualification/) |
-| R-05 | Close every open safety anomaly, or justify it | 2-5.4.3 | Safety Manager | [Known Problems](/user-manual/known-problems/) for this release, with a reviewed rationale for each open entry |
+| R-05 | Close every open safety anomaly, or justify leaving the anomaly open | 2-5.4.3 | Safety Manager | [Known Problems](/user-manual/known-problems/) for this release, with a reviewed rationale for each open entry |
 | R-06 | Update the safety case | 2-6.4.8 | Safety Manager | The safety case: the argument that this release meets its assumed safety requirements, with links to the evidence of R-03 to R-05 |
 | R-07 | Run the confirmation measures due for this release | 2-6.4.9 | Safety Manager | See [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures) |
-| R-08 | Tag the baseline, and build the release artifacts from it | 2-6.4.13.5 | Release Manager | The `vX.Y.Z` tag, and the artifacts with their checksums |
+| R-08 | Tag the baseline, and build the release artifacts from the tag | 2-6.4.13.5 | Release Manager | The `vX.Y.Z` tag, and the artifacts with their checksums |
 | R-09 | Release to integrators | 2-6.4.13 | Release Authority | The release report, with the signature of the Release Authority, the version, the configuration, the date, and the baseline tag; and the [Deliverables](/safety-plan/deliverables/) |
 
 After the freeze, only fixes for safety anomalies land on the release branch.
@@ -40,7 +40,7 @@ R-03 doesn't run on a 32-bit target configuration yet, and R-06 has no safety ca
 | F-01 | Take in and analyze anomaly reports from integrators | A report arrives | 2-7.4.2.3 | Field Monitoring Owner | An issue labeled as a safety anomaly |
 | F-02 | Notify the integrators of affected releases | A safety anomaly is confirmed | 2-5.4.3.1 | Field Monitoring Owner | Notification records, and an updated [Known Problems](/user-manual/known-problems/) |
 | F-03 | Fix the anomaly, and release again | A supported release needs a fix | 2-7.4.2.4 | Release Authority | A patch release, through R-01 to R-09 |
-| F-04 | End support of a release line | Its support period ends | 2-7 | Project Manager | An end-of-support notice |
+| F-04 | End support of a release line | The release line's support period ends | 2-7 | Project Manager | An end-of-support notice |
 
 :::caution[TODO]
 Define the channel integrators report through, and the support period of a release line.

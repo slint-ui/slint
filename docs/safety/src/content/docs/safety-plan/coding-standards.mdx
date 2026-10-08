@@ -4,7 +4,8 @@ description: The Rust coding standards Slint SC follows, and what enforces each 
 ---
 
 A coding standard that isn't checked is a wish, so each rule below names what enforces it.
-The rules differ between the two parts of Slint SC, because the runtime ships inside the customer's binary while the compiler only produces its input.
+The rules differ between the two parts of Slint SC.
+The runtime ships inside the customer's binary, while the compiler only produces source code for the customer's build.
 
 ## slint-sc Runtime
 
@@ -20,4 +21,4 @@ The rules differ between the two parts of Slint SC, because the runtime ships in
 | Rule | Enforced by |
 | --- | --- |
 | No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `slint-compiler`, and of the workspace crates it builds on, `i-slint-compiler` and `i-slint-common`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
-| No clippy warnings. | The same CI run as above. |
+| No clippy warnings. | The same CI run as for the runtime. |

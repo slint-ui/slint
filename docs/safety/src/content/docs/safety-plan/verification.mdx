@@ -4,26 +4,27 @@ description: How changes to Slint SC are verified, and where the evidence is.
 ---
 
 Verification confirms that Slint SC does what it's specified to do.
-It's covered by ISO 26262-6 Clause 9 for the software units, Clause 10 for their integration, and ISO 26262-8 Clause 9.4 for the supporting process.
+ISO 26262-6 covers verification in Clause 9 for the software units and in Clause 10 for their integration.
+ISO 26262-8 Clause 9.4 covers the supporting process.
 
 Validating that the finished system is safe isn't something Slint SC can do.
 Slint SC isn't built for one specific product, so it has no safety goals of its own to validate against.
-That activity belongs to the integrator, and is stated in the [User Manual](/user-manual/#user-responsibility).
-Under ISO 26262 it's the safety validation of Clause 8 in Part 4.
+Validating the finished system belongs to the integrator, as the [User Manual](/user-manual/#user-responsibility) states.
+ISO 26262 calls this activity safety validation, in Clause 8 of Part 4.
 
 ## What Is Verified
 
 * Every requirement paragraph of the language specification and the reference is traced to at least one test.
   See the [Traceability Matrix](/qualification-report/traceability-matrix/).
-* The runtime is held at complete line, function, region, and branch coverage.
+* The suites hold the runtime at complete line, function, region, and branch coverage.
   See [Test Coverage](/qualification-report/test-coverage/).
 
 ## How
 
 `scripts/slint_sc_test_suite.sh` runs the suites and produces the coverage export.
-The suites are described in [Test Suites](/safety-plan/test-suites/), and their outcomes are reported in [Test Results](/qualification-report/test-results/).
+[Test Suites](/safety-plan/test-suites/) describes the suites, and [Test Results](/qualification-report/test-results/) reports their outcomes.
 
-They run automatically in CI on every change, and on demand when a release is baselined.
+The suites run automatically in CI on every change, and on demand when a release is baselined.
 
 ## Test Environment and Targets
 
@@ -40,7 +41,7 @@ Instead, the suites cover the properties in which a target can differ from the h
 | Floating point | None. The runtime and the generated code compute in integers only. | Holds on every target. |
 | Standard library and allocator | None. The runtime is `no_std` and doesn't use `alloc`. | Holds on every target. |
 
-Testing on the integrator's actual target is the integrator's; see [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests).
+The integrator tests on their actual target; see [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests).
 
 :::caution[TODO]
 Run the suites on a 32-bit target configuration, such as `thumbv7em` under QEMU.
@@ -50,6 +51,6 @@ Run the suites on a 32-bit target configuration, such as `thumbv7em` under QEMU.
 
 A change is verified when every suite passes, every requirement paragraph is covered by at least one test, and the runtime is completely covered.
 
-The last two are checked by the generator.
+`slint-doc-generator` checks the last two criteria, requirement coverage and runtime coverage.
 `slint-doc-generator --fail-on-gaps` exits with a distinct status when a source file is below complete coverage, or a requirement paragraph has no test.
-The chapters are written either way, so the reports of the run that found the gap are there to look at.
+The generator writes the report chapters either way, so the reports of the run that found a gap remain available.

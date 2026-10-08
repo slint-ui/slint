@@ -4,25 +4,37 @@ description: What the measurement of slint-sc-coverage rests on, and how the too
 ---
 
 `slint-sc-coverage` reports which parts of the `.slint` code of an application, and of the runtime test cases, the tests reached.
-[Coverage of Slint Code](/user-manual/slint-coverage/) in the user manual says what it measures and how.
-This chapter says what the measurement rests on, and how the tool is tested, so that its output can serve as evidence.
+[Coverage of Slint Code](/user-manual/slint-coverage/) in the user manual says what the tool measures and how.
+This chapter says what the measurement rests on, and how the tool is tested, so that the tool's output can serve as evidence.
 
 ## What the Measurement Rests On
 
 The measurement rests on two things outside Slint.
-The LLVM profiler runtime has to be available for the target the test program runs on, which holds for the host and not for the bare-metal targets, so the measurement is taken on the host, like the Rust coverage it joins.
-And the rule that takes the count of a point from the coverage regions of the generated code rests on how `rustc` lays out those regions, which `rustc` does not document.
-The tests below pin that layout: a change in `rustc` that moves a region shows up as a case whose measured coverage differs from what it states.
+First, the LLVM profiler runtime has to be available for the target the test program runs on.
+The profiler runtime is available on the host but not on bare-metal targets.
+So the measurement is taken on the host, the same as the Rust coverage that the measurement is combined with.
+
+Second, the tool derives the count of each point from the coverage regions of the generated code.
+That rule rests on how `rustc` lays out those regions, which `rustc` doesn't document.
+The tests below pin that layout: a change in `rustc` that moves a region shows up as a case whose measured coverage differs from the coverage the case states.
 
 ## How the Tool Is Tested
 
-`slint-sc-coverage` is tested at two levels, and both run on every run of the suites.
+`slint-sc-coverage` is tested at two levels, and both levels run every time the suites run.
 
-The unit tests of the `slint-sc-coverage` crate cover its parts in isolation: the parsing of the map and the rejection of a map written for other code, the region rule including a range whose code LLVM never instantiated, the lcov and summary output, and the parsing and rewriting of the annotations described next.
+The unit tests of the `slint-sc-coverage` crate cover the tool's parts in isolation:
+
+* the parsing of the map, and the rejection of a map written for other code;
+* the region rule, including a range whose code LLVM never instantiated;
+* the lcov and summary output; and
+* the parsing and rewriting of the annotations described next.
 
 The runtime test cases are the tests of the whole.
 The driver in `api/slint-sc/tests/driver.rs` measures the coverage of the `.slint` code of every case, on every run, including a plain `cargo test`.
-A case states the coverage it expects in caret lines: a `//#c` line follows every line holding coverage points, with a caret in the column of each point, `^+` when the point was reached and `^-` when not, and for a decision the status of its true and its false outcome:
+A case states the coverage it expects in caret lines.
+A `//#c` line follows every line holding coverage points, with a caret in the column of each point.
+The caret reads `^+` when the point was reached, and `^-` when the point wasn't reached.
+For a decision, the caret line also gives the status of the decision's true and false outcomes:
 
 ```slint
 export component TestCase inherits Window {
@@ -37,16 +49,20 @@ export component TestCase inherits Window {
 ```
 
 The code of the root element is never reached, since the test reads the properties without rendering.
-The binding of `nested` was evaluated; the outer `?` only ever took its first arm, the inner one took both.
+The binding of `nested` was evaluated.
+The outer `?` only ever took its first arm, and the inner `?` took both arms.
 The `&&` evaluated its right operand every time, and never short-circuited.
 
-A case with a caret line states its whole coverage: every point of the case, reached or not, and a line without a caret line has no point.
-The driver rejects a caret line that is malformed, a caret line that differs from the measurement, and a line with points and no caret line, naming the line and printing what the case states next to what was measured.
-`SLINT_COVERAGE_TEST_UPDATE=1` has the driver rewrite the caret lines from the measurement, and the run still fails on the difference, so a change in what is measured is reviewed in the diff and never passes unseen.
-A point in an imported file, which the case cannot annotate, is stated in a ` ```coverage ` block at the end of the case.
+A case with a caret line states its whole coverage: every point of the case, reached or not.
+A line without a caret line has no point.
+The driver rejects a malformed caret line, a caret line that differs from the measurement, and a line with points but no caret line.
+The driver then names the line, and prints what the case states next to what was measured.
+With `SLINT_COVERAGE_TEST_UPDATE=1`, the driver rewrites the caret lines from the measurement, and the run still fails on the difference.
+So a change in what's measured shows up in the diff for review, and never passes unseen.
+A point in an imported file, which the case can't annotate, is stated in a ` ```coverage ` block at the end of the case.
 
-Every case with caret lines tests the reporting, since the driver compares what it states with the measurement.
-The cases under `coverage/` test nothing else, so the driver also fails one of them that states no coverage.
+Every case with caret lines tests the reporting, since the driver compares what the case states with the measurement.
+The cases under `coverage/` test nothing else, so the driver also fails a case under `coverage/` that states no coverage.
 Each case that states its coverage pins one part of the reporting:
 
 | Case | What it pins |
@@ -62,4 +78,4 @@ Each case that states its coverage pins one part of the reporting:
 | `import/named` | points in an imported file, and a renamed import |
 | `component/user_component` | a component instantiated several times, whose bindings are one point each |
 
-The other cases are measured too, and the driver fails when the measurement cannot be taken.
+The other cases are measured too, and the driver fails when it can't take the measurement.

@@ -16,7 +16,7 @@ Three suites run together, each verifying a different part of the toolchain.
 ### Compiler Syntax Tests
 
 The syntax tests in `internal/compiler/tests/syntax/slint-sc/` run the compiler in SC mode and assert its diagnostics.
-Each file pins the expected message to the exact source span that produces it:
+Each file pins the expected message to the exact source span that produces the message:
 
 ```slint
 import { Button } from "std-widgets.slint";
@@ -24,8 +24,8 @@ import { Button } from "std-widgets.slint";
 ```
 
 These tests carry the weight of the subset.
-Slint SC is defined as much by what it rejects as by what it accepts,
-so each construct outside the subset has a file asserting that the compiler refuses it with a diagnostic the user can act on.
+Slint SC is defined as much by what it rejects as by what it accepts.
+So each construct outside the subset has a file asserting that the compiler refuses the construct with a diagnostic the user can act on.
 
 ### Runtime Test Cases
 
@@ -36,16 +36,17 @@ For each case, the driver in `api/slint-sc/tests/driver.rs`:
 2. Extracts the test body from the fenced `rust` blocks in the case's comments.
 3. Compiles the generated code and that body with `rustc`.
 4. Runs the resulting binary.
-5. Compares the screenshots the case took, if it took any, against the PNG references in `api/slint-sc/tests/references/`.
-6. Measures the coverage of the case's `.slint` code and compares it with the caret lines the case states it in, if it states it.
-   Every case that states it tests that reporting.
-   The cases under `coverage/` test nothing else, so they have to state theirs; see [Coverage Tool Verification](/safety-plan/slint-coverage/).
+5. Compares the screenshots the case took, if the case took any, against the PNG references in `api/slint-sc/tests/references/`.
+6. Measures the coverage of the case's `.slint` code.
+   If the case states its expected coverage in caret lines, the driver compares the measurement with them.
+   Every case that states its coverage tests that reporting.
+   The cases under `coverage/` test nothing else, so the cases under `coverage/` have to state their coverage; see [Coverage Tool Verification](/safety-plan/slint-coverage/).
 
 Step 3 is itself a test.
 The runtime is the only `--extern` passed to `rustc`,
 so generated code that reaches for any other crate fails to compile rather than shipping an undeclared dependency.
 
-A block marked `compile_fail` inverts the check: it must fail to compile, with every error named by a `//~ ERROR` line present in the compiler output.
+A block marked `compile_fail` inverts the check: the block must fail to compile, with every error named by a `//~ ERROR` line present in the compiler output.
 That's how the API-level negative cases are written, such as a component that isn't exported staying unreachable:
 
 ```rust
@@ -53,16 +54,17 @@ let _ = Hidden::new();
 //~ ERROR undeclared type `Hidden`
 ```
 
-A case that verifies what the runtime draws calls the `screenshot!` macro, which renders the component into a fixed 64x64 RGB buffer and writes it out for the driver to compare.
-Others assert in Rust alone and take no screenshot.
-The comparison is byte for byte against the reference, with no tolerance threshold,
-which the runtime's determinism makes possible: no dynamic allocation, no external dependencies, and a caller-provided frame buffer.
+A case that verifies what the runtime draws calls the `screenshot!` macro.
+The macro renders the component into a fixed 64x64 RGB buffer, and writes the buffer out for the driver to compare.
+Other cases assert in Rust alone and take no screenshot.
+The driver compares the screenshot byte for byte against the reference, with no tolerance threshold.
+The runtime's determinism makes that possible: no dynamic allocation, no external dependencies, and a caller-provided frame buffer.
 A single differing pixel fails the case.
 
 ### Runtime Unit Tests
 
 The unit tests in the `slint-sc` crate cover its own API surface, such as color encoding and error formatting.
-They're `no_std` like the crate itself.
+The unit tests are `no_std`, like the crate itself.
 
 ## Tagging Requirements
 
@@ -74,7 +76,7 @@ A test declares the requirements it verifies with `//#sls.…` comments naming t
 //#sls.source.encoding.utf8
 ```
 
-Cases, syntax tests, and the Rust sources of the runtime and the compiler are all scanned for these.
+`slint-doc-generator` scans cases, syntax tests, and the Rust sources of the runtime and the compiler for these comments.
 Where a requirement is enforced by Rust code rather than by a `.slint` case, the comment sits at that code.
 An identifier that matches no requirement paragraph fails the build, so a tag can't outlive the paragraph it names.
 
@@ -83,11 +85,13 @@ An identifier that matches no requirement paragraph fails the build, so a tag ca
 The evidence runs in two directions, and the build enforces both.
 
 From the requirements down, every requirement paragraph in the specification and the API reference is declared by at least one test.
-A paragraph without one fails the build, so the Traceability Matrix can't develop gaps as the subset grows.
+A paragraph without a test fails the build, so the Traceability Matrix can't develop gaps as the subset grows.
 
 From the code up, every line, function, code region, and branch outcome of the runtime is executed by the suites.
-Coverage is measured on the runtime alone, since that's the code that ships in the product, and the build fails below 100% with no exceptions.
+Coverage is measured on the runtime alone, since the runtime is the code that ships in the product.
+The build fails below 100%, with no exceptions.
 Nothing reaches a product binary unexercised.
 
-Together they close the loop: the first direction shows the specified behavior is tested,
-the second shows there's no behavior in the runtime beyond what those tests reach.
+Together the two directions close the loop.
+The first direction shows that the specified behavior is tested.
+The second direction shows that the runtime has no behavior beyond what those tests reach.

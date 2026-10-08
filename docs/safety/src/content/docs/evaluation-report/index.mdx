@@ -1,24 +1,25 @@
 ---
 title: Tool Evaluation Report
-description: The tools Slint SC provides, how they're used, what can go wrong, and the confidence each one needs.
+description: The tools Slint SC provides, how they're used, what can go wrong, and the confidence each tool needs.
 ---
 
 **Addresses:** ISO 26262-8 11.5.1, from 11.4.1 to 11.4.5
 
 This report evaluates the tools Slint SC provides: the Slint compiler and `slint-sc-coverage`.
-Neither ships in the product, but the compiler writes code that does, and `slint-sc-coverage` produces evidence.
-The runtime ships, so it's not a tool; the [Component Documentation](/component-documentation/) covers it.
+Neither tool ships in the product.
+The compiler writes code that ships, and `slint-sc-coverage` produces evidence.
+The runtime ships, so it's not a tool; the [Component Documentation](/component-documentation/) covers the runtime.
 
 * [Use Cases](/evaluation-report/use-cases/): how each tool is used in a project.
 * [Potential Errors](/evaluation-report/potential-errors/): what can go wrong in each tool, and the measure or constraint that covers each error.
 * [Tool Classification](/evaluation-report/tool-classification/): the confidence level each tool needs, derived from the potential errors and their detection.
-* [Qualification Method](/evaluation-report/qualification-method/): how each tool reaches that confidence.
+* [Qualification Method](/evaluation-report/qualification-method/): how each tool reaches its confidence level.
 
 The outcome of the qualification is in the [Tool Qualification](/qualification-report/tool-qualification/) chapter of the Qualification Report.
 
 ## Planning of Usage
 
-11.4.4.1 asks for the usage of each tool to be planned.
+11.4.4.1 asks us to plan the usage of each tool.
 
 | | Slint compiler | slint-sc-coverage |
 | --- | --- | --- |
@@ -30,11 +31,11 @@ The outcome of the qualification is in the [Tool Qualification](/qualification-r
 | f) Qualification methods | [Validation](/evaluation-report/qualification-method/#slint-compiler) | [Validation](/evaluation-report/qualification-method/#slint-sc-coverage) |
 
 The maximum ASIL is an assumption, since Slint SC isn't developed for one specific product.
-11.4.2 asks the integrator to verify it before using the tools on their item.
+11.4.2 asks the integrator to verify the maximum ASIL before using the tools in their product.
 
 ## Available Information
 
-11.4.4.2 asks for this information to be available:
+11.4.4.2 asks for the following information to be available:
 
 | Information | Where |
 | --- | --- |
