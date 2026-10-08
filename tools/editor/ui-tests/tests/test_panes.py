@@ -10,6 +10,7 @@ import slint_testing
 from canvas_interactions import center
 from inspector_interactions import inspector_field
 from slint_testing import keys
+from ui_assertions import expect
 from ui_driver import (
     element,
     first_window,
@@ -396,11 +397,8 @@ def test_pane_dividers_are_accessible_and_no_results_is_visible(
         editor_binary, editor_environment, fixture_project / "Main.slint"
     ) as editor:
         window = first_window(editor)
-        assert (
-            float(element(window, "Elements pane resize").accessible_value.split()[0])
-            == default_elements
-        )
-        assert (
-            float(element(window, "Outline pane resize").accessible_value.split()[0])
-            == default_outline
-        )
+        for label, default_height in [
+            ("Elements pane resize", default_elements),
+            ("Outline pane resize", default_outline),
+        ]:
+            expect(element(window, label)).to_have_value(f"{default_height:g} px")
