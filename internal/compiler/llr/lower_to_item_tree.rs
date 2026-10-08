@@ -1278,8 +1278,8 @@ fn lower_popup_component(
     let position = super::lower_expression::make_struct(
         BuiltinStruct::LogicalPosition,
         [
-            ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
-            ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
+            ("x", PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
+            ("y", PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
         ],
     );
 

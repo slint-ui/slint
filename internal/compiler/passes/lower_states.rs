@@ -27,7 +27,9 @@ pub fn lower_states(
     forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
-    let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
+    let state_info_type =
+        crate::typeregister::builtin_structs::get(&crate::langtype::BuiltinStruct::StateInfo)
+            .into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(
             elem,

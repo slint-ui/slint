@@ -263,37 +263,15 @@ declare_builtin_function_types!(
     StringReplaceAll: (Type::String, Type::String, Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
-    ColorRgbaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("red"), Type::Int32),
-            (SmolStr::new_static("green"), Type::Int32),
-            (SmolStr::new_static("blue"), Type::Int32),
-            (SmolStr::new_static("alpha"), Type::Int32),
-        ])
-        .collect(), BuiltinStruct::ColorRgba))),
-    ColorHsvaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("saturation"), Type::Float32),
-            (SmolStr::new_static("value"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::ColorHsva))),
-    ColorOklchStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("lightness"), Type::Float32),
-            (SmolStr::new_static("chroma"), Type::Float32),
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::ColorOklch))),
+    ColorRgbaStruct: (Type::Color) -> typeregister::builtin_structs::get(&BuiltinStruct::ColorRgba).into(),
+    ColorHsvaStruct: (Type::Color) -> typeregister::builtin_structs::get(&BuiltinStruct::ColorHsva).into(),
+    ColorOklchStruct: (Type::Color) -> typeregister::builtin_structs::get(&BuiltinStruct::ColorOklch).into(),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
-    ImageSize: (Type::Image) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("width"), Type::Int32),
-            (SmolStr::new_static("height"), Type::Int32),
-        ])
-        .collect(), crate::langtype::BuiltinStruct::Size))),
+    ImageSize: (Type::Image) -> typeregister::builtin_structs::get(&BuiltinStruct::Size).into(),
     ArrayLength: (Type::Model) -> Type::Int32,
     // Using Type::InferredProperty as there is currently no valid type for the data argument.
     ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,

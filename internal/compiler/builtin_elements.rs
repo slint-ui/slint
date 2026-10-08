@@ -4279,6 +4279,12 @@ pub(crate) static BUILTIN_ELEMENTS: std::sync::LazyLock<BuiltinElements> =
         BuiltinElements { elements, children, context_restricted_types }
     });
 
+impl BuiltinElements {
+    pub(crate) fn elements(&self) -> impl Iterator<Item = &Arc<BuiltinElement>> {
+        self.elements.values()
+    }
+}
+
 /// Fill `register` with the builtin elements of [`BUILTIN_ELEMENTS`].
 pub(crate) fn load(register: &mut TypeRegister) {
     let BuiltinElements { elements, children, context_restricted_types, .. } = &*BUILTIN_ELEMENTS;
