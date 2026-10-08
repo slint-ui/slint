@@ -814,28 +814,28 @@ impl WinitWindowAdapter {
     }
 
     pub(crate) fn suspend(&self) -> Result<(), PlatformError> {
-        let mut winit_window_or_none = self.winit_window_or_none.borrow_mut();
-        match *winit_window_or_none {
-            WinitWindowOrNone::HasWindow { ref window, .. } => {
-                self.renderer().suspend()?;
-
-                let last_window_rc = window.clone();
-
-                let mut attributes = Self::window_attributes().unwrap_or_default();
-                attributes.inner_size = Some(physical_size_to_winit(self.size.get()).into());
-                attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
-                *winit_window_or_none = WinitWindowOrNone::None(attributes.into());
-
-                // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
-                // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
-                // that's not visible.
-                self.shared_backend_data.watch_hidden_window(&last_window_rc);
-                self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
-            }
-            WinitWindowOrNone::None(ref attributes) => {
+        let last_window_rc = match &*self.winit_window_or_none.borrow() {
+            WinitWindowOrNone::HasWindow { window, .. } => window.clone(),
+            WinitWindowOrNone::None(attributes) => {
                 attributes.borrow_mut().visible = false;
+                return Ok(());
             }
-        }
+        };
+
+        // Not borrowed here: a rendering notifier can set a property on teardown,
+        // and the redraw that requests borrows `winit_window_or_none`.
+        self.renderer().suspend()?;
+
+        let mut attributes = Self::window_attributes().unwrap_or_default();
+        attributes.inner_size = Some(physical_size_to_winit(self.size.get()).into());
+        attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
+        *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::None(attributes.into());
+
+        // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
+        // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
+        // that's not visible.
+        self.shared_backend_data.watch_hidden_window(&last_window_rc);
+        self.shared_backend_data.unregister_window(Some(last_window_rc.id()));
 
         Ok(())
     }
