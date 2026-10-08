@@ -33,6 +33,10 @@ See [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change) for why the
 C-01, C-07, and C-08 aren't enforced yet.
 Changes to Slint SC can still merge without an impact statement or review, or be pushed directly to `master` without a pull request.
 For an approval to cover what merges, branch protection has to dismiss approvals when new commits are pushed, and require the pull request's branch to be up to date before merging.
+
+Decide what form the impact analysis of C-01 takes; ISO 26262-8 8.4.3.1 requires one per change request.
+ISO 26262-8 8.4.4.1 envisions a decision by the project manager, the safety manager, QA, and the developers, rather than by a single reviewer.
+Decide whether Slint SC needs a dedicated approval step, distinct from ordinary code review.
 :::
 
 ## Branching

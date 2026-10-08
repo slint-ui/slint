@@ -82,16 +82,6 @@ An identifier that matches no requirement paragraph fails the build, so a tag ca
 
 ## What This Establishes
 
-The evidence runs in two directions, and the build enforces both.
-
-From the requirements down, every requirement paragraph in the specification and the API reference is declared by at least one test.
-A paragraph without a test fails the build, so the Traceability Matrix can't develop gaps as the subset grows.
-
-From the code up, every line, function, code region, and branch outcome of the runtime is executed by the suites.
-Coverage is measured on the runtime alone, since the runtime is the code that ships in the product.
-The build fails below 100%, with no exceptions.
-Nothing reaches a product binary unexercised.
-
-Together the two directions close the loop.
-The first direction shows that the specified behavior is tested.
-The second direction shows that the runtime has no behavior beyond what those tests reach.
+The evidence runs in two directions, and the build enforces both: every requirement paragraph is traced to a test, and the suites execute all of the runtime.
+See [What Is Verified](/safety-plan/verification/#what-is-verified) and [Pass Criteria](/safety-plan/verification/#pass-criteria).
+Together, the two directions show that the specified behavior is tested, and that the runtime has no behavior beyond what the tests reach.

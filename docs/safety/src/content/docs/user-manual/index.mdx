@@ -14,15 +14,9 @@ We develop Slint SC without knowing which product you'll build it into.
 ISO 26262 calls such a component a Safety Element out of Context.
 So you confirm the assumptions Slint SC makes about its environment.
 
-Validating that the finished system is safe is your responsibility, because Slint SC has no safety goals of its own to validate against.
-ISO 26262 covers this validation in Part 4, Clause 8.
-
-The constraints in this manual are the other half of your responsibility.
+The constraints in this manual are your responsibility.
 Each constraint exists because no measure inside Slint SC can rule out the matching failure.
 Only you can rule that failure out.
-
-Slint SC's responsibility ends at the frame buffer.
-You present the rendered buffer on a display, and you detect when the display path fails.
 
 ## Assumptions of Use
 
