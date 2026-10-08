@@ -778,8 +778,6 @@ mod tests {
             PRIMARY_PREVIEW_INDEX,
             &mut session,
             &root,
-            &mut RunPreviewState::default(),
-            &Default::default(),
         ));
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
         let mut seen = Vec::new();
@@ -843,8 +841,6 @@ mod tests {
             PRIMARY_PREVIEW_INDEX,
             &mut session,
             &root,
-            &mut RunPreviewState::default(),
-            &Default::default(),
         ));
         let messages = captures[PRIMARY_PREVIEW_INDEX].1.borrow();
         assert_eq!(messages.len(), 5);
