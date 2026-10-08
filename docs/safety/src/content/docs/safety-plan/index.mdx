@@ -19,12 +19,12 @@ Integrators build Slint SC into their own products, at up to ASIL B.
 We don't build a product ourselves, so there's no vehicle function or hardware on our side.
 The integrator builds the product and certifies it.
 
-Slint SC consists of tools and a runtime, and the two take different routes through ISO 26262:
+Slint SC consists of a runtime and tools, and different parts of ISO 26262 apply to the runtime and to the tools:
 
 * The `slint-sc` runtime ships in the integrator's binary.
   The runtime is developed under ISO 26262-6 as a Safety Element out of Context (SEooC).
   An SEooC is a component developed before anyone knows which product it goes into.
-  See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what the SEooC route changes.
+  See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what developing the runtime as an SEooC changes.
 * The Slint compiler in `--slint-sc` mode and `slint-sc-coverage` don't ship.
   Both are tools, covered by ISO 26262-8 Clause 11 in the [Tool Evaluation Report](/evaluation-report/).
 
