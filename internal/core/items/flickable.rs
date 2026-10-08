@@ -12,6 +12,8 @@ use super::{
 };
 use crate::animations::Instant;
 use crate::animations::simulations::constant_deceleration::ConstantDecelerationParameters;
+use crate::animations::simulations::constant_deceleration_spring_damper::ConstantDecelerationSpringDamperParameters;
+use crate::animations::simulations::spring::SpringDurationBounceParameters;
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -54,6 +56,14 @@ const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
 /// it is not desired
 const MAX_DURATION: Duration = Duration::from_millis(100);
 
+/// Spring used to bounce content back into bounds after a drag or flick overshoots them.
+const RUBBER_BAND_SPRING: SpringDurationBounceParameters =
+    SpringDurationBounceParameters { duration_secs: 0.3, bounce: 0.15 };
+
+/// How far content resists being dragged past its bounds, as a fraction of the Flickable's own
+/// size along that axis. See `rubber_band` below.
+const RUBBER_BAND_STRENGTH: f32 = 0.1;
+
 /// The implementation of the `Flickable` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -88,6 +98,17 @@ impl Item for Flickable {
                     return (false, false);
                 };
                 let flick = flick.as_pin_ref();
+
+                if matches!(
+                    flick.data.inner.borrow().capture_events,
+                    Some(CaptureEvents::MouseOrTouchScreen)
+                ) {
+                    // An active drag may deliberately rubber-band content out of bounds; leave it
+                    // to the drag handler and the release-time spring animation instead of
+                    // snapping it back here.
+                    return (false, false);
+                }
+
                 let geo = Self::geometry_without_virtual_keyboard(&flick_rc);
 
                 let zero = LogicalLength::zero();
@@ -551,7 +572,8 @@ impl FlickableDataInner {
                     // estimate.
                     //
                     // At the time of writing, in practice this means we must use a physics animation.
-                    let [limit_x, limit_y] = Self::flick_limits(flick_rc, delta);
+                    let [limit_x, limit_y] =
+                        Self::flick_limits(flick, flick_rc, current_pos, delta);
 
                     let x_simulation = (delta.x != Coord::default()).then(|| {
                         let simulation = ConstantDecelerationParameters::new_with_distance(
@@ -609,9 +631,24 @@ impl FlickableDataInner {
     }
 
     fn flick_limits(
+        flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
+        current_pos: LogicalPoint,
         flick_velocity: LogicalVector,
     ) -> [Pin<Box<Property<f32>>>; 2] {
+        let (min, _, _, _) = content_bounds(flick, flick_rc);
+
+        // Whichever bound is already violated takes priority over the direction of travel
+        let wants_min = |current: Coord, min: Coord, velocity: Coord| {
+            if current < min {
+                true
+            } else if current > 0 as Coord {
+                false
+            } else {
+                velocity < 0 as Coord
+            }
+        };
+
         let flick_weak = flick_rc.downgrade();
         let calculate_limits = move || {
             flick_weak
@@ -629,7 +666,7 @@ impl FlickableDataInner {
                 })
         };
 
-        let limit_x = if flick_velocity.x < 0 as Coord {
+        let limit_x = if wants_min(current_pos.x, min.x, flick_velocity.x) {
             let property = Box::pin(Property::new(0.0));
             property.set_binding({
                 let calculate_limits = calculate_limits.clone();
@@ -640,7 +677,7 @@ impl FlickableDataInner {
             Box::pin(Property::new(0.0))
         };
 
-        let limit_y = if flick_velocity.y < 0 as Coord {
+        let limit_y = if wants_min(current_pos.y, min.y, flick_velocity.y) {
             let property = Box::pin(Property::new(0.0));
             property.set_binding(move || {
                 calculate_limits().map(|limit| limit.y_length().get() as f32).unwrap_or(0.0)
@@ -654,34 +691,54 @@ impl FlickableDataInner {
     }
 
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
-        if let Some(last_time) = self.velocity_rb.last_time() {
-            let mean_velocity = self.velocity_rb.mean_velocity();
-            if self.capture_events.is_some()
-                && mean_velocity.square_length() > 0 as Coord
-                && crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
-            {
-                let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
-                let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
-
-                let [limit_x, limit_y] = Self::flick_limits(flick_rc, mean_velocity);
-
-                {
-                    let simulation =
-                        ConstantDecelerationParameters::new(mean_velocity.x as f32, DECELERATION);
-                    content_x.set_physic_animation_value(limit_x, simulation);
-                }
-
-                {
-                    let animation_y =
-                        ConstantDecelerationParameters::new(mean_velocity.y as f32, DECELERATION);
-                    content_y.set_physic_animation_value(limit_y, animation_y);
-                }
-
-                if mean_velocity.x != 0 as Coord || mean_velocity.y != 0 as Coord {
-                    (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
-                }
-            }
+        if self.capture_events.is_none() {
+            return;
         }
+
+        let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
+        let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
+        let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
+        let clamped_pos = ensure_in_bound(flick, current_pos, flick_rc);
+        let x_out = clamped_pos.x != current_pos.x;
+        let y_out = clamped_pos.y != current_pos.y;
+
+        let velocity_is_fresh = self.velocity_rb.last_time().is_some_and(|last_time| {
+            crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
+        });
+        let velocity = if velocity_is_fresh {
+            self.velocity_rb.mean_velocity()
+        } else {
+            LogicalVector::default()
+        };
+
+        if !x_out && !y_out && velocity.square_length() == 0 as Coord {
+            // At rest, inside bounds: nothing to animate.
+            return;
+        }
+
+        let [limit_x, limit_y] = Self::flick_limits(flick, flick_rc, current_pos, velocity);
+
+        if x_out || velocity.x != 0 as Coord {
+            let simulation = ConstantDecelerationSpringDamperParameters::new(
+                velocity.x as f32,
+                DECELERATION,
+                x_out,
+                RUBBER_BAND_SPRING,
+            );
+            content_x.set_physic_animation_value(limit_x, simulation);
+        }
+
+        if y_out || velocity.y != 0 as Coord {
+            let simulation = ConstantDecelerationSpringDamperParameters::new(
+                velocity.y as f32,
+                DECELERATION,
+                y_out,
+                RUBBER_BAND_SPRING,
+            );
+            content_y.set_physic_animation_value(limit_y, simulation);
+        }
+
+        (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
     }
 }
 
@@ -914,9 +971,13 @@ impl FlickableData {
                         // Do not rely on the existing content position to be stable, as e.g. the
                         // ListView will continuously update it.
                         // So we cannot calculate the delta in content coordinates.
-                        let new_content_position = current_content_position + mouse_delta;
+                        //
+                        // Get base position so the resistance isn't compounded
+                        let drag_base_position =
+                            un_rubber_band_in_bound(flick, current_content_position, flick_rc);
+                        let new_content_position = drag_base_position + mouse_delta;
                         let new_content_position =
-                            ensure_in_bound(flick, new_content_position, flick_rc);
+                            rubber_band_in_bound(flick, new_content_position, flick_rc);
 
                         content_x.set(new_content_position.x_length());
                         content_y.set(new_content_position.y_length());
@@ -975,8 +1036,12 @@ fn abs(l: LogicalLength) -> LogicalLength {
     LogicalLength::new(l.get().abs())
 }
 
-/// Make sure that the point is within the bounds
-fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> LogicalPoint {
+/// The content's allowed range: `min` is where its far edge aligns with the Flickable's far
+/// edge, `max` is the origin. Also returns the Flickable's own size, needed for rubber-banding.
+fn content_bounds(
+    flick: Pin<&Flickable>,
+    flick_rc: &ItemRc,
+) -> (LogicalPoint, LogicalPoint, LogicalLength, LogicalLength) {
     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
     let w = geo.width_length();
     let h = geo.height_length();
@@ -985,7 +1050,85 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -
 
     let min = LogicalPoint::from_lengths(w - cw, h - ch);
     let max = LogicalPoint::default();
+    (min, max, w, h)
+}
+
+/// Make sure that the point is within the bounds
+fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -> LogicalPoint {
+    let (min, max, _, _) = content_bounds(flick, flick_rc);
     p.max(min).min(max)
+}
+
+/// Like `ensure_in_bound`, but instead of clamping hard at the edge, lets the point drift past it
+/// with diminishing resistance.
+fn rubber_band_in_bound(
+    flick: Pin<&Flickable>,
+    p: LogicalPoint,
+    flick_rc: &ItemRc,
+) -> LogicalPoint {
+    let (min, max, w, h) = content_bounds(flick, flick_rc);
+
+    LogicalPoint::new(
+        rubber_band_axis(p.x, min.x, max.x, w.get()),
+        rubber_band_axis(p.y, min.y, max.y, h.get()),
+    )
+}
+
+fn rubber_band_axis(v: Coord, min: Coord, max: Coord, dimension: Coord) -> Coord {
+    if min > max {
+        // No room to scroll on this axis: keep the hard pin regardless.
+        return max;
+    }
+    if v > max {
+        max + rubber_band(v - max, dimension)
+    } else if v < min {
+        min - rubber_band(min - v, dimension)
+    } else {
+        v
+    }
+}
+
+/// Diminishing-returns offset applied to how far a rubber-banded axis is dragged past its bound:
+/// asymptotically approaches `dimension * RUBBER_BAND_STRENGTH` as `overflow` grows.
+fn rubber_band(overflow: Coord, dimension: Coord) -> Coord {
+    let k = f32::max(dimension as f32 * RUBBER_BAND_STRENGTH, 1.);
+    let overflow = overflow as f32;
+    (k * (1. - 1. / (1. + overflow / k))) as Coord
+}
+
+/// Like `ensure_in_bound`, but inverts `rubber_band_in_bound` instead of clamping.
+fn un_rubber_band_in_bound(
+    flick: Pin<&Flickable>,
+    p: LogicalPoint,
+    flick_rc: &ItemRc,
+) -> LogicalPoint {
+    let (min, max, w, h) = content_bounds(flick, flick_rc);
+
+    LogicalPoint::new(
+        rubber_band_axis_inverse(p.x, min.x, max.x, w.get()),
+        rubber_band_axis_inverse(p.y, min.y, max.y, h.get()),
+    )
+}
+
+fn rubber_band_axis_inverse(v: Coord, min: Coord, max: Coord, dimension: Coord) -> Coord {
+    if min > max {
+        return v;
+    }
+    if v > max {
+        max + rubber_band_inverse(v - max, dimension)
+    } else if v < min {
+        min - rubber_band_inverse(min - v, dimension)
+    } else {
+        v
+    }
+}
+
+fn rubber_band_inverse(banded: Coord, dimension: Coord) -> Coord {
+    let k = f32::max(dimension as f32 * RUBBER_BAND_STRENGTH, 1.);
+    // `banded` is always < k mathematically, but clamp away from the asymptote for safety
+    // against floating-point edge cases, which would otherwise blow up the division below.
+    let banded = f32::min(banded as f32, k * (1. - 1e-4));
+    (k * banded / (k - banded)) as Coord
 }
 
 /// # Safety
