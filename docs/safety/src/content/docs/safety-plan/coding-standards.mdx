@@ -16,6 +16,32 @@ The runtime ships inside the customer's binary, while the compiler only produces
 | No standard library, no `alloc`, no dependencies. | The crate declares `#![no_std]` and has no `[dependencies]` section, so there's nothing to pull either in. |
 | No clippy warnings. | CI runs `cargo clippy` over the workspace with `-D warnings`, so a warning fails the build. |
 
+### Design Principles
+
+**Addresses:** ISO 26262-6 8.4.5, Table 6
+
+ISO 26262-6 Table 6 lists design principles for software units.
+The runtime applies each principle the table recommends at ASIL B.
+
+| Principle | ASIL B | How the runtime applies it |
+| --- | --- | --- |
+| 1a One entry and one exit point | ++ | Functions return at their end. The only early returns are three guard clauses for "nothing to paint", in `fill_rect`, `draw_image`, and `Color::composite_over`. The runtime doesn't use `?`. |
+| 1b No dynamic objects or variables | ++ | The runtime doesn't use `alloc`; see the rules above. |
+| 1c Initialization of variables | ++ | The Rust compiler rejects reading a variable before it's initialized. |
+| 1d No multiple use of variable names | ++ | The runtime doesn't shadow any name; clippy's shadowing lints report none. |
+| 1e Avoid global variables | + | The runtime has no global state. Images are immutable statics in the generated code. |
+| 1f Restricted use of pointers | ++ | The runtime uses references only. Raw pointers would need `unsafe`, which the crate forbids. |
+| 1g No implicit type conversions | ++ | Rust has no implicit numeric conversions. Each `as` cast in the runtime either widens, or converts a value that an earlier `clamp` or the arithmetic before it keeps in range. |
+| 1h No hidden data flow or control flow | ++ | The runtime doesn't call into application code. The generated code does so only through the callbacks trait the application passes in. A panic from a bounds or overflow check is the one hidden exit; see [`slint.aou.panic`](/user-manual/#slint.aou.panic). |
+| 1i No unconditional jumps | ++ | Rust has no `goto`. |
+| 1j No recursion | + | No function of the runtime calls itself, directly or indirectly. |
+
+:::caution[TODO]
+No lint enforces 1d and 1g yet; enable clippy's shadowing and cast lints for the runtime.
+A frame buffer wider or taller than `i32::MAX` pixels breaks 1g: the renderer's casts wrap, and its `clamp` panics.
+Limit `Size` to `i32::MAX`, or state the limit in [Generated Code](/reference/generated-code/).
+:::
+
 ## Slint Compiler
 
 | Rule | Enforced by |
