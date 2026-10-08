@@ -867,10 +867,10 @@ impl FileLoaderUserData {
 }
 
 /// Set a custom file loader for the compiler.
-/// The callback is invoked with a path and should return the file contents.
+/// The callback is invoked with path components and should return the file contents.
 /// Return values: `FileLoaderResult::NotFound` (compiler tries normal resolution),
-/// `FileLoaderResult::Found` (content written to `out`), or `FileLoaderResult::Error`
-/// (error message written to `out`).
+/// `FileLoaderResult::Found` (content written to `out`),
+/// or `FileLoaderResult::Error` (error message written to `out`).
 /// The user_data pointer is passed to the callback and cleaned up by drop_user_data when the compiler is dropped.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
