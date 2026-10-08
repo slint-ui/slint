@@ -2053,13 +2053,9 @@ fn process_rectangle_impl(
         let gradient_radius = g.radius_or_default_scaled(item_w, item_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
-            stops: g
-                .stops()
-                .map(|s| PremultipliedGradientStop {
-                    color: alpha_color(s.color, args.alpha).into(),
-                    position: s.position,
-                })
-                .collect(),
+            stops: PremultipliedGradientStop::collect(
+                g.stops().map(|s| (alpha_color(s.color, args.alpha).into(), s.position)),
+            ),
             center_x,
             center_y,
             radius: gradient_radius,
@@ -2072,13 +2068,9 @@ fn process_rectangle_impl(
         let (cx, cy) = g.center_or_default_scaled(item_w, item_h, scale_factor.get());
         let (center_x, center_y) = to_rect_center(cx, cy);
         let conic_grad = ConicGradientCommand {
-            stops: g
-                .stops()
-                .map(|s| PremultipliedGradientStop {
-                    color: alpha_color(s.color, args.alpha).into(),
-                    position: s.position,
-                })
-                .collect(),
+            stops: PremultipliedGradientStop::collect(
+                g.stops().map(|s| (alpha_color(s.color, args.alpha).into(), s.position)),
+            ),
             center_x,
             center_y,
             clip: gradient_clip,

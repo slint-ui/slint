@@ -583,10 +583,58 @@ pub struct LinearGradientCommand {
     pub clip: GradientClip,
 }
 
+pub(crate) type GradientPosition = Fixed<i32, 16>;
+/// An interpolation factor between two stops, or its rate of change.
+pub(crate) type GradientFactor = Fixed<u32, 12>;
+
 #[derive(Clone, Copy, Debug)]
 pub struct PremultipliedGradientStop {
     pub color: PremultipliedRgbaColor,
-    pub position: f32,
+    pub position: GradientPosition,
+    /// The factor's rate of change per unit of position, towards the next stop.
+    /// 0 when the next stop isn't after this one.
+    pub step: GradientFactor,
+}
+
+impl PremultipliedGradientStop {
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+    ) -> i_slint_core::SharedVector<Self> {
+        // Keeps the distance between any two stops within an i32.
+        const MAX_POSITION: f32 = (1 << (30 - GradientPosition::SHIFT)) as f32;
+        let mut stops = stops
+            .map(|(color, position)| Self {
+                color,
+                position: Fixed(
+                    (position.clamp(-MAX_POSITION, MAX_POSITION)
+                        * (1 << GradientPosition::SHIFT) as f32) as i32,
+                ),
+                step: Fixed(0),
+            })
+            .peekable();
+        core::iter::from_fn(|| {
+            let mut stop = stops.next()?;
+            if let Some(next) = stops.peek() {
+                let distance = next.position - stop.position;
+                if distance.0 > 0 {
+                    stop.step = Fixed::from_fraction(
+                        GradientPosition::from_integer(1).0 as u32,
+                        distance.0 as u32,
+                    );
+                }
+            }
+            Some(stop)
+        })
+        .collect()
+    }
+
+    /// The interpolation factor towards the next stop at `position`,
+    /// which is between this stop and the next.
+    pub fn factor(&self, position: GradientPosition) -> GradientFactor {
+        let offset = (position - self.position).0 as u32;
+        let half = 1 << (GradientPosition::SHIFT - 1);
+        Fixed((offset * self.step.0 + half) >> GradientPosition::SHIFT)
+    }
 }
 
 /// Radial gradient that interpolates colors from the center outward
