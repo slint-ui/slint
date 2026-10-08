@@ -26,6 +26,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
     fn inline_components_recursively(
         component: &Rc<Component>,
         roots: &HashSet<ByAddress<Rc<Component>>>,
+        requirements: &mut HashMap<ByAddress<Rc<Component>>, bool>,
         inline_selection: InlineSelection,
         diag: &mut BuildDiagnostics,
     ) {
@@ -33,7 +34,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             let base = elem.borrow().base_type.clone();
             if let ElementType::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
-                inline_components_recursively(&c, roots, inline_selection, diag);
+                inline_components_recursively(&c, roots, requirements, inline_selection, diag);
 
                 if c.parent_element().is_some() {
                     // We should not inline a repeated element
@@ -44,7 +45,9 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
                 if match inline_selection {
                     InlineSelection::InlineAllComponents => true,
                     InlineSelection::InlineOnlyRequiredComponents => {
-                        component_requires_inlining(&c)
+                        *requirements
+                            .entry(ByAddress(c.clone()))
+                            .or_insert_with(|| component_requires_inlining(&c))
                             || element_require_inlining(elem)
                             // We always inline the root in case the element that instantiate this component needs full inlining,
                             // except when the root is a repeater component, which are never inlined.
@@ -58,7 +61,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             }
         });
         component.popup_windows.borrow().iter().for_each(|p| {
-            inline_components_recursively(&p.component, roots, inline_selection, diag)
+            inline_components_recursively(&p.component, roots, requirements, inline_selection, diag)
         })
     }
     let mut roots = HashSet::new();
@@ -67,8 +70,15 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection, diag: &mut Buil
             roots.insert(ByAddress(component.clone()));
         }
     }
+    let mut requirements = HashMap::new();
     for component in doc.exported_roots().chain(doc.popup_menu_impl.iter().cloned()) {
-        inline_components_recursively(&component, &roots, inline_selection, diag);
+        inline_components_recursively(
+            &component,
+            &roots,
+            &mut requirements,
+            inline_selection,
+            diag,
+        );
         let mut init_code = component.init_code.borrow_mut();
         let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
         init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
