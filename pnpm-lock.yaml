@@ -125,6 +125,9 @@ importers:
       capture-console:
         specifier: 1.0.2
         version: 1.0.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       image-js:
         specifier: 1.7.1
         version: 1.7.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
