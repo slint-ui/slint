@@ -267,6 +267,8 @@ path = [
   "tests/screenshots/**/**.png",
   "tests/screenshots/references/anyrender/**.json",
 
+  "scripts/commit-template.txt",
+
   "tools/**.md",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
