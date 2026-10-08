@@ -206,6 +206,104 @@ fn wrap_change_invalidates_cache() {
 }
 
 #[test]
+fn line_height_factor_change_invalidates_cache() {
+    let window = setup();
+
+    // A fixed size, so the redraw can't come from a layout change.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <float> factor: 1;
+            Text {
+                width: 100px;
+                height: 50px;
+                text: "Hello\nWorld";
+                line-height-factor: factor;
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_factor(2.0);
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert!(miss_count > 0, "Expected cache miss after line-height-factor change");
+}
+
+#[test]
+fn width_dependent_line_height() {
+    let window = setup();
+
+    // #13799. The window is 200px wide, so the factor is 2.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello\nWorld";
+            out property <length> spaced-height: spaced.preferred-height;
+            out property <length> natural-height: natural.preferred-height;
+            HorizontalLayout {
+                spaced := Text { text: root.content; line-height-factor: self.width / 100px; }
+            }
+            natural := Text { text: "Hello\nWorld"; }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+    assert!((ui.get_spaced_height() - 2.0 * ui.get_natural_height()).abs() < 1.0);
+
+    ui.set_content("Hello\nOther World".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 2, "Expected one shaping without the factor for the width, one with it");
+}
+
+#[test]
+fn width_dependent_line_height_with_word_wrap_shapes_once() {
+    let window = setup();
+
+    // A `word-wrap` Text measures its width through the content widths cache instead.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <string> content: "Hello\nWorld";
+            HorizontalLayout {
+                Text {
+                    text: root.content;
+                    wrap: word-wrap;
+                    line-height-factor: self.width / 100px;
+                }
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_content("Hello\nOther World".into());
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 1, "Expected measuring the height and drawing to share one shaping");
+}
+
+#[test]
 fn wrapping_items_shape_once_per_layout_pass() {
     let window = setup();
 
