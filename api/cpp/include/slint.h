@@ -861,6 +861,122 @@ void blocking_invoke_from_event_loop(Functor f)
 #    endif
 #endif
 
+/// Use the BackendSelector to configure one of Slint's built-in
+/// [backends with a
+/// renderer](https://slint.dev/latest/docs/slint/guide/backends-and-renderers/backends_and_renderers/)
+/// to accommodate specific needs of your application.
+/// This is a programmatic substitute for the `SLINT_BACKEND` environment variable.
+///
+/// Call select() before creating any component or window.
+/// For example, to render with desktop OpenGL 3.2 or newer:
+///
+/// ```cpp
+/// if (auto error = slint::BackendSelector().require_opengl_with_version(3, 2).select()) {
+///     std::cerr << "Error selecting a backend with OpenGL support: " << *error << std::endl;
+///     return EXIT_FAILURE;
+/// }
+/// auto app = App::create();
+/// ```
+class BackendSelector
+{
+public:
+    /// Adds the requirement that the backend must render with OpenGL ES
+    /// with the specified major and minor version.
+    BackendSelector &require_opengl_es_with_version(uint8_t major, uint8_t minor)
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGLES, major, minor);
+    }
+
+    /// Adds the requirement that the backend must render with OpenGL ES.
+    BackendSelector &require_opengl_es()
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGLES);
+    }
+
+    /// Adds the requirement that the backend must render with OpenGL.
+    BackendSelector &require_opengl()
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGL);
+    }
+
+    /// Adds the requirement that the backend must render with OpenGL
+    /// with the specified major and minor version.
+    BackendSelector &require_opengl_with_version(uint8_t major, uint8_t minor)
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGL, major, minor);
+    }
+
+    /// Adds the requirement that the backend must render with Apple's Metal framework.
+    BackendSelector &require_metal()
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::Metal);
+    }
+
+    /// Adds the requirement that the backend must render with Vulkan.
+    BackendSelector &require_vulkan()
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::Vulkan);
+    }
+
+    /// Adds the requirement that the backend must render with Direct 3D.
+    BackendSelector &require_d3d()
+    {
+        return require(cbindgen_private::BackendSelectorGraphicsAPI::Direct3D);
+    }
+
+    /// Adds the requirement that the selected renderer must match the given name.
+    /// This is equivalent to setting the `SLINT_BACKEND=name` environment variable,
+    /// and requires that Slint was built with the corresponding renderer feature.
+    /// For example, pass `skia` to select the Skia renderer.
+    BackendSelector &renderer_name(std::string_view name)
+    {
+        renderer = name;
+        return *this;
+    }
+
+    /// Adds the requirement that the selected backend must match the given name.
+    /// This is equivalent to setting the `SLINT_BACKEND=name` environment variable,
+    /// and requires that Slint was built with the corresponding backend feature.
+    /// For example, pass `winit` to select the winit backend.
+    BackendSelector &backend_name(std::string_view name)
+    {
+        backend = name;
+        return *this;
+    }
+
+    /// Combines the requirements with the backends and renderers enabled at compile time,
+    /// and makes the result the active backend.
+    /// Returns an error message if the requirements can't be met,
+    /// or if a backend is already active.
+    [[nodiscard]] std::optional<SharedString> select()
+    {
+        private_api::assert_main_thread();
+        SharedString error;
+        if (cbindgen_private::slint_backend_selector_select(&backend, &renderer, graphics_api,
+                                                            version_major, version_minor, &error)) {
+            return {};
+        }
+        return error;
+    }
+
+private:
+    BackendSelector &require(cbindgen_private::BackendSelectorGraphicsAPI api, uint8_t major = 0,
+                             uint8_t minor = 0)
+    {
+        graphics_api = api;
+        version_major = major;
+        version_minor = minor;
+        return *this;
+    }
+
+    SharedString backend;
+    SharedString renderer;
+    cbindgen_private::BackendSelectorGraphicsAPI graphics_api =
+            cbindgen_private::BackendSelectorGraphicsAPI::Any;
+    uint8_t version_major = 0;
+    uint8_t version_minor = 0;
+};
+
 /// Sets the application id for use on Wayland or X11 with
 /// [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/) compliant window
 /// managers. This must be set before the window is shown.
