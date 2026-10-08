@@ -3,13 +3,25 @@
 
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, SharedString, VecModel};
+use slint::{ComponentHandle, FilterModel, Model, SharedString, VecModel};
 
 use crate::preview::ui;
 use slint_interpreter::DiagnosticLevel;
 
 pub fn setup(global: &ui::Diagnostics<'_>) {
-    clear_diagnostics(global);
+    global.set_entries(Rc::new(VecModel::<ui::Diagnostic>::default()).into());
+    global.set_errors(
+        Rc::new(FilterModel::new(global.get_entries(), |diagnostic| {
+            diagnostic.level == ui::DiagnosticLevel::Error
+        }))
+        .into(),
+    );
+    global.set_warnings(
+        Rc::new(FilterModel::new(global.get_entries(), |diagnostic| {
+            diagnostic.level == ui::DiagnosticLevel::Warning
+        }))
+        .into(),
+    );
 }
 
 pub fn append_diagnostic(
@@ -35,7 +47,10 @@ pub fn append_diagnostic(
 }
 
 pub fn clear_diagnostics(global: &ui::Diagnostics<'_>) {
-    global.set_entries(Rc::new(VecModel::default()).into());
+    let entries = global.get_entries();
+    if let Some(model) = entries.as_any().downcast_ref::<VecModel<ui::Diagnostic>>() {
+        model.clear();
+    }
 }
 
 pub fn set_diagnostics(
@@ -68,4 +83,54 @@ pub fn set_compiling(compiling: bool) {
         });
     })
     .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_severity_views(global: &ui::Diagnostics<'_>) {
+        let entries = global.get_entries();
+        for (level, view) in [
+            (ui::DiagnosticLevel::Error, global.get_errors()),
+            (ui::DiagnosticLevel::Warning, global.get_warnings()),
+        ] {
+            let expected =
+                entries.iter().filter(|diagnostic| diagnostic.level == level).collect::<Vec<_>>();
+            assert_eq!(view.iter().collect::<Vec<_>>(), expected);
+            assert_eq!(view.row_count(), expected.len());
+        }
+    }
+
+    #[test]
+    fn severity_views_follow_appends_and_clearing() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let global = editor.global::<ui::Diagnostics>();
+        setup(&global);
+        let entries = global.get_entries();
+
+        assert_severity_views(&global);
+        for index in 0..24 {
+            let level = [
+                ui::DiagnosticLevel::Debug,
+                ui::DiagnosticLevel::Note,
+                ui::DiagnosticLevel::Warning,
+                ui::DiagnosticLevel::Error,
+            ][index % 4];
+            append_diagnostic(&global, level, None, &format!("Message {index}"));
+            assert_severity_views(&global);
+        }
+        assert_eq!(global.get_errors().row_count(), 6);
+        assert_eq!(global.get_warnings().row_count(), 6);
+
+        clear_diagnostics(&global);
+        assert_eq!(entries, global.get_entries());
+        assert_eq!(entries.row_count(), 0);
+        assert_severity_views(&global);
+
+        append_diagnostic(&global, ui::DiagnosticLevel::Error, None, "After clearing");
+        assert_severity_views(&global);
+        assert_eq!(global.get_errors().row_count(), 1);
+    }
 }
