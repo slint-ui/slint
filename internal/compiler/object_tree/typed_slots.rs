@@ -159,6 +159,9 @@ pub(super) fn create_forwarding(
             format!("Declare slot '{source}' with the interface required by '{target}'"),
             node,
         );
+        if let Some(slot) = source_slot {
+            diag.push_note(format!("The slot '{source}' is declared here"), &slot.name_node);
+        }
         return false;
     };
     if target_interface.as_ref().is_some_and(|target| !Rc::ptr_eq(target, &interface)) {

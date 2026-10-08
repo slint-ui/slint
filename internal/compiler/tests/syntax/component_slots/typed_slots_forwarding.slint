@@ -8,6 +8,7 @@ component Host {
 }
 export component UntypedSource {
     slot input;
+//       >   <note{The slot 'input' is declared here}
     Host { control << input; }
 //                    >   <error{Declare slot 'input' with the interface required by 'control'}
     input { }
