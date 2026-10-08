@@ -380,6 +380,14 @@ The environment and the sources belong to the module that builds Slint, not to y
 Slint's CMake finds the clang Skia wants on the path the `llvm20` extension adds, so nothing else needs pointing at it.
 
 </TabItem>
+<TabItem label="NodeJS" icon="node">
+
+Build the executable as described in [Package Your Application](https://slint.dev/docs/node/packaging/) before you run `flatpak-builder`.
+Copy the application into the Flatpak with a `dir` source.
+Slint's pre-built addon for Node.js needs libinput, which the Freedesktop runtime doesn't include:
+build libinput, and the libraries it depends on, as modules of your Flatpak.
+
+</TabItem>
 </Tabs>
 
 ## Icons and Desktop Metadata
