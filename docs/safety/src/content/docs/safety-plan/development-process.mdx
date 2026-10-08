@@ -5,7 +5,7 @@ description: Tools, processes, and infrastructure used for Slint SC development.
 
 This chapter describes the tools we use and the processes we follow to develop Slint SC.
 The chapter addresses the supporting processes of ISO 26262-8, Clauses 5 to 16.
-[Standards Compliance](/safety-plan/standards-compliance/#iso-26262-clause-map) maps each clause to its section.
+[ISO 26262-8](/norm-mapping/iso-26262-8/) maps each clause to its section.
 
 ## Language and Compiler
 
@@ -25,8 +25,6 @@ The confidence level each tool needs, and how the tool reaches that level, is in
 
 ## Configuration Management
 
-**Addresses:** ISO 26262-8 Clause 7
-
 Slint SC uses a structured configuration management process, so that artifacts are reproducible and traceable.
 
 * **Version Control:** Slint is hosted on GitHub ([https://github.com/slint-ui/slint](https://github.com/slint-ui/slint)).
@@ -36,8 +34,6 @@ Slint SC uses a structured configuration management process, so that artifacts a
 * **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
 
 ## Change Management
-
-**Addresses:** ISO 26262-8 Clause 8
 
 We manage modifications to the Slint SC codebase so that they preserve the safety and integrity of the system.
 
@@ -56,8 +52,6 @@ In tool classification, that's the case of a tool failing to detect an error.
 The CI system's classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).
 
 ## Distributed Development
-
-**Addresses:** ISO 26262-8 Clause 5
 
 Clause 5 governs development distributed across organizations: the interfaces between a supplier and its customers.
 
