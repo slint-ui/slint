@@ -3424,7 +3424,7 @@ impl Element {
         self.callback_alias_declaration_node(name)
     }
 
-    pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {
+    pub fn builtin_type(&self) -> Option<Arc<BuiltinElement>> {
         let mut base_type = self.base_type.clone();
         loop {
             match &base_type {

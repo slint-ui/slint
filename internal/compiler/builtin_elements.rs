@@ -373,7 +373,7 @@ struct Loader<'a> {
     /// The native items by name, each with the properties and docs of its whole parent chain.
     items: HashMap<SmolStr, (Arc<NativeClass>, BuiltinElement)>,
     /// The builtin elements by name.
-    elements: HashMap<SmolStr, Rc<BuiltinElement>>,
+    elements: HashMap<SmolStr, Arc<BuiltinElement>>,
 }
 
 impl Loader<'_> {
@@ -472,7 +472,7 @@ impl Loader<'_> {
             Some(item) if !own_members => item,
             _ => Arc::new(e.class),
         };
-        let builtin = Rc::new(builtin);
+        let builtin = Arc::new(builtin);
         if builtin.is_global {
             let global = Rc::new(Component {
                 id: builtin.name.clone(),
