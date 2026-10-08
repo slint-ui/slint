@@ -6,6 +6,19 @@
 #![forbid(unsafe_code)]
 #![forbid(missing_docs)]
 #![forbid(clippy::shadow_same, clippy::shadow_reuse, clippy::shadow_unrelated)]
+// The unit tests report a failure by panicking
+#![cfg_attr(
+    not(test),
+    forbid(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::question_mark_used
+    )
+)]
 
 /// The size of a window, in pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
