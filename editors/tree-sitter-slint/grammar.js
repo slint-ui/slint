@@ -298,10 +298,20 @@ module.exports = grammar({
       ),
 
     slot_declaration: ($) =>
-      seq("slot", field("name", $.simple_identifier), ";"),
+      seq(
+        "slot",
+        optional(seq(
+          "<",
+          field("type", $.user_type_identifier),
+          repeat(seq(".", $.user_type_identifier)),
+          ">",
+        )),
+        field("name", $.simple_identifier),
+        ";",
+      ),
 
     // `slot` is a contextual keyword: it only introduces a slot declaration when a
-    // name follows it, so it stays a valid identifier everywhere else. As with
+    // name or type annotation follows it, so it stays a valid identifier elsewhere. As with
     // "changed" in $.callback_event, the lexer would otherwise always prefer the
     // "slot" keyword over the identifier regex, so alias it back to an identifier
     // in every statement that may start with one.
