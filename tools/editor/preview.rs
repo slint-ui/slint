@@ -259,6 +259,8 @@ struct EditorAnnotations {
     publisher: Option<SnapshotPublisher>,
     project_root: PathBuf,
     annotations: Vec<StoredEditorAnnotation>,
+    sources: HashMap<PathBuf, String>,
+    pending_deletion: Option<PendingAnnotationDeletion>,
     next_id: u64,
 }
 
@@ -266,6 +268,12 @@ struct StoredEditorAnnotation {
     selection: SourceElement,
     snapshot: SnapshotAnnotation,
     unread: bool,
+}
+
+struct PendingAnnotationDeletion {
+    path: PathBuf,
+    range: i_slint_compiler::parser::TextRange,
+    contents: String,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -292,15 +300,18 @@ impl EditorAnnotations {
             publisher,
             project_root: project_root.to_path_buf(),
             annotations: Vec::new(),
+            sources: HashMap::new(),
+            pending_deletion: None,
             next_id: 1,
         };
         result.publish();
         result
     }
 
-    fn add(&mut self, selection: SourceElement, mut annotation: SnapshotAnnotation) {
+    fn add(&mut self, selection: SourceElement, mut annotation: SnapshotAnnotation, source: &str) {
         annotation.id = self.next_id.to_string();
         self.next_id += 1;
+        self.sources.insert(selection.path.clone(), source.into());
         self.annotations.push(StoredEditorAnnotation {
             selection,
             snapshot: annotation,
@@ -334,6 +345,93 @@ impl EditorAnnotations {
                 annotation.unread = false;
             }
         }
+    }
+
+    fn update_document(&mut self, path: &Path, source: &str) -> bool {
+        if !self.annotations.iter().any(|annotation| annotation.selection.path == path) {
+            return false;
+        }
+        let mut diagnostics = diagnostics::BuildDiagnostics::default();
+        let document = i_slint_compiler::parser::parse(
+            source.to_owned(),
+            Some(SourcePath::new(path)),
+            &mut diagnostics,
+        );
+        if diagnostics.has_errors() {
+            return false;
+        }
+        let elements = document
+            .descendants()
+            .filter_map(syntax_nodes::Element::new)
+            .filter_map(|node| {
+                Some((node.text_range().start(), snapshot_annotation_node(&node, String::new())?))
+            })
+            .collect::<Vec<_>>();
+        let previous_source = self.sources.get(path).map_or("", String::as_str);
+        let prefix = previous_source
+            .bytes()
+            .zip(source.bytes())
+            .take_while(|(previous_byte, current_byte)| previous_byte == current_byte)
+            .count();
+        let suffix = previous_source.as_bytes()[prefix..]
+            .iter()
+            .rev()
+            .zip(source.as_bytes()[prefix..].iter().rev())
+            .take_while(|(previous_byte, current_byte)| previous_byte == current_byte)
+            .count();
+        let deleted_range =
+            if self.pending_deletion.as_ref().is_some_and(|deletion| deletion.path == path) {
+                self.pending_deletion
+                    .take()
+                    .filter(|deletion| deletion.contents == source)
+                    .map(|deletion| deletion.range)
+            } else {
+                None
+            };
+        let prefix = deleted_range.map_or(prefix, |range| u32::from(range.start()) as usize);
+        let previous_end = deleted_range
+            .map_or(previous_source.len() - suffix, |range| u32::from(range.end()) as usize);
+        let mut changed = false;
+        self.annotations.retain_mut(|annotation| {
+            if annotation.selection.path != path {
+                return true;
+            }
+            if deleted_range.is_some_and(|range| range.contains(annotation.selection.offset)) {
+                changed = true;
+                return false;
+            }
+            let offset = u32::from(annotation.selection.offset) as usize;
+            let mapped_offset = if offset >= previous_end {
+                Some(offset + source.len() - previous_source.len())
+            } else {
+                (offset < prefix).then_some(offset)
+            };
+            let target = elements.iter().find(|(offset, snapshot)| {
+                snapshot.component == annotation.snapshot.component
+                    && snapshot.element_id == annotation.snapshot.element_id
+                    && snapshot.element_type == annotation.snapshot.element_type
+                    && (snapshot.element_id.is_some()
+                        || mapped_offset == Some(u32::from(*offset) as usize))
+            });
+            let Some((offset, snapshot)) = target else {
+                changed = true;
+                return false;
+            };
+            changed |= annotation.selection.offset != *offset
+                || annotation.snapshot.range != snapshot.range;
+            annotation.selection.offset = *offset;
+            annotation.snapshot.range = snapshot.range;
+            true
+        });
+        if self.annotations.iter().any(|annotation| annotation.selection.path == path) {
+            self.sources.insert(path.into(), source.into());
+        } else {
+            self.sources.remove(path);
+        }
+        if changed {
+            self.publish();
+        }
+        changed
     }
 
     fn markers(&self) -> Vec<ui::EditorAnnotationMarker> {
@@ -496,6 +594,12 @@ fn invalidate_contents(url: &lsp_types::Url) {
 fn delete_document(url: &lsp_types::Url) {
     let (current, url_is_used) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.source_code.remove(url);
+        if let Ok(path) = url.to_file_path()
+            && !path.is_file()
+            && preview_state.annotations.update_document(&path, "")
+        {
+            set_visible_element_annotations(preview_state, preview_state.selected.as_ref());
+        }
         (
             preview_state.current_previewed_component.clone(),
             preview_state.dependencies.contains(url),
@@ -749,6 +853,12 @@ fn set_contents(url: &VersionedUrl, content: String) {
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
         let changed = old.as_ref().is_none_or(|old| old.code != content);
+        if changed
+            && let Ok(path) = url.url().to_file_path()
+            && preview_state.annotations.update_document(&path, &content)
+        {
+            set_visible_element_annotations(preview_state, preview_state.selected.as_ref());
+        }
         let version_changed = old.as_ref().is_none_or(|old| old.version != *url.version());
         let selected_document =
             preview_state.selected.as_ref().and_then(|selected| selected.path.to_url()).as_ref()
@@ -1382,12 +1492,32 @@ fn delete_selected_element() {
     let new_text = placeholder_node_text(&selected_node);
 
     let edit = i_slint_editor_preview::editing::create_workspace_edit(
-        url,
+        url.clone(),
         version,
         vec![lsp_types::TextEdit { range, new_text }],
     );
 
-    send_workspace_edit("Delete element".to_string(), edit, true);
+    let pending_deletion = url.to_file_path().ok().and_then(|path| {
+        let range = selected_node.with_decorated_node(|node| node.text_range());
+        let has_annotations = PREVIEW_STATE.with_borrow(|state| {
+            state.annotations.annotations.iter().any(|annotation| {
+                annotation.selection.path == path && range.contains(annotation.selection.offset)
+            })
+        });
+        if !has_annotations {
+            return None;
+        }
+        let contents = text_edit::apply_workspace_edit(&document_cache, &edit)
+            .ok()?
+            .into_iter()
+            .next()?
+            .contents;
+        Some(PendingAnnotationDeletion { path, range, contents })
+    });
+    if send_workspace_edit("Delete element".to_string(), edit, true) {
+        PREVIEW_STATE
+            .with_borrow_mut(|state| state.annotations.pending_deletion = pending_deletion);
+    }
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
@@ -2901,9 +3031,18 @@ fn add_element_annotation(text: SharedString) {
     let Some(source_element) = SourceElement::from_selection(&selection) else { return };
     let Some(element_node) = selection.as_element_node() else { return };
     let Some(annotation) = snapshot_annotation(&element_node, text.to_string()) else { return };
+    let Some(uri) = selection.path.to_url() else { return };
 
+    let Some(source) =
+        element_node.with_element_node(|node| node.source_file.source().map(str::to_owned))
+    else {
+        return;
+    };
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.annotations.add(source_element, annotation);
+        if preview_state.source_code.get(&uri).is_none_or(|entry| entry.code != source) {
+            return;
+        }
+        preview_state.annotations.add(source_element, annotation, &source);
         set_visible_element_annotations(preview_state, Some(&selection));
     });
 }
@@ -2946,8 +3085,18 @@ fn snapshot_annotation(
     element_node: &i_slint_editor_preview::ElementRcNode,
     text: String,
 ) -> Option<SnapshotAnnotation> {
-    let (file, range) = annotation_location(element_node)?;
-    let (component, element_type, element_id) = element_node.with_element_node(|node| {
+    element_node.with_element_node(|node| snapshot_annotation_node(node, text))
+}
+
+fn snapshot_annotation_node(
+    node: &syntax_nodes::Element,
+    text: String,
+) -> Option<SnapshotAnnotation> {
+    if i_slint_editor_preview::is_element_node_ignored(node) {
+        return None;
+    }
+    let (file, range) = annotation_location(node)?;
+    let (component, element_type, element_id) = {
         let mut ancestor = node.parent();
         let mut component = None;
         while let Some(current) = ancestor {
@@ -2971,7 +3120,7 @@ fn snapshot_annotation(
             })
             .map(|identifier| identifier.to_string());
         (component, element_type, element_id)
-    });
+    };
 
     Some(SnapshotAnnotation {
         id: String::new(),
@@ -2984,30 +3133,26 @@ fn snapshot_annotation(
     })
 }
 
-fn annotation_location(
-    element_node: &i_slint_editor_preview::ElementRcNode,
-) -> Option<(PathBuf, SourceRange)> {
-    element_node.with_element_node(|node| {
-        let file = std::path::absolute(node.source_file.path().as_native_path()?).ok()?;
-        let source_range = node.text_range();
-        let start = util::text_size_to_lsp_position(
-            &node.source_file,
-            source_range.start(),
-            i_slint_editor_preview::ByteFormat::Utf16,
-        );
-        let end = util::text_size_to_lsp_position(
-            &node.source_file,
-            source_range.end(),
-            i_slint_editor_preview::ByteFormat::Utf16,
-        );
-        Some((
-            file,
-            SourceRange {
-                start: SourcePosition { line: start.line, character: start.character },
-                end: SourcePosition { line: end.line, character: end.character },
-            },
-        ))
-    })
+fn annotation_location(node: &syntax_nodes::Element) -> Option<(PathBuf, SourceRange)> {
+    let file = std::path::absolute(node.source_file.path().as_native_path()?).ok()?;
+    let source_range = node.text_range();
+    let start = util::text_size_to_lsp_position(
+        &node.source_file,
+        source_range.start(),
+        i_slint_editor_preview::ByteFormat::Utf16,
+    );
+    let end = util::text_size_to_lsp_position(
+        &node.source_file,
+        source_range.end(),
+        i_slint_editor_preview::ByteFormat::Utf16,
+    );
+    Some((
+        file,
+        SourceRange {
+            start: SourcePosition { line: start.line, character: start.character },
+            end: SourcePosition { line: end.line, character: end.character },
+        },
+    ))
 }
 
 fn set_visible_element_annotations(
@@ -3481,6 +3626,7 @@ mod tests {
             state.annotations.add(
                 SourceElement { path: old_file.clone(), offset: TextSize::from(12) },
                 stored_annotation(&old_file, range, "Old"),
+                "",
             );
             state
                 .element_annotations_model
@@ -3497,6 +3643,7 @@ mod tests {
             state.annotations.add(
                 SourceElement { path: new_file.clone(), offset: TextSize::from(12) },
                 stored_annotation(&new_file, range, "New"),
+                "",
             );
         });
         let projects = slint_editor_mcp::scan_projects().unwrap();
@@ -3869,6 +4016,171 @@ export component Main {
         }
     }
 
+    fn annotations_for_source(project_root: &Path, source: &str) -> EditorAnnotations {
+        let path = project_root.join("main.slint");
+        let mut diagnostics = diagnostics::BuildDiagnostics::default();
+        let document = i_slint_compiler::parser::parse(
+            source.into(),
+            Some(SourcePath::new(&path)),
+            &mut diagnostics,
+        );
+        assert!(!diagnostics.has_errors());
+        let mut annotations = EditorAnnotations::new(project_root);
+        for node in document.descendants().filter_map(syntax_nodes::Element::new) {
+            let snapshot = snapshot_annotation_node(&node, "Review this item".into()).unwrap();
+            annotations.add(
+                SourceElement { path: path.clone(), offset: node.text_range().start() },
+                snapshot,
+                source,
+            );
+        }
+        annotations
+    }
+
+    #[test]
+    fn deleting_elements_removes_their_annotations_and_preserves_surviving_items() {
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("main.slint");
+        let removed = "removed := Rectangle { nested := Text {} }";
+        let source = format!(
+            "export component Main inherits Window {{ {removed} kept := Rectangle {{}} Rectangle {{}} if false: hidden := Rectangle {{}} }}"
+        );
+        let mut annotations = annotations_for_source(project.path(), &source);
+        assert_eq!(annotations.annotations.len(), 6);
+        let updated = source.replace(removed, "");
+        assert!(annotations.update_document(&path, &updated));
+        assert_eq!(annotations.annotations.len(), 4);
+        assert!(annotations.annotations.iter().all(|annotation| !matches!(
+            annotation.snapshot.element_id.as_deref(),
+            Some("removed" | "nested")
+        )));
+        for annotation in &annotations.annotations {
+            assert!(
+                updated[u32::from(annotation.selection.offset) as usize..]
+                    .starts_with(&annotation.snapshot.element_type)
+            );
+        }
+        let published = slint_editor_mcp::scan_projects()
+            .unwrap()
+            .into_iter()
+            .find(|project_annotations| project_annotations.project_root == project.path())
+            .unwrap();
+        assert_eq!(published.annotations.len(), 4);
+        assert!(annotations.update_document(&path, ""));
+        assert!(
+            slint_editor_mcp::scan_projects()
+                .unwrap()
+                .iter()
+                .all(|project_annotations| project_annotations.project_root != project.path())
+        );
+    }
+
+    #[test]
+    fn source_changes_remove_deleted_component_annotations_even_when_the_preview_cannot_compile() {
+        reset_preview_state(Default::default());
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("main.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        let removed = "component Removed inherits Rectangle { child := Text {} } ";
+        let source = format!("{removed}export component Main inherits Window {{ Removed {{}} }}");
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.annotations = annotations_for_source(project.path(), &source);
+            state.source_code.insert(
+                url.clone(),
+                SourceCodeCacheEntry { version: Some(1), code: source.clone() },
+            );
+        });
+        let updated = source.replace(removed, "");
+        set_contents(&VersionedUrl::new(url.clone(), Some(2)), updated.clone());
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(state.annotations.annotations.len(), 2);
+            assert!(
+                state.annotations.annotations.iter().all(|annotation| annotation
+                    .snapshot
+                    .component
+                    .as_deref()
+                    == Some("Main"))
+            );
+            assert_eq!(state.annotation_markers_model.row_count(), 2);
+        });
+        set_contents(&VersionedUrl::new(url, Some(3)), String::new());
+        assert!(
+            slint_editor_mcp::scan_projects()
+                .unwrap()
+                .iter()
+                .all(|project_annotations| project_annotations.project_root != project.path())
+        );
+        PREVIEW_STATE
+            .with_borrow(|state| assert_eq!(state.annotation_markers_model.row_count(), 0));
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn syntax_errors_and_other_documents_do_not_remove_annotations() {
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("main.slint");
+        let source = "export component Main inherits Window { item := Rectangle {} }";
+        let mut annotations = annotations_for_source(project.path(), source);
+        assert!(!annotations.update_document(&path, "export component Main inherits Window {"));
+        assert!(!annotations.update_document(&project.path().join("other.slint"), ""));
+        assert_eq!(annotations.annotations.len(), 2);
+        assert!(annotations.update_document(&path, &format!("// 😀\n{source}")));
+        assert_eq!(annotations.annotations.len(), 2);
+        assert!(
+            annotations
+                .annotations
+                .iter()
+                .all(|annotation| annotation.snapshot.range.start.line == 1)
+        );
+    }
+
+    #[test]
+    fn ignored_layout_placeholders_do_not_keep_deleted_annotations() {
+        let project = tempfile::tempdir().unwrap();
+        let path = project.path().join("main.slint");
+        let source = "export component Main inherits Window { VerticalLayout { Rectangle {} } }";
+        let mut annotations = annotations_for_source(project.path(), source);
+        assert_eq!(annotations.annotations.len(), 3);
+        let updated = source.replace("Rectangle {}", "Rectangle { /* @lsp:ignore-node */ }");
+        assert!(annotations.update_document(&path, &updated));
+        assert_eq!(annotations.annotations.len(), 2);
+        assert!(
+            annotations
+                .annotations
+                .iter()
+                .all(|annotation| annotation.snapshot.element_type != "Rectangle")
+        );
+    }
+
+    #[test]
+    fn editor_deletion_distinguishes_identical_anonymous_items_and_waits_for_application() {
+        for applied in [true, false] {
+            let project = tempfile::tempdir().unwrap();
+            let path = project.path().join("main.slint");
+            let source = "export component Main inherits Window { Rectangle {} Rectangle {} }";
+            let mut annotations = annotations_for_source(project.path(), source);
+            let start =
+                TextSize::from(u32::try_from(source.find("Rectangle {}").unwrap()).unwrap());
+            let range = i_slint_compiler::parser::TextRange::new(start, start + TextSize::from(13));
+            let updated = source.replacen("Rectangle {} ", "", 1);
+            annotations.pending_deletion = Some(PendingAnnotationDeletion {
+                path: path.clone(),
+                range,
+                contents: updated.clone(),
+            });
+            assert_eq!(
+                annotations.update_document(&path, if applied { &updated } else { source }),
+                applied
+            );
+            let identifiers = annotations
+                .annotations
+                .iter()
+                .map(|annotation| annotation.snapshot.id.as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(identifiers, if applied { vec!["1", "3"] } else { vec!["1", "2", "3"] });
+        }
+    }
+
     #[test]
     fn editor_annotations_assign_ids_filter_by_source_element_and_remove() {
         let first_range = SourceRange {
@@ -3884,15 +4196,19 @@ export component Main {
         let second_element = SourceElement { path: file.into(), offset: TextSize::from(24) };
         let mut annotations = EditorAnnotations { next_id: 1, ..Default::default() };
 
-        annotations.add(first_element.clone(), stored_annotation(file, first_range, "First"));
-        annotations.add(second_element.clone(), stored_annotation(file, second_range, "Second"));
+        annotations.add(first_element.clone(), stored_annotation(file, first_range, "First"), "");
+        annotations.add(
+            second_element.clone(),
+            stored_annotation(file, second_range, "Second"),
+            "",
+        );
 
         let visible = annotations.visible(&first_element);
         assert_eq!(visible.len(), 1);
         assert_eq!(visible[0].id, "1");
         assert_eq!(visible[0].text, "First");
 
-        annotations.add(first_element.clone(), stored_annotation(file, first_range, "Another"));
+        annotations.add(first_element.clone(), stored_annotation(file, first_range, "Another"), "");
         let markers = annotations.markers();
         assert_eq!(markers.len(), 2);
         assert_eq!(markers[0].count, 2);
@@ -3934,6 +4250,7 @@ export component Main {
         preview_state.annotations.add(
             SourceElement::from_selection(&selection).unwrap(),
             stored_annotation(file, range, "Visible"),
+            "",
         );
 
         set_visible_element_annotations(&preview_state, Some(&selection));
@@ -3944,10 +4261,11 @@ export component Main {
     }
 
     #[test]
-    fn add_annotation_publishes_source_declared_element_ids() {
+    fn add_annotations_uses_current_source_and_declared_element_ids() {
         let source = r#"export component Main { named-element := Text { text: "😀"; } Text {} }"#;
         let component_instance = test::interpret_test("fluent", source);
         let path = main_test_file_name();
+        let uri = path.to_url().unwrap();
         let named_offset = TextSize::from(u32::try_from(source.find("Text").unwrap()).unwrap());
         let anonymous_offset =
             TextSize::from(u32::try_from(source.rfind("Text").unwrap()).unwrap());
@@ -3963,6 +4281,9 @@ export component Main {
                 instance_index: 0,
             });
             preview_state.annotations = EditorAnnotations::new(project.path());
+            preview_state
+                .source_code
+                .insert(uri.clone(), SourceCodeCacheEntry { version: None, code: source.into() });
         });
 
         add_element_annotation("Named".into());
@@ -3981,6 +4302,14 @@ export component Main {
         assert_eq!(project_annotations.annotations[0].element_id.as_deref(), Some("named-element"));
         assert_eq!(project_annotations.annotations[0].range.end.character, expected_utf16_end);
         assert_eq!(project_annotations.annotations[1].element_id, None);
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.get_mut(&uri).unwrap().code = "export component Main {}".into();
+            let path = state.selected.as_ref().unwrap().path.as_native_path().unwrap().to_owned();
+            state.annotations.update_document(&path, "export component Main {}");
+        });
+        add_element_annotation("Stale preview".into());
+        PREVIEW_STATE.with_borrow(|state| assert!(state.annotations.annotations.is_empty()));
 
         PREVIEW_STATE.with_borrow_mut(|preview_state| *preview_state = PreviewState::default());
     }

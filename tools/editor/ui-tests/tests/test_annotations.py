@@ -1,19 +1,95 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import json
+import subprocess
+
 import pytest
 import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
+from source_snapshot import wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
     element,
     first_window,
     launch_editor,
+    press_key,
     query,
     screenshot,
     select_outline_row,
 )
+
+
+def annotation_texts(editor_binary, project):
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "get_visual_editor_annotations",
+            "arguments": {"workingDirectory": str(project)},
+        },
+    }
+    result = subprocess.run(
+        [str(editor_binary.with_name("slint-editor-mcp"))],
+        input=json.dumps(request) + "\n",
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=5,
+    )
+    response = json.loads(result.stdout)["result"]
+    assert not response.get("isError", False), response
+    return [
+        annotation["text"]
+        for published_project in response["structuredContent"]["projects"]
+        for annotation in published_project["annotations"]
+    ]
+
+
+@pytest.mark.parametrize("deletion", ["editor", "source", "file"])
+def test_deletion_removes_annotations_from_the_mcp_tool(
+    editor_binary, editor_environment, fixture_project, deletion
+):
+    source = fixture_project / "Main.slint"
+    original = source.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, original)
+        window = first_window(editor)
+        for label, text in (
+            ("root-rectangle", "Deleted item"),
+            ("root-image", "Surviving item"),
+        ):
+            select_outline_row(window, label)
+            element(
+                window, "Add annotation to " + label
+            ).invoke_accessible_default_action()
+            element(window, "Annotation text").accessible_value = text
+            element(window, "Add annotation").invoke_accessible_default_action()
+        expect.poll(lambda: annotation_texts(editor_binary, fixture_project)).to_equal(
+            ["Deleted item", "Surviving item"]
+        )
+        if deletion == "file":
+            source.unlink()
+            expected = []
+        else:
+            if deletion == "editor":
+                select_outline_row(window, "root-rectangle")
+                press_key(window, slint_testing.keys.Delete)
+                wait_for_source_change(source, original)
+            else:
+                start = original.index(b"    root-rectangle := Rectangle {")
+                end = original.index(b"    root-text := Text {")
+                updated = original[:start] + original[end:]
+                source.write_bytes(updated)
+                wait_for_source(source, updated)
+            expected = ["Surviving item"]
+            expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
+            expect(query(window, "Annotations for root-image")).to_be_visible()
+        expect.poll(lambda: annotation_texts(editor_binary, fixture_project)).to_equal(
+            expected
+        )
 
 
 def test_canvas_annotations_survive_deselection_and_resolve(
