@@ -20,7 +20,7 @@ import {
     requiresVisualExport,
     type SvgExporter,
 } from "./normalize";
-import { isPngByteArray, pngDimensions } from "../images";
+import { isPngByteArray, pngDimensions, validSvgDocument } from "../images";
 import type { CaptureResult, CaptureWork } from "./snapshot";
 import type { VisualBounds } from "./source";
 import {
@@ -104,21 +104,33 @@ export function observeComponentDependencies(
     };
 }
 
-const svgExportSettings = {
+export const svgExportSettings = {
     format: "SVG_STRING",
     contentsOnly: true,
-    useAbsoluteBounds: true,
+    useAbsoluteBounds: false,
     svgOutlineText: true,
     svgIdAttribute: false,
     svgSimplifyStroke: false,
     colorProfile: "SRGB",
 } as const;
 
-const exportSvg: SvgExporter = (node) =>
-    node.exportAsync({
-        ...svgExportSettings,
-        useAbsoluteBounds: overflowingPaintBounds(node) === undefined,
-    });
+const exportSvg: SvgExporter = (node) => node.exportAsync(svgExportSettings);
+
+function hasUntransformedBounds(node: SceneNode): boolean {
+    if (!("absoluteTransform" in node)) return true;
+    const transform = node.absoluteTransform;
+    return (
+        transform !== undefined &&
+        Math.abs(transform[0][0] - 1) <= 0.00001 &&
+        Math.abs(transform[1][1] - 1) <= 0.00001 &&
+        Math.abs(transform[0][1]) <= 0.00001 &&
+        Math.abs(transform[1][0]) <= 0.00001
+    );
+}
+
+function hasNoEffects(effects: unknown): boolean {
+    return Array.isArray(effects) && effects.length === 0;
+}
 
 const pngExportSettings = {
     format: "PNG",
@@ -140,15 +152,7 @@ function overflowingPaintBounds(node: SceneNode): VisualBounds | undefined {
         !("absoluteRenderBounds" in node)
     )
         return undefined;
-    const transform = node.absoluteTransform;
-    if (
-        !transform ||
-        Math.abs(transform[0][0] - 1) > 0.00001 ||
-        Math.abs(transform[1][1] - 1) > 0.00001 ||
-        Math.abs(transform[0][1]) > 0.00001 ||
-        Math.abs(transform[1][0]) > 0.00001
-    )
-        return undefined;
+    if (!hasUntransformedBounds(node)) return undefined;
     const box = node.absoluteBoundingBox;
     const paint = node.absoluteRenderBounds;
     if (!box || !paint || paint.width <= 0 || paint.height <= 0)
@@ -392,13 +396,22 @@ export async function captureSource(
                     stop?.();
                 }
             }));
-    const scheduledSvg: SvgExporter = (node) =>
+    const scheduledSvg = (
+        node: Parameters<SvgExporter>[0],
+        useAbsoluteBounds?: boolean,
+    ): Promise<string> =>
         schedule(async () => {
             if (cancelled?.()) throw new CaptureCancelled();
             const stop = node.type === "TEXT" ? fontTiming.start() : undefined;
             try {
                 work.svgExports++;
-                return await exportSvgNode(node);
+                return await (exportSvgNode === exportSvg &&
+                useAbsoluteBounds !== undefined
+                    ? node.exportAsync({
+                          ...svgExportSettings,
+                          useAbsoluteBounds,
+                      })
+                    : exportSvgNode(node));
             } finally {
                 stop?.();
             }
@@ -765,7 +778,8 @@ export async function captureSource(
                         };
                     }
                 }
-                const rasterKey =
+                const paintBounds = overflowingPaintBounds(node);
+                const visualKey =
                     !rasterFallback &&
                     cache &&
                     rasterContextSafe &&
@@ -802,8 +816,7 @@ export async function captureSource(
                                       result.id,
                                       result.properties,
                                       result.segments,
-                                      exportScale,
-                                      overflowingPaintBounds(node),
+                                      paintBounds,
                                       "resolvedVariableModes" in node
                                           ? node.resolvedVariableModes
                                           : null,
@@ -813,6 +826,9 @@ export async function captureSource(
                               }
                           })()
                         : undefined;
+                const rasterKey = visualKey
+                    ? `png:${exportScale}:${visualKey}`
+                    : undefined;
                 if (!rasterFallback && node.type === "TEXT") {
                     fontMetrics.requests++;
                     fontMetrics.exports++;
@@ -891,8 +907,8 @@ export async function captureSource(
                         !("children" in node) &&
                         rasterContextSafe &&
                         svgContextSafe &&
-                        Array.isArray(contextProperties.effects) &&
-                        contextProperties.effects.length === 0 &&
+                        hasUntransformedBounds(node) &&
+                        hasNoEffects(contextProperties.effects) &&
                         [
                             contextProperties.fills,
                             contextProperties.strokes,
@@ -919,24 +935,18 @@ export async function captureSource(
                                 const value = (
                                     await scheduledSvg(
                                         node as Parameters<SvgExporter>[0],
+                                        paintBounds === undefined,
                                     )
                                 ).trim();
-                                if (
-                                    !(
-                                        /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(
-                                            value,
-                                        ) ||
-                                        /^<svg(?:\s[^>]*)?\/>$/iu.test(value)
-                                    )
-                                )
+                                if (!validSvgDocument(value))
                                     throw Error(
                                         "SVG export did not return a valid SVG document",
                                     );
                                 return value;
                             };
-                            return cache && rasterKey
+                            return cache && visualKey
                                 ? cache.get(
-                                      `svg:${rasterKey}`,
+                                      `svg:${visualKey}`,
                                       load,
                                       (value) => value.length * 2,
                                   )
@@ -947,8 +957,8 @@ export async function captureSource(
                                 svg,
                                 pngOmitted: "svg",
                             };
-                            const bounds = overflowingPaintBounds(node);
-                            if (bounds) result.exports.svgBounds = bounds;
+                            if (paintBounds)
+                                result.exports.svgBounds = paintBounds;
                             return;
                         }
                     }
@@ -1037,8 +1047,7 @@ export async function captureSource(
                         requiredByProperty,
                         svgContextSafe &&
                             (contextProperties.effects === undefined ||
-                                (Array.isArray(contextProperties.effects) &&
-                                    contextProperties.effects.length === 0)),
+                                hasNoEffects(contextProperties.effects)),
                     ),
                 cancelled,
             );
