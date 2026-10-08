@@ -120,9 +120,9 @@ pub fn set_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
 ) {
     diagnostics.iter().for_each(|diagnostic| {
-        let location = diagnostic.source_file().map(|path| {
+        let location = diagnostic.source_path().map(|path| {
             let (line, column) = diagnostic.line_column();
-            (path.to_string_lossy().to_string().into(), line, column)
+            (path.into(), line, column)
         });
 
         let level = match diagnostic.level() {
@@ -145,6 +145,70 @@ pub fn set_compiling(compiling: bool) {
         });
     })
     .unwrap();
+}
+
+pub(in crate::preview) fn set_compilation_diagnostics(
+    diagnostics: &mut Vec<slint_interpreter::Diagnostic>,
+    no_component: bool,
+    has_component: bool,
+) {
+    if no_component {
+        diagnostics.retain(|diagnostic| !is_no_component_diagnostic(diagnostic));
+    }
+    crate::preview::PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if no_component {
+            preview_state.clear_preview();
+            preview_state.set_preview_availability(ui::PreviewAvailability::NoComponent);
+        } else if !has_component {
+            preview_state.set_preview_availability(
+                if preview_state.component_instance().is_some() {
+                    ui::PreviewAvailability::Stale
+                } else {
+                    ui::PreviewAvailability::Unavailable
+                },
+            );
+        }
+        if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
+            clear_diagnostics(&editor_ui.global::<ui::Diagnostics>());
+            set_diagnostics(&editor_ui.global::<ui::Diagnostics>(), diagnostics);
+        }
+    });
+}
+
+pub(in crate::preview) fn has_only_no_component_error(
+    diagnostics: &[slint_interpreter::Diagnostic],
+) -> bool {
+    diagnostics.iter().any(is_no_component_diagnostic)
+        && diagnostics.iter().all(|diagnostic| {
+            diagnostic.level() != DiagnosticLevel::Error || is_no_component_diagnostic(diagnostic)
+        })
+}
+
+// The interpreter emits this error even for valid files without components.
+// The editor distinguishes those files from compilation failures through NoComponent.
+fn is_no_component_diagnostic(diagnostic: &slint_interpreter::Diagnostic) -> bool {
+    diagnostic.level() == DiagnosticLevel::Error
+        && diagnostic.source_path().is_none()
+        && diagnostic.message() == "No component found"
+}
+
+pub(in crate::preview) fn append_preview_debug_message(
+    preview_generation: Option<i32>,
+    location: Option<(SharedString, usize, usize)>,
+    message: &str,
+) {
+    crate::preview::PREVIEW_STATE.with_borrow(|state| {
+        if let Some(editor_ui) = &state.editor_ui
+            && preview_generation == Some(editor_ui.global::<ui::Hover>().get_preview_generation())
+        {
+            append_diagnostic(
+                &editor_ui.global::<ui::Diagnostics>(),
+                ui::DiagnosticLevel::Debug,
+                location,
+                message,
+            );
+        }
+    });
 }
 
 #[cfg(test)]
