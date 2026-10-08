@@ -4,8 +4,8 @@ description: The Rust coding standards Slint SC follows, and what enforces each 
 ---
 
 A coding standard that isn't checked is a wish, so each rule below names what enforces it.
-The rules differ between the two parts of Slint SC.
-The runtime ships inside the customer's binary, while the compiler only produces source code for the customer's build.
+The rules differ between the runtime, the compiler, and the code the compiler generates.
+The runtime and the generated code ship inside the customer's binary, while the compiler only produces source code for the customer's build.
 
 ## slint-sc Runtime
 
@@ -49,3 +49,21 @@ Limit `Size` to `i32::MAX`, or state the limit in [Generated Code](/reference/ge
 | --- | --- |
 | No unsafe code. | `#![deny(unsafe_code)]` at the crate root of `slint-compiler`, and of the workspace crates it builds on, `i-slint-compiler` and `i-slint-common`. Unlike `forbid`, `deny` can be lifted locally by an `allow`, so any exception is visible in the source and reviewable. |
 | No clippy warnings. | The same CI run as for the runtime. |
+
+## Generated Code
+
+The generated code applies the [design principles](#design-principles) like the runtime, with the rules below.
+The rules are requirements of the generated code; see [Coding Rules](/reference/generated-code/#coding-rules).
+The slint-sc test driver checks them on the code generated for every test case.
+The checks aren't in the generated code itself, so a generator bug fails our tests rather than the customer's build.
+
+| Rule | Enforced by |
+| --- | --- |
+| No unsafe code. | Each test program has `#![forbid(unsafe_code)]`. |
+| No standard library and no `alloc`. | Each test program is `#![no_std]`, and only its harness declares `extern crate std`. |
+| No shadowing of names. | Clippy runs on each test program with the `shadow_same`, `shadow_reuse`, and `shadow_unrelated` lints denied for the generated code. |
+| No panicking calls. | The same clippy run, with the `unwrap_used`, `expect_used`, `panic`, `unreachable`, `todo`, and `unimplemented` lints denied. |
+| No slice indexing. | The same clippy run, with the `indexing_slicing` lint denied. |
+| No `?` operator. | The same clippy run, with the `question_mark_used` lint denied. |
+| No arithmetic that can overflow. | The same clippy run, with the `arithmetic_side_effects` lint denied. |
+| No `as` conversions. | The same clippy run, with the `as_conversions` lint denied. |

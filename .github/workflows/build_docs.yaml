@@ -145,6 +145,7 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
+                  components: clippy
             - name: Install llvm-tools for slint-sc coverage
               if: ${{ inputs['slint-sc-coverage'] }}
               run: rustup component add llvm-tools-preview
