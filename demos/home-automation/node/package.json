@@ -7,10 +7,12 @@
         "slint-ui": "workspace:*"
     },
     "devDependencies": {
-        "@biomejs/biome": "catalog:"
+        "@biomejs/biome": "catalog:",
+        "esbuild": "0.28.2"
     },
     "scripts": {
-        "start": "node .",
+        "start": "node --import slint-ui/register .",
+        "build": "node build.mjs",
         "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "check": "biome check",
         "format": "biome format",
