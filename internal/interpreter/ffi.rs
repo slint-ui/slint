@@ -5,6 +5,7 @@
 
 use super::*;
 use core::ptr::NonNull;
+use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -902,6 +903,18 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_path(
     let compiler = compiler.as_component_compiler_mut();
     let Some(path) = path_to_str(compiler, &path) else { return false };
     let definition = spin_on::spin_on(compiler.build_from_path(PathBuf::from(path)));
+    unsafe { write_definition(definition, component_definition_ptr) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_native_path(
+    compiler: &mut ComponentCompilerOpaque,
+    path: Slice<PathValueType>,
+    component_definition_ptr: *mut ComponentDefinitionOpaque,
+) -> bool {
+    let definition = spin_on::spin_on(
+        compiler.as_component_compiler_mut().build_from_path(path_from_units(&path)),
+    );
     unsafe { write_definition(definition, component_definition_ptr) }
 }
 
