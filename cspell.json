@@ -5,6 +5,7 @@
     {
       "languageId": "rust",
       "words": [
+        "AOSP", // Android Open Source Project
         "bbox",
         "bindgen",
         "boxshadowcache",
@@ -29,16 +30,22 @@
         "monomorphized",
         "monomorphizing",
         "peekable",
+        "overscroll",
+        "overscrolled",
         "Realloc",
         "refcell",
         "rtti",
+        "signum",
         "Smol",
         "smolstr",
+        "submillisecond",
+        "subsec", // std::time::Duration::subsec_nanos
         "subspan",
         "uninit",
         "unlocalized",
         "Unlocalized",
         "unmap",
+        "unresisted",
         "unsync",
         "vecs", // plural of vec
         "vsync"
@@ -117,6 +124,7 @@
     "AARRGGBB",
     "abcabcabc",
     "accesskit",
+    "animatable",
     "antialiasing",
     "arboard",
     "Argb",
@@ -133,6 +141,7 @@
     "colspan",
     "combobox",
     "cramer",
+    "overscroll",
     "radiobutton",
     "contexte",
     "cramer",
@@ -200,6 +209,7 @@
     "printerdemo",
     "pycache",
     "pythonw",
+    "RAII",
     "regenerable",
     "replacen",
     "rehype",
@@ -396,6 +406,10 @@
     "**/node_modules/**"
   ],
   "overrides": [
+    {
+      "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
+      "words": ["uikit"]
+    },
     {
       "filename": "tools/figma-inspector/**",
       "words": [

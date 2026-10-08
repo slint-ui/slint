@@ -38,22 +38,13 @@ pub struct BitmapGlyphs {
 
 #[repr(C)]
 #[derive(Debug)]
-/// An entry in the character map of a [`BitmapFont`].
-pub struct CharacterMapEntry {
-    /// The unicode code point for a given glyph
-    pub code_point: char,
-    /// The corresponding index in the `glyph_data` of [`BitmapGlyphs`]
-    pub glyph_index: u16,
-}
-
-#[repr(C)]
-#[derive(Debug)]
 /// A subset of an originally scalable font that's rendered ahead of time.
 pub struct BitmapFont {
     /// The family name of the font
     pub family_name: Slice<'static, u8>,
-    /// A vector of code points and their corresponding glyph index, sorted by code point.
-    pub character_map: Slice<'static, CharacterMapEntry>,
+    /// The code points that have a glyph, sorted.
+    /// A code point's position in this slice is its index in the `glyph_data` of [`BitmapGlyphs`].
+    pub character_map: Slice<'static, char>,
     /// The font supplied size of the em square.
     pub units_per_em: f32,
     /// The font ascent in design metrics (typically positive)
@@ -64,8 +55,8 @@ pub struct BitmapFont {
     pub x_height: f32,
     /// The font's cap-height.
     pub cap_height: f32,
-    /// A vector of pre-rendered glyph sets. Each glyph set must have the same number of glyphs,
-    /// which must be at least as big as the largest glyph index in the character map.
+    /// A vector of pre-rendered glyph sets. Each glyph set must have the same number of glyphs
+    /// as the character map.
     pub glyphs: Slice<'static, BitmapGlyphs>,
     /// The weight of the font in CSS units (400 is normal).
     pub weight: u16,

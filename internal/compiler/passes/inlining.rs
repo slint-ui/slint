@@ -931,6 +931,9 @@ fn duplicate_transition(
                 )
             })
             .collect(),
+        catch_all_property_animation: t.catch_all_property_animation.clone().map(|(loc, anim)| {
+            (loc, duplicate_element_with_mapping(&anim, mapping, root_component, priority_delta))
+        }),
         node: t.node.clone(),
     }
 }
@@ -997,8 +1000,8 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
     }
 
     for (prop, binding) in elem.borrow().real_bindings() {
-        if prop == "clip" {
-            // otherwise the children of the clipped items won't get moved as child of the Clip element
+        if prop == "clip" || prop.starts_with("inner-shadow-") {
+            // These are lowered to a child of this element, which sub-components don't support
             return true;
         }
 

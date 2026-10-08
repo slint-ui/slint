@@ -5,15 +5,16 @@ description: What can go wrong in the tools of Slint SC, and what we do about ea
 
 **Addresses:** ISO 26262-8 11.4.4.2 f
 
-Each potential error is a way one of the analyzed nodes can deviate from what it should do.
-They come from applying the guide words to the nodes, so the list is meant to be systematic rather than a collection of things we happened to think of.
+Each potential error is a way one of the analyzed nodes can deviate from what the node should do.
+The errors come from applying the guide words to the nodes.
+That way, the list is meant to be systematic, rather than a collection of things we happened to think of.
 
 Every error ends up in one of two places.
-If we can detect it, a detection measure covers it and a test proves the detection works.
-If we can't, it becomes a constraint on the integrator, because only they can rule it out.
+If we can detect an error, a detection measure covers the error, and a test proves that the detection works.
+If we can't detect an error, the error becomes a constraint on the integrator, because only the integrator can rule the error out.
 
 This chapter covers the tools.
-The errors of the runtime are in its [Safety Analysis](/component-documentation/safety-analysis/).
+The errors of the runtime are in the runtime's [Safety Analysis](/component-documentation/safety-analysis/).
 
 ## Slint Compiler
 
@@ -33,13 +34,10 @@ The errors of the runtime are in its [Safety Analysis](/component-documentation/
 
 ## Detection Measures and Usage Restrictions
 
-A detection measure is something we do.
-A constraint is something we ask the integrator to do, and it exists only because no detection measure covers the error.
-
 | Identifier | Measure |
 | --- | --- |
-| <span id="slint.compiler.avd.subset-check">`slint.compiler.avd.subset-check`</span> | The compiler rejects any construct outside the qualified subset and reports an error naming it. |
+| <span id="slint.compiler.avd.subset-check">`slint.compiler.avd.subset-check`</span> | The compiler rejects any construct outside the qualified subset and reports an error naming the construct. |
 | <span id="slint.compiler.avd.opaque-window">`slint.compiler.avd.opaque-window`</span> | The compiler rejects a window whose background it can't prove is opaque, so a frame can't depend on what the buffer held beforehand. |
-| <span id="slint.compiler.avd.resource-check">`slint.compiler.avd.resource-check`</span> | The compiler resolves every referenced asset at compile time and fails if one is missing or doesn't decode. |
+| <span id="slint.compiler.avd.resource-check">`slint.compiler.avd.resource-check`</span> | The compiler resolves every referenced asset at compile time and fails if an asset is missing or doesn't decode. |
 | <span id="slint.compiler.avd.spec-tests">`slint.compiler.avd.spec-tests`</span> | Every paragraph of the language specification is traced to at least one test. See the [Traceability Matrix](/qualification-report/traceability-matrix/). |
-| <span id="slint.coverage.avd.stated-coverage">`slint.coverage.avd.stated-coverage`</span> | Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement. The cases under `coverage/` must state it. See [Coverage Tool Verification](/qualification-plan/slint-coverage/). |
+| <span id="slint.coverage.avd.stated-coverage">`slint.coverage.avd.stated-coverage`</span> | Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement. The cases under `coverage/` must state their expected coverage. See [Coverage Tool Verification](/safety-plan/slint-coverage/). |

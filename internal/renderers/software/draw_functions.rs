@@ -389,33 +389,34 @@ impl core::ops::Mul for Shifted {
 }
 
 /// The radius of the left and right corner that `line` crosses (0 if none),
-/// and the distance of `line` from the nearest horizontal edge of `shape`.
+/// each with the distance of `line` from that corner's horizontal edge of `shape`,
+/// and the distance of `line` from the nearest horizontal edge.
 fn corner_radii_on_line(
     span: &PhysicalRect,
     line: PhysicalLength,
     shape: &super::RoundedShape,
-) -> (i16, i16, i16) {
+) -> ((i16, i16), (i16, i16), i16) {
     let y1 = (line - span.origin.y_length()) + shape.top_clip;
     let y2 = (span.origin.y_length() + span.size.height_length() - line) + shape.bottom_clip
         - PhysicalLength::new(1);
-    let y = y1.min(y2);
-    debug_assert!(y.get() >= 0);
+    let y = y1.min(y2).get();
+    debug_assert!(y >= 0);
     let r = &shape.radius;
     let left = if y1.get() < r.top_left {
-        r.top_left
+        (r.top_left, y1.get())
     } else if y2.get() < r.bottom_left {
-        r.bottom_left
+        (r.bottom_left, y2.get())
     } else {
-        0
+        (0, 0)
     };
     let right = if y1.get() < r.top_right {
-        r.top_right
+        (r.top_right, y1.get())
     } else if y2.get() < r.bottom_right {
-        r.bottom_right
+        (r.bottom_right, y2.get())
     } else {
-        0
+        (0, 0)
     };
-    (left, right, y.get())
+    (left, right, y)
 }
 
 /// Where a pixel line crosses a circle of radius `circle`,
@@ -449,7 +450,8 @@ pub(super) fn draw_rounded_rectangle_line(
 ) {
     let width = line_buffer.len();
     let shape = &rr.shape;
-    let (left_radius, right_radius, y) = corner_radii_on_line(span, line, shape);
+    let ((left_radius, left_y), (right_radius, right_y), y) =
+        corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
@@ -463,21 +465,34 @@ pub(super) fn draw_rounded_rectangle_line(
         (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
             .saturating_sub(x)
     };
-    let calculate_xxxx = |r: i16| {
+    let calculate_xxxx = |r: i16, y: i16| {
         if r == 0 {
             return (Shifted::ZERO, Shifted::ZERO, border, border);
         }
         let r = Shifted::new(r);
         let y = r - Shifted::new(y);
         let (x1, x2) = arc_crossing(r, r, y);
+        if border == Shifted::ZERO {
+            return (x1, x2, x1, x2);
+        }
         let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
         (x1, x2, x3, x4)
     };
 
-    let (x1, x2, x3, x4) = calculate_xxxx(left_radius);
-    let (x8, x7, x6, x5) =
-        if right_radius == left_radius { (x1, x2, x3, x4) } else { calculate_xxxx(right_radius) };
+    let (x1, x2, x3, x4) = calculate_xxxx(left_radius, left_y);
+    let (x8, x7, x6, x5) = if (right_radius, right_y) == (left_radius, left_y) {
+        (x1, x2, x3, x4)
+    } else {
+        calculate_xxxx(right_radius, right_y)
+    };
     let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
+    // A corner wider than half the rectangle reaches past the opposite side's border.
+    // `rev` gives line buffer positions, while the left side's are relative to the rectangle.
+    let left_clip = Shifted::new(shape.left_clip.get() + extra_left_clip);
+    let x4 = x4.min(x6 + left_clip);
+    let x3 = x3.min(x4);
+    let x5 = x5.max(x3.saturating_sub(left_clip));
+    let x6 = x6.max(x5);
     anti_alias(
         x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
         x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
@@ -718,8 +733,11 @@ pub(super) fn draw_gradient_line<T: TargetPixel>(
 ) {
     let clip = g.clip();
     let shape = &clip.shape;
-    let (left_radius, right_radius, y) =
-        if shape.radius.is_zero() { (0, 0, 0) } else { corner_radii_on_line(rect, line, shape) };
+    let ((left_radius, left_y), (right_radius, right_y), _) = if shape.radius.is_zero() {
+        ((0, 0), (0, 0), 0)
+    } else {
+        corner_radii_on_line(rect, line, shape)
+    };
     if left_radius == 0 && right_radius == 0 {
         g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
         return;
@@ -732,15 +750,19 @@ pub(super) fn draw_gradient_line<T: TargetPixel>(
     let shape_width =
         Shifted::new(len as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32);
     let border = Shifted::new(clip.opaque_border.get());
-    let arc = |r: i16| {
+    let arc = |r: i16, y: i16| {
         if r == 0 {
             return (Shifted::ZERO, Shifted::ZERO);
         }
         let r = Shifted::new(r);
         arc_crossing(r, r.saturating_sub(border), r - Shifted::new(y))
     };
-    let (l1, l2) = arc(left_radius);
-    let (r2, r1) = if right_radius == left_radius { (l1, l2) } else { arc(right_radius) };
+    let (l1, l2) = arc(left_radius, left_y);
+    let (r2, r1) = if (right_radius, right_y) == (left_radius, left_y) {
+        (l1, l2)
+    } else {
+        arc(right_radius, right_y)
+    };
     let (r1, r2) = (shape_width.saturating_sub(r1), shape_width.saturating_sub(r2));
 
     let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);

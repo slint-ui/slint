@@ -5,6 +5,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![forbid(missing_docs)]
+#![forbid(clippy::shadow_same, clippy::shadow_reuse, clippy::shadow_unrelated)]
 
 /// The size of a window, in pixels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

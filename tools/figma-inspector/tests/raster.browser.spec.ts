@@ -4,6 +4,7 @@
 import { expect, test } from "vitest";
 import { server } from "vitest/browser";
 import { normalizeSource } from "../src/plugin/normalize";
+import { captureSource } from "../src/plugin/capture";
 import { convertSnapshot } from "../src/preview/converter";
 import {
     mountPreview,
@@ -12,6 +13,58 @@ import {
     decodePng,
 } from "./browser-harness";
 import { compareScreenshotPixels } from "./screenshot-compare";
+
+test("transformed vector capture renders PNG pixels instead of the SVG fast path", async () => {
+    const p = await mountPreview();
+    const stem = `fixtures/authored/raster/asymmetric-${p.win.devicePixelRatio}x`;
+    const fixture = JSON.parse(await readFixture(`${stem}.json`));
+    const base64 = await server.commands.readFile(`${stem}.png`, "base64");
+    const bytes = Uint8Array.from(atob(base64), (value) => value.charCodeAt(0));
+    const node = {
+        ...fixture.root.properties,
+        id: "transformed-vector",
+        name: "Transformed vector",
+        type: "VECTOR",
+        absoluteTransform: [
+            [1, 0.5, 0],
+            [0, 1, 0],
+        ],
+        rotation: 0,
+        effects: [],
+        fills: [{ type: "SOLID", color: { r: 0, g: 0, b: 1 } }],
+        strokes: [],
+    } as unknown as SceneNode;
+    const captured = await captureSource(
+        node,
+        Symbol("mixed"),
+        async () =>
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32"><rect width="24" height="32" fill="blue"/></svg>',
+        undefined,
+        async () => bytes,
+        p.win.devicePixelRatio,
+    );
+    const normalized = await normalizeSource(captured.source);
+    if (!normalized.ok || normalized.empty)
+        throw Error("Invalid transformed capture");
+    for (const specialize of [false, true]) {
+        const result = convertSnapshot(normalized.snapshot, { specialize });
+        if (!result.ok) throw Error(JSON.stringify(result.diagnostics));
+        const revision = specialize ? 2 : 1;
+        p.send({
+            type: "preview-source",
+            revision,
+            source: result.source,
+            exportPackage: { source: result.source, files: [] },
+        });
+        await p.ready(revision);
+        const diff = compareScreenshotPixels(
+            await decodePng(base64),
+            await canvasPixels(p),
+            2,
+        );
+        expect(diff.differingPixels).toBe(0);
+    }
+});
 
 test("radial panel gradients preserve elliptical placement and opaque child rows", async () => {
     const normalized = await normalizeSource(

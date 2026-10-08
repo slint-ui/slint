@@ -22,6 +22,8 @@ namespace slint {
 ///
 /// Under the hood the string data is UTF-8 encoded and it is always terminated with a null
 /// character.
+/// Functions that take a `std::string_view` expect it to be UTF-8 encoded.
+/// They replace invalid sequences with U+FFFD REPLACEMENT CHARACTER.
 struct SharedString
 {
     /// Creates an empty default constructed string.
