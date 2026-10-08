@@ -1024,14 +1024,16 @@ public:
     /// Return values: `FileLoaderResult::NotFound` (compiler tries normal resolution),
     /// `FileLoaderResult::Found` (content written to `out`), or `FileLoaderResult::Error`
     /// (error message written to `out`).
-    template<std::invocable<const std::filesystem::path&> F>
-        requires(std::is_convertible_v<std::invoke_result_t<F, const std::filesystem::path&>, std::optional<std::string>>)
+    template<std::invocable<const std::filesystem::path &> F>
+        requires(std::is_convertible_v<std::invoke_result_t<F, const std::filesystem::path &>,
+                                       std::optional<std::string>>)
     void set_file_loader(F callback)
     {
         using namespace cbindgen_private;
         cbindgen_private::slint_interpreter_component_compiler_set_file_loader(
                 &inner,
-                [](void *data, Slice<Slice<uint8_t>> path_segments, SharedString *out) -> FileLoaderResult {
+                [](void *data, Slice<Slice<uint8_t>> path_segments,
+                   SharedString *out) -> FileLoaderResult {
                     std::filesystem::path path;
                     for (size_t i = 0; i < path_segments.len; ++i) {
                         const auto &seg = path_segments.ptr[i];
@@ -1049,8 +1051,7 @@ public:
                         return cbindgen_private::FileLoaderResult::Error;
                     }
                 },
-                new F(std::move(callback)),
-                [](void *data) { delete reinterpret_cast<F *>(data); });
+                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
     /// Returns the include paths the component compiler is currently configured with.
