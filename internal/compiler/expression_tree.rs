@@ -1446,7 +1446,7 @@ impl Expression {
         elem: Option<&ElementRc>,
     ) -> Option<Expression> {
         match default {
-            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::None | BuiltinPropertyDefault::Computed => None,
             BuiltinPropertyDefault::Expr(constant) => Some(Self::from_constant(constant)),
             BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
                 function: function.clone().into(),

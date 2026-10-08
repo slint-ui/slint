@@ -14,7 +14,10 @@ use crate::langtype::{BuiltinStruct, ConstantExpression, Type};
 
 #[derive(Debug, Clone)]
 pub enum BuiltinPropertyDefault {
+    /// The default of the property's type
     None,
+    /// When unset, the style or a compiler pass gives the property its value
+    Computed,
     Expr(ConstantExpression),
     /// The property is computed per element by this function, which takes the element.
     ElementFunction(BuiltinFunction),
