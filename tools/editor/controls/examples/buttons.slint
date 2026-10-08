@@ -1,0 +1,203 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, BasicTheme } from "../src/basic.slint";
+import { ButtonBase } from "../src/headless.slint";
+
+component ExampleSection inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    background: white;
+    border-color: BasicTheme.border.with-alpha(0.4);
+    border-width: 1px;
+    border-radius: 8px;
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text {
+            text: root.title;
+            color: BasicTheme.foreground;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        Text {
+            text: root.description;
+            color: BasicTheme.disabled-foreground;
+            wrap: word-wrap;
+        }
+
+        @children
+    }
+}
+
+export component ButtonExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in-out property <int> activations;
+    in-out property <int> toggles;
+    in-out property <int> custom-activations;
+
+    VerticalLayout {
+        spacing: 20px;
+        ExampleSection {
+            title: "Base theme";
+            description: "Default, primary, checkable, and disabled buttons using BasicTheme.";
+            HorizontalLayout {
+                spacing: 12px;
+                Button {
+                    text: "Activate";
+                    min-height: 40px;
+                    clicked => { root.activations += 1; }
+                }
+
+                Button {
+                    text: "Primary";
+                    primary: true;
+                    min-height: 40px;
+                    clicked => { root.activations += 1; }
+                }
+
+                toggle := Button {
+                    text: self.checked ? "Checked" : "Toggle";
+                    checkable: true;
+                    min-height: 40px;
+                    toggled(checked) => { root.toggles += 1; }
+                    clicked => { root.activations += 1; }
+                }
+
+                Button {
+                    text: "Disabled";
+                    enabled: false;
+                    min-height: 40px;
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Activations: \{root.activations}  ·  Toggles: \{root.toggles}  ·  Checked: \{toggle.checked ? "yes" : "no"}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom buttons";
+            description: "Override style properties, supply headless visuals, or replace the content.";
+            HorizontalLayout {
+                spacing: 20px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Color override";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    Button {
+                        text: "Red button";
+                        background-color: #dc2626;
+                        foreground: white;
+                        border-color: #b91c1c;
+                        min-height: 40px;
+                        clicked => { root.custom-activations += 1; }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Headless visuals";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    bare := ButtonBase {
+                        text: "tap me";
+                        min-height: 40px;
+                        content-padding-left: 16px;
+                        content-padding-right: 16px;
+                        background << Rectangle {
+                            background: bare.pressed ? #0f766e : bare.hovered ? #0d9488 : #14b8a6;
+                            border-radius: 20px;
+                            border-width: bare.has-focus ? 2px : 0px;
+                            border-color: #134e4a;
+                        }
+                        content << Text {
+                            text: bare.text;
+                            color: white;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        clicked => { root.custom-activations += 1; }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Content replacement";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    custom := Button {
+                        text: "Custom content";
+                        min-height: 40px;
+                        content << HorizontalLayout {
+                            spacing: 8px;
+                            alignment: center;
+                            VerticalLayout {
+                                width: 8px;
+                                alignment: center;
+                                Rectangle {
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 4px;
+                                    background: BasicTheme.accent;
+                                }
+                            }
+
+                            Text {
+                                text: "Custom content";
+                                color: custom.foreground;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        clicked => { root.custom-activations += 1; }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Custom activations: \{root.custom-activations}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        Text {
+            text: "Click to activate. Use Tab to focus, then release Space or Enter to activate.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}
