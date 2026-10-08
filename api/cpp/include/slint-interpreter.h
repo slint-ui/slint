@@ -1020,7 +1020,9 @@ public:
     }
 
     /// Sets a custom file loader for the compiler.
-    /// The callback is invoked with a `const std::filesystem::path&` and should return the file contents as a `std::optional<std::string>`, throw an `std::exception`, or return `std::nullopt` to use default resolution behaviour.
+    /// The callback is invoked with a `const std::filesystem::path&` and should return the file
+    /// contents as a `std::optional<std::string>`, throw an `std::exception`, or return
+    /// `std::nullopt` to use default resolution behaviour.
     /// `[](const std::filesystem::path& path) -> std::optional<std::string>`
     template<std::invocable<const std::filesystem::path &> F>
         requires(std::is_convertible_v<std::invoke_result_t<F, const std::filesystem::path &>,
