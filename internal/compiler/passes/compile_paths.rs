@@ -176,7 +176,7 @@ fn declares_path_elements(elem: &Element, path_type: &BuiltinElement) -> bool {
 }
 
 /// The path element type of `child` when it is a `MoveTo`, `LineTo`, ... element
-fn path_element_type<'a>(
+pub(crate) fn path_element_type<'a>(
     child: &ElementRc,
     path_type: &'a BuiltinElement,
 ) -> Option<&'a Arc<BuiltinElement>> {

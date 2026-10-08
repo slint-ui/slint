@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
-use crate::element_type::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode};
+use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
@@ -468,16 +468,9 @@ fn fix_percent_size(
                 && inner(false_expr, span, parent, property, diag, symbol_counters)
         } else {
             if expression.ty() != Type::Percent {
-                let Some(parent) = parent.as_ref() else { return false };
-                // Pattern match to check it was already parent.<property>
-                //
                 // Note: do not ignore debug hooks here, the debug hook may overwrite the
                 // expression so it may not fill after all.
-                return matches!(
-                    expression,
-                    Expression::PropertyReference(nr)
-                        if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent),
-                );
+                return parent.as_ref().is_some_and(|p| is_parent_size(expression, p, property));
             }
             if let Some(mut parent) = parent.clone() {
                 let flickable = parent.borrow().is_flickable_content;
@@ -495,10 +488,7 @@ fn fix_percent_size(
                 );
                 // do not ignore debug hooks here, the debug hook may overwrite the expression
                 // so it may not fill after all.
-                let fill = matches!(
-                    *expression,
-                    Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001,
-                );
+                let fill = is_parent_size(expression, &parent, property);
 
                 *expression = Expression::BinaryExpression {
                     lhs: Box::new(std::mem::take(expression).maybe_convert_to(
@@ -536,6 +526,36 @@ fn fix_percent_size(
     let binding = &mut *binding;
 
     inner(&mut binding.expression, &binding.span, parent, property, diag, symbol_counters)
+}
+
+/// Whether this pass binds `name` to the parent's when it isn't set,
+/// and an explicit binding adds nothing to the parent's implicit layout info
+pub(crate) fn fills_parent_by_default(elem: &ElementRc, parent: &ElementRc, name: &str) -> bool {
+    let orientation = match name {
+        "width" => Orientation::Horizontal,
+        "height" => Orientation::Vertical,
+        _ => return false,
+    };
+    let elem_base = &elem.borrow().base_type;
+    let ElementType::Builtin(elem_type) = elem_base else { return false };
+    let ElementType::Builtin(parent_type) = &parent.borrow().base_type else { return false };
+    let parent_positions_children = parent_type.default_size_binding != DefaultSizeBinding::None
+        || matches!(parent_type.name.as_str(), "Empty" | "Window" | "PopupWindow");
+    elem_type.default_size_binding == DefaultSizeBinding::ExpandsToParentGeometry
+        && crate::layout::has_no_intrinsic_size(elem_base)
+        && parent_positions_children
+        && !super::flickable::is_flickable_element(parent)
+        && !LayoutConstraints::build(elem, None, MergedFixedSize::Ignored)
+            .has_explicit_restrictions(orientation)
+}
+
+/// Whether `value` is the size of `parent`, either `100%` or `parent.<name>`
+pub(crate) fn is_parent_size(value: &Expression, parent: &ElementRc, name: &str) -> bool {
+    match value {
+        Expression::NumberLiteral(v, Unit::Percent) => (*v - 100.).abs() < 0.001,
+        Expression::PropertyReference(nr) => nr.name() == name && Rc::ptr_eq(&nr.element(), parent),
+        _ => false,
+    }
 }
 
 /// Generate a size property that covers the parent.
