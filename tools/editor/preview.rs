@@ -385,6 +385,13 @@ fn delete_document(url: &lsp_types::Url) {
 
 fn reset_project_state(root: Url) {
     let (api, editor_ui) = PREVIEW_STATE.with_borrow_mut(|state| {
+        tracing::debug!(
+            %root,
+            current_component = ?state.current_previewed_component,
+            loading_state = ?state.loading_state,
+            load_behavior = ?state.current_load_behavior,
+            "Preview: resetting project state"
+        );
         state.property_range_declarations = None;
         state.handle.replace(None);
         state.document_cache.replace(None);
@@ -2093,6 +2100,7 @@ pub fn reload_preview() {
 }
 
 async fn reload_timer_function() {
+    tracing::debug!("Preview: reload task started");
     let (selected, notify_editor) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let notify_editor = preview_state.notify_editor_about_selection_after_update;
         preview_state.notify_editor_about_selection_after_update = false;
@@ -2102,6 +2110,12 @@ async fn reload_timer_function() {
     loop {
         let Some((preview_component, config, behavior, project_generation)) = PREVIEW_STATE
             .with_borrow_mut(|preview_state| {
+                tracing::debug!(
+                    current_component = ?preview_state.current_previewed_component,
+                    loading_state = ?preview_state.loading_state,
+                    load_behavior = ?preview_state.current_load_behavior,
+                    "Preview: taking queued reload"
+                );
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
 
@@ -2118,6 +2132,7 @@ async fn reload_timer_function() {
                 ))
             })
         else {
+            tracing::debug!("Preview: no queued component to reload");
             return;
         };
         // An empty style lets the compiler apply its own default (and SLINT_STYLE);
@@ -2204,6 +2219,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
         preview_state.current_load_behavior = Some(behavior);
 
+        tracing::debug!(loading_state = ?preview_state.loading_state, "Preview: scheduling reload");
+
         match preview_state.loading_state {
             PreviewFutureState::Pending => {}
             PreviewFutureState::Loading => {
@@ -2224,7 +2241,10 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                     slint::TimerMode::SingleShot,
                     i_slint_live_preview::REBUILD_DEBOUNCE,
                     || {
-                        let _ = slint::spawn_local(reload_timer_function());
+                        tracing::debug!("Preview: reload timer fired");
+                        if let Err(error) = slint::spawn_local(reload_timer_function()) {
+                            tracing::error!(%error, "Preview: failed to spawn reload");
+                        }
                     },
                 );
                 timer
@@ -2286,6 +2306,7 @@ async fn parse_source(
             )]),
         );
 
+    tracing::debug!(%path, "Preview: compiling source");
     let result =
         builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
 
@@ -2301,6 +2322,7 @@ async fn reload_preview_impl(
     config: PreviewConfig,
     project_generation: u64,
 ) -> Result<(), PlatformError> {
+    tracing::debug!(url = %component.url, "Preview: starting reload");
     start_parsing();
 
     if let Some(component_instance) = component_instance() {
@@ -2335,7 +2357,9 @@ async fn reload_preview_impl(
             Box::pin(async move {
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
-                Some(get_path_from_cache(&path))
+                let result = get_path_from_cache(&path);
+                tracing::debug!(%path, loaded = result.is_ok(), "Preview: loading import from cache");
+                Some(result)
             })
         },
     )
