@@ -3982,6 +3982,14 @@ fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
                     let fields = lhs.fields.keys().map(|name| ident(name));
                     quote!({ let obj = #f; (#(obj.#fields,)*) })
                 }
+                (sourcestruct, targetstruct) if sourcestruct != targetstruct => {
+                    let fields = lhs.fields.keys().map(|name| {
+                        let name = ident(name);
+                        quote!(the_struct.#name = obj.#name.clone() as _;)
+                    });
+                    let id = struct_name_to_tokens(targetstruct).unwrap();
+                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
+                }
                 _ => f,
             }
         }

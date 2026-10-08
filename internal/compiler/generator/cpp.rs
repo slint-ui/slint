@@ -4369,6 +4369,17 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                                 rhs.fields.keys().map(|n| format!("o.{}", ident(n))).join(", ")
                             )
                         }
+                        (sourcestruct, targetstruct) if sourcestruct != targetstruct => {
+                            format!(
+                                "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({f})",
+                                struct_name = to.cpp_type().unwrap(),
+                                fields = lhs
+                                    .fields
+                                    .keys()
+                                    .map(|n| format!("s.{0} = o.{0}; ", ident(n)))
+                                    .join(""),
+                            )
+                        }
                         _ => f,
                     }
                 }
