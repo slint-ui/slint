@@ -56,11 +56,11 @@ component ElementsUnavailableNotice inherits Rectangle {
             alignment: center;
 
             BodyLabel {
-                text: "Unavailable for images";
+                text: @tr("Unavailable for images");
             }
 
             MutedLabel {
-                text: "Open a component to drag elements.";
+                text: @tr("Open a component to drag elements.");
                 wrap: word-wrap;
             }
         }
@@ -154,7 +154,7 @@ component ElementPaletteRows inherits VerticalLayout {
 
     EditorScrollView {
         accessible-role: AccessibleRole.list;
-        accessible-label: "Element library";
+        accessible-label: @tr("Element library");
         min-height: 0px;
         vertical-stretch: 1;
         content-width: self.width;
@@ -177,7 +177,7 @@ component ElementPaletteRows inherits VerticalLayout {
                 if Api.element-library.length > 0 && !Api.element-library-has-matches(Api.element-library, root.query): MutedLabel {
                     width: parent.width;
                     height: parent.height;
-                    text: "No Results";
+                    text: @tr("No Results");
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
@@ -194,11 +194,11 @@ export component ElementPalette inherits Rectangle {
             padding: Metrics.space-medium;
             padding-bottom: 0px;
 
-            SectionTitle { label: "ELEMENTS"; }
+            SectionTitle { label: @tr("ELEMENTS"); }
 
             search := PrimerTextInput {
-                placeholder: "Search elements…";
-                accessible-name: "Search elements";
+                placeholder: @tr("Search elements…");
+                accessible-name: @tr("Search elements");
                 background: Colors.subtle;
             }
 
