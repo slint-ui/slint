@@ -1898,12 +1898,7 @@ fn change_style() {
 }
 
 fn start_parsing() {
-    set_status_text("Updating Preview...");
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(api) = preview_state.api.upgrade() {
-            ui::set_diagnostics(&api, &[]);
-        }
-    });
+    ui::diagnostics::set_compiling(true);
 }
 
 fn extract_resources(
@@ -1929,7 +1924,7 @@ fn extract_resources(
 }
 
 fn finish_parsing() {
-    set_status_text("");
+    ui::diagnostics::set_compiling(false);
 }
 
 fn previewed_component_changed() {
@@ -2404,11 +2399,9 @@ async fn reload_preview_impl(
     );
 
     let lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(api) = preview_state.api.upgrade() {
-            if api.get_auto_clear_console() {
-                ui::log_messages::clear_log_messages_impl(&api);
-            }
-            ui::set_diagnostics(&api, &diagnostics);
+        if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
+            ui::diagnostics::clear_diagnostics(&editor_ui.global::<ui::Diagnostics>());
+            ui::diagnostics::set_diagnostics(&editor_ui.global::<ui::Diagnostics>(), &diagnostics);
         }
         preview_state.to_lsp.borrow().clone().unwrap()
     });
@@ -2475,10 +2468,10 @@ fn set_preview_factory(
                 .map(|location| (location.path.to_shared_string(), location.line, location.column));
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
-                    if let Some(api) = preview_state.api.upgrade() {
-                        ui::log_messages::append_log_message(
-                            &api,
-                            ui::LogMessageLevel::Debug,
+                    if let Some(editor_ui) = preview_state.editor_ui.as_ref() {
+                        ui::diagnostics::append_diagnostic(
+                            &editor_ui.global::<ui::Diagnostics>(),
+                            ui::DiagnosticLevel::Debug,
                             location,
                             &message,
                         );
@@ -2813,19 +2806,6 @@ pub fn get_current_style() -> String {
             String::new()
         }
     })
-}
-
-fn set_status_text(text: &str) {
-    let text = text.to_string();
-
-    i_slint_core::api::invoke_from_event_loop(move || {
-        PREVIEW_STATE.with_borrow(|preview_state| {
-            if let Some(api) = preview_state.api.upgrade() {
-                api.set_status_text(text.into());
-            }
-        });
-    })
-    .unwrap();
 }
 
 /// This ensure that the preview window is visible and runs `set_preview_factory`
