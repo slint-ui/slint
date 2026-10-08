@@ -1,0 +1,2026 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// cSpell: ignore tnum wasd
+
+// Barlow Semi Condensed with its tabular digits made the default, so race numbers don't jitter.
+import "./fonts/BarlowSemiCondensedTnum-Medium.ttf";
+import "./fonts/BarlowSemiCondensedTnum-SemiBold.ttf";
+import "./fonts/BarlowSemiCondensedTnum-Bold.ttf";
+
+global Theme {
+    // 0: broadcast, in the hall's LED cyan; 1: industrial, in safety amber on warm graphite;
+    // 2: cyber, in neutral steel under the hall's cyan lights. Slint blue marks state in all three.
+    in-out property <int> look: 2;
+    pure function pick(broadcast: color, industrial: color, cyber: color) -> color {
+        return self.look == 1 ? industrial : self.look == 2 ? cyber : broadcast;
+    }
+
+    out property <color> background: self.pick(#05070a, #0b0b0a, #05070b);
+    // Controls are opaque. Plates let only the brightest lights of the hall glow through,
+    // since lower opacity makes the wall screens read through the data.
+    out property <color> plate: self.pick(#080b10, #10100f, #080b10);
+    out property <color> plate-glass: self.plate.with-alpha(0.92);
+    out property <color> plate-hover: self.pick(#111720, #1b1b19, #111721);
+    // The lit rule along the top of every plate.
+    out property <color> rule: self.pick(#9be3ffa6, #f2a33ad9, #c3d0dc80);
+    out property <length> rule-height: self.look == 1 ? 2px : 1px;
+    // A soft glow below the rule, and an outline around the plate.
+    out property <color> rule-glow: self.pick(transparent, transparent, #c3d0dc12);
+    out property <color> plate-outline: self.pick(transparent, transparent, #c3d0dc14);
+    out property <color> hairline: self.pick(#ffffff1f, #fff2dc1f, #c8d4e021);
+    out property <color> hairline-strong: self.pick(#ffffff3d, #fff2dc3d, #c8d4e040);
+    // The outline of a control, at 3:1 against a plate.
+    out property <color> control-border: self.pick(#58626e, #655f57, #56626f);
+    out property <color> field: self.pick(#ffffff0a, #fff2dc0a, #c8d4e00a);
+    out property <color> field-hover: self.pick(#ffffff14, #fff2dc14, #c8d4e014);
+    out property <color> field-pressed: self.pick(#ffffff24, #fff2dc24, #c8d4e024);
+    out property <color> text: self.pick(#e8eef4, #ece8e1, #e6ecf2);
+    out property <color> text-dim: self.pick(#8a96a3, #9b958b, #8d9aa8);
+    // Labels carry the look's tint.
+    out property <color> label: self.pick(#8a96a3, #d1a868, #9aa8b6);
+    out property <color> text-faint: self.pick(#717c88, #857d73, #717e8c);
+    // Slint blue marks the active state: the selected option, the next gate, a pressed control.
+    out property <color> accent: #2379f4;
+    out property <color> accent-text: #6aa5fa;
+    out property <color> battery: self.pick(#4cc38a, #8cc152, #c3cdd8);
+    out property <color> battery-low: #ff5a4f;
+    // Hit areas stay at least this big, even where the visuals are smaller.
+    out property <length> touch-target: 44px;
+}
+
+// A broadcast-graphics plate: square, nearly opaque, with a lit rule along the top.
+component Plate inherits Rectangle {
+    background: Theme.plate-glass;
+    border-width: 1px;
+    border-color: Theme.plate-outline;
+
+    Rectangle {
+        y: Theme.rule-height;
+        height: 8px;
+        background: @linear-gradient(180deg, Theme.rule-glow 0%, transparent 100%);
+    }
+
+    Rectangle {
+        y: 0;
+        height: Theme.rule-height;
+        background: Theme.rule;
+    }
+}
+
+// A section heading, in spaced capitals.
+component Label inherits Text {
+    color: Theme.label;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+}
+
+// The name of a value, quieter than a heading.
+component Caption inherits Text {
+    color: Theme.text-dim;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+// Path commands in a 16 x 16 box, drawn as 1.5 px strokes.
+global Icons {
+    out property <string> sliders: "M 2 4 L 14 4 M 2 8 L 14 8 M 2 12 L 14 12 M 5 2 L 5 6 M 11 6 L 11 10 M 7 10 L 7 14";
+    out property <string> up: "M 3 10 L 8 5 L 13 10";
+    out property <string> down: "M 3 6 L 8 11 L 13 6";
+}
+
+component Icon inherits Path {
+    in property <string> icon;
+    commands: root.icon;
+    width: 16px;
+    height: 16px;
+    viewbox-width: 16;
+    viewbox-height: 16;
+    stroke-width: 1.5px;
+    stroke-line-cap: square;
+}
+
+// The touch, keyboard, and accessibility handling that all buttons share.
+component ButtonBase inherits Rectangle {
+    in property <string> label;
+    in property <bool> checkable;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    out property <bool> pressed: touch.pressed;
+    out property <bool> hovered: touch.has-hover;
+    callback clicked;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    // Reached with Tab only: a click leaves the focus with the window, so Space keeps boosting.
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return {
+                root.clicked();
+                return EventResult.accept;
+            }
+            EventResult.reject
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    // In the text color, so it shows on Slint blue as well.
+    if focus.has-focus: Rectangle {
+        border-width: 2px;
+        border-color: Theme.text;
+    }
+}
+
+component ButtonText inherits Text {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
+
+component TouchButton inherits ButtonBase {
+    // Outlines the button in Slint blue, such as while it waits for a confirming tap.
+    in property <bool> highlighted;
+
+    min-width: Theme.touch-target;
+    height: Theme.touch-target;
+    border-width: 1px;
+    border-color: root.highlighted ? Theme.accent : root.hovered ? Theme.text-dim : Theme.control-border;
+    background: root.pressed ? Theme.field-pressed : root.hovered ? Theme.field-hover : Theme.field;
+    animate background, border-color { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        ButtonText {
+            text: root.label;
+            color: root.highlighted ? Theme.accent-text : Theme.text;
+        }
+    }
+}
+
+component PrimaryButton inherits ButtonBase {
+    min-width: 150px;
+    height: 48px;
+    background: root.pressed ? Theme.accent.darker(0.25) : root.hovered ? Theme.accent.brighter(0.12) : Theme.accent;
+    animate background { duration: 120ms; }
+
+    // At 19 px bold the label counts as large text, which needs 3:1 against Slint blue.
+    ButtonText {
+        text: root.label.to-uppercase();
+        color: Theme.text;
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: 2px;
+    }
+}
+
+// A square plate button with a line icon, for overlays on the 3D view.
+component IconButton inherits ButtonBase {
+    in property <string> icon;
+
+    width: Theme.touch-target;
+    height: Theme.touch-target;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : root.hovered ? Theme.text-dim : Theme.control-border;
+    background: root.pressed ? Theme.field-pressed : root.hovered ? Theme.plate-hover : Theme.plate;
+    animate background, border-color { duration: 120ms; }
+
+    Icon {
+        icon: root.icon;
+        stroke: root.checked ? Theme.accent-text : Theme.text;
+    }
+}
+
+// Options side by side; the selected one lights up with an accent bar underneath.
+component Segmented inherits Rectangle {
+    in property <string> label;
+    in property <[string]> options;
+    in property <int> current;
+    callback selected(index: int);
+
+    height: Theme.touch-target + 2px;
+    border-width: 1px;
+    border-color: Theme.control-border;
+    background: Theme.field;
+    accessible-role: radio-group;
+    accessible-label: root.label;
+
+    HorizontalLayout {
+        padding: 1px;
+        spacing: 1px;
+        for option[index] in root.options: cell := ButtonBase {
+            label: option;
+            checked: index == root.current;
+            accessible-role: radio-button;
+            clicked => {
+                root.selected(index);
+            }
+            background: self.checked || self.pressed ? Theme.field-pressed : self.hovered ? Theme.field-hover : transparent;
+            animate background { duration: 120ms; }
+
+            ButtonText {
+                text: option;
+                color: cell.checked || cell.hovered ? Theme.text : Theme.text-dim;
+            }
+
+            if cell.checked: Rectangle {
+                y: parent.height - self.height;
+                height: 2px;
+                background: Theme.accent;
+            }
+        }
+    }
+}
+
+export enum Phase {
+    ready,
+    countdown,
+    flying,
+    // After the last lap, while the drone glides on.
+    finished,
+}
+
+export struct MapPoint {
+    x: float,
+    y: float,
+}
+
+// One drone in the standings.
+export struct Standing {
+    name: string,
+    color: color,
+    // Behind the leader, such as "+1.4"; empty for the leader and before the start.
+    gap: string,
+    player: bool,
+}
+
+// A rival drone on the map.
+// The player's finished race.
+export struct RaceResult {
+    // From 1.
+    place: int,
+    time: string,
+    // The average speed, in km/h.
+    speed: string,
+    // Whether it makes the leaderboard and isn't saved yet.
+    qualifies: bool,
+    // Whether the autopilot flew part of it.
+    autopilot: bool,
+}
+
+// A row of the leaderboard.
+export struct ScoreRow {
+    initials: string,
+    speed: string,
+    // The race saved last.
+    highlight: bool,
+}
+
+export struct RivalDot {
+    x: float,
+    y: float,
+    color: color,
+}
+
+// A finished lap, shown for a few seconds after crossing the line.
+export struct LapResult {
+    shown: bool,
+    lap: int,
+    time: string,
+    // Against the best lap before this one, such as "−1.08"; empty for the first lap.
+    delta: string,
+    improved: bool,
+    best: bool,
+    // While set, the lap clock still shows this lap's time.
+    held: bool,
+    // From 0 when the lap finishes to 1 when the result disappears.
+    progress: float,
+}
+
+// A virtual thumb stick: drag the knob, it springs back when released.
+component Joystick inherits Rectangle {
+    out property <float> axis-x;
+    out property <float> axis-y;
+    // While set, the stick shows `shown`; a touch emits `take-over` and steers from then on.
+    in property <bool> driven;
+    in property <MapPoint> shown;
+    callback take-over();
+    property <float> knob-x: root.driven ? root.shown.x : root.axis-x;
+    property <float> knob-y: root.driven ? root.shown.y : root.axis-y;
+    property <length> travel: self.width / 2 - 26px;
+    property <bool> active: touch.pressed || root.driven;
+
+    function track(x: length, y: length) {
+        let dx = (x - self.width / 2) / self.travel;
+        let dy = (self.height / 2 - y) / self.travel;
+        let scale = 1 / max(1, sqrt(dx * dx + dy * dy));
+        self.axis-x = dx * scale;
+        self.axis-y = dy * scale;
+    }
+
+    width: 150px;
+    height: 150px;
+    border-radius: self.width / 2;
+    border-width: 1px;
+    border-color: root.active ? Theme.rule : Theme.control-border;
+    background: Theme.plate;
+    accessible-role: groupbox;
+    accessible-label: "Steering stick, or W A S D and the arrow keys";
+
+    // Crosshair through the center, like a gimbal's travel guide.
+    Rectangle {
+        width: parent.width - 28px;
+        height: 1px;
+        background: Theme.hairline;
+    }
+
+    Rectangle {
+        width: 1px;
+        height: parent.height - 28px;
+        background: Theme.hairline;
+    }
+
+    Rectangle {
+        x: parent.width / 2 - self.width / 2 + root.knob-x * root.travel;
+        y: parent.height / 2 - self.height / 2 - root.knob-y * root.travel;
+        width: 44px;
+        height: 44px;
+        border-radius: self.width / 2;
+        border-width: 2px;
+        border-color: root.active ? Theme.accent : Theme.text-dim;
+        background: root.active ? Theme.accent : Theme.plate-hover;
+        animate x, y { duration: root.active ? 0ms : 160ms; easing: ease-out; }
+    }
+
+    touch := TouchArea {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                if root.driven {
+                    root.take-over();
+                }
+                root.track(self.mouse-x, self.mouse-y);
+            } else if event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel {
+                root.axis-x = 0;
+                root.axis-y = 0;
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.track(self.mouse-x, self.mouse-y);
+            }
+        }
+    }
+}
+
+// A top-down map of the course with the gates and the drone, in meters, fitted to the course.
+component Minimap inherits Rectangle {
+    in property <[MapPoint]> track;
+    in property <[MapPoint]> gates;
+    in property <MapPoint> lower;
+    in property <MapPoint> upper;
+    in property <int> next-gate;
+    in property <bool> racing;
+    in property <MapPoint> drone;
+    in property <float> heading;
+    in property <[RivalDot]> rivals;
+    property <length> inset: 12px;
+    property <length> per-meter: min((self.width - 2 * self.inset) / max(1, root.upper.x - root.lower.x), (self.height - 2 * self.inset) / max(1, root.upper.y - root.lower.y));
+
+    function at-x(value: float) -> length {
+        return self.width / 2 + (value - (root.lower.x + root.upper.x) / 2) * self.per-meter;
+    }
+    function at-y(value: float) -> length {
+        return self.height / 2 + (value - (root.lower.y + root.upper.y) / 2) * self.per-meter;
+    }
+
+    border-width: 1px;
+    border-color: Theme.hairline;
+    background: Theme.field;
+    clip: true;
+    accessible-role: image;
+    accessible-label: "Course map";
+
+    for point in root.track: Rectangle {
+        x: root.at-x(point.x) - 1px;
+        y: root.at-y(point.y) - 1px;
+        width: 2px;
+        height: 2px;
+        background: Theme.hairline-strong;
+    }
+
+    for gate[index] in root.gates: Rectangle {
+        property <bool> next: root.racing && index == root.next-gate;
+        x: root.at-x(gate.x) - self.width / 2;
+        y: root.at-y(gate.y) - self.height / 2;
+        width: self.next ? 9px : 5px;
+        height: self.width;
+        background: self.next ? Theme.accent : root.racing && index < root.next-gate ? Theme.text-faint : Theme.text;
+    }
+
+    for rival in root.rivals: Rectangle {
+        x: root.at-x(rival.x) - self.width / 2;
+        y: root.at-y(rival.y) - self.height / 2;
+        width: 7px;
+        height: 7px;
+        border-radius: self.width / 2;
+        background: rival.color;
+    }
+
+    Path {
+        x: root.at-x(root.drone.x) - self.width / 2;
+        y: root.at-y(root.drone.y) - self.height / 2;
+        width: 14px;
+        height: 14px;
+        commands: "M 0 -6 L 4.5 5 L 0 2.5 L -4.5 5 Z";
+        viewbox-x: -7;
+        viewbox-y: -7;
+        viewbox-width: 14;
+        viewbox-height: 14;
+        fill: Theme.text;
+        transform-rotation: root.heading * 1deg;
+    }
+}
+
+// One letter of the player's initials, changed with the arrows like on an arcade machine.
+component LetterSpinner inherits VerticalLayout {
+    in property <string> letter;
+    in property <bool> selected;
+    callback step(by: int);
+    spacing: 2px;
+
+    IconButton {
+        icon: Icons.up;
+        label: "Next letter";
+        clicked => {
+            root.step(1);
+        }
+    }
+
+    Rectangle {
+        width: Theme.touch-target;
+        height: 48px;
+        background: Theme.field;
+
+        Text {
+            text: root.letter;
+            color: Theme.text;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        if root.selected: Rectangle {
+            y: parent.height - self.height;
+            height: 2px;
+            background: Theme.accent;
+        }
+    }
+
+    IconButton {
+        icon: Icons.down;
+        label: "Previous letter";
+        clicked => {
+            root.step(-1);
+        }
+    }
+}
+
+component Stat inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> unit;
+    // Shows a placeholder, for a lap time that isn't set yet.
+    property <bool> empty: root.value == "";
+
+    spacing: 0;
+    Caption {
+        text: root.label;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 4px;
+        Text {
+            text: root.empty ? "None yet" : root.value;
+            color: root.empty ? Theme.text-faint : Theme.text;
+            font-size: 20px;
+            font-weight: 500;
+            vertical-alignment: bottom;
+            accessible-label: root.label + " " + (root.empty ? "not set" : root.value + " " + root.unit);
+        }
+
+        Text {
+            text: root.unit;
+            color: Theme.text-dim;
+            font-size: 14px;
+            font-weight: 500;
+            vertical-alignment: bottom;
+        }
+    }
+}
+
+// A key and what it does, for the shortcut list.
+component Shortcut inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> action;
+    spacing: 8px;
+
+    Text {
+        width: 40px;
+        text: root.key;
+        color: Theme.text;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    Text {
+        text: root.action;
+        color: Theme.text-dim;
+        font-size: 13px;
+        font-weight: 500;
+    }
+}
+
+// The pilot and camera switches, and the buttons to restart and to change the course.
+component RaceControls inherits VerticalLayout {
+    in property <bool> autopilot;
+    in property <bool> assist;
+    in property <int> camera;
+    // 1: restart, 2: new course, waiting for a confirming second press.
+    in property <int> armed;
+    callback pilot-selected(index: int);
+    callback camera-selected(index: int);
+    callback request(action: int);
+    spacing: 8px;
+
+    Label {
+        text: "PILOT";
+    }
+
+    Segmented {
+        label: "Pilot";
+        options: ["Assist", "Manual", "Auto"];
+        current: root.autopilot ? 2 : root.assist ? 0 : 1;
+        selected(index) => {
+            root.pilot-selected(index);
+        }
+    }
+
+    Label {
+        text: "CAMERA";
+    }
+
+    Segmented {
+        label: "Camera";
+        options: ["Chase", "FPV"];
+        current: root.camera;
+        selected(index) => {
+            root.camera-selected(index);
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 8px;
+        TouchButton {
+            label: root.armed == 1 ? "Tap to restart" : "Restart";
+            highlighted: root.armed == 1;
+            clicked => {
+                root.request(1);
+            }
+        }
+
+        TouchButton {
+            label: root.armed == 2 ? "Tap for new" : "New course";
+            highlighted: root.armed == 2;
+            clicked => {
+                root.request(2);
+            }
+        }
+    }
+}
+
+// A line between groups of settings.
+component SettingsDivider inherits Rectangle {
+    height: 9px;
+
+    Rectangle {
+        height: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// How the hall looks, and in how much detail.
+component DisplaySettings inherits VerticalLayout {
+    in property <int> look;
+    in property <int> quality;
+    callback look-selected(index: int);
+    callback quality-selected(index: int);
+    spacing: 8px;
+
+    Label {
+        text: "LOOK";
+    }
+
+    Segmented {
+        label: "Look";
+        options: ["Broadcast", "Industrial", "Cyber"];
+        current: root.look;
+        selected(index) => {
+            root.look-selected(index);
+        }
+    }
+
+    Label {
+        text: "QUALITY";
+    }
+
+    Segmented {
+        label: "Quality";
+        options: ["Low", "High"];
+        current: root.quality;
+        selected(index) => {
+            root.quality-selected(index);
+        }
+    }
+}
+
+// The keyboard shortcuts, the GPU, and the frame rate.
+component AboutSettings inherits VerticalLayout {
+    in property <string> gpu;
+    in property <string> fps;
+    spacing: 8px;
+
+    Label {
+        text: "KEYS";
+    }
+
+    GridLayout {
+        spacing-horizontal: 12px;
+        spacing-vertical: 3px;
+        Row {
+            Shortcut {
+                key: "WASD";
+                action: "Steer";
+            }
+
+            Shortcut {
+                key: "Space";
+                action: "Boost";
+            }
+        }
+
+        Row {
+            Shortcut {
+                key: "Enter";
+                action: "Fly";
+            }
+
+            Shortcut {
+                key: "P";
+                action: "Autopilot";
+            }
+        }
+
+        Row {
+            Shortcut {
+                key: "C";
+                action: "Camera";
+            }
+
+            Shortcut {
+                key: "Q";
+                action: "Quality";
+            }
+        }
+
+        Row {
+            Shortcut {
+                key: "R";
+                action: "Restart";
+            }
+
+            Shortcut {
+                key: "N";
+                action: "New course";
+            }
+        }
+
+        Row {
+            Shortcut {
+                key: "L";
+                action: "Look";
+            }
+
+            Shortcut {
+                key: "Esc";
+                action: "Close settings";
+            }
+        }
+    }
+
+    Label {
+        text: "GPU";
+    }
+
+    Text {
+        text: root.gpu;
+        color: Theme.text;
+        font-size: 14px;
+        font-weight: 500;
+        wrap: word-wrap;
+    }
+
+    Label {
+        text: "FRAME RATE";
+    }
+
+    Text {
+        text: root.fps;
+        color: Theme.text;
+        font-size: 14px;
+        font-weight: 500;
+    }
+}
+
+// The gates of a lap, like the sectors of a timing screen.
+component GateSectors inherits HorizontalLayout {
+    in property <int> count;
+    // The next gate, or -1 outside a race.
+    in property <int> next;
+    spacing: 3px;
+    accessible-role: progress-indicator;
+    accessible-label: "Gates passed";
+    accessible-value: max(0, root.next);
+    accessible-value-minimum: 0;
+    accessible-value-maximum: root.count;
+
+    for index in root.count: Rectangle {
+        background: index == root.next ? Theme.accent : index < root.next ? Theme.text-faint : Theme.field-pressed;
+    }
+}
+
+component BatteryBar inherits Rectangle {
+    // From 0 to 1.
+    in property <float> level;
+    background: Theme.field-pressed;
+    accessible-role: progress-indicator;
+    accessible-label: "Battery";
+    accessible-value: round(max(0, root.level) * 100);
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 100;
+
+    Rectangle {
+        x: 0;
+        width: parent.width * max(0, root.level);
+        background: root.level < 0.2 ? Theme.battery-low : Theme.battery;
+    }
+}
+
+// The running lap time, in the accent color while a best lap shows.
+component LapClock inherits Text {
+    in property <bool> best;
+    color: root.best ? Theme.accent-text : Theme.text;
+    font-weight: 600;
+    accessible-label: "Lap time " + self.text;
+}
+
+export component AppWindow inherits Window {
+    in property <image> texture;
+    in property <[MapPoint]> track;
+    in property <[MapPoint]> gates;
+    in property <MapPoint> map-lower;
+    in property <MapPoint> map-upper;
+    in property <string> course-text;
+
+    in property <Phase> phase;
+    in property <string> countdown-text;
+    in property <float> countdown-progress;
+    in property <int> lap;
+    in property <string> lap-time;
+    in property <string> last-lap;
+    in property <string> best-lap;
+    in property <LapResult> lap-result;
+    in property <int> next-gate;
+    in property <float> speed;
+    in property <float> altitude;
+    in property <float> battery;
+    // From 0 to 1; boosting uses it up, and it refills slowly and with every gate.
+    in property <float> boost-charge;
+    // Unset from when the charge runs out until enough of it came back.
+    in property <bool> boost-ready: true;
+    in property <MapPoint> drone-position;
+    in property <float> drone-heading;
+    // Why the last run ended, and how it went.
+    in property <string> message;
+    in property <string> summary;
+    in property <MapPoint> autopilot-stick;
+    in property <[Standing]> standings;
+    in property <[RivalDot]> rivals;
+    // The player's place in the standings, from 1.
+    in property <int> place;
+    // Shown for a moment after a missed gate, such as "Missed gate +2.0 s".
+    in property <string> penalty;
+    in property <int> laps;
+    in property <RaceResult> result;
+    // The top of the leaderboard.
+    in property <[ScoreRow]> scores;
+    in property <string> fps-text;
+    in property <string> gpu-text;
+
+    in-out property <int> quality-index: 1;
+    property <int> camera-index;
+    property <bool> autopilot: true;
+    property <bool> assist: true;
+    property <bool> settings-open;
+    // 1: restart, 2: new course, waiting for a confirming second press.
+    property <int> armed;
+    property <bool> racing-manually: root.phase == Phase.flying && !root.autopilot;
+    // Opening the settings in the middle of a manual run pauses the race.
+    property <bool> paused: root.settings-open && root.racing-manually;
+    // The layout follows the window: a side panel with everything when there's room, a slim
+    // timing tower with the controls moved to the settings in short or narrow windows, and a
+    // timing strip across the top in portrait windows.
+    property <bool> portrait: root.height > root.width;
+    property <bool> full: !root.portrait && root.width >= 1100px && root.height >= 700px;
+    property <length> margin: root.full ? 16px : 10px;
+    // The panel with the minimap needs about 690 px.
+    property <bool> room-for-map: root.full && root.height >= 730px;
+    property <length> panel-width: root.full ? 320px : root.portrait ? 0 : 236px;
+    // The part of the window beside the panel, where the drone is framed.
+    property <length> scene-width: root.portrait ? root.width - 2 * root.margin : root.width - root.panel-width - 2 * root.margin;
+    // Where right-aligned overlays in the scene end.
+    property <length> scene-right: root.portrait ? root.width - root.margin : root.scene-width;
+    // Where overlays below the top row of the scene start.
+    property <length> top-inset: root.portrait ? strip.y + strip.height + 8px : root.margin;
+    property <float> view-shift: root.width > 0 && !root.portrait ? (root.panel-width + 2 * root.margin) / root.width : 0;
+    // Narrow scenes stack the invitation to race.
+    property <bool> narrow-scene: root.scene-width < 640px;
+    // Where the settings start, the height they have, and how many columns fit.
+    property <length> settings-top: root.top-inset + Theme.touch-target + 8px;
+    property <length> settings-room: root.height - root.settings-top - root.margin;
+    property <length> settings-column-width: root.settings-columns == 1 ? 268px : min(268px, (root.width - 2 * root.margin - 32px - (root.settings-columns - 1) * 20px) / root.settings-columns);
+    property <int> settings-columns: root.settings-room >= 740px ? 1 : root.settings-room >= 490px && root.width >= 528px ? 2 : root.width >= 744px ? 3 : 1;
+    property <int> gates-passed: root.phase == Phase.flying ? root.next-gate : -1;
+    property <string> lap-text: "LAP " + root.lap + " / " + root.laps;
+    property <string> place-text: "P" + root.place + " / " + root.standings.length;
+    property <string> place-label: "Place " + root.place + " of " + root.standings.length;
+    property <bool> show-standings: root.phase != Phase.ready && !(root.portrait && root.phase == Phase.finished);
+    // The steering hint shows for the first seconds of an autopilot race.
+    property <bool> show-steer-hint;
+
+    // Once the scene shows, the panels slide in from the window's edges, one after the other.
+    // Restarting or changing the course slides them out quickly and in again.
+    property <bool> scene-shown;
+    property <bool> replaying;
+    property <bool> started: root.scene-shown && !root.replaying;
+    property <float> enter-left: root.started ? 1 : 0;
+    property <float> enter-right: root.started ? 1 : 0;
+    property <float> enter-bottom: root.started ? 1 : 0;
+    animate enter-left {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 120ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    animate enter-right {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 240ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    animate enter-bottom {
+        duration: root.started ? 650ms : 220ms;
+        delay: root.started ? 360ms : 0ms;
+        easing: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    // Where a panel resting at `rest` is while it slides in from an edge, as `entered` goes
+    // from 0, just outside the window, to 1.
+    pure function from-start(rest: length, size: length, entered: float) -> length {
+        rest - (1 - entered) * (rest + size)
+    }
+    pure function from-right(rest: length, entered: float) -> length {
+        rest + (1 - entered) * (root.width - rest)
+    }
+    pure function from-bottom(rest: length, entered: float) -> length {
+        rest + (1 - entered) * (root.height - rest)
+    }
+
+    changed texture => {
+        root.scene-shown = true;
+    }
+    // Brings the panels back in once they've slid out.
+    changed enter-left => {
+        if root.replaying && root.enter-left == 0 {
+            root.replaying = false;
+        }
+    }
+    property <length> stick-size: root.full ? 150px : max(110px, min(130px, root.height * 0.3));
+    property <length> bottom-margin: root.full ? 28px : 14px;
+
+    callback input-changed(x: float, y: float, boost: bool);
+    callback start();
+    callback reset();
+    callback autopilot-changed(on: bool);
+    callback assist-changed(on: bool);
+    callback save-score(initials: string);
+    // The letter's place in the alphabet, from 0, or -1 for anything else.
+    pure callback letter-index(text: string) -> int;
+
+    // The initials for the leaderboard, as places in `alphabet`, and the one being changed.
+    property <[string]> alphabet: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+    property <int> letter-0;
+    property <int> letter-1;
+    property <int> letter-2;
+    property <int> letter-slot;
+    property <string> initials: root.alphabet[root.letter-0] + root.alphabet[root.letter-1] + root.alphabet[root.letter-2];
+    property <bool> entering-initials: root.phase == Phase.finished && root.result.qualifies;
+    callback camera-changed(fpv: bool);
+    // `shift` moves the drone left of the window's center, relative to half the window width.
+    callback view-changed(shift: float);
+    callback quality-changed(high: bool);
+    callback paused-changed(paused: bool);
+    callback look-changed(look: int);
+    callback new-course();
+
+    // Keyboard steering, combined with the stick and the boost button.
+    property <bool> key-left;
+    property <bool> key-right;
+    property <bool> key-up;
+    property <bool> key-down;
+    property <bool> key-boost;
+    property <float> axis-x: clamp(stick.axis-x + (root.key-right ? 1 : 0) - (root.key-left ? 1 : 0), -1, 1);
+    property <float> axis-y: clamp(stick.axis-y + (root.key-up ? 1 : 0) - (root.key-down ? 1 : 0), -1, 1);
+    property <bool> boosting: boost.pressed || root.key-boost;
+    changed axis-x => {
+        root.send-input();
+    }
+    changed axis-y => {
+        root.send-input();
+    }
+    changed boosting => {
+        root.send-input();
+    }
+    changed view-shift => {
+        root.view-changed(root.view-shift);
+    }
+    // Each autopilot race starts with the hint that touching the stick takes over.
+    changed phase => {
+        root.show-steer-hint = root.phase == Phase.countdown && root.autopilot;
+    }
+    changed racing-manually => {
+        root.armed = 0;
+    }
+    // A hidden control loses the focus, and with it the keyboard steering.
+    changed settings-open => {
+        keys.focus();
+    }
+    changed paused => {
+        root.paused-changed(root.paused);
+    }
+
+    // Reports the initial view and settings to the host.
+    public function publish-settings() {
+        root.view-changed(root.view-shift);
+        root.set-quality(root.quality-index);
+        root.camera-changed(root.camera-index == 1);
+        root.autopilot-changed(root.autopilot);
+        root.assist-changed(root.assist);
+        root.look-changed(Theme.look);
+    }
+    function set-look(look: int) {
+        Theme.look = look;
+        root.look-changed(look);
+    }
+    function set-quality(index: int) {
+        root.quality-index = index;
+        root.quality-changed(index == 1);
+    }
+    function set-autopilot(on: bool) {
+        root.autopilot = on;
+        root.autopilot-changed(on);
+    }
+    function select-pilot(index: int) {
+        if index < 2 {
+            root.set-assist(index == 0);
+        }
+        root.set-autopilot(index == 2);
+    }
+    function set-assist(on: bool) {
+        root.assist = on;
+        root.assist-changed(on);
+    }
+    function begin(autopilot: bool) {
+        root.set-autopilot(autopilot);
+        root.start();
+        keys.focus();
+    }
+    // Takes over from the autopilot with a new race from the grid.
+    function fly-now() {
+        root.set-autopilot(false);
+        root.reset();
+        root.begin(false);
+    }
+    // Restarting or changing the course in the middle of a manual run takes a second press,
+    // unless the run is paused.
+    function request(action: int) {
+        if root.racing-manually && !root.paused && root.armed != action {
+            root.armed = action;
+            return;
+        }
+        root.armed = 0;
+        if action == 1 {
+            root.reset();
+        } else {
+            root.new-course();
+        }
+        root.settings-open = false;
+        root.replaying = true;
+    }
+    function send-input() {
+        root.input-changed(root.axis-x, root.axis-y, root.boosting);
+    }
+    function set-camera(index: int) {
+        root.camera-index = index;
+        root.camera-changed(index == 1);
+    }
+    property <[int]> letters: [root.letter-0, root.letter-1, root.letter-2];
+    function set-letter(slot: int, index: int) {
+        if slot == 0 {
+            root.letter-0 = mod(index, 26);
+        } else if slot == 1 {
+            root.letter-1 = mod(index, 26);
+        } else {
+            root.letter-2 = mod(index, 26);
+        }
+    }
+    function step-letter(slot: int, by: int) {
+        root.letter-slot = slot;
+        root.set-letter(slot, root.letters[slot] + by);
+    }
+    // Typing a letter fills the next slot; the arrows change and pick slots.
+    function handle-initials-key(text: string) -> EventResult {
+        if text == Key.Return || text == " " {
+            root.save-score(root.initials);
+        } else if text == Key.Backspace || text == Key.LeftArrow {
+            root.letter-slot = max(0, root.letter-slot - 1);
+        } else if text == Key.RightArrow {
+            root.letter-slot = min(2, root.letter-slot + 1);
+        } else if text == Key.UpArrow {
+            root.step-letter(root.letter-slot, 1);
+        } else if text == Key.DownArrow {
+            root.step-letter(root.letter-slot, -1);
+        } else if root.letter-index(text) >= 0 {
+            root.set-letter(root.letter-slot, root.letter-index(text));
+            root.letter-slot = min(2, root.letter-slot + 1);
+        } else {
+            return EventResult.reject;
+        }
+        return EventResult.accept;
+    }
+    function handle-key(text: string, down: bool) -> EventResult {
+        if down && root.entering-initials {
+            return root.handle-initials-key(text);
+        }
+        if text == Key.LeftArrow || text == "a" || text == "A" {
+            root.key-left = down;
+        } else if text == Key.RightArrow || text == "d" || text == "D" {
+            root.key-right = down;
+        } else if text == Key.UpArrow || text == "w" || text == "W" {
+            root.key-up = down;
+        } else if text == Key.DownArrow || text == "s" || text == "S" {
+            root.key-down = down;
+        } else if down && (text == Key.Return || text == " ") && root.autopilot {
+            root.fly-now();
+        } else if down && (text == Key.Return || text == " ") && root.phase == Phase.ready {
+            root.begin(false);
+        } else if text == " " {
+            root.key-boost = down;
+        } else if down && text == Key.Escape && root.settings-open {
+            root.settings-open = false;
+        } else if down && (text == "c" || text == "C") {
+            root.set-camera(1 - root.camera-index);
+        } else if down && (text == "p" || text == "P") {
+            root.set-autopilot(!root.autopilot);
+        } else if down && (text == "r" || text == "R") {
+            root.request(1);
+        } else if down && (text == "n" || text == "N") {
+            root.request(2);
+        } else if down && (text == "q" || text == "Q") {
+            root.set-quality(1 - root.quality-index);
+        } else if down && (text == "l" || text == "L") {
+            root.set-look(mod(Theme.look + 1, 3));
+        } else {
+            return EventResult.reject;
+        }
+        return EventResult.accept;
+    }
+
+    title: "Slint Drone Race";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: Theme.background;
+    default-font-family: "Barlow Semi Condensed Tnum";
+    default-font-size: 16px;
+    forward-focus: keys;
+
+    // Holds everything, so keys that a focused button doesn't handle still steer.
+    keys := FocusScope {
+        focus-on-tab-navigation: false;
+        key-pressed(event) => {
+            root.handle-key(event.text, true)
+        }
+        key-released(event) => {
+            root.handle-key(event.text, false)
+        }
+
+        // After a run, the demo goes back to racing on its own when nobody plays.
+        Timer {
+            // A finished race gives time to enter initials.
+            interval: root.phase == Phase.finished ? 30s : 12s;
+            running: (root.phase == Phase.ready || root.phase == Phase.finished) && !root.autopilot;
+            triggered => {
+                root.begin(true);
+            }
+        }
+
+        Timer {
+            interval: 8s;
+            running: root.show-steer-hint;
+            triggered => {
+                root.show-steer-hint = false;
+            }
+        }
+
+        Timer {
+            interval: 3s;
+            running: root.armed != 0;
+            triggered => {
+                root.armed = 0;
+            }
+        }
+
+
+        Image {
+            source: root.texture;
+            width: 100%;
+            height: 100%;
+            image-fit: fill;
+        }
+
+        // Tapping the scene closes the settings; the controls on top keep working.
+        if root.settings-open: TouchArea {
+            clicked => {
+                root.settings-open = false;
+            }
+        }
+
+        // The event and the standings, like a broadcast's timing graphic.
+        Plate {
+            x: root.from-start(root.margin, self.width, root.enter-left);
+            y: root.portrait ? root.top-inset : root.margin;
+            width: root.full ? 236px : 204px;
+            height: info-layout.preferred-height;
+            visible: !root.portrait || root.show-standings;
+
+            info-layout := VerticalLayout {
+                padding: 8px;
+                padding-top: 12px;
+                spacing: 2px;
+
+                if !root.portrait: VerticalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-bottom: 6px;
+                    spacing: 1px;
+
+                    Text {
+                        text: "Hall 3 Night Heat";
+                        color: Theme.text;
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+
+                    Text {
+                        text: root.course-text;
+                        color: Theme.text-dim;
+                        font-size: 13px;
+                        font-weight: 500;
+                    }
+                }
+
+                if root.show-standings: VerticalLayout {
+                    spacing: 2px;
+                    accessible-role: list;
+                    accessible-label: "Standings";
+
+                    for entry[index] in root.standings: Rectangle {
+                        height: root.full ? 26px : 22px;
+                        background: entry.player ? Theme.field-pressed : transparent;
+                        accessible-role: list-item;
+                        accessible-label: (index + 1) + " " + entry.name + " " + entry.gap;
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 8px;
+                            spacing: 8px;
+
+                            Text {
+                                width: 14px;
+                                text: index + 1;
+                                color: Theme.text-dim;
+                                font-size: 13px;
+                                font-weight: 500;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                width: 3px;
+                                Rectangle {
+                                    height: 12px;
+                                    background: entry.color;
+                                }
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                text: entry.name;
+                                color: entry.player ? Theme.text : Theme.text-dim;
+                                font-size: 14px;
+                                font-weight: entry.player ? 600 : 500;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: entry.gap;
+                                color: Theme.text-dim;
+                                font-size: 13px;
+                                font-weight: 500;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Drops in when the race pauses, and its label breathes until it resumes.
+        if root.paused: Plate {
+            property <bool> shown;
+            property <bool> dim;
+            x: root.scene-width / 2 + root.margin - self.width / 2;
+            width: paused-text.preferred-width + 32px;
+            height: 40px;
+            y: root.top-inset + Theme.touch-target + (self.shown ? 8px : -12px);
+            opacity: self.shown ? 1 : 0;
+            animate y, opacity { duration: 260ms; easing: cubic-bezier(0.2, 0, 0, 1); }
+            init => {
+                self.shown = true;
+            }
+
+            Timer {
+                interval: 900ms;
+                running: true;
+                triggered => {
+                    parent.dim = !parent.dim;
+                }
+            }
+
+            paused-text := Text {
+                text: "PAUSED";
+                color: Theme.text;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                opacity: parent.dim ? 0.45 : 1;
+                animate opacity { duration: 900ms; easing: ease-in-out; }
+            }
+        }
+
+        if root.penalty != "": Plate {
+            x: root.scene-width / 2 + root.margin - self.width / 2;
+            width: penalty-text.preferred-width + 32px;
+            height: 40px;
+            y: root.top-inset + Theme.touch-target + 8px;
+
+            penalty-text := Text {
+                text: root.penalty.to-uppercase();
+                color: Theme.battery-low;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+            }
+        }
+
+        IconButton {
+            x: root.from-right(root.scene-right - self.width, root.enter-right);
+            y: root.top-inset;
+            icon: Icons.sliders;
+            label: "Settings";
+            checkable: true;
+            checked: root.settings-open;
+            clicked => {
+                root.settings-open = !root.settings-open;
+            }
+        }
+
+        // The countdown, popping in for each second.
+        if root.countdown-text != "": Text {
+            x: root.scene-width / 2 + root.margin - self.width / 2;
+            y: root.height * 0.38 - self.height / 2;
+            text: root.countdown-text;
+            color: root.countdown-text == "GO" ? Theme.accent-text : Theme.text;
+            font-size: 170px * min(1, root.height / 800px, root.width / 700px) * (1.5 - 0.5 * min(1, root.countdown-progress * 4));
+            font-weight: 700;
+            opacity: 1 - pow(root.countdown-progress, 3);
+        }
+
+        // After the player's run. With the autopilot, the next race starts right away.
+        if root.phase == Phase.ready && !root.autopilot: Plate {
+            x: root.scene-width / 2 + root.margin - self.width / 2;
+            y: root.height * 0.42 - self.height / 2;
+            width: min(400px, root.scene-width);
+            height: ready-layout.preferred-height;
+
+            ready-layout := VerticalLayout {
+                padding: 24px;
+                padding-top: 22px;
+                spacing: 8px;
+                alignment: center;
+
+                Text {
+                    text: (root.message != "" ? root.message : "Ready to fly").to-uppercase();
+                    color: Theme.text;
+                    font-size: 30px;
+                    font-weight: 700;
+                    letter-spacing: 0.6px;
+                    horizontal-alignment: center;
+                }
+
+                Text {
+                    text: root.summary != "" ? root.summary : "Race four rivals over three laps through the gates in order. The next gate glows blue.";
+                    color: Theme.text-dim;
+                    font-size: 15px;
+                    font-weight: 500;
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                }
+
+                Rectangle {
+                    height: 8px;
+                }
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    PrimaryButton {
+                        label: "Fly";
+                        clicked => {
+                            root.begin(false);
+                        }
+                    }
+
+                    TouchButton {
+                        label: "Watch";
+                        min-width: 150px;
+                        height: 48px;
+                        clicked => {
+                            root.begin(true);
+                        }
+                    }
+                }
+
+                Label {
+                    text: "WASD STEER · SPACE BOOST · ALL KEYS IN SETTINGS";
+                    color: Theme.text-dim;
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        stick := Joystick {
+            property <length> left: root.full ? 28px : root.margin;
+            x: root.from-start(self.left, self.width, root.enter-left);
+            y: root.height - self.height - root.bottom-margin;
+            width: root.stick-size;
+            height: root.stick-size;
+            driven: root.autopilot;
+            shown: root.autopilot-stick;
+            take-over => {
+                root.set-autopilot(false);
+            }
+        }
+
+        if root.autopilot && root.show-steer-hint: Plate {
+            property <length> left: max(root.margin, stick.left + (stick.width - self.width) / 2);
+            x: root.from-start(self.left, self.width, root.enter-left);
+            y: stick.y - self.height - 8px;
+            width: caption.preferred-width + 20px;
+            height: caption.preferred-height + 10px;
+
+            caption := Label {
+                text: "AUTOPILOT · TOUCH TO STEER";
+                color: Theme.accent-text;
+            }
+        }
+
+        // The finished race, and the leaderboard.
+        if root.phase == Phase.finished: Plate {
+            x: root.scene-right - self.width - (root.portrait ? 0 : 12px);
+            y: root.top-inset + Theme.touch-target + 8px;
+            width: min(380px, root.scene-width);
+            // Scrolls when the window is too short for all of it.
+            height: min(outcome-layout.preferred-height, root.height - self.y - root.margin);
+
+            Flickable {
+                content-height: outcome-layout.preferred-height;
+
+            outcome-layout := VerticalLayout {
+                width: parent.width;
+                padding: 20px;
+                padding-top: 16px;
+                spacing: 8px;
+
+                Label {
+                    text: root.result.autopilot ? "HEAT RESULT" : "RACE COMPLETE";
+                }
+
+                Text {
+                    text: "P" + root.result.place + " OF " + root.standings.length;
+                    color: root.result.place == 1 ? Theme.accent-text : Theme.text;
+                    font-size: 36px;
+                    font-weight: 700;
+                }
+
+                Text {
+                    text: root.result.time + " · " + root.result.speed + " km/h average";
+                    color: Theme.text-dim;
+                    font-size: 16px;
+                    font-weight: 500;
+                }
+
+                if root.entering-initials: VerticalLayout {
+                    spacing: 8px;
+                    padding-top: 6px;
+
+                    Label {
+                        text: "NEW FASTEST RACE · YOUR INITIALS";
+                        color: Theme.accent-text;
+                    }
+
+                    HorizontalLayout {
+                        alignment: LayoutAlignment.start;
+                        spacing: 8px;
+
+                        for slot in 3: LetterSpinner {
+                            letter: root.alphabet[root.letters[slot]];
+                            selected: root.letter-slot == slot;
+                            step(by) => {
+                                root.step-letter(slot, by);
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            padding-left: 8px;
+                            PrimaryButton {
+                                label: "Save";
+                                clicked => {
+                                    root.save-score(root.initials);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 2px;
+                }
+
+                Label {
+                    text: "FASTEST RACES";
+                }
+
+                if root.scores.length == 0: Text {
+                    text: "None yet";
+                    color: Theme.text-faint;
+                    font-size: 16px;
+                }
+
+                for row[index] in root.scores: Rectangle {
+                    height: 24px;
+                    background: row.highlight ? Theme.field-pressed : transparent;
+
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 8px;
+                        spacing: 10px;
+
+                        Text {
+                            width: 14px;
+                            text: index + 1;
+                            color: Theme.text-dim;
+                            font-size: 15px;
+                            font-weight: 600;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            horizontal-stretch: 1;
+                            text: row.initials;
+                            color: Theme.text;
+                            font-size: 15px;
+                            font-weight: 600;
+                            letter-spacing: 1.4px;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: row.speed + " km/h";
+                            color: Theme.text-dim;
+                            font-size: 15px;
+                            font-weight: 500;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if !root.autopilot: HorizontalLayout {
+                    spacing: 8px;
+                    padding-top: 8px;
+
+                    PrimaryButton {
+                        label: "Fly again";
+                        clicked => {
+                            root.fly-now();
+                        }
+                    }
+
+                    TouchButton {
+                        label: "Watch";
+                        height: 48px;
+                        clicked => {
+                            root.begin(true);
+                        }
+                    }
+                }
+            }
+            }
+        }
+
+        // While the autopilot races, an invitation to race, where the boost button is in flight.
+        // In narrow scenes, it stacks, so it stays clear of the stick.
+        if root.autopilot: Plate {
+            x: root.scene-right - self.width - (root.portrait && root.narrow-scene ? 0 : 12px);
+            y: root.from-bottom(root.height - self.height - root.bottom-margin, root.enter-bottom);
+            width: root.narrow-scene ? narrow-invite.preferred-width : invite-layout.preferred-width;
+            height: root.narrow-scene ? narrow-invite.preferred-height : invite-layout.preferred-height;
+
+            invite-layout := HorizontalLayout {
+                visible: !root.narrow-scene;
+                padding: 14px;
+                padding-left: 18px;
+                spacing: 18px;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+
+                    Label {
+                        text: "AUTOPILOT RACE";
+                    }
+
+                    Text {
+                        text: "Take the controls and race the field.";
+                        color: Theme.text;
+                        font-size: 16px;
+                        font-weight: 500;
+                    }
+                }
+
+                PrimaryButton {
+                    label: "Fly";
+                    clicked => {
+                        root.fly-now();
+                    }
+                }
+            }
+
+            narrow-invite := VerticalLayout {
+                visible: root.narrow-scene;
+                padding: 12px;
+                padding-top: 10px;
+                spacing: 8px;
+
+                Label {
+                    text: "RACE THE FIELD";
+                    horizontal-alignment: center;
+                }
+
+                PrimaryButton {
+                    label: "Fly";
+                    clicked => {
+                        root.fly-now();
+                    }
+                }
+            }
+        }
+
+        boost := ButtonBase {
+            x: root.scene-right - self.width - (root.portrait ? 0 : 12px);
+            y: root.height - self.height - root.bottom-margin;
+            width: root.full ? 104px : 88px;
+            height: self.width;
+            visible: !root.autopilot && root.phase != Phase.finished;
+            label: "Boost";
+            enabled: root.phase == Phase.flying;
+            border-width: 1px;
+            property <bool> boosting: self.enabled && (self.pressed || root.key-boost) && root.boost-ready;
+            border-color: self.boosting ? Theme.accent : Theme.control-border;
+            background: self.hovered && !self.boosting ? Theme.plate-hover : Theme.plate;
+            animate background, border-color { duration: 100ms; }
+
+            // The charge, filling the button from the bottom.
+            if boost.enabled: Rectangle {
+                y: parent.height - self.height;
+                height: (parent.height - 2px) * root.boost-charge;
+                background: boost.boosting ? Theme.accent : Theme.field-pressed;
+            }
+
+            if boost.enabled: Rectangle {
+                y: 0;
+                height: 1px;
+                background: Theme.rule;
+            }
+
+            ButtonText {
+                text: "BOOST";
+                color: boost.enabled && root.boost-ready ? Theme.text : Theme.text-faint;
+                font-size: 19px;
+                font-weight: 700;
+                letter-spacing: 2px;
+            }
+        }
+
+        // The finished lap, sliding out of the timing tower.
+        // The race's result replaces the last lap's.
+        if root.lap-result.shown && root.phase != Phase.finished: Plate {
+            property <float> enter: 1 - pow(1 - min(1, root.lap-result.progress / 0.06), 3);
+            property <float> sweep: 1 - pow(1 - min(1, root.lap-result.progress / 0.15), 3);
+            x: root.scene-right - self.width - (root.portrait ? 0 : 8px - root.margin) + 16px * (1 - self.enter);
+            y: root.top-inset + Theme.touch-target + 8px;
+            width: 224px;
+            height: result-layout.preferred-height;
+            opacity: self.enter * min(1, (1 - root.lap-result.progress) / 0.08);
+
+            if root.lap-result.best: Rectangle {
+                x: 0;
+                y: 0;
+                width: parent.width * parent.sweep;
+                height: 2px;
+                background: Theme.accent;
+            }
+
+            result-layout := VerticalLayout {
+                padding: 16px;
+                padding-top: 13px;
+                spacing: 2px;
+
+                HorizontalLayout {
+                    Label {
+                        text: "LAP " + root.lap-result.lap;
+                    }
+
+                    if root.lap-result.best: Label {
+                        text: "FASTEST LAP";
+                        color: Theme.accent-text;
+                        horizontal-alignment: right;
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: LayoutAlignment.start;
+                    spacing: 10px;
+                    Text {
+                        text: root.lap-result.time;
+                        color: Theme.text;
+                        font-size: 34px;
+                        font-weight: 600;
+                        vertical-alignment: bottom;
+                    }
+
+                    Text {
+                        text: root.lap-result.delta;
+                        color: root.lap-result.improved ? Theme.accent-text : Theme.text-dim;
+                        font-size: 18px;
+                        font-weight: 600;
+                        vertical-alignment: bottom;
+                    }
+                }
+            }
+        }
+
+        // The settings: in one column with room, side by side in short windows, and scrolling
+        // only when neither fits.
+        if root.settings-open: Plate {
+            property <length> columns-width: root.settings-columns * root.settings-column-width + (root.settings-columns - 1) * 20px + 32px;
+            x: root.settings-columns == 1 ? root.scene-right - self.width : root.width - root.margin - self.width;
+            y: root.settings-top;
+            // Above the timing panel, which wide settings cover while open, and opaque, so it
+            // doesn't show through.
+            z: 1;
+            background: Theme.plate;
+            width: min(self.columns-width, root.width - 2 * root.margin);
+            height: min(settings-layout.preferred-height, root.settings-room);
+            accessible-role: groupbox;
+            accessible-label: "Settings";
+
+            // Swallow taps so they don't reach the scene.
+            TouchArea { }
+
+            settings-flick := Flickable {
+                content-height: settings-layout.preferred-height;
+
+                settings-layout := HorizontalLayout {
+                    width: parent.width;
+                    padding: 16px;
+                    spacing: 20px;
+
+                    VerticalLayout {
+                        spacing: 8px;
+
+                        RaceControls {
+                            autopilot: root.autopilot;
+                            assist: root.assist;
+                            camera: root.camera-index;
+                            armed: root.armed;
+                            pilot-selected(index) => {
+                                root.select-pilot(index);
+                            }
+                            camera-selected(index) => {
+                                root.set-camera(index);
+                            }
+                            request(action) => {
+                                root.request(action);
+                            }
+                        }
+
+                        if root.settings-columns != 3: SettingsDivider { }
+
+                        if root.settings-columns != 3: DisplaySettings {
+                            look: Theme.look;
+                            quality: root.quality-index;
+                            look-selected(index) => {
+                                root.set-look(index);
+                            }
+                            quality-selected(index) => {
+                                root.set-quality(index);
+                            }
+                        }
+
+                        if root.settings-columns == 1: SettingsDivider { }
+
+                        if root.settings-columns == 1: AboutSettings {
+                            gpu: root.gpu-text;
+                            fps: root.fps-text;
+                        }
+                    }
+
+                    if root.settings-columns == 3: DisplaySettings {
+                        alignment: LayoutAlignment.start;
+                        look: Theme.look;
+                        quality: root.quality-index;
+                        look-selected(index) => {
+                            root.set-look(index);
+                        }
+                        quality-selected(index) => {
+                            root.set-quality(index);
+                        }
+                    }
+
+                    if root.settings-columns > 1: AboutSettings {
+                        alignment: LayoutAlignment.start;
+                        gpu: root.gpu-text;
+                        fps: root.fps-text;
+                    }
+                }
+            }
+
+            // Fades at the edges show that there's more to scroll to.
+            if settings-flick.content-y < 0: Rectangle {
+                y: 0;
+                height: 28px;
+                background: @linear-gradient(180deg, Theme.plate 0%, transparent 100%);
+            }
+
+            if settings-flick.content-y > settings-flick.height - settings-flick.content-height + 1px: Rectangle {
+                y: parent.height - self.height;
+                height: 36px;
+                background: @linear-gradient(180deg, transparent 0%, Theme.plate 100%);
+            }
+        }
+
+        if !root.portrait: Plate {
+            x: root.from-right(root.width - self.width - root.margin, root.enter-right);
+            y: root.margin;
+            width: root.panel-width;
+            height: min(panel-layout.preferred-height, root.height - 2 * root.margin);
+            clip: true;
+
+            // Keep taps on the panel's empty areas from reaching the scene.
+            TouchArea { }
+
+            panel-layout := VerticalLayout {
+                padding: 18px;
+                padding-top: 14px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    Label {
+                        text: root.lap-text;
+                        color: Theme.text;
+                    }
+
+                    Label {
+                        text: root.place-text;
+                        color: Theme.text;
+                        horizontal-alignment: right;
+                        accessible-label: root.place-label;
+                    }
+                }
+
+                LapClock {
+                    text: root.lap-time;
+                    best: root.lap-result.held && root.lap-result.best;
+                    font-size: root.full ? 52px : 40px;
+                }
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    Stat {
+                        label: "Last";
+                        value: root.last-lap;
+                    }
+
+                    Stat {
+                        label: "Best";
+                        value: root.best-lap;
+                    }
+                }
+
+                // Gates, laid out like the sectors of a timing screen.
+                HorizontalLayout {
+                    Caption {
+                        text: "Gates";
+                    }
+
+                    Caption {
+                        text: max(0, root.gates-passed) + " / " + root.gates.length;
+                        color: Theme.text;
+                        horizontal-alignment: right;
+                    }
+                }
+
+                GateSectors {
+                    height: 8px;
+                    count: root.gates.length;
+                    next: root.gates-passed;
+                }
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    Stat {
+                        label: "Speed";
+                        value: round(root.speed);
+                        unit: "km/h";
+                    }
+
+                    Stat {
+                        label: "Altitude";
+                        value: root.altitude.to-fixed(1);
+                        unit: "m";
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    Caption {
+                        text: "Battery";
+                        vertical-alignment: center;
+                    }
+
+                    BatteryBar {
+                        height: 6px;
+                        y: (parent.height - self.height) / 2;
+                        level: root.battery;
+                    }
+
+                    Caption {
+                        text: round(max(0, root.battery) * 100) + "%";
+                        color: Theme.text;
+                        vertical-alignment: center;
+                    }
+                }
+
+                if root.room-for-map: Minimap {
+                    height: 160px;
+                    track: root.track;
+                    gates: root.gates;
+                    lower: root.map-lower;
+                    upper: root.map-upper;
+                    next-gate: root.next-gate;
+                    racing: root.phase == Phase.flying;
+                    drone: root.drone-position;
+                    heading: root.drone-heading;
+                    rivals: root.rivals;
+                }
+
+
+            }
+        }
+
+        // In portrait windows, the timing runs across the top.
+        strip := Plate {
+            x: root.margin;
+            y: root.from-start(root.margin, self.height, root.enter-left);
+            width: root.width - 2 * root.margin;
+            height: strip-layout.preferred-height;
+            visible: root.portrait;
+
+            // Keep taps on the strip from reaching the scene.
+            TouchArea { }
+
+            strip-layout := HorizontalLayout {
+                padding: 12px;
+                padding-top: 10px;
+                spacing: 16px;
+
+                VerticalLayout {
+                    spacing: 0;
+
+                    Label {
+                        text: root.lap-text;
+                        color: Theme.text;
+                    }
+
+                    LapClock {
+                        text: root.lap-time;
+                        best: root.lap-result.held && root.lap-result.best;
+                        font-size: 34px;
+                    }
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 7px;
+
+                    HorizontalLayout {
+                        Label {
+                            text: root.place-text;
+                            color: Theme.text;
+                            accessible-label: root.place-label;
+                        }
+
+                        Label {
+                            text: round(root.speed) + " KM/H";
+                            color: Theme.text;
+                            horizontal-alignment: right;
+                        }
+                    }
+
+                    GateSectors {
+                        height: 6px;
+                        count: root.gates.length;
+                        next: root.gates-passed;
+                    }
+
+                    BatteryBar {
+                        height: 4px;
+                        level: root.battery;
+                    }
+                }
+            }
+        }
+    }
+}

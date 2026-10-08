@@ -15,6 +15,7 @@ members = [
   'async-io',
   'carousel/rust',
   'dnd-kanban',
+  'drone-course',
   'ffmpeg',
   'gallery',
   'gstreamer-player',
