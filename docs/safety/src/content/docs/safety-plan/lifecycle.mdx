@@ -45,7 +45,7 @@ ISO 26262-2 6.4.7.1 asks for that record.
 | S-05 | Plan software development | 6-5 | Technical Lead Runtime | [Development Process](/safety-plan/development-process/), [Coding Standards](/safety-plan/coding-standards/) |
 | S-06 | Define the verification strategy | 6-9, 6-10, 8-9 | Verification Lead | [Verification](/safety-plan/verification/), [Test Suites](/safety-plan/test-suites/), [Coverage Criteria](/safety-plan/test-coverage/) |
 | S-07 | Define change management, with an impact analysis per change | 8-8 | Release Manager | [Change Management](/safety-plan/development-process/#change-management) |
-| S-08 | Define configuration management and release branching | 8-7 | Release Manager | [Configuration Management](/safety-plan/development-process/#configuration-management) |
+| S-08 | Define configuration management, including how releases are tagged | 8-7 | Release Manager | [Configuration Management](/safety-plan/development-process/#configuration-management) |
 | S-09 | Define documentation management: how each work product is identified, versioned, reviewed, and approved | 8-10 | Safety Manager | This Safety Manual, versioned with the repository |
 | S-10 | Classify and qualify the tools | 8-11 | Technical Lead Compiler | [Tool Evaluation Report](/evaluation-report/) |
 | S-11 | Make the test suite runnable on an integrator's target | 6-11 | Verification Lead | The test suite as a [deliverable](/safety-plan/deliverables/), with instructions in the User Manual |
@@ -55,7 +55,7 @@ ISO 26262-2 6.4.7.1 asks for that record.
 
 :::caution[TODO]
 Missing: S-02, S-11, S-13, and S-14 entirely.
-S-07 and S-08 lack the impact analysis and the release branching.
+S-07 lacks the impact analysis.
 S-09 lacks review and approval records.
 S-10 doesn't yet classify the Rust toolchain or CI.
 S-12 lacks a dependent failure analysis.
