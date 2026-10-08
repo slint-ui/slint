@@ -12,8 +12,9 @@ The runtime isn't a tool; it's developed under ISO 26262-6, see [How Slint SC Is
 
 The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 11.4.9.
 
-Validation means writing test cases that cover each language feature of Slint SC, and verifying that the generated Rust code is correct for each.
-Every paragraph of the [Language Specification](/reference/language/) carries an identifier, and every identifier is traced to at least one test, so the coverage of the feature set is measured rather than asserted.
+Validation means writing test cases that cover each language feature of Slint SC, and verifying that the generated Rust code is correct for each feature.
+Every paragraph of the [Language Specification](/reference/language/) carries an identifier, and every identifier is traced to at least one test.
+So the coverage of the feature set is measured rather than asserted.
 
 | 11.4.9.2 asks for | How |
 | --- | --- |
@@ -29,4 +30,5 @@ See [Coverage Tool Verification](/safety-plan/slint-coverage/).
 
 ## Test Suites
 
-The suites that produce this evidence are described in [Test Suites](/safety-plan/test-suites/), and their outcomes in [Test Results](/qualification-report/test-results/).
+The suites that produce the validation evidence are described in [Test Suites](/safety-plan/test-suites/).
+The outcomes of the suites are in [Test Results](/qualification-report/test-results/).

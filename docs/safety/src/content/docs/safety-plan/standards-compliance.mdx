@@ -3,40 +3,45 @@ title: Standards Compliance
 description: The standard Slint SC targets, and which clause is addressed where.
 ---
 
-This chapter names the standard Slint SC targets and the integrity level it's developed for.
-It then maps each clause to the chapter that addresses it.
+This chapter names the standard Slint SC targets, and the integrity level Slint SC is developed for.
+The chapter then maps each ISO 26262 clause to the chapter of this manual that addresses the clause.
 
 ## Standard in Scope
 
 Slint SC targets **ISO 26262:2018** at **ASIL B**.
-Every clause number in this package refers to that edition.
+Every clause number in this manual refers to that edition.
 
-Nothing in this package is specific to one application domain.
-Slint SC renders a safety-related user interface; what that interface controls or reports is the integrator's concern.
+Nothing in this manual is specific to one application domain.
+Slint SC renders a safety-related user interface.
+What that interface controls or reports is the integrator's concern.
 
 ## Safety Requirements
 
 **Addresses:** ISO 26262-8 Clause 6
 
-The standard tells us what properties a safety-critical system must have (traceability, freedom from interference, determinism, etc.), but it doesn't tell us how to write those requirements for a GUI toolkit.
+The standard tells us what properties a safety-critical system must have, such as traceability, freedom from interference, and determinism.
+The standard doesn't tell us how to write requirements with those properties for a GUI toolkit.
 
-Slint SC states them on three levels.
+Slint SC states its safety requirements on three levels.
 The [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/) say what an integrator needs from Slint SC, derived from its assumed use.
-The [Language Specification](/reference/language/) says what the language and the runtime must do, one identified paragraph at a time, and each paragraph is traced to the tests that verify it.
-The [Tool Evaluation Report](/evaluation-report/potential-errors/) and the runtime's [Safety Analysis](/component-documentation/safety-analysis/) say what can go wrong instead, and what detects or constrains each of those.
+The [Language Specification](/reference/language/) says what the language and the runtime must do, one identified paragraph at a time.
+Each paragraph is traced to the tests that verify the paragraph.
+The [Tool Evaluation Report](/evaluation-report/potential-errors/) and the runtime's [Safety Analysis](/component-documentation/safety-analysis/) instead say what can go wrong.
+For each potential error, both documents name the measure that detects or constrains the error.
 
 ## Integrity Level
 
 Slint SC is a Safety Element out of Context (SEooC).
 That's the ISO 26262 term for a component developed before anyone knows which product it goes into.
 Without a product there are no hazards to rate, so Slint SC has no integrity level of its own.
-Instead it's developed to be capable of ASIL B, and the integrator confirms that level is the one their application needs.
+Instead, Slint SC is developed to be capable of ASIL B.
+The integrator confirms that ASIL B is the level their application needs.
 
 ASIL (Automotive Safety Integrity Level) describes the risk level of something.
-ASIL D=highest, C=high, B=medium, A=low risk, QM = not safety critical.
+ASIL D is the highest level, C is high, B is medium, and A is low; QM means not safety critical.
 Without an application function there's no HARA (Hazard Analysis and Risk Assessment) to derive an ASIL from, so ASIL B is a target rather than a result.
 
-Where an application isn't safety related at all, the full Slint framework can be used instead, and none of this applies.
+Where an application isn't safety related at all, the integrator can use the full Slint framework instead, and none of this manual applies.
 
 ## Tailoring
 
@@ -44,8 +49,8 @@ Where an application isn't safety related at all, the full Slint framework can b
 
 ### Impact Analysis
 
-ISO 26262-2 6.4.3 asks whether a vehicle system is new or changed, which the standard calls an impact analysis at the item level.
-Slint SC isn't part of a specific vehicle system, so this analysis doesn't apply.
+ISO 26262-2 6.4.3 asks for an impact analysis at the item level: an analysis of whether a vehicle system is new or changed.
+Slint SC isn't part of a specific vehicle system, so the item-level impact analysis doesn't apply.
 
 Slint SC reuses the Slint compiler, which wasn't developed to ISO 26262.
 The compiler is a tool, not an element of the product, so ISO 26262-8 Clause 11 covers it in the [Tool Evaluation Report](/evaluation-report/).
@@ -56,7 +61,7 @@ Each change to Slint SC runs through the change impact analysis of ISO 26262-8 C
 
 ISO 26262-2 6.4.5.7 lets an SEooC tailor the lifecycle, provided that:
 
-1. its requirements are derived from assumptions about its intended use and context, and
+1. the component's requirements are derived from assumptions about the component's intended use and context, and
 2. the integrator validates those assumptions in their target application.
 
 Slint SC meets (1) with its [Assumed Safety Requirements](/component-documentation/assumed-safety-requirements/) and the [Assumptions of Use](/user-manual/#assumptions-of-use).
@@ -64,7 +69,7 @@ The User Manual hands (2) to the integrator.
 
 ### Parts of the Lifecycle
 
-Each line is a part of the reference lifecycle, and whether it applies to Slint SC.
+Each row names a part of the ISO 26262 reference lifecycle, and says whether that part applies to Slint SC.
 
 | Part / Clause | Topic | Applies | Rationale |
 | --- | --- | --- | --- |
@@ -79,7 +84,7 @@ Each line is a part of the reference lifecycle, and whether it applies to Slint 
 | 4-8 | Safety validation | No | The integrator's, see [User Responsibility](/user-manual/#user-responsibility). |
 | 5 | Hardware | No | Slint SC is software only. |
 | 6-5 to 6-10 | Software development | Yes | Per change, see [Lifecycle](/safety-plan/lifecycle/#v-model-per-change). |
-| 6-11 | Testing of the embedded software | Partly | The target environment is the integrator's. We provide a test suite they can run on it; see [Deliverables](/safety-plan/deliverables/). |
+| 6-11 | Testing of the embedded software | Partly | The target environment is the integrator's. We provide a test suite the integrator can run in that environment; see [Deliverables](/safety-plan/deliverables/). |
 | 6 Annex C | Software configuration | Yes | The runtime has one configuration; the integrator's `.slint` input configures the generated code. |
 | 7-5, 7-6 | Production planning and production | Yes, reduced | Producing software is building and distributing a release; see [Release and Field Monitoring](/safety-plan/release/). |
 | 8-5 | Distributed developments | Yes | Towards integrators only; see [Distributed Development](/safety-plan/development-process/#distributed-development). |

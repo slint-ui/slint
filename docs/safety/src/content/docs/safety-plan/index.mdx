@@ -7,33 +7,35 @@ description: How Slint SC is organized, designed, developed, verified, and relea
 
 The Safety Plan lists the safety activities of Slint SC.
 For each activity, the plan states the objective, the role responsible, when the activity happens, and what the activity produces.
-Where an activity is already described elsewhere in this manual, the plan links to it rather than repeating it.
+Where another chapter of this manual already describes an activity, the plan links to that chapter rather than repeating the description.
 
-What can go wrong, and what we do about it, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
+What can go wrong, and how we handle each failure, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
 The evidence from running the tests is in the [Qualification Report](/qualification-report/).
 
 ## How Slint SC Is Developed
 
 SixtyFPS GmbH delivers Slint SC to integrators as a software component.
-They build it into their own products, at up to ASIL B.
+Integrators build Slint SC into their own products, at up to ASIL B.
 We don't build a product ourselves, so there's no vehicle function or hardware on our side.
 The integrator builds the product and certifies it.
 
-Slint SC consists of tools and a runtime, and each takes its own route through ISO 26262:
+Slint SC consists of tools and a runtime, and the two take different routes through ISO 26262:
 
 * The `slint-sc` runtime ships in the integrator's binary.
-  It's developed under ISO 26262-6 as a Safety Element out of Context: a component developed before anyone knows which product it goes into.
-  See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what that changes.
+  The runtime is developed under ISO 26262-6 as a Safety Element out of Context (SEooC).
+  An SEooC is a component developed before anyone knows which product it goes into.
+  See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what the SEooC route changes.
 * The Slint compiler in `--slint-sc` mode and `slint-sc-coverage` don't ship.
-  They're tools, covered by ISO 26262-8 Clause 11 in the [Tool Evaluation Report](/evaluation-report/).
+  Both are tools, covered by ISO 26262-8 Clause 11 in the [Tool Evaluation Report](/evaluation-report/).
 
 The runtime isn't qualified under ISO 26262-8 Clause 12, which is meant for existing software reused without re-engineering.
 
 ## Release Scope
 
-Each release states the language subset and the runtime features it covers, and the compiler rejects everything else.
+Each release states which language subset and runtime features the release covers.
+The compiler rejects everything outside that subset.
 The subset is what the [Reference](/reference/) lists.
-Extending it is a change like any other.
+Extending the subset is a change like any other.
 
 ## Scope
 
@@ -49,16 +51,16 @@ Extending it is a change like any other.
 
 ## Design
 
-* [Architecture Design](/safety-plan/architecture/): the units that make up Slint SC, and how they fit together at build time and at run time.
+* [Architecture Design](/safety-plan/architecture/): the units that make up Slint SC, and how the units fit together at build time and at run time.
 
 ## Process
 
 * [Development Process](/safety-plan/development-process/): the tools, configuration management, and change management.
-* [Coding Standards](/safety-plan/coding-standards/): the rules the Rust code follows, and what enforces each one.
+* [Coding Standards](/safety-plan/coding-standards/): the rules the Rust code follows, and what enforces each rule.
 
 ## Verification
 
 * [Verification](/safety-plan/verification/): what is verified, and the pass criteria.
 * [Test Suites](/safety-plan/test-suites/): the suites that verify Slint SC, and how their cases are written.
-* [Coverage Criteria](/safety-plan/test-coverage/): how code coverage is measured, and the level we hold it at.
+* [Coverage Criteria](/safety-plan/test-coverage/): how code coverage is measured, and the level we hold coverage at.
 * [Coverage Tool Verification](/safety-plan/slint-coverage/): how the tool that measures the coverage of `.slint` code is tested.

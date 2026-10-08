@@ -12,16 +12,16 @@ This chapter describes the units that make up Slint SC, and how they fit togethe
 Slint SC consists of three units.
 
 * **The Slint compiler**, the `slint-compiler` binary from `tools/compiler`, built with the `slint-sc` feature and invoked with `--slint-sc`.
-  It translates a `.slint` file into Rust code, and rejects everything outside the qualified subset.
-  It's a tool: it runs at build time and doesn't ship in the product.
+  The compiler translates a `.slint` file into Rust code, and rejects everything outside the qualified subset.
+  The compiler is a tool: it runs at build time and doesn't ship in the product.
 * **The `slint-sc` runtime crate**, from `api/slint-sc`.
-  It ships in the customer's binary.
-  It's `no_std`, uses no `alloc`, and depends on no other crate.
+  The runtime crate ships in the customer's binary.
+  The crate is `no_std`, uses no `alloc`, and depends on no other crate.
 * **The generated code**, produced by the compiler from the customer's `.slint` files.
   Its only dependency is the `slint-sc` runtime crate; see [`sls.gen.output`](/reference/generated-code/#sls.gen.output).
 
 The [Reference](/reference/) lists the elements and properties of the qualified subset.
-It's generated from the `\sc` markers in the compiler's builtins, so it lists exactly what the subset contains.
+The Reference is generated from the `\sc` markers in the compiler's builtins, so the Reference lists exactly what the subset contains.
 
 ## Architectural Design
 
@@ -41,25 +41,27 @@ During the development of the software architectural design, 7.4.2 says the foll
 
 ### Properties
 
-Three properties of the design hold by construction, so nothing has to be done to maintain them and no constraint on the integrator depends on them.
+Three properties of the design hold by construction.
+Nobody has to do anything to maintain these properties, and no constraint on the integrator depends on them.
 
 * The architecture separates business logic, which the application owns, from presentation logic, which Slint SC owns.
-  Slint SC renders; it doesn't hold application state.
+  Slint SC renders, and doesn't hold application state.
 * The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator and no dynamic memory allocation.
   The application owns the frame buffer and passes it to `render_rgb8`.
 * Slint SC's responsibility ends at the frame buffer.
-  Getting the buffer onto a display, through a display controller, a driver, or another crate, is the application's job, and no part of Slint SC takes part in it.
+  Getting the buffer onto a display is the application's job, whether through a display controller, a driver, or another crate.
+  No part of Slint SC takes part in presenting the buffer.
 
 ### Dependencies
 
 The runtime has no dependencies: no other crates, no `std`, no `alloc`.
-Nothing below it needs qualifying, and it inherits no other code's failures.
+Nothing below the runtime needs qualifying, and the runtime inherits no other code's failures.
 
 The compiler uses external crates, but none of its code ships in the product.
-Its dependencies are covered by its [tool qualification](/evaluation-report/).
+The compiler's [tool qualification](/evaluation-report/) covers the compiler's dependencies.
 
 A dependency added to the runtime would be software developed outside this process.
-It would need its own evidence before it could be used, under ISO 26262-8 Clause 12.
+Such a dependency would need its own evidence under ISO 26262-8 Clause 12 before the runtime could use it.
 
 ### Static Design
 
@@ -72,8 +74,9 @@ It would need its own evidence before it could be used, under ISO 26262-8 Clause
 - the global variables; and
 - the constraints including the scope of the architecture and external dependencies.
 
-The whole binary, the runtime included, is compiled by the integrator's Rust toolchain: the `slint-sc` crate ships as source.
-Our own builds and test evidence use Ferrocene; the toolchain of the final build is the integrator's choice, and choosing a qualified one is on them.
+The integrator's Rust toolchain compiles the whole binary, the runtime included, because the `slint-sc` crate ships as source.
+Our own builds and test evidence use Ferrocene.
+The integrator chooses the toolchain of the final build, and is responsible for choosing a qualified one.
 
 ```mermaid
 flowchart TD
@@ -107,7 +110,7 @@ flowchart TD
 
 ### Dynamic Design
 
-It shall also describe its dynamic design aspects, which address:
+7.4.5 also says the software architectural design shall describe its dynamic design aspects, which address:
 
 - the functional chain of events and behavior;
 - the logical sequence of data processing;

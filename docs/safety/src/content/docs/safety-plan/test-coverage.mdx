@@ -6,7 +6,7 @@ description: How code coverage is measured, and the level we hold it at.
 Slint SC must support headless or offline automated testing frameworks capable of running on CI/CD pipelines to verify layout engines, event propagation, and state transitions.
 
 Code coverage is measured with LLVM source-based coverage via `cargo-llvm-cov`.
-The measured coverage of the current test suite is reported in the [Test Coverage](/qualification-report/test-coverage/) chapter of the qualification report.
+The [Test Coverage](/qualification-report/test-coverage/) chapter of the qualification report shows the measured coverage of the current test suite.
 
 ## Metrics
 
@@ -20,24 +20,27 @@ ISO 26262-6:2018 Table 9 lists the structural coverage metrics at the software u
 | Branch coverage | Highly recommended |
 | Modified Condition/Decision Coverage (MC/DC) | Recommended |
 
-The metrics are alternative entries, so 4.3 asks for an appropriate combination of them, preferring the highly recommended ones, with a rationale that the combination meets 9.4.4.
+The metrics are alternative entries.
+So 4.3 asks for an appropriate combination of the metrics, preferring the highly recommended ones.
+A rationale has to show that the combination meets 9.4.4.
 The standard sets no percentage.
-9.4.4 says only that coverage judged insufficient needs either more test cases or a rationale, and that no target value, or a low one without a rationale, counts as insufficient.
+9.4.4 says only that coverage judged insufficient needs either more test cases or a rationale.
+9.4.4 also says that no target value, or a low target value without a rationale, counts as insufficient.
 
-Slint SC holds the runtime at complete line, function, region, and branch coverage, and the build fails below it.
+Slint SC holds the runtime at complete line, function, region, and branch coverage, and the build fails below complete coverage.
 Complete line coverage gives statement coverage.
 Branch coverage counts both outcomes of every `if` condition, `let`-`else`, and operand of `&&` and `||`.
 Each arm of a `match` is a region of its own, so complete region coverage takes every arm.
 MC/DC isn't measured, since it's only recommended at ASIL B.
 
 Branch coverage is measured with `cargo llvm-cov --branch`.
-It relies on the rustc option `-Zcoverage-options=branch`, which no stable release accepts.
-The suite enables it with `RUSTC_BOOTSTRAP=1` on the same stable compiler as the rest of the run,
+The `--branch` option relies on the rustc option `-Zcoverage-options=branch`, which no stable release accepts.
+The suite enables that rustc option with `RUSTC_BOOTSTRAP=1` on the same stable compiler as the rest of the run,
 so the coverage evidence doesn't come from a different toolchain.
 
 :::caution[TODO]
 The branch instrumentation is an unstable rustc feature.
-Argue why its output can serve as evidence, or check whether the qualified toolchain supports it.
+Argue why the output of the branch instrumentation can serve as evidence, or check whether the qualified toolchain supports the instrumentation.
 :::
 
 ## Coverage of Slint Code
@@ -45,4 +48,4 @@ Argue why its output can serve as evidence, or check whether the qualified toolc
 The `.slint` code of an application is measured as well, at the level of the language rather than of the generated code:
 which elements, bindings, handlers and calls the tests reached, and which outcomes of every `?:`, `&&` and `||` they took.
 [Coverage of Slint Code](/user-manual/slint-coverage/) describes the measurement,
-and [Coverage Tool Verification](/safety-plan/slint-coverage/) how the tool that takes it is tested.
+and [Coverage Tool Verification](/safety-plan/slint-coverage/) how the tool that takes the measurement is tested.

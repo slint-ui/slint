@@ -6,8 +6,8 @@ description: The safety requirements Slint SC is developed to, derived from its 
 **Addresses:** ISO 26262-2 6.4.5.7 a
 
 We don't know which products Slint SC will end up in.
-So we assume how it will be used, and derive its safety requirements from that.
-The integrator confirms that they fit their safety concept; see [`slint.aou.requirements`](/user-manual/#slint.aou.requirements).
+So we assume how Slint SC will be used, and derive the safety requirements of Slint SC from that assumed use.
+The integrator confirms that the requirements fit their safety concept; see [`slint.aou.requirements`](/user-manual/#slint.aou.requirements).
 
 ## Assumed Use
 
@@ -19,15 +19,15 @@ A malfunction of Slint SC can then lead to a hazard in four ways:
 * The display shows wrong information, such as the wrong color or a truncated reading.
 * The display misses information, such as a warning that doesn't appear.
 * The display shows information that's no longer true, such as a cleared warning that stays.
-* A touch invokes an action the user didn't mean, or misses one they did.
+* A touch invokes an action the user didn't mean, or misses an action the user did mean.
 
 What the information means, and what an action does, is the integrator's concern.
 
 ## Requirements
 
 Each requirement is assumed at ASIL B.
-The specification paragraphs refine it, and each of them is traced to a test in the [Traceability Matrix](/qualification-report/traceability-matrix/).
-The [Safety Analysis](/component-documentation/safety-analysis/) lists the errors that would violate it.
+Specification paragraphs refine each requirement, and every specification paragraph is traced to a test in the [Traceability Matrix](/qualification-report/traceability-matrix/).
+The [Safety Analysis](/component-documentation/safety-analysis/) lists the errors that would violate each requirement.
 
 | Identifier | Requirement | Refined by | Errors that violate it |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ The [Safety Analysis](/component-documentation/safety-analysis/) lists the error
 | <span id="slint.asr.no-interference">`slint.asr.no-interference`</span> | Slint SC writes no memory except the component and the frame buffer it's given, allocates no memory, and holds no global state. | [Architecture Design](/safety-plan/architecture/#properties) | `buffer-overrun` |
 
 The compiler has requirements of its own, such as rejecting everything outside the subset.
-They're in the [Tool Evaluation Report](/evaluation-report/potential-errors/), since the compiler is a tool.
+The compiler's requirements are in the [Tool Evaluation Report](/evaluation-report/potential-errors/), since the compiler is a tool.
 
 :::caution[TODO]
 The Safety Analysis has no error that violates `slint.asr.input`, such as a click delivered to the wrong `TouchArea`.

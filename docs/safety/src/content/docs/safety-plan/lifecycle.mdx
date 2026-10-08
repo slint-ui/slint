@@ -6,22 +6,23 @@ description: The safety lifecycle of Slint SC, and the activities set up once fo
 **Addresses:** ISO 26262-2 6.4.6
 
 Slint SC is developed continuously, and released in versions.
-Its lifecycle has four parts, each started by an event rather than a date:
+The lifecycle of Slint SC has four parts, each started by an event rather than a date:
 
 1. **[Once, to set up](#once-to-set-up):** the plans, processes, and specifications that every change and release relies on.
-   They're revisited when the scope or the process changes.
+   We revisit the setup activities when the scope or the process changes.
 2. **[On every change](/safety-plan/development-phases/#on-every-change):** the ISO 26262-6 sub-phases, from requirement to verified implementation, in one pull request.
 3. **[On every release](/safety-plan/release/#on-every-release):** baseline, evidence run, confirmation measures, assessment, and release.
 4. **[After a release](/safety-plan/release/#after-a-release):** field monitoring, fixes, and end of support.
 
 Each activity names its objective, the role responsible, and its work product, as ISO 26262-2 6.4.6.6 asks.
-Its timing is the event of its part.
+The event that starts the activity's part of the lifecycle sets when the activity happens.
 The tasks, the effort, and the release dates are planned in the project plan, which references this Safety Plan.
 
 ## V-Model per Change
 
 The V-model of ISO 26262-6 applies to each change.
-A change states or updates its requirement paragraph, updates the design where needed, implements it, and adds the tests that verify it, all in one pull request.
+In one pull request, a change states or updates its requirement paragraph, and updates the design where needed.
+The same pull request implements the requirement, and adds the tests that verify the requirement.
 CI then checks traceability and coverage before the change can merge.
 
 Running the sub-phases per change, and combining them in one pull request, is tailoring of the kind ISO 26262-2 5.4.6.1 a and d describe.
@@ -30,7 +31,8 @@ The V-model still holds inside the pull request: the requirement and its tests e
 ## Progression
 
 A release cycle starts only once every activity of [Once, to Set Up](#once-to-set-up) is in place.
-If one starts with a setup activity incomplete, the Safety Manager records why that doesn't cause unreasonable risk, as ISO 26262-2 6.4.7.1 asks.
+If a release cycle starts with a setup activity incomplete, the Safety Manager records why the missing activity doesn't cause unreasonable risk.
+ISO 26262-2 6.4.7.1 asks for that record.
 
 ## Once, to Set Up
 
