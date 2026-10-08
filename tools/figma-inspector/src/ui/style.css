@@ -175,17 +175,6 @@ body {
     outline: 2px solid var(--figma-color-border-selected, #4f46e5);
     outline-offset: -2px;
 }
-#diagnostic-count {
-    background: #fff1f2;
-    color: #9f1239;
-    border-radius: 12px;
-    padding: 2px 6px;
-    font-size: 10px;
-    margin-left: 5px;
-}
-#diagnostic-count[data-severity="warning"] {
-    color: var(--figma-color-text-warning, #92400e);
-}
 #preview-workspace {
     display: grid;
     grid-template-rows: minmax(0, 1fr) 201px;
@@ -582,7 +571,6 @@ body {
     color: var(--figma-color-text-warning, #92400e);
 }
 
-.figma-dark #diagnostic-count,
 .figma-dark .diagnostics {
     background: color-mix(
         in srgb,
@@ -593,7 +581,6 @@ body {
     border-color: var(--figma-color-border-danger, #963323);
 }
 
-.figma-dark #diagnostic-count[data-severity="warning"],
 .figma-dark .diagnostics[data-severity="warning"] {
     background: color-mix(
         in srgb,
