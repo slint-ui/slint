@@ -79,6 +79,9 @@ struct RgbaColor
     /// Creates a new RgbaColor instance from a given color. This template function is
     /// specialized and thus implemented for T == uint8_t and T == float.
     RgbaColor(const Color &col);
+
+    /// Compares two RgbaColor values component-wise.
+    friend bool operator==(const RgbaColor &lhs, const RgbaColor &rhs) = default;
 };
 
 /// HsvaColor stores the hue, saturation, value, and alpha components of a color in the HSV color
@@ -93,6 +96,9 @@ struct HsvaColor
     float value;
     /// The alpha component, between 0 and 1.
     float alpha;
+
+    /// Compares two HsvaColor values component-wise.
+    friend bool operator==(const HsvaColor &lhs, const HsvaColor &rhs) = default;
 };
 
 /// OklchColor stores the lightness, chroma, hue, and alpha components of a color in the Oklch
@@ -107,6 +113,9 @@ struct OklchColor
     float hue;
     /// The alpha component, between 0 and 1.
     float alpha;
+
+    /// Compares two OklchColor values component-wise.
+    friend bool operator==(const OklchColor &lhs, const OklchColor &rhs) = default;
 };
 
 /// Color represents a color in the Slint run-time, represented using 8-bit channels for
