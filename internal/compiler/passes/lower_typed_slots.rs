@@ -5,9 +5,10 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::Expression;
 use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::namedreference::NamedReference;
+use crate::object_tree::interfaces;
 use crate::object_tree::{Component, ElementRc, recurse_elem, visit_all_named_references};
 use crate::typeregister::TypeRegister;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 pub(super) fn prepare(component: &Rc<Component>, tr: &TypeRegister) {
@@ -15,11 +16,19 @@ pub(super) fn prepare(component: &Rc<Component>, tr: &TypeRegister) {
         let interface = element.borrow().typed_slot_interface.clone();
         if let Some(interface) = interface {
             let mut element = element.borrow_mut();
-            element.property_declarations =
-                interface.root_element.borrow().property_declarations.clone();
-            for declaration in element.property_declarations.values_mut() {
-                declaration.expose_in_public_api = false;
+            let mut declarations = BTreeMap::new();
+            for (name, mut member) in interfaces::declared_members(&interface.root_element) {
+                let internal_name = element
+                    .lookup_property(&name, PropertyLookupMode::ComponentLocal)
+                    .internal_or_resolved_name();
+                if internal_name != name {
+                    member.declaration.shadowed_name = Some(name.clone());
+                    element.shadowing_members.insert(name, internal_name.clone());
+                }
+                member.declaration.expose_in_public_api = false;
+                declarations.insert(internal_name, member.declaration);
             }
+            element.property_declarations = declarations;
             element.base_type = tr.empty_type();
         }
     });
@@ -61,7 +70,10 @@ pub(super) fn lower(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             for (name, declaration) in declarations {
                 let actual_name = actual
                     .borrow()
-                    .lookup_property(&name, PropertyLookupMode::ComponentLocal)
+                    .lookup_property(
+                        declaration.declared_name(&name),
+                        PropertyLookupMode::ComponentLocal,
+                    )
                     .internal_or_resolved_name();
                 let reference = NamedReference::new(&actual, actual_name.clone());
                 mapping.insert(NamedReference::new(&child, name.clone()), reference.clone());

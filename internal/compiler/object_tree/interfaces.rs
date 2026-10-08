@@ -167,15 +167,15 @@ fn interface_chain(interface: &ElementRc) -> impl Iterator<Item = ElementRc> {
     })
 }
 
-struct InterfaceMember {
-    declaration: PropertyDeclaration,
+pub(crate) struct InterfaceMember {
+    pub(crate) declaration: PropertyDeclaration,
     declaring_interface: ElementRc,
 }
 
 /// The members an interface declares under their source names, including inherited ones.
 /// A derived declaration hides the inherited member of the same name.
 /// A shadowing declaration counts as derived, too.
-fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, InterfaceMember> {
+pub(crate) fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, InterfaceMember> {
     let mut members = BTreeMap::new();
     for element in interface_chain(interface) {
         for (internal_name, declaration) in &element.borrow().property_declarations {
