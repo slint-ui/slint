@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Base {
+    in-out property <int> base-value;
+}
+
+interface Derived inherits Base {
+    in-out property <int> derived-value;
+}
+
+component Impl {
+    in-out property <int> base-value;
+    in-out property <int> derived-value;
+}
+
+component Host {
+    in property <int> input: 5;
+    out property <int> base-seen: control.base-value;
+    out property <int> derived-seen: control.derived-value;
+    slot <Derived> control;
+    control {
+        base-value: root.input;
+        derived-value: 6;
+    }
+}
+
+export component TestCase inherits Window {
+    in property <int> input <=> host.input;
+    out property <int> base-seen: host.base-seen;
+    out property <int> supplied-base: supplied.base-value;
+    host := Host {
+        control << supplied := Impl { }
+    }
+
+    out property <bool> test: host.base-seen == 5 && host.derived-seen == 6 && supplied.base-value == 5;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_input(9);
+assert_eq!(instance.get_base_seen(), 9);
+assert_eq!(instance.get_supplied_base(), 9);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->set_input(9);
+assert_eq(instance->get_base_seen(), 9);
+assert_eq(instance->get_supplied_base(), 9);
+```
+*/

@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface Interaction {
+    in property <float> value;
+    callback activated();
+}
+
+export component PropertyDeclaration {
+    slot <Interaction> control;
+    control {
+        property <int> extra;
+//      >                   <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component CallbackDeclaration {
+    slot <Interaction> control;
+    control {
+        callback extra();
+//      >               <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component FunctionDeclaration {
+    slot <Interaction> control;
+    control {
+        function extra() {}
+//      >                 <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component RepeatedChild {
+    slot <Interaction> control;
+    control {
+        for index in 2: Rectangle { }
+//      >                           <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component ConditionalChild {
+    slot <Interaction> control;
+    control {
+        if true: Rectangle { }
+//      >                    <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component MatchChild {
+    slot <Interaction> control;
+    control {
+        match 0 {
+//      >error{Typed slot placeholders only accept property bindings and callback connections}
+            0: Rectangle { }
+            *: { }
+        }
+//      <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component Animation {
+    slot <Interaction> control;
+    control {
+        animate value { duration: 100ms; }
+//      >                                <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component States {
+    slot <Interaction> control;
+    control {
+        states [
+//      >error{Typed slot placeholders only accept property bindings and callback connections}
+            active when true: {
+                value: 1;
+            }
+        ]
+//      <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component Transitions {
+    slot <Interaction> control;
+    control {
+        transitions [
+//      >error{Typed slot placeholders only accept property bindings and callback connections}
+            in active: {
+                animate value { duration: 100ms; }
+            }
+        ]
+//      <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component AnonymousChildren {
+    slot <Interaction> control;
+    control {
+        @children
+//      >       <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component SlotDeclaration {
+    slot <Interaction> control;
+    control {
+        slot extra;
+//      >         <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component SlotAssignment {
+    slot <Interaction> control;
+    control {
+        content << Rectangle { }
+//      >                      <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component SlotForwarding {
+    slot <Interaction> control;
+    control {
+        content << extra;
+//      >               <error{Typed slot placeholders only accept property bindings and callback connections}
+    }
+}
+
+export component ImplementStatement {
+    slot <Interaction> control;
+    control {
+        implement Interaction <=> self;
+//      >                             <error{Typed slot placeholders only accept property bindings and callback connections}
+//      >                             <^error{'implement' is only allowed in the root element}
+    }
+}
