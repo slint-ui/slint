@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "../../../tools/editor/controls/src/basic.slint";
+
+component CustomButton inherits Button {
+    min-width: 0px;
+    min-height: 0px;
+    content {
+        Rectangle {
+            preferred-width: 80px;
+            preferred-height: 20px;
+            accessible-role: none;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 260px;
+    out property <bool> plain-focused: plain.has-focus;
+    out property <bool> custom-focused: custom.has-focus;
+    out property <bool> next-focused: next.has-focus;
+    out property <bool> disabled-focused: disabled.has-focus;
+    in-out property <int> custom-clicks;
+    out property <bool> test: custom.width == 96px && custom.height == 28px
+        && plain.width > custom.width;
+
+    VerticalLayout {
+        alignment: start;
+        spacing: 8px;
+        plain := Button {
+            text: "A deliberately long default button label";
+            width: self.preferred-width;
+            height: self.preferred-height;
+        }
+
+        custom := CustomButton {
+            text: "A deliberately long label for accessibility only";
+            accessible-label: "Custom action";
+            content-padding-left: 7px;
+            content-padding-right: 9px;
+            content-padding-top: 3px;
+            content-padding-bottom: 5px;
+            width: self.preferred-width;
+            height: self.preferred-height;
+            background << Rectangle {
+                background: rgb(37, 99, 235);
+                accessible-role: none;
+            }
+            clicked => { root.custom-clicks += 1; }
+        }
+
+        disabled := Button {
+            text: "Disabled";
+            enabled: false;
+        }
+
+        next := Button {
+            text: "Next";
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let custom = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Custom action")
+    .next().unwrap();
+assert_eq!(custom.accessible_role(), Some(slint_testing::AccessibleRole::Button));
+assert_eq!(custom.accessible_label().as_deref(), Some("Custom action"));
+assert_eq!(custom.accessible_enabled(), Some(true));
+
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_plain_focused());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_custom_focused());
+assert!(!instance.get_plain_focused());
+slint_testing::send_keyboard_string_sequence(&instance, " ");
+assert_eq!(instance.get_custom_clicks(), 1);
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_next_focused());
+assert!(!instance.get_custom_focused());
+assert!(!instance.get_disabled_focused());
+
+custom.invoke_accessible_default_action();
+assert_eq!(instance.get_custom_clicks(), 2);
+let origin = custom.absolute_position();
+let size = custom.size();
+slint_testing::send_mouse_click(&instance, origin.x + size.width / 2., origin.y + size.height / 2.);
+assert_eq!(instance.get_custom_clicks(), 3);
+assert!(!instance.get_custom_focused());
+assert!(instance.get_next_focused());
+assert!(instance.get_test());
+```
+*/

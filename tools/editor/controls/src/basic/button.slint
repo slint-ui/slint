@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component Button inherits ButtonBase {
+    private property <bool> accented: root.primary || root.checked;
+    private property <brush> state-background: root.accented ? BasicTheme.accent : BasicTheme.background;
+    private property <brush> state-foreground: root.accented ? BasicTheme.accent-foreground : BasicTheme.foreground;
+
+    in property <brush> background-color: root.state-background;
+    in property <brush> foreground: root.state-foreground;
+    in property <brush> border-color: root.has-focus ? BasicTheme.focus : BasicTheme.border;
+    in property <length> border-width: root.has-focus ? 2px : 1px;
+    in property <length> border-radius: 4px;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: 400;
+    in property <length> spacing: 6px;
+
+    content-padding: 6px;
+    content-padding-left: 12px;
+    content-padding-right: 12px;
+    min-width: 64px;
+    min-height: 32px;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-background: BasicTheme.disabled-background;
+            root.state-foreground: BasicTheme.disabled-foreground;
+        }
+        pressed when root.pressed: {
+            root.state-background: root.accented ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+        }
+        hover when root.hovered: {
+            root.state-background: root.accented ? BasicTheme.accent-hover : BasicTheme.hover-background;
+        }
+    ]
+
+    background {
+        Rectangle {
+            background: root.background-color;
+            border-color: root.border-color;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
+        }
+    }
+
+    content {
+        HorizontalLayout {
+            spacing: root.spacing;
+            alignment: center;
+            if root.icon.width > 0 && root.icon.height > 0: Image {
+                width: root.icon-size;
+                height: root.icon-size;
+                source: root.icon;
+                colorize: root.colorize-icon ? root.foreground : transparent;
+            }
+            if root.text != "": Text {
+                text: root.text;
+                color: root.foreground;
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
