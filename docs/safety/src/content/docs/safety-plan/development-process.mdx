@@ -12,12 +12,13 @@ The chapter addresses the supporting processes of ISO 26262-8, Clauses 5 to 16.
 The `slint-compiler` translates `.slint` files into Rust code.
 Slint SC is itself written in Rust.
 
+Evidence runs use a Rust toolchain qualified for ISO 26262 at ASIL B or higher, within the use its safety manual allows.
 Each evidence run records the toolchain that built and ran it in the [Test Results](/qualification-report/test-results/) chapter.
 Because the run records the toolchain itself, the recorded version can't drift from reality.
+Day-to-day development builds with stable Rust.
 
 :::caution[TODO]
-Decide the toolchain policy for qualification evidence runs, such as a qualified Ferrocene release, and enforce it in `scripts/slint_sc_test_suite.sh`.
-Day-to-day development builds with stable Rust today.
+`scripts/slint_sc_test_suite.sh` doesn't check yet that it runs on a qualified toolchain.
 :::
 
 The confidence level each tool needs, and how the tool reaches that level, is in [Tool Classification](/evaluation-report/tool-classification/).

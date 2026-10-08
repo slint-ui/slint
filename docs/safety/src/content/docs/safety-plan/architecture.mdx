@@ -73,7 +73,7 @@ Such a dependency would need its own evidence under ISO 26262-8 Clause 12 before
 - the constraints including the scope of the architecture and external dependencies.
 
 The integrator's Rust toolchain compiles the whole binary, the runtime included, because the `slint-sc` crate ships as source.
-Our own builds and test evidence use Ferrocene.
+Our evidence runs use a qualified toolchain; see [Language and Compiler](/safety-plan/development-process/#language-and-compiler).
 The integrator chooses the toolchain of the final build, and is responsible for choosing a qualified one.
 
 ```mermaid
