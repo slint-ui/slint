@@ -971,7 +971,7 @@ inline ComponentDefinition ComponentInstance::definition() const
 
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string
-/// (using build_from_source()) or from a path  (using build_from_source())
+/// (using build_from_source()) or from a path  (using build_from_path())
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
@@ -1035,7 +1035,11 @@ public:
         return result;
     }
 
-    /// Compile a .slint file into a ComponentDefinition
+    /// Compile some .slint code into a ComponentDefinition
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// paths while importing.
+    /// Both \a source_code and \a path must be UTF-8 encoded; otherwise this function fails.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
@@ -1058,14 +1062,15 @@ public:
         }
     }
 
-    /// Compile some .slint code into a ComponentDefinition
+    /// Compile a .slint file into a ComponentDefinition
     ///
-    /// The `path` argument will be used for diagnostics and to compute relative
-    /// paths while importing.
+    /// \a path must be UTF-8 encoded; otherwise this function fails.
+    ///
+    /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the
-    /// Self::diagnostics() function.
+    /// in this ComponentCompiler and can be retrieved after the call using the diagnostics()
+    /// function.
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     std::optional<ComponentDefinition> build_from_path(std::string_view path)

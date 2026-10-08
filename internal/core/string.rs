@@ -596,6 +596,7 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     /// Safety: bytes must be a valid utf-8 string of size len without null inside.
+    /// Invalid UTF-8 sequences are replaced with U+FFFD.
     /// The resulting structure must be passed to slint_shared_string_drop
     pub unsafe extern "C" fn slint_shared_string_from_bytes(
         out: *mut SharedString,
@@ -603,8 +604,8 @@ pub(crate) mod ffi {
         len: usize,
     ) {
         unsafe {
-            let str = core::str::from_utf8(core::slice::from_raw_parts(bytes, len)).unwrap();
-            core::ptr::write(out, SharedString::from(str));
+            let str = String::from_utf8_lossy(core::slice::from_raw_parts(bytes, len));
+            core::ptr::write(out, SharedString::from(&*str));
         }
     }
 
@@ -780,15 +781,16 @@ pub(crate) mod ffi {
 
     /// Append some bytes to an existing shared string
     ///
-    /// bytes must be a valid utf8 array of size `len`, without null bytes inside
+    /// bytes must be a valid utf8 array of size `len`, without null bytes inside.
+    /// Invalid UTF-8 sequences are replaced with U+FFFD.
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_shared_string_append(
         self_: &mut SharedString,
         bytes: *const c_char,
         len: usize,
     ) {
-        let str = core::str::from_utf8(unsafe { core::slice::from_raw_parts(bytes, len) }).unwrap();
-        self_.push_str(str);
+        let str = String::from_utf8_lossy(unsafe { core::slice::from_raw_parts(bytes, len) });
+        self_.push_str(&str);
     }
     #[test]
     fn test_slint_shared_string_append() {
@@ -802,6 +804,8 @@ pub(crate) mod ffi {
         append("");
         append("!");
         assert_eq!(s.as_str(), "Hello, world!");
+        unsafe { slint_shared_string_append(&mut s, b"\xff".as_ptr(), 1) };
+        assert_eq!(s.strip_suffix(char::REPLACEMENT_CHARACTER), Some("Hello, world!"));
     }
 
     #[unsafe(no_mangle)]
