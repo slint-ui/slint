@@ -4,6 +4,8 @@
 from pathlib import Path
 
 import slint_testing
+from editor_sync import wait_for_source
+from ui_assertions import expect
 from ui_driver import (
     element,
     elements,
@@ -11,6 +13,24 @@ from ui_driver import (
     launch_editor,
     wait_until,
 )
+
+
+def test_visual_editor_loads_its_own_ui(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+) -> None:
+    source_file = Path(__file__).resolve().parents[2] / "ui" / "main.slint"
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        wait_for_source(source_file, source_file.read_bytes())
+        expect.poll(
+            lambda: any(
+                row.accessible_label.strip() == "EditorUi inherits Window"
+                for row in elements(window, role=slint_testing.AccessibleRole.ListItem)
+            ),
+            message="The outline contains the editor's root component",
+        ).to_equal(True)
+        element(window, "No files available", role=slint_testing.AccessibleRole.Text)
 
 
 def test_startup_page_shows_project_actions_without_editor_panes(
