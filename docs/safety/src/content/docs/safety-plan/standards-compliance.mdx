@@ -63,13 +63,13 @@ The User Manual hands (2) to the integrator.
 
 ### Parts of the Lifecycle
 
-Each row names a part of the ISO 26262 reference lifecycle, and says whether that part applies to Slint SC.
+Parts 2, 6, and 8 of ISO 26262 apply to Slint SC, except where a row below says otherwise.
+[Norm Mapping](/norm-mapping/) maps their requirements one by one.
+
+Each row below names a part of the reference lifecycle that Slint SC omits or performs differently, or that isn't in Parts 2, 6, and 8.
 
 | Part / Clause | Topic | Applies | Rationale |
 | --- | --- | --- | --- |
-| 2-5 | Overall safety management | Yes | See [Safety Management](/safety-plan/safety-management/). |
-| 2-6 | Project-dependent safety management | Yes | This Safety Plan. |
-| 2-7 | Production, operation, service, decommissioning | Yes, for software | See [Release and Field Monitoring](/safety-plan/release/). |
 | 3-5 | Item definition | No | There's no specific vehicle system to define. Replaced by the assumed use. |
 | 3-6 | Hazard analysis and risk assessment | No | Without a vehicle system, there are no hazards to analyze. ASIL B is a target, see [Integrity Level](#integrity-level). |
 | 3-7 | Functional safety concept | No | Replaced by the assumed safety requirements. |
@@ -77,13 +77,10 @@ Each row names a part of the ISO 26262 reference lifecycle, and says whether tha
 | 4-7 | System and item integration | No | The integrator's. |
 | 4-8 | Safety validation | No | The integrator's, see [`slint.aou.validation`](/user-manual/#slint.aou.validation). |
 | 5 | Hardware | No | Slint SC is software only. |
-| 6-5 to 6-10 | Software development | Yes | Per change, see [Lifecycle](/safety-plan/lifecycle/#v-model-per-change). |
 | 6-11 | Testing of the embedded software | Partly | The target environment is the integrator's. We provide a test suite the integrator can run in that environment; see [Deliverables](/safety-plan/deliverables/). |
 | 6 Annex C | Software configuration | No | The runtime has one configuration, and Slint SC has no calibration data. The `.slint` files are the integrator's source code, not configuration data. |
 | 7-5, 7-6 | Production planning and production | Yes, reduced | Producing software is building and distributing a release; see [Release and Field Monitoring](/safety-plan/release/). |
 | 8-5 | Distributed developments | Yes | Towards integrators only; see [Distributed Development](/safety-plan/development-process/#distributed-development). |
-| 8-6 to 8-10 | Supporting processes | Yes | See [ISO 26262-8](/norm-mapping/iso-26262-8/). |
-| 8-11 | Confidence in software tools | Yes | The Slint compiler and `slint-sc-coverage`; see the [Tool Evaluation Report](/evaluation-report/). |
 | 8-12 | Qualification of software components | No | The clause covers reusing existing software. The runtime is developed under ISO 26262-6; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed). |
 | 8-13 | Evaluation of hardware elements | No | Software only. |
 | 8-14 | Proven in use | No | Not claimed. |
