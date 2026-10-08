@@ -997,8 +997,8 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
     }
 
     for (prop, binding) in elem.borrow().real_bindings() {
-        if prop == "clip" {
-            // otherwise the children of the clipped items won't get moved as child of the Clip element
+        if prop == "clip" || prop.starts_with("inner-shadow-") {
+            // These are lowered to a child of this element, which sub-components don't support
             return true;
         }
 
