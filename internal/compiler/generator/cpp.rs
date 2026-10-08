@@ -524,9 +524,10 @@ impl CppType for BuiltinStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
         match self {
-            Self::Color | Self::LogicalPosition | Self::LogicalSize => {
-                Some(format_smolstr!("slint::{}", name))
-            }
+            Self::ColorRgba => Some("slint::RgbaColor<uint8_t>".into()),
+            Self::ColorHsva => Some("slint::HsvaColor".into()),
+            Self::ColorOklch => Some("slint::OklchColor".into()),
+            Self::LogicalPosition | Self::LogicalSize => Some(format_smolstr!("slint::{}", name)),
             Self::PathMoveTo
             | Self::PathLineTo
             | Self::PathArcTo

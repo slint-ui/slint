@@ -5522,10 +5522,12 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
         StructName::Builtin(builtin_struct) => {
             let name: &'static str = builtin_struct.into();
             let name = format_ident!("{}", name);
+            use crate::langtype::BuiltinStruct as BS;
             match builtin_struct {
-                crate::langtype::BuiltinStruct::Color
-                | crate::langtype::BuiltinStruct::LogicalPosition
-                | crate::langtype::BuiltinStruct::LogicalSize => Some(quote!(slint::#name)),
+                BS::ColorRgba => Some(quote!(sp::RgbaColor<u8>)),
+                BS::ColorHsva => Some(quote!(sp::HsvaColor)),
+                BS::ColorOklch => Some(quote!(sp::OklchColor)),
+                BS::LogicalPosition | BS::LogicalSize => Some(quote!(slint::#name)),
                 s if s.is_public() => Some(quote!(slint::language::#name)),
                 _ => Some(quote!(sp::#name)),
             }

@@ -744,9 +744,14 @@ macro_rules! define_builtin_struct_enum {
             $($Name,)*
 
             // Public structs not in the macro (registered in typeregister.rs)
-            Color,
             LogicalPosition,
             LogicalSize,
+
+            // The results of a color's `to-hsv()` and `to-oklch()`, and the struct that its
+            // `red`, `green`, `blue` and `alpha` come from. They have no name in Slint.
+            ColorRgba,
+            ColorHsva,
+            ColorOklch,
 
             // Path element types, set via the `builtin_struct` flag of the
             // builtin element declaration and read through NativeClass.builtin_struct
@@ -786,7 +791,7 @@ macro_rules! define_builtin_struct_enum {
                     // Macro-defined structs: derived from the `pub` visibility keyword
                     $(Self::$Name => stringify!($vis) == "pub",)*
                     // Non-macro public structs
-                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
+                    Self::LogicalPosition | Self::LogicalSize => true,
                     _ => false,
                 }
             }
@@ -800,7 +805,6 @@ macro_rules! define_builtin_struct_enum {
                         Some(SmolStr::new_static(stringify!($Name)))
                     })*
                     // Non-macro structs with custom slint names
-                    Self::Color => Some(SmolStr::new_static("color")),
                     Self::LogicalPosition => Some(SmolStr::new_static("Point")),
                     Self::LogicalSize => Some(SmolStr::new_static("Size")),
                     _ => None,
