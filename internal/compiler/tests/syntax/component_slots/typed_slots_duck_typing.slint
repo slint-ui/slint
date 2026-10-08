@@ -10,6 +10,7 @@ component Host {
     slot <ValueControl> control;
     control { }
 }
+// Intentionally omit 'implement' to test duck typing against ValueControl.
 component StructuralControl {
     in-out property <int> value;
     callback changed(value: int);
