@@ -217,6 +217,7 @@ export component EditorUi inherits Window {
     private property <length> inspector-width-maximum: min(Style.panes.maximum-width,
         root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
+    callback quit-requested();
     private property <string> new-file-error;
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
         && Api.editor-surface-mode == EditorSurfaceMode.component
@@ -265,6 +266,13 @@ export component EditorUi inherits Window {
                     title: project.name;
                     activated => { Project.open-recent-project(project); }
                 }
+            }
+            // The macOS application menu already provides Quit.
+            if Platform.os != OperatingSystemType.macos: MenuSeparator { }
+            if Platform.os != OperatingSystemType.macos: MenuItem {
+                title: @tr("Quit");
+                shortcut: @keys(Control + "q");
+                activated => { root.quit-requested(); }
             }
         }
         Menu {

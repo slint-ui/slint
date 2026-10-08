@@ -105,6 +105,10 @@ pub fn initialize(
     editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
     editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
     editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
+    editor_ui.on_quit_requested(|| {
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = slint::quit_event_loop();
+    });
 
     to_lsp
         .send_telemetry(&mut [(
