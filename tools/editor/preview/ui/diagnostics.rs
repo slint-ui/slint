@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use i_slint_core::platform::Clipboard;
 use slint::{ComponentHandle, FilterModel, Model, SharedString, VecModel};
 
 use crate::preview::ui;
@@ -22,6 +24,66 @@ pub fn setup(global: &ui::Diagnostics<'_>) {
         }))
         .into(),
     );
+    global.on_format_location(|diagnostic| format_location(&diagnostic, project_root().as_deref()));
+    let global_weak = <ui::Diagnostics as slint::Global<'_, ui::EditorUi>>::as_weak(global);
+    global.on_copy_to_clipboard(move || {
+        if let Some(global) = global_weak.upgrade() {
+            copy_to_clipboard(&global);
+        }
+    });
+}
+
+fn project_root() -> Option<PathBuf> {
+    crate::preview::PREVIEW_STATE
+        .with_borrow(|state| state.current_project_root.as_ref()?.to_file_path().ok())
+}
+
+fn format_location(diagnostic: &ui::Diagnostic, project_root: Option<&Path>) -> SharedString {
+    if diagnostic.file.is_empty() {
+        return SharedString::default();
+    }
+    let file = Path::new(diagnostic.file.as_str());
+    let file = project_root.and_then(|root| file.strip_prefix(root).ok()).unwrap_or(file);
+    let file = file.to_string_lossy();
+    if diagnostic.line <= 0 {
+        file.as_ref().into()
+    } else if diagnostic.column <= 0 {
+        format!("{file}:{}", diagnostic.line).into()
+    } else {
+        format!("{file}:{}:{}", diagnostic.line, diagnostic.column).into()
+    }
+}
+
+fn copy_to_clipboard(global: &ui::Diagnostics<'_>) {
+    let entries = global.get_entries();
+    if entries.row_count() == 0 {
+        return;
+    }
+    let project_root = project_root();
+    let text = entries
+        .iter()
+        .map(|diagnostic| {
+            let location = format_location(&diagnostic, project_root.as_deref());
+            let level = match diagnostic.level {
+                ui::DiagnosticLevel::Debug => "debug",
+                ui::DiagnosticLevel::Note => "note",
+                ui::DiagnosticLevel::Warning => "warning",
+                ui::DiagnosticLevel::Error => "error",
+            };
+            if location.is_empty() {
+                format!("{level}: {}", diagnostic.message)
+            } else {
+                format!("{location}: {level}: {}", diagnostic.message)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if let Err(error) = i_slint_backend_selector::with_platform(|platform| {
+        platform.set_clipboard_text(&text, Clipboard::DefaultClipboard);
+        Ok(())
+    }) {
+        tracing::warn!("Failed to copy diagnostics to clipboard: {error}");
+    }
 }
 
 pub fn append_diagnostic(
@@ -88,6 +150,93 @@ pub fn set_compiling(compiling: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn locations_handle_project_paths_and_partial_positions() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("project");
+        let relative = Path::new("components").join("Card.slint");
+        let inside = root.join(&relative);
+        let outside = directory.path().join("project-other").join("Main.slint");
+        for (file, project_root, expected) in [
+            (inside.clone(), Some(root.as_path()), relative.clone()),
+            (outside.clone(), Some(root.as_path()), outside),
+            (relative.clone(), Some(root.as_path()), relative),
+            (inside.clone(), None, inside),
+        ] {
+            for (line, column, suffix) in
+                [(0, 0, ""), (0, 9, ""), (12, 0, ":12"), (12, 9, ":12:9"), (-1, -1, "")]
+            {
+                let diagnostic = ui::Diagnostic {
+                    file: file.to_string_lossy().as_ref().into(),
+                    line,
+                    column,
+                    ..Default::default()
+                };
+                assert_eq!(
+                    format_location(&diagnostic, project_root),
+                    format!("{}{suffix}", expected.display())
+                );
+            }
+        }
+        assert_eq!(format_location(&ui::Diagnostic::default(), Some(&root)), "");
+    }
+
+    #[test]
+    fn clipboard_callback_copies_all_entries_and_preserves_clipboard_when_empty() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = ui::EditorUi::new().unwrap();
+        let global = editor.global::<ui::Diagnostics>();
+        setup(&global);
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("Main.slint");
+        let previous_root = crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state
+                .current_project_root
+                .replace(lsp_types::Url::from_file_path(directory.path()).unwrap())
+        });
+        append_diagnostic(
+            &global,
+            ui::DiagnosticLevel::Error,
+            Some((file.to_string_lossy().as_ref().into(), 4, 2)),
+            "First error",
+        );
+        for (level, message) in [
+            (ui::DiagnosticLevel::Warning, "Warning"),
+            (ui::DiagnosticLevel::Note, "Note"),
+            (ui::DiagnosticLevel::Debug, "Debug output\nSecond line"),
+        ] {
+            append_diagnostic(&global, level, None, message);
+        }
+        let mut expected =
+            "Main.slint:4:2: error: First error\nwarning: Warning\nnote: Note\ndebug: Debug output\nSecond line"
+                .to_owned();
+        for _ in 0..6 {
+            append_diagnostic(&global, ui::DiagnosticLevel::Error, None, "Additional error");
+            expected.push_str("\nerror: Additional error");
+        }
+        assert_eq!(global.get_entries().row_count(), 10);
+        for (clear_before_copy, expected) in
+            [(false, expected.as_str()), (true, "Unrelated clipboard text")]
+        {
+            if clear_before_copy {
+                clear_diagnostics(&global);
+                i_slint_backend_selector::with_platform(|platform| {
+                    platform.set_clipboard_text(expected, Clipboard::DefaultClipboard);
+                    Ok(())
+                })
+                .unwrap();
+            }
+            global.invoke_copy_to_clipboard();
+            let clipboard = i_slint_backend_selector::with_platform(|platform| {
+                Ok(platform.clipboard_text(Clipboard::DefaultClipboard))
+            })
+            .unwrap();
+            assert_eq!(clipboard.as_deref(), Some(expected));
+        }
+        crate::preview::PREVIEW_STATE
+            .with_borrow_mut(|state| state.current_project_root = previous_root);
+    }
 
     fn assert_severity_views(global: &ui::Diagnostics<'_>) {
         let entries = global.get_entries();
