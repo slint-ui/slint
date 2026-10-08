@@ -30,8 +30,6 @@ The false outcome is the opposite.
 A state is measured by three kinds of point: its name and its `when`, the decisions its condition is written with, and the binding of each property it changes.
 A binding whose expression the generated code inlines in several places is one point, and the hits from all places add up.
 A binding the generated code never evaluates, such as the size of an element that is neither drawn nor touched, is a point that is never reached.
-The measurement is at the level of the language.
-It doesn't measure the operators inside a binding beyond the binding's decisions, and it isn't MC/DC.
 
 ## How It Works
 

@@ -16,7 +16,6 @@ Slint SC consists of three units.
   The compiler is a tool: it runs at build time and doesn't ship in the product.
 * **The `slint-sc` runtime crate**, from `api/slint-sc`.
   The runtime crate ships in the customer's binary.
-  The crate is `no_std`, uses no `alloc`, and depends on no other crate.
 * **The generated code**, produced by the compiler from the customer's `.slint` files.
   Its only dependency is the `slint-sc` runtime crate; see [`sls.gen.output`](/reference/generated-code/#sls.gen.output).
 
@@ -54,8 +53,7 @@ Nobody has to do anything to maintain these properties, and no constraint on the
 
 ### Dependencies
 
-The runtime has no dependencies: no other crates, no `std`, no `alloc`.
-Nothing below the runtime needs qualifying, and the runtime inherits no other code's failures.
+Because the runtime has no dependencies (see [Properties](#properties)), nothing below the runtime needs qualifying, and the runtime inherits no other code's failures.
 
 The compiler uses external crates, but none of its code ships in the product.
 The compiler's [tool qualification](/evaluation-report/) covers the compiler's dependencies.

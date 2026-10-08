@@ -41,24 +41,7 @@ Slint SC uses a structured configuration management process, so that artifacts a
 We manage modifications to the Slint SC codebase so that they preserve the safety and integrity of the system.
 
 * **Reporting and Tracking:** Planned work and bugs are tracked via GitHub Issues, labeled `a:slint-sc` ([https://github.com/slint-ui/slint/issues](https://github.com/slint-ui/slint/issues)).
-* **Authorization:** A change merges once a reviewer approves the change.
-  A trivial change can skip review.
-  Trusted members, including admins, can also push simple changes directly to `master`, without a PR or review.
-  The repository history still records such commits.
-  The full CI suite still covers them too, since it runs regularly, independent of any single push.
-* **Traceability:** Every change lands in `master` as one or more commits, each identified by its commit hash and retained permanently in history.
-  GitHub links most commits to the pull request that introduced them.
-  Some commits also carry a `Fixes #NNN` reference in the commit message, naming the issue they resolve.
-  Nothing requires a change to be linked to an issue.
-
-:::caution[TODO]
-Nobody performs an impact analysis for changes yet, though ISO 26262-8 8.4.3.1 requires one per change request.
-Decide what form the impact analysis takes, and how it fits into the PR flow.
-
-Today a single reviewer authorizes a change, or nobody does for a trivial change.
-ISO 26262-8 8.4.4.1 envisions a decision by the project manager, the safety manager, QA, and the developers.
-Decide whether Slint SC needs a dedicated approval step, distinct from ordinary code review.
-:::
+* **Authorization and Traceability:** See [Development Phases](/safety-plan/development-phases/), which describes how a change is reviewed, merged, and traced.
 
 ## CI System and Infrastructure
 
@@ -83,7 +66,7 @@ The employees are one organization, working under one process.
 
 Development happens in the open, on the public [slint-ui/slint](https://github.com/slint-ui/slint) repository.
 That repository hosts both the general-purpose Slint product and the code Slint SC is built from: the same compiler, and a separate runtime library.
-Slint SC releases are cut from a dedicated branch, so only reviewed and released commits become part of a certified version.
+Every commit in a release of Slint SC has been through an approved pull request, which [R-02](/safety-plan/release/#on-every-release) checks.
 
 The repository accepts pull requests from anyone, under an inbound MIT-0 license, including from contributors outside SixtyFPS.
 Clause 5.2, Note 2 excludes from its scope "procurement which does not place any responsibility for safety on the supplier."

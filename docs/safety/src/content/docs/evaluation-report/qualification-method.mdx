@@ -6,7 +6,6 @@ description: How the tools of Slint SC are qualified.
 **Addresses:** ISO 26262-8 11.4.4.1 f, 11.4.9
 
 This chapter states how each tool reaches the confidence level its [classification](/evaluation-report/tool-classification/) asks for.
-The runtime isn't a tool; it's developed under ISO 26262-6, see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed).
 
 ## Slint Compiler
 
@@ -24,8 +23,7 @@ So the coverage of the feature set is measured rather than asserted.
 
 ## slint-sc-coverage
 
-`slint-sc-coverage` is qualified by validation too.
-Runtime test cases state their expected coverage in the source, and fail on any difference from the measurement.
+`slint-sc-coverage` is qualified by validation too, using [`slint.coverage.avd.stated-coverage`](/evaluation-report/potential-errors/#slint.coverage.avd.stated-coverage).
 See [Coverage Tool Verification](/safety-plan/slint-coverage/).
 
 ## Test Suites
