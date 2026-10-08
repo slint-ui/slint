@@ -78,7 +78,7 @@ use i_slint_compiler::project_file::{self, FILE_NAME as PROJECT_FILE_NAME, Proje
 pub use i_slint_compiler::DefaultTranslationContext;
 
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CompilerConfiguration {
     overrides: project_file::Overrides,
 }
@@ -103,12 +103,6 @@ pub enum EmbedResourcesKind {
     /// Useful for MCUs with no file system and little RAM.
     /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
     EmbedForSoftwareRenderer,
-}
-
-impl Default for CompilerConfiguration {
-    fn default() -> Self {
-        Self { overrides: Default::default() }
-    }
 }
 
 impl CompilerConfiguration {
@@ -331,10 +325,10 @@ impl CompilerConfiguration {
         manifest_dir: &Path,
     ) -> i_slint_compiler::CompilerConfiguration {
         let mut config = self.with_absolute_paths(manifest_dir).resolve(project_file);
-        if let Some(path) = config.bundled_translations_path.as_mut() {
-            if path.is_relative() {
-                *path = manifest_dir.join(&path);
-            }
+        if let Some(path) = config.bundled_translations_path.as_mut()
+            && path.is_relative()
+        {
+            *path = manifest_dir.join(&path);
         }
         config
     }

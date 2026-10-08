@@ -365,10 +365,9 @@ impl DocumentCache {
             if let Some(document) = self.get_document(&url) {
                 for import in &document.imports {
                     if let Some(import_url) = import.resolved.as_ref().and_then(SourcePath::to_url)
+                        && retained.insert(import_url.clone())
                     {
-                        if retained.insert(import_url.clone()) {
-                            pending.push(import_url);
-                        }
+                        pending.push(import_url);
                     }
                 }
             }

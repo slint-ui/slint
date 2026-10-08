@@ -104,15 +104,15 @@ fn merge_project_library_paths(
     let mut paths = paths.into_iter().collect::<Vec<_>>();
     paths.sort_by(|(left, _), (right, _)| left.cmp(right));
     for (name, path) in paths {
-        if let Some(source) = override_source {
-            if !library_paths.contains_key(&name) {
-                warn(
-                    format!("library '{name}' at '{}'", path.display()),
-                    format!("no library '{name}'"),
-                    source,
-                );
-                continue;
-            }
+        if let Some(source) = override_source
+            && !library_paths.contains_key(&name)
+        {
+            warn(
+                format!("library '{name}' at '{}'", path.display()),
+                format!("no library '{name}'"),
+                source,
+            );
+            continue;
         }
         let (kept_path, kept_source) = library_paths
             .entry(name.clone())
@@ -285,7 +285,7 @@ impl EditorSession {
         let mut project_diagnostics = Vec::new();
 
         for path in &self.project_file_paths {
-            let Ok(url) = Url::from_file_path(path) else { continue };
+            let Some(url) = SourcePath::new(path).to_url() else { continue };
             let mut diagnostics = Vec::new();
             if let Some(project) = self.active_projects.get(path) {
                 let ProjectFileData {
@@ -465,7 +465,7 @@ impl EditorSession {
     fn project_entry_urls(&self) -> impl Iterator<Item = Url> + '_ {
         self.active_projects
             .values()
-            .filter_map(|project| Url::from_file_path(project.entry()?).ok())
+            .filter_map(|project| SourcePath::new(project.entry()?).to_url())
     }
 
     fn document_roots(&self) -> HashSet<Url> {
@@ -521,14 +521,10 @@ impl EditorSession {
             },
         }
         let mut diagnostics = self.reapply_effective_configuration().await?;
-        if matches!(change, FileChangeKind::Deleted) {
-            if let Ok(url) = Url::from_file_path(path) {
-                diagnostics.push((
-                    url.clone(),
-                    self.document_cache.document_version(&url),
-                    Vec::new(),
-                ));
-            }
+        if matches!(change, FileChangeKind::Deleted)
+            && let Some(url) = SourcePath::new(path).to_url()
+        {
+            diagnostics.push((url.clone(), self.document_cache.document_version(&url), Vec::new()));
         }
         self.enqueue_configuration_recompile();
         Ok(diagnostics)
