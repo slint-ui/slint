@@ -59,6 +59,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// match (foo) { 1: Elem { } }
 /// match bar.property { 1: Elem { } }
 /// slot header;
+/// slot <HeaderInterface> header;
 /// header {}
 /// header << HeaderComponent {}
 /// header << parentHeader;
