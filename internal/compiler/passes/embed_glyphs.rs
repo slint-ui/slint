@@ -5,7 +5,7 @@
 use crate::CompilerConfiguration;
 use crate::diagnostics::BuildDiagnostics;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, CharacterMapEntry};
+use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
@@ -386,19 +386,14 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
-    let character_map: Vec<CharacterMapEntry> = character_coverage
+    let character_map: Vec<char> = character_coverage
         .filter(|code_point| {
             core::iter::once(&font)
                 .chain(fallback_fonts.iter())
                 .any(|font| swash_font_ref(font).charmap().map(*code_point) != 0)
         })
-        .enumerate()
-        .map(|(glyph_index, code_point)| CharacterMapEntry {
-            code_point,
-            glyph_index: u16::try_from(glyph_index)
-                .expect("more than 65535 glyphs are not supported"),
-        })
         .collect();
+    assert!(character_map.len() <= u16::MAX as usize, "more than 65535 glyphs are not supported");
 
     #[cfg(feature = "sdf-fonts")]
     let glyphs = if _compiler_config.use_sdf_fonts {
@@ -437,7 +432,7 @@ fn embed_font(
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_alpha_map_glyphs(
     pixel_sizes: &[i16],
-    character_map: &Vec<CharacterMapEntry>,
+    character_map: &[char],
     font: &Font,
     fallback_fonts: &[Font],
     normalized_coords: &[i16],
@@ -455,7 +450,7 @@ fn embed_alpha_map_glyphs(
         .map(|pixel_size| {
             let glyph_data = character_map
                 .par_iter()
-                .map(|CharacterMapEntry { code_point, .. }| {
+                .map(|code_point| {
                     let font_to_use = core::iter::once(font)
                         .chain(fallback_fonts.iter())
                         .find(|f| swash_font_ref(f).charmap().map(*code_point) != 0)
@@ -517,7 +512,7 @@ fn embed_alpha_map_glyphs(
 #[cfg(all(not(target_arch = "wasm32"), feature = "sdf-fonts"))]
 fn embed_sdf_glyphs(
     pixel_sizes: &[i16],
-    character_map: &Vec<CharacterMapEntry>,
+    character_map: &[char],
     font: &Font,
     fallback_fonts: &[Font],
     variations: &[(skrifa::Tag, f32)],
@@ -534,7 +529,7 @@ fn embed_sdf_glyphs(
 
     let glyph_data = character_map
         .par_iter()
-        .map(|CharacterMapEntry { code_point, .. }| {
+        .map(|code_point| {
             core::iter::once(font)
                 .chain(fallback_fonts.iter())
                 .find_map(|font| {
