@@ -5,6 +5,9 @@
 
 #include "slint.h"
 
+#include <concepts>
+#include <filesystem>
+
 #ifndef SLINT_FEATURE_INTERPRETER
 #    warning "slint-interpreter.h API only available when SLINT_FEATURE_INTERPRETER is activated"
 #else
@@ -1079,6 +1082,28 @@ public:
         if (cbindgen_private::slint_interpreter_component_compiler_build_from_path(
                     &inner, slint::private_api::string_to_slice(path), &result)) {
 
+            return ComponentDefinition(result);
+        } else {
+            return {};
+        }
+    }
+
+    /// Compile the .slint file at \a path into a ComponentDefinition,
+    /// like build_from_path(std::string_view).
+    ///
+    /// Use this overload for paths that may not be UTF-8 encoded,
+    /// such as paths obtained from `std::filesystem`.
+    template<typename P>
+    // A template so that strings still pick the std::string_view overload
+    // instead of being ambiguous between the two.
+        requires std::same_as<P, std::filesystem::path>
+    std::optional<ComponentDefinition> build_from_path(const P &path)
+    {
+        cbindgen_private::ComponentDefinitionOpaque result;
+        const auto &native = path.native();
+        if (cbindgen_private::slint_interpreter_component_compiler_build_from_native_path(
+                    &inner, slint::private_api::make_slice(native.data(), native.size()),
+                    &result)) {
             return ComponentDefinition(result);
         } else {
             return {};

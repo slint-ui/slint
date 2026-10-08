@@ -4,6 +4,9 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch_all.hpp"
 
+#include <filesystem>
+#include <fstream>
+
 #include <slint.h>
 #include <slint-interpreter.h>
 #include <private/slint_tests_helpers.h>
@@ -337,6 +340,24 @@ SCENARIO("Component Compiler")
         require_error(compiler.build_from_path("\xff.slint"), "The path must be valid UTF-8",
                       u8"\uFFFD.slint");
     }
+
+    SECTION("Compile from std::filesystem::path")
+    {
+        auto result = compiler.build_from_path(std::filesystem::path(SOURCE_DIR "/test.slint"));
+        REQUIRE(result.has_value());
+    }
+
+// Windows paths are UTF-16, and macOS file systems reject file names that aren't UTF-8.
+#if !defined(_WIN32) && !defined(__APPLE__)
+    SECTION("Compile from a path that isn't UTF-8")
+    {
+        auto path = std::filesystem::temp_directory_path() / "slint-interpreter-test-\xff.slint";
+        std::ofstream(path) << "export component Dummy {}";
+        auto result = compiler.build_from_path(path);
+        std::filesystem::remove(path);
+        REQUIRE(result.has_value());
+    }
+#endif
 
     SECTION("Compile failure from path")
     {
