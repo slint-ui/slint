@@ -689,6 +689,7 @@ impl Window {
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
+                    event_time: None,
                 })
                 .into(),
             crate::platform::WindowEvent::PointerMoved { position } => self

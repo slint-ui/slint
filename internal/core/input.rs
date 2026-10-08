@@ -54,6 +54,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
+        /// Original sample time on the animation clock, independent of event delivery.
+        event_time: Option<crate::animations::Instant>,
     },
     /// The position of the pointer has changed
     Moved {
@@ -265,7 +267,7 @@ impl From<BackendMouseEvent> for MouseEvent {
                 Self::Pressed { position, button, click_count, touch_finger_id, event_time: None }
             }
             BackendMouseEvent::Released { position, button, click_count, touch_finger_id } => {
-                Self::Released { position, button, click_count, touch_finger_id }
+                Self::Released { position, button, click_count, touch_finger_id, event_time: None }
             }
             BackendMouseEvent::Moved { position, touch_finger_id } => Self::Moved {
                 position,
@@ -1409,12 +1411,13 @@ impl ClickState {
                     event_time,
                 };
             }
-            MouseEvent::Released { position, button, touch_finger_id, .. } => {
+            MouseEvent::Released { position, button, touch_finger_id, event_time, .. } => {
                 return MouseEvent::Released {
                     position,
                     button,
                     click_count: self.click_count.get(),
                     touch_finger_id,
+                    event_time,
                 };
             }
             _ => {}
@@ -2313,6 +2316,7 @@ impl TouchState {
         for event in events.events[..events.len].iter_mut().flatten() {
             match event {
                 MouseEvent::Pressed { event_time: time, .. }
+                | MouseEvent::Released { event_time: time, .. }
                 | MouseEvent::Moved { event_time: time, .. } => *time = event_time,
                 _ => {}
             }
@@ -2361,6 +2365,7 @@ impl TouchState {
                 button: PointerEventButton::Left,
                 click_count: 0,
                 touch_finger_id: id + 1,
+                event_time: None,
             });
         }
         // 3+ fingers: tracked in active_touches but ignored for gesture.
@@ -2489,6 +2494,7 @@ impl TouchState {
                         button: PointerEventButton::Left,
                         click_count: 0,
                         touch_finger_id: id + 1,
+                        event_time: None,
                     });
                     events.push(MouseEvent::Exit);
                 }

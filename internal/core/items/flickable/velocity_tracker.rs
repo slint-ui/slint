@@ -47,8 +47,8 @@ use core::time::Duration;
 
 // https://github.com/flutter/flutter/blob/d6bed8ff6135cdd414f14edc3063f761d47ca846/packages/flutter/lib/src/gestures/velocity_tracker.dart#L142-L145
 //
-// Shared by every tracking strategy: if the caller hasn't pushed a new
-// sample within this long, the pointer is considered to have stopped.
+// Shared by every tracking strategy: if the release comes this long after the
+// last sample, the pointer is considered to have stopped.
 const ASSUME_POINTER_MOVE_STOPPED: Duration = Duration::from_millis(40);
 
 /// Logical pixels per second. Always `f32`: with an integer `Coord`, a rate would be
@@ -72,8 +72,9 @@ trait VelocityEstimator {
 pub(crate) trait VelocityTracker: VelocityEstimator {
     fn push(&mut self, time: Instant, position_delta: LogicalVector);
     fn last_time(&self) -> Option<Instant>;
-    fn estimate_velocity(&self) -> Option<VelocityEstimate> {
-        if crate::animations::current_tick() - self.last_time()? > ASSUME_POINTER_MOVE_STOPPED {
+    /// `release_time` must come from the same clock as the pushed sample times.
+    fn estimate_velocity(&self, release_time: Instant) -> Option<VelocityEstimate> {
+        if release_time - self.last_time()? > ASSUME_POINTER_MOVE_STOPPED {
             return None;
         }
         self.estimate_velocity_internal()

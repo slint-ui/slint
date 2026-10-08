@@ -752,7 +752,7 @@ impl FlickableDataInner {
                 let moved =
                     self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove);
                 if moved {
-                    self.animate(flick, flick_rc);
+                    self.animate(flick, flick_rc, crate::animations::current_tick());
                 }
                 self.capture_events = None;
                 if !moved {
@@ -906,21 +906,13 @@ impl FlickableDataInner {
         Self::move_within_limits(Some(self), flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
     }
 
-    /// The backend's clock, falling back to the animation tick without a window.
-    fn backend_now(flick_rc: &ItemRc) -> Instant {
-        flick_rc.window_adapter().map_or_else(crate::animations::current_tick, |adapter| {
-            Instant::now(crate::window::WindowInner::from_pub(adapter.window()).context())
-        })
-    }
-
-    /// Springs the content back to the limit it is beyond, starting at `start_time`.
+    /// Springs the content back to the limit it is beyond.
     /// `drag_velocity` is the pointer's velocity at the release.
     fn spring_back(
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
         dimension: Dimension,
         geo: &LogicalRect,
-        start_time: Instant,
         drag_velocity: f32,
     ) -> Rc<RefCell<dyn PositionSimulation>> {
         let content = match dimension {
@@ -947,7 +939,7 @@ impl FlickableDataInner {
             RefCell::new(FlickAnimation::create_spring_animation(
                 curr_val,
                 limit,
-                start_time,
+                crate::animations::current_tick(),
                 velocity,
                 drag_velocity.abs(),
             ))
@@ -962,8 +954,7 @@ impl FlickableDataInner {
         dimension: Dimension,
         geo: &LogicalRect,
     ) {
-        let simulation =
-            Self::spring_back(flick, flick_rc, dimension, geo, Self::backend_now(flick_rc), 0.);
+        let simulation = Self::spring_back(flick, flick_rc, dimension, geo, 0.);
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
             weak: flick_rc.downgrade(),
             x_simulation: None,
@@ -975,7 +966,8 @@ impl FlickableDataInner {
         }
     }
 
-    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+    /// `release_time` is when the pointer was released, on the clock of the tracked samples.
+    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc, release_time: Instant) {
         if self.capture_events.is_some() {
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
@@ -983,8 +975,8 @@ impl FlickableDataInner {
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 &geo,
             );
-            let estimated_velocity = self.velocity_rb.estimate_velocity().map(|v| v.velocity);
-            let release_time = Self::backend_now(flick_rc);
+            let estimated_velocity =
+                self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity);
 
             // The release simulation generic over the Dimension
             let release_simulation = |dimension: Dimension,
@@ -996,7 +988,6 @@ impl FlickableDataInner {
                         flick_rc,
                         dimension,
                         &geo,
-                        release_time,
                         velocity.unwrap_or(0.),
                     ));
                 }
@@ -1275,7 +1266,11 @@ impl FlickableData {
                 inner.pressed_mouse_state = None;
                 if let Some(c) = inner.capture_events {
                     if c == CaptureEvents::MouseMove {
-                        inner.animate(flick, flick_rc);
+                        let release_time = match event {
+                            MouseEvent::Released { event_time: Some(time), .. } => *time,
+                            _ => crate::animations::current_tick(),
+                        };
+                        inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
                         InputEventResult::EventAccepted
                     } else if c == CaptureEvents::MouseStart {
@@ -1461,6 +1456,27 @@ mod velocity_history_tests {
     }
 
     #[test]
+    fn release_time_decides_whether_the_pointer_stopped() {
+        let start = crate::animations::current_tick();
+        // The release is delivered 100 ms late, which must not lose the fling.
+        crate::animations::update_animations(start + Duration::from_millis(120));
+        let mut inner = FlickableDataInner {
+            pressed_mouse_state: Some((start, LogicalPoint::new(50., 100.))),
+            ..Default::default()
+        };
+        inner.track_press(start);
+        for millis in [10, 20] {
+            inner.track_move(
+                start + Duration::from_millis(millis),
+                LogicalPoint::new(50., 100. + millis as f32 * 6.),
+                &TouchHistory::default(),
+            );
+        }
+        assert!(inner.velocity_rb.estimate_velocity(start + Duration::from_millis(25)).is_some());
+        assert!(inner.velocity_rb.estimate_velocity(start + Duration::from_millis(80)).is_none());
+    }
+
+    #[test]
     fn coalesced_history_preserves_leading_segment() {
         for sign in [-1., 1.] {
             for historical_positions in [alloc::vec![], alloc::vec![15], alloc::vec![12, 15]] {
@@ -1502,8 +1518,7 @@ mod velocity_history_tests {
                     press_position + LogicalVector::new(sign * 20., sign * 40.),
                     &history,
                 );
-                crate::animations::update_animations(end);
-                let estimate = inner.velocity_rb.estimate_velocity().unwrap();
+                let estimate = inner.velocity_rb.estimate_velocity(end).unwrap();
                 assert!(
                     (estimate.velocity.x - sign * 1000.).abs() < 0.01,
                     "{}",
@@ -1552,10 +1567,9 @@ mod velocity_history_tests {
             press_position + LogicalVector::new(0., 20.),
             &TouchHistory::default(),
         );
-        crate::animations::update_animations(end);
         assert_eq!(
-            with_history.velocity_rb.estimate_velocity().unwrap().velocity,
-            without_history.velocity_rb.estimate_velocity().unwrap().velocity,
+            with_history.velocity_rb.estimate_velocity(end).unwrap().velocity,
+            without_history.velocity_rb.estimate_velocity(end).unwrap().velocity,
         );
     }
 }

@@ -140,7 +140,7 @@ mod tests_general_velocity_tracker {
     #[test]
     fn estimate_velocity_empty() {
         let tracker = GeneralVelocityTracker::<8>::default();
-        assert!(tracker.estimate_velocity().is_none());
+        assert!(tracker.estimate_velocity(Instant::default()).is_none());
         assert_eq!(tracker.last_time(), None);
     }
 
@@ -216,8 +216,7 @@ mod tests_general_velocity_tracker {
                 tracker.push(time, position - previous);
                 previous = position;
             }
-            crate::animations::update_animations(last_time); // Otherwise the estimate_velocity might return None because time diff to large
-            let res = tracker.estimate_velocity();
+            let res = tracker.estimate_velocity(last_time);
             assert_eq!(res.is_some(), true, "Case: {name}");
             let res = res.unwrap();
             values_equal!(res.velocity.x, expected.x, EPSILON, name);
