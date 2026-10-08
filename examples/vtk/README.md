@@ -29,3 +29,5 @@ SLINT_BACKEND=winit-skia-opengl ./build/vtk_example
 ```
 
 Drag to rotate the surface, drag with Shift held to pan, and scroll to zoom.
+
+![Screenshot of the VTK Example on macOS](https://github.com/user-attachments/assets/a9b8672a-5d98-4fcc-abd4-eee09b6d38f9 "VTK Example")
