@@ -14,7 +14,7 @@ Every piece of text follows the Universal Principles, plus the section that matc
 - Compiler diagnostics: [Diagnostics](#diagnostics).
 - Markdown in the repository, documentation pages, blog posts, and social media:
   [Documentation, Blog, and Social](#documentation-blog-and-social).
-- Commit messages: the Universal Principles only.
+- Commit messages: [Commit Messages](#commit-messages).
 
 Apply the guide to text you add or change.
 Don't reformat existing text just to match it.
@@ -114,6 +114,12 @@ For diagnostics emitted by the Slint compiler:
 5. Use the `Display` implementation for Rust types, if they exists.
    - Rationale: The displayed text is generated from one location, keeping it consistent and allowing it to be updated easily.
 6. Diagnostic messages do not end in a period (`.`).
+
+## Commit Messages
+
+Use [the commit template](../../scripts/commit-template.txt) for commit messages,
+also with `git commit -m`, which skips it.
+Structure a pull request description the same way, since a squash merge turns it into the commit message.
 
 ## ChangeLog
 
