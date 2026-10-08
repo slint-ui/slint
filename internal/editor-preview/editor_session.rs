@@ -1181,7 +1181,7 @@ mod tests {
         write_document(&document);
         let normalized_url = Url::from_file_path(&document).unwrap();
         let encoded_url =
-            Url::parse(&normalized_url.as_str().replace("editing.slint", "%65diting.slint"))
+            Url::parse(&normalized_url.as_str().replace("editing.slint", "editing.%73lint"))
                 .unwrap();
         assert_ne!(encoded_url, normalized_url);
         let mut session = session();
@@ -1283,7 +1283,7 @@ mod tests {
         let entry_url = Url::from_file_path(&entry).unwrap();
         assert!(session.pending_recompile.contains(&entry_url));
         let encoded_url =
-            Url::parse(&entry_url.as_str().replace("main.slint", "%6dain.slint")).unwrap();
+            Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
         let diagnostics = spin_on::spin_on(session.reload_document(encoded_url)).unwrap();
         assert!(diagnostics.iter().any(|(_, _, diagnostics)| {
             diagnostics.iter().any(|diagnostic| diagnostic.message.contains("Dependency"))
@@ -1429,7 +1429,7 @@ mod tests {
         open_document(&mut session, &document).unwrap();
         let entry_url = Url::from_file_path(&entry).unwrap();
         let encoded_url =
-            Url::parse(&entry_url.as_str().replace("main.slint", "%6dain.slint")).unwrap();
+            Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
         session.show_preview(0, PreviewComponent { url: encoded_url, component: None });
         assert!(session.pending_recompile.contains(&entry_url));
         spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
