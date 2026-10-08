@@ -42,6 +42,7 @@ These examples demonstrate specialized features or integrations:
 | [repeater](./repeater/) | Demonstrates the `for` repeater element |
 | [gstreamer-player](./gstreamer-player/) | Video playback using GStreamer |
 | [wgpu_texture](./wgpu_texture/) | Custom rendering with wgpu into a Slint texture |
+| [vtk](./vtk/) | A C++ example that embeds an interactive VTK scene, rendered with OpenGL |
 
 ### Embedded/MCU Examples
 
