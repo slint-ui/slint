@@ -373,7 +373,10 @@ impl Type {
 
 #[derive(Debug, Clone)]
 pub enum BuiltinPropertyDefault {
+    /// The default of the property's type
     None,
+    /// When unset, the style or a compiler pass gives the property its value
+    Computed,
     Expr(ConstantExpression),
     /// The property is computed per element by this function, which takes the element.
     ElementFunction(BuiltinFunction),
@@ -389,7 +392,7 @@ impl BuiltinPropertyDefault {
     /// have no `ElementRc` at hand.
     pub fn expr_without_element(&self) -> Option<Expression> {
         match self {
-            BuiltinPropertyDefault::None => None,
+            BuiltinPropertyDefault::None | BuiltinPropertyDefault::Computed => None,
             BuiltinPropertyDefault::Expr(constant) => Some(constant.to_expression()),
             BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
                 function: function.clone().into(),
