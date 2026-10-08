@@ -1,0 +1,303 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup, Switch } from "std-widgets.slint";
+
+component DisabledTouchArea inherits TouchArea {
+    enabled: false;
+}
+
+component StillDisabled inherits DisabledTouchArea { }
+
+component WithProperties inherits Rectangle {
+    in property <bool> flag: true;
+    in property <int> count;
+    in property <length> size: 10px;
+    in property <length> computed: self.size * 2;
+    in property <bool> alias <=> touch.enabled;
+    in-out property <bool> toggled: false;
+    in-out property <length> animated: 0px;
+    animate animated { duration: 100ms; }
+
+    touch := TouchArea { }
+
+    states [
+        on when self.count > 2: {
+            toggled: true;
+        }
+    ]
+}
+
+component WithOtherFlag inherits WithProperties {
+    flag: false;
+}
+
+component Slot inherits Rectangle {
+    @children
+}
+
+export component InWindow inherits Window {
+    TouchArea {
+        width: 100%;
+//             >   <info{Property 'width' is set to its default value and can be removed}
+    }
+}
+
+component Centered inherits Rectangle {
+    // Removing x would make the Text count for this component's size
+    Text {
+        text: "centered";
+        x: (parent.width - self.width) / 2;
+    }
+}
+
+// Becomes a Window, which has a 'full-screen' property, after the import passes
+export component Test {
+    in property <bool> full-screen: false;
+    in property <bool> flag;
+
+    TouchArea {
+        enabled: true;
+//               >   <info{Property 'enabled' is set to its default value and can be removed}
+        width: 100%;
+//             >   <info{Property 'width' is set to its default value and can be removed}
+        height: parent.height;
+//              >            <info{Property 'height' is set to its default value and can be removed}
+    }
+
+    Rectangle {
+        visible: true;
+//               >   <info{Property 'visible' is set to its default value and can be removed}
+        opacity: 1;
+//               ><info{Property 'opacity' is set to its default value and can be removed}
+        width: 50%;
+        height: parent.height / 2;
+
+        TouchArea {
+            width: 100%;
+//                 >   <info{Property 'width' is set to its default value and can be removed}
+            preferred-height: 10px;
+        }
+    }
+
+    Rectangle {
+        clip: false;
+//            >    <info{Property 'clip' is set to its default value and can be removed}
+        cache-rendering-hint: false;
+//                            >    <info{Property 'cache-rendering-hint' is set to its default value and can be removed}
+    }
+    Rectangle {
+        opacity: 0.5;
+        visible: false;
+        clip: true;
+    }
+    StyledText {
+        link-color: #00f;
+//                  >   <info{Property 'link-color' is set to its default value and can be removed}
+    }
+    StyledText {
+        link-color: red;
+    }
+    Path {
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+        LineTo {
+            x: 10;
+            y: 0;
+        }
+        ArcTo {
+            radius-x: 0;
+            large-arc: false;
+        }
+    }
+    Path {
+        commands: "M 0 0 L 10 10";
+        fit: contain;
+//           >      <info{Property 'fit' is set to its default value and can be removed}
+        stroke-miter-limit: 4;
+//                          ><info{Property 'stroke-miter-limit' is set to its default value and can be removed}
+        clip: false;
+//            >    <info{Property 'clip' is set to its default value and can be removed}
+    }
+    // Without a declared default, the default is the type's
+    Rectangle {
+        background: transparent;
+//                  >          <info{Property 'background' is set to its default value and can be removed}
+        border-width: 0;
+//                    ><info{Property 'border-width' is set to its default value and can be removed}
+        border-color: #00000000;
+//                    >        <info{Property 'border-color' is set to its default value and can be removed}
+    }
+    TouchArea {
+        mouse-cursor: MouseCursor.default;
+//                    >                  <info{Property 'mouse-cursor' is set to its default value and can be removed}
+    }
+    Text {
+        text: "";
+//            > <info{Property 'text' is set to its default value and can be removed}
+        wrap: no-wrap;
+//            >      <info{Property 'wrap' is set to its default value and can be removed}
+        horizontal-alignment: start;
+//                            >    <info{Property 'horizontal-alignment' is set to its default value and can be removed}
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+    }
+    if root.flag: TouchArea {
+        enabled: true;
+//               >   <info{Property 'enabled' is set to its default value and can be removed}
+    }
+    for i in 2: Rectangle {
+        width: 100%;
+//             >   <info{Property 'width' is set to its default value and can be removed}
+    }
+    PopupWindow {
+        Rectangle {
+            width: 100%;
+//                 >   <info{Property 'width' is set to its default value and can be removed}
+        }
+    }
+    // The other property of the pair keeps its binding
+    Rectangle {
+        Rectangle {
+            width: 100%;
+            height: 50%;
+        }
+        TouchArea {
+            width: 20px;
+            height: 100%;
+        }
+    }
+    TouchArea {
+        width: root.width;
+//             >         <info{Property 'width' is set to its default value and can be removed}
+    }
+    Rectangle {
+        width: 50%;
+
+        Rectangle {
+            width: root.width;
+        }
+    }
+
+    // The defaults of these properties come from the style or from other passes
+    Text {
+        color: transparent;
+        x: 0;
+    }
+    TextInput {
+        text-cursor-width: 0px;
+        selection-background-color: transparent;
+    }
+    Image {
+        image-fit: fill;
+    }
+    Flickable {
+        content-width: 0px;
+    }
+    Rectangle {
+        border-radius: 10px;
+        border-top-left-radius: 0px;
+    }
+    Text {
+        width: 0px;
+    }
+    // Without a background or border, the drop shadow has no shape to cast
+    Rectangle {
+        background: transparent;
+        drop-shadow-blur: 4px;
+    }
+    // The widgets of some styles set these, but not of all
+    Switch {
+        horizontal-stretch: 0;
+        enabled: true;
+    }
+    // Lowered to the style's RadioGroup, whose orientation is vertical by default
+    RadioGroup {
+        orientation: Orientation.horizontal;
+    }
+
+    DisabledTouchArea {
+        enabled: true;
+    }
+    StillDisabled {
+        enabled: true;
+    }
+    WithProperties {
+        flag: true;
+//            >   <info{Property 'flag' is set to its default value and can be removed}
+        count: 0;
+//             ><info{Property 'count' is set to its default value and can be removed}
+        size: 10px;
+//            >   <info{Property 'size' is set to its default value and can be removed}
+        visible: true;
+//               >   <info{Property 'visible' is set to its default value and can be removed}
+    }
+    // Unlike the base's binding, these don't depend on something, animate, or change with a state
+    WithProperties {
+        computed: 20px;
+        alias: true;
+        toggled: false;
+        animated: 0px;
+    }
+    WithOtherFlag {
+        flag: false;
+//            >    <info{Property 'flag' is set to its default value and can be removed}
+    }
+    WithOtherFlag {
+        flag: true;
+    }
+    DisabledTouchArea {
+        enabled: false;
+//               >    <info{Property 'enabled' is set to its default value and can be removed}
+    }
+
+    t := TouchArea {
+        enabled: true;
+        states [
+            disabled when root.flag: {
+                t.enabled: false;
+            }
+        ]
+    }
+    Rectangle {
+        opacity: 1;
+        animate opacity { duration: 100ms; }
+    }
+
+    HorizontalLayout {
+        Rectangle {
+            width: 100%;
+        }
+    }
+    Flickable {
+        width: 100%;
+
+        Rectangle {
+            width: 100%;
+            height: 500px;
+        }
+    }
+    Slot {
+        Rectangle {
+            width: 100%;
+        }
+    }
+    Centered { }
+    Image {
+        width: 100%;
+    }
+    // These have an implicit size, which an explicit width adds to the parent's
+    TextInput {
+        width: 100%;
+    }
+    Slot {
+        width: 100%;
+    }
+    Rectangle {
+        width: 100%;
+        horizontal-stretch: 2;
+    }
+}

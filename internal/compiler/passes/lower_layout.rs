@@ -1947,8 +1947,7 @@ fn lower_dialog_layout(
                 );
             }
             true
-        } else if matches!(&layout_child.borrow().lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        {
+        } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
             match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
@@ -2456,6 +2455,11 @@ fn check_number_literal_is_positive_integer(
         }
         _ => false,
     }
+}
+
+/// Whether a child of a Dialog is a StandardButton, whose `kind` must be set
+pub(crate) fn is_standard_button(elem: &Element) -> bool {
+    matches!(&elem.lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {

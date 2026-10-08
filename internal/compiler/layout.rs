@@ -887,7 +887,7 @@ impl FlexboxLayout {
 
 /// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
 /// its layout info is the static default, never height-for-width.
-fn has_no_intrinsic_size(base: &ElementType) -> bool {
+pub(crate) fn has_no_intrinsic_size(base: &ElementType) -> bool {
     let ElementType::Builtin(b) = base else { return false };
     matches!(
         b.name.as_str(),

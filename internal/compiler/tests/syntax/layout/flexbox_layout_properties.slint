@@ -6,8 +6,10 @@ export component X inherits Rectangle {
     flex := FlexboxLayout {
         alignment: center;
         cross-axis-line-alignment: stretch;
+//                                 >      <info{Property 'cross-axis-line-alignment' is set to its default value and can be removed}
         cross-axis-alignment: stretch;
         flex-wrap: wrap;
+//                 >   <info{Property 'flex-wrap' is set to its default value and can be removed}
         gap: 10px;
 //      > <error{Use spacing instead of gap}
         row-gap: 5px;

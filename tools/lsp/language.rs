@@ -2071,6 +2071,17 @@ pub mod tests {
     }
 
     #[test]
+    fn test_load_document_redundant_binding() {
+        let (_, url, diag) = loaded_document_cache(
+            r#"export component Main inherits Rectangle { visible: true; }"#.into(),
+        );
+
+        let diagnostics = diag.get(&url).expect("URL not found in result");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::INFORMATION));
+    }
+
+    #[test]
     fn test_reload_invalid_url() {
         // An invalid URL may be reloaded if the file has been deleted on disk.
         //
