@@ -55,6 +55,12 @@ impl VisualEditorSettings {
         true
     }
 
+    pub(crate) fn clear_recent_projects(&mut self) -> bool {
+        let changed = !self.recent_projects.is_empty();
+        self.recent_projects.clear();
+        changed
+    }
+
     pub(crate) fn visible_recent_projects(&self) -> Vec<ui::RecentProject> {
         self.recent_projects
             .iter()
@@ -279,6 +285,20 @@ mod tests {
         )));
         assert_eq!(settings.recent_projects[0].root, Path::new("/project/2"));
         assert_eq!(settings.recent_projects[0].preview.component.as_deref(), Some("Other"));
+    }
+
+    #[test]
+    fn clear_recent_projects_reports_whether_anything_changed() {
+        let mut settings = VisualEditorSettings::default();
+        assert!(!settings.clear_recent_projects());
+        assert!(settings.add_recent_project(recent_project(
+            "/project",
+            Url::parse("file:///project/main.slint").unwrap(),
+            "Main",
+        )));
+        assert!(settings.clear_recent_projects());
+        assert!(settings.recent_projects.is_empty());
+        assert!(!settings.clear_recent_projects());
     }
 
     #[test]

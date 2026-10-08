@@ -81,7 +81,6 @@ fn main() -> Result<()> {
     let settings = startup::load_settings();
     let active_session = RefCell::new(None::<crossbeam_channel::Sender<EditorToSessionMessage>>);
     let editor_ui_weak = editor_ui.as_weak();
-    let session_settings = settings.clone();
     let start_project = Rc::new(move |project| {
         let mut session_slot = active_session.borrow_mut();
         if let Some(session_sender) = session_slot.as_ref() {
@@ -90,7 +89,7 @@ fn main() -> Result<()> {
         let Some(editor_ui) = editor_ui_weak.upgrade() else {
             return false;
         };
-        *session_slot = Some(start_editor_session(&editor_ui, project, session_settings.clone()));
+        *session_slot = Some(start_editor_session(&editor_ui, project, startup::load_settings()));
         true
     });
     startup::setup(&editor_ui, &settings, start_project.clone());

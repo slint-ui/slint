@@ -262,6 +262,11 @@ export component EditorUi inherits Window {
                     title: project.name;
                     activated => { Project.open-recent-project(project); }
                 }
+                MenuSeparator { }
+                MenuItem {
+                    title: @tr("Clear Recent Projects");
+                    activated => { Project.clear-recent-projects(); }
+                }
             }
         }
         Menu {
