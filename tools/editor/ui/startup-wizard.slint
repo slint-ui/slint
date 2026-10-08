@@ -198,7 +198,7 @@ export component StartupWizard inherits Rectangle {
     property <length> main-width: shell-width - side-width;
 
     accessible-role: AccessibleRole.region;
-    accessible-label: "Startup wizard";
+    accessible-label: @tr("Startup wizard");
 
     background: root.style.stage;
 
@@ -252,7 +252,7 @@ export component StartupWizard inherits Rectangle {
             y: hero-title.y + hero-title.height - Metrics.space-tight;
             width: root.main-width;
             height: Style.welcome-hero.subtitle-height;
-            text: "Version 1.0";
+            text: @tr("Version {}", "1.0");
             color: root.style.muted;
             font-size: Typography.action.size;
             horizontal-alignment: center;
@@ -265,14 +265,14 @@ export component StartupWizard inherits Rectangle {
             height: Style.welcome-actions.height;
             spacing: Style.welcome-actions.gap;
             WelcomeAction {
-                label: "Create New Project...";
+                label: @tr("Create New Project...");
                 clicked => {
                     root.create-new-project();
                 }
             }
 
             WelcomeAction {
-                label: "Open Existing Project...";
+                label: @tr("Open Existing Project...");
                 folder: true;
                 clicked => {
                     root.open-existing-project();

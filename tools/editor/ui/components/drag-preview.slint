@@ -113,7 +113,7 @@ export component DragPreview inherits Rectangle {
     drop-shadow-offset-y: root.style.shadow.offset-y;
     drop-shadow-color: AppState.outline-drag-active ? transparent : root.style.shadow.color;
     accessible-role: AccessibleRole.region;
-    accessible-label: root.row-preview ? "Outline drag preview" : root.presentation.label + " drag preview";
+    accessible-label: root.row-preview ? @tr("Outline drag preview") : @tr("{} drag preview", root.presentation.label);
 
     if root.palette-outline-preview && !AppState.outline-drag-active: Rectangle {
         border-radius: root.style.row.radius;
@@ -157,7 +157,7 @@ export component DragPreview inherits Rectangle {
     }
 
     if !root.row-preview && AppState.palette-drag-kind == ElementKind.text: Text {
-        text: "Text";
+        text: @tr("Text");
         color: root.style.foreground;
         font-size: root.style.text.size;
         font-weight: root.style.text.weight;

@@ -32,20 +32,20 @@ export component InspectorGradientGeometry inherits Rectangle {
         HorizontalLayout {
             spacing: Metrics.space-regular;
             InspectorComboBox {
-                accessible-name: "Gradient type";
-                value: root.value.kind == BrushKind.linear ? "Linear" : root.value.kind == BrushKind.radial ? "Radial" : "Conic";
+                accessible-name: @tr("Gradient type");
+                value: root.value.kind == BrushKind.linear ? @tr("Linear") : root.value.kind == BrushKind.radial ? @tr("Radial") : @tr("Conic");
                 selected-index: root.value.kind == BrushKind.linear ? 0 : root.value.kind == BrushKind.radial ? 1 : 2;
                 options: [
-                { label: "Linear", value: "Linear" },
-                { label: "Radial", value: "Radial" },
-                { label: "Conic", value: "Conic" },
+                { label: @tr("Linear"), value: "Linear" },
+                { label: @tr("Radial"), value: "Radial" },
+                { label: @tr("Conic"), value: "Conic" },
                 ];
                 accepted(text) => {
                     return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic);
                 }
             }
             if root.value.kind != BrushKind.radial && !root.canvas-active: InspectorRotationKnob {
-                accessible-name: "Gradient angle";
+                accessible-name: @tr("Gradient angle");
                 value: root.value.angle;
                 commit-key: root.session-key;
                 started => {
@@ -62,7 +62,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 }
             }
             if root.value.kind != BrushKind.radial && !root.canvas-active: InspectorTextFieldBase {
-                accessible-name: "Gradient angle degrees";
+                accessible-name: @tr("Gradient angle degrees");
                 width: root.style.gradient-value-width;
                 value: root.value.angle.to-fixed(1);
                 commit-key: root.session-key;
@@ -73,12 +73,12 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind != BrushKind.linear && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Text { text: "Center"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
+            Text { text: @tr("Center"); color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorComboBox {
-                accessible-name: "Gradient center";
-                value: root.value.custom-center ? "Custom" : "Automatic";
+                accessible-name: @tr("Gradient center");
+                value: root.value.custom-center ? @tr("Custom") : @tr("Automatic");
                 selected-index: root.value.custom-center ? 1 : 0;
-                options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
+                options: [{ label: @tr("Automatic"), value: "Automatic" }, { label: @tr("Custom"), value: "Custom" }];
                 accepted(text) => {
                     return root.center-mode-selected(text == "Custom");
                 }
@@ -88,7 +88,7 @@ export component InspectorGradientGeometry inherits Rectangle {
             spacing: Metrics.space-regular;
             Text { text: "X / Y"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorTextFieldBase {
-                accessible-name: "Gradient center X";
+                accessible-name: @tr("Gradient center X");
                 value: root.value.center-x.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -101,7 +101,7 @@ export component InspectorGradientGeometry inherits Rectangle {
                 }
             }
             InspectorTextFieldBase {
-                accessible-name: "Gradient center Y";
+                accessible-name: @tr("Gradient center Y");
                 value: root.value.center-y.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {
@@ -116,12 +116,12 @@ export component InspectorGradientGeometry inherits Rectangle {
         }
         if root.value.kind == BrushKind.radial && !root.canvas-active: HorizontalLayout {
             spacing: Metrics.space-regular;
-            Text { text: "Radius"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
+            Text { text: @tr("Radius"); color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorComboBox {
-                accessible-name: "Gradient radius mode";
-                value: root.value.custom-radius ? "Custom" : "Automatic";
+                accessible-name: @tr("Gradient radius mode");
+                value: root.value.custom-radius ? @tr("Custom") : @tr("Automatic");
                 selected-index: root.value.custom-radius ? 1 : 0;
-                options: [{ label: "Automatic", value: "Automatic" }, { label: "Custom", value: "Custom" }];
+                options: [{ label: @tr("Automatic"), value: "Automatic" }, { label: @tr("Custom"), value: "Custom" }];
                 accepted(text) => {
                     return root.radius-mode-selected(text == "Custom");
                 }
@@ -131,7 +131,7 @@ export component InspectorGradientGeometry inherits Rectangle {
             spacing: Metrics.space-regular;
             Rectangle { width: root.style.gradient-label-width; horizontal-stretch: 0; }
             InspectorTextFieldBase {
-                accessible-name: "Gradient radius";
+                accessible-name: @tr("Gradient radius");
                 value: root.value.radius.to-fixed(1);
                 commit-key: root.session-key;
                 accepted(text) => {

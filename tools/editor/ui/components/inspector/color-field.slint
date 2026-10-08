@@ -137,7 +137,7 @@ export component InspectorColorField inherits Rectangle {
         TouchArea {
             mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
-            accessible-label: root.accessible-name + " color picker";
+            accessible-label: @tr("{} color picker", root.accessible-name);
             clicked => {
                 root.show-picker();
                 swatch-focus.focus();

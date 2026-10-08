@@ -28,7 +28,7 @@ export component InspectorPane inherits Rectangle {
     width: Style.panes.inspector-width;
     background: Colors.surface;
     accessible-role: AccessibleRole.complementary;
-    accessible-label: "Inspector and outline";
+    accessible-label: @tr("Inspector and outline");
     property <length> content-x: Metrics.border-width;
     private property <length> field-width: root.width - root.content-x - 2 * root.style.padding;
     in property <length> outline-pane-height: 0px;
@@ -60,20 +60,20 @@ export component InspectorPane inherits Rectangle {
         { value: "cover", label: "cover" },
     ];
     property <[InspectorComboOption]> text-font-weight-options: [
-        { value: "100", label: "Thin" },
-        { value: "200", label: "Extra Light" },
-        { value: "300", label: "Light" },
-        { value: "400", label: "Normal" },
-        { value: "500", label: "Medium" },
-        { value: "600", label: "Semi Bold" },
-        { value: "700", label: "Bold" },
-        { value: "800", label: "Extra Bold" },
-        { value: "900", label: "Black" },
+        { value: "100", label: @tr("Thin") },
+        { value: "200", label: @tr("Extra Light") },
+        { value: "300", label: @tr("Light") },
+        { value: "400", label: @tr("Normal") },
+        { value: "500", label: @tr("Medium") },
+        { value: "600", label: @tr("Semi Bold") },
+        { value: "700", label: @tr("Bold") },
+        { value: "800", label: @tr("Extra Bold") },
+        { value: "900", label: @tr("Black") },
     ];
     property <[InspectorComboOption]> rectangle-effect-options: [
-        { value: "none", label: "None" },
-        { value: "drop", label: "Drop Shadow" },
-        { value: "inner", label: "Inner Shadow" },
+        { value: "none", label: @tr("None") },
+        { value: "drop", label: @tr("Drop Shadow") },
+        { value: "inner", label: @tr("Inner Shadow") },
     ];
 
     property <string> selection-key: root.element-information.source-uri + ":" + root.element-information.offset + ":" + Api.selection.highlight-index;
@@ -406,11 +406,11 @@ export component InspectorPane inherits Rectangle {
     }
 
     function text-font-family-value() -> string {
-        return root.property-string("font-family", "Default font");
+        return root.property-string("font-family", @tr("Default font"));
     }
 
     function text-font-size-value() -> string {
-        return root.property-length-label("font-size", "Default size");
+        return root.property-length-label("font-size", @tr("Default size"));
     }
 
     function image-fit-index() -> int {
@@ -510,7 +510,7 @@ export component InspectorPane inherits Rectangle {
 
     function text-font-weight-label() -> string {
         let index = root.text-font-weight-index();
-        return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
+        return index >= 0 ? root.text-font-weight-options[index].label : @tr("Normal");
     }
 
     EdgeDivider {
@@ -539,12 +539,12 @@ export component InspectorPane inherits Rectangle {
                 alignment: start;
 
                 if (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
-                    title: "Geometry";
+                    title: @tr("Geometry");
                     InspectorPropertyRow {
-                        label: "Position";
+                        label: @tr("Position");
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
-                            accessible-name: "Position X"; prefix: "X";
+                            accessible-name: @tr("Position X"); prefix: "X";
                             value: root.selected-x-label(); commit-key: root.field-key("x");
                             scrubbable: true; scrub-value: root.selected-x() / 1px;
                             scrub-preview(value) => { return root.preview-geometry-property("x", value); }
@@ -554,7 +554,7 @@ export component InspectorPane inherits Rectangle {
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
-                            accessible-name: "Position Y"; prefix: "Y";
+                            accessible-name: @tr("Position Y"); prefix: "Y";
                             value: root.selected-y-label(); commit-key: root.field-key("y");
                             scrubbable: true; scrub-value: root.selected-y() / 1px;
                             scrub-preview(value) => { return root.preview-geometry-property("y", value); }
@@ -564,10 +564,10 @@ export component InspectorPane inherits Rectangle {
                         }
                     }
                     InspectorPropertyRow {
-                        label: "Size";
+                        label: @tr("Size");
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
-                            accessible-name: "Width"; prefix: "W";
+                            accessible-name: @tr("Width"); prefix: "W";
                             value: root.selected-width-label(); commit-key: root.field-key("width");
                             scrubbable: true; scrub-value: root.selected-width() / 1px;
                             scrub-has-minimum: true; scrub-minimum: 1;
@@ -578,7 +578,7 @@ export component InspectorPane inherits Rectangle {
                         }
                         InspectorValueField {
                             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
-                            accessible-name: "Height"; prefix: "H";
+                            accessible-name: @tr("Height"); prefix: "H";
                             value: root.selected-height-label(); commit-key: root.field-key("height");
                             scrubbable: true; scrub-value: root.selected-height() / 1px;
                             scrub-has-minimum: true; scrub-minimum: 1;
@@ -589,7 +589,7 @@ export component InspectorPane inherits Rectangle {
                         }
                     }
                     InspectorPropertyRow {
-                        label: "Rotation";
+                        label: @tr("Rotation");
                         height: Metrics.control-large;
                         knob := InspectorRotationKnob {
                             value: root.control-values[0];
@@ -600,7 +600,7 @@ export component InspectorPane inherits Rectangle {
                         }
                         InspectorValueField {
                             width: parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap - knob.width;
-                            accessible-name: "Rotation"; prefix: "°";
+                            accessible-name: @tr("Rotation"); prefix: "°";
                             value: "\{EditorAngles.normalize(knob.visual-value * 1deg) / 1deg}";
                             commit-key: root.inspector-key;
                             scrubbable: true; scrub-value: knob.visual-value;
@@ -613,7 +613,7 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
-                    title: "APPEARANCE";
+                    title: @tr("APPEARANCE");
                     use-shared-title: true;
 
                     VerticalLayout {
@@ -623,7 +623,7 @@ export component InspectorPane inherits Rectangle {
 
                         Text {
                             height: Metrics.icon-small;
-                            text: root.is-text-selection() ? "Color" : "Fill";
+                            text: root.is-text-selection() ? @tr("Color") : @tr("Fill");
                             color: Colors.muted;
                             font-size: Typography.control.size;
                             vertical-alignment: center;
@@ -631,7 +631,7 @@ export component InspectorPane inherits Rectangle {
 
                         if root.is-root-selection(): InspectorColorField {
                             property <PropertyValue> background-value: Api.current-property-value-data("background");
-                            accessible-name: "Root background";
+                            accessible-name: @tr("Root background");
                             value: Api.current-property-value("background", "");
                             swatch: background-value.value-resolved ? background-value.value-brush : transparent;
                             commit-key: root.field-key("background");
@@ -645,7 +645,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-rectangle-selection(): InspectorColorField {
-                            accessible-name: "Rectangle background";
+                            accessible-name: @tr("Rectangle background");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: Api.current-property-value("background", "");
                             swatch: root.property-brush("background");
@@ -660,7 +660,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-text-selection(): InspectorColorField {
-                            accessible-name: "Text color";
+                            accessible-name: @tr("Text color");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: Api.current-property-value("color", "");
                             swatch: root.property-brush("color");
@@ -693,13 +693,13 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-rectangle-selection(): InspectorSection {
-                    title: "Border";
+                    title: @tr("Border");
 
                     InspectorPropertyRow {
-                        label: "Width";
+                        label: @tr("Width");
                         InspectorValueField {
                             property <PropertyValue> border-value: Api.current-property-value-data("border-width");
-                            accessible-name: "Border width";
+                            accessible-name: @tr("Border width");
                             value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : root.property-length-label("border-width", "0");
                             suffix: "px";
                             suffix-width: Metrics.icon-small;
@@ -730,7 +730,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         InspectorColorField {
-                            accessible-name: "Border color";
+                            accessible-name: @tr("Border color");
                             target-size: { width: root.selected-width(), height: root.selected-height() };
                             value: Api.current-property-value("border-color", "");
                             swatch: root.property-brush("border-color");
@@ -745,7 +745,7 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-rectangle-selection(): InspectorSection {
-                    title: "Effects";
+                    title: @tr("Effects");
 
                     VerticalLayout {
                         padding-left: root.style.padding;
@@ -753,7 +753,7 @@ export component InspectorPane inherits Rectangle {
                         spacing: Metrics.space-compact;
 
                         InspectorComboBox {
-                            accessible-name: "Rectangle effect";
+                            accessible-name: @tr("Rectangle effect");
                             value: root.rectangle-effect-value();
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
@@ -770,7 +770,7 @@ export component InspectorPane inherits Rectangle {
 
                             Text {
                                 height: Metrics.icon-small;
-                                text: "Color";
+                                text: @tr("Color");
                                 color: Colors.foreground;
                                 font-size: Typography.caption.size;
                                 font-weight: FontWeight.semi-bold;
@@ -778,7 +778,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorColorField {
-                                accessible-name: "Shadow color";
+                                accessible-name: @tr("Shadow color");
                                 target-size: { width: root.selected-width(), height: root.selected-height() };
                                 value: root.shadow-color-code();
                                 swatch: root.shadow-color-swatch();
@@ -795,7 +795,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectDial {
-                            accessible-name: "Shadow angle";
+                            accessible-name: @tr("Shadow angle");
                             commit-key: root.inspector-key + ":" + root.current-shadow-prefix();
                             value: root.shadow-angle();
                             preview(angle) => {
@@ -809,8 +809,8 @@ export component InspectorPane inherits Rectangle {
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
                             width: root.field-width;
-                            accessible-name: "Shadow distance";
-                            label: "Distance";
+                            accessible-name: @tr("Shadow distance");
+                            label: @tr("Distance");
                             value: root.shadow-distance();
                             minimum: 0;
                             maximum: 96;
@@ -832,8 +832,8 @@ export component InspectorPane inherits Rectangle {
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
                             width: root.field-width;
-                            accessible-name: "Shadow blur";
-                            label: "Blur";
+                            accessible-name: @tr("Shadow blur");
+                            label: @tr("Blur");
                             value: root.shadow-blur();
                             minimum: 0;
                             maximum: 128;
@@ -849,8 +849,8 @@ export component InspectorPane inherits Rectangle {
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
                             width: root.field-width;
-                            accessible-name: "Shadow spread";
-                            label: "Spread";
+                            accessible-name: @tr("Shadow spread");
+                            label: @tr("Spread");
                             value: root.shadow-spread();
                             minimum: -64;
                             maximum: 64;
@@ -867,7 +867,7 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-image-selection(): InspectorSection {
-                    title: "Image";
+                    title: @tr("Image");
 
                     VerticalLayout {
                         padding-left: root.style.padding;
@@ -878,7 +878,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: Metrics.space-compact;
 
                             Text {
-                                text: "Source";
+                                text: @tr("Source");
                                 color: Colors.foreground;
                                 font-size: Typography.caption.size;
                                 font-weight: FontWeight.semi-bold;
@@ -898,7 +898,7 @@ export component InspectorPane inherits Rectangle {
                                 cross-axis-alignment: center;
 
                                 Text {
-                                    text: "Image fit";
+                                    text: @tr("Image fit");
                                     color: Colors.foreground;
                                     font-size: Typography.caption.size;
                                     font-weight: FontWeight.semi-bold;
@@ -913,7 +913,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorComboBox {
-                                accessible-name: "Image fit";
+                                accessible-name: @tr("Image fit");
                                 value: root.image-fit-value();
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
@@ -958,15 +958,15 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-text-selection(): InspectorSection {
-                    title: "Content";
+                    title: @tr("Content");
 
                     HorizontalLayout {
                         padding-left: root.style.padding;
                         padding-right: root.style.padding;
 
                         InspectorCodeField {
-                            accessible-name: "Text content";
-                            prefix: "Text";
+                            accessible-name: @tr("Text content");
+                            prefix: @tr("Text");
                             value: Api.current-property-value("text", "\"\"");
                             commit-key: root.field-key("text");
                             accepted(text) => {
@@ -977,14 +977,14 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if root.is-text-selection(): InspectorSection {
-                    title: "Typography";
+                    title: @tr("Typography");
 
                     VerticalLayout {
                         padding-left: root.style.padding;
                         spacing: Metrics.space-compact;
 
                         InspectorEditableField {
-                            accessible-name: "Font family";
+                            accessible-name: @tr("Font family");
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
@@ -998,7 +998,7 @@ export component InspectorPane inherits Rectangle {
                             spacing: root.style.column-gap;
 
                             InspectorComboBox {
-                                accessible-name: "Font weight";
+                                accessible-name: @tr("Font weight");
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
@@ -1009,7 +1009,7 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorEditableField {
-                                accessible-name: "Font size";
+                                accessible-name: @tr("Font size");
                                 value: root.text-font-size-value();
                                 commit-key: root.field-key("font-size");
                                 accepted(text) => {
@@ -1027,7 +1027,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     HorizontalResizeDivider {
-        resize-label: "Outline pane resize";
+        resize-label: @tr("Outline pane resize");
         value: root.outline-height;
         value-maximum: max(Style.panes.minimum, root.height - root.split-height - Style.panes.minimum);
         x: root.content-x;

@@ -131,7 +131,7 @@ component SelectedCanvasFrame inherits Rectangle {
         resizable: root.primary && Api.selection.is-resizable && root.selection.describes-element;
         moveable: root.primary && Api.selection.is-moveable && root.selection.describes-element;
         accessible-role: AccessibleRole.region;
-        accessible-label: "Selected " + Api.current-element.type-name;
+        accessible-label: @tr("Selected {}", Api.current-element.type-name);
 
         double-clicked => {
             if root.primary {
@@ -200,9 +200,9 @@ component SelectedCanvasFrame inherits Rectangle {
             y: frame.corner-on-top(frame.radius-edit-corner) ? 0px : frame.height,
         });
         private property <length> corner-clearance: frame.radius-tooltip-value * frame.geometry-scale;
-        label: "Radius";
+        label: @tr("Radius");
         value: (frame.radius-tooltip-value / 1px).to-fixed(0);
-        value-label: "Radius value";
+        value-label: @tr("Radius value");
         pointer-position: frame.local-point-to-parent(frame.radius-tooltip-position);
         x: self.corner-position.x <= frame.x + frame.width / 2
             ? max(self.pointer-position.x, self.corner-position.x + self.corner-clearance) + self.style.offset
@@ -211,10 +211,10 @@ component SelectedCanvasFrame inherits Rectangle {
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
         private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
-        label: "Rotation";
+        label: @tr("Rotation");
         value: "\{(self.normalized-angle / 1deg).round()}";
         suffix: "°";
-        value-label: "Rotation angle";
+        value-label: @tr("Rotation angle");
         pointer-position: frame.rotation-tooltip-position;
     }
 }
@@ -247,7 +247,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     show-resize-handles: false;
     show-rotation-handles: false;
     show-outline: root.show-outline-while-moving && root.move-dragging;
-    accessible-prefix: "Hovered " + Hover.element.type-name;
+    accessible-prefix: @tr("Hovered {}", Hover.element.type-name);
     accessible-role: AccessibleRole.region;
     accessible-label: root.accessible-prefix;
 
@@ -586,7 +586,7 @@ export component CanvasInteractionLayer inherits TouchArea {
             line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
             single-line: true;
             wrap: no-wrap;
-            accessible-label: "Inline text editor";
+            accessible-label: @tr("Inline text editor");
 
             accepted => { root.commit-text-edit(); }
             changed has-focus => {

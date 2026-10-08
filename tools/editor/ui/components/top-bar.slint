@@ -24,7 +24,7 @@ component RunButton inherits Rectangle {
     opacity: enabled ? 1 : root.style.disabled-opacity;
 
     bt := Text {
-        text: root.running ? "Running" : "Run";
+        text: root.running ? @tr("Running") : @tr("Run");
         color: root.paint.foreground;
         font-size: root.style.text.size;
         font-weight: root.style.text.weight;
@@ -36,7 +36,7 @@ component RunButton inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: pointer;
         accessible-role: button;
-        accessible-label: root.running ? "Running" : "Run";
+        accessible-label: root.running ? @tr("Running") : @tr("Run");
         clicked => { root.clicked(); }
     }
 }

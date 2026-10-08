@@ -209,7 +209,7 @@ component FileTreeRow inherits Rectangle {
                 vertical-alignment: center;
                 single-line: true;
                 wrap: no-wrap;
-                accessible-label: "Rename " + root.node.label;
+                accessible-label: @tr("Rename {}", root.node.label);
                 init => {
                     self.focus();
                     self.set-selection-offsets(0, root.node.rename-selection-end);
@@ -266,7 +266,7 @@ export component FileTreeView inherits Rectangle {
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.tree;
-    accessible-label: "Files";
+    accessible-label: @tr("Files");
 
     tree := ListView {
         width: parent.width;

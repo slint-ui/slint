@@ -296,7 +296,7 @@ export component GradientOverlay inherits FocusScope {
             touch := TouchArea {
                 mouse-cursor: grab;
                 accessible-role: AccessibleRole.button;
-                accessible-label: "Gradient axis";
+                accessible-label: @tr("Gradient axis");
                 pure function pointer() -> Point {
                     return group.window-point({ x: self.mouse-x, y: self.mouse-y - root.style.axis-hit-size / 2 });
                 }
@@ -314,7 +314,7 @@ export component GradientOverlay inherits FocusScope {
             x: (endpoint == 0 ? 0px : root.axis-length) - self.width / 2;
             endpoint: true;
             color: Colors.on-accent;
-            label: root.conic ? (endpoint == 0 ? "Gradient center handle" : "Gradient rotation handle") : root.radial ? (endpoint == 0 ? "Gradient center handle" : "Gradient radius handle") : (endpoint == 0 ? "Gradient start" : "Gradient end");
+            label: root.conic ? (endpoint == 0 ? @tr("Gradient center handle") : @tr("Gradient rotation handle")) : root.radial ? (endpoint == 0 ? @tr("Gradient center handle") : @tr("Gradient radius handle")) : (endpoint == 0 ? @tr("Gradient start") : @tr("Gradient end"));
             window-point(p) => { return group.window-point({ x: self.x + p.x, y: self.y + p.y }); }
             keyboard(event) => { return root.handle-key(self.gesture-kind, event); }
             started(p) => { root.begin(self.gesture-kind, p); }
@@ -337,7 +337,7 @@ export component GradientOverlay inherits FocusScope {
             transform-rotation: self.marker-angle;
             color: FillSession.working-fill.stops[index].color;
             selected: index == FillSession.selected-stop;
-            label: "Gradient stop " + (index + 1);
+            label: @tr("Gradient stop {}", index + 1);
             focus-generation: root.focus-epoch;
             window-point(p) => {
                 let dx = p.x - self.width / 2;

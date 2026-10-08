@@ -14,8 +14,8 @@ component CornerMode inherits FocusScope {
     width: root.style.width;
     height: root.style.height;
     accessible-role: AccessibleRole.button;
-    accessible-label: root.separate ? "Separate corners" : "All corners";
-    accessible-value: root.selected ? "selected" : "";
+    accessible-label: root.separate ? @tr("Separate corners") : @tr("All corners");
+    accessible-value: root.selected ? @tr("selected") : "";
     accessible-action-default => { root.activated(); }
     key-pressed(event) => {
         if event.text == " " || event.text == Key.Return { root.activated(); return accept; }
@@ -57,7 +57,7 @@ export component InspectorCornerEditor inherits Rectangle {
         HorizontalLayout {
             spacing: Metrics.space-tight;
             Text {
-                text: "Corner Radius";
+                text: @tr("Corner Radius");
                 color: Colors.foreground;
                 font-size: Typography.control.size;
                 vertical-alignment: center;
@@ -77,7 +77,7 @@ export component InspectorCornerEditor inherits Rectangle {
         if !root.separate: HorizontalLayout {
             spacing: Metrics.space-regular;
             slider := InspectorSlider {
-                accessible-name: "All corner radii slider";
+                accessible-name: @tr("All corner radii slider");
                 style: root.style.slider;
                 value: root.values[0]; maximum: root.maximum; commit-key: root.commit-key;
                 preview(value) => { return root.preview(value); }
@@ -87,7 +87,7 @@ export component InspectorCornerEditor inherits Rectangle {
             InspectorValueField {
                 style: root.style.field;
                 width: root.style.field-width;
-                accessible-name: "All corner radii";
+                accessible-name: @tr("All corner radii");
                 prefix: "";
                 value: "\{slider.visual-value}";
                 commit-key: root.commit-key;
@@ -102,7 +102,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 style: root.style.field;
                     property <int> index: row * 2 + column;
                     width: (root.width - root.style.gap) / 2;
-                    accessible-name: index == 0 ? "Top left corner radius" : index == 1 ? "Top right corner radius" : index == 2 ? "Bottom left corner radius" : "Bottom right corner radius";
+                    accessible-name: index == 0 ? @tr("Top left corner radius") : index == 1 ? @tr("Top right corner radius") : index == 2 ? @tr("Bottom left corner radius") : @tr("Bottom right corner radius");
                     corner-index: self.index;
                     value: "\{root.values[index]}";
                     commit-key: root.commit-key;
