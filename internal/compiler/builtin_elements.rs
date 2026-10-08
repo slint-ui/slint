@@ -60,7 +60,8 @@
 //! Elements that are accepted children of another element are only reachable through it.
 //! A native item or an element must be declared before the items and elements using it, so each
 //! item sits right before the element that lowers to it. The macros expand to calls on a
-//! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`load`] runs them.
+//! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`BUILTIN_ELEMENTS`] runs
+//! them.
 
 use crate::expression_tree::{BuiltinFunction, Unit};
 use crate::langtype::{
@@ -71,7 +72,7 @@ use crate::object_tree::{Component, Element, PropertyVisibility};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -369,11 +370,14 @@ impl Builder {
 }
 
 struct Loader<'a> {
-    register: &'a mut TypeRegister,
+    /// The basic types, builtin structs and enums, for the declarations to look up.
+    types: &'a TypeRegister,
     /// The native items by name, each with the properties and docs of its whole parent chain.
     items: HashMap<SmolStr, (Arc<NativeClass>, BuiltinElement)>,
     /// The builtin elements by name.
     elements: HashMap<SmolStr, Arc<BuiltinElement>>,
+    /// See [`TypeRegister::context_restricted_types`].
+    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
 }
 
 impl Loader<'_> {
@@ -385,7 +389,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.register.lookup(&kebab(text));
+        let ty = self.types.lookup(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -456,7 +460,7 @@ impl Loader<'_> {
                 });
                 e.element.additional_accepted_child_types.insert(name.clone(), child.clone());
             }
-            self.register.context_restricted_types.entry(name).or_default().insert(parent.clone());
+            self.context_restricted_types.entry(name).or_default().insert(parent.clone());
         }
     }
 
@@ -472,20 +476,7 @@ impl Loader<'_> {
             Some(item) if !own_members => item,
             _ => Arc::new(e.class),
         };
-        let builtin = Arc::new(builtin);
-        if builtin.is_global {
-            let global = Rc::new(Component {
-                id: builtin.name.clone(),
-                root_element: Rc::new(RefCell::new(Element {
-                    base_type: ElementType::Builtin(builtin.clone()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            });
-            global.root_element.borrow_mut().enclosing_component = Rc::downgrade(&global);
-            self.register.add(global);
-        }
-        self.elements.insert(builtin.name.clone(), builtin);
+        self.elements.insert(builtin.name.clone(), Arc::new(builtin));
     }
 }
 
@@ -4181,23 +4172,58 @@ fn build(l: &mut Loader) {
     }
 }
 
-/// Fill `register` with the builtin elements. It must already contain the basic types
-/// (string, int, ...), the builtin structs and enums.
+/// The builtin elements.
+/// A builtin [`TypeRegister`] takes them from here, so they're built once per process.
+pub(crate) struct BuiltinElements {
+    /// Every builtin element by name, including globals and those only accepted as a child.
+    elements: HashMap<SmolStr, Arc<BuiltinElement>>,
+    /// The elements accepted as a child of another one, only reachable through it.
+    children: HashSet<SmolStr>,
+    /// See [`TypeRegister::context_restricted_types`].
+    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
+}
+
+pub(crate) static BUILTIN_ELEMENTS: std::sync::LazyLock<BuiltinElements> =
+    std::sync::LazyLock::new(|| {
+        let types = TypeRegister::with_builtin_types();
+        let mut loader = Loader {
+            types: &types,
+            items: HashMap::new(),
+            elements: HashMap::new(),
+            context_restricted_types: HashMap::new(),
+        };
+        build(&mut loader);
+        let Loader { elements, context_restricted_types, .. } = loader;
+        let children = elements
+            .values()
+            .flat_map(|element| element.additional_accepted_child_types.keys().cloned())
+            .collect();
+        BuiltinElements { elements, children, context_restricted_types }
+    });
+
+/// Fill `register` with the builtin elements of [`BUILTIN_ELEMENTS`].
 pub(crate) fn load(register: &mut TypeRegister) {
-    let mut loader = Loader { register, items: HashMap::new(), elements: HashMap::new() };
-    build(&mut loader);
-    let Loader { register, elements, .. } = loader;
-    // Elements that are accepted children of another one are only reachable through it.
-    let is_child = |name: &SmolStr| {
-        elements.values().any(|e| e.additional_accepted_child_types.contains_key(name))
-    };
-    for (name, element) in &elements {
+    let BuiltinElements { elements, children, context_restricted_types, .. } = &*BUILTIN_ELEMENTS;
+    register.context_restricted_types.extend(context_restricted_types.clone());
+    for (name, element) in elements {
         match name.as_str() {
             "Empty" => register.empty_type = ElementType::Builtin(element.clone()),
             "PropertyAnimation" => {
                 register.property_animation_type = ElementType::Builtin(element.clone())
             }
-            _ if !element.is_global && !is_child(name) => register.add_builtin(element.clone()),
+            _ if element.is_global => {
+                let global = Rc::new(Component {
+                    id: element.name.clone(),
+                    root_element: Rc::new(RefCell::new(Element {
+                        base_type: ElementType::Builtin(element.clone()),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                });
+                global.root_element.borrow_mut().enclosing_component = Rc::downgrade(&global);
+                register.add(global);
+            }
+            _ if !children.contains(name) => register.add_builtin(element.clone()),
             _ => {}
         }
     }
