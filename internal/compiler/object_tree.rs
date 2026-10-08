@@ -764,6 +764,20 @@ impl Component {
     pub fn parent_element(&self) -> Option<ElementRc> {
         self.parent_element.borrow().upgrade()
     }
+
+    /// Whether a state of this component changes `property_name` on its root element
+    pub fn state_changes_root_property(&self, property_name: &str) -> bool {
+        let root = &self.root_element;
+        let mut found = false;
+        recurse_elem(root, &(), &mut |elem, _| {
+            found |= elem.borrow().states.iter().any(|state| {
+                state.property_changes.iter().any(|(property, ..)| {
+                    property.name() == property_name && Rc::ptr_eq(&property.element(), root)
+                })
+            });
+        });
+        found
+    }
 }
 
 #[derive(Clone, Debug, Default)]

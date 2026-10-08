@@ -1951,8 +1951,7 @@ fn lower_dialog_layout(
                 );
             }
             true
-        } else if matches!(&layout_child.borrow().lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        {
+        } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
             match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
@@ -2460,6 +2459,18 @@ fn check_number_literal_is_positive_integer(
         }
         _ => false,
     }
+}
+
+/// Whether lowering `parent` requires `name` to be set on its child `elem`,
+/// even to its default value: the `kind` of a StandardButton in a Dialog
+pub(crate) fn dialog_requires_binding(parent: &ElementRc, elem: &Element, name: &str) -> bool {
+    name == "kind"
+        && parent.borrow().builtin_type().is_some_and(|b| b.name == "Dialog")
+        && is_standard_button(elem)
+}
+
+fn is_standard_button(elem: &Element) -> bool {
+    matches!(&elem.lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {
