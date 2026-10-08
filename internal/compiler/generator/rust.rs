@@ -6224,8 +6224,6 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
 
                     let character_map_size = character_map.len();
 
-                    let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(sp::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
-
                     let glyphs_size = glyphs.len();
 
                     let glyphs = glyphs.iter().map(|crate::embedded_resources::BitmapGlyphs{pixel_size, glyph_data}| {
@@ -6266,7 +6264,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             family_name: sp::Slice::from_slice(#family_name.as_bytes()),
                             character_map: sp::Slice::from_slice({
                                 #link_section
-                                static CM : [sp::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
+                                static CM : [char; #character_map_size] = [#(#character_map),*];
                                 &CM
                             }),
                             units_per_em: #units_per_em,
