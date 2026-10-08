@@ -156,6 +156,9 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.15
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   demos/printerdemo/node:
     dependencies:

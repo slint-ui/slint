@@ -89,3 +89,43 @@ jobs:
             - name: Test packaging as a single executable application
               working-directory: api/node
               run: pnpm exec vitest run __test__/sea.spec.mts
+            - name: Package the home-automation demo as a single executable
+              # Follows docs/nodejs/src/content/docs/packaging.mdx.
+              shell: bash
+              working-directory: demos/home-automation
+              run: |
+                  (cd node && node build.mjs $([ "$RUNNER_OS" = macOS ] && echo ../Resources))
+                  node --build-sea sea-config.json
+
+                  mkdir -p ../../dist
+                  case "$RUNNER_OS" in
+                  Windows)
+                      mv home-automation home-automation.exe
+                      npx --yes create-nodew-exe@2.1.1 home-automation.exe home-automation.exe
+                      mkdir ../../dist/home-automation
+                      cp -RL home-automation.exe slint-ui.*.node ui ../../dist/home-automation/
+                      echo "ARTIFACT=dist/home-automation" >> "$GITHUB_ENV"
+                      ;;
+                  macOS)
+                      app="Home Automation.app"
+                      mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+                      mv home-automation slint-ui.*.node "$app/Contents/MacOS/"
+                      cp -RL ui "$app/Contents/Resources/"
+                      cp ../../logo/slint-logo.icns "$app/Contents/Resources/"
+                      cp node/Info.plist "$app/Contents/"
+                      codesign --sign - --force "$app"
+                      # ditto keeps the executable permission and the signature.
+                      ditto -c -k --keepParent "$app" ../../dist/home-automation.zip
+                      echo "ARTIFACT=dist/home-automation.zip" >> "$GITHUB_ENV"
+                      ;;
+                  *)
+                      # A tarball, since upload-artifact drops the executable permission.
+                      tar czhf ../../dist/home-automation.tar.gz --transform 's,^,home-automation/,' home-automation slint-ui.*.node ui
+                      echo "ARTIFACT=dist/home-automation.tar.gz" >> "$GITHUB_ENV"
+                      ;;
+                  esac
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: home-automation-node-${{ runner.os }}-${{ runner.arch }}
+                  path: ${{ env.ARTIFACT }}
+                  retention-days: 7
