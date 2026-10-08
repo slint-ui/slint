@@ -6,6 +6,10 @@ description: How a change to Slint SC is made, reviewed, and merged.
 Slint SC is developed in the same repository as Slint, [slint-ui/slint](https://github.com/slint-ui/slint), and follows the [same process as the rest of the repository](https://github.com/slint-ui/slint/blob/master/docs/internal/processes.md).
 A change that touches Slint SC also goes through the activities of [On Every Change](#on-every-change).
 
+A change is a pull request that touches Slint SC.
+It's the change request of ISO 26262-8 Clause 8, and lands in `master` as one or more commits.
+The approval of a pull request covers the commits it holds when it merges.
+
 ## On Every Change
 
 **Addresses:** ISO 26262-6 Clauses 6 to 10, ISO 26262-8 Clause 8
@@ -27,7 +31,8 @@ See [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change) for why the
 
 :::caution[TODO]
 C-01, C-07, and C-08 aren't enforced yet.
-Changes to Slint SC can still merge without an impact statement or review, or be pushed directly to `master`.
+Changes to Slint SC can still merge without an impact statement or review, or be pushed directly to `master` without a pull request.
+For an approval to cover what merges, branch protection has to dismiss approvals when new commits are pushed, and require the branch to be up to date before it merges.
 :::
 
 ## Branching
