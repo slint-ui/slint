@@ -9,21 +9,19 @@ This chapter states how each tool reaches the confidence level its [classificati
 
 ## Slint Compiler
 
-The `slint-compiler` is qualified by validating the tool, per ISO 26262-8 11.4.9.
+The Slint compiler is classified TCL1, so it needs no qualification methods, per ISO 26262-8 11.4.6.1.
+See [Tool Classification](/evaluation-report/tool-classification/#slint-compiler).
+The classification rests on the integrator verifying the generated code; see [`slint.aou.verify-generated`](/user-manual/#slint.aou.verify-generated).
 
-Validation means writing test cases that cover each language feature of Slint SC, and verifying that the generated Rust code is correct for each feature.
-Every paragraph of the [Language Specification](/reference/language/) carries an identifier, and every identifier is traced to at least one test.
-So the coverage of the feature set is measured rather than asserted.
+The compiler is tested all the same, which adds confidence beyond what TCL1 asks for:
 
-| 11.4.9.2 asks for | How |
-| --- | --- |
-| a) Evidence that the tool complies with its specified requirements | The [Traceability Matrix](/qualification-report/traceability-matrix/) |
-| b) Analysis of malfunctions found during validation | [Known Problems](/user-manual/known-problems/) |
-| c) Reaction to anomalous operating conditions | The [compiler syntax tests](/safety-plan/test-suites/#compiler-syntax-tests) assert that everything outside the qualified subset is rejected with a diagnostic |
+* Every paragraph of the [Language Specification](/reference/language/) carries an identifier, and the [Traceability Matrix](/qualification-report/traceability-matrix/) traces every identifier to at least one test.
+* The [compiler syntax tests](/safety-plan/test-suites/#compiler-syntax-tests) assert that the compiler rejects everything outside the subset with a diagnostic.
+* Malfunctions found by the tests are recorded in [Known Problems](/user-manual/known-problems/).
 
 ## slint-sc-coverage
 
-`slint-sc-coverage` is qualified by validation too, using [`slint.coverage.avd.stated-coverage`](/evaluation-report/potential-errors/#slint.coverage.avd.stated-coverage).
+`slint-sc-coverage` is classified TCL3, and qualified by validation per ISO 26262-8 11.4.9, using [`slint.coverage.avd.stated-coverage`](/evaluation-report/potential-errors/#slint.coverage.avd.stated-coverage).
 See [Coverage Tool Verification](/safety-plan/slint-coverage/).
 
 ## Test Suites
