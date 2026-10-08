@@ -4,9 +4,11 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::object_tree::Document;
 use crate::object_tree::interfaces::validate_implement_statements;
+use crate::object_tree::typed_slots::validate_assignments;
 
 pub(crate) fn validate_interfaces(doc: &Document, diag: &mut BuildDiagnostics) {
     for component in doc.inner_components.iter() {
         validate_implement_statements(&component.root_element, diag);
+        validate_assignments(&component.root_element, diag);
     }
 }
