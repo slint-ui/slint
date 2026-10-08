@@ -896,9 +896,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_file_loader(
             match status {
                 FileLoaderResult::NotFound => None,
                 FileLoaderResult::Found => Some(Ok(result.to_string())),
-                FileLoaderResult::Error => {
-                    Some(Err(std::io::Error::other(result.to_string())))
-                }
+                FileLoaderResult::Error => Some(Err(std::io::Error::other(result.to_string()))),
             }
         })
     });
