@@ -3,8 +3,8 @@
 
 //! Path rendering support for the software renderer using zeno
 
-use super::PhysicalRect;
-use super::draw_functions::{PremultipliedRgbaColor, TargetPixel};
+use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel};
+use super::{PhysicalLength, PhysicalRect, ShapeClip};
 use alloc::vec;
 use alloc::vec::Vec;
 use zeno::{Cap, Fill, Join, Mask, Stroke, Style};
@@ -58,11 +58,27 @@ pub fn convert_path_data_to_zeno(
     commands
 }
 
+#[inline(always)]
+fn blend_with_coverage<T: TargetPixel>(pixel: &mut T, color: PremultipliedRgbaColor, coverage: u8) {
+    if coverage > 0 {
+        // Scale all color components by coverage to maintain premultiplication
+        let coverage = coverage as u16;
+        let alpha_color = PremultipliedRgbaColor {
+            red: ((color.red as u16 * coverage) / 255) as u8,
+            green: ((color.green as u16 * coverage) / 255) as u8,
+            blue: ((color.blue as u16 * coverage) / 255) as u8,
+            alpha: ((color.alpha as u16 * coverage) / 255) as u8,
+        };
+        T::blend(pixel, alpha_color);
+    }
+}
+
 /// Common rendering logic for both filled and stroked paths
 fn render_path_with_style<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     color: PremultipliedRgbaColor,
     style: zeno::Style,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
@@ -104,32 +120,40 @@ fn render_path_with_style<T: TargetPixel>(
             continue;
         }
 
-        // Iterate the writable portion of the line directly to avoid indexing by loop variable
+        let len = clip_x_end.saturating_sub(clip_x_start);
+        let line_clip = LineClip::new(
+            clip_geometry,
+            PhysicalLength::new(screen_y as i16),
+            clips,
+            len,
+            (clip_x_start as isize - clip_geometry.origin.x as isize) as i16,
+            (clip_geometry.max_x() as isize - clip_x_end as isize) as i16,
+        );
         let line_slice = &mut line[clip_x_start..clip_x_end];
-        for (i, pixel) in line_slice.iter_mut().enumerate() {
-            let screen_x = clip_x_start + i;
-
+        let mask_coverage = |i: usize| {
             // Calculate the x coordinate in the mask buffer
-            let mask_x = screen_x as isize - path_x_start;
+            let mask_x = (clip_x_start + i) as isize - path_x_start;
             if mask_x < 0 || mask_x >= path_width as isize {
-                continue;
+                return 0;
             }
-
-            let mask_idx = (mask_y as usize) * path_width + (mask_x as usize);
-            let coverage = mask_buffer[mask_idx];
-
-            if coverage > 0 {
-                // Scale all color components by coverage to maintain premultiplication
-                let coverage_factor = coverage as u16;
-                let alpha_color = PremultipliedRgbaColor {
-                    red: ((color.red as u16 * coverage_factor) / 255) as u8,
-                    green: ((color.green as u16 * coverage_factor) / 255) as u8,
-                    blue: ((color.blue as u16 * coverage_factor) / 255) as u8,
-                    alpha: ((color.alpha as u16 * coverage_factor) / 255) as u8,
-                };
-                T::blend(pixel, alpha_color);
+            mask_buffer[(mask_y as usize) * path_width + (mask_x as usize)]
+        };
+        let Some(line_clip) = line_clip else {
+            for (i, pixel) in line_slice.iter_mut().enumerate() {
+                blend_with_coverage(pixel, color, mask_coverage(i));
             }
+            continue;
+        };
+        let inner = line_clip.inner.clone();
+        for (i, pixel) in inner.clone().zip(&mut line_slice[inner]) {
+            blend_with_coverage(pixel, color, mask_coverage(i));
         }
+        line_clip.for_each_edge_chunk(|chunk, coverage| {
+            for (i, c) in chunk.zip(coverage.iter()) {
+                let coverage = (mask_coverage(i) as u16 * *c as u16 / 255) as u8;
+                blend_with_coverage(&mut line_slice[i], color, coverage);
+            }
+        });
     }
 }
 
@@ -138,12 +162,14 @@ fn render_path_with_style<T: TargetPixel>(
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
+/// * `clips` - The rounded clips, relative to `clip_geometry`
 /// * `color` - The color to render the path
 /// * `buffer` - The target pixel buffer
 pub fn render_filled_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     color: PremultipliedRgbaColor,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
@@ -151,6 +177,7 @@ pub fn render_filled_path<T: TargetPixel>(
         commands,
         path_geometry,
         clip_geometry,
+        clips,
         color,
         zeno::Style::Fill(Fill::NonZero),
         buffer,
@@ -162,6 +189,7 @@ pub fn render_filled_path<T: TargetPixel>(
 /// * `commands` - The path commands to render
 /// * `path_geometry` - The full bounding box of the path in screen coordinates
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
+/// * `clips` - The rounded clips, relative to `clip_geometry`
 /// * `color` - The color to render the path
 /// * `stroke_width` - The width of the stroke
 /// * `buffer` - The target pixel buffer
@@ -169,6 +197,7 @@ pub fn render_stroked_path<T: TargetPixel>(
     commands: &[Command],
     path_geometry: &PhysicalRect,
     clip_geometry: &PhysicalRect,
+    clips: &[ShapeClip],
     color: PremultipliedRgbaColor,
     stroke_width: f32,
     stroke_line_cap: i_slint_core::items::LineCap,
@@ -190,5 +219,5 @@ pub fn render_stroked_path<T: TargetPixel>(
         })
         .miter_limit(stroke_miter_limit);
     let style = Style::Stroke(stroke);
-    render_path_with_style(commands, path_geometry, clip_geometry, color, style, buffer);
+    render_path_with_style(commands, path_geometry, clip_geometry, clips, color, style, buffer);
 }

@@ -1,0 +1,51 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=132x48
+// SLINT_SCALE_FACTOR=1.5
+// ROTATION_THRESHOLD=70  - the border radius algorithm doesn't give the same result from every rotation
+
+// At a fractional scale factor, a child of a rounded `clip: true` with a border
+// fills the clip up to the border's inner edge on every side.
+
+component Cell inherits Rectangle {
+    in property <length> border;
+    border-width: border;
+    width: 24px;
+    height: 24px;
+    background: blue;
+    border-color: red;
+    border-radius: 8px;
+    clip: true;
+    Rectangle {
+        x: -4px;
+        y: -4px;
+        width: 32px;
+        height: 32px;
+        background: white;
+    }
+}
+
+export component TestCase inherits Window {
+    width: 88px;
+    height: 32px;
+    background: black;
+
+    Cell {
+        x: 4px;
+        y: 4px;
+        border: 1px;
+    }
+
+    Cell {
+        x: 32px;
+        y: 4px;
+        border: 3px;
+    }
+
+    Cell {
+        x: 60px;
+        y: 4px;
+        border: 5px;
+    }
+}
