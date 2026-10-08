@@ -1208,19 +1208,9 @@ impl FlickableData {
 
         // We should capture the mouse movement, if the flickable can move in this
         // axis, and the mouse has moved more than the threshold in this axis.
-        let should_capture_x = (FlickAnimation::use_bounce(effective_bounce(
-            flick,
-            &flickable_geometry,
-            Dimension::X,
-        )) || content_width > flickable_width
-            || flick.content_x() != zero)
+        let should_capture_x = (content_width > flickable_width || flick.content_x() != zero)
             && abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD;
-        let should_capture_y = (FlickAnimation::use_bounce(effective_bounce(
-            flick,
-            &flickable_geometry,
-            Dimension::Y,
-        )) || content_height > flickable_height
-            || flick.content_y() != zero)
+        let should_capture_y = (content_height > flickable_height || flick.content_y() != zero)
             && abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD;
         should_capture_x || should_capture_y
     }
@@ -1236,14 +1226,8 @@ impl FlickableData {
         let content_height = flick.content_height();
         let zero = LogicalLength::zero();
 
-        let can_pan_x =
-            FlickAnimation::use_bounce(effective_bounce(flick, &flickable_geometry, Dimension::X))
-                || content_width > flickable_width
-                || flick.content_x() != zero;
-        let can_pan_y =
-            FlickAnimation::use_bounce(effective_bounce(flick, &flickable_geometry, Dimension::Y))
-                || content_height > flickable_height
-                || flick.content_y() != zero;
+        let can_pan_x = content_width > flickable_width || flick.content_x() != zero;
+        let can_pan_y = content_height > flickable_height || flick.content_y() != zero;
 
         can_pan_x || can_pan_y
     }

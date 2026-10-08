@@ -457,10 +457,11 @@ SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = [
+  "internal/core/animations/simulations/android.rs",
   "internal/core/animations/simulations/bounce.rs",
-  "internal/core/items/flickable/animation.rs",
   "internal/core/items/flickable/velocity_tracker.rs",
   "internal/core/items/flickable/velocity_tracker/fling.rs",
+  "internal/core/items/flickable/velocity_tracker/general.rs",
   "internal/core/items/flickable/velocity_tracker/ios.rs",
   "internal/core/items/flickable/velocity_tracker/least_square.rs",
   "internal/core/items/flickable/velocity_tracker/macos.rs",
