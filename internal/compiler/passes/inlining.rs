@@ -977,13 +977,6 @@ fn duplicate_transition(
 // Some components need to be inlined to avoid increased complexity in handling them
 // in the code generators and subsequent passes.
 fn component_requires_inlining(component: &Rc<Component>) -> bool {
-    let mut has_typed_slots = false;
-    recurse_elem(&component.root_element, &(), &mut |element, _| {
-        has_typed_slots |= element.borrow().typed_slot_interface.is_some();
-    });
-    if has_typed_slots {
-        return true;
-    }
     let root_element = &component.root_element;
     if super::flickable::is_flickable_element(root_element) {
         return true;
