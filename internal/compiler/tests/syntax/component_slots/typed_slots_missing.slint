@@ -1,10 +1,72 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-interface Interaction { out property <bool> pressed; }
+interface Interaction {
+    out property <bool> pressed;
+}
+
 component Host {
     slot <Interaction> control;
+//                     >     <note{The slot 'control' is declared here}
+//                     >     <^note{The slot 'control' is declared here}
+//                     >     <^^note{The slot 'control' is declared here}
+//                     >     <^^^note{The slot 'control' is declared here}
+//                     >     <^^^^note{The slot 'control' is declared here}
+//                     >     <^^^^^note{The slot 'control' is declared here}
     control { }
-//  >      <error{Typed slot 'control' requires exactly one component}
 }
-export component Test inherits Window { Host { } }
+
+component InheritedHost inherits Host { }
+
+component ForwardingHost {
+    slot <Interaction> input;
+//                     >   <note{The slot 'input' is declared here}
+    Host {
+        control << input;
+    }
+}
+
+component OuterForwardingHost {
+    slot <Interaction> outer;
+//                     >   <note{The slot 'outer' is declared here}
+    ForwardingHost {
+        input << outer;
+    }
+}
+
+export component Test inherits Window {
+    Host { }
+//  >   <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    // Each instance of the same host reports its own error.
+    Host { }
+//  >   <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    VerticalLayout {
+        Host { }
+//      >   <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    }
+    InheritedHost { }
+//  >            <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    ForwardingHost { }
+//  >             <error{Typed slot 'input' requires a component that provides 'Interaction'}
+    OuterForwardingHost { }
+//  >                  <error{Typed slot 'outer' requires a component that provides 'Interaction'}
+    if true: Host { }
+//           >   <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    for value in [1, 2]: Host { }
+//                       >   <error{Typed slot 'control' requires a component that provides 'Interaction'}
+    Host {
+        control << TouchArea { }
+    }
+
+    InheritedHost {
+        control << TouchArea { }
+    }
+
+    ForwardingHost {
+        input << TouchArea { }
+    }
+
+    OuterForwardingHost {
+        outer << TouchArea { }
+    }
+}

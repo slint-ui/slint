@@ -6,8 +6,13 @@ use crate::expression_tree::Expression;
 use crate::langtype::{ElementType, PropertyLookupMode, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::interfaces;
-use crate::object_tree::{Component, ElementRc, recurse_elem, visit_all_named_references};
+use crate::object_tree::{
+    Component, Element, ElementRc, recurse_elem, recurse_elem_including_sub_components,
+    visit_all_named_references,
+};
+use crate::parser::normalize_identifier;
 use crate::typeregister::TypeRegister;
+use smol_str::SmolStr;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
@@ -32,6 +37,68 @@ pub(super) fn prepare(component: &Rc<Component>, tr: &TypeRegister) {
             element.base_type = tr.empty_type();
         }
     });
+}
+
+pub(super) fn check_content(
+    component: &Rc<Component>,
+    is_exported_root: bool,
+    diag: &mut BuildDiagnostics,
+) {
+    recurse_elem_including_sub_components(component, &(), &mut |element, _| {
+        let element = element.borrow();
+        let ElementType::Component(base) = &element.base_type else { return };
+        if base.parent_element().is_some() {
+            return;
+        }
+        let enclosing = element.enclosing_component.upgrade().unwrap();
+        if std::ptr::eq(&*element, enclosing.root_element.as_ptr())
+            && enclosing.parent_element().is_none()
+            && !is_exported_root
+        {
+            return;
+        }
+        let mut assigned = assigned_slots(&element);
+        let mut base = base.clone();
+        loop {
+            for slot in base.declared_slots.borrow().iter() {
+                let Some(interface) = &slot.interface else { continue };
+                if assigned.contains(&slot.name)
+                    || !base.child_insertion_points.borrow().contains_key(slot.name.as_str())
+                {
+                    continue;
+                }
+                let message = format!(
+                    "Typed slot '{}' requires a component that provides '{}'",
+                    slot.name, interface.id
+                );
+                match element.debug.first().and_then(|debug| debug.node.QualifiedName()) {
+                    Some(type_name) => diag.push_error(message, &type_name),
+                    None => diag.push_error(message, &*element),
+                }
+                diag.push_note(
+                    format!("The slot '{}' is declared here", slot.name),
+                    &slot.name_node,
+                );
+            }
+            let next = {
+                let root = base.root_element.borrow();
+                assigned.extend(assigned_slots(&root));
+                match &root.base_type {
+                    ElementType::Component(next) => next.clone(),
+                    _ => break,
+                }
+            };
+            base = next;
+        }
+    });
+}
+
+fn assigned_slots(element: &Element) -> HashSet<SmolStr> {
+    element
+        .children
+        .iter()
+        .filter_map(|child| child.borrow().slot_target.as_deref().map(normalize_identifier))
+        .collect()
 }
 
 #[allow(clippy::mutable_key_type)]

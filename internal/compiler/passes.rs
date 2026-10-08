@@ -152,17 +152,28 @@ pub async fn run_passes(
         lower_menus::remove_root_menus(component);
     });
 
+    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
+        diag.iter()
+            .skip(before)
+            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    };
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        let is_exported_root =
+            doc.exported_roots().any(|root| std::rc::Rc::ptr_eq(&root, component));
+        lower_typed_slots::check_content(component, is_exported_root, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     collect_subcomponents::collect_subcomponents(doc);
     let diagnostics_before_typed_slots = diag.iter().count();
     doc.visit_all_used_components(|component| {
         lower_typed_slots::lower(component, diag);
     });
-    if diag
-        .iter()
-        .skip(diagnostics_before_typed_slots)
-        .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
-    {
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
         return raw_type_loader;
     }
 
