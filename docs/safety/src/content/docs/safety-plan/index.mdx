@@ -8,9 +8,6 @@ description: How Slint SC is organized, designed, developed, verified, and relea
 The Safety Plan lists the safety activities of Slint SC.
 Where another chapter of this manual already describes an activity, the plan links to that chapter rather than repeating the description.
 
-What can go wrong, and how we handle each failure, is in the [Tool Evaluation Report](/evaluation-report/) and the [Component Documentation](/component-documentation/).
-The evidence from running the tests is in the [Qualification Report](/qualification-report/).
-
 ## How Slint SC Is Developed
 
 SixtyFPS GmbH delivers Slint SC to integrators as a software component.
@@ -21,8 +18,7 @@ The integrator builds the product and certifies it.
 Slint SC consists of a runtime and tools, and different parts of ISO 26262 apply to the runtime and to the tools:
 
 * The `slint-sc` runtime becomes part of the integrator's product.
-  The runtime is developed under ISO 26262-6 as a Safety Element out of Context (SEooC).
-  An SEooC is a component developed before anyone knows which product it goes into.
+  The runtime is developed under ISO 26262-6 as a [Safety Element out of Context](/safety-plan/standards-compliance/#integrity-level) (SEooC).
   See [Tailoring](/safety-plan/standards-compliance/#tailoring) for what developing the runtime as an SEooC changes.
 * The Slint compiler and `slint-sc-coverage` are tools.
   They run while the integrator builds and tests the product, and aren't part of the product.

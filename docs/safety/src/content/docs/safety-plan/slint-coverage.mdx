@@ -10,9 +10,7 @@ This chapter says what the measurement rests on, and how the tool is tested, so 
 ## What the Measurement Rests On
 
 The measurement rests on two things outside Slint.
-First, the LLVM profiler runtime has to be available for the target the test program runs on.
-The profiler runtime is available on the host but not on bare-metal targets.
-So the measurement is taken on the host, the same as the Rust coverage that the measurement is combined with.
+First, the measurement is taken on the host, where the LLVM profiler runtime is available; see [Constraints](/user-manual/slint-coverage/#constraints).
 
 Second, the tool derives the count of each point from the coverage regions of the generated code.
 That rule rests on how `rustc` lays out those regions, which `rustc` doesn't document.
