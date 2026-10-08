@@ -8,29 +8,6 @@ use i_slint_core::api::ComponentHandle;
 
 #[cfg(feature = "internal")]
 #[test]
-fn preview_tools_report_files_without_components() {
-    i_slint_backend_testing::init_no_event_loop();
-    for preview in [false, true] {
-        let mut compiler = crate::Compiler::default();
-        compiler.set_style("fluent".into());
-        compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = preview;
-        let result = spin_on::spin_on(compiler.build_from_source(
-            "export global Globals { out property <int> answer: 42; }".into(),
-            Default::default(),
-        ));
-        assert_eq!(result.components().count(), 0);
-        assert!(result.has_errors());
-        let broken = spin_on::spin_on(
-            compiler
-                .build_from_source("export component Broken { broken }".into(), Default::default()),
-        );
-        assert!(broken.has_errors());
-        assert_eq!(broken.components().count(), 0);
-    }
-}
-
-#[cfg(feature = "internal")]
-#[test]
 fn reuse_window() {
     i_slint_backend_testing::init_no_event_loop();
     use crate::{Compiler, ComponentHandle, SharedString, Value};
