@@ -25,7 +25,7 @@ The runtime applies each principle the table recommends at ASIL B.
 
 | Principle | ASIL B | How the runtime applies it |
 | --- | --- | --- |
-| 1a One entry and one exit point | ++ | Functions return at their end. The only early returns are three guard clauses for "nothing to paint", in `fill_rect`, `draw_image`, and `Color::composite_over`. The runtime doesn't use `?`. |
+| 1a One entry and one exit point | ++ | Functions generally return at their end. Any early returns with RAII cleanup (`Drop`) meet the intent. The runtime doesn't use `?`. |
 | 1b No dynamic objects or variables | ++ | The runtime doesn't use `alloc`; see the rules above. |
 | 1c Initialization of variables | ++ | The Rust compiler rejects reading a variable before it's initialized. |
 | 1d No multiple use of variable names | ++ | The runtime doesn't shadow any name; clippy's shadowing lints report none. |
