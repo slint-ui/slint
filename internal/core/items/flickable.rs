@@ -493,7 +493,11 @@ struct FlickableDataInner {
 impl FlickableDataInner {
     /// Lose momentum if certain conditions are not fulfilled
     fn maybe_lose_momentum(&mut self, tick: &Instant) {
-        if self.last_scroll_event.is_none_or(|(time, _)| (*tick - time) > MOMENTUM_RETAIN_TIMEOUT) {
+        let last_activity = self
+            .last_scroll_event
+            .map(|(time, _)| time)
+            .max(self.pressed_mouse_state.map(|(time, _)| time));
+        if last_activity.is_none_or(|time| (*tick - time) > MOMENTUM_RETAIN_TIMEOUT) {
             self.retained_velocity = Default::default();
         }
     }
@@ -1088,8 +1092,6 @@ impl FlickableData {
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.track_press(event_time.unwrap_or_else(crate::animations::current_tick));
                 inner.capture_momentum();
-                inner.last_scroll_event =
-                    Some((crate::animations::current_tick(), Default::default())); // The position is not important
                 let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
                 content_x.remove_binding(); // Stop animation by removing the binding
                 let content_y = (Flickable::FIELD_OFFSETS.content_y()).apply_pin(flick);
@@ -1258,8 +1260,6 @@ impl FlickableData {
             MouseEvent::Pressed { .. } => {
                 inner.capture_events = Some(CaptureEvents::MouseStart);
                 inner.capture_momentum();
-                inner.last_scroll_event =
-                    Some((crate::animations::current_tick(), Default::default()));
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
