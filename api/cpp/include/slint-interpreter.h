@@ -12,6 +12,7 @@
 #    include "private/slint_interpreter_internal.h"
 
 #    include <optional>
+#    include <filesystem>
 
 #    ifdef SLINT_FEATURE_BACKEND_QT
 class QWidget;
@@ -1019,25 +1020,36 @@ public:
     }
 
     /// Sets a custom file loader for the compiler.
-    /// The callback is invoked with a path and should return the file contents as a SharedString,
-    /// or std::nullopt if the file is not found.
-    template<std::invocable<std::string_view> F>
-        requires(std::is_convertible_v<std::invoke_result_t<F, std::string_view>,
-                                       std::optional<SharedString>>)
+    /// The callback is invoked with a path and should return the file contents.
+    /// Return values: `FileLoaderResult::NotFound` (compiler tries normal resolution),
+    /// `FileLoaderResult::Found` (content written to `out`), or `FileLoaderResult::Error`
+    /// (error message written to `out`).
+    template<std::invocable<const std::filesystem::path&> F>
+        requires(std::is_convertible_v<std::invoke_result_t<F, const std::filesystem::path&>, std::optional<std::string>>)
     void set_file_loader(F callback)
     {
         using namespace cbindgen_private;
-        auto actual_cb = [](void *data, Slice<uint8_t> path, SharedString *out) -> bool {
-            std::string_view path_str(reinterpret_cast<const char *>(path.ptr), path.len);
-            auto result = (*reinterpret_cast<F *>(data))(path_str);
-            if (result.has_value()) {
-                *out = result.value();
-                return true;
-            }
-            return false;
-        };
         cbindgen_private::slint_interpreter_component_compiler_set_file_loader(
-                &inner, actual_cb, new F(std::move(callback)),
+                &inner,
+                [](void *data, Slice<Slice<uint8_t>> path_segments, SharedString *out) -> FileLoaderResult {
+                    std::filesystem::path path;
+                    for (size_t i = 0; i < path_segments.len; ++i) {
+                        const auto &seg = path_segments.ptr[i];
+                        path /= std::string_view(reinterpret_cast<const char *>(seg.ptr), seg.len);
+                    }
+                    try {
+                        auto result = (*reinterpret_cast<F *>(data))(path);
+                        if (result.has_value()) {
+                            *out = SharedString(result.value());
+                            return cbindgen_private::FileLoaderResult::Found;
+                        }
+                        return cbindgen_private::FileLoaderResult::NotFound;
+                    } catch (const std::exception &e) {
+                        *out = SharedString(e.what());
+                        return cbindgen_private::FileLoaderResult::Error;
+                    }
+                },
+                new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
