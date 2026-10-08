@@ -407,6 +407,29 @@ export default defineConfig({
                             },
                         ],
                     },
+                    {
+                        label: "Norm Mapping",
+                        link: "/norm-mapping/",
+                        items: [
+                            { label: "Overview", slug: "norm-mapping" },
+                            {
+                                label: "ISO 26262-2",
+                                slug: "norm-mapping/iso-26262-2",
+                            },
+                            {
+                                label: "ISO 26262-6",
+                                slug: "norm-mapping/iso-26262-6",
+                            },
+                            {
+                                label: "ISO 26262-6 Method Tables",
+                                slug: "norm-mapping/iso-26262-6-methods",
+                            },
+                            {
+                                label: "ISO 26262-8",
+                                slug: "norm-mapping/iso-26262-8",
+                            },
+                        ],
+                    },
                 ], {
                     // The landing page lists the documents and belongs to none
                     // of them.
