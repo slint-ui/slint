@@ -2776,6 +2776,20 @@ impl Element {
             return false;
         }
 
+        debug_assert!(
+            !self
+                .builtin_type()
+                .and_then(|b| b.properties.get(&property_name).cloned())
+                .is_some_and(|info| matches!(
+                    info.default_value,
+                    crate::native_class::BuiltinPropertyDefault::None
+                ) && matches!(
+                    info.property_visibility,
+                    PropertyVisibility::Input | PropertyVisibility::InOut
+                )),
+            "a pass sets the default of {property_name}: mark it `computed` in builtin_elements.rs"
+        );
+
         match self.bindings.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {
                 let mut binding: BindingExpression = expression_fn().into();
