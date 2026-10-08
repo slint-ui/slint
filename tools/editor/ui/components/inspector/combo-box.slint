@@ -16,13 +16,16 @@ export component InspectorComboBox inherits Rectangle {
     in property <int> selected-index: -1;
     in property <[InspectorComboOption]> options;
     in property <bool> wide: false;
+    in property <bool> fit-options: false;
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
     callback accepted(string) -> bool;
     private property <PaintStyle> paint: fallback-popup.is-open ? root.style.appearance.focus
         : native-menu-touch.has-hover || combo-focus.has-focus ? root.style.appearance.hover : root.style.appearance.normal;
 
-    width: wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
+    width: root.fit-options
+        ? max(Style.inspector-layout.column-width, options-measure.preferred-width + 2 * Metrics.space-regular + Metrics.space-small + Metrics.icon-medium)
+        : root.wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     height: root.style.height;
     border-radius: root.style.radius;
     background: root.paint.background;
@@ -111,6 +114,20 @@ export component InspectorComboBox inherits Rectangle {
         }
     }
 
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        clip: true;
+
+        options-measure := VerticalLayout {
+            for option in root.options: Text {
+                text: option.label;
+                font-size: root.style.text.size;
+                wrap: no-wrap;
+            }
+        }
+    }
+
     combo-focus := FocusScope {
         key-pressed(event) => {
             if event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow {
@@ -180,7 +197,7 @@ export component InspectorComboBox inherits Rectangle {
     fallback-popup := PopupWindow {
         x: 0px;
         y: root.fallback-popup-y();
-        width: root.width;
+        width: root.fit-options ? max(root.width, options-measure.preferred-width + 33px + 2 * root.popup-padding) : root.width;
         height: root.popup-height();
         close-policy: close-on-click-outside;
         forward-focus: popup-focus;
