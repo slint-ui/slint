@@ -247,14 +247,12 @@ export component EditorUi inherits Window {
             title: @tr("File");
             MenuItem {
                 title: @tr("New Slint File");
-                shortcut: @keys(Control + "n");
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
             }
             MenuSeparator { }
             MenuItem {
                 title: @tr("Open...");
-                shortcut: @keys(Control + "o");
                 activated => { Project.open-existing-project(); }
             }
             Menu {
@@ -271,13 +269,11 @@ export component EditorUi inherits Window {
             title: @tr("Edit");
             MenuItem {
                 title: @tr("Undo");
-                shortcut: @keys(Control + "z");
                 enabled: Api.undo-enabled;
                 activated => { root.apply-history(false); }
             }
             MenuItem {
                 title: @tr("Redo");
-                shortcut: @keys(Control + Shift + "z");
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
             }
