@@ -1,0 +1,241 @@
+---
+title: Package Your Application
+description: Ship a Slint application written in JavaScript or TypeScript as a native executable for Windows, macOS, and Linux.
+---
+
+{/* cSpell: ignore appimagetool codesign editbin entitlements hdiutil icns Inno MSIX myapp nodew notarytool resedit signtool UDZO volname */}
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Give your users an application they start like any other,
+without installing Node.js or running `npm install`.
+Node.js builds such an executable from its own binary, as a [single executable application](https://nodejs.org/api/single-executable-applications.html).
+Your code goes into the executable, and Slint's native addon and your `.slint` files ship next to it.
+
+This takes Node.js 25.5 or newer, which is also the Node.js your application runs on.
+Build on each platform you ship to:
+npm installs native addons, including Slint's, for the platform it runs on.
+
+## Bundle Your Code
+
+The executable runs one script built into it,
+and that script [loads only the built-in modules](https://nodejs.org/api/single-executable-applications.html#module-loading-in-the-injected-main-script) of Node.js.
+A bundler combines your code and its dependencies into that script.
+Use esbuild with the plugin of `slint-ui` so that `import { MainWindow } from "./ui/main.slint"` works in the bundle.
+
+Install [esbuild](https://esbuild.github.io/):
+
+```sh
+npm install --save-dev esbuild
+```
+
+Save this as `build.mjs`, with your entry point in `entryPoints`:
+
+```js
+import * as esbuild from "esbuild";
+import { slint } from "slint-ui/esbuild";
+
+await esbuild.build({
+    entryPoints: ["main.js"],
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    outfile: "main.bundle.mjs",
+    plugins: [slint()],
+});
+```
+
+Then run it:
+
+```sh
+node build.mjs
+```
+
+It writes `main.bundle.mjs`, and copies Slint's native addon next to it.
+The plugin compiles `import { MainWindow } from "./ui/main.slint"` into a `loadFile()` call,
+so the `.slint` file loads at run time from the same path relative to the bundle.
+In every module of the bundle, `import.meta.url` is the location of the bundle,
+so build other paths, such as those for `loadFile()`, relative to it.
+
+## Build the Executable
+
+Describe the executable in `sea-config.json`.
+On Windows, name the output `myapp.exe`:
+
+```json
+{
+    "main": "main.bundle.mjs",
+    "mainFormat": "module",
+    "output": "myapp",
+    "disableExperimentalSEAWarning": true
+}
+```
+
+Then build it:
+
+```sh
+node --build-sea sea-config.json
+```
+
+Ship the executable with Slint's addon next to it, `slint-ui.<platform>.node`,
+and your `.slint` files and other assets, keeping their layout.
+Ship the native addons of other packages your application uses as well, as their documentation describes.
+
+## Without esbuild
+
+Another bundler works if your code loads `.slint` files with `loadFile()`, and you copy Slint's addon next to the bundle.
+
+Without a bundler, ship your code and `node_modules` next to the executable.
+Build the executable from `sea-main.cjs`, without `mainFormat`, and put `start.cjs` next to it:
+
+```js
+// sea-main.cjs, built into the executable
+require("node:module").createRequire(__filename)("./start.cjs");
+```
+
+```js
+// start.cjs
+import("slint-ui/register").then(() => import("./main.js"));
+```
+
+## Finish for Your Platform
+
+<Tabs syncKey="dev-platform">
+<TabItem label="Windows" icon="seti:windows">
+
+The executable opens a console window, and shows the icon and version information of Node.js.
+Change both on `myapp.exe` after you build it.
+
+To start without a console window, set the `WINDOWS` subsystem with [`create-nodew-exe`](https://www.npmjs.com/package/create-nodew-exe),
+or with `editbin` as described in the [Windows platform guide](https://slint.dev/docs/slint/guide/platforms/desktop/windows/general/):
+
+```powershell
+npx create-nodew-exe myapp.exe myapp.exe
+```
+
+Then the output of `console.log()` is lost, so skip this step while you debug.
+
+To show your application's icon and name in Explorer and Task Manager, use [`resedit-cli`](https://www.npmjs.com/package/resedit-cli):
+
+```powershell
+npx resedit-cli --in myapp.exe --out myapp.exe --ignore-signed --icon 1,myapp.ico `
+    --product-name "My App" --file-description "My App" --product-version 1.0.0.0 --file-version 1.0.0.0
+```
+
+The Slint addon needs the Visual C++ runtime.
+Install the [Visual C++ redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) with your application,
+or declare it as described in the [Windows packaging guide](https://slint.dev/docs/slint/guide/platforms/desktop/windows/packaging/).
+
+To distribute the result:
+
+- Sign `myapp.exe` and Slint's addon with `signtool`.
+- Wrap the application in an installer, such as one made with [Inno Setup](https://jrsoftware.org/isinfo.php) or [WiX](https://wixtoolset.org/),
+  or in an MSIX package for the Microsoft Store, as the [Windows packaging guide](https://slint.dev/docs/slint/guide/platforms/desktop/windows/packaging/) describes.
+
+</TabItem>
+<TabItem label="macOS" icon="apple">
+
+Finder starts an application from an app bundle:
+
+```
+My App.app/
+  Contents/
+    Info.plist
+    MacOS/myapp
+    MacOS/slint-ui.darwin-arm64.node
+    Resources/ui/...
+    Resources/myapp.icns
+```
+
+The executable and the addon go in `MacOS`, and your `.slint` files and other assets in `Resources`.
+Pass `slint({ runtimeDir: "../Resources" })` in `build.mjs`, so the bundle finds them there,
+and set `output` in `sea-config.json` to `My App.app/Contents/MacOS/myapp`.
+Start the paths you build from `import.meta.url` with `../Resources/` too.
+
+`Info.plist` names the executable, the bundle identifier, and the icon:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>myapp</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.example.myapp</string>
+    <key>CFBundleName</key>
+    <string>My App</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleIconFile</key>
+    <string>myapp.icns</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+```
+
+Building the executable invalidates the signature of the Node.js binary.
+Sign the app again with an ad-hoc signature, which is enough to run it on your own Mac:
+
+```sh
+codesign --sign - --force "My App.app"
+```
+
+To distribute the app to other Macs, sign it with your Developer ID and notarize it.
+Node.js compiles JavaScript at run time, so the hardened runtime needs to allow it.
+Write an `entitlements.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>
+```
+
+Sign Slint's addon before the app:
+
+```sh
+APP="My App.app"
+codesign --force --timestamp --options runtime --sign "Developer ID Application: Your Name" \
+    "$APP"/Contents/MacOS/*.node
+codesign --force --timestamp --options runtime --entitlements entitlements.plist \
+    --sign "Developer ID Application: Your Name" "$APP"
+```
+
+Put the app in a disk image, sign it, and send it to Apple to [notarize](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+Store your credentials for `notarytool` once with `xcrun notarytool store-credentials notary`:
+
+```sh
+hdiutil create -volname "My App" -srcfolder "$APP" -format UDZO myapp.dmg
+codesign --timestamp --sign "Developer ID Application: Your Name" myapp.dmg
+xcrun notarytool submit myapp.dmg --keychain-profile notary --wait
+xcrun stapler staple myapp.dmg
+```
+
+</TabItem>
+<TabItem label="Linux" icon="linux">
+
+The result runs on the distributions that Slint supports, as described in the [Linux platform guide](https://slint.dev/docs/slint/guide/platforms/desktop/linux/general/).
+Slint's pre-built addon includes the [LinuxKMS backend](https://slint.dev/docs/slint/guide/backends-and-renderers/backend_linuxkms/) with libinput support,
+so it needs libinput on the system, even when the application runs on Wayland or X11.
+
+Ship the application in an archive, or in one of the formats Linux desktops install:
+
+- A [Flatpak](https://slint.dev/docs/slint/guide/platforms/desktop/linux/packaging/), with libinput added as a module.
+- An [AppImage](https://appimage.org/), made with `appimagetool` from a directory holding the application,
+  a `.desktop` file, and an icon.
+- A `.deb` or `.rpm` package, which installs the application under `/opt` and a `.desktop` file under `/usr/share/applications`.
+
+Linux desktops take the application name and icon from the `.desktop` file.
+
+</TabItem>
+</Tabs>

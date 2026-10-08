@@ -80,3 +80,12 @@ jobs:
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check
+            # Last, so that every step above runs on Node.js 24; `node --build-sea` needs 25.5.
+            - name: Setup Node.js 26 for single executable applications
+              uses: actions/setup-node@v7
+              with:
+                node-version: 26
+                package-manager-cache: false
+            - name: Test packaging as a single executable application
+              working-directory: api/node
+              run: pnpm exec vitest run __test__/sea.spec.mts
