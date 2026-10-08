@@ -15,7 +15,7 @@ use slint::{
     ComponentHandle, LogicalPosition, LogicalSize, Model, ModelRc, SharedString, ToSharedString,
     VecModel,
 };
-use slint_interpreter::{DiagnosticLevel, PlatformError};
+use slint_interpreter::PlatformError;
 use smol_str::SmolStr;
 
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
@@ -63,8 +63,8 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 
 mod brushes;
 pub(super) use brushes::{fill_brush, fill_expression};
+pub mod diagnostics;
 pub(super) mod file_tree;
-pub mod log_messages;
 pub mod palette;
 mod property_view;
 pub mod search_model;
@@ -322,7 +322,7 @@ pub fn initialize_editor(
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&api);
-    log_messages::setup(&api);
+    diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
@@ -358,40 +358,6 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
 
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
-}
-
-pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics
-        .iter()
-        .inspect(|d| {
-            let location = d.source_file().map(|p| {
-                let (line, column) = d.line_column();
-                (p.to_string_lossy().to_string().into(), line, column)
-            });
-
-            let level = match d.level() {
-                DiagnosticLevel::Error => LogMessageLevel::Error,
-                DiagnosticLevel::Warning => LogMessageLevel::Warning,
-                DiagnosticLevel::Note => LogMessageLevel::Note,
-                _ => LogMessageLevel::Debug,
-            };
-
-            log_messages::append_log_message(api, level, location, d.message());
-        })
-        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
-            match (acc, d.level()) {
-                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-                // Ignore Note level diagnostics for the summary.
-                // If there is only a note, that's not relevant enough to bother the user.
-                (acc, DiagnosticLevel::Note) => acc,
-                // DiagnosticLevel is non-exhaustive:
-                (acc, _) => acc,
-            }
-        });
-
-    api.set_diagnostic_summary(summary);
 }
 
 pub fn ui_set_known_components(
