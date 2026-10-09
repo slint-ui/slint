@@ -1879,6 +1879,18 @@ impl ComponentInstance {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
     }
 
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub fn component_item(
+        &self,
+        path: &SourcePath,
+        offset: u32,
+        instance_index: usize,
+        _: i_slint_core::InternalToken,
+    ) -> Option<i_slint_core::items::ItemRc> {
+        crate::highlight::component_item(self.inner.vrc(), path, offset, instance_index)
+    }
+
     /// Find source elements rendered under `position`, in selection order.
     ///
     /// WARNING: this is not part of the public API
