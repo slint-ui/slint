@@ -20,7 +20,6 @@ use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
 use i_slint_core::items::ScrollMode;
-use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector};
 use smol_str::SmolStr;
