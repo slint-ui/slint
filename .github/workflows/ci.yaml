@@ -657,6 +657,12 @@ jobs:
                   distribution: temurin
                   java-version: '17'
             - uses: gradle/actions/setup-gradle@v6.4.0
+            # The Android Gradle plugin installs the NDK and CMake versions it needs
+            # itself, without retrying a failed download.
+            - name: Install the Android NDK and CMake
+              run: |
+                  install_android_sdk_parts() { ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"; }
+                  install_android_sdk_parts || { sleep 10 && install_android_sdk_parts; }
             - name: Build usecases demo APK (Gradle end-to-end)
               working-directory: demos/usecases/cpp/android
               env:
