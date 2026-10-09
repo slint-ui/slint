@@ -13,6 +13,17 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// Without one of these set, a drop shadow has no shape to cast
+const DROP_SHADOW_SHAPE_PROPERTIES: [&str; 3] = ["background", "border-color", "border-width"];
+
+/// Whether `name` gives the drop shadow of `elem` its shape, even when set to its default value
+pub(crate) fn shapes_drop_shadow(elem: &Element, name: &str) -> bool {
+    DROP_SHADOW_SHAPE_PROPERTIES.contains(&name)
+        && crate::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
+            .iter()
+            .any(|(p, _)| elem.is_binding_set(p, true))
+}
+
 #[derive(Copy, Clone)]
 enum ShadowKind {
     Drop,
@@ -54,7 +65,7 @@ fn create_box_shadow_element(
     }
 
     if matches!(kind, ShadowKind::Drop)
-        && !["background", "border-color", "border-width"]
+        && !DROP_SHADOW_SHAPE_PROPERTIES
             .iter()
             .any(|name| sibling_element.borrow().is_binding_set(name, true))
     {
@@ -99,7 +110,7 @@ fn create_box_shadow_element(
     };
 
     if matches!(kind, ShadowKind::Drop) {
-        for property_name in ["background", "border-color", "border-width"] {
+        for property_name in DROP_SHADOW_SHAPE_PROPERTIES {
             // A property the rectangle leaves unset has the same default on the shadow, and
             // referencing it would widen the rectangle's native class to BasicBorderRectangle.
             if !sibling_element.borrow().is_binding_set(property_name, true) {

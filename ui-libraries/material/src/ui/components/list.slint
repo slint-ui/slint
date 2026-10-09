@@ -16,8 +16,6 @@ export component Avatar {
     height: self.width;
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         border_radius: self.width / 2;
         background: root.background;
         clip: true;
@@ -81,14 +79,12 @@ export component ListTile {
                 MaterialText {
                     text: root.text;
                     color: root.color;
-                    overflow: elide;
                     style: MaterialTypography.body_large;
                 }
 
                 if root.supporting_text != "" : MaterialText {
                     text: root.supporting_text;
                     color: root.color;
-                    overflow: elide;
                     style: MaterialTypography.body_medium;
                 }
             }

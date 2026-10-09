@@ -39,6 +39,8 @@ Passes are organized into three phases in `internal/compiler/passes.rs`:
 - `resolving` - Resolve expressions, types, and references
 - `purity_check` - Verify function purity
 - `check_expressions` - Validate expression semantics
+- `redundant_property_bindings` - Report bindings that set a property to its default value.
+  It runs here so that the LSP reports it, and sees the bindings as written.
 
 ### 2. Transformation Passes (main `run_passes`)
 - `lower_*` passes - Transform high-level constructs (states, layouts, popups, etc.)

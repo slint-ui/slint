@@ -2028,6 +2028,28 @@ impl Expression {
         }
     }
 
+    /// Anything that isn't a literal compares as different
+    pub(crate) fn same_literal(&self, other: &Expression) -> bool {
+        match (self, other) {
+            (Expression::NumberLiteral(a, a_unit), Expression::NumberLiteral(b, b_unit)) => {
+                a == b && a_unit == b_unit
+            }
+            (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+            (Expression::StringLiteral(a), Expression::StringLiteral(b)) => a == b,
+            (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+            // Colors and other converted literals arrive wrapped in a cast.
+            (
+                Expression::Cast { from: a, to: a_type },
+                Expression::Cast { from: b, to: b_type },
+            ) => a_type == b_type && a.same_literal(b),
+            (
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(a)),
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(b)),
+            ) => a.same_literal(b),
+            _ => false,
+        }
+    }
+
     /// Unwrap DebugHook expressions to their contained sub-expression
     pub fn ignore_debug_hooks(&self) -> &Expression {
         match self {

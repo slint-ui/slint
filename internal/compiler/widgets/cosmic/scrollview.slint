@@ -52,9 +52,6 @@ export component ScrollBar {
     touch-area := TouchArea {
         property <{pressed-value: length, maximum: length, x:length, y: length}> saved-values;
 
-        width: parent.width;
-        height: parent.height;
-
         function update-saved-values() {
             self.saved-values = { pressed-value: -root.value, maximum: root.maximum, x: self.mouse-x, y: self.mouse-y };
         }

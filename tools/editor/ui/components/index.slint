@@ -241,13 +241,10 @@ export component PrimerTextInput inherits Rectangle {
             editor := TextInput {
                 width: parent.width;
                 height: parent.height;
-                text: "";
                 color: root.paint.foreground;
                 font-size: root.style.text.size;
                 font-weight: root.style.text.weight;
                 accessible-label: root.accessible-name;
-                single-line: true;
-                wrap: no-wrap;
                 vertical-alignment: center;
                 selection-background-color: root.style.appearance.selection;
                 selection-foreground-color: root.style.appearance.selection-foreground;
@@ -293,7 +290,6 @@ export component SidebarToggleButton inherits Rectangle {
         border-radius: Metrics.radius-small;
         border-width: Metrics.focus-width;
         border-color: root.active ? root.style.selected.border : root.style.normal.foreground;
-        background: transparent;
 
         Rectangle {
             x: 7px;

@@ -80,9 +80,6 @@ export component Preview {
     }
 
     Rectangle {
-        width: 100%;
-        height: 100%;
-
         border-width: 1px;
         border-color: Palette.foreground;
 
@@ -121,7 +118,6 @@ export component ColorMainContent inherits HorizontalLayout {
     }
 
     spacing: EditorSpaceSettings.default-spacing;
-    alignment: stretch;
 
     rle := ResettingLineEdit {
         enabled <=> root.enabled;
@@ -201,7 +197,6 @@ export component RgbaColorSliders inherits VerticalLayout {
 
     r := ColorLineEdit {
         enabled <=> root.enabled;
-        channel: "R";
 
         accepted() => {
             root.set-color-binding(root.current-color-data.text);

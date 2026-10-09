@@ -708,7 +708,6 @@ export component InspectorPane inherits Rectangle {
                             scrub-on-suffix: true;
                             scrub-value: self.border-value.value-float;
                             scrub-has-minimum: true;
-                            scrub-minimum: 0;
                             scrub-preview(value) => { return Api.inspector-preview(root.inspector-key, "border-width", value); }
                             scrub-accepted(value) => { return root.commit-inspector("border-width", value); }
                             scrub-canceled(value) => { Api.inspector-cancel(); }
@@ -812,7 +811,6 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
-                            minimum: 0;
                             maximum: 96;
                             commit-key: root.field-key(root.current-shadow-prefix() + "offset");
                             started => {
@@ -835,7 +833,6 @@ export component InspectorPane inherits Rectangle {
                             accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
-                            minimum: 0;
                             maximum: 128;
                             commit-key: root.field-key(root.current-shadow-prefix() + "blur");
                             preview(value) => {

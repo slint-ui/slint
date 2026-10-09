@@ -36,7 +36,6 @@ component ElementsUnavailableNotice inherits Rectangle {
                 border-radius: Metrics.radius-medium;
                 border-width: Metrics.focus-width;
                 border-color: root.style.muted-icon;
-                background: transparent;
             }
 
             Rectangle {
@@ -80,14 +79,12 @@ component ElementPaletteGroup inherits VerticalLayout {
     function toggle() {
         if root.query == "" { root.collapsed = !root.collapsed; }
     }
-    spacing: 0px;
 
     if root.matches.length > 0: Rectangle {
         height: Metrics.control-medium;
         border-radius: Metrics.radius-small;
         border-width: group-focus.has-focus ? Metrics.focus-width : 0px;
         border-color: Colors.focus;
-        background: transparent;
         accessible-role: AccessibleRole.button;
         accessible-label: root.group.label;
         accessible-expanded: root.expanded;
@@ -126,9 +123,7 @@ component ElementPaletteGroup inherits VerticalLayout {
     }
 
     if root.matches.length > 0 && root.expanded: FlexboxLayout {
-        flex-wrap: wrap;
         spacing-horizontal: Metrics.space-small;
-        spacing-vertical: 0px;
 
         for entry in root.matches: ComponentPaletteRow {
             width: (root.width - Metrics.space-small) / 2;
@@ -149,13 +144,11 @@ component ElementPaletteRows inherits VerticalLayout {
     in property <bool> drag-enabled: true;
     in property <string> query: "";
     callback drag-started();
-    spacing: 0px;
 
     EditorScrollView {
         accessible-role: AccessibleRole.list;
         accessible-label: "Element library";
         min-height: 0px;
-        vertical-stretch: 1;
         content-width: self.width;
         content-height: max(palette.preferred-height, self.height);
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
@@ -204,7 +197,6 @@ export component ElementPalette inherits Rectangle {
             if root.image-mode: ElementsUnavailableNotice { }
 
             ElementPaletteRows {
-                vertical-stretch: 1;
                 query: Api.element-library-normalize-query(search.text);
                 enabled: !root.image-mode;
                 drag-enabled: Api.known-components.length > 0;

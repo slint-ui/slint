@@ -24,8 +24,6 @@ slint::slint! {
         }
 
         touch := TouchArea {
-            width: 100%;
-            height: 100%;
             pointer-event(event) => {
                 if (event.kind == PointerEventKind.down) {
                     root.pressed(touch.mouse-x / 1px, touch.mouse-y / 1px);

@@ -32,9 +32,6 @@ component ScrollBar {
     i-ta := TouchArea {
         property <length> pressed-value;
 
-        width: parent.width;
-        height: parent.height;
-
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 self.pressed-value = -root.value;

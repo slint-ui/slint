@@ -214,6 +214,10 @@ class Component implements ComponentHandle {
     }
 }
 
+function formatDiagnostic(d: napi.Diagnostic): string {
+    return `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`;
+}
+
 /**
  * Represents an errors that can be emitted by the compiler.
  */
@@ -231,10 +235,7 @@ export class CompileError extends Error {
      */
     constructor(message: string, diagnostics: napi.Diagnostic[]) {
         const formattedDiagnostics = diagnostics
-            .map(
-                (d) =>
-                    `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
-            )
+            .map(formatDiagnostic)
             .join("\n");
 
         let formattedMessage = message;
@@ -325,12 +326,20 @@ function loadSlint(loadData: LoadData): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        const warnings = diagnostics.filter(
-            (d) => d.level === napi.DiagnosticLevel.Warning,
-        );
-
         if (typeof options !== "undefined" && options.quiet !== true) {
-            warnings.forEach((w) => console.warn("Warning: " + w));
+            for (const d of diagnostics) {
+                switch (d.level) {
+                    case napi.DiagnosticLevel.Warning:
+                        console.warn(`Warning: ${formatDiagnostic(d)}`);
+                        break;
+                    case napi.DiagnosticLevel.Info:
+                        console.info(`Info: ${formatDiagnostic(d)}`);
+                        break;
+                    case napi.DiagnosticLevel.Note:
+                        console.warn(`Note: ${formatDiagnostic(d)}`);
+                        break;
+                }
+            }
         }
 
         const errors = diagnostics.filter(

@@ -146,7 +146,6 @@ component EditorTreeRow {
                 opacity: root.hide-drag-source && row-drag.dragging ? 0 : 1;
                 horizontal-stretch: 1;
                 height: Metrics.outline-row-height - 4px + root.gap-height;
-                background: transparent;
 
                 row-highlight := Rectangle {
                     x: root.style.row.hit-size;
@@ -327,7 +326,6 @@ component EditorTreeRow {
                             Image {
                                 width: root.style.row.icon-size;
                                 height: root.style.row.icon-size;
-                                vertical-alignment: center;
                                 source: root.row-icon;
                                 colorize: root.style.row.foreground;
                                 opacity: root.current ? 1 : root.style.row.icon-opacity;
@@ -340,7 +338,6 @@ component EditorTreeRow {
                                 color: root.style.row.foreground;
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
-                                wrap: no-wrap;
                             }
                         }
                     }

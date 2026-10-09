@@ -77,7 +77,6 @@ export component OutlineDragRow inherits Rectangle {
             font-size: root.style.font-size;
             vertical-alignment: center;
             overflow: elide;
-            wrap: no-wrap;
         }
     }
 }
@@ -133,7 +132,6 @@ export component DragPreview inherits Rectangle {
                 source: root.presentation.icon;
                 colorize: root.style.row.foreground;
                 opacity: root.style.content-opacity;
-                vertical-alignment: center;
             }
 
             Text {
@@ -143,7 +141,6 @@ export component DragPreview inherits Rectangle {
                 font-size: Typography.body.size;
                 vertical-alignment: center;
                 overflow: elide;
-                wrap: no-wrap;
             }
         }
     }

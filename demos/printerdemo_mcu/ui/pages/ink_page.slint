@@ -11,7 +11,6 @@ export component InkPage inherits Page {
 
     Timer {
         interval: 30ms;
-        running: true;
         triggered => {
             self.stop();
             page-visible = true;
