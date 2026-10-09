@@ -2900,9 +2900,9 @@ fn maybe_lookup_object(
                     LookupResult::Enumeration(enumeration) => {
                         let kebab = crate::generator::to_kebab_case(&next_str);
                         let suggestion = enumeration
-                            .values
-                            .iter()
-                            .find(|v| crate::generator::to_kebab_case(*v) == kebab)
+                            .for_each_entry(ctx, &mut |v, _| {
+                                (crate::generator::to_kebab_case(v) == kebab).then(|| v.clone())
+                            })
                             .map(|v| format!(". Did you mean '{v}'?"))
                             .unwrap_or_default();
                         ctx.diag.push_error(
