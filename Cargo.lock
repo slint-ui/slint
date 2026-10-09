@@ -7713,6 +7713,7 @@ dependencies = [
 name = "slint-editor"
 version = "1.19.0"
 dependencies = [
+ "base64 0.22.1",
  "by_address",
  "clap",
  "clru",
@@ -7725,6 +7726,7 @@ dependencies = [
  "i-slint-core",
  "i-slint-editor-preview",
  "i-slint-live-preview",
+ "image",
  "itertools 0.15.0",
  "lsp-types",
  "mdns-sd",

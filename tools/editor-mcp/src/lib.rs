@@ -12,7 +12,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 const DISCOVERY_DIRECTORY: &str = "slint-visual-editor-instances";
-const RPC_TIMEOUT: Duration = Duration::from_secs(15);
+const RPC_TIMEOUT: Duration = Duration::from_secs(30);
 static INSTANCE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -69,6 +69,7 @@ impl ChatRegistration {
 pub enum EditorRequest {
     Ping,
     RegisterChat { project_root: PathBuf, chat: ChatRegistration },
+    CanvasScreenshot { project_root: PathBuf },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -76,6 +77,7 @@ pub enum EditorRequest {
 pub enum EditorResponse {
     Pong,
     ChatRegistered { chat: ChatRegistration },
+    CanvasScreenshot { png_base64: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -206,16 +208,18 @@ fn receive_request(
     let working_directory = canonical_directory(&request.working_directory)?;
     let project_root = project_root.lock().unwrap().clone().ok_or("Editor has no open project")?;
     ensure_scope(&working_directory, &project_root)?;
-    match request.request {
-        EditorRequest::Ping => Ok(EditorResponse::Pong),
-        EditorRequest::RegisterChat { project_root: requested_root, chat } => {
-            if canonical_directory(&requested_root)? != project_root {
-                return Err("Editor project changed; discover editors again".into());
-            }
+    let requested_root = match &request.request {
+        EditorRequest::Ping => return Ok(EditorResponse::Pong),
+        EditorRequest::RegisterChat { project_root, chat } => {
             chat.validate()?;
-            callback(EditorRequest::RegisterChat { project_root, chat })
+            project_root
         }
+        EditorRequest::CanvasScreenshot { project_root } => project_root,
+    };
+    if canonical_directory(requested_root)? != project_root {
+        return Err("Editor project changed; discover editors again".into());
     }
+    callback(request.request)
 }
 
 pub fn discover_editors(working_directory: &Path) -> Result<Vec<EditorDiscovery>, String> {
@@ -346,6 +350,9 @@ mod tests {
     fn start_editor(directory: &Path, project_root: &Path) -> EditorServer {
         let server = EditorServer::in_directory(directory.into(), |request| match request {
             EditorRequest::RegisterChat { chat, .. } => Ok(EditorResponse::ChatRegistered { chat }),
+            EditorRequest::CanvasScreenshot { .. } => {
+                Ok(EditorResponse::CanvasScreenshot { png_base64: "test-png".into() })
+            }
             EditorRequest::Ping => unreachable!(),
         })
         .unwrap();
@@ -428,6 +435,22 @@ mod tests {
             .unwrap_err()
             .contains("changed")
         );
+    }
+
+    #[test]
+    fn returns_canvas_screenshot_and_rejects_changed_projects() {
+        let directory = tempfile::tempdir().unwrap();
+        let server = start_editor(directory.path(), directory.path());
+        let editor = discover_editors_in(directory.path(), directory.path()).unwrap().remove(0);
+        let request = EditorRequest::CanvasScreenshot { project_root: directory.path().into() };
+        assert_eq!(
+            editor_rpc(&editor, directory.path(), request.clone()).unwrap(),
+            EditorResponse::CanvasScreenshot { png_base64: "test-png".into() }
+        );
+        let child = directory.path().join("child");
+        fs::create_dir(&child).unwrap();
+        server.update_project(Some(&child)).unwrap();
+        assert!(editor_rpc(&editor, directory.path(), request).unwrap_err().contains("changed"));
     }
 
     #[test]

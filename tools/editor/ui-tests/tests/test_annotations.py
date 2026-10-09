@@ -1,14 +1,16 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import json
+import base64
 import os
-import subprocess
+from io import BytesIO
 
 import pytest
 import slint_testing
-from canvas_interactions import center
+from canvas_interactions import center, center_canvas_selection, zoom_canvas
+from editor_mcp import call_editor_tool
 from editor_sync import wait_for_source
+from PIL import Image, ImageChops
 from source_snapshot import wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
@@ -52,31 +54,15 @@ def test_send_failure_and_retry_keep_annotations_until_resolved(
             ("root-image", "Keep the image aligned with the button."),
         ):
             save_annotation(window, label, text)
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {
-                "name": "register_visual_editor_chat",
-                "arguments": {
-                    "workingDirectory": str(fixture_project),
-                    "provider": "codex",
-                    "threadId": "annotation-test-chat",
-                    "displayName": "Refine gallery controls",
-                    "cliPath": str(command),
-                },
-            },
-        }
-        result = subprocess.run(
-            [str(editor_binary.with_name("slint-editor-mcp"))],
-            input=json.dumps(request) + "\n",
-            text=True,
-            capture_output=True,
-            check=True,
-            timeout=5,
+        call_editor_tool(
+            editor_binary,
+            fixture_project,
+            "register_visual_editor_chat",
+            provider="codex",
+            threadId="annotation-test-chat",
+            displayName="Refine gallery controls",
+            cliPath=str(command),
         )
-        response = json.loads(result.stdout)["result"]
-        assert not response.get("isError", False), response
         expect(element(window, "Annotation destination")).to_have_value(
             "Refine gallery controls · Registered"
         )
@@ -242,3 +228,43 @@ def test_canvas_annotations_survive_deselection_and_resolve(
         expect(query(window, "Add annotation to root-rectangle")).to_be_visible()
         expect(pending).to_have_value("0")
         assert source.read_bytes() == updated
+
+
+def test_mcp_canvas_screenshot_matches_visible_viewport(
+    editor_binary, editor_environment, fixture_project, tmp_path
+):
+    source = fixture_project / "Main.slint"
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        save_annotation(window, "root-rectangle", "Keep these rounded corners.")
+        zoom_canvas(window, 150)
+        center_canvas_selection(window)
+        expect(query(window, "Element annotations")).to_be_visible()
+        full = screenshot(window)
+        response = call_editor_tool(
+            editor_binary, fixture_project, "screenshot_visual_editor_canvas"
+        )
+        content = response["content"]
+        assert len(content) == 1
+        assert content[0]["type"] == "image"
+        assert content[0]["mimeType"] == "image/png"
+        canvas = Image.open(BytesIO(base64.b64decode(content[0]["data"]))).convert(
+            "RGB"
+        )
+        viewport = element(window, "Canvas viewport").absolute_rect
+        scale = full.width / window.size.width
+        bounds = tuple(
+            round(value * scale)
+            for value in (
+                viewport.x,
+                viewport.y,
+                viewport.x + viewport.width,
+                viewport.y + viewport.height,
+            )
+        )
+        expected = full.crop(bounds)
+        assert canvas.size == expected.size
+        assert ImageChops.difference(canvas, expected).getbbox() is None
+        canvas.save(tmp_path / "canvas-mcp-screenshot.png")
+        full.save(tmp_path / "canvas-mcp-full-window.png")

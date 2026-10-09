@@ -45,6 +45,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 mod annotation_queue;
+mod canvas_screenshot;
 mod drop_location;
 mod element_catalog;
 mod element_selection;
@@ -595,6 +596,8 @@ pub struct PreviewState {
     file_tree_controller: Option<ui::file_tree::SharedFileTreeController>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
+    screenshot_preview: Option<canvas_screenshot::PreviewAttempt>,
+    screenshot_target_generation: u64,
     annotations: EditorAnnotations,
     annotation_server: Option<EditorServer>,
     annotation_deliveries: HashMap<PathBuf, HashSet<String>>,
@@ -617,6 +620,9 @@ impl PreviewState {
     }
 
     pub fn set_current_component(&mut self, component: PreviewComponent) {
+        if self.current_previewed_component.as_ref() != Some(&component) {
+            self.screenshot_target_generation += 1;
+        }
         self.current_previewed_component = Some(component);
     }
 
@@ -626,6 +632,7 @@ impl PreviewState {
             && pc.component.as_deref() == Some(old_name)
         {
             pc.component = Some(new_name.to_string());
+            self.screenshot_target_generation += 1;
         }
     }
 
@@ -735,6 +742,7 @@ fn reset_project_state(root: Url) {
         state.preview_loading_delay_timer = None;
         state.current_load_behavior = None;
         state.loading_state = PreviewFutureState::Pending;
+        state.screenshot_preview = None;
         state.current_previewed_component = None;
         state.annotations = root
             .to_file_path()
@@ -2713,7 +2721,9 @@ async fn reload_preview_impl(
     }
 
     let path = SourcePath::from_url(&component.url);
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
+    let cached_source = get_url_from_cache(&component.url);
+    let main_input = cached_source.as_ref().ok().map(|(_, source)| source.clone());
+    let (version, source) = cached_source.unwrap_or_else(|err| {
         tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
         Default::default()
     });
@@ -2724,6 +2734,8 @@ async fn reload_preview_impl(
         i_slint_editor_preview::ByteFormat::Utf16
     };
 
+    let inputs = Rc::new(RefCell::new(HashMap::from([(component.url.clone(), main_input)])));
+    let imported_inputs = inputs.clone();
     let (diagnostics, compiled, open_import_callback, source_file_versions) = parse_source(
         config,
         path,
@@ -2732,10 +2744,14 @@ async fn reload_preview_impl(
         style,
         component.component.clone(),
         move |path| {
+            let imported_inputs = imported_inputs.clone();
             Box::pin(async move {
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
                 let result = get_path_from_cache(&path);
+                if let Some(url) = path.to_url() {
+                    (*imported_inputs).borrow_mut().insert(url, result.as_ref().ok().map(|(_, source)| source.clone()));
+                }
                 tracing::debug!(%path, loaded = result.is_ok(), "Preview: loading import from cache");
                 Some(result)
             })
@@ -2777,7 +2793,18 @@ async fn reload_preview_impl(
     let diags = convert_diagnostics(&diagnostics, &source_file_versions.borrow());
     lsp.notify_diagnostics(diags).unwrap();
 
-    update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
+    let attempt =
+        canvas_screenshot::PreviewAttempt::new(inputs.take(), &diagnostics, compiled.as_ref());
+    let installed = attempt.installed.clone();
+    PREVIEW_STATE.with_borrow_mut(|state| state.screenshot_preview = Some(attempt));
+    update_preview_area(
+        compiled,
+        behavior,
+        open_import_callback,
+        source_file_versions,
+        format,
+        installed,
+    )?;
 
     if let Some(loaded_component_name) = loaded_component_name {
         let current_preview_loaded = PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -3123,7 +3150,12 @@ fn set_selected_element(
 fn annotation_request(request: EditorRequest) -> Result<EditorResponse, String> {
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
     slint::invoke_from_event_loop(move || {
+        if let EditorRequest::CanvasScreenshot { project_root } = &request {
+            canvas_screenshot::request(project_root.clone(), sender);
+            return;
+        }
         let result = PREVIEW_STATE.with_borrow_mut(|state| match request {
+            EditorRequest::CanvasScreenshot { .. } => unreachable!(),
             EditorRequest::Ping => Ok(EditorResponse::Pong),
             EditorRequest::RegisterChat { project_root, chat } => {
                 if state.annotations.project_root != project_root {
@@ -3141,7 +3173,61 @@ fn annotation_request(request: EditorRequest) -> Result<EditorResponse, String> 
         let _ = sender.send(result);
     })
     .map_err(|error| error.to_string())?;
-    receiver.recv_timeout(std::time::Duration::from_secs(10)).map_err(|error| error.to_string())?
+    receiver.recv_timeout(std::time::Duration::from_secs(25)).map_err(|error| error.to_string())?
+}
+
+fn canvas_screenshot(editor: &ui::EditorUi) -> Result<EditorResponse, String> {
+    use base64::Engine;
+    let snapshot = editor
+        .window()
+        .take_snapshot()
+        .map_err(|error| format!("Could not capture the canvas: {error}"))?;
+    let viewport = editor.get_canvas_viewport_bounds();
+    let bounds = canvas_pixel_bounds(
+        [viewport.x, viewport.y, viewport.width, viewport.height],
+        editor.window().scale_factor(),
+        [snapshot.width(), snapshot.height()],
+    )?;
+    let image = image::RgbaImage::from_raw(
+        snapshot.width(),
+        snapshot.height(),
+        snapshot.as_bytes().to_vec(),
+    )
+    .ok_or("Invalid editor snapshot pixels")?;
+    let cropped =
+        image::imageops::crop_imm(&image, bounds[0], bounds[1], bounds[2], bounds[3]).to_image();
+    let mut png = std::io::Cursor::new(Vec::new());
+    cropped
+        .write_to(&mut png, image::ImageFormat::Png)
+        .map_err(|error| format!("Could not encode the canvas: {error}"))?;
+    Ok(EditorResponse::CanvasScreenshot {
+        png_base64: base64::engine::general_purpose::STANDARD.encode(png.into_inner()),
+    })
+}
+
+fn canvas_pixel_bounds(
+    logical: [f32; 4],
+    scale: f32,
+    snapshot_size: [u32; 2],
+) -> Result<[u32; 4], String> {
+    if !scale.is_finite()
+        || scale <= 0.0
+        || logical.iter().any(|value| !value.is_finite())
+        || logical[0] < 0.0
+        || logical[1] < 0.0
+        || logical[2] <= 0.0
+        || logical[3] <= 0.0
+    {
+        return Err("The canvas viewport is unavailable.".into());
+    }
+    let left = (logical[0] * scale).round() as u32;
+    let top = (logical[1] * scale).round() as u32;
+    let right = ((logical[0] + logical[2]) * scale).round() as u32;
+    let bottom = ((logical[1] + logical[3]) * scale).round() as u32;
+    if right <= left || bottom <= top || right > snapshot_size[0] || bottom > snapshot_size[1] {
+        return Err("The canvas viewport is outside the editor snapshot.".into());
+    }
+    Ok([left, top, right - left, bottom - top])
 }
 
 fn send_element_annotation(id: SharedString) {
@@ -3437,6 +3523,7 @@ fn update_preview_area(
     open_import_callback: Option<i_slint_editor_preview::document_cache::OpenImportCallback>,
     source_file_versions: Rc<RefCell<i_slint_editor_preview::document_cache::SourceFileVersionMap>>,
     format: i_slint_editor_preview::ByteFormat,
+    installed: Rc<std::cell::Cell<bool>>,
 ) -> Result<(), PlatformError> {
     let editor_ui = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
@@ -3473,6 +3560,7 @@ fn update_preview_area(
 
                     shared_handle.replace(Some(instance));
                     previewed_component_changed();
+                    installed.set(true);
                 }),
                 behavior,
             );
@@ -4692,5 +4780,25 @@ printf '%s\n' "$@" > '{}'
             assert_eq!(preview_state.settings, settings);
         });
         assert!(messages.borrow().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod canvas_screenshot_tests {
+    use super::canvas_pixel_bounds;
+
+    #[test]
+    fn crops_logical_canvas_bounds_at_physical_scale() {
+        for (scale, expected) in
+            [(1.0, [10, 20, 100, 80]), (1.5, [15, 30, 150, 120]), (2.0, [20, 40, 200, 160])]
+        {
+            assert_eq!(
+                canvas_pixel_bounds([10.0, 20.0, 100.0, 80.0], scale, [300, 300]).unwrap(),
+                expected
+            );
+        }
+        for bounds in [[0.0, 0.0, 0.0, 10.0], [20.0, 20.0, 300.0, 10.0], [-1.0, 0.0, 10.0, 10.0]] {
+            assert!(canvas_pixel_bounds(bounds, 1.0, [300, 300]).is_err());
+        }
     }
 }

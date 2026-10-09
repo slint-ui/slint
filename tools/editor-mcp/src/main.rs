@@ -11,6 +11,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 const DISCOVER_TOOL: &str = "discover_visual_editors";
+const SCREENSHOT_TOOL: &str = "screenshot_visual_editor_canvas";
 const REGISTER_TOOL: &str = "register_visual_editor_chat";
 
 fn main() -> io::Result<()> {
@@ -45,7 +46,9 @@ fn handle_request(request_text: &str) -> Option<Value> {
             "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor."
         })),
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({ "tools": [discover_tool(), register_tool()] })),
+        "tools/list" => {
+            Ok(json!({ "tools": [discover_tool(), register_tool(), screenshot_tool()] }))
+        }
         "tools/call" => call_tool(request.get("params")),
         "notifications/initialized" => return None,
         _ => {
@@ -99,6 +102,46 @@ fn register_tool() -> Value {
     })
 }
 
+fn screenshot_tool() -> Value {
+    json!({
+        "name": SCREENSHOT_TOOL,
+        "description": "Wait for the latest source files and imports to compile and install. Capture the canvas viewport as a PNG with zoom, pan, selection, and annotation popovers. Compilation failures return current diagnostics. Supply instanceId when multiple editors match.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workingDirectory": { "type": "string", "description": "The absolute working directory of the current chat." },
+                "instanceId": { "type": "string", "description": "The instanceId returned by discover_visual_editors." }
+            },
+            "required": ["workingDirectory"],
+            "additionalProperties": false
+        },
+        "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EditorArguments {
+    working_directory: PathBuf,
+    instance_id: Option<String>,
+}
+
+fn canvas_screenshot(arguments: &Value) -> Result<Value, String> {
+    let arguments: EditorArguments =
+        serde_json::from_value(arguments.clone()).map_err(|error| error.to_string())?;
+    let editors = discover_editors(&arguments.working_directory)?;
+    let editor = select_editor(&editors, arguments.instance_id.as_deref())?;
+    let response = editor_rpc(
+        &editor,
+        &arguments.working_directory,
+        EditorRequest::CanvasScreenshot { project_root: editor.project_root.clone() },
+    )?;
+    let EditorResponse::CanvasScreenshot { png_base64 } = response else {
+        return Err("Unexpected editor screenshot response".into());
+    };
+    Ok(json!({ "content": [{ "type": "image", "mimeType": "image/png", "data": png_base64 }] }))
+}
+
 fn call_tool(params: Option<&Value>) -> Result<Value, String> {
     let params = params.ok_or("Missing tool parameters")?;
     let name = params.get("name").and_then(Value::as_str).unwrap_or("");
@@ -106,6 +149,7 @@ fn call_tool(params: Option<&Value>) -> Result<Value, String> {
     let result = match name {
         DISCOVER_TOOL => discover(&arguments),
         REGISTER_TOOL => register(&arguments),
+        SCREENSHOT_TOOL => canvas_screenshot(&arguments),
         _ => return Err(format!("Unknown tool: {name}")),
     };
     Ok(result.unwrap_or_else(
@@ -178,15 +222,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn advertises_only_discovery_and_registration() {
+    fn advertises_discovery_registration_and_screenshot() {
         let initialized =
             handle_request(r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#).unwrap();
         assert_eq!(initialized["result"]["capabilities"], json!({ "tools": {} }));
         let response = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
         let tools = response["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 2);
+        assert_eq!(tools.len(), 3);
         assert_eq!(tools[0]["name"], DISCOVER_TOOL);
         assert_eq!(tools[1]["name"], REGISTER_TOOL);
+        assert_eq!(tools[2]["name"], SCREENSHOT_TOOL);
         assert!(tools.iter().all(|tool| tool.get("_meta").is_none()));
         for method in ["resources/list", "resources/read"] {
             let response = handle_request(&json!({"id":3,"method":method}).to_string()).unwrap();

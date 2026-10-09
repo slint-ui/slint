@@ -14,7 +14,7 @@ Call `discover_visual_editors` with the current chat's absolute `workingDirector
 
 Discovery includes running editors with no annotations.
 It returns each editor's `instanceId` and `projectRoot`.
-Both discovery and registration restrict the editor project root to the canonical working directory or one of its descendants.
+All tools restrict the editor project root to the canonical working directory or one of its descendants.
 Keep the current working directory when no editor matches.
 
 Call `register_visual_editor_chat` using the current chat's own thread ID and display name, and an absolute Codex CLI path:
@@ -37,4 +37,11 @@ Registration fails if the editor changes projects before it receives the request
 
 The prototype supports Codex destinations.
 Sending an annotation invokes the registered CLI from the editor and queues feedback to the selected chat.
+Call `screenshot_visual_editor_canvas` with `workingDirectory` and an optional `instanceId` to capture the current canvas viewport.
+The PNG includes the current zoom, pan, selection, and annotation popovers.
+It excludes the editor top bar and sidebars.
+The tool waits for current source files and imports to finish compiling and installing in the canvas.
+Compilation failures return the latest compiler diagnostics instead of a stale screenshot.
+A project or preview target change cancels the request.
+The readiness wait times out after 20 seconds.
 The MCP server has no annotation snapshots, resources, mention search, or annotation-reading tools.

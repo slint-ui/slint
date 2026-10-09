@@ -40,6 +40,8 @@ i-slint-core = { workspace = true, features = ["std"] }
 i-slint-editor-preview = { workspace = true, features = ["preview-engine", "preview-builtin", "preview-process", "springboard"] }
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
+base64 = "0.22"
+image = { workspace = true }
 by_address = { workspace = true }
 clap = { workspace = true }
 clru = { workspace = true }
