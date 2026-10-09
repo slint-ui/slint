@@ -1,0 +1,15 @@
+# Subject: one short line
+
+
+# Details: what changed and why, including a high level architectural
+# overview where appropriate
+
+
+# Implementation Notes: details for developers and reviewers, such as
+# the root cause, the approach, and trade-offs (remove the marker if none)
+== Implementation Notes ==
+
+# Trailers, such as ChangeLog: (only for noteworthy changes visible
+# to Slint users, see docs/internal/writing-style-guide.md)
+#ChangeLog:
+# Fixes #<issue number>
