@@ -481,3 +481,9 @@ path = [
 ]
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "tools/editor/ui/assets/openai.svg"
+precedence = "override"
+SPDX-FileCopyrightText = "OpenAI"
+SPDX-License-Identifier = "CC-PDDC"

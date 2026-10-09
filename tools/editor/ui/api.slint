@@ -387,6 +387,8 @@ export struct ElementInformation {
 export struct EditorAnnotation {
     id: string,
     text: string,
+    sent: bool,
+    sending: bool,
 }
 
 export struct EditorAnnotationMarker {
@@ -531,7 +533,16 @@ export global Api {
     in-out property <ElementInformation> current-element;
     in property <[EditorAnnotation]> element-annotations;
     in property <[EditorAnnotationMarker]> annotation-markers;
+    in property <string> agent-chat-name;
+    in property <string> agent-provider;
+    in property <bool> agent-registered;
+    in property <int> pending-annotation-count;
+    in property <bool> annotations-sending;
+    in property <string> annotation-send-error;
     callback add-element-annotation(string);
+    callback send-element-annotation(string);
+    callback send-pending-annotations();
+    callback dismiss-annotation-send-error();
     callback remove-element-annotation(string);
     callback mark-element-annotations-read();
     callback select-annotation-element(string, int, int);

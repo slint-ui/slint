@@ -230,6 +230,9 @@ pub fn initialize_editor(
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_add_element_annotation(super::add_element_annotation);
+    api.on_send_element_annotation(super::send_element_annotation);
+    api.on_send_pending_annotations(super::send_pending_annotations);
+    api.on_dismiss_annotation_send_error(super::dismiss_annotation_send_error);
     api.on_remove_element_annotation(super::remove_element_annotation);
     api.on_mark_element_annotations_read(super::mark_element_annotations_read);
     api.on_select_annotation_element(super::select_annotation_element);
@@ -2524,7 +2527,11 @@ mod tests {
             .count(),
             1
         );
-        annotations.set_vec(vec![EditorAnnotation { id: "1".into(), text: "Visible".into() }]);
+        annotations.set_vec(vec![EditorAnnotation {
+            id: "1".into(),
+            text: "Visible".into(),
+            ..Default::default()
+        }]);
         markers.set_vec(vec![super::EditorAnnotationMarker {
             source_uri: "file:///project/main.slint".into(),
             label: "content".into(),

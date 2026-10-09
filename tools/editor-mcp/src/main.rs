@@ -1,21 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use serde::Deserialize;
 use serde_json::{Value, json};
-use slint_editor_mcp::{EditorAnnotation, ProjectAnnotations, project_resource_uri, scan_projects};
-use std::collections::BTreeMap;
+use slint_editor_mcp::{
+    ChatProvider, ChatRegistration, EditorRequest, EditorResponse, discover_editors, editor_rpc,
+    select_editor,
+};
 use std::io::{self, BufRead, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-const MENTION_SEARCH_TOOL: &str = "search_visual_editor_annotations";
-const GET_ANNOTATIONS_TOOL: &str = "get_visual_editor_annotations";
+const DISCOVER_TOOL: &str = "discover_visual_editors";
+const REGISTER_TOOL: &str = "register_visual_editor_chat";
 
 fn main() -> io::Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
     for line in stdin.lock().lines() {
-        let response = handle_request(&line?);
-        if let Some(response) = response {
+        if let Some(response) = handle_request(&line?) {
             serde_json::to_writer(&mut stdout, &response).map_err(io::Error::other)?;
             stdout.write_all(b"\n")?;
             stdout.flush()?;
@@ -36,11 +38,14 @@ fn handle_request(request_text: &str) -> Option<Value> {
     let is_notification = request.get("id").is_none();
     let method = request.get("method").and_then(Value::as_str).unwrap_or("");
     let result = match method {
-        "initialize" => Ok(initialize_result()),
+        "initialize" => Ok(json!({
+            "protocolVersion": "2025-06-18",
+            "capabilities": { "tools": {} },
+            "serverInfo": { "name": "slint-editor-mcp", "version": env!("CARGO_PKG_VERSION") },
+            "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor."
+        })),
         "ping" => Ok(json!({})),
-        "resources/list" => list_resources(),
-        "resources/read" => read_resource(request.get("params")),
-        "tools/list" => Ok(json!({ "tools": [get_annotations_tool(), mention_search_tool()] })),
+        "tools/list" => Ok(json!({ "tools": [discover_tool(), register_tool()] })),
         "tools/call" => call_tool(request.get("params")),
         "notifications/initialized" => return None,
         _ => {
@@ -54,659 +59,161 @@ fn handle_request(request_text: &str) -> Option<Value> {
         return None;
     }
     Some(match result {
-        Ok(result) => success_response(id, result),
+        Ok(result) => json!({ "jsonrpc": "2.0", "id": id, "result": result }),
         Err(message) => error_response(id, -32602, &message),
     })
 }
 
-fn initialize_result() -> Value {
+fn discover_tool() -> Value {
     json!({
-        "protocolVersion": "2025-06-18",
-        "capabilities": {
-            "resources": {},
-            "tools": {}
-        },
-        "serverInfo": {
-            "name": "slint-editor-mcp",
-            "version": env!("CARGO_PKG_VERSION")
-        },
-        "instructions": "Attach current visual editor annotations from Slint projects to the next prompt."
-    })
-}
-
-fn mention_search_tool() -> Value {
-    json!({
-        "name": MENTION_SEARCH_TOOL,
-        "title": "Slint Visual Editor",
-        "description": "Find projects with annotations in running Slint visual editors.",
+        "name": DISCOVER_TOOL,
+        "description": "Discover running Slint visual editors whose project roots are equal to or beneath the current chat's working directory, including editors with no annotations.",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "path": {
-                    "type": "array",
-                    "items": { "type": "string" }
-                },
-                "query": { "type": "string" }
-            },
-            "required": ["path", "query"],
-            "additionalProperties": false
-        },
-        "_meta": {
-            "openai/extensions": {
-                "mentions/search": {}
-            }
-        }
-    })
-}
-
-fn get_annotations_tool() -> Value {
-    json!({
-        "name": GET_ANNOTATIONS_TOOL,
-        "title": "Get Slint Visual Editor Annotations",
-        "description": "Get annotations from running Slint visual editors whose projects are within the working directory.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "workingDirectory": {
-                    "type": "string",
-                    "description": "The absolute working directory of the current Codex task."
-                }
-            },
+            "properties": { "workingDirectory": { "type": "string", "description": "The absolute working directory of the current chat." } },
             "required": ["workingDirectory"],
             "additionalProperties": false
         },
-        "annotations": {
-            "readOnlyHint": true,
-            "destructiveHint": false,
-            "idempotentHint": true,
-            "openWorldHint": false
-        }
+        "annotations": { "readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     })
 }
 
-fn list_resources() -> Result<Value, String> {
-    let resources = annotation_scopes()?
-        .into_iter()
-        .map(|project| {
-            let title = project_title(&project);
-            json!({
-                "uri": project_resource_uri(&project.project_root),
-                "name": title,
-                "title": title,
-                "description": format!("{} from the visual editor for {}", annotation_count(project.annotations.len()), project.project_root.display()),
-                "mimeType": "text/markdown"
-            })
-        })
-        .collect::<Vec<_>>();
-    Ok(json!({ "resources": resources }))
-}
-
-fn read_resource(params: Option<&Value>) -> Result<Value, String> {
-    let uri = params
-        .and_then(|params| params.get("uri"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| "Missing resource URI".to_string())?;
-    let project = find_project(uri)?;
-    Ok(json!({
-        "contents": [{
-            "uri": uri,
-            "mimeType": "text/markdown",
-            "text": format_project_annotations(&project)
-        }]
-    }))
+fn register_tool() -> Value {
+    json!({
+        "name": REGISTER_TOOL,
+        "description": "Register this Codex chat as a destination for annotations sent from a running visual editor within workingDirectory. Supply instanceId when multiple editors match.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workingDirectory": { "type": "string", "description": "The absolute working directory of the current chat." },
+                "instanceId": { "type": "string", "description": "The instanceId returned by discover_visual_editors." },
+                "provider": { "type": "string", "enum": ["codex"] },
+                "threadId": { "type": "string" },
+                "displayName": { "type": "string" },
+                "cliPath": { "type": "string", "description": "The absolute path to the Codex CLI executable." }
+            },
+            "required": ["workingDirectory", "provider", "threadId", "displayName", "cliPath"],
+            "additionalProperties": false
+        },
+        "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
+    })
 }
 
 fn call_tool(params: Option<&Value>) -> Result<Value, String> {
-    let params = params.ok_or_else(|| "Missing tool parameters".to_string())?;
+    let params = params.ok_or("Missing tool parameters")?;
     let name = params.get("name").and_then(Value::as_str).unwrap_or("");
     let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
-    match name {
-        GET_ANNOTATIONS_TOOL => Ok(tool_result(get_visual_editor_annotations(&arguments))),
-        MENTION_SEARCH_TOOL => Ok(tool_result(search_visual_editor_annotations(&arguments))),
-        _ => Err(format!("Unknown tool: {name}")),
-    }
+    let result = match name {
+        DISCOVER_TOOL => discover(&arguments),
+        REGISTER_TOOL => register(&arguments),
+        _ => return Err(format!("Unknown tool: {name}")),
+    };
+    Ok(result.unwrap_or_else(
+        |message| json!({ "content": [{ "type": "text", "text": message }], "isError": true }),
+    ))
 }
 
-fn tool_result(result: Result<Value, String>) -> Value {
-    result.unwrap_or_else(|message| {
-        json!({
-            "content": [{ "type": "text", "text": message }],
-            "isError": true
-        })
-    })
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DiscoveryArguments {
+    working_directory: PathBuf,
 }
 
-fn get_visual_editor_annotations(arguments: &Value) -> Result<Value, String> {
-    let working_directory = parse_working_directory(arguments)?;
-    let projects =
-        scan_projects().map_err(|error| format!("Could not scan editor annotations: {error}"))?;
-    let projects = projects_beneath(&working_directory, projects);
-    Ok(annotations_tool_result(&working_directory, &projects))
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RegistrationArguments {
+    working_directory: PathBuf,
+    instance_id: Option<String>,
+    provider: ChatProvider,
+    thread_id: String,
+    display_name: String,
+    cli_path: PathBuf,
 }
 
-fn annotations_tool_result(working_directory: &Path, projects: &[ProjectAnnotations]) -> Value {
-    let annotation_count = projects.iter().map(|project| project.annotations.len()).sum::<usize>();
-    let structured_projects = projects
-        .iter()
-        .map(|project| {
-            json!({
-                "projectRoot": project.project_root,
-                "annotations": project.annotations.iter().map(structured_annotation).collect::<Vec<_>>()
-            })
-        })
-        .collect::<Vec<_>>();
-    json!({
-        "content": [{
-            "type": "text",
-            "text": format_directory_annotations(working_directory, projects)
-        }],
-        "structuredContent": {
-            "workingDirectory": working_directory,
-            "annotationCount": annotation_count,
-            "projects": structured_projects
-        }
-    })
-}
-
-fn parse_working_directory(arguments: &Value) -> Result<PathBuf, String> {
-    let working_directory = arguments
-        .get("workingDirectory")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "Missing workingDirectory".to_string())?;
-    let working_directory = Path::new(working_directory);
-    if !working_directory.is_absolute() {
-        return Err("workingDirectory must be an absolute path".into());
-    }
-    let working_directory = std::fs::canonicalize(working_directory)
-        .map_err(|error| format!("Invalid workingDirectory: {error}"))?;
-    if !working_directory.is_dir() {
-        return Err("workingDirectory must be a directory".into());
-    }
-    Ok(working_directory)
-}
-
-fn projects_beneath(
-    working_directory: &Path,
-    projects: Vec<ProjectAnnotations>,
-) -> Vec<ProjectAnnotations> {
-    projects
-        .into_iter()
-        .filter(|project| {
-            std::fs::canonicalize(&project.project_root)
-                .unwrap_or_else(|_| project.project_root.clone())
-                .starts_with(working_directory)
-        })
-        .collect()
-}
-
-fn structured_annotation(annotation: &EditorAnnotation) -> Value {
-    json!({
-        "id": annotation.id,
-        "text": annotation.text,
-        "file": annotation.file,
-        "range": annotation.range,
-        "component": annotation.component,
-        "elementType": annotation.element_type,
-        "elementId": annotation.element_id
-    })
-}
-
-fn search_visual_editor_annotations(arguments: &Value) -> Result<Value, String> {
-    let path = arguments.get("path").and_then(Value::as_array).ok_or("Missing path")?;
-    let query = arguments.get("query").and_then(Value::as_str).ok_or("Missing query")?;
-    let items = if path.is_empty() { search_resource_items(query)? } else { Vec::new() };
+fn discover(arguments: &Value) -> Result<Value, String> {
+    let arguments: DiscoveryArguments =
+        serde_json::from_value(arguments.clone()).map_err(|error| error.to_string())?;
+    let editors = discover_editors(&arguments.working_directory)?;
+    let editors = editors.iter().map(|editor| {
+        json!({ "instanceId": editor.instance_id, "projectRoot": editor.project_root })
+    }).collect::<Vec<_>>();
     Ok(json!({
-        "content": [{
-            "type": "text",
-            "text": format!("Found {} Slint visual editor annotation resource(s).", items.len())
-        }],
-        "structuredContent": { "items": items }
+        "content": [{ "type": "text", "text": format!("Found {} running visual editor(s) within workingDirectory.", editors.len()) }],
+        "structuredContent": { "editors": editors }
     }))
 }
 
-fn search_resource_items(query: &str) -> Result<Vec<Value>, String> {
-    let normalized_query = query.to_lowercase();
-    Ok(annotation_scopes()?
-        .into_iter()
-        .filter_map(|project| {
-            let title = project_title(&project);
-            let subtitle = format!(
-                "{} · {}",
-                annotation_count(project.annotations.len()),
-                project.project_root.display()
-            );
-            let searchable_text = format!("{title} {subtitle}").to_lowercase();
-            searchable_text.contains(&normalized_query).then(|| {
-                json!({
-                    "type": "resource",
-                    "resourceUri": project_resource_uri(&project.project_root),
-                    "title": title,
-                    "subtitle": subtitle
-                })
-            })
-        })
-        .collect())
-}
-
-fn find_project(uri: &str) -> Result<ProjectAnnotations, String> {
-    annotation_scopes()?
-        .into_iter()
-        .find(|project| project_resource_uri(&project.project_root) == uri)
-        .ok_or_else(|| format!("Unknown resource URI: {uri}"))
-}
-
-fn annotation_scopes() -> Result<Vec<ProjectAnnotations>, String> {
-    let projects =
-        scan_projects().map_err(|error| format!("Could not scan editor annotations: {error}"))?;
-    Ok(expand_annotation_scopes(projects))
-}
-
-fn expand_annotation_scopes(projects: Vec<ProjectAnnotations>) -> Vec<ProjectAnnotations> {
-    let mut scopes = BTreeMap::<PathBuf, Vec<EditorAnnotation>>::new();
-    for project in projects {
-        let repository_root = repository_root(&project.project_root);
-        let mut scope = project.project_root.as_path();
-        loop {
-            scopes.entry(scope.to_owned()).or_default().extend(project.annotations.iter().cloned());
-            if repository_root.as_deref().is_none_or(|repository_root| scope == repository_root) {
-                break;
-            }
-            let Some(parent) = scope.parent() else {
-                break;
-            };
-            scope = parent;
-        }
-    }
-    scopes
-        .into_iter()
-        .map(|(project_root, annotations)| ProjectAnnotations { project_root, annotations })
-        .collect()
-}
-
-fn repository_root(project_root: &Path) -> Option<PathBuf> {
-    project_root.ancestors().find(|directory| directory.join(".git").exists()).map(Path::to_owned)
-}
-
-fn project_title(project: &ProjectAnnotations) -> String {
-    let name = project
-        .project_root
-        .file_name()
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.is_empty())
-        .map(str::to_owned)
-        .unwrap_or_else(|| project.project_root.to_string_lossy().into_owned());
-    format!("Annotations for {name} — {}", annotation_count(project.annotations.len()))
-}
-
-fn annotation_count(count: usize) -> String {
-    format!("{count} {}", if count == 1 { "annotation" } else { "annotations" })
-}
-
-fn format_project_annotations(project: &ProjectAnnotations) -> String {
-    let mut markdown =
-        format!("# Visual Editor Annotations\n\nProject: `{}`\n", project.project_root.display());
-    if project.annotations.is_empty() {
-        markdown.push_str("\nNo annotations.\n");
-        return markdown;
-    }
-    for annotation in &project.annotations {
-        markdown.push('\n');
-        markdown.push_str(&format_annotation(annotation, "##"));
-    }
-    markdown
-}
-
-fn format_directory_annotations(
-    working_directory: &Path,
-    projects: &[ProjectAnnotations],
-) -> String {
-    let mut markdown = format!(
-        "# Visual Editor Annotations\n\nWorking directory: `{}`\n",
-        working_directory.display()
-    );
-    if projects.is_empty() {
-        markdown.push_str("\nNo matching visual editor annotations are available.\n");
-        return markdown;
-    }
-    for project in projects {
-        markdown.push_str(&format!("\n## Project: `{}`\n", project.project_root.display()));
-        for annotation in &project.annotations {
-            markdown.push('\n');
-            markdown.push_str(&format_annotation(annotation, "###"));
-        }
-    }
-    markdown
-}
-
-fn format_annotation(annotation: &EditorAnnotation, heading: &str) -> String {
-    let element_id = annotation
-        .element_id
-        .as_deref()
-        .map(|element_id| format!(" #{element_id}"))
-        .unwrap_or_default();
-    let component = annotation
-        .component
-        .as_deref()
-        .map(|component| format!(" in `{component}`"))
-        .unwrap_or_default();
-    format!(
-        "{heading} {}{}{}\n\n- File: `{}`\n- Range: {}:{}–{}:{}\n\n{}\n",
-        annotation.element_type,
-        element_id,
-        component,
-        annotation.file.display(),
-        annotation.range.start.line + 1,
-        annotation.range.start.character + 1,
-        annotation.range.end.line + 1,
-        annotation.range.end.character + 1,
-        annotation.text
-    )
-}
-
-fn success_response(id: Value, result: Value) -> Value {
-    json!({ "jsonrpc": "2.0", "id": id, "result": result })
+fn register(arguments: &Value) -> Result<Value, String> {
+    let arguments: RegistrationArguments =
+        serde_json::from_value(arguments.clone()).map_err(|error| error.to_string())?;
+    let chat = ChatRegistration {
+        provider: arguments.provider,
+        thread_id: arguments.thread_id,
+        display_name: arguments.display_name,
+        cli_path: arguments.cli_path,
+    };
+    chat.validate()?;
+    let editors = discover_editors(&arguments.working_directory)?;
+    let editor = select_editor(&editors, arguments.instance_id.as_deref())?;
+    let response = editor_rpc(
+        &editor,
+        &arguments.working_directory,
+        EditorRequest::RegisterChat { project_root: editor.project_root.clone(), chat },
+    )?;
+    let EditorResponse::ChatRegistered { chat } = response else {
+        return Err("Unexpected editor registration response".into());
+    };
+    Ok(json!({
+        "content": [{ "type": "text", "text": format!("Registered {} with the visual editor for {}.", chat.display_name, editor.project_root.display()) }],
+        "structuredContent": { "instanceId": editor.instance_id, "projectRoot": editor.project_root, "chat": chat }
+    }))
 }
 
 fn error_response(id: Value, code: i32, message: &str) -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "error": { "code": code, "message": message }
-    })
+    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn annotation(id: &str, file: impl Into<PathBuf>) -> EditorAnnotation {
-        EditorAnnotation {
-            id: id.into(),
-            text: format!("Annotation {id}"),
-            file: file.into(),
-            range: slint_editor_mcp::SourceRange {
-                start: slint_editor_mcp::SourcePosition { line: 2, character: 4 },
-                end: slint_editor_mcp::SourcePosition { line: 3, character: 8 },
-            },
-            component: Some("MainWindow".into()),
-            element_type: "Rectangle".into(),
-            element_id: Some(format!("element-{id}")),
-        }
-    }
-
-    fn project(root: &str, id: &str) -> ProjectAnnotations {
-        ProjectAnnotations {
-            project_root: root.into(),
-            annotations: vec![annotation(id, format!("{root}/main.slint"))],
-        }
-    }
-
-    fn sample_projects() -> Vec<ProjectAnnotations> {
-        [
-            ("/projects/slint", "root"),
-            ("/projects/slint/examples/gallery", "gallery"),
-            ("/projects/slint/demos/todo", "todo"),
-            ("/projects/slint-sibling", "sibling"),
-            ("/other/unrelated", "unrelated"),
-        ]
-        .into_iter()
-        .map(|(root, id)| project(root, id))
-        .collect()
-    }
-
-    fn project_ids(working_directory: &str) -> Vec<String> {
-        projects_beneath(Path::new(working_directory), sample_projects())
-            .into_iter()
-            .map(|project| project.annotations[0].id.clone())
-            .collect()
-    }
-
     #[test]
-    fn advertises_resources_and_the_mention_search_extension() {
+    fn advertises_only_discovery_and_registration() {
         let initialized =
             handle_request(r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#).unwrap();
-        assert_eq!(initialized["result"]["capabilities"]["resources"], json!({}));
-
-        let tools = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
-        let tools = tools["result"]["tools"].as_array().unwrap();
-        let get_annotations =
-            tools.iter().find(|tool| tool["name"] == GET_ANNOTATIONS_TOOL).unwrap();
-        assert_eq!(get_annotations["inputSchema"]["required"], json!(["workingDirectory"]));
-        assert_eq!(get_annotations["annotations"]["readOnlyHint"], true);
-        assert_eq!(get_annotations["annotations"]["destructiveHint"], false);
-        assert_eq!(get_annotations["annotations"]["idempotentHint"], true);
-        assert_eq!(get_annotations["annotations"]["openWorldHint"], false);
-        let mention_search = tools.iter().find(|tool| tool["name"] == MENTION_SEARCH_TOOL).unwrap();
-        assert_eq!(mention_search["_meta"]["openai/extensions"]["mentions/search"], json!({}));
+        assert_eq!(initialized["result"]["capabilities"], json!({ "tools": {} }));
+        let response = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
+        let tools = response["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 2);
+        assert_eq!(tools[0]["name"], DISCOVER_TOOL);
+        assert_eq!(tools[1]["name"], REGISTER_TOOL);
+        assert!(tools.iter().all(|tool| tool.get("_meta").is_none()));
+        for method in ["resources/list", "resources/read"] {
+            let response = handle_request(&json!({"id":3,"method":method}).to_string()).unwrap();
+            assert_eq!(response["error"]["code"], -32601);
+        }
     }
 
     #[test]
-    fn includes_an_exact_editor_project() {
-        assert_eq!(project_ids("/projects/slint/examples/gallery"), ["gallery"]);
-    }
-
-    #[test]
-    fn includes_editor_projects_beneath_a_parent_directory() {
-        assert_eq!(project_ids("/projects/slint"), ["root", "gallery", "todo"]);
-    }
-
-    #[test]
-    fn includes_multiple_child_editor_projects() {
-        assert_eq!(project_ids("/projects/slint/examples"), ["gallery"]);
-        assert_eq!(project_ids("/projects"), ["root", "gallery", "todo", "sibling"]);
-    }
-
-    #[test]
-    fn excludes_sibling_editor_projects() {
-        assert_eq!(project_ids("/projects/slint/demos"), ["todo"]);
-    }
-
-    #[test]
-    fn excludes_unrelated_editor_projects() {
-        assert!(project_ids("/workspace/unrelated").is_empty());
-    }
-
-    #[test]
-    fn rejects_malformed_working_directories() {
-        let temporary_directory = tempfile::tempdir().unwrap();
-        let file = temporary_directory.path().join("file");
-        std::fs::write(&file, []).unwrap();
-        let cases = [
-            (json!({}), "Missing workingDirectory"),
-            (json!({ "workingDirectory": 42 }), "Missing workingDirectory"),
+    fn reports_bad_scope_and_unsupported_provider_as_tool_errors() {
+        for (name, arguments) in [
+            (DISCOVER_TOOL, json!({ "workingDirectory": "relative" })),
             (
-                json!({ "workingDirectory": "relative/path" }),
-                "workingDirectory must be an absolute path",
+                REGISTER_TOOL,
+                json!({ "workingDirectory": "/", "provider": "other", "threadId": "one", "displayName": "Chat", "cliPath": "/bin/codex" }),
             ),
-            (
-                json!({ "workingDirectory": temporary_directory.path().join("missing") }),
-                "Invalid workingDirectory",
-            ),
-            (json!({ "workingDirectory": file }), "workingDirectory must be a directory"),
-        ];
-
-        for (arguments, expected_error) in cases {
-            let error = parse_working_directory(&arguments).unwrap_err();
-            assert!(error.contains(expected_error), "unexpected error {error:?}");
-        }
-    }
-
-    #[test]
-    fn reports_a_malformed_working_directory_as_a_tool_error() {
-        let response = handle_request(
-            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_visual_editor_annotations","arguments":{"workingDirectory":"relative/path"}}}"#,
-        )
-        .unwrap();
-
-        assert!(response.get("error").is_none());
-        assert_eq!(response["result"]["isError"], true);
-        assert!(
-            response["result"]["content"][0]["text"]
-                .as_str()
-                .unwrap()
-                .contains("workingDirectory must be an absolute path")
-        );
-    }
-
-    #[test]
-    fn matches_a_noncanonical_published_project_root() {
-        let temporary_directory = tempfile::tempdir().unwrap();
-        let project_root = temporary_directory.path().join("project");
-        let gallery = project_root.join("examples/gallery");
-        std::fs::create_dir_all(&gallery).unwrap();
-        let published_root = project_root.join("examples/../examples/gallery");
-        let projects = vec![ProjectAnnotations {
-            project_root: published_root.clone(),
-            annotations: vec![annotation("gallery", published_root.join("main.slint"))],
-        }];
-
-        let matches = projects_beneath(&std::fs::canonicalize(&project_root).unwrap(), projects);
-
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].project_root, published_root);
-    }
-
-    #[test]
-    fn returns_readable_markdown_and_structured_annotation_metadata() {
-        let projects = vec![project("/projects/slint/examples/gallery", "gallery")];
-        let result = annotations_tool_result(Path::new("/projects/slint"), &projects);
-
-        assert_eq!(result["structuredContent"]["workingDirectory"], "/projects/slint");
-        assert_eq!(result["structuredContent"]["annotationCount"], 1);
-        assert_eq!(
-            result["structuredContent"]["projects"][0]["projectRoot"],
-            "/projects/slint/examples/gallery"
-        );
-        assert_eq!(result["structuredContent"]["projects"][0]["annotations"][0]["id"], "gallery");
-        assert_eq!(
-            result["structuredContent"]["projects"][0]["annotations"][0]["elementType"],
-            "Rectangle"
-        );
-        let markdown = result["content"][0]["text"].as_str().unwrap();
-        for expected in [
-            "Working directory: `/projects/slint`",
-            "Project: `/projects/slint/examples/gallery`",
-            "Annotation gallery",
         ] {
-            assert!(markdown.contains(expected), "missing {expected:?} in {markdown:?}");
+            let response =
+                call_tool(Some(&json!({ "name": name, "arguments": arguments }))).unwrap();
+            assert_eq!(response["isError"], true);
         }
     }
 
     #[test]
-    fn reports_zero_matching_annotations() {
-        let result = annotations_tool_result(Path::new("/projects/slint"), &[]);
-
-        assert_eq!(result["structuredContent"]["annotationCount"], 0);
-        assert_eq!(result["structuredContent"]["projects"], json!([]));
-        assert!(
-            result["content"][0]["text"]
-                .as_str()
-                .unwrap()
-                .contains("No matching visual editor annotations are available.")
-        );
-    }
-
-    #[test]
-    fn handles_ping_notifications_and_unknown_methods() {
-        let ping = handle_request(r#"{"jsonrpc":"2.0","id":"ping","method":"ping"}"#).unwrap();
-        assert_eq!(ping["result"], json!({}));
-        assert!(
-            handle_request(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).is_none()
-        );
-
-        let unknown = handle_request(r#"{"jsonrpc":"2.0","id":3,"method":"unknown"}"#).unwrap();
-        assert_eq!(unknown["error"]["code"], -32601);
-    }
-
-    #[test]
-    fn returns_no_mentions_for_a_non_empty_path() {
-        let result = call_tool(Some(&json!({
-            "name": MENTION_SEARCH_TOOL,
-            "arguments": { "path": ["nested"], "query": "" }
-        })))
-        .unwrap();
-
-        assert_eq!(result["structuredContent"]["items"], json!([]));
-    }
-
-    #[test]
-    fn formats_singular_and_plural_annotation_counts() {
-        for (count, expected) in [(0, "0 annotations"), (1, "1 annotation"), (2, "2 annotations")] {
-            assert_eq!(annotation_count(count), expected);
-        }
-    }
-
-    #[test]
-    fn formats_annotation_context_with_one_based_positions() {
-        let project = ProjectAnnotations {
-            project_root: "/projects/slint".into(),
-            annotations: vec![EditorAnnotation {
-                id: "one".into(),
-                text: "Align this with the toolbar.".into(),
-                file: "/projects/slint/ui/main.slint".into(),
-                range: slint_editor_mcp::SourceRange {
-                    start: slint_editor_mcp::SourcePosition { line: 4, character: 2 },
-                    end: slint_editor_mcp::SourcePosition { line: 8, character: 6 },
-                },
-                component: Some("MainWindow".into()),
-                element_type: "Rectangle".into(),
-                element_id: Some("toolbar".into()),
-            }],
-        };
-
-        let markdown = format_project_annotations(&project);
-        for expected in [
-            "Project: `/projects/slint`",
-            "## Rectangle #toolbar in `MainWindow`",
-            "- File: `/projects/slint/ui/main.slint`",
-            "- Range: 5:3–9:7",
-            "Align this with the toolbar.",
-        ] {
-            assert!(markdown.contains(expected), "missing {expected:?} in {markdown:?}");
-        }
-    }
-
-    #[test]
-    fn aggregates_editor_annotations_into_parent_repository_directories() {
-        let repository = tempfile::tempdir().unwrap();
-        std::fs::create_dir(repository.path().join(".git")).unwrap();
-        let gallery = repository.path().join("examples/gallery");
-        let todo = repository.path().join("demos/todo");
-        let examples = repository.path().join("examples");
-        let demos = repository.path().join("demos");
-        std::fs::create_dir_all(&gallery).unwrap();
-        std::fs::create_dir_all(&todo).unwrap();
-
-        let scopes = expand_annotation_scopes(vec![
-            ProjectAnnotations {
-                project_root: gallery.clone(),
-                annotations: vec![annotation("gallery", gallery.join("main.slint"))],
-            },
-            ProjectAnnotations {
-                project_root: todo.clone(),
-                annotations: vec![annotation("todo", todo.join("main.slint"))],
-            },
-        ]);
-        let annotations_in_scope = |directory: &Path| {
-            scopes
-                .iter()
-                .find(|scope| scope.project_root == directory)
-                .map(|scope| scope.annotations.len())
-        };
-
-        for (directory, expected_count) in [
-            (gallery.as_path(), Some(1)),
-            (examples.as_path(), Some(1)),
-            (todo.as_path(), Some(1)),
-            (demos.as_path(), Some(1)),
-            (repository.path(), Some(2)),
-            (repository.path().parent().unwrap(), None),
-        ] {
-            assert_eq!(
-                annotations_in_scope(directory),
-                expected_count,
-                "unexpected scope {directory:?}"
-            );
-        }
+    fn handles_ping_notifications_and_invalid_json() {
+        let response = handle_request(r#"{"id":"ping","method":"ping"}"#).unwrap();
+        assert_eq!(response["result"], json!({}));
+        assert!(handle_request(r#"{"method":"notifications/initialized"}"#).is_none());
+        assert_eq!(handle_request("invalid").unwrap()["error"]["code"], -32700);
     }
 }

@@ -200,6 +200,24 @@ export component AnnotationLayer inherits Rectangle {
                                     }
                                 }
                                 Text { text: annotation.text; color: Colors.foreground; font-size: Typography.body.size; wrap: word-wrap; }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Text {
+                                        text: annotation.sending ? "Sending…" : annotation.sent ? "✓ Sent" : "Saved · not sent";
+                                        color: Colors.muted;
+                                        font-size: Typography.caption.size;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                        accessible-label: "Annotation status \{annotation.id}";
+                                        accessible-value: annotation.sending ? "Sending" : annotation.sent ? "Sent" : "Saved · not sent";
+                                    }
+                                    if !annotation.sent: Button {
+                                        text: "↑ Send";
+                                        accessible-label: "Send annotation \{annotation.id}";
+                                        enabled: Api.agent-registered && !Api.annotations-sending;
+                                        clicked => { Api.send-element-annotation(annotation.id); }
+                                    }
+                                }
                                 Rectangle { height: 1px; background: Colors.subtle-border; }
                             }
                             if root.annotation-count == 0 && !root.composing: Text {
@@ -248,7 +266,7 @@ export component AnnotationLayer inherits Rectangle {
                         alignment: end;
                         Button { text: "Cancel"; clicked => { root.composing = false; root.draft = ""; if root.annotation-count == 0 { root.panel-open = false; } } }
                         Button {
-                            text: "Add annotation";
+                            text: "Save annotation";
                             primary: true;
                             enabled: root.draft != "";
                             clicked => {

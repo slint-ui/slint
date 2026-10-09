@@ -32,7 +32,8 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_editor_mcp::{
-    EditorAnnotation as SnapshotAnnotation, SnapshotPublisher, SourcePosition, SourceRange,
+    ChatRegistration, EditorAnnotation as SnapshotAnnotation, EditorRequest, EditorResponse,
+    EditorServer, SourcePosition, SourceRange,
 };
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
@@ -43,6 +44,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::rc::Rc;
 
+mod annotation_queue;
 mod drop_location;
 mod element_catalog;
 mod element_selection;
@@ -76,6 +78,13 @@ pub fn initialize(
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
+        if preview_state.annotation_server.is_none() {
+            preview_state.annotation_server = EditorServer::start(annotation_request)
+                .map_err(|error| {
+                    tracing::warn!("Failed to start editor annotation server: {error}")
+                })
+                .ok();
+        }
         api.set_element_annotations(preview_state.element_annotations_model.clone().into());
         api.set_annotation_markers(preview_state.annotation_markers_model.clone().into());
     });
@@ -256,7 +265,10 @@ fn install_debug_hook_callback(instance: &ComponentInstance, overrides: DebugHoo
 
 #[derive(Default)]
 struct EditorAnnotations {
-    publisher: Option<SnapshotPublisher>,
+    storage: Option<annotation_queue::AnnotationStorage>,
+    chat: Option<ChatRegistration>,
+    sending_ids: HashSet<String>,
+    send_error: String,
     project_root: PathBuf,
     annotations: Vec<StoredEditorAnnotation>,
     sources: HashMap<PathBuf, String>,
@@ -268,6 +280,7 @@ struct StoredEditorAnnotation {
     selection: SourceElement,
     snapshot: SnapshotAnnotation,
     unread: bool,
+    sent: bool,
 }
 
 struct PendingAnnotationDeletion {
@@ -293,18 +306,31 @@ impl SourceElement {
 
 impl EditorAnnotations {
     fn new(project_root: &Path) -> Self {
-        let publisher = SnapshotPublisher::new()
-            .map_err(|error| tracing::warn!("Failed to create annotation snapshot: {error}"))
-            .ok();
-        let result = Self {
-            publisher,
-            project_root: project_root.to_path_buf(),
-            annotations: Vec::new(),
-            sources: HashMap::new(),
-            pending_deletion: None,
-            next_id: 1,
-        };
-        result.publish();
+        let project_root =
+            std::fs::canonicalize(project_root).unwrap_or_else(|_| project_root.into());
+        let storage = annotation_queue::AnnotationStorage::new(&project_root);
+        let stored = storage.load().filter(|stored| stored.project_root == project_root);
+        let mut result =
+            Self { storage: Some(storage), project_root, next_id: 1, ..Default::default() };
+        if let Some(stored) = stored {
+            result.chat = stored.chat;
+            result.sources = stored.sources;
+            result.send_error = stored.send_error;
+            result.next_id = stored.next_id;
+            result.annotations = stored
+                .annotations
+                .into_iter()
+                .map(|annotation| StoredEditorAnnotation {
+                    selection: SourceElement {
+                        path: annotation.snapshot.file.clone(),
+                        offset: TextSize::from(annotation.offset),
+                    },
+                    snapshot: annotation.snapshot,
+                    unread: annotation.unread,
+                    sent: annotation.sent,
+                })
+                .collect();
+        }
         result
     }
 
@@ -316,15 +342,16 @@ impl EditorAnnotations {
             selection,
             snapshot: annotation,
             unread: true,
+            sent: false,
         });
-        self.publish();
+        self.persist();
     }
 
     fn remove(&mut self, id: &str) {
         let old_length = self.annotations.len();
         self.annotations.retain(|annotation| annotation.snapshot.id != id);
         if self.annotations.len() != old_length {
-            self.publish();
+            self.persist();
         }
     }
 
@@ -335,6 +362,8 @@ impl EditorAnnotations {
             .map(|annotation| ui::EditorAnnotation {
                 id: annotation.snapshot.id.as_str().into(),
                 text: annotation.snapshot.text.as_str().into(),
+                sent: annotation.sent,
+                sending: self.sending_ids.contains(&annotation.snapshot.id),
             })
             .collect()
     }
@@ -345,6 +374,7 @@ impl EditorAnnotations {
                 annotation.unread = false;
             }
         }
+        self.persist();
     }
 
     fn update_document(&mut self, path: &Path, source: &str) -> bool {
@@ -428,9 +458,7 @@ impl EditorAnnotations {
         } else {
             self.sources.remove(path);
         }
-        if changed {
-            self.publish();
-        }
+        self.persist();
         changed
     }
 
@@ -458,16 +486,78 @@ impl EditorAnnotations {
         markers.into_values().collect()
     }
 
-    fn publish(&self) {
-        let Some(publisher) = &self.publisher else { return };
+    fn persist(&self) -> bool {
+        let Some(storage) = &self.storage else { return true };
+        let stored = annotation_queue::SavedAnnotations {
+            project_root: self.project_root.clone(),
+            chat: self.chat.clone(),
+            sources: self.sources.clone(),
+            next_id: self.next_id,
+            send_error: self.send_error.clone(),
+            annotations: self
+                .annotations
+                .iter()
+                .map(|annotation| annotation_queue::SavedAnnotation {
+                    snapshot: annotation.snapshot.clone(),
+                    offset: u32::from(annotation.selection.offset),
+                    unread: annotation.unread,
+                    sent: annotation.sent,
+                })
+                .collect(),
+        };
+        if let Err(error) = storage.save(&stored) {
+            tracing::warn!("Failed to save editor annotations: {error}");
+            return false;
+        }
+        true
+    }
+
+    fn pending_count(&self) -> usize {
+        self.annotations.iter().filter(|annotation| !annotation.sent).count()
+    }
+
+    fn prepare_send(&mut self, id: Option<&str>) -> Option<annotation_queue::AnnotationDelivery> {
+        if !self.sending_ids.is_empty() {
+            return None;
+        }
+        let Some(chat) = self.chat.clone() else {
+            self.send_error = "Connect a Codex chat to send annotations.".into();
+            return None;
+        };
         let annotations = self
             .annotations
             .iter()
+            .filter(|annotation| {
+                !annotation.sent && id.is_none_or(|id| annotation.snapshot.id == id)
+            })
             .map(|annotation| annotation.snapshot.clone())
             .collect::<Vec<_>>();
-        if let Err(error) = publisher.publish(&self.project_root, &annotations) {
-            tracing::warn!("Failed to publish annotation snapshot: {error}");
+        if annotations.is_empty() {
+            return None;
         }
+        self.sending_ids = annotations.iter().map(|annotation| annotation.id.clone()).collect();
+        self.send_error.clear();
+        Some(annotation_queue::AnnotationDelivery {
+            project_root: self.project_root.clone(),
+            chat,
+            annotations,
+        })
+    }
+
+    fn complete_send(&mut self, ids: &[String], result: Result<(), String>) {
+        self.sending_ids.clear();
+        match result {
+            Ok(()) => {
+                for annotation in &mut self.annotations {
+                    if ids.contains(&annotation.snapshot.id) {
+                        annotation.sent = true;
+                    }
+                }
+                self.send_error.clear();
+            }
+            Err(error) => self.send_error = error,
+        }
+        self.persist();
     }
 }
 
@@ -506,6 +596,8 @@ pub struct PreviewState {
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
     annotations: EditorAnnotations,
+    annotation_server: Option<EditorServer>,
+    annotation_deliveries: HashMap<PathBuf, HashSet<String>>,
     element_annotations_model: Rc<slint::VecModel<ui::EditorAnnotation>>,
     annotation_markers_model: Rc<slint::VecModel<ui::EditorAnnotationMarker>>,
 
@@ -648,8 +740,15 @@ fn reset_project_state(root: Url) {
             .to_file_path()
             .map(|project_root| EditorAnnotations::new(&project_root))
             .unwrap_or_default();
-        state.element_annotations_model.set_vec(Vec::new());
-        state.annotation_markers_model.set_vec(Vec::new());
+        if let Some(ids) = state.annotation_deliveries.get(&state.annotations.project_root) {
+            state.annotations.sending_ids = ids.clone();
+        }
+        if let Some(server) = &state.annotation_server
+            && let Err(error) = server.update_project(Some(&state.annotations.project_root))
+        {
+            tracing::warn!("Failed to publish editor project: {error}");
+        }
+        set_visible_element_annotations(state, None);
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
@@ -3021,6 +3120,81 @@ fn set_selected_element(
     }
 }
 
+fn annotation_request(request: EditorRequest) -> Result<EditorResponse, String> {
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    slint::invoke_from_event_loop(move || {
+        let result = PREVIEW_STATE.with_borrow_mut(|state| match request {
+            EditorRequest::Ping => Ok(EditorResponse::Pong),
+            EditorRequest::RegisterChat { project_root, chat } => {
+                if state.annotations.project_root != project_root {
+                    return Err("The editor changed projects. Register the chat again.".into());
+                }
+                let previous_chat = state.annotations.chat.replace(chat.clone());
+                if !state.annotations.persist() {
+                    state.annotations.chat = previous_chat;
+                    return Err("Could not save the chat registration.".into());
+                }
+                set_visible_element_annotations(state, state.selected.as_ref());
+                Ok(EditorResponse::ChatRegistered { chat })
+            }
+        });
+        let _ = sender.send(result);
+    })
+    .map_err(|error| error.to_string())?;
+    receiver.recv_timeout(std::time::Duration::from_secs(10)).map_err(|error| error.to_string())?
+}
+
+fn send_element_annotation(id: SharedString) {
+    send_annotations(Some(id.as_str()));
+}
+
+fn send_pending_annotations() {
+    send_annotations(None);
+}
+
+fn dismiss_annotation_send_error() {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        state.annotations.send_error.clear();
+        state.annotations.persist();
+        set_visible_element_annotations(state, state.selected.as_ref());
+    });
+}
+
+fn send_annotations(id: Option<&str>) {
+    let delivery = PREVIEW_STATE.with_borrow_mut(|state| {
+        let delivery = state.annotations.prepare_send(id);
+        if delivery.is_some() {
+            state.annotation_deliveries.insert(
+                state.annotations.project_root.clone(),
+                state.annotations.sending_ids.clone(),
+            );
+        }
+        set_visible_element_annotations(state, state.selected.as_ref());
+        delivery
+    });
+    let Some(delivery) = delivery else { return };
+    std::thread::spawn(move || {
+        let result = delivery.send();
+        let _ = slint::invoke_from_event_loop(move || {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.annotation_deliveries.remove(&delivery.project_root);
+                let ids = delivery
+                    .annotations
+                    .iter()
+                    .map(|annotation| annotation.id.clone())
+                    .collect::<Vec<_>>();
+                if state.annotations.project_root == delivery.project_root {
+                    state.annotations.complete_send(&ids, result);
+                    set_visible_element_annotations(state, state.selected.as_ref());
+                } else {
+                    let mut annotations = EditorAnnotations::new(&delivery.project_root);
+                    annotations.complete_send(&ids, result);
+                }
+            });
+        });
+    });
+}
+
 fn add_element_annotation(text: SharedString) {
     if text.is_empty() {
         return;
@@ -3161,6 +3335,17 @@ fn set_visible_element_annotations(
 ) {
     use slint::Model;
 
+    if let Some(api) = preview_state.api.upgrade() {
+        let chat = preview_state.annotations.chat.as_ref();
+        api.set_agent_registered(chat.is_some());
+        api.set_agent_chat_name(
+            chat.map(|chat| chat.display_name.as_str()).unwrap_or_default().into(),
+        );
+        api.set_agent_provider(if chat.is_some() { "Codex".into() } else { Default::default() });
+        api.set_pending_annotation_count(preview_state.annotations.pending_count() as i32);
+        api.set_annotations_sending(!preview_state.annotations.sending_ids.is_empty());
+        api.set_annotation_send_error(preview_state.annotations.send_error.as_str().into());
+    }
     let annotations = selection
         .and_then(SourceElement::from_selection)
         .map(|selection| preview_state.annotations.visible(&selection))
@@ -3612,7 +3797,7 @@ mod tests {
     }
 
     #[test]
-    fn opening_project_clears_annotations_and_reassigns_the_snapshot() {
+    fn opening_project_restores_each_projects_annotations() {
         reset_preview_state(Default::default());
         let old_project = tempfile::tempdir().unwrap();
         let new_project = tempfile::tempdir().unwrap();
@@ -3628,9 +3813,11 @@ mod tests {
                 stored_annotation(&old_file, range, "Old"),
                 "",
             );
-            state
-                .element_annotations_model
-                .push(ui::EditorAnnotation { id: "1".into(), text: "Old".into() });
+            state.element_annotations_model.push(ui::EditorAnnotation {
+                id: "1".into(),
+                text: "Old".into(),
+                ..Default::default()
+            });
         });
 
         reset_project_state(Url::from_directory_path(new_project.path()).unwrap());
@@ -3646,12 +3833,16 @@ mod tests {
                 "",
             );
         });
-        let projects = slint_editor_mcp::scan_projects().unwrap();
-        assert!(!projects.iter().any(|project| project.project_root == old_project.path()));
-        let published =
-            projects.iter().find(|project| project.project_root == new_project.path()).unwrap();
-        assert_eq!(published.annotations.len(), 1);
-        assert_eq!(published.annotations[0].text, "New");
+        for (project, expected) in [(&old_project, "Old"), (&new_project, "New")] {
+            let restored = EditorAnnotations::new(project.path());
+            assert_eq!(restored.annotations.len(), 1);
+            assert_eq!(restored.annotations[0].snapshot.text, expected);
+        }
+        reset_project_state(Url::from_directory_path(old_project.path()).unwrap());
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(state.annotations.annotations[0].snapshot.text, "Old");
+            assert_eq!(state.annotation_markers_model.row_count(), 1);
+        });
         reset_preview_state(Default::default());
     }
 
@@ -4060,19 +4251,9 @@ export component Main {
                     .starts_with(&annotation.snapshot.element_type)
             );
         }
-        let published = slint_editor_mcp::scan_projects()
-            .unwrap()
-            .into_iter()
-            .find(|project_annotations| project_annotations.project_root == project.path())
-            .unwrap();
-        assert_eq!(published.annotations.len(), 4);
+        assert_eq!(EditorAnnotations::new(project.path()).annotations.len(), 4);
         assert!(annotations.update_document(&path, ""));
-        assert!(
-            slint_editor_mcp::scan_projects()
-                .unwrap()
-                .iter()
-                .all(|project_annotations| project_annotations.project_root != project.path())
-        );
+        assert!(EditorAnnotations::new(project.path()).annotations.is_empty());
     }
 
     #[test]
@@ -4104,12 +4285,7 @@ export component Main {
             assert_eq!(state.annotation_markers_model.row_count(), 2);
         });
         set_contents(&VersionedUrl::new(url, Some(3)), String::new());
-        assert!(
-            slint_editor_mcp::scan_projects()
-                .unwrap()
-                .iter()
-                .all(|project_annotations| project_annotations.project_root != project.path())
-        );
+        assert!(EditorAnnotations::new(project.path()).annotations.is_empty());
         PREVIEW_STATE
             .with_borrow(|state| assert_eq!(state.annotation_markers_model.row_count(), 0));
         reset_preview_state(Default::default());
@@ -4179,6 +4355,108 @@ export component Main {
                 .collect::<Vec<_>>();
             assert_eq!(identifiers, if applied { vec!["1", "3"] } else { vec!["1", "2", "3"] });
         }
+    }
+
+    #[test]
+    fn annotation_registration_and_delivery_state_survive_restart() {
+        let project = tempfile::tempdir().unwrap();
+        let mut annotations =
+            annotations_for_source(project.path(), "export component Main inherits Rectangle {}");
+        let chat = ChatRegistration {
+            provider: slint_editor_mcp::ChatProvider::Codex,
+            thread_id: "test-thread".into(),
+            display_name: "Prototype chat".into(),
+            cli_path: project.path().join("fake-codex"),
+        };
+        annotations.chat = Some(chat.clone());
+        annotations.persist();
+        let delivery = annotations.prepare_send(None).unwrap();
+        assert!(annotations.prepare_send(None).is_none());
+        let ids =
+            delivery.annotations.iter().map(|annotation| annotation.id.clone()).collect::<Vec<_>>();
+        annotations.complete_send(&ids, Ok(()));
+        let restored = EditorAnnotations::new(project.path());
+        assert_eq!(restored.chat, Some(chat));
+        assert_eq!(restored.pending_count(), 0);
+        assert_eq!(restored.annotations.len(), 1);
+        assert!(restored.annotations[0].sent);
+        assert!(restored.sending_ids.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sending_annotations_uses_one_queue_message_and_only_marks_included_notes() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let project = tempfile::tempdir().unwrap();
+        let executable = project.path().join("fake-codex");
+        let arguments_path = project.path().join("arguments");
+        std::fs::write(
+            &executable,
+            format!(
+                r#"#!/bin/sh
+printf '%s\n' "$@" > '{}'
+"#,
+                arguments_path.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let source = "export component Main inherits Rectangle { child := Text {} }";
+        let mut annotations = annotations_for_source(project.path(), source);
+        annotations.chat = Some(ChatRegistration {
+            provider: slint_editor_mcp::ChatProvider::Codex,
+            thread_id: "test-thread".into(),
+            display_name: "Test".into(),
+            cli_path: executable.clone(),
+        });
+        let delivery = annotations.prepare_send(Some("1")).unwrap();
+        assert_eq!(delivery.annotations.len(), 1);
+        let selection = annotations.annotations[0].selection.clone();
+        let snapshot = annotations.annotations[0].snapshot.clone();
+        annotations.add(selection, snapshot, source);
+        annotations.complete_send(&["1".into()], delivery.send());
+        assert_eq!(annotations.pending_count(), 2);
+        assert!(annotations.annotations[0].sent);
+        assert!(annotations.annotations.iter().skip(1).all(|annotation| !annotation.sent));
+        let arguments = std::fs::read_to_string(&arguments_path).unwrap();
+        assert!(arguments.starts_with("queue\n--thread\ntest-thread\n--message\n"));
+        assert!(arguments.contains("\"id\": \"1\""));
+        assert!(arguments.contains("main.slint"));
+        let delivery = annotations.prepare_send(None).unwrap();
+        assert_eq!(delivery.annotations.len(), 2);
+        let ids =
+            delivery.annotations.iter().map(|annotation| annotation.id.clone()).collect::<Vec<_>>();
+        annotations.complete_send(&ids, delivery.send());
+        assert_eq!(annotations.pending_count(), 0);
+        assert_eq!(EditorAnnotations::new(project.path()).pending_count(), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_annotation_delivery_keeps_pending_notes_and_can_be_retried() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let project = tempfile::tempdir().unwrap();
+        let executable = project.path().join("fake-codex");
+        std::fs::write(&executable, "#!/bin/sh\nprintf 'Queue unavailable' >&2\nexit 1\n").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut annotations =
+            annotations_for_source(project.path(), "export component Main inherits Rectangle {}");
+        annotations.chat = Some(ChatRegistration {
+            provider: slint_editor_mcp::ChatProvider::Codex,
+            thread_id: "test-thread".into(),
+            display_name: "Test".into(),
+            cli_path: executable,
+        });
+        annotations.persist();
+        let delivery = annotations.prepare_send(None).unwrap();
+        annotations.complete_send(&["1".into()], delivery.send());
+        assert_eq!(annotations.pending_count(), 1);
+        assert_eq!(EditorAnnotations::new(project.path()).pending_count(), 1);
+        assert!(annotations.send_error.contains("Queue unavailable"));
+        assert!(annotations.sending_ids.is_empty());
+        assert!(annotations.prepare_send(Some("1")).is_some());
     }
 
     #[test]
@@ -4293,15 +4571,11 @@ export component Main {
         });
         add_element_annotation("Anonymous".into());
 
-        let project_annotations = slint_editor_mcp::scan_projects()
-            .unwrap()
-            .into_iter()
-            .find(|annotations| annotations.project_root == project.path())
-            .unwrap();
-        assert_eq!(project_annotations.annotations.len(), 2);
-        assert_eq!(project_annotations.annotations[0].element_id.as_deref(), Some("named-element"));
-        assert_eq!(project_annotations.annotations[0].range.end.character, expected_utf16_end);
-        assert_eq!(project_annotations.annotations[1].element_id, None);
+        let restored = EditorAnnotations::new(project.path());
+        assert_eq!(restored.annotations.len(), 2);
+        assert_eq!(restored.annotations[0].snapshot.element_id.as_deref(), Some("named-element"));
+        assert_eq!(restored.annotations[0].snapshot.range.end.character, expected_utf16_end);
+        assert_eq!(restored.annotations[1].snapshot.element_id, None);
 
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.source_code.get_mut(&uri).unwrap().code = "export component Main {}".into();

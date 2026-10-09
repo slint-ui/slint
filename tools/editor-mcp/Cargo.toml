@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-editor-mcp"
-description = "MCP server for annotations from the Slint visual editor"
+description = "MCP tools for connecting chats to the Slint visual editor"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -18,7 +18,8 @@ name = "slint-editor-mcp"
 path = "src/main.rs"
 
 [dependencies]
-serde = { workspace = true }
+getrandom = "0.3"
+serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]

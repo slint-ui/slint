@@ -6,6 +6,35 @@ import { Api, EditorSurfaceMode } from "../api.slint";
 import { Preview } from "../preview.slint";
 
 import { Project } from "../project.slint";
+import { Button } from "std-widgets.slint";
+
+export component AnnotationSendError inherits Rectangle {
+    height: error-layout.preferred-height;
+    background: Colors.subtle;
+    accessible-role: AccessibleRole.region;
+    accessible-label: "Annotation send error";
+    accessible-value: Api.annotation-send-error;
+
+    error-layout := HorizontalLayout {
+        padding: Metrics.space-small;
+        padding-left: Metrics.space-large;
+        padding-right: Metrics.space-large;
+        spacing: Metrics.space-medium;
+        cross-axis-alignment: center;
+        Text {
+            text: "Could not send annotations: " + Api.annotation-send-error;
+            color: Colors.danger;
+            font-size: Typography.caption.size;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+        Button {
+            text: "×";
+            accessible-label: "Dismiss annotation send error";
+            clicked => { Api.dismiss-annotation-send-error(); }
+        }
+    }
+}
 
 component RunButton inherits Rectangle {
     in property <ButtonStyle> style: Style.primary-button;
@@ -52,6 +81,8 @@ export component EditorTopBar inherits Rectangle {
     }
 
     HorizontalLayout {
+        width: max(0px, actions.x - Metrics.space-medium);
+        padding-left: Metrics.space-large;
         alignment: center;
         cross-axis-alignment: center;
 
@@ -64,11 +95,61 @@ export component EditorTopBar inherits Rectangle {
         }
     }
 
-    RunButton {
+    actions := HorizontalLayout {
+        width: self.preferred-width;
         x: parent.width - self.width - Metrics.space-large;
         y: (parent.height - self.height) / 2;
-        enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
-        running: Preview.is-running;
-        clicked => { Preview.run(); }
+        height: Style.primary-button.height;
+        spacing: Metrics.space-medium;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 220px;
+            height: Style.primary-button.height;
+            border-radius: Metrics.radius-medium;
+            background: Colors.subtle;
+            accessible-role: AccessibleRole.region;
+            accessible-label: "Annotation destination";
+            accessible-value: Api.agent-registered ? Api.agent-chat-name + " · Registered" : "No chat registered";
+
+            HorizontalLayout {
+                padding-left: Metrics.space-medium;
+                padding-right: Metrics.space-medium;
+                spacing: Metrics.space-small;
+                cross-axis-alignment: center;
+                Image {
+                    width: 18px;
+                    height: 18px;
+                    source: @image-url("../assets/openai.svg");
+                    colorize: Colors.foreground;
+                }
+                Text {
+                    text: Api.agent-registered ? Api.agent-chat-name : "No chat registered";
+                    color: Colors.foreground;
+                    font-size: Typography.caption.size;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Rectangle {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: Api.agent-registered ? Colors.accent : Colors.muted;
+                }
+            }
+        }
+        Button {
+            text: Api.annotations-sending ? "Sending…" : "↑ Send \{Api.pending-annotation-count}";
+            accessible-label: "Send pending annotations";
+            accessible-value: "\{Api.pending-annotation-count}";
+            enabled: Api.agent-registered && Api.pending-annotation-count > 0 && !Api.annotations-sending;
+            clicked => { Api.send-pending-annotations(); }
+        }
+        RunButton {
+            enabled: Preview.can-run && Api.editor-surface-mode == EditorSurfaceMode.component;
+            running: Preview.is-running;
+            clicked => { Preview.run(); }
+        }
     }
 }

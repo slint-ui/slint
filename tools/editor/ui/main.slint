@@ -20,7 +20,7 @@ import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorTopBar } from "components/top-bar.slint";
+import { AnnotationSendError, EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
@@ -417,6 +417,8 @@ export component EditorUi inherits Window {
 
                         EditorTopBar { }
                     }
+
+                    if Api.annotation-send-error != "": AnnotationSendError { }
 
                     HorizontalLayout {
                         vertical-stretch: 1;
