@@ -37,7 +37,7 @@ component RunButton inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: pointer;
         accessible-role: button;
-        accessible-label: root.running ? "Running" : "Run";
+        accessible-label: bt.text;
         clicked => { root.clicked(); }
     }
 }
