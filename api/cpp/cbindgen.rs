@@ -1296,6 +1296,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                using types::PathValueType;
                 struct LiveReloadingComponentInner;
                 struct Instance;
                 template <typename T> using Box = T*;

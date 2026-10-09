@@ -492,6 +492,13 @@ impl TypeRegister {
     }
 
     fn builtin_internal() -> Self {
+        let mut register = Self::with_builtin_types();
+        crate::builtin_elements::load(&mut register);
+        register
+    }
+
+    /// A register with the basic types, the builtin structs and enums, but no elements.
+    pub(crate) fn with_builtin_types() -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -538,8 +545,6 @@ impl TypeRegister {
             )* };
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
-
-        crate::builtin_elements::load(&mut register);
 
         register
     }
@@ -643,7 +648,7 @@ impl TypeRegister {
         self.elements.insert(name, ElementType::Component(comp)).is_none()
     }
 
-    pub fn add_builtin(&mut self, builtin: Rc<BuiltinElement>) {
+    pub fn add_builtin(&mut self, builtin: Arc<BuiltinElement>) {
         self.elements.insert(builtin.name.clone(), ElementType::Builtin(builtin));
     }
 

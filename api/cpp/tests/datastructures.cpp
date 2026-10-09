@@ -75,6 +75,42 @@ SCENARIO("SharedString API")
         str = "Hello";
         REQUIRE(std::string_view(str.to_uppercase().data()) == "HELLO");
     }
+
+    SECTION("invalid UTF-8")
+    {
+        // An invalid byte, a truncated 3-byte sequence, and a truncated 2-byte sequence at the end.
+        // The literals are split so that the hex escapes don't absorb the following letters.
+        constexpr std::string_view invalid = "ab\xff"
+                                             "cd\xe2\x82"
+                                             "ef\xc3";
+        const slint::SharedString replaced = u8"ab\uFFFDcd\uFFFDef\uFFFD";
+
+        REQUIRE(slint::SharedString(invalid) == replaced);
+        REQUIRE(slint::SharedString(std::string(invalid).c_str()) == replaced);
+        REQUIRE(slint::SharedString(std::u8string_view(
+                        reinterpret_cast<const char8_t *>(invalid.data()), invalid.size()))
+                == replaced);
+
+        str = invalid;
+        REQUIRE(str == replaced);
+        REQUIRE(std::string_view(str.data()) == std::string_view(replaced));
+
+        str = std::string(invalid).c_str();
+        REQUIRE(str == replaced);
+
+        str = "ok";
+        str += invalid;
+        REQUIRE(str == slint::SharedString("ok") + replaced);
+
+        REQUIRE(slint::SharedString("x") + invalid == slint::SharedString("x") + replaced);
+
+        // Overlong encoding and an encoded surrogate are invalid too.
+        REQUIRE(slint::SharedString("\xc0\xaf") == u8"\uFFFD\uFFFD");
+        REQUIRE(slint::SharedString("\xed\xa0\x80") == u8"\uFFFD\uFFFD\uFFFD");
+
+        // Valid multi-byte sequences are kept as-is.
+        REQUIRE(slint::SharedString("\xc3\xa9\xf0\x9f\xa6\x8a") == u8"\u00E9\U0001F98A");
+    }
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")
@@ -433,6 +469,16 @@ TEST_CASE("StyledText public API")
 
         auto empty = StyledText::from_plain_text("");
         REQUIRE(!(text == empty));
+    }
+
+    SECTION("invalid UTF-8")
+    {
+        REQUIRE(StyledText::from_plain_text("a\xff")
+                == StyledText::from_plain_text(SharedString(u8"a\uFFFD")));
+
+        auto markdown = StyledText::from_markdown("*a*\xff");
+        REQUIRE(markdown.has_value());
+        REQUIRE(*markdown == *StyledText::from_markdown(SharedString(u8"*a*\uFFFD")));
     }
 
     SECTION("from_markdown success")

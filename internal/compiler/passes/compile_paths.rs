@@ -175,7 +175,7 @@ fn declares_path_elements(elem: &Element, path_type: &BuiltinElement) -> bool {
 fn path_element_type<'a>(
     child: &ElementRc,
     path_type: &'a BuiltinElement,
-) -> Option<&'a Rc<BuiltinElement>> {
+) -> Option<&'a Arc<BuiltinElement>> {
     let builtin = child.borrow().builtin_type()?;
     path_type.additional_accepted_child_types.get(&builtin.native_class.class_name)
 }

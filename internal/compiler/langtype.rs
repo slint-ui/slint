@@ -485,7 +485,7 @@ pub enum ElementType {
     /// The element is based of a component
     Component(Rc<Component>),
     /// The element is a builtin element
-    Builtin(Rc<BuiltinElement>),
+    Builtin(Arc<BuiltinElement>),
     /// The base element couldn't be looked up
     #[default]
     Error,
@@ -500,7 +500,7 @@ impl PartialEq for ElementType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
-            (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
+            (Self::Builtin(a), Self::Builtin(b)) => Arc::ptr_eq(a, b),
             (Self::Interface(a), Self::Interface(b)) => {
                 a.as_ref().map(Rc::as_ptr) == b.as_ref().map(Rc::as_ptr)
             }
@@ -911,7 +911,7 @@ pub struct BuiltinElement {
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     /// Additional builtin element that can be accepted as child of this element
     /// (example `Tab` in `TabWidget`, `Row` in `GridLayout` and the path elements in `Path`)
-    pub additional_accepted_child_types: BTreeMap<SmolStr, Rc<BuiltinElement>>,
+    pub additional_accepted_child_types: BTreeMap<SmolStr, Arc<BuiltinElement>>,
     /// `Self` is conceptually in `additional_accepted_child_types` (which it can't otherwise that'd make a Rc loop)
     pub additional_accept_self: bool,
     pub disallow_global_types_as_child_elements: bool,

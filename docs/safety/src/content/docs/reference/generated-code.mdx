@@ -9,6 +9,24 @@ only on the [`slint-sc`](/api/slint_sc/) runtime crate. \{#sls.gen.output}
 The generated code compiles only with the [`slint-sc`](/api/slint_sc/) runtime
 of the same version as the compiler that generated the code. \{#sls.gen.version}
 
+## Coding Rules
+
+The generated code contains no `unsafe` code. \{#sls.gen.no-unsafe}
+
+The generated code uses neither `std` nor `alloc`, so it allocates no heap memory. \{#sls.gen.no-std}
+
+No variable in the generated code shadows another one. \{#sls.gen.no-shadow}
+
+The generated code calls no `unwrap`, `expect`, `panic!`, `unreachable!`, `todo!`, or `unimplemented!`. \{#sls.gen.no-panic}
+
+The generated code indexes no slice. \{#sls.gen.no-indexing}
+
+The generated code doesn't use the `?` operator. \{#sls.gen.no-question-mark}
+
+No arithmetic operator in the generated code can overflow: the arithmetic saturates, or checks for overflow. \{#sls.gen.no-overflow}
+
+The generated code converts no value with `as`. \{#sls.gen.no-as}
+
 ## The Component Struct
 
 The generated code contains a struct named after the exported component.

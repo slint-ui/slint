@@ -389,6 +389,13 @@ fn delete_document(url: &lsp_types::Url) {
 
 fn reset_project_state(root: Url) {
     let (api, editor_ui) = PREVIEW_STATE.with_borrow_mut(|state| {
+        tracing::debug!(
+            %root,
+            current_component = ?state.current_previewed_component,
+            loading_state = ?state.loading_state,
+            load_behavior = ?state.current_load_behavior,
+            "Preview: resetting project state"
+        );
         state.property_range_declarations = None;
         state.handle.replace(None);
         state.document_cache.replace(None);
@@ -406,6 +413,9 @@ fn reset_project_state(root: Url) {
         state.source_code.clear();
         state.resources.clear();
         state.dependencies.clear();
+        state.preview_loading_delay_timer = None;
+        state.current_load_behavior = None;
+        state.loading_state = PreviewFutureState::Pending;
         state.current_previewed_component = None;
         state.current_project_root = Some(root);
         state.project_generation = state.project_generation.wrapping_add(1);
@@ -413,6 +423,7 @@ fn reset_project_state(root: Url) {
     });
 
     if let Some(api) = api {
+        api.set_status_text(Default::default());
         api.set_current_element(Default::default());
         api.set_properties(Default::default());
         api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
@@ -2096,7 +2107,11 @@ pub fn reload_preview() {
     load_preview(pc, LoadBehavior::LoadWithoutLiveData);
 }
 
-async fn reload_timer_function() {
+async fn reload_timer_function(project_generation: u64) {
+    tracing::debug!("Preview: reload task started");
+    if !is_current_project_generation(project_generation) {
+        return;
+    }
     let (selected, notify_editor) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let notify_editor = preview_state.notify_editor_about_selection_after_update;
         preview_state.notify_editor_about_selection_after_update = false;
@@ -2106,6 +2121,12 @@ async fn reload_timer_function() {
     loop {
         let Some((preview_component, config, behavior, project_generation)) = PREVIEW_STATE
             .with_borrow_mut(|preview_state| {
+                tracing::debug!(
+                    current_component = ?preview_state.current_previewed_component,
+                    loading_state = ?preview_state.loading_state,
+                    load_behavior = ?preview_state.current_load_behavior,
+                    "Preview: taking queued reload"
+                );
                 let behavior = preview_state.current_load_behavior.take()?;
                 let preview_component = preview_state.current_component()?;
 
@@ -2122,6 +2143,9 @@ async fn reload_timer_function() {
                 ))
             })
         else {
+            tracing::debug!("Preview: no queued component to reload");
+            PREVIEW_STATE
+                .with_borrow_mut(|state| state.loading_state = PreviewFutureState::Pending);
             return;
         };
         // An empty style lets the compiler apply its own default (and SLINT_STYLE);
@@ -2140,6 +2164,10 @@ async fn reload_timer_function() {
                 tracing::error!("{e}");
                 std::process::exit(3);
             }
+        }
+
+        if !is_current_project_generation(project_generation) {
+            return;
         }
 
         match PREVIEW_STATE.with_borrow(|preview_state| preview_state.loading_state) {
@@ -2208,6 +2236,8 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
         preview_state.current_load_behavior = Some(behavior);
 
+        tracing::debug!(loading_state = ?preview_state.loading_state, "Preview: scheduling reload");
+
         match preview_state.loading_state {
             PreviewFutureState::Pending => {}
             PreviewFutureState::Loading => {
@@ -2219,6 +2249,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
             }
         }
         preview_state.loading_state = PreviewFutureState::PreLoading;
+        let project_generation = preview_state.project_generation;
 
         preview_state
             .preview_loading_delay_timer
@@ -2227,8 +2258,13 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 timer.start(
                     slint::TimerMode::SingleShot,
                     i_slint_live_preview::REBUILD_DEBOUNCE,
-                    || {
-                        let _ = slint::spawn_local(reload_timer_function());
+                    move || {
+                        tracing::debug!("Preview: reload timer fired");
+                        if let Err(error) =
+                            slint::spawn_local(reload_timer_function(project_generation))
+                        {
+                            tracing::error!(%error, "Preview: failed to spawn reload");
+                        }
                     },
                 );
                 timer
@@ -2290,6 +2326,7 @@ async fn parse_source(
             )]),
         );
 
+    tracing::debug!(%path, "Preview: compiling source");
     let result =
         builder.build_static_from_source(source_code, path, i_slint_core::InternalToken).await;
 
@@ -2305,6 +2342,7 @@ async fn reload_preview_impl(
     config: PreviewConfig,
     project_generation: u64,
 ) -> Result<(), PlatformError> {
+    tracing::debug!(url = %component.url, "Preview: starting reload");
     start_parsing();
 
     if let Some(component_instance) = component_instance() {
@@ -2339,7 +2377,9 @@ async fn reload_preview_impl(
             Box::pin(async move {
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
-                Some(get_path_from_cache(&path))
+                let result = get_path_from_cache(&path);
+                tracing::debug!(%path, loaded = result.is_ok(), "Preview: loading import from cache");
+                Some(result)
             })
         },
     )
@@ -2347,7 +2387,6 @@ async fn reload_preview_impl(
 
     if !is_current_project_generation(project_generation) {
         tracing::debug!("Discarding preview compiled for an inactive project");
-        finish_parsing();
         return Ok(());
     }
 
@@ -3085,6 +3124,76 @@ mod tests {
         });
         assert!(!is_current_project_generation(old_project_generation));
         assert!(is_current_project_generation(new_project_generation));
+    }
+
+    #[test]
+    fn opening_project_cancels_old_reload_work_and_allows_a_new_preview() {
+        i_slint_backend_testing::init_no_event_loop();
+        for loading_state in [
+            PreviewFutureState::Pending,
+            PreviewFutureState::PreLoading,
+            PreviewFutureState::Loading,
+            PreviewFutureState::NeedsReload,
+        ] {
+            reset_preview_state(Default::default());
+            let timer_fired = Rc::new(std::cell::Cell::new(false));
+            let timer_callback = timer_fired.clone();
+            let old_project_generation = PREVIEW_STATE.with_borrow_mut(|state| {
+                let timer = slint::Timer::default();
+                timer.start(
+                    slint::TimerMode::SingleShot,
+                    std::time::Duration::from_millis(50),
+                    move || {
+                        timer_callback.set(true);
+                    },
+                );
+                state.preview_loading_delay_timer = Some(timer);
+                state.current_load_behavior = Some(LoadBehavior::BringWindowToFront);
+                state.loading_state = loading_state;
+                state.project_generation
+            });
+
+            reset_project_state(Url::parse("file:///new/").unwrap());
+            PREVIEW_STATE.with_borrow(|state| {
+                assert!(state.preview_loading_delay_timer.is_none());
+                assert!(state.current_load_behavior.is_none());
+                assert_eq!(state.loading_state, PreviewFutureState::Pending);
+            });
+            i_slint_backend_testing::mock_elapsed_time(100);
+            assert!(!timer_fired.get());
+
+            let component = PreviewComponent {
+                url: Url::parse("file:///new/main.slint").unwrap(),
+                component: None,
+            };
+            load_preview(component.clone(), LoadBehavior::BringWindowToFront);
+            spin_on::spin_on(reload_timer_function(old_project_generation));
+            PREVIEW_STATE.with_borrow(|state| {
+                assert_eq!(state.current_component(), Some(component));
+                assert_eq!(state.loading_state, PreviewFutureState::PreLoading);
+                assert!(matches!(
+                    state.current_load_behavior,
+                    Some(LoadBehavior::BringWindowToFront)
+                ));
+                assert!(state.preview_loading_delay_timer.as_ref().unwrap().running());
+            });
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn reload_without_a_component_returns_to_idle() {
+        reset_preview_state(Default::default());
+        let project_generation = PREVIEW_STATE.with_borrow_mut(|state| {
+            state.loading_state = PreviewFutureState::PreLoading;
+            state.current_load_behavior = Some(LoadBehavior::BringWindowToFront);
+            state.project_generation
+        });
+        spin_on::spin_on(reload_timer_function(project_generation));
+        assert_eq!(
+            PREVIEW_STATE.with_borrow(|state| state.loading_state),
+            PreviewFutureState::Pending
+        );
     }
 
     #[test]
