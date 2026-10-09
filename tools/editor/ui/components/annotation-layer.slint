@@ -7,6 +7,48 @@ import { Colors, Metrics, Theme, Typography } from "../style.slint";
 import { CanvasView } from "canvas-view.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
+component AnnotationMessage inherits VerticalLayout {
+    in property <string> id;
+    in property <string> body;
+    in property <bool> user: true;
+    in property <bool> reply;
+    in property <bool> sent;
+    in property <bool> sending;
+    spacing: 8px;
+
+    HorizontalLayout {
+        spacing: 8px;
+        Text { text: root.user ? "You" : "Codex"; color: root.user ? Colors.muted : Colors.accent; font-size: Typography.caption.size; font-weight: 500; }
+        Text {
+            text: !root.user ? "" : root.sending ? "Sending…" : root.sent ? "✓ Sent" : "Saved · not sent";
+            color: Colors.muted;
+            font-size: Typography.caption.size;
+            horizontal-stretch: 1;
+            horizontal-alignment: right;
+            accessible-label: (root.reply ? "Reply status " : "Annotation status ") + root.id;
+            accessible-value: root.sending ? "Sending" : root.sent ? "Sent" : "Saved · not sent";
+        }
+    }
+    Text {
+        text: root.body;
+        color: Colors.foreground;
+        font-size: Typography.body.size;
+        wrap: word-wrap;
+        accessible-label: (root.reply ? "Reply message " : "Annotation message ") + root.id;
+        accessible-value: root.body;
+    }
+    if root.user && !root.sent: HorizontalLayout {
+        alignment: start;
+        Button {
+            horizontal-stretch: 0;
+            text: "↑ Send";
+            accessible-label: (root.reply ? "Send reply " : "Send annotation ") + root.id;
+            enabled: Api.agent-registered && !Api.annotations-sending;
+            clicked => { Api.send-element-annotation(root.id); }
+        }
+    }
+}
+
 component AnnotationPin inherits Rectangle {
     in property <int> count;
     in property <bool> unread;
@@ -58,6 +100,7 @@ export component AnnotationLayer inherits Rectangle {
     private property <bool> panel-open;
     private property <bool> composing;
     private property <string> draft;
+    private property <string> replying-to;
     private property <string> element-key: Api.current-element.source-uri + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index;
     private property <string> element-label: Api.current-element.id != "" ? Api.current-element.id : Api.current-element.type-name;
     private property <int> annotation-count: Api.element-annotations.length;
@@ -69,6 +112,7 @@ export component AnnotationLayer inherits Rectangle {
 
     changed element-key => {
         root.draft = "";
+        root.replying-to = "";
         root.composing = false;
         root.panel-open = root.annotation-count > 0;
         if root.panel-open { Api.mark-element-annotations-read(); }
@@ -92,6 +136,7 @@ export component AnnotationLayer inherits Rectangle {
     function open-annotations(compose: bool) {
         root.panel-open = true;
         root.composing = compose;
+        root.replying-to = "";
         root.draft = "";
         Api.mark-element-annotations-read();
     }
@@ -121,7 +166,7 @@ export component AnnotationLayer inherits Rectangle {
 
     if root.panel-open && root.has-selection: panel := Rectangle {
         private property <length> right-x: root.selected-pin-position.x + 46px;
-        width: min(280px, root.width - 16px);
+        width: min(330px, root.width - 16px);
         height: min(panel-layout.preferred-height, root.height - 16px);
         x: clamp(self.right-x + self.width <= root.width - 8px ? self.right-x : root.selected-pin-position.x - self.width - 16px, 8px, max(8px, root.width - self.width - 8px));
         y: clamp(root.selected-pin-position.y - 8px, 8px, max(8px, root.height - self.height - 8px));
@@ -180,7 +225,8 @@ export component AnnotationLayer inherits Rectangle {
                 annotation-scroll := EditorScrollView {
                     min-height: 0px;
                     preferred-height: annotation-list.preferred-height;
-                    max-height: max(0px, root.height - 240px);
+                    max-height: min(400px, max(0px, root.height - 240px));
+                    changed content-height => { self.content-y = min(0px, self.visible-height - self.content-height); }
                     horizontal-scrollbar-policy: always-off;
                     VerticalLayout {
                         annotation-list := VerticalLayout {
@@ -190,32 +236,41 @@ export component AnnotationLayer inherits Rectangle {
                                 HorizontalLayout {
                                     Text { horizontal-stretch: 1; text: "Annotation \{index + 1} of \{root.annotation-count}"; color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; }
                                     Rectangle {
-                                        width: 64px;
+                                        width: 96px;
                                         height: 28px;
                                         accessible-role: AccessibleRole.button;
-                                        accessible-label: "Resolve annotation \{annotation.id}";
+                                        accessible-label: "Resolve thread \{annotation.id}";
                                         accessible-action-default => { Api.remove-element-annotation(annotation.id); }
-                                        Text { text: "✓ Resolve"; color: Colors.accent; font-size: Typography.caption.size; horizontal-alignment: right; vertical-alignment: center; }
+                                        Text { text: "✓ Resolve thread"; color: Colors.accent; font-size: Typography.caption.size; horizontal-alignment: right; vertical-alignment: center; }
                                         TouchArea { mouse-cursor: pointer; clicked => { Api.remove-element-annotation(annotation.id); } }
                                     }
                                 }
-                                Text { text: annotation.text; color: Colors.foreground; font-size: Typography.body.size; wrap: word-wrap; }
+                                AnnotationMessage {
+                                    id: annotation.id;
+                                    body: annotation.text;
+                                    sent: annotation.sent;
+                                    sending: annotation.sending;
+                                }
+                                for reply in annotation.replies: AnnotationMessage {
+                                    id: reply.id;
+                                    body: reply.text;
+                                    user: reply.user;
+                                    reply: true;
+                                    sent: reply.sent;
+                                    sending: reply.sending;
+                                }
                                 HorizontalLayout {
-                                    spacing: 8px;
-                                    Text {
-                                        text: annotation.sending ? "Sending…" : annotation.sent ? "✓ Sent" : "Saved · not sent";
-                                        color: Colors.muted;
-                                        font-size: Typography.caption.size;
-                                        vertical-alignment: center;
-                                        horizontal-stretch: 1;
-                                        accessible-label: "Annotation status \{annotation.id}";
-                                        accessible-value: annotation.sending ? "Sending" : annotation.sent ? "Sent" : "Saved · not sent";
-                                    }
-                                    if !annotation.sent: Button {
-                                        text: "↑ Send";
-                                        accessible-label: "Send annotation \{annotation.id}";
-                                        enabled: Api.agent-registered && !Api.annotations-sending;
-                                        clicked => { Api.send-element-annotation(annotation.id); }
+                                    alignment: start;
+                                    Button {
+                                        horizontal-stretch: 0;
+                                        text: "Reply";
+                                        accessible-label: "Reply to thread \{annotation.id}";
+                                        enabled: !root.composing;
+                                        clicked => {
+                                            root.composing = true;
+                                            root.replying-to = annotation.id;
+                                            root.draft = "";
+                                        }
                                     }
                                 }
                                 Rectangle { height: 1px; background: Colors.subtle-border; }
@@ -238,7 +293,7 @@ export component AnnotationLayer inherits Rectangle {
                 if root.composing: VerticalLayout {
                     padding: 12px;
                     spacing: 8px;
-                    Text { text: "New annotation"; color: Colors.foreground; font-size: Typography.body.size; }
+                    Text { text: root.replying-to != "" ? "Your reply" : "New annotation"; color: Colors.foreground; font-size: Typography.body.size; }
                     Rectangle {
                         height: 88px;
                         border-radius: Metrics.radius-small;
@@ -255,7 +310,7 @@ export component AnnotationLayer inherits Rectangle {
                             font-size: Typography.body.size;
                             wrap: word-wrap;
                             single-line: false;
-                            accessible-label: "Annotation text";
+                            accessible-label: root.replying-to != "" ? "Reply text" : "Annotation text";
                             selection-background-color: Colors.selection;
                             selection-foreground-color: Colors.foreground;
                             init => { self.focus(); }
@@ -263,18 +318,20 @@ export component AnnotationLayer inherits Rectangle {
                     }
                     HorizontalLayout {
                         spacing: 8px;
-                        alignment: end;
-                        Button { text: "Cancel"; clicked => { root.composing = false; root.draft = ""; if root.annotation-count == 0 { root.panel-open = false; } } }
+                        alignment: start;
                         Button {
-                            text: "Save annotation";
+                            text: root.replying-to != "" ? "Save reply" : "Save annotation";
                             primary: true;
                             enabled: root.draft != "";
                             clicked => {
-                                Api.add-element-annotation(root.draft);
+                                if root.replying-to != "" { Api.add-annotation-reply(root.replying-to, root.draft); }
+                                else { Api.add-element-annotation(root.draft); }
                                 root.draft = "";
                                 root.composing = false;
+                                root.replying-to = "";
                             }
                         }
+                        Button { text: "Cancel"; clicked => { root.composing = false; root.replying-to = ""; root.draft = ""; if root.annotation-count == 0 { root.panel-open = false; } } }
                     }
                 }
             }

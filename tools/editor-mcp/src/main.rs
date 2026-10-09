@@ -11,6 +11,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 const DISCOVER_TOOL: &str = "discover_visual_editors";
+const REPLY_TOOL: &str = "reply_visual_editor_annotation";
 const SCREENSHOT_TOOL: &str = "screenshot_visual_editor_canvas";
 const REGISTER_TOOL: &str = "register_visual_editor_chat";
 
@@ -43,12 +44,12 @@ fn handle_request(request_text: &str) -> Option<Value> {
             "protocolVersion": "2025-06-18",
             "capabilities": { "tools": {} },
             "serverInfo": { "name": "slint-editor-mcp", "version": env!("CARGO_PKG_VERSION") },
-            "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor."
+            "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor. Use the canvas screenshot tool to inspect the current view and reply to annotation threads by ID."
         })),
         "ping" => Ok(json!({})),
-        "tools/list" => {
-            Ok(json!({ "tools": [discover_tool(), register_tool(), screenshot_tool()] }))
-        }
+        "tools/list" => Ok(
+            json!({ "tools": [discover_tool(), register_tool(), screenshot_tool(), reply_tool()] }),
+        ),
         "tools/call" => call_tool(request.get("params")),
         "notifications/initialized" => return None,
         _ => {
@@ -102,6 +103,60 @@ fn register_tool() -> Value {
     })
 }
 
+fn reply_tool() -> Value {
+    json!({
+        "name": REPLY_TOOL,
+        "description": "Append a Codex reply to an existing annotation thread by its ID. The reply appears immediately in the canvas popover. Supply instanceId when multiple editors match.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workingDirectory": { "type": "string" },
+                "instanceId": { "type": "string" },
+                "annotationId": { "type": "string" },
+                "provider": { "type": "string", "enum": ["codex"] },
+                "text": { "type": "string" }
+            },
+            "required": ["workingDirectory", "annotationId", "provider", "text"],
+            "additionalProperties": false
+        },
+        "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false }
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReplyArguments {
+    #[serde(flatten)]
+    editor: EditorArguments,
+    annotation_id: String,
+    provider: ChatProvider,
+    text: String,
+}
+
+fn reply_annotation(arguments: &Value) -> Result<Value, String> {
+    let arguments: ReplyArguments =
+        serde_json::from_value(arguments.clone()).map_err(|error| error.to_string())?;
+    let editors = discover_editors(&arguments.editor.working_directory)?;
+    let editor = select_editor(&editors, arguments.editor.instance_id.as_deref())?;
+    let response = editor_rpc(
+        &editor,
+        &arguments.editor.working_directory,
+        EditorRequest::ReplyAnnotation {
+            project_root: editor.project_root.clone(),
+            annotation_id: arguments.annotation_id,
+            text: arguments.text,
+            provider: arguments.provider,
+        },
+    )?;
+    let EditorResponse::AnnotationReplied { annotation_id, message_id } = response else {
+        return Err("Unexpected editor reply response".into());
+    };
+    Ok(json!({
+        "content": [{ "type": "text", "text": format!("Replied to annotation thread {annotation_id}.") }],
+        "structuredContent": { "annotationId": annotation_id, "messageId": message_id }
+    }))
+}
+
 fn screenshot_tool() -> Value {
     json!({
         "name": SCREENSHOT_TOOL,
@@ -150,6 +205,7 @@ fn call_tool(params: Option<&Value>) -> Result<Value, String> {
         DISCOVER_TOOL => discover(&arguments),
         REGISTER_TOOL => register(&arguments),
         SCREENSHOT_TOOL => canvas_screenshot(&arguments),
+        REPLY_TOOL => reply_annotation(&arguments),
         _ => return Err(format!("Unknown tool: {name}")),
     };
     Ok(result.unwrap_or_else(
@@ -222,16 +278,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn advertises_discovery_registration_and_screenshot() {
+    fn advertises_editor_tools() {
         let initialized =
             handle_request(r#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#).unwrap();
         assert_eq!(initialized["result"]["capabilities"], json!({ "tools": {} }));
         let response = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
         let tools = response["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 3);
+        assert_eq!(tools.len(), 4);
         assert_eq!(tools[0]["name"], DISCOVER_TOOL);
         assert_eq!(tools[1]["name"], REGISTER_TOOL);
         assert_eq!(tools[2]["name"], SCREENSHOT_TOOL);
+        assert_eq!(tools[3]["name"], REPLY_TOOL);
         assert!(tools.iter().all(|tool| tool.get("_meta").is_none()));
         for method in ["resources/list", "resources/read"] {
             let response = handle_request(&json!({"id":3,"method":method}).to_string()).unwrap();
@@ -252,6 +309,15 @@ mod tests {
                 call_tool(Some(&json!({ "name": name, "arguments": arguments }))).unwrap();
             assert_eq!(response["isError"], true);
         }
+    }
+
+    #[test]
+    fn parses_reply_arguments() {
+        let arguments: ReplyArguments = serde_json::from_value(json!({
+            "workingDirectory": "/workspace", "instanceId": "editor-one", "annotationId": "1", "provider": "codex", "text": "Adjusted the radius."
+        })).unwrap();
+        assert_eq!(arguments.editor.working_directory, PathBuf::from("/workspace"));
+        assert_eq!(arguments.annotation_id, "1");
     }
 
     #[test]

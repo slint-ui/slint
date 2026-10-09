@@ -27,6 +27,20 @@ pub struct EditorAnnotation {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnnotationAuthor {
+    User,
+    Codex,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AnnotationMessage {
+    pub id: String,
+    pub text: String,
+    pub author: AnnotationAuthor,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SourceRange {
     pub start: SourcePosition,
     pub end: SourcePosition,
@@ -68,8 +82,19 @@ impl ChatRegistration {
 #[serde(tag = "method", rename_all = "snake_case")]
 pub enum EditorRequest {
     Ping,
-    RegisterChat { project_root: PathBuf, chat: ChatRegistration },
-    CanvasScreenshot { project_root: PathBuf },
+    RegisterChat {
+        project_root: PathBuf,
+        chat: ChatRegistration,
+    },
+    CanvasScreenshot {
+        project_root: PathBuf,
+    },
+    ReplyAnnotation {
+        project_root: PathBuf,
+        annotation_id: String,
+        text: String,
+        provider: ChatProvider,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -78,6 +103,7 @@ pub enum EditorResponse {
     Pong,
     ChatRegistered { chat: ChatRegistration },
     CanvasScreenshot { png_base64: String },
+    AnnotationReplied { annotation_id: String, message_id: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -214,7 +240,8 @@ fn receive_request(
             chat.validate()?;
             project_root
         }
-        EditorRequest::CanvasScreenshot { project_root } => project_root,
+        EditorRequest::CanvasScreenshot { project_root }
+        | EditorRequest::ReplyAnnotation { project_root, .. } => project_root,
     };
     if canonical_directory(requested_root)? != project_root {
         return Err("Editor project changed; discover editors again".into());
@@ -353,6 +380,9 @@ mod tests {
             EditorRequest::CanvasScreenshot { .. } => {
                 Ok(EditorResponse::CanvasScreenshot { png_base64: "test-png".into() })
             }
+            EditorRequest::ReplyAnnotation { annotation_id, .. } => {
+                Ok(EditorResponse::AnnotationReplied { annotation_id, message_id: "2".into() })
+            }
             EditorRequest::Ping => unreachable!(),
         })
         .unwrap();
@@ -446,6 +476,27 @@ mod tests {
         assert_eq!(
             editor_rpc(&editor, directory.path(), request.clone()).unwrap(),
             EditorResponse::CanvasScreenshot { png_base64: "test-png".into() }
+        );
+        let child = directory.path().join("child");
+        fs::create_dir(&child).unwrap();
+        server.update_project(Some(&child)).unwrap();
+        assert!(editor_rpc(&editor, directory.path(), request).unwrap_err().contains("changed"));
+    }
+
+    #[test]
+    fn sends_annotation_replies_with_project_scope_checks() {
+        let directory = tempfile::tempdir().unwrap();
+        let server = start_editor(directory.path(), directory.path());
+        let editor = discover_editors_in(directory.path(), directory.path()).unwrap().remove(0);
+        let request = EditorRequest::ReplyAnnotation {
+            project_root: directory.path().into(),
+            annotation_id: "1".into(),
+            text: "Adjusted the radius.".into(),
+            provider: ChatProvider::Codex,
+        };
+        assert_eq!(
+            editor_rpc(&editor, directory.path(), request.clone()).unwrap(),
+            EditorResponse::AnnotationReplied { annotation_id: "1".into(), message_id: "2".into() }
         );
         let child = directory.path().join("child");
         fs::create_dir(&child).unwrap();

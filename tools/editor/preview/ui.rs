@@ -230,6 +230,7 @@ pub fn initialize_editor(
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_add_element_annotation(super::add_element_annotation);
+    api.on_add_annotation_reply(super::add_annotation_reply);
     api.on_send_element_annotation(super::send_element_annotation);
     api.on_send_pending_annotations(super::send_pending_annotations);
     api.on_dismiss_annotation_send_error(super::dismiss_annotation_send_error);
@@ -2570,7 +2571,7 @@ mod tests {
         });
         i_slint_backend_testing::ElementHandle::find_by_accessible_label(
             &editor,
-            "Resolve annotation 1",
+            "Resolve thread 1",
         )
         .next()
         .unwrap()

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import base64
+import json
 import os
 from io import BytesIO
 
@@ -91,13 +92,13 @@ def test_send_failure_and_retry_keep_annotations_until_resolved(
         expect(pending).to_have_value("1")
         expect(element(window, "Annotation status 1")).to_have_value("Sent")
         expect(query(window, "Send annotation 1")).to_be_hidden()
-        expect(query(window, "Resolve annotation 1")).to_be_visible()
+        expect(query(window, "Resolve thread 1")).to_be_visible()
         pending.invoke_accessible_default_action()
         expect(pending).to_have_value("0")
         select_outline_row(window, "root-image")
         expect(element(window, "Annotation status 2")).to_have_value("Sent")
         screenshot(window).save(tmp_path / "canvas-annotation-sent.png")
-        element(window, "Resolve annotation 2").invoke_accessible_default_action()
+        element(window, "Resolve thread 2").invoke_accessible_default_action()
         expect(query(window, "Annotations for root-image")).to_be_hidden()
         expect(query(window, "Annotations for root-rectangle")).to_be_visible()
         assert source.read_bytes() == original
@@ -222,7 +223,7 @@ def test_canvas_annotations_survive_deselection_and_resolve(
         ).invoke_accessible_default_action()
         for identifier in ("1", "2"):
             element(
-                window, "Resolve annotation " + identifier
+                window, "Resolve thread " + identifier
             ).invoke_accessible_default_action()
         expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
         expect(query(window, "Add annotation to root-rectangle")).to_be_visible()
@@ -268,3 +269,129 @@ def test_mcp_canvas_screenshot_matches_visible_viewport(
         assert ImageChops.difference(canvas, expected).getbbox() is None
         canvas.save(tmp_path / "canvas-mcp-screenshot.png")
         full.save(tmp_path / "canvas-mcp-full-window.png")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Fake CLI uses a POSIX shell")
+def test_annotation_thread_agent_and_user_replies_save_send_and_persist(
+    editor_binary, editor_environment, fixture_project, tmp_path
+):
+    source = fixture_project / "Main.slint"
+    original = source.read_bytes()
+    command = tmp_path / "codex-test"
+    payload = tmp_path / "delivery-arguments"
+    command.write_text("#!/bin/sh\nprintf 'Queue unavailable' >&2\nexit 1\n")
+    command.chmod(0o755)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, original)
+        window = first_window(editor)
+        save_annotation(window, "root-rectangle", "Make the corners rounder.")
+        call_editor_tool(
+            editor_binary,
+            fixture_project,
+            "register_visual_editor_chat",
+            provider="codex",
+            threadId="annotation-test-chat",
+            displayName="Refine corners",
+            cliPath=str(command),
+        )
+        response = call_editor_tool(
+            editor_binary,
+            fixture_project,
+            "reply_visual_editor_annotation",
+            annotationId="1",
+            provider="codex",
+            text="Adjusted the radius. Does this size work?",
+        )
+        agent_id = response["structuredContent"]["messageId"]
+        expect(element(window, "Reply message " + agent_id)).to_have_value(
+            "Adjusted the radius. Does this size work?"
+        )
+        pending = element(window, "Send pending annotations")
+        expect(pending).to_have_value("1")
+        reply = element(window, "Reply to thread 1")
+        assert (
+            reply.absolute_position.y
+            > element(window, "Reply message " + agent_id).absolute_position.y
+        )
+        reply.invoke_accessible_default_action()
+        element(window, "Reply text").accessible_value = "A little smaller, please."
+        save = element(window, "Save reply")
+        assert abs(save.absolute_position.x - reply.absolute_position.x) < 1
+        save.invoke_accessible_default_action()
+        expect(pending).to_have_value("2")
+        user_reply = element(window, "Reply message 3")
+        expect(user_reply).to_have_value("A little smaller, please.")
+        send = element(window, "Send reply 3")
+        assert abs(send.absolute_position.x - reply.absolute_position.x) < 1
+        assert reply.absolute_position.y > send.absolute_position.y
+        send.invoke_accessible_default_action()
+        expect(element(window, "Annotation send error")).to_have_value(
+            "Queue unavailable"
+        )
+        expect(pending).to_have_value("2")
+        expect(element(window, "Reply status 3")).to_have_value("Saved · not sent")
+        command.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$@\" > '{payload}'\n")
+        send.invoke_accessible_default_action()
+        expect(pending).to_have_value("1")
+        expect(element(window, "Reply status 3")).to_have_value("Sent")
+        expect(query(window, "Send reply 3")).to_be_hidden()
+        arguments = payload.read_text().split("--message\n", 1)[1]
+        delivered = json.loads(arguments.split(":\n", 1)[1])
+        assert delivered[0]["id"] == "1"
+        assert delivered[0]["pendingMessageIds"] == ["3"]
+        assert [message["author"] for message in delivered[0]["conversation"]] == [
+            "user",
+            "codex",
+            "user",
+        ]
+        screenshot(window).save(tmp_path / "canvas-annotation-thread.png")
+        for note in (
+            "The smaller radius is applied. I kept the outline and preserved the image alignment. Does the spacing also need adjustment?",
+            "The screenshot shows the current canvas. The remaining question is whether you want the button spacing changed too.",
+        ):
+            call_editor_tool(
+                editor_binary,
+                fixture_project,
+                "reply_visual_editor_annotation",
+                annotationId="1",
+                provider="codex",
+                text=note,
+            )
+        expect(element(window, "Reply message 5")).to_have_value(note)
+        reply.invoke_accessible_default_action()
+        element(window, "Reply text").accessible_value = "Keep the spacing as it is."
+        element(window, "Save reply").invoke_accessible_default_action()
+        expect(pending).to_have_value("2")
+        latest_send = element(window, "Send reply 6")
+        viewport = element(window, "Canvas viewport").absolute_rect
+        for action in (latest_send, reply):
+            assert action.absolute_position.y >= viewport.y
+            assert (
+                action.absolute_position.y + action.size.height
+                <= viewport.y + viewport.height
+            )
+        assert abs(latest_send.absolute_position.x - reply.absolute_position.x) < 1
+        screenshot(window).save(tmp_path / "canvas-annotation-thread-scroll.png")
+        latest_send.invoke_accessible_default_action()
+        expect(pending).to_have_value("1")
+        assert source.read_bytes() == original
+
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, original)
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        expect(element(window, "Reply message 5")).to_have_value(note)
+        expect(element(window, "Reply status 6")).to_have_value("Sent")
+        pending = element(window, "Send pending annotations")
+        expect(pending).to_have_value("1")
+        pending.invoke_accessible_default_action()
+        expect(pending).to_have_value("0")
+        window.dispatch_event(
+            slint_testing.PointerScrolledEvent(
+                center(element(window, "Element annotations")), delta_x=0, delta_y=1000
+            )
+        )
+        expect(query(window, "Resolve thread 1")).to_be_visible()
+        element(window, "Resolve thread 1").invoke_accessible_default_action()
+        expect(query(window, "Reply message 3")).to_be_hidden()
+        expect(query(window, "Annotations for root-rectangle")).to_be_hidden()

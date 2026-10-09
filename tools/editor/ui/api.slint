@@ -384,11 +384,20 @@ export struct ElementInformation {
     offset: int,
 }
 
+export struct EditorAnnotationMessage {
+    id: string,
+    text: string,
+    user: bool,
+    sent: bool,
+    sending: bool,
+}
+
 export struct EditorAnnotation {
     id: string,
     text: string,
     sent: bool,
     sending: bool,
+    replies: [EditorAnnotationMessage],
 }
 
 export struct EditorAnnotationMarker {
@@ -540,6 +549,7 @@ export global Api {
     in property <bool> annotations-sending;
     in property <string> annotation-send-error;
     callback add-element-annotation(string);
+    callback add-annotation-reply(string, string);
     callback send-element-annotation(string);
     callback send-pending-annotations();
     callback dismiss-annotation-send-error();

@@ -45,3 +45,10 @@ Compilation failures return the latest compiler diagnostics instead of a stale s
 A project or preview target change cancels the request.
 The readiness wait times out after 20 seconds.
 The MCP server has no annotation snapshots, resources, mention search, or annotation-reading tools.
+
+Call `reply_visual_editor_annotation` with `workingDirectory`, `annotationId`, `provider: "codex"`, and `text` to reply to an annotation thread.
+The reply appears immediately in the canvas popover.
+User replies are saved first and sent individually or with the project pending batch.
+Each delivery includes the thread's source context, chronological conversation, and `pendingMessageIds` identifying the new user messages.
+Codex replies aren't queued back to the chat.
+Resolving a thread in the editor removes the original annotation and all replies.

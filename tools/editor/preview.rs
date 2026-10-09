@@ -32,8 +32,8 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{LogicalPosition, LogicalSize, PlatformError, SharedString, ToSharedString};
 use slint_editor_mcp::{
-    ChatRegistration, EditorAnnotation as SnapshotAnnotation, EditorRequest, EditorResponse,
-    EditorServer, SourcePosition, SourceRange,
+    AnnotationAuthor, AnnotationMessage, ChatRegistration, EditorAnnotation as SnapshotAnnotation,
+    EditorRequest, EditorResponse, EditorServer, SourcePosition, SourceRange,
 };
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use smol_str::SmolStr;
@@ -278,6 +278,7 @@ struct EditorAnnotations {
 }
 
 struct StoredEditorAnnotation {
+    replies: Vec<annotation_queue::SavedReply>,
     selection: SourceElement,
     snapshot: SnapshotAnnotation,
     unread: bool,
@@ -329,6 +330,7 @@ impl EditorAnnotations {
                     snapshot: annotation.snapshot,
                     unread: annotation.unread,
                     sent: annotation.sent,
+                    replies: annotation.replies,
                 })
                 .collect();
         }
@@ -344,8 +346,42 @@ impl EditorAnnotations {
             snapshot: annotation,
             unread: true,
             sent: false,
+            replies: Vec::new(),
         });
         self.persist();
+    }
+
+    fn add_reply(
+        &mut self,
+        id: &str,
+        text: String,
+        author: AnnotationAuthor,
+    ) -> Result<String, String> {
+        if text.trim().is_empty() {
+            return Err("Reply text must not be empty.".into());
+        }
+        let annotation = self
+            .annotations
+            .iter_mut()
+            .find(|annotation| annotation.snapshot.id == id)
+            .ok_or_else(|| format!("Unknown annotation thread: {id}"))?;
+        let message_id = self.next_id.to_string();
+        self.next_id += 1;
+        annotation.replies.push(annotation_queue::SavedReply {
+            message: AnnotationMessage { id: message_id.clone(), text, author },
+            sent: author != AnnotationAuthor::User,
+        });
+        annotation.unread = true;
+        if !self.persist() {
+            self.annotations
+                .iter_mut()
+                .find(|annotation| annotation.snapshot.id == id)
+                .unwrap()
+                .replies
+                .pop();
+            return Err("Could not save the annotation reply.".into());
+        }
+        Ok(message_id)
     }
 
     fn remove(&mut self, id: &str) {
@@ -365,6 +401,20 @@ impl EditorAnnotations {
                 text: annotation.snapshot.text.as_str().into(),
                 sent: annotation.sent,
                 sending: self.sending_ids.contains(&annotation.snapshot.id),
+                replies: Rc::new(slint::VecModel::from(
+                    annotation
+                        .replies
+                        .iter()
+                        .map(|reply| ui::EditorAnnotationMessage {
+                            id: reply.message.id.as_str().into(),
+                            text: reply.message.text.as_str().into(),
+                            user: reply.message.author == AnnotationAuthor::User,
+                            sent: reply.sent,
+                            sending: self.sending_ids.contains(&reply.message.id),
+                        })
+                        .collect::<Vec<_>>(),
+                ))
+                .into(),
             })
             .collect()
     }
@@ -503,6 +553,7 @@ impl EditorAnnotations {
                     offset: u32::from(annotation.selection.offset),
                     unread: annotation.unread,
                     sent: annotation.sent,
+                    replies: annotation.replies.clone(),
                 })
                 .collect(),
         };
@@ -514,7 +565,19 @@ impl EditorAnnotations {
     }
 
     fn pending_count(&self) -> usize {
-        self.annotations.iter().filter(|annotation| !annotation.sent).count()
+        self.annotations
+            .iter()
+            .map(|annotation| {
+                usize::from(!annotation.sent)
+                    + annotation
+                        .replies
+                        .iter()
+                        .filter(|reply| {
+                            !reply.sent && reply.message.author == AnnotationAuthor::User
+                        })
+                        .count()
+            })
+            .sum()
     }
 
     fn prepare_send(&mut self, id: Option<&str>) -> Option<annotation_queue::AnnotationDelivery> {
@@ -528,15 +591,41 @@ impl EditorAnnotations {
         let annotations = self
             .annotations
             .iter()
-            .filter(|annotation| {
-                !annotation.sent && id.is_none_or(|id| annotation.snapshot.id == id)
+            .filter_map(|annotation| {
+                let original = AnnotationMessage {
+                    id: annotation.snapshot.id.clone(),
+                    text: annotation.snapshot.text.clone(),
+                    author: AnnotationAuthor::User,
+                };
+                let pending_message_ids = std::iter::once((&original, annotation.sent))
+                    .chain(annotation.replies.iter().map(|reply| (&reply.message, reply.sent)))
+                    .filter(|(message, sent)| {
+                        message.author == AnnotationAuthor::User
+                            && !sent
+                            && id.is_none_or(|id| message.id == id)
+                    })
+                    .map(|(message, _)| message.id.clone())
+                    .collect::<Vec<_>>();
+                if pending_message_ids.is_empty() {
+                    return None;
+                }
+                let conversation = std::iter::once(original)
+                    .chain(annotation.replies.iter().map(|reply| reply.message.clone()))
+                    .collect();
+                Some(annotation_queue::AnnotationThreadDelivery {
+                    snapshot: annotation.snapshot.clone(),
+                    conversation,
+                    pending_message_ids,
+                })
             })
-            .map(|annotation| annotation.snapshot.clone())
             .collect::<Vec<_>>();
         if annotations.is_empty() {
             return None;
         }
-        self.sending_ids = annotations.iter().map(|annotation| annotation.id.clone()).collect();
+        self.sending_ids = annotations
+            .iter()
+            .flat_map(|annotation| annotation.pending_message_ids.iter().cloned())
+            .collect();
         self.send_error.clear();
         Some(annotation_queue::AnnotationDelivery {
             project_root: self.project_root.clone(),
@@ -552,6 +641,11 @@ impl EditorAnnotations {
                 for annotation in &mut self.annotations {
                     if ids.contains(&annotation.snapshot.id) {
                         annotation.sent = true;
+                    }
+                    for reply in &mut annotation.replies {
+                        if ids.contains(&reply.message.id) {
+                            reply.sent = true;
+                        }
                     }
                 }
                 self.send_error.clear();
@@ -3157,6 +3251,17 @@ fn annotation_request(request: EditorRequest) -> Result<EditorResponse, String> 
         let result = PREVIEW_STATE.with_borrow_mut(|state| match request {
             EditorRequest::CanvasScreenshot { .. } => unreachable!(),
             EditorRequest::Ping => Ok(EditorResponse::Pong),
+            EditorRequest::ReplyAnnotation { project_root, annotation_id, text, provider } => {
+                if state.annotations.project_root != project_root {
+                    return Err("The editor changed projects. Discover editors again.".into());
+                }
+                let author = match provider {
+                    slint_editor_mcp::ChatProvider::Codex => AnnotationAuthor::Codex,
+                };
+                let message_id = state.annotations.add_reply(&annotation_id, text, author)?;
+                set_visible_element_annotations(state, state.selected.as_ref());
+                Ok(EditorResponse::AnnotationReplied { annotation_id, message_id })
+            }
             EditorRequest::RegisterChat { project_root, chat } => {
                 if state.annotations.project_root != project_root {
                     return Err("The editor changed projects. Register the chat again.".into());
@@ -3267,7 +3372,7 @@ fn send_annotations(id: Option<&str>) {
                 let ids = delivery
                     .annotations
                     .iter()
-                    .map(|annotation| annotation.id.clone())
+                    .flat_map(|annotation| annotation.pending_message_ids.iter().cloned())
                     .collect::<Vec<_>>();
                 if state.annotations.project_root == delivery.project_root {
                     state.annotations.complete_send(&ids, result);
@@ -3304,6 +3409,17 @@ fn add_element_annotation(text: SharedString) {
         }
         preview_state.annotations.add(source_element, annotation, &source);
         set_visible_element_annotations(preview_state, Some(&selection));
+    });
+}
+
+fn add_annotation_reply(id: SharedString, text: SharedString) {
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        if let Err(error) =
+            state.annotations.add_reply(id.as_str(), text.to_string(), AnnotationAuthor::User)
+        {
+            state.annotations.send_error = error;
+        }
+        set_visible_element_annotations(state, state.selected.as_ref());
     });
 }
 
@@ -4446,6 +4562,90 @@ export component Main {
     }
 
     #[test]
+    fn annotation_replies_preserve_conversation_and_send_only_captured_user_messages() {
+        let project = tempfile::tempdir().unwrap();
+        let mut annotations =
+            annotations_for_source(project.path(), "export component Main inherits Rectangle {}");
+        annotations.chat = Some(ChatRegistration {
+            provider: slint_editor_mcp::ChatProvider::Codex,
+            thread_id: "test-thread".into(),
+            display_name: "Test".into(),
+            cli_path: project.path().join("fake-codex"),
+        });
+        let agent_reply = annotations
+            .add_reply(
+                "1",
+                "Adjusted the radius. Does this size work?".into(),
+                AnnotationAuthor::Codex,
+            )
+            .unwrap();
+        let user_reply = annotations
+            .add_reply("1", "Make it a little smaller.".into(), AnnotationAuthor::User)
+            .unwrap();
+        assert_eq!(annotations.pending_count(), 2);
+        let delivery = annotations.prepare_send(Some(&user_reply)).unwrap();
+        assert_eq!(delivery.annotations.len(), 1);
+        let thread = &delivery.annotations[0];
+        assert_eq!(thread.snapshot.id, "1");
+        assert_eq!(thread.pending_message_ids, [user_reply.clone()]);
+        assert_eq!(
+            thread
+                .conversation
+                .iter()
+                .map(|message| (message.id.as_str(), message.author))
+                .collect::<Vec<_>>(),
+            [
+                ("1", AnnotationAuthor::User),
+                (agent_reply.as_str(), AnnotationAuthor::Codex),
+                (user_reply.as_str(), AnnotationAuthor::User)
+            ]
+        );
+        let added_while_sending = annotations
+            .add_reply("1", "Keep the outline too.".into(), AnnotationAuthor::User)
+            .unwrap();
+        annotations.complete_send(&thread.pending_message_ids, Err("Queue unavailable".into()));
+        assert_eq!(annotations.pending_count(), 3);
+        let retry = annotations.prepare_send(Some(&user_reply)).unwrap();
+        annotations.complete_send(&retry.annotations[0].pending_message_ids, Ok(()));
+        assert_eq!(annotations.pending_count(), 2);
+        let batch = annotations.prepare_send(None).unwrap();
+        assert_eq!(
+            batch.annotations[0].pending_message_ids,
+            ["1".to_string(), added_while_sending]
+        );
+        let restored = EditorAnnotations::new(project.path());
+        assert_eq!(restored.annotations[0].replies.len(), 3);
+        assert!(restored.annotations[0].replies[1].sent);
+        assert!(!restored.annotations[0].replies[2].sent);
+        assert_eq!(restored.pending_count(), 2);
+        assert!(
+            annotations
+                .add_reply("unknown", "Reply".into(), AnnotationAuthor::Codex)
+                .unwrap_err()
+                .contains("Unknown annotation")
+        );
+        assert!(
+            annotations
+                .add_reply("1", "  ".into(), AnnotationAuthor::User)
+                .unwrap_err()
+                .contains("empty")
+        );
+    }
+
+    #[test]
+    fn annotation_storage_accepts_existing_notes_without_replies() {
+        let project = tempfile::tempdir().unwrap();
+        let annotations =
+            annotations_for_source(project.path(), "export component Main inherits Rectangle {}");
+        let saved = annotations.storage.as_ref().unwrap().load().unwrap();
+        let mut legacy = serde_json::to_value(saved).unwrap();
+        legacy["annotations"][0].as_object_mut().unwrap().remove("replies");
+        let restored: annotation_queue::SavedAnnotations = serde_json::from_value(legacy).unwrap();
+        assert!(restored.annotations[0].replies.is_empty());
+        assert_eq!(restored.annotations[0].snapshot.id, "1");
+    }
+
+    #[test]
     fn annotation_registration_and_delivery_state_survive_restart() {
         let project = tempfile::tempdir().unwrap();
         let mut annotations =
@@ -4460,8 +4660,11 @@ export component Main {
         annotations.persist();
         let delivery = annotations.prepare_send(None).unwrap();
         assert!(annotations.prepare_send(None).is_none());
-        let ids =
-            delivery.annotations.iter().map(|annotation| annotation.id.clone()).collect::<Vec<_>>();
+        let ids = delivery
+            .annotations
+            .iter()
+            .flat_map(|annotation| annotation.pending_message_ids.iter().cloned())
+            .collect::<Vec<_>>();
         annotations.complete_send(&ids, Ok(()));
         let restored = EditorAnnotations::new(project.path());
         assert_eq!(restored.chat, Some(chat));
@@ -4513,8 +4716,11 @@ printf '%s\n' "$@" > '{}'
         assert!(arguments.contains("main.slint"));
         let delivery = annotations.prepare_send(None).unwrap();
         assert_eq!(delivery.annotations.len(), 2);
-        let ids =
-            delivery.annotations.iter().map(|annotation| annotation.id.clone()).collect::<Vec<_>>();
+        let ids = delivery
+            .annotations
+            .iter()
+            .flat_map(|annotation| annotation.pending_message_ids.iter().cloned())
+            .collect::<Vec<_>>();
         annotations.complete_send(&ids, delivery.send());
         assert_eq!(annotations.pending_count(), 0);
         assert_eq!(EditorAnnotations::new(project.path()).pending_count(), 0);

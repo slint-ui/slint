@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-use slint_editor_mcp::{ChatRegistration, EditorAnnotation};
+use slint_editor_mcp::{AnnotationMessage, ChatRegistration, EditorAnnotation};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(super) struct SavedAnnotation {
@@ -13,6 +13,23 @@ pub(super) struct SavedAnnotation {
     pub offset: u32,
     pub unread: bool,
     pub sent: bool,
+    #[serde(default)]
+    pub replies: Vec<SavedReply>,
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub(super) struct SavedReply {
+    pub message: AnnotationMessage,
+    pub sent: bool,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct AnnotationThreadDelivery {
+    #[serde(flatten)]
+    pub snapshot: EditorAnnotation,
+    pub conversation: Vec<AnnotationMessage>,
+    pub pending_message_ids: Vec<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -73,7 +90,7 @@ impl AnnotationStorage {
 pub(super) struct AnnotationDelivery {
     pub project_root: PathBuf,
     pub chat: ChatRegistration,
-    pub annotations: Vec<EditorAnnotation>,
+    pub annotations: Vec<AnnotationThreadDelivery>,
 }
 
 impl AnnotationDelivery {
