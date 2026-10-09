@@ -28,27 +28,30 @@ pnpm_manifests:
  - 'pnpm-workspace.yaml'
 
 # The compiler library and i-slint-common, without the language-specific
-# generator backends and the compiler's own test data.
+# generator backends, the widget styles, and the compiler's own test data.
 compiler: &compiler
  - 'internal/common/**'
- - 'internal/compiler/!({tests,generator}/**)'
+ - 'internal/compiler/!({tests,generator,widgets}/**)'
  - 'internal/compiler/generator/!(cpp*|python*|rust*|slint_sc*){,/**}'
  - 'Cargo.toml' # the root Cargo.toml
  - '.cargo/**'
  - *ci_config
 
-# Compiler and runtime shared by all language APIs; they need the Qt widgets
-# and the testing backend, but no renderer.
+# Compiler and runtime shared by all language APIs, without backends and renderers.
 internal: &internal
  - *compiler
  - 'internal/!({compiler,renderers,backends}/**)'
- - 'internal/backends/qt/**'
- - 'internal/backends/testing/**'
  - 'helper_crates/**'
+
+# The widget styles, which every generator has to compile.
+widgets: &widgets
+ - 'internal/compiler/widgets/**'
 
 # What the integration tests in the tests/ workspace build against.
 integration: &integration
  - *internal
+ - *widgets
+ - 'internal/backends/{qt,testing}/**'
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'

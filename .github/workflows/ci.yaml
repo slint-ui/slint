@@ -236,7 +236,7 @@ jobs:
               run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-cpp --features backend-qt
 
     cpp_test_driver_32bit:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'widgets') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
         runs-on: ubuntu-24.04
         env:
             SLINT_NO_QT: 1
