@@ -9,6 +9,7 @@
 // (Chrome and Firefox treat every file as its own origin). So this rewrites
 // every root-relative URL to a relative one ending in `index.html`, and bundles
 // each page's module scripts into one classic deferred script.
+// Root-relative URLs outside the site's base path become absolute ones.
 // Pagefind fetches its index at runtime, which `file://` blocks, so the search
 // box is hidden.
 
@@ -18,12 +19,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import { SAFETY_DOCS_BASE_PATH, SAFETY_DOCS_BASE_URL } from "../src/safety-site-config.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const src = path.join(root, "dist");
 const name = "slint-sc-safety-manual";
 const out = path.join(root, "dist-offline", name);
 const zip = path.join(root, "dist-offline", `${name}.zip`);
+
+const base = SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
+const origin = SAFETY_DOCS_BASE_URL.replace(/\/+$/, "");
 
 // Generated elsewhere, already using relative URLs.
 const untouched = new Set(["api", "coverage"]);
@@ -46,11 +51,17 @@ function* walk(dir) {
     }
 }
 
+/** Maps a URL path under the base path to the file in `out`. */
+function siteFile(urlPath) {
+    return path.join(out, decodeURI(urlPath.slice(base.length - 1)));
+}
+
 /** Maps a root-relative URL to one relative to `fromDir`, pointing at a file. */
 function relativize(url, fromDir) {
     if (!url.startsWith("/") || url.startsWith("//")) return url;
+    if (!url.startsWith(base) && `${url}/` !== base) return origin + url;
     const m = url.match(/^([^?#]*)([?#].*)?$/);
-    let target = path.join(out, decodeURI(m[1]));
+    let target = siteFile(m[1]);
     if (m[1].endsWith("/") || (fs.existsSync(target) && fs.statSync(target).isDirectory())) {
         target = path.join(target, "index.html");
     }
@@ -68,7 +79,7 @@ const bundles = new Map();
 async function bundle(scripts) {
     const entry = scripts
         .map((s) => {
-            if (s.src) return `import ${JSON.stringify(path.join(out, s.src))};`;
+            if (s.src) return `import ${JSON.stringify(siteFile(s.src))};`;
             const file = path.join(scratch, `${createHash("sha256").update(s.code).digest("hex").slice(0, 16)}.js`);
             fs.writeFileSync(file, s.code);
             return `import ${JSON.stringify(file)};`;
@@ -90,7 +101,7 @@ async function bundle(scripts) {
                     name: "site-root",
                     setup(build) {
                         build.onResolve({ filter: /^\// }, (args) =>
-                            fs.existsSync(args.path) ? { path: args.path } : { path: path.join(out, args.path) },
+                            fs.existsSync(args.path) ? { path: args.path } : { path: siteFile(args.path) },
                         );
                         // Vite's preload helper adds `<link rel=modulepreload>` for chunks that
                         // are now part of the bundle, and `file://` blocks them.
@@ -105,7 +116,7 @@ async function bundle(scripts) {
         })());
     }
     await bundles.get(key);
-    return `/_astro/offline-${key}.js`;
+    return `${base}_astro/offline-${key}.js`;
 }
 
 const hideSearch = "<style>site-search{display:none!important}</style>";

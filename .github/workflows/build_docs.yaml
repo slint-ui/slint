@@ -229,6 +229,16 @@ jobs:
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build
+            - name: "Package Safety Manual for offline reading"
+              working-directory: docs/safety
+              run: node scripts/package-offline.mjs
+            - name: "Upload offline Safety Manual"
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-offline-docs
+                  path: |
+                      docs/safety/dist-offline/
+                      !docs/safety/dist-offline/*.zip
             - name: Install Playwright
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps
