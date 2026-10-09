@@ -1,0 +1,5 @@
+event,seconds_from_command,slint_tick_seconds_from_command,command_index,target_offset_pt,uikit_offset_pt,slint_offset_pt,uikit_velocity,slint_velocity
+release,-0.051904,-0.052643,,,36105.333,36110.000,0.000,121.251
+command,0.000000,-0.003268,0,39000.000,36136.000,36144.750,745.041,703.326
+uikit_deceleration_end,0.000277,-0.003273,,,36136.000,36144.750,745.041,703.326
+uikit_animation_end,0.299665,0.296760,,,39000.000,38999.676,1942.123,13.005

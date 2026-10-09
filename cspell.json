@@ -406,6 +406,10 @@
   ],
   "overrides": [
     {
+      "filename": "tests/manual/ios-scroll-to-comparison/**",
+      "words": ["uikit", "Murmele", "xctest", "xcresult", "linestyle", "UDID", "rmse"]
+    },
+    {
       "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
       "words": ["uikit"]
     },

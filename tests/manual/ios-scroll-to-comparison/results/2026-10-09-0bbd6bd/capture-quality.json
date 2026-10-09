@@ -1,0 +1,38 @@
+[
+  {
+    "case": "02-scroll-up-from-rest",
+    "captures": 20,
+    "quality_flags": 20,
+    "max_gap_ms": 270.599
+  },
+  {
+    "case": "05-retarget-reverse",
+    "captures": 8,
+    "quality_flags": 8,
+    "max_gap_ms": 247.682
+  },
+  {
+    "case": "06-scroll-during-fling",
+    "captures": 12,
+    "quality_flags": 0,
+    "max_gap_ms": 25.012
+  },
+  {
+    "case": "01-scroll-down-from-rest",
+    "captures": 20,
+    "quality_flags": 20,
+    "max_gap_ms": 268.253
+  },
+  {
+    "case": "04-retarget-same-direction",
+    "captures": 8,
+    "quality_flags": 8,
+    "max_gap_ms": 248.163
+  },
+  {
+    "case": "03-scroll-to-edge",
+    "captures": 8,
+    "quality_flags": 8,
+    "max_gap_ms": 267.827
+  }
+]

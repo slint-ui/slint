@@ -1,0 +1,22 @@
+{
+  "engine_commit": "0bbd6bd8d58ebe3c029eec2820d109952cac6766",
+  "pr": "https://github.com/slint-ui/slint/pull/13946",
+  "source_branch": "Murmele/slint:mm/scroll-to",
+  "capture_date": "2026-10-09",
+  "device": "iPhone 13 Pro Max, iOS 27.0.1 (24A446)",
+  "configuration": "Release",
+  "backend": "winit-skia",
+  "style": "cupertino",
+  "executable_sha256": "c6656b621d9fe3d22a379cc0e7d37b648eee67979803c95990cedc0640608205",
+  "engine_and_test_source_changes": [],
+  "automated_captures": 76,
+  "automated_methods_passed": 6,
+  "automated_capture_quality_passed": 12,
+  "automated_sampling_gap_flags": 64,
+  "missed_targets": 0,
+  "not_at_rest_flags": 0,
+  "diagnostic_captures_without_xctest": 3,
+  "diagnostic_capture_quality_passed": 3,
+  "replay": "failed: naive CSV parsing of quoted device name",
+  "fitting": "completed; automated from-rest inputs are flagged, so fits are provisional"
+}
