@@ -862,8 +862,7 @@ void blocking_invoke_from_event_loop(Functor f)
 #endif
 
 /// Use the BackendSelector to configure one of Slint's built-in
-/// [backends with a
-/// renderer](https://slint.dev/latest/docs/slint/guide/backends-and-renderers/backends_and_renderers/)
+/// [backends with a renderer](slint:backends_and_renderers)
 /// to accommodate specific needs of your application.
 /// This is a programmatic substitute for the `SLINT_BACKEND` environment variable.
 ///
