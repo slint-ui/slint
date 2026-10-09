@@ -18,7 +18,7 @@ component CornerMode inherits FocusScope {
     accessible-value: root.selected ? "selected" : "";
     accessible-action-default => { root.activated(); }
     key-pressed(event) => {
-        if event.text == " " || event.text == Key.Return { root.activated(); return accept; }
+        if event.text == Key.Space || event.text == Key.Return { root.activated(); return accept; }
         return reject;
     }
     Rectangle {
