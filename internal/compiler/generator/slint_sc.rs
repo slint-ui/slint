@@ -467,11 +467,14 @@ pub fn generate(
                 /// window was created with.
                 pub fn render_rgb8(&self, frame_buffer: &mut [u8]) -> Result<(), slint_sc::RenderError> {
                     let window_size = self.window_size;
-                    if frame_buffer.len() != window_size.width as usize * window_size.height as usize * 3 {
+                    let expected_len = usize::try_from(window_size.width)
+                        .ok()
+                        .zip(usize::try_from(window_size.height).ok())
+                        .and_then(|(w, h)| w.checked_mul(h))
+                        .and_then(|pixels| pixels.checked_mul(3));
+                    if expected_len != Some(frame_buffer.len()) {
                         return Err(slint_sc::RenderError::InvalidFrameBufferSize);
                     }
-                    let offset_x = 0i32;
-                    let offset_y = 0i32;
                     #render_tree
                     Ok(())
                 }
@@ -504,8 +507,6 @@ pub fn generate(
                 #[allow(unused_variables, unused_mut)]
                 fn touch_hit_test(&self, position: slint_sc::Point) -> Option<usize> {
                     let mut hit = None;
-                    let offset_x = 0i32;
-                    let offset_y = 0i32;
                     #hit_test_tree
                     hit
                 }
@@ -974,35 +975,57 @@ fn element_size(elem: &ElementRc, ctx: &Ctx) -> (TokenStream, TokenStream) {
     (resolve(|g: &GeometryProps| &g.width), resolve(|g: &GeometryProps| &g.height))
 }
 
-/// Walk `elem` and its descendants, emitting for each a block that adds the
-/// element's position to the running `offset_x`/`offset_y`, whatever `body`
-/// makes of the element, and then the children's blocks — so that later and
-/// deeper elements come after earlier and shallower ones. A subtree `body`
-/// makes nothing of emits nothing, and compiles nothing either, so that its
-/// bindings make no coverage points.
+/// The variables holding an element's window position, one pair per depth;
+/// see `sls.gen.no-shadow`.
+struct Offset {
+    x: Ident,
+    y: Ident,
+}
+
+impl Offset {
+    fn at_depth(depth: usize) -> Self {
+        Self { x: format_ident!("offset_x_{depth}"), y: format_ident!("offset_y_{depth}") }
+    }
+}
+
+/// Walk `elem` and its descendants, emitting for each a block that declares
+/// the element's [`Offset`], whatever `body` makes of the element, and then
+/// the children's blocks — so that later and deeper elements come after
+/// earlier and shallower ones. A subtree `body` makes nothing of emits
+/// nothing, and compiles nothing either, so that its bindings make no coverage
+/// points.
 ///
 /// Rendering and hit testing are the same walk, which is what makes a
 /// `TouchArea` sit exactly where it paints.
 fn emit_tree(
     elem: &ElementRc,
     ctx: &Ctx,
-    body: &mut dyn FnMut(&ElementRc) -> Option<TokenStream>,
+    depth: usize,
+    body: &mut dyn FnMut(&ElementRc, &Offset) -> Option<TokenStream>,
 ) -> TokenStream {
-    let statements = body(elem);
+    let offset = Offset::at_depth(depth);
+    let statements = body(elem, &offset);
     let children: Vec<TokenStream> =
-        elem.borrow().children.iter().map(|child| emit_tree(child, ctx, body)).collect();
+        elem.borrow().children.iter().map(|child| emit_tree(child, ctx, depth + 1, body)).collect();
     if statements.is_none() && children.iter().all(|c| c.is_empty()) {
         return TokenStream::new();
     }
     let (x, y) = element_position(elem, ctx);
+    let (x, y) = match depth.checked_sub(1).map(Offset::at_depth) {
+        Some(Offset { x: parent_x, y: parent_y }) => {
+            (quote!(#parent_x.saturating_add(#x)), quote!(#parent_y.saturating_add(#y)))
+        }
+        None => (x, y),
+    };
+    let Offset { x: offset_x, y: offset_y } = &offset;
     // An element that paints nothing and has no children holds only its
-    // coverage point, which leaves the offsets unused.
+    // coverage point, which leaves the offsets unused. LLVM gives a method
+    // argument no code region, but the tuple one region holding the coverage
+    // points of `x` and `y`.
     quote! {
         {
             #[allow(unused_variables)]
-            let offset_x = offset_x + #x;
-            #[allow(unused_variables)]
-            let offset_y = offset_y + #y;
+            let (#offset_x, #offset_y) = (#x, #y);
             #statements
             #(#children)*
         }
@@ -1019,7 +1042,7 @@ fn is_image_item(elem: &ElementRc) -> bool {
 /// image pixel per frame-buffer pixel: the element is always the size of the
 /// image, so there is nothing to scale or clip to.
 fn emit_render(ctx: &Ctx) -> TokenStream {
-    emit_tree(ctx.root, ctx, &mut |elem| {
+    emit_tree(ctx.root, ctx, 0, &mut |elem, Offset { x: offset_x, y: offset_y }| {
         let reached = ctx.coverage.element_point(&elem.borrow());
         let background = SmolStr::new_static("background");
         let mut color = elem
@@ -1037,7 +1060,7 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
             let (w, h) = element_size(elem, ctx);
             quote!(
                 slint_sc::private_unstable_api::renderer::fill_rect(frame_buffer, window_size,
-                    [offset_x, offset_y], [#w, #h], #color);
+                    [#offset_x, #offset_y], [#w, #h], #color);
             )
         });
         let source = is_image_item(elem)
@@ -1051,7 +1074,7 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
         let draw_image = source.map(|source| {
             quote!(
                 slint_sc::private_unstable_api::renderer::draw_image(frame_buffer, window_size,
-                    [offset_x, offset_y], #source);
+                    [#offset_x, #offset_y], #source);
             )
         });
         let body = match reached {
@@ -1067,7 +1090,7 @@ fn emit_render(ctx: &Ctx) -> TokenStream {
 /// what an earlier one stored in `hit`, so the area that paints on top is the
 /// one that ends up hit.
 fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
-    emit_tree(ctx.root, ctx, &mut |elem| {
+    emit_tree(ctx.root, ctx, 0, &mut |elem, Offset { x: offset_x, y: offset_y }| {
         is_touch_area(elem).then(|| {
             let index = areas.len();
             areas.push(
@@ -1081,8 +1104,8 @@ fn emit_hit_test(ctx: &Ctx, areas: &mut Vec<TokenStream>) -> TokenStream {
             );
             let (w, h) = element_size(elem, ctx);
             quote!(
-                if (offset_x..offset_x.saturating_add(#w)).contains(&position.x)
-                    && (offset_y..offset_y.saturating_add(#h)).contains(&position.y)
+                if (#offset_x..#offset_x.saturating_add(#w)).contains(&position.x)
+                    && (#offset_y..#offset_y.saturating_add(#h)).contains(&position.y)
                 {
                     hit = Some(#index);
                 }
@@ -1123,8 +1146,8 @@ fn compile_property_reference(nr: &NamedReference, ctx: &Ctx) -> Option<TokenStr
     match element.borrow().binding_cell_including_synthetic(nr.name()) {
         Some(b) => Some(compile_binding(&element.borrow(), nr.name(), &b.borrow(), ctx)),
         None if is_root => match nr.name().as_str() {
-            "width" => Some(quote!((self.window_size.width as i32))),
-            "height" => Some(quote!((self.window_size.height as i32))),
+            "width" => Some(quote!(i32::try_from(self.window_size.width).unwrap_or(i32::MAX))),
+            "height" => Some(quote!(i32::try_from(self.window_size.height).unwrap_or(i32::MAX))),
             _ => None,
         },
         None => None,

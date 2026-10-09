@@ -26,6 +26,12 @@ CI's `lint_typecheck` job spell-checks the diff and gates the rest of the CI mat
 cp scripts/pre-push-spellcheck.sh .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
 
+Set up the commit message template, which marks where the implementation notes go:
+
+```
+git config commit.template "$(git rev-parse --show-toplevel)/scripts/commit-template.txt"
+```
+
 ## Repository structures
 
 For the crate/directory map of `internal/`, `api/`, `tools/`, and `editors/`, see the
