@@ -15,7 +15,7 @@ use crate::langtype::{
     Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
-use crate::typeloader;
+use crate::{typeloader, typeregister};
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
@@ -425,6 +425,7 @@ pub fn reserved_member_functions()
     IntoIterator::into_iter([
         ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
         ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
     ])
 }
 

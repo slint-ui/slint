@@ -1,0 +1,160 @@
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+    no-frame: false;
+
+    callback ensure_visible_(int, ScrollMode);
+    ensure_visible_(rectangle_index, mode) => {
+        if rectangle-index == 0 {
+            debug("Ensure visible red");
+            r1.ensure_visible(mode);
+        } else if rectangle-index == 1 {
+            debug("Ensure visible blue");
+            r2.ensure_visible(mode);
+        } else if rectangle-index == 2 {
+            debug("Ensure visible green");
+            r3.ensure_visible(mode);
+        }
+    }
+
+    VerticalLayout {
+        Button {
+            property <int> counter: 0;
+            text: "Press";
+            clicked => {
+                root.ensure_visible_(counter, ScrollMode.instant);
+                if counter > 2 {
+                    counter = 0;
+                } else {
+                    counter += 1;
+                }
+
+            }
+        }
+
+        f := Flickable {
+            width: parent.width;
+            height: parent.height;
+            content_width: 1000phx;
+            content_height: 1000phx;
+
+            r1:= Rectangle {
+                x: 0px;
+                y: 0px;
+                width: 100px;
+                height: 100px;
+                background: red;
+            }
+
+            r2:= Rectangle {
+                x: 300px;
+                y: 300px;
+                width: 100px;
+                height: 100px;
+                background: blue;
+            }
+
+            r3:= Rectangle {
+                x: 700px;
+                y: 700px;
+                width: 100px;
+                height: 100px;
+                background: green;
+            }
+        }
+    }
+
+    in-out property<length> offset_x: -f.content_x;
+    in-out property<length> offset_y: -f.content_y;
+}
+
+/*
+
+/// Instant scrolling
+```rust
+use slint::language::ScrollMode;
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+
+const WINDOW_WIDTH: f32 = 500.;
+const WINDOW_HEIGHT: f32 = 500.;
+const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
+const RED_RECTANGLE_WIDTH: f32 = 100.;
+const RED_RECTANGLE_HEIGHT: f32 = 100.;
+const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
+const SCROLL_MODE: ScrollMode = ScrollMode::Instant;
+const RED_RECTANGLE_INDEX: i32 = 0;
+const BLUE_RECTANGLE_INDEX: i32 = 1;
+const GREEN_RECTANGLE_INDEX: i32 = 2;
+
+
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
+
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert!(instance.get_offset_x() >= POS_GREEN_RECTANGLE.x - WINDOW_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() >= POS_GREEN_RECTANGLE.y - WINDOW_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
+
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert!(instance.get_offset_x() <= POS_RED_RECTANGLE.x + RED_RECTANGLE_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
+```
+
+/// Smooth scrolling
+```rust
+use slint::language::ScrollMode;
+use slint::LogicalPosition;
+
+let instance = TestCase::new().unwrap();
+
+const WINDOW_WIDTH: f32 = 500.;
+const WINDOW_HEIGHT: f32 = 500.;
+const POS_RED_RECTANGLE: LogicalPosition = LogicalPosition::new(0., 0.);
+const RED_RECTANGLE_WIDTH: f32 = 100.;
+const RED_RECTANGLE_HEIGHT: f32 = 100.;
+const POS_GREEN_RECTANGLE: LogicalPosition = LogicalPosition::new(700., 700.);
+const SCROLL_MODE: ScrollMode = ScrollMode::Smooth;
+const RED_RECTANGLE_INDEX: i32 = 0;
+const BLUE_RECTANGLE_INDEX: i32 = 1;
+const GREEN_RECTANGLE_INDEX: i32 = 2;
+
+
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the red rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the red rectangle is already in view");
+
+instance.invoke_ensure_visible_(BLUE_RECTANGLE_INDEX, SCROLL_MODE);
+
+assert_eq!(instance.get_offset_x(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+assert_eq!(instance.get_offset_y(), 0., "The flickable does not scroll because the blue rectangle is already in view");
+
+instance.invoke_ensure_visible_(GREEN_RECTANGLE_INDEX, SCROLL_MODE);
+assert_eq!(instance.get_offset_x(), 0., "The flickable did not scroll yet");
+assert_eq!(instance.get_offset_y(), 0., "The flickable did not scroll yet");
+slint_testing::mock_elapsed_time(1000000);
+assert!(instance.get_offset_x() >= POS_GREEN_RECTANGLE.x - WINDOW_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() >= POS_GREEN_RECTANGLE.y - WINDOW_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
+
+
+let offset_x = instance.get_offset_x();
+let offset_y = instance.get_offset_y();
+instance.invoke_ensure_visible_(RED_RECTANGLE_INDEX, SCROLL_MODE);
+assert_eq!(instance.get_offset_x(), offset_x, "The flickable did not scroll yet");
+assert_eq!(instance.get_offset_y(), offset_y, "The flickable did not scroll yet");
+slint_testing::mock_elapsed_time(1000000);
+assert!(instance.get_offset_x() <= POS_RED_RECTANGLE.x + RED_RECTANGLE_WIDTH, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() <= POS_RED_RECTANGLE.y + RED_RECTANGLE_HEIGHT, "The flickable must scroll to get the green rectangle into view: {:?}", instance.get_offset_y());
+```
+*/

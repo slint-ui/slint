@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+    no-frame: false;
+
+    callback flickable-scroll-to(length, length, ScrollMode);
+    flickable-scroll-to(x, y, scroll_mode) => {
+        f.scroll-to({x: x, y: y}, scroll_mode);
+    }
+
+    f := Flickable {
+        width: parent.width;
+        height: parent.height;
+        content_width: 1000phx;
+        content_height: 1000phx;
+
+        Rectangle {
+            background: @radial-gradient(circle, yellow, blue, red, green);
+        }
+    }
+
+    in-out property<length> offset_x: -f.content_x;
+    in-out property<length> offset_y: -f.content_y;
+}
+
+/*
+
+```rust
+use slint::LogicalPosition;
+use slint::language::ScrollMode;
+
+let instance = TestCase::new().unwrap();
+
+const ORIGIN: LogicalPosition = LogicalPosition::new(0., 0.);
+const SCROLL_TO_POS: LogicalPosition = LogicalPosition::new(35., 45.);
+const SCROLL_TO_SMOOTH_POS: LogicalPosition = LogicalPosition::new(105., 135.);
+
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+instance.invoke_flickable_scroll_to(SCROLL_TO_POS.x, SCROLL_TO_POS.y, ScrollMode::Instant);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_POS.x);
+assert_eq!(instance.get_offset_y(),SCROLL_TO_POS.y);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_POS.x);
+assert_eq!(instance.get_offset_y(), SCROLL_TO_POS.y);
+
+// Scroll back as well
+instance.invoke_flickable_scroll_to(ORIGIN.x, ORIGIN.y, ScrollMode::Instant);
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+
+instance.invoke_flickable_scroll_to(SCROLL_TO_SMOOTH_POS.x, SCROLL_TO_SMOOTH_POS.y, ScrollMode::Smooth);
+assert_eq!(instance.get_offset_x(), ORIGIN.x, "Did not change yet because we just started the animation");
+assert_eq!(instance.get_offset_y(),ORIGIN.y, "Did not change yet because we just started the animation");
+
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_offset_x() > ORIGIN.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() > ORIGIN.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+assert!(instance.get_offset_x() < SCROLL_TO_SMOOTH_POS.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() < SCROLL_TO_SMOOTH_POS.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_SMOOTH_POS.x, "Animation finished: {:?}", instance.get_offset_x());
+assert_eq!(instance.get_offset_y(), SCROLL_TO_SMOOTH_POS.y, "Animation finished: {:?}", instance.get_offset_y());
+
+// Scroll back as well
+instance.invoke_flickable_scroll_to(ORIGIN.x, ORIGIN.y, ScrollMode::Smooth);
+assert!(instance.get_offset_x() > ORIGIN.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() > ORIGIN.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+
+slint_testing::mock_elapsed_time(1000000);
+
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+```
+
+*/

@@ -5104,6 +5104,16 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to ClearFocusItem {arguments:?}")
             }
         }
+        BuiltinFunction::EnsureVisible => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                item_owner(pr).then(|owner| {
+                    let (_, focus_item) = native_item_from_owner(pr, ctx, owner);
+                    format!("{focus_item}.ensure_visible()")
+                })
+            } else {
+                panic!("internal error: invalid args to EnsureVisible {arguments:?}")
+            }
+        }
         /* std::from_chars is unfortunately not yet implemented in all stdlib compiler we support.
          * And std::strtod depends on the locale. Use slint_string_to_float implemented in Rust
         BuiltinFunction::StringIsFloat => {
@@ -5571,6 +5581,20 @@ fn compile_builtin_function_call(
                     format!(
                         "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
                     )
+                })
+            } else {
+                panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")
+            }
+        }
+        BuiltinFunction::ScrollTo => {
+            if let [llr::Expression::PropertyReference(pr), pos, mode] = arguments {
+                let window = access_window_field(ctx);
+                item_owner(pr).map_or_default(|owner| {
+                    let (_, item_rc) = native_item_from_owner(pr, ctx, owner);
+                    // format!(
+                    //     "[&]{{ slint::cbindgen_private::FontMetrics fm; slint_cpp_text_item_fontmetrics(&{window}.handle(), &{item_rc}, &fm); return fm; }}()"
+                    // )
+                    unimplemented!("Not yet implemented")
                 })
             } else {
                 panic!("internal error: invalid args to ItemFontMetrics {arguments:?}")

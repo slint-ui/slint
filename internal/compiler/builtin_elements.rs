@@ -508,7 +508,12 @@ fn build(l: &mut Loader) {
         }};
     }
 
-    item! { Empty { } }
+    item! { Empty {
+        //! ## Functions
+        //!
+        //! ### ensure-visible(ScrollMode)
+        //! Call this function to scroll a flickable until this item is visible. The parent of this item must be a flickable otherwise it does nothing
+    } }
 
     element! {
         @is_internal
@@ -1522,6 +1527,9 @@ fn build(l: &mut Loader) {
         @deprecated in property <length> viewport-height <=> content-height;
         @deprecated in-out property <length> viewport-x <=> content-x;
         @deprecated in-out property <length> viewport-y <=> content-y;
+
+        /// Scroll that `pos` is at the top left corner of the flickable
+        function scroll-to(pos: Point, mode: ScrollMode) { BuiltinFunction.ScrollTo }
         /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
         callback flicked;
     } }
