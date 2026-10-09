@@ -163,6 +163,7 @@ struct ScreenshotMarkers {
     size: (u32, u32),
     skip_clipping: bool,
     skip_line_by_line: bool,
+    femtovg: bool,
 }
 
 #[cfg(any(feature = "software", feature = "femtovg"))]
@@ -195,6 +196,7 @@ fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> Screensh
         size,
         skip_clipping: source.contains("SKIP_CLIPPING"),
         skip_line_by_line: source.contains("SKIP_LINE_BY_LINE"),
+        femtovg: source.contains("// FEMTOVG"),
     }
 }
 
@@ -303,22 +305,20 @@ fn skia_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
     Ok(())
 }
 
-// Offscreen shadow regression tests for FemtoVG's shared item renderer, through WGPU. Only shadow
-// cases have a `references/femtovg/` reference and opt in by omitting `//ignore: femtovg`; every
-// other case carries that marker until FemtoVG screenshot coverage grows beyond shadows. Every
-// generated test is `#[ignore]`d (see `femtovg.rs`'s module doc comment for why).
+// Offscreen shadow regression tests for FemtoVG's shared item renderer, through WGPU. A case opts
+// in with a `// FEMTOVG` marker and needs a reference under `references/femtovg/`.
 #[cfg(feature = "femtovg")]
 fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
     let references_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "references", "femtovg"].iter().collect();
 
     for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
-        if testcase.is_ignored("femtovg") {
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let markers = parse_markers(&source, &testcase);
+        if !markers.femtovg {
             continue;
         }
-
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
-        let base_threshold = parse_markers(&source, &testcase).base_threshold;
+        let base_threshold = markers.base_threshold;
 
         let reference_path = references_root_dir
             .join(testcase.relative_path.clone())
@@ -332,7 +332,7 @@ fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
         write!(
             generated_file,
             r##"
-#[test] #[ignore]
+#[test]
 fn femtovg_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
     crate::femtovg::run_test(crate::femtovg::TestCase {{
         absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),

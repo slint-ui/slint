@@ -205,12 +205,12 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots
 ```
 
-The targeted FemtoVG shadow tests render offscreen through WGPU.
-They require a WGPU adapter but no window or display server.
-They're `#[ignore]`d by default, so `--all-features` doesn't run them where no adapter is available:
+The FemtoVG shadow tests render offscreen through WGPU and run with the `femtovg` feature, which CI enables through `--all-features`.
+They need a WGPU adapter but no window or display server, and pass without rendering when there's no adapter.
+A case opts in with a `// FEMTOVG` marker:
 
 ```sh
-cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --no-default-features --features femtovg -- --ignored
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --no-default-features --features femtovg
 ```
 
 These tests cover the shared shadow drawing path, texture rendering, and GPU readback.
