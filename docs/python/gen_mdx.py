@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import time
 import tomllib
 import urllib.request
 import zlib
@@ -101,14 +102,21 @@ def parse_inventory(raw: bytes, docs_url: str) -> dict[str, str]:
     return links
 
 
-def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
+def load_stdlib_inventory(docs_url: str, attempts: int = 4) -> dict[str, str]:
     """Fetch CPython's Sphinx inventory and parse it (see parse_inventory). A
-    fetch failure aborts the build rather than silently dropping links."""
+    fetch failure aborts the build rather than silently dropping links, after
+    retrying, since docs.python.org sometimes answers 503."""
     inventory_url = docs_url + "objects.inv"
-    try:
-        raw = urllib.request.urlopen(inventory_url, timeout=30).read()
-    except OSError as exc:
-        raise SystemExit(f"error: could not fetch {inventory_url}: {exc}") from exc
+    for attempt in range(1, attempts + 1):
+        try:
+            raw = urllib.request.urlopen(inventory_url, timeout=30).read()
+            break
+        except OSError as exc:
+            if attempt == attempts:
+                raise SystemExit(
+                    f"error: could not fetch {inventory_url}: {exc}"
+                ) from exc
+            time.sleep(10 * attempt)
     return parse_inventory(raw, docs_url)
 
 
