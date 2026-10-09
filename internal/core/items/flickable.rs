@@ -290,7 +290,12 @@ impl Flickable {
         position: LogicalPosition,
         scroll_mode: ScrollMode,
     ) {
-        self.as_ref().data.inner.borrow_mut().scroll_to(self, self_rc, position, scroll_mode);
+        self.as_ref().data.inner.borrow_mut().scroll_to(
+            self,
+            self_rc,
+            position.to_euclid(),
+            scroll_mode,
+        );
     }
 
     /// Overrides the scrolling physics that depend on the platform otherwise.
@@ -392,7 +397,11 @@ impl Flickable {
         let new_cx = cx + tx;
         let new_cy = cy + ty;
 
-        self.scroll_to(self_rc, LogicalPosition { x: new_cx, y: new_cy }, scroll_mode);
+        self.scroll_to(
+            self_rc,
+            LogicalPosition::from_euclid(LogicalPoint::new(new_cx, new_cy)),
+            scroll_mode,
+        );
     }
 
     pub(crate) fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -1066,7 +1075,7 @@ impl FlickableDataInner {
         &mut self,
         flick: Pin<&Flickable>,
         flick_rc: &ItemRc,
-        position: LogicalPosition,
+        position: LogicalPoint,
         scroll_mode: ScrollMode,
     ) {
         if scroll_mode == ScrollMode::Instant {
@@ -1104,8 +1113,8 @@ impl FlickableDataInner {
             })
         };
 
-        let x_simulation = spring_simulation(deflection_x, Dimension::X);
-        let y_simulation = spring_simulation(deflection_y, Dimension::Y);
+        let x_simulation = spring_simulation(deflection_x as f32, Dimension::X);
+        let y_simulation = spring_simulation(deflection_y as f32, Dimension::Y);
 
         self.running_animation = Some(RunningSimulation {
             weak: flick_rc.downgrade(),
