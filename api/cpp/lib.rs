@@ -305,7 +305,7 @@ pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum BackendSelectorGraphicsAPI {
+pub enum RequiredGraphicsAPI {
     Any,
     OpenGL,
     OpenGLES,
@@ -317,10 +317,10 @@ pub enum BackendSelectorGraphicsAPI {
 /// Empty names leave the choice to the selector. A `version_major` of 0 requests any version.
 /// Returns false and sets `error` if the requirements can't be met.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_backend_selector_select(
+pub extern "C" fn slint_select_backend(
     backend_name: &SharedString,
     renderer_name: &SharedString,
-    graphics_api: BackendSelectorGraphicsAPI,
+    graphics_api: RequiredGraphicsAPI,
     version_major: u8,
     version_minor: u8,
     error: &mut SharedString,
@@ -337,18 +337,18 @@ pub extern "C" fn slint_backend_selector_select(
         }
         let version = (version_major != 0).then_some((version_major, version_minor));
         selector = match (graphics_api, version) {
-            (BackendSelectorGraphicsAPI::Any, _) => selector,
-            (BackendSelectorGraphicsAPI::OpenGL, None) => selector.require_opengl(),
-            (BackendSelectorGraphicsAPI::OpenGL, Some((major, minor))) => {
+            (RequiredGraphicsAPI::Any, _) => selector,
+            (RequiredGraphicsAPI::OpenGL, None) => selector.require_opengl(),
+            (RequiredGraphicsAPI::OpenGL, Some((major, minor))) => {
                 selector.require_opengl_with_version(major, minor)
             }
-            (BackendSelectorGraphicsAPI::OpenGLES, None) => selector.require_opengl_es(),
-            (BackendSelectorGraphicsAPI::OpenGLES, Some((major, minor))) => {
+            (RequiredGraphicsAPI::OpenGLES, None) => selector.require_opengl_es(),
+            (RequiredGraphicsAPI::OpenGLES, Some((major, minor))) => {
                 selector.require_opengl_es_with_version(major, minor)
             }
-            (BackendSelectorGraphicsAPI::Metal, _) => selector.require_metal(),
-            (BackendSelectorGraphicsAPI::Vulkan, _) => selector.require_vulkan(),
-            (BackendSelectorGraphicsAPI::Direct3D, _) => selector.require_d3d(),
+            (RequiredGraphicsAPI::Metal, _) => selector.require_metal(),
+            (RequiredGraphicsAPI::Vulkan, _) => selector.require_vulkan(),
+            (RequiredGraphicsAPI::Direct3D, _) => selector.require_d3d(),
         };
         match selector.select() {
             Ok(()) => true,

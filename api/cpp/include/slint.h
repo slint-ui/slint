@@ -861,120 +861,112 @@ void blocking_invoke_from_event_loop(Functor f)
 #    endif
 #endif
 
-/// Use the BackendSelector to configure one of Slint's built-in
-/// [backends with a renderer](slint:backends_and_renderers)
-/// to accommodate specific needs of your application.
+/// Requirements for select_backend(). Unset members leave the choice to Slint.
+struct BackendRequirements
+{
+    /// A graphics API that the renderer must use.
+    enum class GraphicsAPI {
+        /// OpenGL
+        OpenGL,
+        /// OpenGL ES
+        OpenGLES,
+        /// Apple's Metal framework
+        Metal,
+        /// Vulkan
+        Vulkan,
+        /// Direct 3D
+        Direct3D,
+    };
+
+    /// A version of a graphics API.
+    struct GraphicsAPIVersion
+    {
+        /// The major version, such as 3 for OpenGL 3.2.
+        uint8_t major;
+        /// The minor version, such as 2 for OpenGL 3.2.
+        uint8_t minor;
+    };
+
+    /// The name of the backend, such as `winit`.
+    /// This is equivalent to setting the `SLINT_BACKEND` environment variable,
+    /// and requires that Slint was built with the corresponding backend feature.
+    std::string_view backend = {};
+    /// The name of the renderer, such as `skia`.
+    /// This requires that Slint was built with the corresponding renderer feature.
+    std::string_view renderer = {};
+    /// The graphics API that the renderer must use.
+    std::optional<GraphicsAPI> graphics_api = {};
+    /// The minimum version of the graphics API.
+    /// Only OpenGL and OpenGL ES support a version.
+    std::optional<GraphicsAPIVersion> min_version = {};
+};
+
+/// Selects one of Slint's built-in
+/// [backends with a renderer](slint:backends_and_renderers) that meets \a requirements,
+/// and makes it the active backend.
 /// This is a programmatic substitute for the `SLINT_BACKEND` environment variable.
 ///
-/// Call select() before creating any component or window.
+/// Call this before creating any component or window.
 /// For example, to render with desktop OpenGL 3.2 or newer:
 ///
 /// ```cpp
-/// if (auto error = slint::BackendSelector().require_opengl_with_version(3, 2).select()) {
+/// using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
+/// if (auto error = slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL,
+///                                          .min_version = { { 3, 2 } } })) {
 ///     std::cerr << "Error selecting a backend with OpenGL support: " << *error << std::endl;
 ///     return EXIT_FAILURE;
 /// }
 /// auto app = App::create();
 /// ```
-class BackendSelector
+///
+/// Returns an error message if the requirements can't be met,
+/// or if a backend is already active.
+[[nodiscard]] inline std::optional<SharedString>
+select_backend(const BackendRequirements &requirements = {})
 {
-public:
-    /// Adds the requirement that the backend must render with OpenGL ES
-    /// with the specified major and minor version.
-    BackendSelector &require_opengl_es_with_version(uint8_t major, uint8_t minor)
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGLES, major, minor);
-    }
+    private_api::assert_main_thread();
+    using GraphicsAPI = BackendRequirements::GraphicsAPI;
+    using cbindgen_private::RequiredGraphicsAPI;
 
-    /// Adds the requirement that the backend must render with OpenGL ES.
-    BackendSelector &require_opengl_es()
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGLES);
-    }
-
-    /// Adds the requirement that the backend must render with OpenGL.
-    BackendSelector &require_opengl()
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGL);
-    }
-
-    /// Adds the requirement that the backend must render with OpenGL
-    /// with the specified major and minor version.
-    BackendSelector &require_opengl_with_version(uint8_t major, uint8_t minor)
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::OpenGL, major, minor);
-    }
-
-    /// Adds the requirement that the backend must render with Apple's Metal framework.
-    BackendSelector &require_metal()
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::Metal);
-    }
-
-    /// Adds the requirement that the backend must render with Vulkan.
-    BackendSelector &require_vulkan()
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::Vulkan);
-    }
-
-    /// Adds the requirement that the backend must render with Direct 3D.
-    BackendSelector &require_d3d()
-    {
-        return require(cbindgen_private::BackendSelectorGraphicsAPI::Direct3D);
-    }
-
-    /// Adds the requirement that the selected renderer must match the given name.
-    /// This is equivalent to setting the `SLINT_BACKEND=name` environment variable,
-    /// and requires that Slint was built with the corresponding renderer feature.
-    /// For example, pass `skia` to select the Skia renderer.
-    BackendSelector &renderer_name(std::string_view name)
-    {
-        renderer = name;
-        return *this;
-    }
-
-    /// Adds the requirement that the selected backend must match the given name.
-    /// This is equivalent to setting the `SLINT_BACKEND=name` environment variable,
-    /// and requires that Slint was built with the corresponding backend feature.
-    /// For example, pass `winit` to select the winit backend.
-    BackendSelector &backend_name(std::string_view name)
-    {
-        backend = name;
-        return *this;
-    }
-
-    /// Combines the requirements with the backends and renderers enabled at compile time,
-    /// and makes the result the active backend.
-    /// Returns an error message if the requirements can't be met,
-    /// or if a backend is already active.
-    [[nodiscard]] std::optional<SharedString> select()
-    {
-        private_api::assert_main_thread();
-        SharedString error;
-        if (cbindgen_private::slint_backend_selector_select(&backend, &renderer, graphics_api,
-                                                            version_major, version_minor, &error)) {
-            return {};
+    auto graphics_api = RequiredGraphicsAPI::Any;
+    if (requirements.graphics_api) {
+        switch (*requirements.graphics_api) {
+        case GraphicsAPI::OpenGL:
+            graphics_api = RequiredGraphicsAPI::OpenGL;
+            break;
+        case GraphicsAPI::OpenGLES:
+            graphics_api = RequiredGraphicsAPI::OpenGLES;
+            break;
+        case GraphicsAPI::Metal:
+            graphics_api = RequiredGraphicsAPI::Metal;
+            break;
+        case GraphicsAPI::Vulkan:
+            graphics_api = RequiredGraphicsAPI::Vulkan;
+            break;
+        case GraphicsAPI::Direct3D:
+            graphics_api = RequiredGraphicsAPI::Direct3D;
+            break;
         }
-        return error;
+    }
+    if (requirements.min_version && graphics_api != RequiredGraphicsAPI::OpenGL
+        && graphics_api != RequiredGraphicsAPI::OpenGLES) {
+        return SharedString("A minimum version is only supported with OpenGL and OpenGL ES");
     }
 
-private:
-    BackendSelector &require(cbindgen_private::BackendSelectorGraphicsAPI api, uint8_t major = 0,
-                             uint8_t minor = 0)
-    {
-        graphics_api = api;
-        version_major = major;
-        version_minor = minor;
-        return *this;
+    // A default std::string_view has a null data pointer, which SharedString doesn't accept.
+    auto to_shared_string = [](std::string_view s) {
+        return s.empty() ? SharedString() : SharedString(s);
+    };
+    SharedString backend = to_shared_string(requirements.backend);
+    SharedString renderer = to_shared_string(requirements.renderer);
+    auto version = requirements.min_version.value_or(BackendRequirements::GraphicsAPIVersion {});
+    SharedString error;
+    if (cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
+                                               version.minor, &error)) {
+        return {};
     }
-
-    SharedString backend;
-    SharedString renderer;
-    cbindgen_private::BackendSelectorGraphicsAPI graphics_api =
-            cbindgen_private::BackendSelectorGraphicsAPI::Any;
-    uint8_t version_major = 0;
-    uint8_t version_minor = 0;
-};
+    return error;
+}
 
 /// Sets the application id for use on Wayland or X11 with
 /// [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/) compliant window

@@ -14,12 +14,20 @@ struct TestPlatform : slint::platform::Platform
     }
 };
 
-TEST_CASE("BackendSelector")
+TEST_CASE("select_backend")
 {
-    auto error = slint::BackendSelector().backend_name("nonexistent").select();
+    using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
+
+    auto error = slint::select_backend({ .backend = "nonexistent" });
     REQUIRE(error.has_value());
     REQUIRE(std::string_view(*error).find("nonexistent") != std::string_view::npos);
 
+    REQUIRE(slint::select_backend(
+                    { .graphics_api = GraphicsAPI::Metal, .min_version = { { 1, 0 } } })
+                    .has_value());
+
     slint::platform::set_platform(std::make_unique<TestPlatform>());
-    REQUIRE(slint::BackendSelector().require_opengl_with_version(3, 2).select().has_value());
+    REQUIRE(slint::select_backend(
+                    { .graphics_api = GraphicsAPI::OpenGL, .min_version = { { 3, 2 } } })
+                    .has_value());
 }
