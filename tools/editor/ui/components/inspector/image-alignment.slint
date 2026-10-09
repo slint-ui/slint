@@ -13,6 +13,7 @@ component AlignmentPoint inherits FocusScope {
     accessible-role: AccessibleRole.button;
     accessible-label: root.label;
     accessible-checked: root.selected;
+    accessible-checkable: true;
     accessible-action-default => { root.activated(); }
     key-pressed(event) => {
         if event.text == Key.Return || event.text == Key.Space {
