@@ -46,7 +46,10 @@ export struct ShellStyle {
 export struct PanesStyle {
     left-width: length = 286px,
     inspector-width: length = 232px,
+    maximum-width: length = 480px,
+    canvas-minimum-width: length = 400px,
     splitter-size: length = 6px,
+    resize-hit-size: length = 12px,
     minimum: length = 120px,
     component-height: length = 360px,
     image-height: length = 540px,
@@ -285,6 +288,19 @@ export struct ArtboardStyle {
     top-minimum: length = 40px,
     background: color,
     border: brush,
+}
+
+export struct PreviewDiagnosticsStyle {
+    max-width: length = 520px,
+    margin: length = 24px,
+    padding: length = 24px,
+    max-details-height: length = 200px,
+    radius: length = 12px,
+    background: color,
+    foreground: color,
+    muted: color,
+    border: color,
+    veil: color,
 }
 
 export struct SelectionFrameStyle {
@@ -548,6 +564,7 @@ export struct FieldAppearance {
     disabled: PaintStyle,
     muted: color,
     selection: color,
+    selection-foreground: color,
 }
 
 export struct FieldStyle {
@@ -647,8 +664,10 @@ export struct ColorPalette {
     subtle-selection: color,
     focus-background: color,
     text-selection: color,
+    text-selection-foreground: color,
     on-accent: color,
     danger: color,
+    warning: color,
 }
 
 export enum ThemeKind { light, dark }
@@ -791,9 +810,11 @@ export global LightTheme {
         selection: root.accent.with-alpha(0.14),
         subtle-selection: root.accent.with-alpha(0.10),
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
+        text-selection: #2563eb,
+        text-selection-foreground: #ffffff,
         on-accent: #ffffff,
         danger: #cf222e,
+        warning: #9a6700,
     };
 
     out property <ShadowStyle> popup: { color: #64748b30, blur: 12px, offset-y: 4px };
@@ -1011,6 +1032,7 @@ export global LightTheme {
         disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
+        selection-foreground: LightTheme.colors.text-selection-foreground,
     };
 
     out property <FieldAppearance> inspector-field: {
@@ -1020,6 +1042,7 @@ export global LightTheme {
         disabled: { background: ( #f5f5f5).with-alpha(0.65), foreground: LightTheme.colors.muted, border: #d9d9d9},
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
+        selection-foreground: LightTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
@@ -1076,9 +1099,11 @@ export global DarkTheme {
         selection: root.accent.with-alpha(0.14),
         subtle-selection: root.accent.with-alpha(0.10),
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
+        text-selection: #93c5fd,
+        text-selection-foreground: #111827,
         on-accent: #ffffff,
         danger: #ff7b72,
+        warning: #e3b341,
     };
 
     out property <ShadowStyle> popup: { color: #00000066, blur: 12px, offset-y: 4px };
@@ -1296,6 +1321,7 @@ export global DarkTheme {
         disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
+        selection-foreground: DarkTheme.colors.text-selection-foreground,
     };
 
     out property <FieldAppearance> inspector-field: {
@@ -1305,6 +1331,7 @@ export global DarkTheme {
         disabled: { background: ( #383838).with-alpha(0.65), foreground: DarkTheme.colors.muted, border: #4b4b4b},
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
+        selection-foreground: DarkTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
@@ -1502,9 +1529,17 @@ export global Colors {
     out property <color> focus-background: Theme.colors.focus-background;
     out property <color> on-accent: Theme.colors.on-accent;
     out property <color> danger: Theme.colors.danger;
+    out property <color> warning: Theme.colors.warning;
 }
 
 export global Style {
+    out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        background: Colors.surface,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        border: Colors.border,
+        veil: Colors.background.with-alpha(0.72),
+    };
     out property <ScrollIndicatorStyle> scroll-indicator: {
         color: Colors.foreground.with-alpha(0.4),
         active-color: Colors.foreground.with-alpha(0.6),

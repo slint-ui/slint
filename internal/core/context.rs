@@ -164,6 +164,14 @@ impl SlintContext {
         &*self.0.platform
     }
 
+    /// Creates a window adapter with this context's platform, and associates its window
+    /// with this context.
+    pub fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        let adapter = self.platform().create_window_adapter()?;
+        crate::window::WindowInner::from_pub(adapter.window()).set_context(self.clone());
+        Ok(adapter)
+    }
+
     /// Return a reference to the font context
     #[cfg(feature = "shared-parley")]
     pub fn font_context(

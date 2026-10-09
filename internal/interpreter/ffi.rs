@@ -5,6 +5,7 @@
 
 use super::*;
 use core::ptr::NonNull;
+use i_slint_core::data_transfer::ffi::{PathValueType, path_from_units};
 use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -335,7 +336,7 @@ pub extern "C" fn slint_interpreter_struct_get_field(
     stru: &StructOpaque,
     name: Slice<u8>,
 ) -> *mut Value {
-    if let Some(value) = stru.as_struct().get_field(std::str::from_utf8(&name).unwrap()) {
+    if let Some(value) = stru.as_struct().get_field(&String::from_utf8_lossy(&name)) {
         Box::into_raw(Box::new(value.clone()))
     } else {
         std::ptr::null_mut()
@@ -348,7 +349,7 @@ pub extern "C" fn slint_interpreter_struct_set_field(
     name: Slice<u8>,
     value: &Value,
 ) {
-    stru.as_struct_mut().set_field(std::str::from_utf8(&name).unwrap().into(), value.clone())
+    stru.as_struct_mut().set_field(String::from_utf8_lossy(&name).into(), value.clone())
 }
 
 type StructIterator<'a> = std::collections::hash_map::Iter<'a, SmolStr, Value>;
@@ -402,7 +403,7 @@ pub extern "C" fn slint_interpreter_component_instance_get_property(
     inst: &Instance,
     name: Slice<u8>,
 ) -> *mut Value {
-    let name = std::str::from_utf8(&name).unwrap();
+    let Ok(name) = std::str::from_utf8(&name) else { return std::ptr::null_mut() };
     let comp = wrap_instance(inst);
     match comp.get_property(name) {
         Some(val) => Box::into_raw(Box::new(val)),
@@ -416,8 +417,9 @@ pub extern "C" fn slint_interpreter_component_instance_set_property(
     name: Slice<u8>,
     val: &Value,
 ) -> bool {
+    let Ok(name) = std::str::from_utf8(&name) else { return false };
     let comp = wrap_instance(inst);
-    comp.set_property(std::str::from_utf8(&name).unwrap(), val.clone()).is_ok()
+    comp.set_property(name, val.clone()).is_ok()
 }
 
 /// Invoke a callback or function. Returns raw boxed value on success and null ptr on failure.
@@ -427,9 +429,10 @@ pub extern "C" fn slint_interpreter_component_instance_invoke(
     name: Slice<u8>,
     args: Slice<Box<Value>>,
 ) -> *mut Value {
+    let Ok(name) = std::str::from_utf8(&name) else { return std::ptr::null_mut() };
     let args = args.iter().map(|vb| vb.as_ref().clone()).collect::<Vec<_>>();
     let comp = wrap_instance(inst);
-    match comp.invoke(std::str::from_utf8(&name).unwrap(), args.as_slice()) {
+    match comp.invoke(name, args.as_slice()) {
         Some(val) => Box::into_raw(Box::new(val)),
         None => std::ptr::null_mut(),
     }
@@ -479,8 +482,9 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_callback(
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
     let ud = unsafe { CallbackUserData::new(user_data, drop_user_data, callback) };
+    let Ok(name) = std::str::from_utf8(&name) else { return false };
     let comp = wrap_instance(inst);
-    comp.set_callback(std::str::from_utf8(&name).unwrap(), move |args| ud.call(args)).is_ok()
+    comp.set_callback(name, move |args| ud.call(args)).is_ok()
 }
 
 /// Get a global property. Returns a raw boxed value on success; nullptr otherwise.
@@ -491,8 +495,10 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_get_global_propert
     property_name: Slice<u8>,
 ) -> *mut Value {
     let comp = wrap_instance(inst);
-    let global = std::str::from_utf8(&global).unwrap();
-    let property_name = std::str::from_utf8(&property_name).unwrap();
+    let Ok(global) = std::str::from_utf8(&global) else { return std::ptr::null_mut() };
+    let Ok(property_name) = std::str::from_utf8(&property_name) else {
+        return std::ptr::null_mut();
+    };
     match comp.get_global_property(global, property_name) {
         Some(val) => Box::into_raw(Box::new(val)),
         None => std::ptr::null_mut(),
@@ -507,8 +513,8 @@ pub extern "C" fn slint_interpreter_component_instance_set_global_property(
     val: &Value,
 ) -> bool {
     let comp = wrap_instance(inst);
-    let global = std::str::from_utf8(&global).unwrap();
-    let property_name = std::str::from_utf8(&property_name).unwrap();
+    let Ok(global) = std::str::from_utf8(&global) else { return false };
+    let Ok(property_name) = std::str::from_utf8(&property_name) else { return false };
     comp.set_global_property(global, property_name, val.clone()).is_ok()
 }
 
@@ -524,8 +530,8 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callbac
 ) -> bool {
     let ud = unsafe { CallbackUserData::new(user_data, drop_user_data, callback) };
     let comp = wrap_instance(inst);
-    let global = std::str::from_utf8(&global).unwrap();
-    let name = std::str::from_utf8(&name).unwrap();
+    let Ok(global) = std::str::from_utf8(&global) else { return false };
+    let Ok(name) = std::str::from_utf8(&name) else { return false };
     comp.set_global_callback(global, name, move |args| ud.call(args)).is_ok()
 }
 
@@ -537,10 +543,12 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
     callable_name: Slice<u8>,
     args: Slice<Box<Value>>,
 ) -> *mut Value {
+    let Ok(global) = std::str::from_utf8(&global) else { return std::ptr::null_mut() };
+    let Ok(callable_name) = std::str::from_utf8(&callable_name) else {
+        return std::ptr::null_mut();
+    };
     let args = args.iter().map(|vb| vb.as_ref().clone()).collect::<Vec<_>>();
     let comp = wrap_instance(inst);
-    let global = std::str::from_utf8(&global).unwrap();
-    let callable_name = std::str::from_utf8(&callable_name).unwrap();
     match comp.invoke_global(global, callable_name, args.as_slice()) {
         Some(val) => Box::into_raw(Box::new(val)),
         None => std::ptr::null_mut(),
@@ -809,7 +817,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_style(
     compiler: &mut ComponentCompilerOpaque,
     style: Slice<u8>,
 ) {
-    compiler.as_component_compiler_mut().set_style(std::str::from_utf8(&style).unwrap().to_string())
+    compiler.as_component_compiler_mut().set_style(String::from_utf8_lossy(&style).into_owned())
 }
 
 #[unsafe(no_mangle)]
@@ -819,7 +827,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_set_translation_do
 ) {
     compiler
         .as_component_compiler_mut()
-        .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().to_string())
+        .set_translation_domain(String::from_utf8_lossy(&translation_domain).into_owned())
 }
 
 /// Result of a file loader callback.
@@ -955,18 +963,15 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_source(
     path: Slice<u8>,
     component_definition_ptr: *mut ComponentDefinitionOpaque,
 ) -> bool {
-    match spin_on::spin_on(compiler.as_component_compiler_mut().build_from_source(
-        std::str::from_utf8(&source_code).unwrap().to_string(),
-        std::str::from_utf8(&path).unwrap().to_string().into(),
-    )) {
-        Some(definition) => {
-            unsafe {
-                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition)
-            };
-            true
-        }
-        None => false,
-    }
+    let compiler = compiler.as_component_compiler_mut();
+    let Some(path) = path_to_str(compiler, &path) else { return false };
+    let Ok(source_code) = std::str::from_utf8(&source_code) else {
+        compiler.set_error("The source code must be valid UTF-8", path.into());
+        return false;
+    };
+    let definition =
+        spin_on::spin_on(compiler.build_from_source(source_code.to_string(), path.into()));
+    unsafe { write_definition(definition, component_definition_ptr) }
 }
 
 #[unsafe(no_mangle)]
@@ -975,20 +980,43 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_path(
     path: Slice<u8>,
     component_definition_ptr: *mut ComponentDefinitionOpaque,
 ) -> bool {
-    use std::str::FromStr;
-    match spin_on::spin_on(
-        compiler
-            .as_component_compiler_mut()
-            .build_from_path(PathBuf::from_str(std::str::from_utf8(&path).unwrap()).unwrap()),
-    ) {
-        Some(definition) => {
-            unsafe {
-                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition)
-            };
-            true
-        }
-        None => false,
+    let compiler = compiler.as_component_compiler_mut();
+    let Some(path) = path_to_str(compiler, &path) else { return false };
+    let definition = spin_on::spin_on(compiler.build_from_path(PathBuf::from(path)));
+    unsafe { write_definition(definition, component_definition_ptr) }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_native_path(
+    compiler: &mut ComponentCompilerOpaque,
+    path: Slice<PathValueType>,
+    component_definition_ptr: *mut ComponentDefinitionOpaque,
+) -> bool {
+    let definition = spin_on::spin_on(
+        compiler.as_component_compiler_mut().build_from_path(path_from_units(&path)),
+    );
+    unsafe { write_definition(definition, component_definition_ptr) }
+}
+
+#[allow(deprecated)]
+fn path_to_str<'a>(compiler: &mut ComponentCompiler, path: &'a [u8]) -> Option<&'a str> {
+    let result = std::str::from_utf8(path).ok();
+    if result.is_none() {
+        compiler.set_error(
+            "The path must be valid UTF-8",
+            String::from_utf8_lossy(path).into_owned().into(),
+        );
     }
+    result
+}
+
+unsafe fn write_definition(
+    definition: Option<ComponentDefinition>,
+    component_definition_ptr: *mut ComponentDefinitionOpaque,
+) -> bool {
+    let Some(definition) = definition else { return false };
+    unsafe { std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition) };
+    true
 }
 
 /// PropertyDescriptor is a simple structure that's used to describe a property declared in .slint
@@ -1097,9 +1125,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_propertie
     global_name: Slice<u8>,
     properties: &mut SharedVector<PropertyDescriptor>,
 ) -> bool {
-    if let Some(property_it) =
-        def.as_component_definition().global_properties(std::str::from_utf8(&global_name).unwrap())
-    {
+    let Ok(global_name) = std::str::from_utf8(&global_name) else { return false };
+    if let Some(property_it) = def.as_component_definition().global_properties(global_name) {
         properties.extend(property_it.map(|(property_name, property_type)| PropertyDescriptor {
             property_name: property_name.into(),
             property_type,
@@ -1118,9 +1145,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_callbacks
     global_name: Slice<u8>,
     names: &mut SharedVector<SharedString>,
 ) -> bool {
-    if let Some(name_it) =
-        def.as_component_definition().global_callbacks(std::str::from_utf8(&global_name).unwrap())
-    {
+    let Ok(global_name) = std::str::from_utf8(&global_name) else { return false };
+    if let Some(name_it) = def.as_component_definition().global_callbacks(global_name) {
         names.extend(name_it.map(|name| name.into()));
         true
     } else {
@@ -1136,9 +1162,8 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_functions
     global_name: Slice<u8>,
     names: &mut SharedVector<SharedString>,
 ) -> bool {
-    if let Some(name_it) =
-        def.as_component_definition().global_functions(std::str::from_utf8(&global_name).unwrap())
-    {
+    let Ok(global_name) = std::str::from_utf8(&global_name) else { return false };
+    if let Some(name_it) = def.as_component_definition().global_functions(global_name) {
         names.extend(name_it.map(|name| name.into()));
         true
     } else {

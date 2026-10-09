@@ -3,24 +3,26 @@ title: Safety Analysis
 description: What can go wrong in the slint-sc runtime, and what we do about each.
 ---
 
-**Addresses:** ISO 26262-6 7.4.10, ISO 26262-8 12.4.2.1 j
+import Addresses from '../../../components/Addresses.astro';
 
-This chapter holds the safety-oriented analysis of the runtime within the [software architecture](/qualification-plan/architecture/).
-7.4.10 asks for it to be carried out in accordance with ISO 26262-9:2018, Clause 8, in order to:
+<Addresses>ISO 26262-6 7.4.10</Addresses>
+
+This chapter holds the safety-oriented analysis of the runtime within the [software architecture](/safety-plan/architecture/).
+ISO 26262-6 7.4.10 asks for the analysis to be carried out in accordance with ISO 26262-9:2018, Clause 8, in order to:
 
 * provide evidence for the suitability of the software to provide the specified safety-related functions and properties as required by the respective ASIL;
 * identify or confirm the safety-related parts of the software; and
 * support the specification and verify the effectiveness of the safety measures.
 
 Each potential error below is a way the runtime can deviate from what it should do.
-If we can detect it, a detection measure covers it and a test proves the detection works.
-If we can't, it becomes a constraint on the integrator, because only they can rule it out.
+If we can detect an error, a detection measure covers the error, and a test proves that the detection works.
+If we can't detect an error, the error becomes a constraint on the integrator, because only the integrator can rule the error out.
 The errors of the tools are in the [Tool Evaluation Report](/evaluation-report/potential-errors/).
 
 ## Potential Errors
 
-Half of these are the rules of the [rendering model](/reference/rendering/) turned upside down.
-Each one names the rule it violates, so the two stay in step.
+Half of the potential errors below are the rules of the [rendering model](/reference/rendering/) turned upside down.
+Each of those errors names the rule it violates, so the error and the rule stay in step.
 
 | Identifier | Description | Risk | Mitigation | Detectable |
 | --- | --- | --- | --- | --- |
@@ -34,11 +36,8 @@ Each one names the rule it violates, so the two stay in step.
 
 ## Detection Measures and Usage Restrictions
 
-A detection measure is something we do.
-A constraint is something we ask the integrator to do, and it exists only because no detection measure covers the error.
-
 | Identifier | Measure |
 | --- | --- |
 | <span id="slint.runtime.avd.spec-tests">`slint.runtime.avd.spec-tests`</span> | Every paragraph of the rendering model and the generated code contract is traced to at least one test, and the runtime is held at complete structural coverage. See [Test Coverage](/qualification-report/test-coverage/). |
-| <span id="slint.runtime.avd.buffer-size-check">`slint.runtime.avd.buffer-size-check`</span> | `render_rgb8` checks the frame buffer length and paints nothing if it doesn't match, per `sls.gen.render-error`. |
+| <span id="slint.runtime.avd.buffer-size-check">`slint.runtime.avd.buffer-size-check`</span> | `render_rgb8` checks the frame buffer length and paints nothing if the length doesn't match, per `sls.gen.render-error`. |
 | <span id="slint.runtime.avd.no-allocator">`slint.runtime.avd.no-allocator`</span> | The runtime is `no_std`, doesn't use `alloc`, and has no dependencies, so there's no allocator to fail and no dynamic allocation to make timing unpredictable. |

@@ -48,6 +48,13 @@ export interface MarkdownEndpointOptions {
      * pages carry that HTML (and the fence is C++), so other sites omit this.
      */
     apiSignatures?: boolean;
+    /**
+     * Whether the page is served by the safety manual, which shows the
+     * `<OnlyInSC>` content and omits the `<NotInSC>` content -- every other
+     * site does the opposite. Defaults to `SLINT_SC_SAFETY_MANUAL`, like the
+     * components themselves.
+     */
+    scSafetyManual?: boolean;
 }
 
 /**
@@ -136,7 +143,10 @@ export function renderMarkdownResponse(
     options: MarkdownEndpointOptions = {},
 ): Response {
     const data = entry.data;
-    let body = entry.body ?? "";
+    let body = applyScComponents(
+        entry.body ?? "",
+        options.scSafetyManual ?? process.env.SLINT_SC_SAFETY_MANUAL === "1",
+    );
     if (options.apiSignatures) {
         body = simplifyApiReferenceHtml(body);
     }
@@ -231,6 +241,42 @@ function simplifyApiReferenceHtml(body: string): string {
             .replace(/<a id="[^"]*"><\/a>\s?/g, "")
             .replace(/<\/?small>/g, "")
     );
+}
+
+// The specification chapters mark what belongs to the certified Slint SC
+// surface with three components (see ../components): <SC> renders its content
+// on every site, <OnlyInSC> only in the safety manual, and <NotInSC> everywhere
+// but the safety manual. Their normative paragraphs end with a `\{#sls.…}`
+// identifier, which rehype-sls-ids.mjs turns into a badge in the safety manual
+// and drops elsewhere. The served markdown is the unprocessed MDX, so apply the
+// same rules here: otherwise the main documentation's markdown would state
+// the Slint SC restrictions as if they applied to the full language.
+const SC_COMPONENTS = ["SC", "OnlyInSC", "NotInSC"];
+const SC_IMPORT_RE = new RegExp(
+    `^import\\s+(?:${SC_COMPONENTS.join("|")})\\s+from\\s+["'][^"']+\\.astro["'];?[ \\t]*\\n?`,
+    "gm",
+);
+const SLS_ID_RE = /[ \t]*\\\{#(sls\.[^}\s]+)\}/g;
+
+function applyScComponents(body: string, safetyManual: boolean): string {
+    const omitted = safetyManual ? "NotInSC" : "OnlyInSC";
+    const unwrapped = safetyManual ? "OnlyInSC" : "NotInSC";
+    return body
+        .replace(SC_IMPORT_RE, "")
+        .replace(
+            new RegExp(
+                `^[ \\t]*<${omitted}>[ \\t]*\\n[\\s\\S]*?^[ \\t]*</${omitted}>[ \\t]*(?:\\n|$)`,
+                "gm",
+            ),
+            "",
+        )
+        .replace(
+            new RegExp(`^[ \\t]*</?(?:SC|${unwrapped})>[ \\t]*(?:\\n|$)`, "gm"),
+            "",
+        )
+        .replace(SLS_ID_RE, (_whole, id: string) =>
+            safetyManual ? ` [${id}]` : "",
+        );
 }
 
 // Replace `<Link type="X" label="Y" />` (the in-prose linking component used

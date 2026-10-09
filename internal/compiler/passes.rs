@@ -46,6 +46,7 @@ mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
 mod lower_tooltips;
+mod lower_typed_slots;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
@@ -124,6 +125,9 @@ pub async fn run_passes(
 
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::prepare(component, &doc.local_registry);
+    });
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
@@ -138,7 +142,13 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
+        lower_states::lower_states(
+            component,
+            &doc.local_registry,
+            &symbol_counters,
+            &mut forwarded_references,
+            diag,
+        );
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::check_derived_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
@@ -148,8 +158,30 @@ pub async fn run_passes(
         lower_menus::remove_root_menus(component);
     });
 
+    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
+        diag.iter()
+            .skip(before)
+            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    };
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        let is_exported_root =
+            doc.exported_roots().any(|root| std::rc::Rc::ptr_eq(&root, component));
+        lower_typed_slots::check_content(component, is_exported_root, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
     collect_subcomponents::collect_subcomponents(doc);
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::lower(component, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);

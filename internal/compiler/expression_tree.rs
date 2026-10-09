@@ -16,7 +16,7 @@ use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
 use std::collections::BTreeMap;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 use std::sync::Arc;
 
 // FIXME remove the pub
@@ -67,6 +67,7 @@ pub enum BuiltinFunction {
     /// The entries argument is an array of MenuEntry
     ShowPopupMenuInternal,
     SetSelectionOffsets,
+    HasSelection,
     ItemFontMetrics,
     /// the "42".to_float()
     StringToFloat,
@@ -249,6 +250,7 @@ declare_builtin_function_types!(
     ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type().into()) -> Type::Void,
     ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type().into()) -> Type::Void,
     SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
+    HasSelection: (Type::ElementReference) -> Type::Bool,
     ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
     StringToFloat: (Type::String) -> Type::Float32,
     StringIsFloat: (Type::String) -> Type::Bool,
@@ -412,6 +414,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenu
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
+            BuiltinFunction::HasSelection => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
             BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
@@ -514,6 +517,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenu
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
+            BuiltinFunction::HasSelection => true,
             BuiltinFunction::ItemFontMetrics => true,
             BuiltinFunction::StringToFloat
             | BuiltinFunction::StringIsFloat
@@ -2358,7 +2362,7 @@ pub enum Path {
 
 #[derive(Debug, Clone)]
 pub struct PathElement {
-    pub element_type: Rc<BuiltinElement>,
+    pub element_type: Arc<BuiltinElement>,
     pub bindings: BindingsMap,
 }
 

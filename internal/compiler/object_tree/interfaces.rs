@@ -46,7 +46,7 @@ fn check_property_declaration_conflicts(
 
 const SELF_ID: &str = "self";
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ImplementBinding {
     OnSelf,
     OnChild {
@@ -77,11 +77,18 @@ impl ImplementBinding {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct ImplementedInterface {
     node: syntax_nodes::ImplementStatement,
-    interface: ElementRc,
+    pub(super) interface: ElementRc,
     interface_name: SmolStr,
     binding: ImplementBinding,
+}
+
+impl ImplementedInterface {
+    pub(crate) fn snapshot(&self, snapshotter: &crate::typeloader::Snapshotter) -> Self {
+        Self { interface: snapshotter.use_element(&self.interface), ..self.clone() }
+    }
 }
 
 fn resolve_implement_statement(
@@ -160,15 +167,15 @@ fn interface_chain(interface: &ElementRc) -> impl Iterator<Item = ElementRc> {
     })
 }
 
-struct InterfaceMember {
-    declaration: PropertyDeclaration,
+pub(crate) struct InterfaceMember {
+    pub(crate) declaration: PropertyDeclaration,
     declaring_interface: ElementRc,
 }
 
 /// The members an interface declares under their source names, including inherited ones.
 /// A derived declaration hides the inherited member of the same name.
 /// A shadowing declaration counts as derived, too.
-fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, InterfaceMember> {
+pub(crate) fn declared_members(interface: &ElementRc) -> BTreeMap<SmolStr, InterfaceMember> {
     let mut members = BTreeMap::new();
     for element in interface_chain(interface) {
         for (internal_name, declaration) in &element.borrow().property_declarations {
@@ -453,7 +460,7 @@ struct MemberViolation {
     anchor: DeclarationAnchor,
 }
 
-fn validate_interface_implementation(
+pub(super) fn validate_interface_implementation(
     element: &Element,
     interface: &ElementRc,
     interface_name: &SmolStr,

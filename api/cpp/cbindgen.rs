@@ -447,6 +447,7 @@ fn gen_corelib(
         "TextInput",
         "Clip",
         "BoxShadow",
+        "BackdropBlur",
         "Transform",
         "Opacity",
         "Layer",
@@ -1297,6 +1298,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                using types::PathValueType;
                 struct LiveReloadingComponentInner;
                 struct Instance;
                 template <typename T> using Box = T*;

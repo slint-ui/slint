@@ -76,6 +76,7 @@ fn build_info() -> SharedString {
 /// Events driving the remote main loop: messages from the editor connection plus, on
 /// iOS, app lifecycle notifications.
 enum Event {
+    CloseRequested,
     Connection(ConnectionMessage),
     Preview(PreviewSessionEvent),
     /// A compilation finished on the preview worker. It is instantiated on this
@@ -117,8 +118,8 @@ pub fn run(
             .run_until(async move {
                 if let Err(err) = run_async(address, enable_mdns, pairing_policy).await {
                     tracing::error!("Remote viewer error: {err}");
-                    slint_interpreter::quit_event_loop().ok();
                 }
+                slint_interpreter::quit_event_loop().ok();
             })
             .await;
     }))?;
@@ -157,7 +158,7 @@ async fn run_async(
     )
     .await?;
     let (compile_sender, compile_receiver) = tokio::sync::mpsc::unbounded_channel();
-    spawn_preview_worker(&connection, session_commands, compile_receiver, event_sender);
+    spawn_preview_worker(&connection, session_commands, compile_receiver, event_sender.clone());
     let connection = Rc::new(connection);
 
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
@@ -180,6 +181,7 @@ async fn run_async(
     })?;
 
     let mut placeholder = RemoteViewerWindow::new()?;
+    forward_close_request(placeholder.window(), event_sender);
     let inspector = InspectorOverlay::new(placeholder.window()).await?;
 
     #[cfg(not(target_vendor = "apple"))]
@@ -237,6 +239,7 @@ async fn run_async(
     let mut generation = 0u64;
     while let Some(event) = event_receiver.recv().await {
         match event {
+            Event::CloseRequested => break,
             Event::Compiled { compilation, generation: g } => {
                 // A pairing code on screen has to stay legible
                 if g == generation && !prompt_on_screen {
@@ -385,6 +388,8 @@ async fn run_async(
         }
     }
 
+    drop(connection);
+
     #[cfg(not(target_vendor = "apple"))]
     mdns.map(|mdns| mdns.shutdown())
         .transpose()
@@ -395,6 +400,13 @@ async fn run_async(
     drop(mdns);
 
     Ok(())
+}
+
+fn forward_close_request(window: &slint::Window, events: UnboundedSender<Event>) {
+    window.on_close_requested(move || {
+        let _ = events.send(Event::CloseRequested);
+        slint::CloseRequestResponse::KeepWindowShown
+    });
 }
 
 /// Ask the worker to build whatever component is currently being previewed, unless a
@@ -672,6 +684,35 @@ mod tests {
         fn from_rgb(red: u8, green: u8, blue: u8) -> Self {
             Self { red, green, blue }
         }
+    }
+
+    #[test]
+    fn window_close_requests_cleanup_before_hiding_across_component_changes() {
+        let window_adapter = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        slint::platform::set_platform(Box::new(SoftwareRendererPlatform(window_adapter.clone())))
+            .unwrap();
+        let placeholder = RemoteViewerWindow::new().unwrap();
+        let (sender, mut events) = tokio::sync::mpsc::unbounded_channel();
+        forward_close_request(placeholder.window(), sender);
+        assert!(!WindowInner::from_pub(placeholder.window()).request_close());
+        assert!(matches!(events.try_recv(), Ok(Event::CloseRequested)));
+
+        let compilation =
+            crate::poll_ready(slint_interpreter::Compiler::default().build_from_source(
+                TEST_PREVIEW_SOURCE.into(),
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-preview.slint"),
+            ));
+        let instance = compilation
+            .component("TestPreview")
+            .unwrap()
+            .create_with_existing_window(placeholder.window())
+            .unwrap();
+        assert!(!WindowInner::from_pub(instance.window()).request_close());
+        assert!(matches!(events.try_recv(), Ok(Event::CloseRequested)));
+
+        let restored = RemoteViewerWindow::new_with_existing_window(instance.window()).unwrap();
+        assert!(!WindowInner::from_pub(restored.window()).request_close());
+        assert!(matches!(events.try_recv(), Ok(Event::CloseRequested)));
     }
 
     #[test]

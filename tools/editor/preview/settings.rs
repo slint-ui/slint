@@ -25,6 +25,8 @@ pub(crate) struct VisualEditorSettings {
     recent_projects: Vec<Project>,
     pub(crate) elements_pane_height: Option<i32>,
     pub(crate) outline_pane_height: Option<i32>,
+    pub(crate) left_pane_width: Option<i32>,
+    pub(crate) inspector_pane_width: Option<i32>,
 }
 
 impl VisualEditorSettings {
@@ -125,6 +127,10 @@ struct VisualEditorSettingsSerde {
     elements_pane_height: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     outline_pane_height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    left_pane_width: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    inspector_pane_width: Option<i32>,
 }
 
 impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
@@ -142,27 +148,36 @@ impl TryFrom<VisualEditorSettingsSerde> for VisualEditorSettings {
         recent_projects.truncate(MAX_RECENT_PROJECTS);
         Ok(Self {
             recent_projects,
-            elements_pane_height: positive_height(settings.elements_pane_height),
-            outline_pane_height: positive_height(settings.outline_pane_height),
+            elements_pane_height: positive_size(settings.elements_pane_height),
+            outline_pane_height: positive_size(settings.outline_pane_height),
+            left_pane_width: positive_size(settings.left_pane_width),
+            inspector_pane_width: positive_size(settings.inspector_pane_width),
         })
     }
 }
 
 impl From<VisualEditorSettings> for VisualEditorSettingsSerde {
     fn from(value: VisualEditorSettings) -> Self {
-        let VisualEditorSettings { recent_projects, elements_pane_height, outline_pane_height } =
-            value;
+        let VisualEditorSettings {
+            recent_projects,
+            elements_pane_height,
+            outline_pane_height,
+            left_pane_width,
+            inspector_pane_width,
+        } = value;
         Self {
             version: VisualEditorSettings::CURRENT_VERSION,
             recent_projects,
-            elements_pane_height: positive_height(elements_pane_height),
-            outline_pane_height: positive_height(outline_pane_height),
+            elements_pane_height: positive_size(elements_pane_height),
+            outline_pane_height: positive_size(outline_pane_height),
+            left_pane_width: positive_size(left_pane_width),
+            inspector_pane_width: positive_size(inspector_pane_width),
         }
     }
 }
 
-fn positive_height(height: Option<i32>) -> Option<i32> {
-    height.filter(|height| *height > 0)
+fn positive_size(size: Option<i32>) -> Option<i32> {
+    size.filter(|size| *size > 0)
 }
 
 #[cfg(test)]
@@ -188,6 +203,8 @@ mod tests {
             )],
             elements_pane_height: None,
             outline_pane_height: None,
+            left_pane_width: None,
+            inspector_pane_width: None,
         };
         let serialized = settings.serialize();
         let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
@@ -211,15 +228,19 @@ mod tests {
             recent_projects: Vec::new(),
             elements_pane_height: Some(320),
             outline_pane_height: Some(240),
+            left_pane_width: Some(400),
+            inspector_pane_width: Some(360),
         };
         let json = settings.serialize();
         assert_eq!(VisualEditorSettings::deserialize(&json), Some(settings));
         let unset = VisualEditorSettings::deserialize(
-            r#"{"version":1,"recent_projects":[],"elements_pane_height":0,"outline_pane_height":-1}"#,
+            r#"{"version":1,"recent_projects":[],"elements_pane_height":0,"outline_pane_height":-1,"left_pane_width":0,"inspector_pane_width":-1}"#,
         )
         .unwrap();
         assert_eq!(unset.elements_pane_height, None);
         assert_eq!(unset.outline_pane_height, None);
+        assert_eq!(unset.left_pane_width, None);
+        assert_eq!(unset.inspector_pane_width, None);
     }
 
     #[test]
@@ -228,6 +249,8 @@ mod tests {
             VisualEditorSettings::deserialize(r#"{"version":1,"recent_projects":[]}"#).unwrap();
         assert_eq!(settings.elements_pane_height, None);
         assert_eq!(settings.outline_pane_height, None);
+        assert_eq!(settings.left_pane_width, None);
+        assert_eq!(settings.inspector_pane_width, None);
     }
 
     #[test]
@@ -274,6 +297,8 @@ mod tests {
             ],
             elements_pane_height: None,
             outline_pane_height: None,
+            left_pane_width: None,
+            inspector_pane_width: None,
         };
 
         let visible = settings.visible_recent_projects();

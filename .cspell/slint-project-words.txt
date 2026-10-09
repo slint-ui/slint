@@ -451,6 +451,7 @@ nexp
 nixos
 nixpkgs
 nmagic
+nocapture
 nodelay
 noexcept
 noglib
@@ -483,6 +484,7 @@ othercomp
 ovmf
 pagefind
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL

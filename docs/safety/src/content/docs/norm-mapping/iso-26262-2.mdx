@@ -1,0 +1,42 @@
+---
+title: ISO 26262-2
+description: How Slint SC meets ISO 26262-2, management of functional safety.
+---
+
+See [Status](/norm-mapping/#status) for what each status means.
+
+## Clause 5: Overall Safety Management
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 5.4.1 | General | Met | SixtyFPS GmbH is the organization that carries out the safety lifecycle of Slint SC. |
+| 5.4.2 | Safety culture | Partly met | [Safety Culture](/safety-plan/safety-management/#safety-culture), and [O-01 and O-02](/safety-plan/safety-management/#organization-level-prerequisites). O-02, and three practices of Safety Culture, aren't in place yet. |
+| 5.4.3 | Management of safety anomalies | Partly met | [O-03](/safety-plan/safety-management/#organization-level-prerequisites), [C-08](/safety-plan/development-phases/#on-every-change), [R-05](/safety-plan/release/#on-every-release), and [F-01 and F-02](/safety-plan/release/#after-a-release). The reporting channel of O-03 is missing. |
+| 5.4.4 | Competence management | Open | [O-04](/safety-plan/safety-management/#organization-level-prerequisites) isn't in place yet. |
+| 5.4.5 | Quality management system | Open | [O-05](/safety-plan/safety-management/#organization-level-prerequisites) isn't in place yet. |
+| 5.4.6 | Project-independent tailoring | Met | [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change). |
+
+## Clause 6: Project-Dependent Safety Management
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 6.4.1 | General | Met | SixtyFPS GmbH develops Slint SC as an element for integrators; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed). |
+| 6.4.2 | Roles and responsibilities | Met | [Roles and Responsibilities](/safety-plan/safety-management/#roles-and-responsibilities). |
+| 6.4.3 | Impact analysis at the item level | N/A | Slint SC isn't part of a specific item; see [Impact Analysis](/safety-plan/standards-compliance/#impact-analysis). |
+| 6.4.4 | Reuse of an existing element | N/A | The runtime is new development. The compiler is reused, but it's a tool; see [Impact Analysis](/safety-plan/standards-compliance/#impact-analysis). |
+| 6.4.5 | Tailoring of the safety activities | Met | [Tailoring](/safety-plan/standards-compliance/#tailoring). 6.4.5.7 for an SEooC: [Safety Element out of Context](/safety-plan/standards-compliance/#safety-element-out-of-context). |
+| 6.4.6 | Planning and coordination | Partly met | The [Safety Plan](/safety-plan/) and its [Lifecycle](/safety-plan/lifecycle/). Some setup activities are missing; see [Once, to Set Up](/safety-plan/lifecycle/#once-to-set-up). |
+| 6.4.7 | Progression of the safety lifecycle | Met | [Progression](/safety-plan/lifecycle/#progression), and [Configuration Management](/safety-plan/development-process/#configuration-management) for the work products. |
+| 6.4.8 | Safety case | Open | [R-06](/safety-plan/release/#on-every-release) plans the safety case, which doesn't exist yet. |
+| 6.4.9 | Confirmation measures | Met | [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures), run by [R-07](/safety-plan/release/#on-every-release). |
+| 6.4.10 | Confirmation reviews | Met | [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures). |
+| 6.4.11 | Functional safety audit | Met | [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures). |
+| 6.4.12 | Functional safety assessment | Met | [Confirmation Measures](/safety-plan/safety-management/#confirmation-measures), by TÜV Nord. |
+| 6.4.13 | Release for production | Partly met | [On Every Release](/safety-plan/release/#on-every-release). No script performs the check of R-02 yet. |
+
+## Clause 7: Production, Operation, Service and Decommissioning
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 7.4.1 | General | Met | Producing Slint SC is building and distributing a release; see [Parts of the Lifecycle](/safety-plan/standards-compliance/#parts-of-the-lifecycle). |
+| 7.4.2 | Responsibilities, planning, and processes | Partly met | [After a Release](/safety-plan/release/#after-a-release). The reporting channel and the support period of a release line are missing. |

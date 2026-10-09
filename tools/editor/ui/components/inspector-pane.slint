@@ -3,6 +3,7 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
 import { Api, CodeBinding, ElementInformation, InspectorNumberChange, PropertyValue, PropertyValueKind, SelectionRectangle } from "../api.slint";
+import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, EditorAngles, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
@@ -29,7 +30,9 @@ export component InspectorPane inherits Rectangle {
     background: Colors.surface;
     accessible-role: AccessibleRole.complementary;
     accessible-label: "Inspector and outline";
+    accessible-enabled: Diagnostics.preview-editable;
     property <length> content-x: Metrics.border-width;
+    private property <length> field-width: root.width - root.content-x - 2 * root.style.padding;
     in property <length> outline-pane-height: 0px;
     property <length> split-height: Style.panes.splitter-size;
     property <length> default-outline-height: (root.height - root.split-height) / 2;
@@ -757,6 +760,7 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
+                            width: root.field-width;
                             popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
@@ -781,6 +785,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.shadow-color-code();
                                 swatch: root.shadow-color-swatch();
                                 wide: true;
+                                width: root.field-width;
                                 commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                 preview-key: root.field-key(root.current-shadow-prefix() + "color");
                                 session-key: root.fill-session-key(root.current-shadow-prefix() + "color");
@@ -805,6 +810,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow distance";
                             label: "Distance";
                             value: root.shadow-distance();
@@ -827,6 +833,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow blur";
                             label: "Blur";
                             value: root.shadow-blur();
@@ -843,6 +850,7 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            width: root.field-width;
                             accessible-name: "Shadow spread";
                             label: "Spread";
                             value: root.shadow-spread();
@@ -912,6 +920,7 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
+                                width: root.field-width;
                                 popup-available-height: max(Style.inspector-field.height, root.absolute-position.y + root.height - self.absolute-position.y - Metrics.space-medium);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
@@ -923,7 +932,6 @@ export component InspectorPane inherits Rectangle {
                             spacing: Metrics.space-compact;
 
                             HorizontalLayout {
-                                width: root.style.content-width;
                                 spacing: Metrics.space-compact;
 
                                 Text {
@@ -982,6 +990,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.text-font-family-value();
                             commit-key: root.field-key("font-family");
                             wide: true;
+                            width: root.field-width;
                             accepted(text) => {
                                 return text != "" && root.commit-code("font-family", root.quote(text));
                             }
@@ -1026,7 +1035,6 @@ export component InspectorPane inherits Rectangle {
         x: root.content-x;
         y: root.inspector-height;
         width: root.width - root.content-x;
-        height: root.split-height;
         drag-started => {
             root.drag-start-height = root.outline-height;
         }
@@ -1058,5 +1066,18 @@ export component InspectorPane inherits Rectangle {
         width: root.width - root.content-x;
         height: root.outline-height;
         drag-started => { root.outline-drag-started(); }
+    }
+    if !Diagnostics.preview-editable: Rectangle {
+        background: Colors.surface.with-alpha(0.75);
+        TouchArea { }
+        Text {
+            width: parent.width - 2 * root.style.padding;
+            text: "Editing paused until the preview is available";
+            color: Colors.muted;
+            font-size: Typography.body.size;
+            wrap: word-wrap;
+            accessible-role: AccessibleRole.text;
+            accessible-label: self.text;
+        }
     }
 }

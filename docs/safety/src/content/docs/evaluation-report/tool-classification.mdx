@@ -3,9 +3,11 @@ title: Tool Classification
 description: The tool confidence level of each tool of Slint SC, and how it is reached.
 ---
 
-**Addresses:** ISO 26262-8 11.4.5
+import Addresses from '../../../components/Addresses.astro';
 
-This chapter classifies each tool whose failure could introduce an error into the product, or hide one.
+<Addresses>ISO 26262-8 11.4.5</Addresses>
+
+This chapter classifies each tool whose failure could introduce an error into the product, or hide an error in the product.
 
 ## Summary
 
@@ -15,7 +17,7 @@ The classes are Tool Impact (TI), Tool error Detection (TD), and the resulting T
 | --- | --- | --- | --- | --- | --- |
 | [Slint compiler](#slint-compiler) | No | TI2 | TD1 | TCL1 | Not required |
 | [slint-sc-coverage](#slint-sc-coverage) | No | TI2 | TD3 | TCL3 | [Validation](/evaluation-report/qualification-method/#slint-sc-coverage) |
-| [slint-sc runtime](#slint-sc-runtime) | Yes | Not a tool | | | [Component qualification](/qualification-plan/component-qualification/) |
+| slint-sc runtime | Yes | Not a tool | | | Developed under ISO 26262-6, see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed) |
 
 ## Slint Compiler
 
@@ -31,17 +33,11 @@ The `slint-compiler` translates `.slint` files into Rust code that is compiled i
 
 `slint-sc-coverage` reports which parts of the `.slint` code the tests reached, from the map the Slint SC compiler writes and LLVM's coverage of the generated code,
 see [Coverage of Slint Code](/user-manual/slint-coverage/).
-It doesn't ship, and its output is evidence: a report of coverage that wasn't achieved hides untested code.
+`slint-sc-coverage` doesn't ship, and its output is evidence.
+A report of coverage that the tests didn't achieve hides untested code.
 
-* **Tool Impact (TI2):** the tool can fail to detect an error, by reporting a point as reached that wasn't, or by leaving a point out.
+* **Tool Impact (TI2):** the tool can fail to detect an error, by reporting a coverage point as reached when the tests didn't reach it, or by leaving a coverage point out of the report.
 * **Tool Error Detection (TD3):** nothing in the customer's process checks the report against the coverage the tests actually reached.
 * **Tool Confidence Level (TCL3):** the combination of TI2 and TD3 results in a Tool Confidence Level of TCL3.
-* **Qualification Strategy:** the tool is qualified with the methods of ISO 26262-8 Table 4.
-  Runtime test cases state their expected coverage in the source and fail on any difference, on every run;
+* **Qualification Strategy:** the tool is qualified with the methods of ISO 26262-8 Table 4, using [`slint.coverage.avd.stated-coverage`](/evaluation-report/potential-errors/#slint.coverage.avd.stated-coverage);
   see [Qualification Method](/evaluation-report/qualification-method/#slint-sc-coverage).
-
-## slint-sc Runtime
-
-The runtime is not a tool.
-It ships inside the customer's binary, so it is qualified as a software component under ISO 26262-8 Clause 12 and carries no tool confidence level.
-See the [Component Qualification Plan](/qualification-plan/component-qualification/).

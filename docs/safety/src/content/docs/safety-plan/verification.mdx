@@ -1,0 +1,55 @@
+---
+title: Verification
+description: How changes to Slint SC are verified, and where the evidence is.
+---
+
+import Addresses from '../../../components/Addresses.astro';
+
+Verification confirms that Slint SC does what it's specified to do.
+ISO 26262-6 covers verification in Clause 9 for the software units and in Clause 10 for their integration.
+ISO 26262-8 Clause 9.4 covers the supporting process.
+
+Validating the finished system belongs to the integrator; see [`slint.aou.validation`](/user-manual/#slint.aou.validation).
+
+## What Is Verified
+
+* Every requirement paragraph of the language specification and the reference is traced to at least one test.
+  See the [Traceability Matrix](/qualification-report/traceability-matrix/).
+* The suites hold the runtime at complete line, function, region, and branch coverage.
+  See [Test Coverage](/qualification-report/test-coverage/).
+
+## How
+
+`scripts/slint_sc_test_suite.sh` runs the suites and produces the coverage export.
+[Test Suites](/safety-plan/test-suites/) describes the suites, and [Test Results](/qualification-report/test-results/) reports their outcomes.
+
+The suites run automatically in CI on every change, and on demand when a release is baselined.
+
+## Test Environment and Targets
+
+<Addresses>ISO 26262-6 9.4.5, 10.4.7</Addresses>
+
+The suites run on a 64-bit host.
+Slint SC runs on targets we don't know, so there's no single target to test on.
+Instead, the suites cover the properties in which a target can differ from the host:
+
+| Property | Difference from the host | How it's covered |
+| --- | --- | --- |
+| Pointer width | `usize` is 32 bits on most embedded targets. Frame buffer offsets, and the size check of `render_rgb8`, compute in `usize`, so a product of sizes that fits on the host can overflow on a 32-bit target. | The suites also run on a 32-bit target configuration. |
+| Byte order | None. Images are decoded with an explicit byte order, and the frame buffer is written one byte per channel. | Holds on every target. |
+| Floating point | None. The runtime and the generated code compute in integers only. | Holds on every target. |
+| Standard library and allocator | None. The runtime is `no_std` and doesn't use `alloc`. | Holds on every target. |
+
+The integrator tests on their actual target; see [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests).
+
+:::caution[TODO]
+Run the suites on a 32-bit target configuration, such as `thumbv7em` under QEMU.
+:::
+
+## Pass Criteria
+
+A change is verified when every suite passes, every requirement paragraph is covered by at least one test, and the runtime is completely covered.
+
+`slint-doc-generator` checks the last two criteria, requirement coverage and runtime coverage.
+`slint-doc-generator --fail-on-gaps` exits with a distinct status when a source file is below complete coverage, or a requirement paragraph has no test.
+The generator writes the report chapters either way, so the reports of the run that found a gap remain available.

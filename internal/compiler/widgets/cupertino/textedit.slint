@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
+import { CupertinoPalette } from "styling.slint";
 import { ScrollBar } from "scrollview.slint";
 import { FocusBorder } from "components.slint";
 
@@ -75,6 +75,7 @@ export component TextEdit {
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     out property <bool> has-focus: text-input.has-focus;
+    @shadowable out property <bool> has-selection: text-input.has-selection;
     in-out property <string> text <=> text-input.text;
     in-out property <length> content-x <=> scroll-view.content-x;
     in-out property <length> content-y <=> scroll-view.content-y;
@@ -172,12 +173,12 @@ export component TextEdit {
             if !root.read-only && root.enabled: MenuSeparator { }
             MenuItem {
                 title: @tr("Cut");
-                enabled: !root.read-only && root.enabled;
+                enabled: !root.read-only && root.enabled && text-input.has-selection;
                 activated => { text-input.cut(); }
             }
             MenuItem {
                 title: @tr("Copy");
-                enabled: !root.text.is-empty;
+                enabled: text-input.has-selection;
                 activated => { text-input.copy(); }
             }
             MenuItem {

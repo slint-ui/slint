@@ -1,0 +1,74 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The min height of a resizable window follows its width: its wrapped text needs
+// fewer lines when the window gets wider. The preferred height stays the one at the
+// preferred width, which the window opens at.
+
+export component TestCase inherits Window {
+    preferred-width: 300px;
+
+    VerticalLayout {
+        t := Text {
+            wrap: word-wrap;
+            text: "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll mmmm nnnn oooo pppp qqqq rrrr ssss tttt uuuu vvvv wwww xxxx";
+        }
+    }
+
+    at-200 := Text {
+        x: 0;
+        y: 0;
+        width: 200px;
+        wrap: word-wrap;
+        text: t.text;
+        visible: false;
+    }
+
+    at-300 := Text {
+        x: 0;
+        y: 0;
+        width: 300px;
+        wrap: word-wrap;
+        text: t.text;
+        visible: false;
+    }
+
+    at-600 := Text {
+        x: 0;
+        y: 0;
+        width: 600px;
+        wrap: word-wrap;
+        text: t.text;
+        visible: false;
+    }
+
+    out property <length> height-at-200: at-200.height;
+    out property <length> height-at-300: at-300.height;
+    out property <length> height-at-600: at-600.height;
+    // The window's layout info is only checked in the rust block.
+    out property <bool> test: at-200.height > at-300.height && at-300.height > at-600.height;
+}
+
+/*
+
+```rust
+use slint::private_unstable_api::re_exports::{ItemTreeRc, Orientation, WindowInner};
+let instance = TestCase::new().unwrap();
+let layout_info_v = || {
+    let component = WindowInner::from_pub(instance.window()).component();
+    ItemTreeRc::borrow_pin(&component).as_ref().layout_info(Orientation::Vertical)
+};
+instance.show().unwrap();
+assert_eq!(instance.window().size().width, 300);
+assert_eq!(layout_info_v().min, instance.get_height_at_300());
+assert_eq!(layout_info_v().preferred, instance.get_height_at_300());
+instance.window().set_size(slint::PhysicalSize::new(600, 500));
+assert_eq!(layout_info_v().min, instance.get_height_at_600());
+assert_eq!(layout_info_v().preferred, instance.get_height_at_300());
+instance.window().set_size(slint::PhysicalSize::new(200, 500));
+assert_eq!(layout_info_v().min, instance.get_height_at_200());
+assert_eq!(layout_info_v().preferred, instance.get_height_at_300());
+assert!(instance.get_test());
+```
+
+*/

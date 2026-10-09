@@ -183,7 +183,7 @@ export function startPreview(): void {
                         nodeIds,
                     ),
                 () => {
-                    captureCache.clear();
+                    captureCache.discardPending();
                     figma.ui.postMessage({
                         type: "preview-busy",
                         revision: currentRevision,
@@ -208,7 +208,7 @@ export function startPreview(): void {
                                 captureScheduler(4),
                             ),
                         () => {
-                            captureCache.clear();
+                            captureCache.discardPending();
                             return captureSelectionSource(
                                 selection,
                                 figma.mixed,

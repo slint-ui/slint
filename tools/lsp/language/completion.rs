@@ -3,6 +3,8 @@
 
 // cSpell: ignore rfind barbar funi
 
+pub mod match_element;
+
 use crate::editor_preview::component_catalog::{self, all_exported_components, all_exported_types};
 use crate::editor_preview::editing::import_edit::{create_import_edit_impl, find_import_locations};
 use crate::editor_preview::{self, DocumentCache};
@@ -83,7 +85,11 @@ pub(crate) fn completion_at(
 
     let enable_experimental = document_cache.compiler_configuration().enable_experimental;
 
-    if token.kind() == SyntaxKind::StringLiteral {
+    if enable_experimental
+        && let Some(match_element) = match_element::case_value_position(&token, offset)
+    {
+        return match_element::case_value_completions(document_cache, &match_element, offset);
+    } else if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
                 token.source_file()?.path().as_native_path()?,
@@ -167,6 +173,17 @@ pub(crate) fn completion_at(
                             .with_kind(CompletionItemKind::KEYWORD)
                             .with_insert_text(ins_tex, snippet_support)
                     }),
+                );
+            }
+
+            if !is_global && !is_interface && enable_experimental {
+                r.push(
+                    CompletionItem::new_simple("match".into(), String::new())
+                        .with_kind(CompletionItemKind::KEYWORD)
+                        .with_insert_text(
+                            "match $1 {\n    $2: ${3:Rectangle} {\n        $0\n    }\n}",
+                            snippet_support,
+                        ),
                 );
             }
 
@@ -592,6 +609,7 @@ fn is_reserved_prop_valid(
     }
     if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES)
         || name_in(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
+        || name_in(i_slint_compiler::typeregister::RESERVED_BACKDROP_BLUR_PROPERTIES)
     {
         return name_of(element_type).as_deref() == Some("Rectangle");
     }
@@ -1472,11 +1490,11 @@ mod tests {
     use lsp_types::Position;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
-    fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
+    pub(crate) fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
         get_completions_impl(file, false)
     }
 
-    fn get_completions_experimental(file: &str) -> Option<Vec<CompletionItem>> {
+    pub(crate) fn get_completions_experimental(file: &str) -> Option<Vec<CompletionItem>> {
         get_completions_impl(file, true)
     }
 

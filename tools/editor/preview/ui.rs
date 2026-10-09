@@ -15,7 +15,7 @@ use slint::{
     ComponentHandle, LogicalPosition, LogicalSize, Model, ModelRc, SharedString, ToSharedString,
     VecModel,
 };
-use slint_interpreter::{DiagnosticLevel, PlatformError};
+use slint_interpreter::PlatformError;
 use smol_str::SmolStr;
 
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
@@ -60,8 +60,8 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 
 mod brushes;
 pub(super) use brushes::{fill_brush, fill_expression};
+pub mod diagnostics;
 pub(super) mod file_tree;
-pub mod log_messages;
 pub mod palette;
 mod property_view;
 pub mod search_model;
@@ -321,7 +321,7 @@ pub fn initialize_editor(
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&api);
-    log_messages::setup(&api);
+    diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
@@ -356,40 +356,6 @@ fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, Shar
 
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
-}
-
-pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics
-        .iter()
-        .inspect(|d| {
-            let location = d.source_path().map(|p| {
-                let (line, column) = d.line_column();
-                (p.into(), line, column)
-            });
-
-            let level = match d.level() {
-                DiagnosticLevel::Error => LogMessageLevel::Error,
-                DiagnosticLevel::Warning => LogMessageLevel::Warning,
-                DiagnosticLevel::Note => LogMessageLevel::Note,
-                _ => LogMessageLevel::Debug,
-            };
-
-            log_messages::append_log_message(api, level, location, d.message());
-        })
-        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
-            match (acc, d.level()) {
-                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-                // Ignore Note level diagnostics for the summary.
-                // If there is only a note, that's not relevant enough to bother the user.
-                (acc, DiagnosticLevel::Note) => acc,
-                // DiagnosticLevel is non-exhaustive:
-                (acc, _) => acc,
-            }
-        });
-
-    api.set_diagnostic_summary(summary);
 }
 
 pub fn ui_set_known_components(
@@ -1675,6 +1641,9 @@ mod tests {
     fn rotated_edge_cursor_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -1746,6 +1715,9 @@ mod tests {
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -2246,6 +2218,242 @@ mod tests {
         title_touch_area.mock_single_click(PointerEventButton::Left);
         assert_eq!(native_zoom_count.get(), 1);
         assert!(!editor.window().is_maximized());
+    }
+
+    const LEFT_PANE: usize = 0;
+    const INSPECTOR_PANE: usize = 1;
+    const PANE_PREFERENCES: [f32; 2] = [400., 360.];
+    const PANE_RESIZED_CALLBACKS: [&str; 2] = ["left-pane-resized", "inspector-pane-resized"];
+
+    #[derive(Debug)]
+    struct PaneOutcome {
+        preferences: [f32; 2],
+        widths: [f32; 2],
+        callbacks: Vec<&'static str>,
+    }
+
+    fn narrow_window_editor()
+    -> (super::EditorUi, std::rc::Rc<std::cell::RefCell<Vec<&'static str>>>) {
+        let editor = super::EditorUi::new().unwrap();
+        let panes = editor.global::<super::Style>().get_panes();
+        let shell = editor.global::<super::Style>().get_shell();
+        assert!(PANE_PREFERENCES.iter().all(|preference| *preference <= panes.maximum_width));
+        editor.set_left_pane_width_preference(PANE_PREFERENCES[LEFT_PANE]);
+        editor.set_inspector_pane_width_preference(PANE_PREFERENCES[INSPECTOR_PANE]);
+        let callbacks = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let (weak, log) = (editor.as_weak(), callbacks.clone());
+        editor.on_left_pane_resized(move |width| {
+            log.borrow_mut().push(PANE_RESIZED_CALLBACKS[LEFT_PANE]);
+            weak.unwrap().set_left_pane_width_preference(width);
+        });
+        let (weak, log) = (editor.as_weak(), callbacks.clone());
+        editor.on_inspector_pane_resized(move |width| {
+            log.borrow_mut().push(PANE_RESIZED_CALLBACKS[INSPECTOR_PANE]);
+            weak.unwrap().set_inspector_pane_width_preference(width);
+        });
+        let log = callbacks.clone();
+        editor.on_left_pane_reset(move || log.borrow_mut().push("left-pane-reset"));
+        let log = callbacks.clone();
+        editor.on_inspector_pane_reset(move || log.borrow_mut().push("inspector-pane-reset"));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(shell.min_width, shell.height));
+        slint::platform::update_timers_and_animations();
+        (editor, callbacks)
+    }
+
+    fn find_element(
+        editor: &super::EditorUi,
+        label: &str,
+    ) -> i_slint_backend_testing::ElementHandle {
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(editor, label)
+            .next()
+            .unwrap()
+    }
+
+    fn narrow_window_outcome(
+        editor: &super::EditorUi,
+        callbacks: &std::cell::RefCell<Vec<&'static str>>,
+    ) -> PaneOutcome {
+        let panes = editor.global::<super::Style>().get_panes();
+        let shell = editor.global::<super::Style>().get_shell();
+        let preferences =
+            [editor.get_left_pane_width_preference(), editor.get_inspector_pane_width_preference()];
+        let widths = [
+            find_element(editor, "Project and elements").size().width,
+            find_element(editor, "Inspector and outline").size().width,
+        ];
+        let canvas = find_element(editor, "Editor canvas").size().width;
+        assert!((canvas - panes.canvas_minimum_width).abs() < 0.1, "canvas width {canvas}");
+        assert!(
+            (widths[LEFT_PANE] + widths[INSPECTOR_PANE] + canvas - shell.min_width).abs() < 0.1
+        );
+        let preferred_ratio = (preferences[LEFT_PANE] - panes.left_width)
+            / (preferences[INSPECTOR_PANE] - panes.inspector_width);
+        let displayed_ratio = (widths[LEFT_PANE] - panes.left_width)
+            / (widths[INSPECTOR_PANE] - panes.inspector_width);
+        assert!(
+            (displayed_ratio - preferred_ratio).abs() < 0.01,
+            "displayed ratio {displayed_ratio} != preferred ratio {preferred_ratio}"
+        );
+        PaneOutcome { preferences, widths, callbacks: callbacks.take() }
+    }
+
+    fn resize_in_narrow_window(
+        label: &str,
+        resize: impl FnOnce(&i_slint_backend_testing::ElementHandle, f32),
+    ) -> PaneOutcome {
+        let (editor, callbacks) = narrow_window_editor();
+        let divider = find_element(&editor, label);
+        resize(&divider, divider.accessible_value_step().unwrap());
+        slint::platform::update_timers_and_animations();
+        narrow_window_outcome(&editor, &callbacks)
+    }
+
+    fn assert_narrow_window_drag_and_increment_match(
+        label: &str,
+        resized: usize,
+        grow_direction: f32,
+    ) {
+        i_slint_backend_testing::init_no_event_loop();
+        let other = 1 - resized;
+        let (editor, callbacks) = narrow_window_editor();
+        let before = narrow_window_outcome(&editor, &callbacks);
+        let step = find_element(&editor, label).accessible_value_step().unwrap();
+        drop(editor);
+
+        let increment = resize_in_narrow_window(label, |divider, _| {
+            divider.invoke_accessible_increment_action()
+        });
+        let drag = resize_in_narrow_window(label, |divider, step| {
+            let position = divider.absolute_position();
+            let size = divider.size();
+            let target = LogicalPosition::new(
+                position.x + size.width / 2. + grow_direction * step,
+                position.y + size.height / 2.,
+            );
+            divider.mock_drag(target, PointerEventButton::Left);
+        });
+
+        for outcome in [&increment, &drag] {
+            assert_eq!(outcome.callbacks, [PANE_RESIZED_CALLBACKS[resized]], "{outcome:?}");
+            assert_eq!(
+                outcome.preferences[resized],
+                PANE_PREFERENCES[resized] + step,
+                "{outcome:?}"
+            );
+            assert_eq!(outcome.preferences[other], PANE_PREFERENCES[other], "{outcome:?}");
+            assert!(outcome.widths[resized] > before.widths[resized], "{outcome:?}");
+            assert!(outcome.widths[other] < before.widths[other], "{outcome:?}");
+        }
+        for pane in [resized, other] {
+            assert!(
+                (increment.widths[pane] - drag.widths[pane]).abs() < 0.1,
+                "{increment:?} {drag:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn narrow_window_scales_pane_widths_without_changing_preferences() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (editor, callbacks) = narrow_window_editor();
+        let outcome = narrow_window_outcome(&editor, &callbacks);
+        assert!(outcome.callbacks.is_empty());
+        assert_eq!(outcome.preferences, PANE_PREFERENCES);
+        assert!(
+            outcome.widths[LEFT_PANE] < PANE_PREFERENCES[LEFT_PANE]
+                && outcome.widths[INSPECTOR_PANE] < PANE_PREFERENCES[INSPECTOR_PANE]
+        );
+    }
+
+    #[test]
+    fn narrow_window_left_pane_drag_and_increment_match() {
+        assert_narrow_window_drag_and_increment_match("Project pane resize", LEFT_PANE, 1.);
+    }
+
+    #[test]
+    fn narrow_window_inspector_pane_drag_and_increment_match() {
+        assert_narrow_window_drag_and_increment_match("Inspector pane resize", INSPECTOR_PANE, -1.);
+    }
+
+    #[test]
+    fn pane_resize_hit_areas_keep_the_cursor_during_drag() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        for (label, vertical, reversed) in [
+            ("Project pane resize", true, false),
+            ("Inspector pane resize", true, true),
+            ("Elements pane resize", false, false),
+            ("Outline pane resize", false, false),
+        ] {
+            let editor = super::create_ui().unwrap();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            editor.show().unwrap();
+            slint::platform::update_timers_and_animations();
+            let hit_size = editor.global::<super::Style>().get_panes().resize_hit_size;
+            let divider =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = divider.absolute_position();
+            let size = divider.size();
+            let start = if vertical {
+                LogicalPosition::new(
+                    position.x + if reversed { size.width - hit_size + 1. } else { hit_size - 1. },
+                    position.y + size.height / 2.,
+                )
+            } else {
+                LogicalPosition::new(position.x + size.width / 2., position.y + hit_size - 1.)
+            };
+            let cursor = || {
+                i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                    window.mouse_cursor()
+                })
+            };
+            let expected = MouseCursorInner::BuiltIn(if vertical {
+                BuiltInMouseCursor::EwResize
+            } else {
+                BuiltInMouseCursor::NsResize
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+            assert_eq!(cursor(), expected, "hovering the enlarged hit area of {label}");
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position: start,
+                button: PointerEventButton::Left,
+            });
+            let canvas = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Editor canvas",
+            )
+            .next()
+            .unwrap();
+            let canvas_position = canvas.absolute_position();
+            let canvas_size = canvas.size();
+            let end = if vertical {
+                LogicalPosition::new(canvas_position.x + canvas_size.width / 2., start.y + 30.)
+            } else {
+                LogicalPosition::new(
+                    start.x + 30.,
+                    editor.global::<super::Style>().get_shell().height - 10.,
+                )
+            };
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+            assert_eq!(cursor(), expected, "dragging {label} away from the separator");
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position: end,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(
+                    canvas_position.x + canvas_size.width / 2.,
+                    canvas_position.y + canvas_size.height / 2.,
+                ),
+            });
+            assert_ne!(cursor(), expected, "leaving {label} after release");
+        }
     }
 
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {

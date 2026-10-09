@@ -47,44 +47,53 @@ export component EdgeDivider inherits Rectangle {
     background: Colors.border;
 }
 
-export component HorizontalResizeDivider inherits FocusScope {
+component ResizeDivider inherits FocusScope {
+    in property <bool> vertical: false;
+    in property <bool> reversed: false;
+    in property <bool> resize-enabled: true;
     in property <string> resize-label;
     in property <color> line-color: Colors.border;
     in property <length> value: Style.panes.minimum;
     in property <length> value-minimum: Style.panes.minimum;
     in property <length> value-maximum: Style.panes.minimum;
     in property <length> value-step: 8px;
+    in property <length> preferred-value: root.value;
+    in property <length> preferred-maximum: root.value-maximum;
     callback drag-started();
     callback dragged(length);
     callback drag-finished(length);
     callback value-set(length);
     callback reset-requested();
 
-    height: Style.panes.splitter-size;
     accessible-role: AccessibleRole.slider;
+    accessible-orientation: root.vertical ? Orientation.horizontal : Orientation.vertical;
     accessible-label: root.resize-label;
-    accessible-description: "Lower pane height. Arrow keys adjust by 8 px; Home and End clamp; Ctrl+Home or double-click resets.";
+    accessible-description: root.vertical
+        ? @tr("Pane width. Left and right arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px)
+        : @tr("Pane height. Up and down arrow keys adjust by {} px; Home and End clamp; Ctrl+Home or double-click resets.", root.value-step / 1px);
     accessible-value: "\{(root.value / 1px).round()} px";
     accessible-value-minimum: root.value-minimum / 1px;
     accessible-value-maximum: root.value-maximum / 1px;
     accessible-value-step: root.value-step / 1px;
     accessible-action-increment => {
-        root.value-set(min(root.value + root.value-step, root.value-maximum));
+        root.value-set(min(root.preferred-value + root.value-step, root.preferred-maximum));
     }
     accessible-action-decrement => {
-        root.value-set(max(root.value - root.value-step, root.value-minimum));
+        root.value-set(max(root.preferred-value - root.value-step, root.value-minimum));
     }
     key-pressed(event) => {
         if event.modifiers.control && event.text == Key.Home {
             root.reset-requested();
             return accept;
         }
-        if event.text == Key.UpArrow {
-            root.value-set(min(root.value + root.value-step, root.value-maximum));
+        if (!root.vertical && event.text == Key.UpArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.LeftArrow : Key.RightArrow)) {
+            root.accessible-action-increment();
             return accept;
         }
-        if event.text == Key.DownArrow {
-            root.value-set(max(root.value - root.value-step, root.value-minimum));
+        if (!root.vertical && event.text == Key.DownArrow)
+            || (root.vertical && event.text == (root.reversed ? Key.RightArrow : Key.LeftArrow)) {
+            root.accessible-action-decrement();
             return accept;
         }
         if event.text == Key.Home {
@@ -92,7 +101,7 @@ export component HorizontalResizeDivider inherits FocusScope {
             return accept;
         }
         if event.text == Key.End {
-            root.value-set(root.value-maximum);
+            root.value-set(root.preferred-maximum);
             return accept;
         }
         return reject;
@@ -102,14 +111,15 @@ export component HorizontalResizeDivider inherits FocusScope {
         if value.is-float() {
             root.value-set(value.to-float().clamp(
                 root.value-minimum / 1px,
-                root.value-maximum / 1px,
+                root.preferred-maximum / 1px,
             ) * 1px);
         }
     }
 
     Rectangle {
-        width: parent.width;
-        height: parent.height;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.splitter-size : parent.width;
+        height: root.vertical ? parent.height : Style.panes.splitter-size;
         border-width: root.has-focus ? Metrics.border-width : 0px;
         border-color: Colors.focus;
         background: touch.has-hover || touch.pressed
@@ -118,40 +128,61 @@ export component HorizontalResizeDivider inherits FocusScope {
     }
 
     Rectangle {
-        y: (parent.height - self.height) / 2;
-        width: parent.width;
-        height: Metrics.border-width;
+        visible: !root.vertical || touch.has-hover || touch.pressed || root.has-focus;
+        x: root.vertical && !root.reversed ? parent.width - self.width : 0px;
+        y: root.vertical ? 0px : (Style.panes.splitter-size - self.height) / 2;
+        width: root.vertical ? Metrics.border-width : parent.width;
+        height: root.vertical ? parent.height : Metrics.border-width;
         background: root.line-color;
     }
 
     touch := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        mouse-cursor: ns-resize;
-        private property <length> press-absolute-y;
+        x: root.vertical && root.reversed ? parent.width - self.width : 0px;
+        width: root.vertical ? Style.panes.resize-hit-size : parent.width;
+        height: root.vertical ? parent.height : Style.panes.resize-hit-size;
+        enabled: root.resize-enabled || self.pressed;
+        mouse-cursor: root.vertical ? ew-resize : ns-resize;
+        private property <length> press-position;
+        private property <length> drag-delta;
+        private property <length> pointer-position: root.vertical
+            ? self.absolute-position.x + self.mouse-x
+            : self.absolute-position.y + self.mouse-y;
 
         changed pressed => {
             if self.pressed {
                 root.focus();
-                self.press-absolute-y = self.absolute-position.y + self.mouse-y;
+                self.press-position = self.pointer-position;
+                self.drag-delta = 0px;
                 root.drag-started();
             } else {
-                root.drag-finished(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                root.drag-finished(self.drag-delta);
                 root.clear-focus();
             }
         }
 
         moved => {
             if self.pressed {
-                root.dragged(self.absolute-position.y + self.mouse-y - self.press-absolute-y);
+                self.drag-delta = self.pointer-position - self.press-position;
+                root.dragged(self.drag-delta);
             }
         }
 
         double-clicked => {
+            self.drag-delta = 0px;
             root.reset-requested();
         }
 
     }
+}
+
+export component HorizontalResizeDivider inherits ResizeDivider {
+    height: Style.panes.resize-hit-size;
+    z: 1;
+}
+
+export component VerticalResizeDivider inherits ResizeDivider {
+    vertical: true;
+    width: Style.panes.splitter-size;
 }
 
 export component BodyLabel inherits Text {
@@ -219,6 +250,7 @@ export component PrimerTextInput inherits Rectangle {
                 wrap: no-wrap;
                 vertical-alignment: center;
                 selection-background-color: root.style.appearance.selection;
+                selection-foreground-color: root.style.appearance.selection-foreground;
             }
 
             if editor.text == "": Text {

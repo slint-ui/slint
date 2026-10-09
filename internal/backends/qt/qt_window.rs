@@ -2164,11 +2164,11 @@ impl QtWindow {
                 let metrics = renderer.metrics.clone();
                 collector.measure_frame_rendered(&mut renderer, metrics);
             }
-
-            if self.window.has_active_animations() {
-                self.request_redraw();
-            }
         });
+
+        if self.window.has_active_animations() {
+            self.request_redraw();
+        }
 
         // Update the accessibility tree (if the component tree has changed).
         if self.tree_structure_changed.replace(false) {

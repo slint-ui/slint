@@ -127,6 +127,7 @@ export component App {
             crate::typeloader::LibraryInfo {
                 name: "Lib".into(),
                 package: "lib".into(),
+                #[cfg(feature = "rust")]
                 module: None,
                 exports: Vec::new(),
             },

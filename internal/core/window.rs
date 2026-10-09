@@ -648,6 +648,7 @@ pub struct WindowInner {
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
     mouse_input_state: Cell<MouseInputState>,
     touch_state: RefCell<TouchState>,
+    has_active_animations: Cell<bool>,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -716,6 +717,7 @@ impl WindowInner {
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
             touch_state: Default::default(),
+            has_active_animations: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
                 window_properties_tracker,
@@ -960,8 +962,11 @@ impl WindowInner {
 
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
-            mouse_input_state =
-                crate::input::process_delayed_event(&window_adapter, mouse_input_state);
+            mouse_input_state = crate::input::resolve_delayed_event_on_release(
+                &window_adapter,
+                mouse_input_state,
+                &event,
+            );
         }
 
         let parent_adapter = window_adapter
@@ -1881,38 +1886,54 @@ impl WindowInner {
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);
         };
-        Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
-            || {
-                let has_child_popup =
-                    self.active_popups.borrow().iter().any(|popup| {
-                        matches!(popup.location, PopupWindowLocation::ChildWindow(..))
-                    });
-                let has_overlay = !self.overlays.borrow().is_empty();
-                if !has_child_popup && !has_overlay {
-                    render_components(&[(component_weak, LogicalPoint::default())], &post_render)
-                } else {
-                    let active_popups = self.active_popups.borrow();
-                    let overlays = self.overlays.borrow();
-                    let mut item_trees =
-                        Vec::with_capacity(active_popups.len() + overlays.len() + 1);
-                    item_trees.push((component_weak, LogicalPoint::default()));
-                    for popup in active_popups.iter() {
-                        // If the popup is not a real window and does not have its own coordinate system.
-                        // We have to draw the popup and consider the location for subelements because everything must
-                        // be rendered relative to the main window position
-                        if let PopupWindowLocation::ChildWindow(location) = &popup.location {
-                            item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
-                        }
+        let render = || {
+            let has_child_popup = self
+                .active_popups
+                .borrow()
+                .iter()
+                .any(|popup| matches!(popup.location, PopupWindowLocation::ChildWindow(..)));
+            let has_overlay = !self.overlays.borrow().is_empty();
+            if !has_child_popup && !has_overlay {
+                render_components(&[(component_weak, LogicalPoint::default())], &post_render)
+            } else {
+                let active_popups = self.active_popups.borrow();
+                let overlays = self.overlays.borrow();
+                let mut item_trees = Vec::with_capacity(active_popups.len() + overlays.len() + 1);
+                item_trees.push((component_weak, LogicalPoint::default()));
+                for popup in active_popups.iter() {
+                    // If the popup is not a real window and does not have its own coordinate system.
+                    // We have to draw the popup and consider the location for subelements because everything must
+                    // be rendered relative to the main window position
+                    if let PopupWindowLocation::ChildWindow(location) = &popup.location {
+                        item_trees.push((ItemTreeRc::downgrade(&popup.component), *location));
                     }
-                    for overlay in overlays.iter() {
-                        item_trees.push((ItemTreeRc::downgrade(overlay), LogicalPoint::zero()));
-                    }
-                    drop(overlays);
-                    drop(active_popups);
-                    render_components(&item_trees, &post_render)
                 }
-            },
-        ))
+                for overlay in overlays.iter() {
+                    item_trees.push((ItemTreeRc::downgrade(overlay), LogicalPoint::zero()));
+                }
+                drop(overlays);
+                drop(active_popups);
+                render_components(&item_trees, &post_render)
+            }
+        };
+        let (result, has_active_animations) =
+            crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                driver.track_active_animations(|| {
+                    self.pinned_fields
+                        .as_ref()
+                        .project_ref()
+                        .redraw_tracker
+                        .evaluate_as_dependency_root(render)
+                })
+            });
+        self.has_active_animations.set(has_active_animations);
+        Some(result)
+    }
+
+    pub(crate) fn has_active_animations(&self) -> bool {
+        self.has_active_animations.get()
+            || crate::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.has_active_animations())
     }
 
     /// Draws the source `DragArea`'s `drag-image` under the cursor when a drag is in flight.
@@ -2042,9 +2063,14 @@ impl WindowInner {
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
     pub fn create_child_window_adapter(&self, kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
-        self.window_adapter()
+        let adapter = self
+            .window_adapter()
             .internal(crate::InternalToken)
-            .and_then(|s| s.create_child_window_adapter(kind))
+            .and_then(|s| s.create_child_window_adapter(kind))?;
+        if let Some(ctx) = self.try_context() {
+            WindowInner::from_pub(adapter.window()).set_context(ctx.clone());
+        }
+        Some(adapter)
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.

@@ -1248,18 +1248,12 @@ fn embed_resource(
             let charmap_var = format_smolstr!("slint_embedded_resource_{}_charmap", resource_id);
             let charmap_size = character_map.len();
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::CharacterMapEntry".into(),
+                ty: "const uint32_t".into(),
                 name: charmap_var.clone(),
                 array_size: Some(charmap_size),
                 init: Some(format!(
                     "{{ {} }}",
-                    character_map
-                        .iter()
-                        .map(|entry| format!(
-                            "{{ .code_point = {}, .glyph_index = {} }}",
-                            entry.code_point as u32, entry.glyph_index
-                        ))
-                        .join(", ")
+                    character_map.iter().map(|code_point| *code_point as u32).join(", ")
                 )),
                 ..Default::default()
             }));
@@ -5551,6 +5545,16 @@ fn compile_builtin_function_call(
                 })
             } else {
                 panic!("internal error: invalid args to set-selection-offsets {arguments:?}")
+            }
+        }
+        BuiltinFunction::HasSelection => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                item_owner(pr).map_or_default(|owner| {
+                    let (item, _) = native_item_from_owner(pr, ctx, owner);
+                    format!("slint_textinput_has_selection(&{item})")
+                })
+            } else {
+                panic!("internal error: invalid args to has-selection {arguments:?}")
             }
         }
         BuiltinFunction::ItemFontMetrics => {

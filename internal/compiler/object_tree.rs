@@ -34,6 +34,10 @@ use std::sync::Arc;
 
 pub(crate) mod forward_inherited_expression;
 pub(crate) mod interfaces;
+mod match_element;
+pub(crate) mod typed_slots;
+
+pub use match_element::{CaseValue, MatchSubjectDomain, missing_case_values};
 
 macro_rules! unwrap_or_continue {
     ($e:expr ; $diag:expr) => {
@@ -461,6 +465,7 @@ pub struct ChildrenInsertionPoint {
 
 #[derive(Clone, Debug)]
 pub struct DeclaredSlot {
+    pub interface: Option<Rc<Component>>,
     pub name: SmolStr,
     pub name_node: syntax_nodes::DeclaredIdentifier,
     has_rejected_placeholder: bool,
@@ -1086,26 +1091,29 @@ pub enum PropertyAnimation {
     Transition { state_ref: Expression, animations: Vec<TransitionPropertyAnimation> },
 }
 
+pub fn deep_clone_animation_element(e: &ElementRc) -> ElementRc {
+    let e = e.borrow();
+    debug_assert!(e.children.is_empty());
+    debug_assert!(e.property_declarations.is_empty());
+    debug_assert!(e.states.is_empty() && e.transitions.is_empty());
+    Rc::new(RefCell::new(Element {
+        id: e.id.clone(),
+        base_type: e.base_type.clone(),
+        bindings: e.bindings.clone(),
+        property_analysis: e.property_analysis.clone(),
+        enclosing_component: e.enclosing_component.clone(),
+        repeated: None,
+        debug: e.debug.clone(),
+        ..Default::default()
+    }))
+}
+
 impl Clone for PropertyAnimation {
     fn clone(&self) -> Self {
-        fn deep_clone(e: &ElementRc) -> ElementRc {
-            let e = e.borrow();
-            debug_assert!(e.children.is_empty());
-            debug_assert!(e.property_declarations.is_empty());
-            debug_assert!(e.states.is_empty() && e.transitions.is_empty());
-            Rc::new(RefCell::new(Element {
-                id: e.id.clone(),
-                base_type: e.base_type.clone(),
-                bindings: e.bindings.clone(),
-                property_analysis: e.property_analysis.clone(),
-                enclosing_component: e.enclosing_component.clone(),
-                repeated: None,
-                debug: e.debug.clone(),
-                ..Default::default()
-            }))
-        }
         match self {
-            PropertyAnimation::Static(e) => PropertyAnimation::Static(deep_clone(e)),
+            PropertyAnimation::Static(e) => {
+                PropertyAnimation::Static(deep_clone_animation_element(e))
+            }
             PropertyAnimation::Transition { state_ref, animations } => {
                 PropertyAnimation::Transition {
                     state_ref: state_ref.clone(),
@@ -1114,7 +1122,7 @@ impl Clone for PropertyAnimation {
                         .map(|t| TransitionPropertyAnimation {
                             state_id: t.state_id,
                             direction: t.direction,
-                            animation: deep_clone(&t.animation),
+                            animation: deep_clone_animation_element(&t.animation),
                         })
                         .collect(),
                 }
@@ -1355,6 +1363,8 @@ pub struct Element {
 
     /// If this element is assigned to a specific slot in its parent component (e.g., `name << ...`)
     pub slot_target: Option<SmolStr>,
+
+    pub typed_slot_interface: Option<Rc<Component>>,
 
     /// Slot forwarding mappings declared on this element: `target: source;`
     pub forwarded_slots: Vec<SlotForwarding>,
@@ -1660,11 +1670,22 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let Some((r, implemented_interfaces, child_implements)) =
-            Self::element_without_children(&node, id, parent_type, is_legacy_syntax, diag, tr)
-        else {
+        let Some((r, implemented_interfaces, child_implements)) = Self::element_without_children(
+            &node,
+            id,
+            parent_type,
+            is_legacy_syntax,
+            diag,
+            tr,
+            None,
+        ) else {
             return ElementRc::default();
         };
+
+        for declaration in node.SlotDeclaration() {
+            Self::assert_experimental_slots(diag, &declaration, "named slots");
+            declared_slots.push(typed_slots::declaration(declaration, tr, diag));
+        }
 
         for se in node.children() {
             if se.kind() != SyntaxKind::SlotForwarding {
@@ -1694,11 +1715,7 @@ impl Element {
 
             match &r.borrow().base_type {
                 ElementType::Component(component)
-                    if !component
-                        .declared_slots
-                        .borrow()
-                        .iter()
-                        .any(|slot| slot.name == target) =>
+                    if typed_slots::lookup_slot(component, &target).is_none() =>
                 {
                     diag.push_error(
                         format!("Unknown slot '{target}' in '{}'", component.id),
@@ -1738,11 +1755,21 @@ impl Element {
                 continue;
             }
 
-            r.borrow_mut().forwarded_slots.push(SlotForwarding {
-                target,
-                source,
-                expression_node: expression_node.into(),
-            });
+            if typed_slots::create_forwarding(
+                &r,
+                &target,
+                &source,
+                &expression_node,
+                component_child_insertion_points,
+                declared_slots,
+                diag,
+            ) {
+                r.borrow_mut().forwarded_slots.push(SlotForwarding {
+                    target,
+                    source,
+                    expression_node: expression_node.into(),
+                });
+            }
         }
 
         for forwarding in r.borrow().forwarded_slots.clone() {
@@ -1776,13 +1803,30 @@ impl Element {
             );
         }
 
-        let mut assigned_slots = HashSet::new();
+        let mut assigned_slots: HashSet<SmolStr> = r
+            .borrow()
+            .children
+            .iter()
+            .filter_map(|child| child.borrow().slot_target.clone())
+            .collect();
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
                 if let Some(slot_name) =
                     Self::sub_element_slot_placeholder_name(&se, declared_slots)
                 {
+                    if typed_slots::create_placeholder(
+                        &se,
+                        &slot_name,
+                        &r,
+                        component_child_insertion_points,
+                        declared_slots,
+                        is_legacy_syntax,
+                        diag,
+                        tr,
+                    ) {
+                        continue;
+                    }
                     Self::register_slot_placeholder(
                         &se,
                         slot_name,
@@ -1880,16 +1924,6 @@ impl Element {
                         },
                     );
                 }
-            } else if se.kind() == SyntaxKind::SlotDeclaration {
-                Self::assert_experimental_slots(diag, &se, "named slots");
-                let decl: syntax_nodes::SlotDeclaration = se.into();
-                let name_node = decl.DeclaredIdentifier();
-                let name = parser::identifier_text(&name_node).unwrap_or_default();
-                declared_slots.push(DeclaredSlot {
-                    name,
-                    name_node,
-                    has_rejected_placeholder: false,
-                });
             } else if se.kind() == SyntaxKind::SlotAssignment {
                 if !Self::assert_experimental_slots(diag, &se, "named slots") {
                     continue;
@@ -1914,11 +1948,7 @@ impl Element {
                 let parent_type = r.borrow().base_type.clone();
                 match &parent_type {
                     ElementType::Component(component)
-                        if !component
-                            .declared_slots
-                            .borrow()
-                            .iter()
-                            .any(|slot| slot.name == name) =>
+                        if typed_slots::lookup_slot(component, &name).is_none() =>
                     {
                         diag.push_error(
                             format!("Unknown slot '{name}' in '{}'", component.id),
@@ -1933,6 +1963,15 @@ impl Element {
                         );
                     }
                 }
+                let parent_type = match &parent_type {
+                    ElementType::Component(component)
+                        if typed_slots::lookup_slot(component, &name)
+                            .is_some_and(|slot| slot.interface.is_some()) =>
+                    {
+                        tr.empty_type()
+                    }
+                    _ => parent_type,
+                };
                 let element = Element::from_sub_element_node(
                     sub_element_node.into(),
                     parent_type,
@@ -2000,6 +2039,8 @@ impl Element {
             }
         }
 
+        validate_transition_directions(&r.borrow().transitions, diag);
+
         if r.borrow().base_type.to_smolstr() == "ListView" {
             let mut seen_for = false;
             for se in node.children() {
@@ -2031,12 +2072,15 @@ impl Element {
         is_legacy_syntax: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
+        slot_interface: Option<Rc<Component>>,
     ) -> Option<(ElementRc, Vec<ImplementedInterface>, Vec<ImplementedInterface>)> {
         // Every element but a declaration's root sits inside a SubElement.
         let is_component_root = node.parent().is_some_and(|n| n.kind() == SyntaxKind::Component);
         let is_interface_declaration =
             is_component_root && matches!(parent_type, ElementType::Interface(_));
-        let base_type = if is_interface_declaration {
+        let base_type = if let Some(interface) = slot_interface {
+            ElementType::Component(interface)
+        } else if is_interface_declaration {
             disallow_non_member_content(node, &parent_type, diag);
             match node.QualifiedName() {
                 None => ElementType::Interface(None),
@@ -2845,15 +2889,20 @@ impl Element {
             return None;
         }
         let element = node.child_node(SyntaxKind::Element)?;
-        if element.children().any(|c| c.kind() != SyntaxKind::QualifiedName) {
-            return None;
-        }
+
         let qualified_name = element.child_node(SyntaxKind::QualifiedName)?;
         if qualified_name.child_token(SyntaxKind::Dot).is_some() {
             return None;
         }
         let name = parser::identifier_text(&qualified_name)?;
-        declared_slots.iter().any(|slot| slot.name == name).then_some(name)
+        declared_slots
+            .iter()
+            .any(|slot| {
+                slot.name == name
+                    && (slot.interface.is_some()
+                        || !element.children().any(|c| c.kind() != SyntaxKind::QualifiedName))
+            })
+            .then_some(name)
     }
 
     fn mark_placeholder_rejected(declared_slots: &mut [DeclaredSlot], name: &str) {
@@ -3421,7 +3470,7 @@ impl Element {
         self.callback_alias_declaration_node(name)
     }
 
-    pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {
+    pub fn builtin_type(&self) -> Option<Arc<BuiltinElement>> {
         let mut base_type = self.base_type.clone();
         loop {
             match &base_type {
@@ -4089,6 +4138,25 @@ fn non_constant_expression_reason(expr: &Expression) -> Option<String> {
     reason
 }
 
+fn build_animation_element(
+    anim: &syntax_nodes::PropertyAnimation,
+    anim_type: ElementType,
+    diag: &mut BuildDiagnostics,
+) -> ElementRc {
+    let mut anim_element = Element { id: "".into(), base_type: anim_type, ..Default::default() };
+    anim_element.parse_bindings(
+        anim.Binding().filter_map(|b| {
+            Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
+        }),
+        false,
+        diag,
+    );
+
+    apply_default_type_properties(&mut anim_element);
+
+    Rc::new(RefCell::new(anim_element))
+}
+
 fn animation_element_from_node(
     anim: &syntax_nodes::PropertyAnimation,
     prop_name: &syntax_nodes::QualifiedName,
@@ -4107,20 +4175,19 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let mut anim_element =
-            Element { id: "".into(), base_type: anim_type, ..Default::default() };
-        anim_element.parse_bindings(
-            anim.Binding().filter_map(|b| {
-                Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
-            }),
-            false,
-            diag,
-        );
-
-        apply_default_type_properties(&mut anim_element);
-
-        Some(Rc::new(RefCell::new(anim_element)))
+        Some(build_animation_element(anim, anim_type, diag))
     }
+}
+
+fn catch_all_animation_element_from_node(
+    anim: &syntax_nodes::PropertyAnimation,
+    diag: &mut BuildDiagnostics,
+    tr: &TypeRegister,
+) -> ElementRc {
+    // `*` has no single property type, and every animatable type maps to the same element
+    let anim_type = tr.property_animation_type_for_property(Type::Int32);
+    debug_assert!(matches!(anim_type, ElementType::Builtin(..)));
+    build_animation_element(anim, anim_type, diag)
 }
 
 #[derive(Default, Debug, Clone)]
@@ -4473,6 +4540,9 @@ fn visit_element_expressions_excluding_repeater_model_dyn(
         for (_, _, a) in &mut t.property_animations {
             visit_element_expressions_simple(a, vis);
         }
+        if let Some((_, a)) = t.catch_all_property_animation.as_mut() {
+            visit_element_expressions_simple(a, vis);
+        }
     }
     elem.borrow_mut().transitions = transitions;
 
@@ -4755,6 +4825,7 @@ pub struct Transition {
     pub direction: TransitionDirection,
     pub state_id: SmolStr,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
+    pub catch_all_property_animation: Option<(SourceLocation, ElementRc)>,
     pub node: syntax_nodes::Transition,
 }
 
@@ -4765,13 +4836,34 @@ impl Transition {
         tr: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Transition {
-        if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("catch-all not yet implemented".into(), &star);
-        };
         let direction_text = trs
             .first_child_or_token()
             .and_then(|t| t.as_token().map(|tok| tok.text().to_string()))
             .unwrap_or_default();
+
+        let mut property_animations = Vec::new();
+        let mut catch_all_property_animation: Option<(SourceLocation, _)> = None;
+        for pa in trs.PropertyAnimation() {
+            if let Some(star) = pa.child_token(SyntaxKind::Star) {
+                let star = star.to_source_location();
+                if let Some((first, _)) = &catch_all_property_animation {
+                    push_duplicate_catch_all_error(star, first.clone(), diag);
+                } else {
+                    catch_all_property_animation =
+                        Some((star, catch_all_animation_element_from_node(&pa, diag, tr)));
+                }
+                continue;
+            }
+            for qn in pa.QualifiedName() {
+                if let Some((ne, prop_type)) =
+                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag)
+                    && let Some(anim_element) =
+                        animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                {
+                    property_animations.push((ne, qn.to_source_location(), anim_element));
+                }
+            }
+        }
 
         Transition {
             direction: match direction_text.as_str() {
@@ -4787,21 +4879,43 @@ impl Transition {
                 .DeclaredIdentifier()
                 .and_then(|x| parser::identifier_text(&x))
                 .unwrap_or_default(),
-            property_animations: trs
-                .PropertyAnimation()
-                .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
-                .filter_map(|(pa, qn)| {
-                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag).and_then(
-                        |(ne, prop_type)| {
-                            animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                                .map(|anim_element| (ne, qn.to_source_location(), anim_element))
-                        },
-                    )
-                })
-                .collect(),
+            property_animations,
+            catch_all_property_animation,
             node: trs.clone(),
         }
     }
+}
+
+fn validate_transition_directions(transitions: &[Transition], diag: &mut BuildDiagnostics) {
+    let mut seen_catch_all = HashMap::<&SmolStr, [Option<&SourceLocation>; 2]>::new();
+    for t in transitions {
+        let Some((span, _)) = &t.catch_all_property_animation else { continue };
+        let claimed = seen_catch_all.entry(&t.state_id).or_default();
+        let directions: &[usize] = match t.direction {
+            TransitionDirection::In => &[0],
+            TransitionDirection::Out => &[1],
+            TransitionDirection::InOut => &[0, 1],
+        };
+        if let Some(first) = directions.iter().find_map(|&d| claimed[d]) {
+            push_duplicate_catch_all_error(span.clone(), first.clone(), diag);
+        } else {
+            for &d in directions {
+                claimed[d] = Some(span);
+            }
+        }
+    }
+}
+
+fn push_duplicate_catch_all_error(
+    span: SourceLocation,
+    first: SourceLocation,
+    diag: &mut BuildDiagnostics,
+) {
+    diag.push_error_with_span(
+        "Only one 'animate *' is allowed per state and direction".into(),
+        span,
+    );
+    diag.push_note_with_span("The first 'animate *' is here".into(), first);
 }
 
 #[derive(Clone, Debug, derive_more::Deref)]

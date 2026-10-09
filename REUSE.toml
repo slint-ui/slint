@@ -13,6 +13,12 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = ["tests/manual/ios-scroll-physics-comparison/cases/**.csv"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = [
   "examples/safe-ui/app/assets/background-normal.png",
   "examples/safe-ui/app/assets/background-fault.png",
@@ -261,6 +267,8 @@ path = [
   "tests/screenshots/**/**.png",
   "tests/screenshots/references/anyrender/**.json",
 
+  "scripts/commit-template.txt",
+
   "tools/**.md",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
@@ -449,6 +457,21 @@ SPDX-License-Identifier = "MIT"
 path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/lucide/type.svg"]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = [
+  "internal/core/animations/simulations/android.rs",
+  "internal/core/animations/simulations/bounce.rs",
+  "internal/core/items/flickable/velocity_tracker.rs",
+  "internal/core/items/flickable/velocity_tracker/fling.rs",
+  "internal/core/items/flickable/velocity_tracker/general.rs",
+  "internal/core/items/flickable/velocity_tracker/ios.rs",
+  "internal/core/items/flickable/velocity_tracker/least_square.rs",
+  "internal/core/items/flickable/velocity_tracker/macos.rs",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright 2014 The Flutter Authors <https://github.com/flutter/flutter>"
+SPDX-License-Identifier = "BSD-3-Clause"
 
 [[annotations]]
 path = [

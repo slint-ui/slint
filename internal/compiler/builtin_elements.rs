@@ -60,7 +60,8 @@
 //! Elements that are accepted children of another element are only reachable through it.
 //! A native item or an element must be declared before the items and elements using it, so each
 //! item sits right before the element that lowers to it. The macros expand to calls on a
-//! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`load`] runs them.
+//! [`Builder`] that fill a [`NativeClass`] and a [`BuiltinElement`]; [`BUILTIN_ELEMENTS`] runs
+//! them.
 
 use crate::expression_tree::{BuiltinFunction, Unit};
 use crate::langtype::{
@@ -71,7 +72,7 @@ use crate::object_tree::{Component, Element, PropertyVisibility};
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -369,11 +370,14 @@ impl Builder {
 }
 
 struct Loader<'a> {
-    register: &'a mut TypeRegister,
+    /// The basic types, builtin structs and enums, for the declarations to look up.
+    types: &'a TypeRegister,
     /// The native items by name, each with the properties and docs of its whole parent chain.
     items: HashMap<SmolStr, (Arc<NativeClass>, BuiltinElement)>,
     /// The builtin elements by name.
-    elements: HashMap<SmolStr, Rc<BuiltinElement>>,
+    elements: HashMap<SmolStr, Arc<BuiltinElement>>,
+    /// See [`TypeRegister::context_restricted_types`].
+    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
 }
 
 impl Loader<'_> {
@@ -385,7 +389,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.register.lookup(&kebab(text));
+        let ty = self.types.lookup(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -456,7 +460,7 @@ impl Loader<'_> {
                 });
                 e.element.additional_accepted_child_types.insert(name.clone(), child.clone());
             }
-            self.register.context_restricted_types.entry(name).or_default().insert(parent.clone());
+            self.context_restricted_types.entry(name).or_default().insert(parent.clone());
         }
     }
 
@@ -472,20 +476,7 @@ impl Loader<'_> {
             Some(item) if !own_members => item,
             _ => Arc::new(e.class),
         };
-        let builtin = Rc::new(builtin);
-        if builtin.is_global {
-            let global = Rc::new(Component {
-                id: builtin.name.clone(),
-                root_element: Rc::new(RefCell::new(Element {
-                    base_type: ElementType::Builtin(builtin.clone()),
-                    ..Default::default()
-                })),
-                ..Default::default()
-            });
-            global.root_element.borrow_mut().enclosing_component = Rc::downgrade(&global);
-            self.register.add(global);
-        }
-        self.elements.insert(builtin.name.clone(), builtin);
+        self.elements.insert(builtin.name.clone(), Arc::new(builtin));
     }
 }
 
@@ -703,6 +694,59 @@ fn build(l: &mut Loader) {
         //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
         //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
         //! thins it.
+        //!
+        //! ## Backdrop Blur
+        //!
+        //! Use `backdrop-blur` to blur what's drawn underneath a rectangle, so that it looks like translucent glass.
+        //! Give the rectangle a translucent `background` so the blurred backdrop shows through.
+        //! The blur covers the rectangle's area, follows its border radius, and corresponds to CSS `backdrop-filter: blur()`.
+        //! Unlike CSS, it also picks up content just outside the rectangle, which makes its edges look more natural.
+        //! This reaches up to three times the `backdrop-blur` value beyond the rectangle's edges.
+        //! Like in CSS, inside an element with an `opacity` below 1 or with `cache-rendering-hint`,
+        //! only that element's content is blurred.
+        //! The rectangle's own `opacity` doesn't limit what's blurred; it fades the blurred backdrop with the rectangle.
+        //! Currently only supported by the Skia renderer; other renderers draw the rectangle without the blur.
+        //!
+        //! Blurring is expensive: it re-reads and filters every pixel beneath the rectangle each time the area is redrawn.
+        //!
+        //! ```slint playground imageAlt="rectangle with backdrop blur"
+        //! export component Example inherits Window {
+        //!     width: 300px; height: 200px;
+        //!     background: #1e2a4a;
+        //!     Rectangle {
+        //!         x: 30px; y: 20px; width: 110px; height: 110px;
+        //!         border-radius: self.width / 2;
+        //!         background: #ff6b6b;
+        //!     }
+        //!     Rectangle {
+        //!         x: 170px; y: 80px; width: 100px; height: 100px;
+        //!         border-radius: self.width / 2;
+        //!         background: #4ecdc4;
+        //!     }
+        //!     Rectangle {
+        //!         x: 130px; y: 10px; width: 60px; height: 60px;
+        //!         border-radius: self.width / 2;
+        //!         background: #ffd93d;
+        //!     }
+        //!     Rectangle {
+        //!         x: 50px; y: 60px; width: 200px; height: 90px;
+        //!         border-radius: 16px;
+        //!         border-width: 1px;
+        //!         border-color: #ffffff60;
+        //!         background: #ffffff30;
+        //!         backdrop-blur: 6px;
+        //!         Text {
+        //!             text: "Blurred glass";
+        //!             font-size: 24px;
+        //!             color: white;
+        //!         }
+        //!     }
+        //! }
+        //! ```
+        //!
+        //! ### backdrop-blur
+        //! <SlintProperty propName="backdrop-blur" typeName="length"/>
+        //! The standard deviation of the Gaussian blur applied to the backdrop. Zero or negative values disable the blur.
     } }
 
     element! {
@@ -1582,10 +1626,10 @@ fn build(l: &mut Loader) {
         ///    a `TouchArea`, then `Flickable` will flick immediately on pointer move events when the euclidean distance
         ///    to the coordinates of the press event exceeds 8 logical pixels.
         ///
-        /// If no element underneath claims a press, the `Flickable` itself only intercepts it when it can actually pan in some direction,
-        /// i.e. when its `content-width`/`content-height` exceed its own size, or its content is currently scrolled away from the origin.
-        /// Otherwise the event is forwarded to elements underneath it,
-        /// the same way wheel/scroll events already are (see below).
+        /// A quick click is a press and release within 100ms that doesn't start a flick.
+        /// If no element inside the `Flickable` handles a quick click, the click goes to the elements behind the `Flickable`.
+        /// This happens whether or not the `Flickable` can scroll.
+        /// Once a flick starts, or if the release comes after 100ms, the click isn't passed on.
         ///
         /// ## Wheel/Scroll Event Interaction
         ///
@@ -1687,6 +1731,10 @@ fn build(l: &mut Loader) {
         ///
         /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
         /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
+        ///
+        /// A quick click is a press and release within 100ms, without moving the pointer.
+        /// If no child handles a quick click, the click goes to the elements behind the `SwipeGestureHandler`, the same as with <Link type="Flickable"/>.
+        /// If the pointer moves at all, even by one pixel, or the release comes after 100ms, the click isn't passed on.
         ///
         /// To keep the gesture-recognition area large enough to feel responsive, wrap the `SwipeGestureHandler` around the controls it should
         /// handle swipes for, rather than placing it as a sibling before them.
@@ -2252,6 +2300,19 @@ fn build(l: &mut Loader) {
         BoxShadow: BoxShadow
     }
 
+    item! { BackdropBlur: Empty {
+        in property <length> blur;
+        in property <length> border-top-left-radius;
+        in property <length> border-top-right-radius;
+        in property <length> border-bottom-left-radius;
+        in property <length> border-bottom-right-radius;
+    } }
+
+    element! {
+        @is_internal @expands_to_parent_geometry
+        BackdropBlur: BackdropBlur
+    }
+
     item! { TextInput {
         /// The text rendered and editable by the user.
         /// \default ""
@@ -2332,6 +2393,8 @@ fn build(l: &mut Loader) {
         out property <string> preedit-text;
         /// The design metrics of the font scaled to the font pixel size used by the element.
         out property <FontMetrics> font-metrics { BuiltinFunction.ItemFontMetrics }
+        /// `true` when text is selected.
+        @shadowable out property <bool> has-selection { BuiltinFunction.HasSelection }
 
 
         /// Selects the text between two UTF-8 offsets.
@@ -2427,6 +2490,7 @@ fn build(l: &mut Loader) {
 
     item! { Opacity {
         in property <float> opacity: 1;
+        in property <bool> wraps-backdrop-blur;
     } }
 
     element! {
@@ -2436,6 +2500,7 @@ fn build(l: &mut Loader) {
 
     item! { Layer: Empty {
         in property <bool> cache-rendering-hint;
+        in property <bool> wraps-backdrop-blur;
     } }
 
     element! {
@@ -4175,23 +4240,58 @@ fn build(l: &mut Loader) {
     }
 }
 
-/// Fill `register` with the builtin elements. It must already contain the basic types
-/// (string, int, ...), the builtin structs and enums.
+/// The builtin elements.
+/// A builtin [`TypeRegister`] takes them from here, so they're built once per process.
+pub(crate) struct BuiltinElements {
+    /// Every builtin element by name, including globals and those only accepted as a child.
+    elements: HashMap<SmolStr, Arc<BuiltinElement>>,
+    /// The elements accepted as a child of another one, only reachable through it.
+    children: HashSet<SmolStr>,
+    /// See [`TypeRegister::context_restricted_types`].
+    context_restricted_types: HashMap<SmolStr, HashSet<SmolStr>>,
+}
+
+pub(crate) static BUILTIN_ELEMENTS: std::sync::LazyLock<BuiltinElements> =
+    std::sync::LazyLock::new(|| {
+        let types = TypeRegister::with_builtin_types();
+        let mut loader = Loader {
+            types: &types,
+            items: HashMap::new(),
+            elements: HashMap::new(),
+            context_restricted_types: HashMap::new(),
+        };
+        build(&mut loader);
+        let Loader { elements, context_restricted_types, .. } = loader;
+        let children = elements
+            .values()
+            .flat_map(|element| element.additional_accepted_child_types.keys().cloned())
+            .collect();
+        BuiltinElements { elements, children, context_restricted_types }
+    });
+
+/// Fill `register` with the builtin elements of [`BUILTIN_ELEMENTS`].
 pub(crate) fn load(register: &mut TypeRegister) {
-    let mut loader = Loader { register, items: HashMap::new(), elements: HashMap::new() };
-    build(&mut loader);
-    let Loader { register, elements, .. } = loader;
-    // Elements that are accepted children of another one are only reachable through it.
-    let is_child = |name: &SmolStr| {
-        elements.values().any(|e| e.additional_accepted_child_types.contains_key(name))
-    };
-    for (name, element) in &elements {
+    let BuiltinElements { elements, children, context_restricted_types, .. } = &*BUILTIN_ELEMENTS;
+    register.context_restricted_types.extend(context_restricted_types.clone());
+    for (name, element) in elements {
         match name.as_str() {
             "Empty" => register.empty_type = ElementType::Builtin(element.clone()),
             "PropertyAnimation" => {
                 register.property_animation_type = ElementType::Builtin(element.clone())
             }
-            _ if !element.is_global && !is_child(name) => register.add_builtin(element.clone()),
+            _ if element.is_global => {
+                let global = Rc::new(Component {
+                    id: element.name.clone(),
+                    root_element: Rc::new(RefCell::new(Element {
+                        base_type: ElementType::Builtin(element.clone()),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                });
+                global.root_element.borrow_mut().enclosing_component = Rc::downgrade(&global);
+                register.add(global);
+            }
+            _ if !children.contains(name) => register.add_builtin(element.clone()),
             _ => {}
         }
     }

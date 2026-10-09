@@ -6,9 +6,12 @@ import "./assets/Inter-VariableFont.ttf";
 
 import { Api, EditorSurfaceMode, ElementKind, Hover } from "api.slint";
 import { Project } from "project.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
+import { Springboard, SpringboardState, SpringboardView } from "@springboard";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, EditorCursors, EditorWindow, SidebarToggleButton } from "components/index.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
 import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -23,8 +26,8 @@ import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
 export {
-    Api, EditorCursors, EditorWindow, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, Hover, Preview, Project,
+    Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, Hover, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -162,6 +165,13 @@ component NewFileErrorPopup inherits PopupWindow {
 }
 
 export component EditorUi inherits Window {
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !root.preview-editable {
+            AppState.cancel-active-drags();
+            FillSession.close-picker(false, false);
+        }
+    }
     private property <bool> palette-drag-in-outline: false;
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
@@ -186,6 +196,35 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    in property <length> left-pane-width-preference: 0px;
+    in property <length> inspector-pane-width-preference: 0px;
+    callback left-pane-resized(length);
+    callback inspector-pane-resized(length);
+    callback left-pane-reset();
+    callback inspector-pane-reset();
+    private property <length> dragged-left-width;
+    private property <length> dragged-inspector-width;
+    private property <length> width-at-press;
+    private property <length> requested-left-width: (root.dragged-left-width > 0px ? root.dragged-left-width
+        : root.left-pane-width-preference > 0px ? root.left-pane-width-preference : Style.panes.left-width)
+        .clamp(Style.panes.left-width, Style.panes.maximum-width);
+    private property <length> requested-inspector-width: (root.dragged-inspector-width > 0px ? root.dragged-inspector-width
+        : root.inspector-pane-width-preference > 0px ? root.inspector-pane-width-preference : Style.panes.inspector-width)
+        .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
+    private property <bool> inspector-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+    private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width;
+    private property <length> extra-left-width: root.requested-left-width - Style.panes.left-width;
+    private property <length> extra-inspector-width: root.inspector-visible
+        ? root.requested-inspector-width - Style.panes.inspector-width : 0px;
+    private property <float> width-scale: ((root.width-budget - Style.panes.left-width
+        - (root.inspector-visible ? Style.panes.inspector-width : 0px))
+        / max(1px, root.extra-left-width + root.extra-inspector-width)).clamp(0, 1);
+    private property <length> displayed-left-width: Style.panes.left-width + root.extra-left-width * root.width-scale;
+    private property <length> displayed-inspector-width: Style.panes.inspector-width + root.extra-inspector-width * root.width-scale;
+    private property <length> left-width-maximum: min(Style.panes.maximum-width, root.width-budget
+        - (root.inspector-visible ? root.displayed-inspector-width : 0px));
+    private property <length> inspector-width-maximum: min(Style.panes.maximum-width,
+        root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
     private property <string> new-file-error;
     private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
@@ -203,6 +242,7 @@ export component EditorUi inherits Window {
     }
 
     function apply-history(redo: bool) {
+        if !Diagnostics.preview-editable { return; }
         FillSession.apply-history(redo);
     }
 
@@ -349,7 +389,7 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
                     return accept;
                 }
@@ -392,6 +432,7 @@ export component EditorUi inherits Window {
                         vertical-stretch: 1;
 
                         if !root.sidebars-collapsed: LeftPane {
+                            width: root.displayed-left-width;
                             can-collapse: true;
                             elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
@@ -417,6 +458,7 @@ export component EditorUi inherits Window {
 
                             if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
                                 sidebars-collapsed: root.sidebars-collapsed;
+                                displayed-left-pane-width: root.displayed-left-width;
                             }
 
                             DragPreview {
@@ -427,7 +469,8 @@ export component EditorUi inherits Window {
                             }
                         }
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                        if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
+                            width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
                             }
@@ -443,6 +486,72 @@ export component EditorUi inherits Window {
                             }
                         }
                     }
+                }
+
+                if !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
+                    width: max(Metrics.border-width, Style.scroll-indicator.inset);
+                    x: canvas-viewport.absolute-position.x - parent.absolute-position.x - self.width;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
+                    z: 1;
+                    resize-label: @tr("Project pane resize");
+                    value: root.displayed-left-width;
+                    value-minimum: Style.panes.left-width;
+                    value-maximum: root.left-width-maximum;
+                    preferred-value: root.requested-left-width;
+                    preferred-maximum: Style.panes.maximum-width;
+                    drag-started => { root.width-at-press = root.requested-left-width; }
+                    dragged(delta) => {
+                        root.dragged-left-width = (root.width-at-press + delta)
+                            .clamp(Style.panes.left-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.left-pane-resized(root.requested-left-width); }
+                        root.dragged-left-width = 0px;
+                    }
+                    value-set(value) => { root.left-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-left-width = 0px;
+                        root.left-pane-reset();
+                    }
+                }
+
+                if root.inspector-visible && !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
+                    x: canvas-viewport.absolute-position.x + canvas-viewport.width - parent.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
+                    z: 1;
+                    resize-label: @tr("Inspector pane resize");
+                    reversed: true;
+                    value: root.displayed-inspector-width;
+                    value-minimum: Style.panes.inspector-width;
+                    value-maximum: root.inspector-width-maximum;
+                    preferred-value: root.requested-inspector-width;
+                    preferred-maximum: Style.panes.maximum-width;
+                    drag-started => { root.width-at-press = root.requested-inspector-width; }
+                    dragged(delta) => {
+                        root.dragged-inspector-width = (root.width-at-press - delta)
+                            .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.inspector-pane-resized(root.requested-inspector-width); }
+                        root.dragged-inspector-width = 0px;
+                    }
+                    value-set(value) => { root.inspector-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-inspector-width = 0px;
+                        root.inspector-pane-reset();
+                    }
+                }
+
+                if Springboard.state != SpringboardState.Stopped: SpringboardView {
+                    x: parent.width - self.width - 12px;
+                    y: Style.shell.top-bar-height;
+                    width: 260px;
+                    height: 300px;
+                    background: Colors.background;
                 }
 
                 if root.sidebars-collapsed: Rectangle {
