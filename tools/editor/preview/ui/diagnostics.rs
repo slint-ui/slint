@@ -191,6 +191,7 @@ pub(in crate::preview) fn set_compilation_diagnostics(
             preview_state.clear_preview();
             preview_state.set_preview_availability(ui::PreviewAvailability::NoComponent);
         } else if !has_component {
+            preview_state.reset_preview_overrides();
             preview_state.set_preview_availability(
                 if preview_state.component_instance().is_some() {
                     ui::PreviewAvailability::Stale

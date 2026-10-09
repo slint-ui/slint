@@ -322,6 +322,16 @@ impl PreviewState {
         }
     }
 
+    fn reset_preview_overrides(&mut self) {
+        self.inspector_edit = None;
+        for property in (*self.debug_hook_overrides).borrow().values() {
+            property.as_ref().set(None);
+        }
+        if let Some(instance) = self.component_instance() {
+            instance.window().request_redraw();
+        }
+    }
+
     fn clear_preview(&mut self) {
         self.property_range_declarations = None;
         self.handle.replace(None);
@@ -3784,6 +3794,68 @@ export component Main {
             preview_state.debug_hook_overrides.clone()
         });
         install_debug_hook_callback(instance, overrides);
+    }
+
+    #[test]
+    fn stale_preview_restores_compiled_values_after_temporary_overrides() {
+        let editor = availability_test_editor();
+        apply_availability_test_source(&editor, ROTATED_SOURCE, true);
+        let instance = component_instance().unwrap();
+        let node = element_node_of(&instance, "inner");
+        let before = geometry_of(&instance, "inner");
+        override_selected_element_geometry_impl(
+            &node,
+            0,
+            before.rect.origin.x + 10.,
+            before.rect.origin.y,
+            before.rect.width(),
+            before.rect.height(),
+        );
+        let overridden = geometry_of(&instance, "inner");
+        assert_ne!(overridden.local_rect, before.local_rect);
+
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        element_selection::restore_selection(
+            ElementSelection { path, offset: element_offset("inner").into(), instance_index: 0 },
+            SelectionNotification::Never,
+        );
+        assert!(override_selected_element_rotation_impl(&node, 0, before.angle + 10.).is_some());
+        let (path, offset) = node.path_and_offset();
+        let url = path.to_url().unwrap();
+        let version = document_cache().unwrap().document_version(&url).unwrap();
+        let generation = editor.global::<ui::Api>().get_inspector_generation();
+        let key = format!("{url}:{version}:{}:0:{generation}", u32::from(offset));
+        assert!(inspector::preview(key.into(), "transform-rotation".into(), 60.));
+        assert_ne!(geometry_of(&instance, "inner").transform_rotation, before.transform_rotation);
+
+        apply_availability_test_source(&editor, "export component Main { invalid }", true);
+        assert_eq!(
+            editor.global::<ui::Diagnostics>().get_preview_availability(),
+            ui::PreviewAvailability::Stale,
+        );
+        assert!(component_instance().is_some());
+        let restored = geometry_of(&instance, "inner");
+        assert_eq!(restored.local_rect, before.local_rect);
+        assert_eq!(restored.transform_rotation, before.transform_rotation);
+        PREVIEW_STATE.with_borrow(|state| {
+            assert!(state.inspector_edit.is_none());
+            assert!(
+                (*state.debug_hook_overrides)
+                    .borrow()
+                    .values()
+                    .all(|property| property.as_ref().get().is_none())
+            );
+        });
+        inspector::cancel();
+        assert_eq!(geometry_of(&instance, "inner").local_rect, before.local_rect);
+        assert_eq!(geometry_of(&instance, "inner").transform_rotation, before.transform_rotation);
+
+        apply_availability_test_source(&editor, ROTATED_SOURCE, true);
+        assert_eq!(
+            editor.global::<ui::Diagnostics>().get_preview_availability(),
+            ui::PreviewAvailability::Current,
+        );
+        reset_preview_state(Default::default());
     }
 
     #[test]
