@@ -74,4 +74,3 @@ Use `PLAN_START_DELAY_MS=1500`, `PLAN_LEAD_IN_MS=300`, `INPUT_TRACE=0`, Cupertin
 | `case05-delay0100-trial3` | `0:39000;0.1:36000` | 3100 |
 
 Set the scenario with `SCROLL_SCENARIO`, commands with `SCROLL_TO_COMMANDS`, and save delay with `TRACE_SAVE_DELAY_MS`.
-
