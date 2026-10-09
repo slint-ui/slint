@@ -3,6 +3,8 @@ title: Coding Standards
 description: The Rust coding standards Slint SC follows, and what enforces each one.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 A coding standard that isn't checked is a wish, so each rule below names what enforces it.
 The rules differ between the two parts of Slint SC.
 The runtime ships inside the customer's binary, while the compiler only produces source code for the customer's build.
@@ -18,6 +20,8 @@ The runtime ships inside the customer's binary, while the compiler only produces
 | No shadowing of names. | `#![forbid(clippy::shadow_same, clippy::shadow_reuse, clippy::shadow_unrelated)]` at the crate root, checked by the CI clippy run. |
 
 ### Design Principles
+
+<Addresses>ISO 26262-6 8.4.5, Table 6</Addresses>
 
 ISO 26262-6 Table 6 lists design principles for software units.
 The runtime applies each principle the table recommends at ASIL B.

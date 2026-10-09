@@ -3,6 +3,8 @@ title: Standards Compliance
 description: The standard Slint SC targets, and which clause is addressed where.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 This chapter names the standard Slint SC targets, and the integrity level Slint SC is developed for.
 The [Norm Mapping](/norm-mapping/) maps each requirement of ISO 26262 to the part of this manual that meets it.
 
@@ -14,6 +16,8 @@ Every clause number in this manual refers to that edition.
 Nothing in this manual is specific to one application domain.
 
 ## Safety Requirements
+
+<Addresses>ISO 26262-8 Clause 6</Addresses>
 
 The standard tells us what properties a safety-critical system must have, such as traceability, freedom from interference, and determinism.
 The standard doesn't tell us how to write requirements with those properties for a GUI toolkit.
@@ -40,6 +44,8 @@ ASIL D is the highest level, C is high, B is medium, and A is low; QM means not 
 Where an application isn't safety related at all, the integrator can use the full Slint framework instead, and none of this manual applies.
 
 ## Tailoring
+
+<Addresses>ISO 26262-2 6.4.5</Addresses>
 
 ### Impact Analysis
 

@@ -3,12 +3,16 @@ title: Coverage Criteria
 description: How code coverage is measured, and the level we hold it at.
 ---
 
+import Addresses from '../../../components/Addresses.astro';
+
 Slint SC must support headless or offline automated testing frameworks capable of running on CI/CD pipelines to verify layout engines, event propagation, and state transitions.
 
 Code coverage is measured with LLVM source-based coverage via `cargo-llvm-cov`.
 The [Test Coverage](/qualification-report/test-coverage/) chapter of the qualification report shows the measured coverage of the current test suite.
 
 ## Metrics
+
+<Addresses>ISO 26262-6 9.4.4</Addresses>
 
 ISO 26262-6:2018 Table 9 lists the structural coverage metrics at the software unit level:
 
