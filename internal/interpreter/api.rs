@@ -4,6 +4,7 @@
 // cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_compiler::source_path::SourcePath;
+use i_slint_core::Coord;
 use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
@@ -128,7 +129,7 @@ pub enum Value {
     /// FIXME: consider representing that with a number?
     EnumerationValue(String, String) = 10,
     #[doc(hidden)]
-    LayoutCache(SharedVector<f32>) = 11,
+    ArrayOfCoord(SharedVector<Coord>) = 11,
     #[doc(hidden)]
     /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
@@ -187,7 +188,7 @@ impl PartialEq for Value {
             Value::EnumerationValue(lhs_name, lhs_value) => {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
-            Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
+            Value::ArrayOfCoord(lhs) => matches!(other, Value::ArrayOfCoord(rhs) if lhs == rhs),
             Value::ArrayOfU16(lhs) => matches!(other, Value::ArrayOfU16(rhs) if lhs == rhs),
             Value::ComponentFactory(lhs) => {
                 matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
@@ -226,7 +227,7 @@ impl std::fmt::Debug for Value {
             Value::PathData(e) => write!(f, "Value::PathElements({e:?})"),
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({c:?})"),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({n:?}, {v:?})"),
-            Value::LayoutCache(v) => write!(f, "Value::LayoutCache({v:?})"),
+            Value::ArrayOfCoord(v) => write!(f, "Value::ArrayOfCoord({v:?})"),
             Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({factory:?})"),
             Value::StyledText(text) => write!(f, "Value::StyledText({text:?})"),
             Value::ArrayOfU16(data) => {
@@ -275,7 +276,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
-declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
+declare_value_conversion!(ArrayOfCoord => [SharedVector<Coord>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );

@@ -206,16 +206,8 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         }
         Type::Keys => Some(quote!(sp::Keys)),
         Type::Brush => Some(quote!(slint::Brush)),
-        Type::LayoutCache => Some(quote!(
-            sp::SharedVector<
-                sp::Coord,
-            >
-        )),
-        Type::ArrayOfU16 => Some(quote!(
-            sp::SharedVector<
-                u16,
-            >
-        )),
+        Type::ArrayOfCoord => Some(quote!(sp::SharedVector<sp::Coord>)),
+        Type::ArrayOfU16 => Some(quote!(sp::SharedVector<u16>)),
         _ => None,
     }
 }
@@ -3601,7 +3593,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::RadialGradient { .. }
             | Expression::ConicGradient { .. }
             | Expression::EnumerationValue(..)
-            | Expression::Closure { .. } => true,
+            | Expression::Closure { .. }
+            | Expression::DashArray(..) => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3905,6 +3898,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote! {
                 |#arg_name| {#expression}
             }
+        }
+        Expression::DashArray(dash_array) => {
+            quote!(sp::SharedVector::<sp::Coord>::from_slice(&[#((#dash_array) as sp::Coord),*]))
         }
         // Generated code has no debug hooks; use the wrapped expression.
         Expression::DebugHook { expression, .. } => compile_expression(expression, ctx),

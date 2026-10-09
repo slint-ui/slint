@@ -380,6 +380,8 @@ pub enum Expression {
         expression: Box<Expression>,
     },
 
+    DashArray(Vec<f32>),
+
     /// Wraps a binding so the live-preview can observe or override its value.
     /// Only present when the `debug_hooks` compiler option is enabled.
     DebugHook {
@@ -409,7 +411,7 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache
+            | Type::ArrayOfCoord
             | Type::ArrayOfU16
             | Type::Closure => return None,
             Type::Float32
@@ -529,7 +531,7 @@ impl Expression {
             Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
-            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
+            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::ArrayOfCoord,
             Self::BoxLayoutInfoOrthoWithMeasure { .. } => {
                 crate::typeregister::layout_info_type().into()
             }
@@ -542,6 +544,7 @@ impl Expression {
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
             Self::Closure { .. } => Type::Closure,
+            Self::DashArray(_) => Type::ArrayOfCoord,
             Self::DebugHook { expression, .. } => expression.ty(ctx),
         }
     }
@@ -758,6 +761,7 @@ macro_rules! visit_impl {
             Expression::Closure { expression, .. } => {
                 $visitor(expression);
             }
+            Expression::DashArray(_) => {}
             Expression::DebugHook { expression, id: _ } => $visitor(expression),
         }
     };
@@ -1166,6 +1170,9 @@ impl<'a, T> EvaluationContext<'a, T> {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
+                }
+                if prop_name == "stroke-dash-array" {
+                    return &Type::ArrayOfCoord;
                 }
                 let item = &sc.items[*item_index];
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {

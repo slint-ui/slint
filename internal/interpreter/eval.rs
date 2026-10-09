@@ -654,7 +654,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Easing
         | Type::ElementReference
         | Type::ArrayOfU16
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::Closure => Value::Void,
     }
 }
@@ -1110,6 +1110,9 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
+        Expression::DashArray(dash_array) => {
+            Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
+        }
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
@@ -1828,7 +1831,7 @@ fn layout_cache_access(
     entries_per_item: usize,
 ) -> Value {
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             if let Some(ri) = repeater_index {
                 let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
                 Value::Number(
@@ -1876,7 +1879,7 @@ fn grid_repeater_cache_access(
         if data_idx < slice_len { Value::Number(read(data_idx)) } else { Value::Number(0.) }
     };
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             let base = cache.get(index).copied().unwrap_or(0.) as usize;
             let data_idx = base + repeater_index * stride + child_offset + inner_offset;
             get(data_idx, cache.len(), &|i| cache[i] as f64)

@@ -68,8 +68,8 @@ pub enum Type {
 
     ElementReference,
 
-    /// This is a `SharedArray<f32>`
-    LayoutCache,
+    /// This is a `SharedVector<Coord>`
+    ArrayOfCoord,
     /// This is used by GridLayoutOrganizedData
     ArrayOfU16,
 
@@ -117,7 +117,7 @@ impl core::cmp::PartialEq for Type {
             Type::Keys => matches!(other, Type::Keys),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
-            Type::LayoutCache => matches!(other, Type::LayoutCache),
+            Type::ArrayOfCoord => matches!(other, Type::ArrayOfCoord),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
@@ -179,7 +179,7 @@ impl Display for Type {
                 write!(f, "({})", x.join("×"))
             }
             Type::ElementReference => write!(f, "element ref"),
-            Type::LayoutCache => write!(f, "layout cache"),
+            Type::ArrayOfCoord => write!(f, "[coord]"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
             Type::Closure => write!(f, "closure"),
@@ -353,7 +353,7 @@ impl Type {
             Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
-            Type::LayoutCache => None,
+            Type::ArrayOfCoord => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
             Type::Closure => None,

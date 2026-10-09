@@ -759,6 +759,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
                 write!(f, "({}) => {}", display_name, e(expression))
             }
+            Expression::DashArray(dash_array) => write!(f, "dash-array({dash_array:?})"),
             Expression::DebugHook { expression, id } => {
                 write!(f, "debug-hook({id:?}, {})", DisplayExpression(expression, ctx))
             }
