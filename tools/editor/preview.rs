@@ -595,6 +595,31 @@ fn record_current_project() {
         Some(preview_state.settings.serialize())
     });
     let Some(contents) = update else { return };
+    send_settings_update(contents);
+}
+
+/// Returns `false` when no editor session is running.
+pub(crate) fn clear_recent_projects() -> bool {
+    let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        let editor_ui = preview_state.editor_ui.as_ref()?;
+        let changed = preview_state.settings.clear_recent_projects();
+        apply_visible_recent_projects(editor_ui, &preview_state.settings);
+        Some(changed.then(|| preview_state.settings.serialize()))
+    });
+    let Some(update) = update else { return false };
+    if let Some(contents) = update {
+        send_settings_update(contents);
+    }
+    true
+}
+
+pub(crate) fn session_settings() -> Option<VisualEditorSettings> {
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        preview_state.editor_ui.is_some().then(|| preview_state.settings.clone())
+    })
+}
+
+fn send_settings_update(contents: String) {
     PREVIEW_STATE.with_borrow(|preview_state| {
         if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref()
             && let Err(error) = to_lsp.send(&PreviewToLspMessage::UpdateUserSettings {
