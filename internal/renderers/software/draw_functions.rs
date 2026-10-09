@@ -389,33 +389,34 @@ impl core::ops::Mul for Shifted {
 }
 
 /// The radius of the left and right corner that `line` crosses (0 if none),
-/// and the distance of `line` from the nearest horizontal edge of `shape`.
+/// each with the distance of `line` from that corner's horizontal edge of `shape`,
+/// and the distance of `line` from the nearest horizontal edge.
 fn corner_radii_on_line(
     span: &PhysicalRect,
     line: PhysicalLength,
     shape: &super::RoundedShape,
-) -> (i16, i16, i16) {
+) -> ((i16, i16), (i16, i16), i16) {
     let y1 = (line - span.origin.y_length()) + shape.top_clip;
     let y2 = (span.origin.y_length() + span.size.height_length() - line) + shape.bottom_clip
         - PhysicalLength::new(1);
-    let y = y1.min(y2);
-    debug_assert!(y.get() >= 0);
+    let y = y1.min(y2).get();
+    debug_assert!(y >= 0);
     let r = &shape.radius;
     let left = if y1.get() < r.top_left {
-        r.top_left
+        (r.top_left, y1.get())
     } else if y2.get() < r.bottom_left {
-        r.bottom_left
+        (r.bottom_left, y2.get())
     } else {
-        0
+        (0, 0)
     };
     let right = if y1.get() < r.top_right {
-        r.top_right
+        (r.top_right, y1.get())
     } else if y2.get() < r.bottom_right {
-        r.bottom_right
+        (r.bottom_right, y2.get())
     } else {
-        0
+        (0, 0)
     };
-    (left, right, y.get())
+    (left, right, y)
 }
 
 /// Where a pixel line crosses a circle of radius `circle`,
@@ -449,7 +450,8 @@ pub(super) fn draw_rounded_rectangle_line(
 ) {
     let width = line_buffer.len();
     let shape = &rr.shape;
-    let (left_radius, right_radius, y) = corner_radii_on_line(span, line, shape);
+    let ((left_radius, left_y), (right_radius, right_y), y) =
+        corner_radii_on_line(span, line, shape);
     let border = Shifted::new(rr.width.get());
     let anti_alias = |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
         // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
@@ -463,21 +465,34 @@ pub(super) fn draw_rounded_rectangle_line(
         (Shifted::new(width) + Shifted::new(shape.right_clip.get() + extra_right_clip))
             .saturating_sub(x)
     };
-    let calculate_xxxx = |r: i16| {
+    let calculate_xxxx = |r: i16, y: i16| {
         if r == 0 {
             return (Shifted::ZERO, Shifted::ZERO, border, border);
         }
         let r = Shifted::new(r);
         let y = r - Shifted::new(y);
         let (x1, x2) = arc_crossing(r, r, y);
+        if border == Shifted::ZERO {
+            return (x1, x2, x1, x2);
+        }
         let (x3, x4) = arc_crossing(r, r.saturating_sub(border), y);
         (x1, x2, x3, x4)
     };
 
-    let (x1, x2, x3, x4) = calculate_xxxx(left_radius);
-    let (x8, x7, x6, x5) =
-        if right_radius == left_radius { (x1, x2, x3, x4) } else { calculate_xxxx(right_radius) };
+    let (x1, x2, x3, x4) = calculate_xxxx(left_radius, left_y);
+    let (x8, x7, x6, x5) = if (right_radius, right_y) == (left_radius, left_y) {
+        (x1, x2, x3, x4)
+    } else {
+        calculate_xxxx(right_radius, right_y)
+    };
     let (x5, x6, x7, x8) = (rev(x5), rev(x6), rev(x7), rev(x8));
+    // A corner wider than half the rectangle reaches past the opposite side's border.
+    // `rev` gives line buffer positions, while the left side's are relative to the rectangle.
+    let left_clip = Shifted::new(shape.left_clip.get() + extra_left_clip);
+    let x4 = x4.min(x6 + left_clip);
+    let x3 = x3.min(x4);
+    let x5 = x5.max(x3.saturating_sub(left_clip));
+    let x6 = x6.max(x5);
     anti_alias(
         x1.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
         x2.saturating_sub(Shifted::new(shape.left_clip.get() + extra_left_clip)),
@@ -718,8 +733,11 @@ pub(super) fn draw_gradient_line<T: TargetPixel>(
 ) {
     let clip = g.clip();
     let shape = &clip.shape;
-    let (left_radius, right_radius, y) =
-        if shape.radius.is_zero() { (0, 0, 0) } else { corner_radii_on_line(rect, line, shape) };
+    let ((left_radius, left_y), (right_radius, right_y), _) = if shape.radius.is_zero() {
+        ((0, 0), (0, 0), 0)
+    } else {
+        corner_radii_on_line(rect, line, shape)
+    };
     if left_radius == 0 && right_radius == 0 {
         g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
         return;
@@ -732,15 +750,19 @@ pub(super) fn draw_gradient_line<T: TargetPixel>(
     let shape_width =
         Shifted::new(len as u32 + left_offset + (shape.right_clip.get() + extra_right_clip) as u32);
     let border = Shifted::new(clip.opaque_border.get());
-    let arc = |r: i16| {
+    let arc = |r: i16, y: i16| {
         if r == 0 {
             return (Shifted::ZERO, Shifted::ZERO);
         }
         let r = Shifted::new(r);
         arc_crossing(r, r.saturating_sub(border), r - Shifted::new(y))
     };
-    let (l1, l2) = arc(left_radius);
-    let (r2, r1) = if right_radius == left_radius { (l1, l2) } else { arc(right_radius) };
+    let (l1, l2) = arc(left_radius, left_y);
+    let (r2, r1) = if (right_radius, right_y) == (left_radius, left_y) {
+        (l1, l2)
+    } else {
+        arc(right_radius, right_y)
+    };
     let (r1, r2) = (shape_width.saturating_sub(r1), shape_width.saturating_sub(r2));
 
     let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);
@@ -989,32 +1011,64 @@ fn draw_conic_gradient(
     let center_y = rect.min_y() as f32 + g.center_y - 0.5;
 
     let start_x = rect.min_x() + extra_left_clip;
-    let y = line.get() as f32;
+    let dy = line.get() as f32 - center_y;
+
+    // In turns, so that 0 is north, then normalized to [0, 1].
+    let mut offset = 0.25 - g.rotation / core::f32::consts::TAU;
+    offset -= offset as i32 as f32;
+    if offset < 0. {
+        offset += 1.;
+    }
 
     for (i, pixel) in buffer.iter_mut().enumerate() {
-        let x = (start_x + i as i16) as f32;
-
-        // Calculate angle from center to current pixel
-        let dx = x - center_x;
-        let dy = y - center_y;
-
-        // atan2 returns angle in radians from -π to π
-        // For 0deg at north (12 o'clock), we need to rotate by -90 degrees
-        let mut angle = dy.atan2(dx) + core::f32::consts::FRAC_PI_2 - g.rotation;
-
-        // Normalize angle to [0, 2π]
-        while angle < 0.0 {
-            angle += 2.0 * core::f32::consts::PI;
-        }
-        while angle >= 2.0 * core::f32::consts::PI {
-            angle -= 2.0 * core::f32::consts::PI;
-        }
-
-        // Convert to position in [0, 1]
-        let position = angle / (2.0 * core::f32::consts::PI);
-
+        let dx = (start_x + i as i16) as f32 - center_x;
+        // position is in the range [-0.5, 1.5]
+        let position = atan2_turns(dy, dx) + offset;
+        // bits for integer compares
+        let bits = position.to_bits();
+        let position = if bits >> 31 != 0 {
+            // move the range in [-0.5, 0.0] to [0.5, 1.0]
+            position + 1.
+        } else if bits >= 1f32.to_bits() {
+            // move the range in [1.0, 1.5] to [0.0, 0.5]
+            position - 1.
+        } else {
+            position
+        };
+        // position is in [0, 1]
         blend_stops(&g.stops, pixel, position);
     }
+}
+
+/// `atan2(y, x)` in turns, between -0.5 and 0.5, accurate to 6.1e-4 rad.
+///
+/// Comparisons are done with bits as floating point ops are slow without an FPU.
+fn atan2_turns(y: f32, x: f32) -> f32 {
+    // A minimax fit of atan(t) for t in [0, 1], divided by 2π.
+    const C1: f32 = 0.9953579 / core::f32::consts::TAU;
+    const C3: f32 = -0.28868982 / core::f32::consts::TAU;
+    const C5: f32 = 0.07933861 / core::f32::consts::TAU;
+
+    let (x_bits, y_bits) = (x.to_bits(), y.to_bits());
+    // mask out sign bit as positive floats compare like integers
+    let (abs_x, abs_y) = (x_bits & 0x7fff_ffff, y_bits & 0x7fff_ffff);
+    let (min, max) = if abs_x < abs_y { (abs_x, abs_y) } else { (abs_y, abs_x) };
+    if max == 0 {
+        return 0.;
+    }
+    let t = f32::from_bits(min) / f32::from_bits(max);
+    let t2 = t * t;
+    let mut turns = t * (C1 + t2 * (C3 + t2 * C5));
+    // if it is atan(x/y)
+    if abs_x < abs_y {
+        turns = 0.25 - turns;
+    }
+    if x_bits >> 31 != 0 {
+        // mirror across the y axis
+        turns = 0.5 - turns;
+    }
+    // check if y is negative and negate turns if so
+    if y_bits >> 31 != 0 { -turns } else { turns }
 }
 
 /// A color whose component have been pre-multiplied by alpha
@@ -1314,4 +1368,25 @@ fn rgb565_be_blend() {
     let mut be = Rgb565BigEndianPixel::from_rgb(255, 255, 255);
     be.blend(color);
     assert_eq!(le.0.swap_bytes(), be.0);
+}
+
+#[test]
+fn atan2_turns_accuracy() {
+    let check = |dy: f32, dx: f32| {
+        let exact = (dy as f64).atan2(dx as f64) / core::f64::consts::TAU;
+        let mut error = atan2_turns(dy, dx) as f64 - exact;
+        error -= error.round(); // -0.5 and 0.5 turns are the same direction
+        assert!(error.abs() * core::f64::consts::TAU < 6.2e-4, "dy {dy}, dx {dx}: error {error}");
+    };
+    for i in 0..100_000 {
+        let a = i as f64 / 100_000. * core::f64::consts::TAU;
+        check((a.sin() * 1000.) as f32, (a.cos() * 1000.) as f32);
+    }
+    for dy in -100..=100 {
+        for dx in -100..=100 {
+            check(dy as f32 - 0.25, dx as f32 + 0.5);
+        }
+    }
+    assert_eq!(atan2_turns(0., 0.), 0.);
+    assert_eq!(atan2_turns(-0., -0.), 0.);
 }
