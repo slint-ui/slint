@@ -415,16 +415,16 @@ export component InspectorPane inherits Rectangle {
 
     function image-fit-index() -> int {
         let value = Api.current-property-value("image-fit", "fill");
-        if value == "fill" {
+        if value == "fill" || value == "ImageFit.fill" {
             return 0;
         }
-        if value == "preserve" {
+        if value == "preserve" || value == "ImageFit.preserve" {
             return 1;
         }
-        if value == "contain" {
+        if value == "contain" || value == "ImageFit.contain" {
             return 2;
         }
-        if value == "cover" {
+        if value == "cover" || value == "ImageFit.cover" {
             return 3;
         }
         return -1;
@@ -437,13 +437,13 @@ export component InspectorPane inherits Rectangle {
 
     function image-horizontal-alignment-index() -> int {
         let value = Api.current-property-value("horizontal-alignment", "center");
-        if value == "left" {
+        if value == "left" || value == "ImageHorizontalAlignment.left" {
             return 0;
         }
-        if value == "center" {
+        if value == "center" || value == "ImageHorizontalAlignment.center" {
             return 1;
         }
-        if value == "right" {
+        if value == "right" || value == "ImageHorizontalAlignment.right" {
             return 2;
         }
         return -1;
@@ -451,13 +451,13 @@ export component InspectorPane inherits Rectangle {
 
     function image-vertical-alignment-index() -> int {
         let value = Api.current-property-value("vertical-alignment", "center");
-        if value == "top" {
+        if value == "top" || value == "ImageVerticalAlignment.top" {
             return 0;
         }
-        if value == "center" {
+        if value == "center" || value == "ImageVerticalAlignment.center" {
             return 1;
         }
-        if value == "bottom" {
+        if value == "bottom" || value == "ImageVerticalAlignment.bottom" {
             return 2;
         }
         return -1;
