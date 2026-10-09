@@ -350,6 +350,7 @@ fn setup(
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
@@ -451,11 +452,20 @@ fn send_slint_texture(
 }
 
 /// Renders the Slint UI to the shared GPU texture each frame.
-fn render_slint(slint_context: Option<NonSend<SlintContext>>, shared: Res<SlintSharedTexture>) {
+fn render_slint(
+    slint_context: Option<NonSend<SlintContext>>,
+    shared: Res<SlintSharedTexture>,
+    mut reported: Local<bool>,
+) {
     let Some(ctx) = slint_context else { return };
     slint::platform::update_timers_and_animations();
     if let Some(texture) = shared.texture.lock().unwrap().as_ref() {
-        let _ = ctx.adapter.renderer.render_to_texture(texture);
+        if let Err(err) = ctx.adapter.renderer.render_to_texture(texture) {
+            if !*reported {
+                error!("Error rendering the Slint UI: {err}");
+                *reported = true;
+            }
+        }
     }
 }
 
