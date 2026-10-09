@@ -20,7 +20,7 @@ Only you can rule that failure out.
 
 ## Assumptions of Use
 
-Slint SC meets its [assumed safety requirements](/component-documentation/assumed-safety-requirements/) only if each assumption below holds in your system.
+Slint SC meets its [assumed safety requirements](/runtime/assumed-safety-requirements/) only if each assumption below holds in your system.
 Confirm each assumption, and keep the evidence with your safety case.
 
 ### Integrity and Validation
@@ -28,7 +28,7 @@ Confirm each assumption, and keep the evidence with your safety case.
 | Identifier | Assumption | Why |
 | --- | --- | --- |
 | <span id="slint.aou.asil">`slint.aou.asil`</span> | The safety requirements you allocate to the user interface are ASIL B or lower. | Slint SC is developed to ASIL B; see [Integrity Level](/safety-plan/standards-compliance/#integrity-level). |
-| <span id="slint.aou.requirements">`slint.aou.requirements`</span> | The [assumed safety requirements](/component-documentation/assumed-safety-requirements/) cover what your safety concept needs from the user interface. | The assumed safety requirements come from an assumed use, not from your product. |
+| <span id="slint.aou.requirements">`slint.aou.requirements`</span> | The [assumed safety requirements](/runtime/assumed-safety-requirements/) cover what your safety concept needs from the user interface. | The assumed safety requirements come from an assumed use, not from your product. |
 | <span id="slint.aou.validation">`slint.aou.validation`</span> | You validate the finished system, as ISO 26262-4 Clause 8 asks. | Slint SC has no safety goals of its own to validate against. |
 | <span id="slint.aou.known-problems">`slint.aou.known-problems`</span> | You check the [Known Problems](/user-manual/known-problems/) of the release you use, and apply their workarounds. | A known problem is a failure no measure inside that release rules out. |
 
