@@ -395,3 +395,50 @@ def test_annotation_thread_agent_and_user_replies_save_send_and_persist(
         element(window, "Resolve thread 1").invoke_accessible_default_action()
         expect(query(window, "Reply message 3")).to_be_hidden()
         expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
+
+
+def test_mcp_resolves_whole_thread_and_preserves_other_annotations(
+    editor_binary, editor_environment, fixture_project
+):
+    source = fixture_project / "Main.slint"
+    original = source.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, original)
+        window = first_window(editor)
+        save_annotation(window, "root-rectangle", "Round the corners.")
+        save_annotation(window, "root-image", "Keep the image aligned.")
+        select_outline_row(window, "root-rectangle")
+        call_editor_tool(
+            editor_binary,
+            fixture_project,
+            "reply_visual_editor_annotation",
+            annotationId="1",
+            provider="codex",
+            text="The corners are rounded.",
+        )
+        element(window, "Reply to thread 1").invoke_accessible_default_action()
+        element(window, "Reply text").accessible_value = "That works."
+        element(window, "Save reply").invoke_accessible_default_action()
+        pending = element(window, "Send pending annotations")
+        expect(pending).to_have_value("3")
+        call_editor_tool(
+            editor_binary,
+            fixture_project,
+            "resolve_visual_editor_annotation",
+            annotationId="1",
+        )
+        expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
+        expect(query(window, "Reply message 4")).to_be_hidden()
+        expect(query(window, "Annotations for root-image")).to_be_visible()
+        expect(pending).to_have_value("1")
+        assert source.read_bytes() == original
+
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, original)
+        window = first_window(editor)
+        expect(query(window, "Annotations for root-rectangle")).to_be_hidden()
+        select_outline_row(window, "root-image")
+        expect(element(window, "Annotation message 2")).to_have_value(
+            "Keep the image aligned."
+        )
+        expect(element(window, "Send pending annotations")).to_have_value("1")

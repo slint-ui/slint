@@ -384,12 +384,18 @@ impl EditorAnnotations {
         Ok(message_id)
     }
 
-    fn remove(&mut self, id: &str) {
-        let old_length = self.annotations.len();
-        self.annotations.retain(|annotation| annotation.snapshot.id != id);
-        if self.annotations.len() != old_length {
-            self.persist();
+    fn remove(&mut self, id: &str) -> Result<(), String> {
+        let index = self
+            .annotations
+            .iter()
+            .position(|annotation| annotation.snapshot.id == id)
+            .ok_or_else(|| format!("Unknown annotation thread: {id}"))?;
+        let removed = self.annotations.remove(index);
+        if !self.persist() {
+            self.annotations.insert(index, removed);
+            return Err("Could not save the resolved annotation thread.".into());
         }
+        Ok(())
     }
 
     fn visible(&self, selection: &SourceElement) -> Vec<ui::EditorAnnotation> {
@@ -3251,6 +3257,14 @@ fn annotation_request(request: EditorRequest) -> Result<EditorResponse, String> 
         let result = PREVIEW_STATE.with_borrow_mut(|state| match request {
             EditorRequest::CanvasScreenshot { .. } => unreachable!(),
             EditorRequest::Ping => Ok(EditorResponse::Pong),
+            EditorRequest::ResolveAnnotation { project_root, annotation_id } => {
+                if state.annotations.project_root != project_root {
+                    return Err("The editor changed projects. Discover editors again.".into());
+                }
+                state.annotations.remove(&annotation_id)?;
+                set_visible_element_annotations(state, state.selected.as_ref());
+                Ok(EditorResponse::AnnotationResolved { annotation_id })
+            }
             EditorRequest::ReplyAnnotation { project_root, annotation_id, text, provider } => {
                 if state.annotations.project_root != project_root {
                     return Err("The editor changed projects. Discover editors again.".into());
@@ -3426,7 +3440,9 @@ fn add_annotation_reply(id: SharedString, text: SharedString) {
 fn remove_element_annotation(id: SharedString) {
     let selection = selected_element();
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.annotations.remove(id.as_str());
+        if let Err(error) = preview_state.annotations.remove(id.as_str()) {
+            preview_state.annotations.send_error = error;
+        }
         set_visible_element_annotations(preview_state, selection.as_ref());
     });
 }
@@ -4587,7 +4603,7 @@ export component Main {
         assert_eq!(delivery.annotations.len(), 1);
         let thread = &delivery.annotations[0];
         assert_eq!(thread.snapshot.id, "1");
-        assert_eq!(thread.pending_message_ids, [user_reply.clone()]);
+        assert_eq!(thread.pending_message_ids, std::slice::from_ref(&user_reply));
         assert_eq!(
             thread
                 .conversation
@@ -4630,6 +4646,25 @@ export component Main {
                 .unwrap_err()
                 .contains("empty")
         );
+    }
+
+    #[test]
+    fn resolving_an_annotation_removes_its_whole_thread_and_persists_other_threads() {
+        let project = tempfile::tempdir().unwrap();
+        let mut annotations = annotations_for_source(
+            project.path(),
+            "export component Main inherits Rectangle { child := Text {} }",
+        );
+        for author in [AnnotationAuthor::Codex, AnnotationAuthor::User] {
+            annotations.add_reply("1", "Thread reply".into(), author).unwrap();
+        }
+        annotations.remove("1").unwrap();
+        let restored = EditorAnnotations::new(project.path());
+        assert_eq!(restored.annotations.len(), 1);
+        assert_eq!(restored.annotations[0].snapshot.id, "2");
+        assert!(restored.annotations[0].replies.is_empty());
+        assert_eq!(restored.pending_count(), 1);
+        assert!(annotations.remove("1").unwrap_err().contains("Unknown annotation thread"));
     }
 
     #[test]
@@ -4790,9 +4825,9 @@ printf '%s\n' "$@" > '{}'
         assert!(!markers[0].unread);
         assert!(markers[1].unread);
 
-        annotations.remove("1");
+        annotations.remove("1").unwrap();
         assert_eq!(annotations.markers()[0].count, 1);
-        annotations.remove("3");
+        annotations.remove("3").unwrap();
         assert!(annotations.visible(&first_element).is_empty());
         assert_eq!(annotations.visible(&second_element)[0].id, "2");
         assert_eq!(annotations.markers().len(), 1);

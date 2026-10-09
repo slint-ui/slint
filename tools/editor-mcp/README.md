@@ -52,3 +52,9 @@ User replies are saved first and sent individually or with the project pending b
 Each delivery includes the thread's source context, chronological conversation, and `pendingMessageIds` identifying the new user messages.
 Codex replies aren't queued back to the chat.
 Resolving a thread in the editor removes the original annotation and all replies.
+
+Call `resolve_visual_editor_annotation` with `workingDirectory`, `annotationId`, and an optional `instanceId` to remove a thread and all replies.
+Only resolve once the issue is definitively addressed and no open questions remain.
+Otherwise, reply or ask a question and leave the thread open.
+Resolved threads are removed from persistence; there's no history or reopening.
+Reply and resolution reject unknown annotation IDs.

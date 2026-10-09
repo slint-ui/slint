@@ -11,6 +11,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 const DISCOVER_TOOL: &str = "discover_visual_editors";
+const RESOLVE_TOOL: &str = "resolve_visual_editor_annotation";
 const REPLY_TOOL: &str = "reply_visual_editor_annotation";
 const SCREENSHOT_TOOL: &str = "screenshot_visual_editor_canvas";
 const REGISTER_TOOL: &str = "register_visual_editor_chat";
@@ -44,11 +45,11 @@ fn handle_request(request_text: &str) -> Option<Value> {
             "protocolVersion": "2025-06-18",
             "capabilities": { "tools": {} },
             "serverInfo": { "name": "slint-editor-mcp", "version": env!("CARGO_PKG_VERSION") },
-            "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor. Use the canvas screenshot tool to inspect the current view and reply to annotation threads by ID."
+            "instructions": "Discover an editor within the current working directory, then register this chat to receive annotations sent from the editor. Use the canvas screenshot tool to inspect the current view and reply to annotation threads by ID. Treat pendingMessageIds as new user feedback and earlier conversation as context. Resolve a thread only once the issue is definitively addressed and no open questions remain; otherwise reply or ask and leave it open."
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(
-            json!({ "tools": [discover_tool(), register_tool(), screenshot_tool(), reply_tool()] }),
+            json!({ "tools": [discover_tool(), register_tool(), screenshot_tool(), reply_tool(), resolve_tool()] }),
         ),
         "tools/call" => call_tool(request.get("params")),
         "notifications/initialized" => return None,
@@ -101,6 +102,53 @@ fn register_tool() -> Value {
         },
         "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false }
     })
+}
+
+fn resolve_tool() -> Value {
+    json!({
+        "name": RESOLVE_TOOL,
+        "description": "Remove an annotation thread and all its replies by ID. Only resolve once the issue is definitively addressed and no open questions remain; otherwise reply or ask and leave the thread open. Supply instanceId when multiple editors match.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workingDirectory": { "type": "string" },
+                "instanceId": { "type": "string" },
+                "annotationId": { "type": "string" }
+            },
+            "required": ["workingDirectory", "annotationId"],
+            "additionalProperties": false
+        },
+        "annotations": { "readOnlyHint": false, "destructiveHint": true, "idempotentHint": false, "openWorldHint": false }
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ResolutionArguments {
+    #[serde(flatten)]
+    editor: EditorArguments,
+    annotation_id: String,
+}
+
+fn resolve_annotation(arguments: &Value) -> Result<Value, String> {
+    let arguments: ResolutionArguments =
+        serde_json::from_value(arguments.clone()).map_err(|error| error.to_string())?;
+    let editors = discover_editors(&arguments.editor.working_directory)?;
+    let editor = select_editor(&editors, arguments.editor.instance_id.as_deref())?;
+    let response = editor_rpc(
+        &editor,
+        &arguments.editor.working_directory,
+        EditorRequest::ResolveAnnotation {
+            project_root: editor.project_root.clone(),
+            annotation_id: arguments.annotation_id,
+        },
+    )?;
+    let EditorResponse::AnnotationResolved { annotation_id } = response else {
+        return Err("Unexpected editor resolution response".into());
+    };
+    Ok(
+        json!({ "content": [{ "type": "text", "text": format!("Resolved annotation thread {annotation_id}.") }] }),
+    )
 }
 
 fn reply_tool() -> Value {
@@ -206,6 +254,7 @@ fn call_tool(params: Option<&Value>) -> Result<Value, String> {
         REGISTER_TOOL => register(&arguments),
         SCREENSHOT_TOOL => canvas_screenshot(&arguments),
         REPLY_TOOL => reply_annotation(&arguments),
+        RESOLVE_TOOL => resolve_annotation(&arguments),
         _ => return Err(format!("Unknown tool: {name}")),
     };
     Ok(result.unwrap_or_else(
@@ -284,11 +333,12 @@ mod tests {
         assert_eq!(initialized["result"]["capabilities"], json!({ "tools": {} }));
         let response = handle_request(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).unwrap();
         let tools = response["result"]["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 4);
+        assert_eq!(tools.len(), 5);
         assert_eq!(tools[0]["name"], DISCOVER_TOOL);
         assert_eq!(tools[1]["name"], REGISTER_TOOL);
         assert_eq!(tools[2]["name"], SCREENSHOT_TOOL);
         assert_eq!(tools[3]["name"], REPLY_TOOL);
+        assert_eq!(tools[4]["name"], RESOLVE_TOOL);
         assert!(tools.iter().all(|tool| tool.get("_meta").is_none()));
         for method in ["resources/list", "resources/read"] {
             let response = handle_request(&json!({"id":3,"method":method}).to_string()).unwrap();

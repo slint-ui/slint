@@ -89,6 +89,10 @@ pub enum EditorRequest {
     CanvasScreenshot {
         project_root: PathBuf,
     },
+    ResolveAnnotation {
+        project_root: PathBuf,
+        annotation_id: String,
+    },
     ReplyAnnotation {
         project_root: PathBuf,
         annotation_id: String,
@@ -104,6 +108,7 @@ pub enum EditorResponse {
     ChatRegistered { chat: ChatRegistration },
     CanvasScreenshot { png_base64: String },
     AnnotationReplied { annotation_id: String, message_id: String },
+    AnnotationResolved { annotation_id: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -241,7 +246,8 @@ fn receive_request(
             project_root
         }
         EditorRequest::CanvasScreenshot { project_root }
-        | EditorRequest::ReplyAnnotation { project_root, .. } => project_root,
+        | EditorRequest::ReplyAnnotation { project_root, .. }
+        | EditorRequest::ResolveAnnotation { project_root, .. } => project_root,
     };
     if canonical_directory(requested_root)? != project_root {
         return Err("Editor project changed; discover editors again".into());
@@ -380,6 +386,9 @@ mod tests {
             EditorRequest::CanvasScreenshot { .. } => {
                 Ok(EditorResponse::CanvasScreenshot { png_base64: "test-png".into() })
             }
+            EditorRequest::ResolveAnnotation { annotation_id, .. } => {
+                Ok(EditorResponse::AnnotationResolved { annotation_id })
+            }
             EditorRequest::ReplyAnnotation { annotation_id, .. } => {
                 Ok(EditorResponse::AnnotationReplied { annotation_id, message_id: "2".into() })
             }
@@ -497,6 +506,25 @@ mod tests {
         assert_eq!(
             editor_rpc(&editor, directory.path(), request.clone()).unwrap(),
             EditorResponse::AnnotationReplied { annotation_id: "1".into(), message_id: "2".into() }
+        );
+        let child = directory.path().join("child");
+        fs::create_dir(&child).unwrap();
+        server.update_project(Some(&child)).unwrap();
+        assert!(editor_rpc(&editor, directory.path(), request).unwrap_err().contains("changed"));
+    }
+
+    #[test]
+    fn resolves_annotation_threads_with_project_scope_checks() {
+        let directory = tempfile::tempdir().unwrap();
+        let server = start_editor(directory.path(), directory.path());
+        let editor = discover_editors_in(directory.path(), directory.path()).unwrap().remove(0);
+        let request = EditorRequest::ResolveAnnotation {
+            project_root: directory.path().into(),
+            annotation_id: "1".into(),
+        };
+        assert_eq!(
+            editor_rpc(&editor, directory.path(), request.clone()).unwrap(),
+            EditorResponse::AnnotationResolved { annotation_id: "1".into() }
         );
         let child = directory.path().join("child");
         fs::create_dir(&child).unwrap();
