@@ -240,6 +240,13 @@ They fall back to the dma-buf path when the Vulkan loader doesn't offer `VK_EXT_
 or when creating the surface fails anyway.
 `SLINT_KMS_WGPU_DMABUF` forces the fallback on hardware that supports both.
 
+KMS could wait for a dma-buf's rendering through the plane's `IN_FENCE_FD`,
+but wgpu-hal exports no sync fd, so the backend waits before each page flip itself.
+The Skia renderer flips a frame only after it drew the next one,
+so the GPU finishes one frame while the CPU draws the next.
+When no frame follows right away, the event loop shows the last one through `FullscreenRenderer::flush_pending_frame`.
+The FemtoVG renderer still waits for the GPU right after each frame.
+
 Handing a buffer to the display controller is a Vulkan ownership release, which wgpu can't express.
 Both renderers draw into the buffer as an ordinary color target.
 `display/scanout_barriers.rs` records the release, and the acquire before the next frame,

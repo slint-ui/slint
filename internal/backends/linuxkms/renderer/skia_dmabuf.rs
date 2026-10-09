@@ -13,17 +13,23 @@ use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_skia::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 use wgpu_30 as wgpu;
 
-use super::dmabuf::{init_wgpu, wait_for_gpu};
+use super::dmabuf::init_wgpu;
 use crate::display::RenderingRotation;
-use crate::display::gbmdmabufdisplay::{BUFFER_COUNT, GbmDmabufDisplay};
+use crate::display::gbmdmabufdisplay::GbmDmabufDisplay;
 use crate::display::scanout_barriers::ScanoutBarriers;
 use crate::drmoutput::DrmOutput;
 
+/// The scanout buffers [`GbmDmabufDisplay::present_after`] needs.
+const BUFFER_COUNT: usize = 4;
+
 pub struct SkiaDmabufRendererAdapter {
+    /// Dropped first, waiting for the frames still on the GPU,
+    /// which use the renderer's resources and draw into the display's buffers.
+    barriers: ScanoutBarriers,
     renderer: SkiaWGPU30Renderer,
     display: GbmDmabufDisplay,
-    barriers: ScanoutBarriers,
     device: wgpu::Device,
+    queue: wgpu::Queue,
     size: PhysicalWindowSize,
 }
 
@@ -38,14 +44,14 @@ impl SkiaDmabufRendererAdapter {
         let (width, height) = drm_output.size();
         let size = PhysicalWindowSize::new(width, height);
 
-        let display = GbmDmabufDisplay::new(drm_output, &device)?;
+        let display = GbmDmabufDisplay::new(drm_output, &device, BUFFER_COUNT)?;
         let barriers = ScanoutBarriers::new(&device, BUFFER_COUNT)?;
 
-        let renderer = SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue)?;
+        let renderer = SkiaWGPU30Renderer::new(instance, adapter, device.clone(), queue.clone())?;
 
         eprintln!("Using Skia renderer with wgpu, presenting dma-bufs on a DRM plane");
 
-        Ok(Box::new(Self { renderer, display, barriers, device, size }))
+        Ok(Box::new(Self { renderer, display, barriers, device, queue, size }))
     }
 }
 
@@ -60,31 +66,52 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SkiaDmabufRendererAd
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         let (index, texture) = self.display.back_buffer();
-        self.barriers.acquire(index, texture)?;
         let drawn = self
-            .renderer
-            .render_to_texture_transformed(
-                texture,
-                rotation.degrees(),
-                rotation.translation_after_rotation(self.size),
-                Some(&|item_renderer| {
-                    draw_mouse_cursor_callback(item_renderer);
-                }),
-            )
+            .barriers
+            .acquire(index, texture)
+            .and_then(|()| {
+                self.renderer.render_to_texture_transformed(
+                    texture,
+                    rotation.degrees(),
+                    rotation.translation_after_rotation(self.size),
+                    Some(&|item_renderer| {
+                        draw_mouse_cursor_callback(item_renderer);
+                    }),
+                )
+            })
             .and_then(|()| self.barriers.release(index, texture));
 
-        // KMS has no way to wait on the render: wgpu-hal exports no sync fd for
-        // the plane's IN_FENCE_FD property, and wgpu won't take a signal semaphore
-        // for a submission. Block until the GPU is done instead, at the cost of a
-        // pipeline stall per frame. A failed frame waits too: the next one
-        // re-records the barriers it submitted.
-        let waited = wait_for_gpu(&self.device);
-        drawn?;
-        waited?;
+        if let Err(err) = drawn {
+            // A stopped renderer posts nothing more, see `ScanoutBarriers::wait_after_failure`.
+            if self.barriers.has_stopped() {
+                return Err(err);
+            }
+            if let Err(wait_err) = self.barriers.wait_after_failure() {
+                return Err(format!("{err}. {wait_err}").into());
+            }
+            if let Err(e) = self.display.flush(&self.device) {
+                eprintln!("Error presenting the frame before a failed one: {e}");
+            }
+            return Err(err);
+        }
 
-        self.display.present().map_err(|e| format!("Error presenting dma-buf: {e}"))?;
-
+        // Skia and the release submit to the queue directly, so this empty submission
+        // is the first one known to wgpu that completes after the frame.
+        let submission = self.queue.submit([]);
+        self.display
+            .present_after(&self.device, submission)
+            .map_err(|e| format!("Error presenting dma-buf: {e}"))?;
         Ok(DrawOutcome::Success)
+    }
+
+    fn flush_pending_frame(&self) -> Result<(), PlatformError> {
+        // See `ScanoutBarriers::wait_after_failure`.
+        if self.barriers.has_stopped() {
+            return Ok(());
+        }
+        self.display
+            .flush(&self.device)
+            .map_err(|e| format!("Error presenting dma-buf: {e}").into())
     }
 
     fn size(&self) -> PhysicalWindowSize {
