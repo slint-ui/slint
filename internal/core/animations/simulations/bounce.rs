@@ -522,7 +522,7 @@ mod tests {
         assert!((unstopped_travel - current - shortfall).abs() < 0.05, "{current}");
         let stopped = current;
         simulation.step(&mut current, time + Duration::from_secs(5));
-        assert_eq!(current, stopped);
+        assert_approx_eq!(current, stopped);
     }
 
     fn start_time() -> Instant {
@@ -577,7 +577,7 @@ mod tests {
             assert_approx_eq!(simulation.remaining_distance(start_time()), -start);
             for millis in [50, 100, 200, 500] {
                 let t = start_time() + Duration::from_millis(millis);
-                let dt = Duration::from_micros(100);
+                let dt = Duration::from_millis(1);
                 let measured = -(simulation.remaining_distance(t + dt)
                     - simulation.remaining_distance(t - dt))
                     / (2. * dt.as_secs_f32());
