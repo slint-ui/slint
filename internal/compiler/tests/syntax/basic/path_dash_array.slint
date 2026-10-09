@@ -50,4 +50,17 @@ export component TestCase inherits Window {
     Rectangle {
         property <[length]> stroke-dash-array: [1px, len];
     }
+
+    path := Path {
+        stroke-dash-array: [1px, 2px];
+    }
+
+    in-out property <[length]> arr1: path.stroke-dash-array;
+//                                        >               <error{This special property can only be used to make a binding and cannot be accessed}
+
+    in-out property <[length]> arr2 <=> path.stroke-dash-array;
+//                                           >               <error{This special property can only be used to make a binding and cannot be accessed}
+
+    out property <length> elem: path.stroke-dash-array[0];
+//                                   >               <error{This special property can only be used to make a binding and cannot be accessed}
 }

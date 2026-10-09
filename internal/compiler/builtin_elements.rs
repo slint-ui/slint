@@ -3136,7 +3136,7 @@ fn build(l: &mut Loader) {
         /// An odd number of entries is repeated to make the list even.
         /// An empty list draws the outline solid.
         /// \default []
-        @constexpr in property <[length]> stroke-dash-array;
+        @fake in property <[length]> stroke-dash-array;
         /// The distance into the repeated dash pattern to start the stroke dashing at the beginning of the path.
         in property <length> stroke-dash-offset;
         //! ### width
