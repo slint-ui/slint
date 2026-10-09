@@ -908,15 +908,22 @@ impl SoftwareRenderer {
                     .buffer
                     .fill_background(&background, &dirty_region)
                 {
-                    let mut bg = TargetPixel::background();
-                    // TODO: gradient background
-                    TargetPixel::blend(&mut bg, background.color().into());
-                    renderer.actual_renderer.processor.foreach_ranges(
-                        &dirty_region.bounding_rect(),
-                        |_, buffer, _, _| {
-                            buffer.fill(bg);
-                        },
-                    );
+                    let gradient_background = gradient_background(&background);
+                    if !gradient_background.is_some_and(Brush::is_opaque) {
+                        let mut bg = TargetPixel::background();
+                        if gradient_background.is_none() {
+                            TargetPixel::blend(&mut bg, background.color().into());
+                        }
+                        renderer.actual_renderer.processor.foreach_ranges(
+                            &dirty_region.bounding_rect(),
+                            |_, buffer, _, _| {
+                                buffer.fill(bg);
+                            },
+                        );
+                    }
+                    if let Some(gradient) = gradient_background {
+                        renderer.actual_renderer.draw_window_background_gradient(gradient);
+                    }
                 }
 
                 let partial = self.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
@@ -1627,13 +1634,15 @@ fn render_window_frame_by_line(
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) -> PhysicalRegion {
-    let mut scene = prepare_scene(window, size, renderer);
+    let gradient_background = gradient_background(&background);
+    let mut scene = prepare_scene(window, size, gradient_background, renderer);
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
     let mut background_color = TargetPixel::background();
-    // FIXME gradient
-    TargetPixel::blend(&mut background_color, background.color().into());
+    if gradient_background.is_none() {
+        TargetPixel::blend(&mut background_color, background.color().into());
+    }
 
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
         for r in &scene.current_line_ranges {
@@ -1768,9 +1777,14 @@ fn render_window_frame_by_line(
     scene.dirty_region
 }
 
+fn gradient_background(background: &Brush) -> Option<&Brush> {
+    (!matches!(background, Brush::SolidColor(_))).then_some(background)
+}
+
 fn prepare_scene(
     window: &WindowInner,
     size: PhysicalSize,
+    gradient_background: Option<&Brush>,
     software_renderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
@@ -1798,6 +1812,10 @@ fn prepare_scene(
             factor,
             size,
         );
+
+        if let Some(gradient) = gradient_background {
+            renderer.actual_renderer.draw_window_background_gradient(gradient);
+        }
 
         let partial = software_renderer.repaint_buffer_type.get() != RepaintBufferType::NewBuffer;
         for (component, origin) in components {
@@ -1927,7 +1945,9 @@ fn process_rectangle_impl(
         )
     };
 
-    let color = if let Brush::LinearGradient(g) = &args.background {
+    let color = if let Brush::LinearGradient(g) = &args.background
+        && g.stops().nth(1).is_some()
+    {
         let angle = g.angle() + args.rotation.angle();
         let axis_angle = (angle % 180. + 180.) % 180.;
         let tan = angle.to_radians().tan().abs();
@@ -2540,6 +2560,14 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             #[cfg(feature = "systemfonts")]
             text_layout_cache,
         }
+    }
+
+    fn draw_window_background_gradient(&mut self, gradient: &Brush) {
+        let screen = PhysicalRect::from_size(self.rotation.screen_size).transformed(self.rotation);
+        let mut args =
+            target_pixel_buffer::DrawRectangleArgs::from_rect(screen.cast(), gradient.clone());
+        args.rotation = self.rotation.orientation;
+        self.processor.process_rectangle(&args, screen);
     }
 
     fn should_draw(&self, rect: &LogicalRect) -> bool {
