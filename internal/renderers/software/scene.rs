@@ -540,7 +540,7 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GradientClip {
     /// A zero radius means no clip.
@@ -558,6 +558,12 @@ pub struct RoundedRectangle {
     pub width: PhysicalLength,
     pub border_color: PremultipliedRgbaColor,
     pub inner_color: PremultipliedRgbaColor,
+}
+
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
 }
 
 /// Goes from color 1 to color2
