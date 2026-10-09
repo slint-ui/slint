@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import shutil
 from pathlib import Path
 
 import slint_testing
@@ -18,8 +19,26 @@ from ui_driver import (
 def test_visual_editor_loads_its_own_ui(
     editor_binary: Path,
     editor_environment: dict[str, str],
+    tmp_path: Path,
 ) -> None:
-    source_file = Path(__file__).resolve().parents[2] / "ui" / "main.slint"
+    repository = Path(__file__).resolve().parents[4]
+    for directory in (
+        "tools/editor/ui",
+        "tools/lsp/ui",
+        "internal/editor-preview/springboard",
+    ):
+        shutil.copytree(repository / directory, tmp_path / directory)
+    source_directory = tmp_path / "tools/editor/ui"
+    for source_file in source_directory.rglob("*.slint"):
+        contents = source_file.read_text()
+        if '"@springboard"' in contents:
+            source_file.write_text(
+                contents.replace(
+                    '"@springboard"',
+                    '"../../../internal/editor-preview/springboard/springboard.slint"',
+                )
+            )
+    source_file = source_directory / "main.slint"
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
         wait_for_source(source_file, source_file.read_bytes())

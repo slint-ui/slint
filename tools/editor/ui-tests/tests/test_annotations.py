@@ -27,7 +27,9 @@ from ui_driver import (
 
 def save_annotation(window, label, text):
     select_outline_row(window, label)
-    if query(window, "Element annotations").find_all():
+    pin = query(window, "Annotations for " + label)
+    if pin.find_all():
+        element(window, "Annotations for " + label).invoke_accessible_default_action()
         element(window, "Add annotation").invoke_accessible_default_action()
     else:
         element(window, "Add annotation to " + label).invoke_accessible_default_action()

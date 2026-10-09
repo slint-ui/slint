@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import json
+import os
 import subprocess
 
 
@@ -16,7 +17,12 @@ def call_editor_tool(editor_binary, project, name, *, expected_error=None, **arg
         },
     }
     result = subprocess.run(
-        [str(editor_binary.with_name("slint-editor-mcp"))],
+        [
+            os.environ.get(
+                "SLINT_EDITOR_MCP_BINARY",
+                str(editor_binary.with_name("slint-editor-mcp")),
+            )
+        ],
         input=json.dumps(request) + "\n",
         text=True,
         capture_output=True,
