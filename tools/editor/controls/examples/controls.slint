@@ -4,12 +4,13 @@
 import { ScrollView } from "std-widgets.slint";
 import { Button, BasicTheme } from "../src/basic.slint";
 import { ButtonExamples } from "buttons.slint";
+import { CheckBoxExamples } from "check_boxes.slint";
 import { ComboBoxExamples } from "combo_boxes.slint";
 import { SliderExamples } from "sliders.slint";
 
 export component ControlsDemo inherits Window {
     in-out property <int> current-page;
-    private property <[string]> pages: ["Button", "ComboBox", "Slider"];
+    private property <[string]> pages: ["Button", "ComboBox", "Slider", "CheckBox"];
     title: "Slint controls — Component gallery";
     preferred-width: 1000px;
     preferred-height: 760px;
@@ -105,7 +106,9 @@ export component ControlsDemo inherits Window {
                         ? "Shared button behavior, with a base theme or your own visuals."
                         : root.current-page == 1
                         ? "Shared selection behavior, with a base theme or your own field and popup."
-                        : "Shared range behavior, with a base theme or your own track and handle.";
+                        : root.current-page == 2
+                        ? "Shared range behavior, with a base theme or your own track and handle."
+                        : "Shared toggle behavior, with a base theme or your own indicator and label.";
                     color: BasicTheme.disabled-foreground;
                     wrap: word-wrap;
                 }
@@ -117,6 +120,7 @@ export component ControlsDemo inherits Window {
                 if root.current-page == 0: ButtonExamples { }
                 if root.current-page == 1: ComboBoxExamples { }
                 if root.current-page == 2: SliderExamples { }
+                if root.current-page == 3: CheckBoxExamples { }
             }
         }
     }

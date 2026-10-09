@@ -1,0 +1,147 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBox, BasicTheme } from "../src/basic.slint";
+import { CheckBoxBase } from "../src/headless.slint";
+import { ExampleSection } from "section.slint";
+
+export component CheckBoxExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in-out property <int> toggles;
+    in-out property <int> custom-toggles;
+
+    VerticalLayout {
+        spacing: 20px;
+        ExampleSection {
+            title: "Base theme";
+            description: "Unchecked, checked, and disabled checkboxes using BasicTheme.";
+            HorizontalLayout {
+                spacing: 12px;
+                standard := CheckBox {
+                    text: "Show guides";
+                    toggled => { root.toggles += 1; }
+                }
+
+                CheckBox {
+                    text: "Snap to grid";
+                    checked: true;
+                    toggled => { root.toggles += 1; }
+                }
+
+                CheckBox {
+                    text: "Disabled";
+                    enabled: false;
+                }
+            }
+
+            CheckBox {
+                text: "Disabled checked";
+                checked: true;
+                enabled: false;
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Toggles: \{root.toggles}  ·  Show guides: \{standard.checked ? "yes" : "no"}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom checkboxes";
+            description: "Override colors, supply headless visuals, or replace the label.";
+            VerticalLayout {
+                spacing: 12px;
+                CheckBox {
+                    text: "Color override";
+                    checked: true;
+                    indicator-color: self.checked ? #0f766e : BasicTheme.background;
+                    foreground: #115e59;
+                    indicator-radius: 6px;
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                bare := CheckBoxBase {
+                    text: "Headless checkbox";
+                    font-size: 14px;
+                    font-weight: 400;
+                    content-padding: 6px;
+                    indicator << Rectangle {
+                        background: bare.checked ? #7c3aed : transparent;
+                        border-color: bare.has-focus ? #5b21b6 : #a78bfa;
+                        border-width: bare.has-focus ? 2px : 1px;
+                        border-radius: 10px;
+                        if bare.checked: Rectangle {
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 4px;
+                            background: white;
+                        }
+                    }
+                    content << Text {
+                        text: bare.text;
+                        color: #5b21b6;
+                        font-size: bare.font-size;
+                        vertical-alignment: center;
+                    }
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                custom := CheckBox {
+                    text: "Custom checkbox content";
+                    content << HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Text {
+                            text: "Autosave";
+                            color: custom.foreground;
+                            font-size: custom.font-size;
+                            horizontal-stretch: 0;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: custom.checked ? "On" : "Off";
+                            color: BasicTheme.disabled-foreground;
+                            font-size: 12px;
+                            horizontal-stretch: 0;
+                            vertical-alignment: center;
+                        }
+                    }
+                    toggled => { root.custom-toggles += 1; }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Custom toggles: \{root.custom-toggles}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        Text {
+            text: "Click the indicator or label to toggle. Use Tab to focus, then release Space or Enter to toggle.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}

@@ -9,6 +9,7 @@ Styled buttons inherit this implementation and can expose additional properties 
 Import `Button` from `src/basic.slint` for default visuals and theme values.
 The same entry points export `ComboBoxBase` and the styled `ComboBox`.
 They also export `SliderBase` and the styled `Slider`.
+Import `CheckBoxBase` from the headless entry point or `CheckBox` from the Basic entry point for boolean choices.
 
 Headless implementations live in `src/headless/`.
 The Basic style lives in `src/basic/`.
@@ -58,6 +59,24 @@ Replaced default content doesn't contribute to the button's preferred size.
 `text` supplies the default accessible label even when custom content doesn't display it.
 Override `accessible-label` when the action needs a different description.
 Nested interactive controls handle their own activation and don't automatically activate the outer button.
+
+## CheckBox Behavior
+
+`CheckBoxBase` implements `CheckBoxInterface` from `std-widget-interfaces.slint`.
+Pointer, keyboard, and accessibility activation toggle `checked`, then emit `toggled()` without an argument.
+Read `checked` in the callback to obtain the new value.
+Assigning `checked` directly doesn't emit `toggled()`.
+`activate()` follows the same activation path and returns immediately when disabled.
+
+The base handles pointer input with `TouchArea` and keyboard input with `FocusScope`.
+Pointer clicks preserve keyboard focus.
+Space and Enter toggle on release; Escape, focus loss, or disabling cancel a pending key press.
+
+Replace `background`, `indicator`, or `content` to supply custom visuals.
+`hovered`, `pressed`, and `has-focus` expose interaction state.
+`indicator-width`, `indicator-height`, `spacing`, and content padding arrange the indicator and label.
+The Basic style adds indicator colors, borders, radius, size, and a focus ring.
+`text` supplies the accessible label even when the content slot displays different visuals.
 
 ## ComboBox Behavior
 
@@ -127,7 +146,7 @@ SliderBase {
 
 ## Example
 
-The standalone gallery has Button, ComboBox, and Slider pages, each with Base theme and custom sections.
+The standalone gallery has Button, CheckBox, ComboBox, and Slider pages, each with Base theme and custom sections.
 It includes default states, style overrides, replaced content, and custom headless visuals.
 Run it from the repository root:
 

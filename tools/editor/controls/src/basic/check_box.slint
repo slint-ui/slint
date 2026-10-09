@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBoxBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component CheckBox inherits CheckBoxBase {
+    in property <length> indicator-size: 20px;
+    private property <brush> state-indicator: root.checked ? BasicTheme.accent : BasicTheme.background;
+    private property <brush> state-foreground: BasicTheme.foreground;
+    in property <brush> indicator-color: root.state-indicator;
+    in property <brush> indicator-border-color: !root.enabled ? BasicTheme.disabled-foreground
+        : root.checked ? root.indicator-color : BasicTheme.border;
+    in property <length> indicator-border-width: 1px;
+    in property <length> indicator-radius: 4px;
+    in property <brush> checkmark-color: root.enabled ? BasicTheme.accent-foreground : BasicTheme.disabled-foreground;
+    in property <brush> foreground: root.state-foreground;
+
+    indicator-width: root.indicator-size;
+    indicator-height: root.indicator-size;
+    content-padding: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 32px;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-indicator: BasicTheme.disabled-background;
+            root.state-foreground: BasicTheme.disabled-foreground;
+        }
+        pressed when root.pressed: {
+            root.state-indicator: root.checked ? BasicTheme.accent-pressed : BasicTheme.pressed-background;
+        }
+        hover when root.hovered: {
+            root.state-indicator: root.checked ? BasicTheme.accent-hover : BasicTheme.hover-background;
+        }
+    ]
+
+    indicator {
+        Rectangle {
+            background: root.indicator-color;
+            border-color: root.indicator-border-color;
+            border-width: root.indicator-border-width;
+            border-radius: root.indicator-radius;
+
+            if root.checked: Path {
+                x: 3px;
+                y: 3px;
+                width: parent.width - 6px;
+                height: parent.height - 6px;
+                viewbox-width: 16;
+                viewbox-height: 16;
+                stroke: root.checkmark-color;
+                stroke-width: 2px;
+                MoveTo {
+                    x: 2;
+                    y: 8;
+                }
+
+                LineTo {
+                    x: 6;
+                    y: 12;
+                }
+
+                LineTo {
+                    x: 14;
+                    y: 4;
+                }
+            }
+
+            if root.enabled && root.has-focus: Rectangle {
+                x: -3px;
+                y: -3px;
+                width: parent.width + 6px;
+                height: parent.height + 6px;
+                border-width: 2px;
+                border-color: BasicTheme.focus;
+                border-radius: root.indicator-radius + 2px;
+            }
+        }
+    }
+
+    content {
+        Text {
+            text: root.text;
+            color: root.foreground;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            vertical-alignment: center;
+        }
+    }
+}
