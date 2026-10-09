@@ -236,7 +236,6 @@ pub fn initialize_editor(
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
-    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
     api.on_reset_selected_element_border_radius(super::reset_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
@@ -274,6 +273,7 @@ pub fn initialize_editor(
     api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     property_view::setup(editor_ui, &api);
+    super::inline_text_edit::setup(editor_ui);
     let color_field_api_weak = api_weak.clone();
     api.on_source_color_field_data(move |property_name| {
         let Some(api) = color_field_api_weak.upgrade() else {
@@ -501,7 +501,7 @@ fn to_ui_range(r: TextRange) -> Option<Range> {
     })
 }
 
-fn convert_simple_string(input: SharedString) -> SharedString {
+pub(super) fn convert_simple_string(input: SharedString) -> SharedString {
     slint::format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 

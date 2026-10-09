@@ -4,7 +4,7 @@
 import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult } from "api.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
@@ -28,7 +28,7 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 
 export {
     Api, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, Preview, Project, Springboard,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
 }
 
 component NewFileErrorPopup inherits PopupWindow {
@@ -173,6 +173,8 @@ export component EditorUi inherits Window {
             FillSession.close-picker(false, false);
         }
     }
+    private property <bool> editor-focus-requested;
+    public function focus-editor() { root.editor-focus-requested = true; }
     private property <bool> palette-drag-in-outline: false;
     private property <Size> palette-text-drag-size: {
         width: palette-text-metrics.width,
@@ -385,6 +387,13 @@ export component EditorUi inherits Window {
         if !Api.startup-wizard-visible: editor := FocusScope {
             private property <bool> shadow-open: ShadowSession.open;
             changed shadow-open => { if !self.shadow-open { self.focus(); } }
+            private property <bool> editor-focus-requested: root.editor-focus-requested;
+            changed editor-focus-requested => {
+                if self.editor-focus-requested {
+                    root.editor-focus-requested = false;
+                    self.focus();
+                }
+            }
             property <bool> shift-pressed: false;
             private property <bool> window-active: Api.window-active();
             changed window-active => {

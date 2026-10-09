@@ -61,7 +61,7 @@ def begin_inline_edit(window: slint_testing.Window) -> slint_testing.Element:
     editor = element(
         window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
     )
-    assert not elements(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+    element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
     return editor
 
 
@@ -330,7 +330,7 @@ def test_dropped_text_draft_survives_reload_and_continues_typing(
         after_reload = inline_editor_image(window)
         assert after_reload.tobytes() == before_reload.tobytes()
         artboard = element(window, "Artboard")
-        assert not elements(artboard, "Text", role=slint_testing.AccessibleRole.Text)
+        element(artboard, "Text", role=slint_testing.AccessibleRole.Text)
         press_keys(window, "Still editing")
         press_shortcut(window, keys.Control, "a")
         assert inline_editor_image(window).tobytes() != after_reload.tobytes()
@@ -342,7 +342,7 @@ def test_dropped_text_draft_survives_reload_and_continues_typing(
         assert not elements(window.root_element, "Inline text editor")
 
 
-def test_dropped_text_rejected_commit_keeps_editor_open(
+def test_dropped_text_ends_editing_when_source_target_is_lost(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
@@ -362,10 +362,10 @@ def test_dropped_text_rejected_commit_keeps_editor_open(
         snapshot.wait_for_applied(external, source_file.name)
         press_key(window, keys.Return)
         snapshot.wait_for_applied(external, source_file.name)
-        inline_editor = element(
+        assert not elements(
             window, "Inline text editor", role=slint_testing.AccessibleRole.TextInput
         )
-        assert inline_editor.accessible_value == "Stale edit"
+        element(window, "Text", role=slint_testing.AccessibleRole.Text)
 
 
 def test_fixed_width_text_draft_survives_reload(
@@ -374,7 +374,17 @@ def test_fixed_width_text_draft_survives_reload(
     fixture_project: Path,
 ) -> None:
     source_file = fixture_project / "Main.slint"
-    source = source_file.read_bytes()
+    source = source_file.read_bytes().replace(
+        b"        font-size: 20px;",
+        b"        font-size: 20px;\n"
+        b"        inline-child := Rectangle {\n"
+        b"            x: 10px; y: 35px; width: 16px; height: 8px;\n"
+        b"            background: #e600b3;\n"
+        b'            accessible-role: region; accessible-label: "Inline child";\n'
+        b"        }",
+        1,
+    )
+    source_file.write_bytes(source)
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
@@ -384,13 +394,15 @@ def test_fixed_width_text_draft_survives_reload(
         assert inline_editor.size.width == original_width
         press_shortcut(window, keys.Control, "a")
         before_reload = inline_editor_image(window)
-        external = source + b"// External source edit.\n"
+        assert before_reload.tobytes().count(b"\xe6\x00\xb3") >= 16
+        element(window, "Inline child", role=slint_testing.AccessibleRole.Region)
+        external = source.replace(b"color: #111827;", b"color: #1268ab;", 1)
+        external += b"// External source edit.\n"
         source_file.write_bytes(external)
         snapshot.wait_for_applied(external)
         assert inline_editor_image(window).tobytes() == before_reload.tobytes()
-        assert not elements(
-            window.root_element, "Fixture text", role=slint_testing.AccessibleRole.Text
-        )
+        element(window, "Fixture text", role=slint_testing.AccessibleRole.Text)
+        element(window, "Inline child", role=slint_testing.AccessibleRole.Region)
         press_keys(window, "After reload")
         press_key(window, keys.Return)
         snapshot.wait_for_applied(
