@@ -52,7 +52,7 @@ env:
 
 jobs:
     build_and_test:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'tests') }}
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
         strategy:
             matrix:
                 include:
@@ -73,7 +73,7 @@ jobs:
             extra_args: ${{ matrix.extra_args }}
             run_qt: ${{ inputs.full || contains(fromJSON(inputs.changes), 'qt') }}
             test_workspace: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint') }}
-            test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') }}
+            test_integration: ${{ inputs.full || contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'integration_tests') }}
             # macOS only runs the rust driver when its inputs changed;
             # Windows always does, for the live-preview test.
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
