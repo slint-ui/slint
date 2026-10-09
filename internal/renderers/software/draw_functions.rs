@@ -42,6 +42,7 @@ pub(super) fn draw_texture_line(
     let dx = Fixed::<i32, 8>::from_fixed(dx);
     let dy = Fixed::<i32, 8>::from_fixed(dy);
     let off_x = Fixed::<i32, 8>::from_fixed(off_x);
+    let bpp = format.bpp();
 
     if !rotation.is_transpose() {
         let mut delta = dx;
@@ -83,21 +84,33 @@ pub(super) fn draw_texture_line(
         end = end.min(len);
         let mut begin = 0;
         let row_fract = row.fract();
+        let contiguous = delta == Fixed::from_integer(1)
+            && alpha == 0xff
+            && has_contiguous_path(format, colorize);
         while begin < len {
-            fetch_blend_pixel(
-                &mut line_buffer[begin..end],
-                format,
-                data,
-                alpha,
-                colorize,
-                (pixel_stride as usize, dy),
-                #[inline(always)]
-                |bpp| {
-                    let p = ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
-                    pos += delta;
-                    p
-                },
-            );
+            if contiguous {
+                draw_contiguous_pixels(
+                    &mut line_buffer[begin..end],
+                    format,
+                    &data[(row_offset + pos.truncate() as usize) * bpp..][..(end - begin) * bpp],
+                );
+            } else {
+                fetch_blend_pixel(
+                    &mut line_buffer[begin..end],
+                    format,
+                    data,
+                    alpha,
+                    colorize,
+                    (pixel_stride as usize, dy),
+                    #[inline(always)]
+                    |bpp| {
+                        let p =
+                            ((row_offset + pos.truncate() as usize) * bpp, pos.fract(), row_fract);
+                        pos += delta;
+                        p
+                    },
+                );
+            }
             begin = end;
             end += tile_len;
             pos = acc_err + Fixed::from_integer(tile_start);
@@ -116,7 +129,6 @@ pub(super) fn draw_texture_line(
             end = end.min(len);
         }
     } else {
-        let bpp = format.bpp();
         let col = off_x + dx * y;
         let col_fract = col.fract();
         let col = (col.truncate() % source_size.width) as usize * bpp;
@@ -183,6 +195,75 @@ pub(super) fn draw_texture_line(
         }
     };
 
+    fn has_contiguous_path(format: TexturePixelFormat, colorize: Color) -> bool {
+        match format {
+            TexturePixelFormat::Rgb => true,
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => true,
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => true,
+            TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
+                colorize.alpha() == 0
+            }
+            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => false,
+        }
+    }
+
+    fn draw_contiguous_pixels(
+        line_buffer: &mut [impl TargetPixel],
+        format: TexturePixelFormat,
+        src: &[u8],
+    ) {
+        match format {
+            TexturePixelFormat::Rgb => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<3>().0) {
+                    *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                }
+            }
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            TexturePixelFormat::Rgb565 => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<2>().0) {
+                    *pix = TargetPixel::from_rgb565(u16::from_ne_bytes(*p));
+                }
+            }
+            #[cfg(feature = "image-pixel-format-gray8")]
+            TexturePixelFormat::Gray8 => {
+                for (pix, &v) in line_buffer.iter_mut().zip(src) {
+                    *pix = TargetPixel::from_rgb(v, v, v);
+                }
+            }
+            TexturePixelFormat::Rgba => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
+                    blend_rgba(pix, p[3], p);
+                }
+            }
+            TexturePixelFormat::RgbaPremultiplied => {
+                for (pix, p) in line_buffer.iter_mut().zip(src.as_chunks::<4>().0) {
+                    pix.blend(PremultipliedRgbaColor {
+                        alpha: p[3],
+                        red: p[0],
+                        green: p[1],
+                        blue: p[2],
+                    });
+                }
+            }
+            TexturePixelFormat::AlphaMap | TexturePixelFormat::SignedDistanceField => {
+                unreachable!("rejected by has_contiguous_path")
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn blend_rgba(pix: &mut impl TargetPixel, alpha: u8, p: &[u8]) {
+        if alpha == 0xff {
+            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+        } else {
+            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                alpha, p[0], p[1], p[2],
+            )));
+        }
+    }
+
     fn fetch_blend_pixel(
         line_buffer: &mut [impl TargetPixel],
         format: TexturePixelFormat,
@@ -231,14 +312,7 @@ pub(super) fn draw_texture_line(
                     for pix in line_buffer {
                         let pos = pos(4).0;
                         let p: &[u8] = &data[pos..pos + 4];
-                        let alpha = ((p[3] as u16 * alpha as u16) / 255) as u8;
-                        if alpha == 0xff {
-                            *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                        } else {
-                            pix.blend(PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                                alpha, p[0], p[1], p[2],
-                            )));
-                        }
+                        blend_rgba(pix, ((p[3] as u16 * alpha as u16) / 255) as u8, p);
                     }
                 } else {
                     for pix in line_buffer {
@@ -1389,4 +1463,85 @@ fn atan2_turns_accuracy() {
     }
     assert_eq!(atan2_turns(0., 0.), 0.);
     assert_eq!(atan2_turns(-0., -0.), 0.);
+}
+
+#[test]
+fn unscaled_texture_line_wraps_into_next_tile() {
+    use super::{SceneTexture, SceneTextureExtra};
+
+    // A 4×1 source drawn at 1:1 from x = 1.5 into 7 pixels samples these source pixels.
+    const SAMPLED: [usize; 7] = [1, 2, 3, 0, 1, 2, 3];
+
+    fn draw(format: TexturePixelFormat, data: &[u8]) -> [Rgb8Pixel; 7] {
+        let texture = SceneTexture {
+            data,
+            format,
+            pixel_stride: 4,
+            extra: SceneTextureExtra {
+                dx: Fixed::from_integer(1),
+                dy: Fixed::from_integer(1),
+                off_x: Fixed(24),
+                off_y: Fixed(0),
+                colorize: Color::default(),
+                alpha: 0xff,
+                rotation: Default::default(),
+            },
+        };
+        let mut line = [Rgb8Pixel::default(); 7];
+        draw_texture_line(
+            &PhysicalRect::from_size(euclid::size2(7, 1)),
+            PhysicalLength::new(0),
+            &texture,
+            &mut line,
+            0,
+            0,
+        );
+        line
+    }
+
+    let rgb = [0, 0, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+    assert_eq!(
+        draw(TexturePixelFormat::Rgb, &rgb),
+        SAMPLED.map(|i| Rgb8Pixel::new(rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]))
+    );
+
+    #[cfg(feature = "image-pixel-format-rgb565")]
+    {
+        let rgb565: [u16; 4] = [0x0000, 0xf800, 0x07e0, 0x001f];
+        let data: alloc::vec::Vec<u8> = rgb565.iter().flat_map(|p| p.to_ne_bytes()).collect();
+        assert_eq!(
+            draw(TexturePixelFormat::Rgb565, &data),
+            SAMPLED.map(|i| Rgb8Pixel::from_rgb565(rgb565[i]))
+        );
+    }
+
+    #[cfg(feature = "image-pixel-format-gray8")]
+    {
+        let gray = [0, 85, 170, 255];
+        assert_eq!(
+            draw(TexturePixelFormat::Gray8, &gray),
+            SAMPLED.map(|i| Rgb8Pixel::new(gray[i], gray[i], gray[i]))
+        );
+    }
+
+    // Blended onto the black line buffer, so a pixel ends up as its premultiplied color.
+    let rgba = [0, 0, 0, 0, 200, 100, 50, 255, 200, 100, 50, 128, 10, 20, 30, 255];
+    assert_eq!(
+        draw(TexturePixelFormat::Rgba, &rgba),
+        SAMPLED.map(|i| {
+            let p = &rgba[i * 4..][..4];
+            let c =
+                PremultipliedRgbaColor::premultiply(Color::from_argb_u8(p[3], p[0], p[1], p[2]));
+            Rgb8Pixel::new(c.red, c.green, c.blue)
+        })
+    );
+
+    let premultiplied = [0, 0, 0, 0, 200, 100, 50, 255, 100, 50, 25, 128, 10, 20, 30, 255];
+    assert_eq!(
+        draw(TexturePixelFormat::RgbaPremultiplied, &premultiplied),
+        SAMPLED.map(|i| {
+            let p = &premultiplied[i * 4..][..4];
+            Rgb8Pixel::new(p[0], p[1], p[2])
+        })
+    );
 }
