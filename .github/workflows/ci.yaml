@@ -264,30 +264,17 @@ jobs:
                   SLINT_LIVE_PREVIEW: 1
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
-    cpp_cmake_matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        runs-on: ubuntu-latest
-        outputs:
-          matrix: ${{ steps.set.outputs.matrix }}
-        steps:
-          - id: set
-            run: |
-              # Windows runs for internal, api_cpp, or examples changes
-              # macOS and Ubuntu only run when api_cpp changed
-              entries='[{"os":"windows-2022","rust_version":"nightly"}]'
-              if [ "${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}" = "true" ]; then
-                entries='[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
-              fi
-              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
-
     cpp_cmake:
-        needs: cpp_cmake_matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         env:
             DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
             QT_QPA_PLATFORM: offscreen
             SLINT_EMIT_DEBUG_INFO: 1
         strategy:
-            matrix: ${{ fromJSON(needs.cpp_cmake_matrix.outputs.matrix) }}
+            matrix:
+                include: ${{ fromJSON((inputs.full || contains(fromJSON(inputs.changes), 'api_cpp'))
+                    && '[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
+                    || '[{"os":"windows-2022","rust_version":"nightly"}]') }}
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v7
@@ -336,8 +323,9 @@ jobs:
                   path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
     cpp_package_test:
-        needs: [cpp_cmake_matrix, cpp_cmake]
-        if: ${{ always() && !cancelled() && needs.cpp_cmake.result == 'success' && contains(fromJSON(needs.cpp_cmake_matrix.outputs.matrix).include.*.os, 'ubuntu-22.04') }}
+        needs: cpp_cmake
+        # The condition that adds ubuntu-22.04 to the cpp_cmake matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
@@ -528,25 +516,12 @@ jobs:
                   cargo run -p slint-lsp --no-default-features -- format -i examples/**/*.slint
                   git diff --exit-code
 
-    esp-idf-matrix:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
-        runs-on: ubuntu-latest
-        outputs:
-          matrix: ${{ steps.set.outputs.matrix }}
-        steps:
-          - id: set
-            run: |
-              # v5.3 (minimum supported) always runs; v6.0 (latest) only in full mode (home-automation needs IDF 6)
-              entries='[{"esp-idf-version":"release-v5.3"}]'
-              if [ "${{ inputs.full }}" = "true" ]; then
-                entries='[{"esp-idf-version":"release-v5.3"},{"esp-idf-version":"release-v6.0"}]'
-              fi
-              echo "matrix={\"include\":$entries}" >> "$GITHUB_OUTPUT"
-
     esp-idf:
-        needs: esp-idf-matrix
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         strategy:
-          matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
+            matrix:
+                # v5.3 is the minimum supported version; home-automation needs IDF 6
+                esp-idf-version: ${{ fromJSON(inputs.full && '["release-v5.3","release-v6.0"]' || '["release-v5.3"]') }}
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-version }}
         env:
