@@ -97,12 +97,26 @@ pub enum EmbedResourcesKind {
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
-        Self {
-            config: i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Rust,
-            ),
-        }
+        let mut config = i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Rust,
+        );
+        config.const_operating_system = target_operating_system();
+        Self { config }
     }
+}
+
+/// The `OperatingSystemType` value for the target, like `i_slint_core::detect_operating_system`.
+/// On the web, the operating system comes from the browser's user agent.
+fn target_operating_system() -> Option<String> {
+    let target_family = std::env::var("CARGO_CFG_TARGET_FAMILY").ok()?;
+    if target_family.split(',').any(|f| f == "wasm") {
+        return None;
+    }
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").ok()?;
+    Some(match target_os.as_str() {
+        "android" | "ios" | "macos" | "linux" | "windows" => target_os,
+        _ => "other".into(),
+    })
 }
 
 impl CompilerConfiguration {

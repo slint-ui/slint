@@ -129,6 +129,8 @@ fn generate_source(
     compiler_config.enable_experimental = true;
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
+    // Matches `testing::force_reference_os()`.
+    compiler_config.const_operating_system = Some("linux".into());
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
