@@ -9,6 +9,36 @@
 
 namespace slint {
 
+namespace private_api {
+
+template<typename T>
+inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
+{
+    return cbindgen_private::Slice<T> {
+        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
+        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
+        .len = len,
+    };
+}
+
+template<typename T, size_t Extent>
+inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
+{
+    return make_slice(span.data(), span.size());
+}
+
+inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
+{
+    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
+}
+
+inline std::string_view slice_to_string_view(cbindgen_private::Slice<uint8_t> str)
+{
+    return std::string_view(reinterpret_cast<const char *>(str.ptr), str.len);
+}
+
+}
+
 /// A string type used by the Slint run-time.
 ///
 /// SharedString uses implicit data sharing to make it efficient to pass around copies. When
@@ -27,12 +57,15 @@ namespace slint {
 struct SharedString
 {
     /// Creates an empty default constructed string.
-    SharedString() { cbindgen_private::slint_shared_string_from_bytes(this, "", 0); }
+    SharedString()
+    {
+        cbindgen_private::slint_shared_string_from_bytes(this, private_api::string_to_slice({}));
+    }
     /// Creates a new SharedString from the string view \a s. The underlying string data
     /// is copied.
     SharedString(std::string_view s)
     {
-        cbindgen_private::slint_shared_string_from_bytes(this, s.data(), s.size());
+        cbindgen_private::slint_shared_string_from_bytes(this, private_api::string_to_slice(s));
     }
     /// Creates a new SharedString from the null-terminated string pointer \a s. The underlying
     /// string data is copied. It is assumed that the string is UTF-8 encoded.
@@ -44,7 +77,8 @@ struct SharedString
     SharedString(std::u8string_view s)
     {
         cbindgen_private::slint_shared_string_from_bytes(
-                this, reinterpret_cast<const char *>(s.data()), s.size());
+                this,
+                private_api::make_slice(reinterpret_cast<const uint8_t *>(s.data()), s.size()));
     }
     /// Creates a new SharedString from \a other.
     SharedString(const SharedString &other)
@@ -66,7 +100,7 @@ struct SharedString
     SharedString &operator=(std::string_view s)
     {
         cbindgen_private::slint_shared_string_drop(this);
-        cbindgen_private::slint_shared_string_from_bytes(this, s.data(), s.size());
+        cbindgen_private::slint_shared_string_from_bytes(this, private_api::string_to_slice(s));
         return *this;
     }
     /// Assigns null-terminated string pointer \a s to this string and returns a reference
@@ -216,7 +250,7 @@ struct SharedString
     /// Appends \a other to this string and returns a reference to this.
     SharedString &operator+=(std::string_view other)
     {
-        cbindgen_private::slint_shared_string_append(this, other.data(), other.size());
+        cbindgen_private::slint_shared_string_append(this, private_api::string_to_slice(other));
         return *this;
     }
 
@@ -225,36 +259,6 @@ private:
     explicit SharedString(double n) { cbindgen_private::slint_shared_string_from_number(this, n); }
     void *inner; // opaque
 };
-
-namespace private_api {
-
-template<typename T>
-inline cbindgen_private::Slice<T> make_slice(const T *ptr, size_t len)
-{
-    return cbindgen_private::Slice<T> {
-        // Rust uses a NonNull, so even empty slices shouldn't use nullptr
-        .ptr = ptr ? const_cast<T *>(ptr) : reinterpret_cast<T *>(sizeof(T)),
-        .len = len,
-    };
-}
-
-template<typename T, size_t Extent>
-inline cbindgen_private::Slice<std::remove_const_t<T>> make_slice(std::span<T, Extent> span)
-{
-    return make_slice(span.data(), span.size());
-}
-
-inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
-{
-    return make_slice(reinterpret_cast<const uint8_t *>(str.data()), str.size());
-}
-
-inline std::string_view slice_to_string_view(cbindgen_private::Slice<uint8_t> str)
-{
-    return std::string_view(reinterpret_cast<const char *>(str.ptr), str.len);
-}
-
-}
 
 /// Styled text that has been parsed and separated into paragraphs.
 ///
