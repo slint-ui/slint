@@ -17,7 +17,9 @@ runs:
           if: runner.os == 'Windows'
           run: |
               if [ "$ImageOS" = "win22" ]; then
-                  choco upgrade llvm --version "19.1.7" --allow-downgrade
+                  # The download from GitHub sometimes fails with HTTP 504.
+                  choco upgrade llvm --version "19.1.7" --allow-downgrade \
+                      || { sleep 10 && choco upgrade llvm --version "19.1.7" --allow-downgrade; }
               fi
           shell: bash
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
