@@ -17,7 +17,10 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
-2. When `validate_slint` and `render_slint` are available, use the
+2. For Visual Editor annotation feedback or an explicit request to connect this chat,
+   follow [Visual Editor Chat Registration](../visual-editor-comments/SKILL.md).
+   Verify annotation changes in the running editor's canvas.
+   For other UI work, when `validate_slint` and `render_slint` are available, use the
    [inline preview workflow](reference/inline-preview.md) for validation and
    interactive previews.
    Otherwise, after editing: in an IDE with the Slint extension, trust the post-edit

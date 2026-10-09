@@ -1,6 +1,7 @@
 # Slint Codex plugin
 
 Develop Slint source with Codex, validate it with the native LSP, and show Slint Wasm previews inline in compatible hosts.
+Connect a separately installed Visual Editor to exchange annotation feedback and inspect its canvas.
 The Codex implementation extends the official plugin rooted at `ai-plugins/`.
 Its shared skill and documentation MCP connection remain available to other assistants.
 The validator and preview interpreter are built from the same checkout, without a release version pin.
@@ -21,7 +22,7 @@ codex plugin add slint@slint
 Restart Codex and select Slint from the Slint marketplace in a new chat.
 The CLI supports the development skill and tools but does not display an inline preview.
 
-The build uses the existing native LSP and Wasm interpreter crates.
+The build uses the existing native LSP, editor MCP bridge, and Wasm interpreter crates.
 The preview template and JavaScript modules are bundled with esbuild into `runtime/preview.html`.
 Syntax highlighting uses the Figma inspector themes and the shared Slint grammar.
 Run `pnpm --filter slint.codex.plugin build` to rebuild the preview without rebuilding Slint.
@@ -75,13 +76,35 @@ An expired snapshot needs a fresh render submission.
 ## Publishing and team packages
 
 Run `node ai-plugins/codex/scripts/package-plugin.mjs /absolute/path/Slint.zip` after building.
-The archive includes the official assistant manifests, shared skill, matching native LSP, Wasm, source revision, and marketplace catalog.
+The archive includes the official assistant manifests, Slint skills, native LSP, editor MCP bridge, Wasm, source revision, and marketplace catalog.
 The generated `slint-ui/ai-plugins` repository currently mirrors source from `release/1` without a build step.
 A source-only install keeps the shared skill and docs connection but exposes no preview tools.
+The editor bridge also requires a built runtime or platform package.
 Public runtime artifact delivery requires a separate publishing change; native binaries remain excluded from the monorepo.
 It contains only an explicit package file list, without project snapshots, credentials, build caches, or test files.
 The generated ZIP has deterministic file ordering, timestamps, and executable permissions.
 The included native runtime works on the recorded platform and architecture; other platforms build from this checkout.
+
+## Visual Editor Annotations
+
+Install the Visual Editor separately from a compatible checkout supporting chat registration and annotation tools.
+The plugin packages `slint-editor-mcp` alongside the LSP and launches it independently of the Wasm preview server.
+The documentation, preview, and editor bridge are separate MCP connections within the Slint plugin.
+The editor bridge needs only its native executable; it does not require Wasm preview assets.
+
+Explicitly ask Codex to connect this chat to the Visual Editor.
+Selecting the Slint plugin or editing source does not register a chat automatically.
+Codex discovers editors within this chat's working directory and asks which instance to use if several match.
+Registration replaces the project's previous destination chat.
+
+Send annotations from the editor to queue feedback to the registered chat.
+Feedback includes source context, chronological conversation, and IDs for new user messages.
+Codex can inspect the canvas, reply in the annotation thread, and resolve an addressed thread.
+Canvas screenshots wait for current source compilation and include selection and annotation popovers.
+Resolution permanently removes the thread and replies; history and reopening are unavailable.
+
+After verifying this integration, disable the separate Slint Visual Editor plugin and any standalone editor MCP entry.
+Use the editor tools bundled in Slint to avoid duplicate connections.
 
 The preview surface is transparent and follows the host's colour scheme.
 Use the hamburger menu to switch between Preview and Code.

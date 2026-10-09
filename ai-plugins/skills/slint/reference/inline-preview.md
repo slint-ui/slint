@@ -1,6 +1,8 @@
 # Inline Slint previews
 
 Use this workflow when `validate_slint` and `render_slint` are available.
+For feedback sent from a connected Visual Editor, follow [Visual Editor Chat Registration](../../visual-editor-comments/SKILL.md).
+Use its canvas screenshot to verify those edits and keep work in the existing editor.
 They validate saved source with the bundled Slint LSP and preview it with the matching Wasm interpreter.
 In CLI-only hosts, use the viewer and screenshot workflow instead.
 A source-only plugin installation does not expose preview tools until its runtime is built or installed.
