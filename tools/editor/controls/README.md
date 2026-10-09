@@ -11,6 +11,7 @@ The same entry points export `ComboBoxBase` and the styled `ComboBox`.
 They also export `SliderBase` and the styled `Slider`.
 Import `CheckBoxBase` from the headless entry point or `CheckBox` from the Basic entry point for boolean choices.
 The same entry points export `SwitchBase` and the styled `Switch`.
+Import `LineEditBase` for headless single-line editing or `LineEdit` for the Basic field style.
 
 Headless implementations live in `src/headless/`.
 The Basic style lives in `src/basic/`.
@@ -103,6 +104,30 @@ The Basic style supplies a track, thumb, and focus ring, with configurable color
 Its font properties belong to the styled component.
 `text` supplies the accessible label even when custom content displays a different label.
 
+## LineEdit Behavior
+
+`LineEditBase` implements `LineEditInterface` from `std-widget-interfaces.slint`.
+Its owned `TextInput` handles selection, keyboard input, input methods, clipboard operations, and undo/redo.
+`text` exposes the current value; direct assignments don't emit `edited(text)`.
+User edits emit `edited(text)`, and Enter emits `accepted(text)`.
+The key callbacks can accept events before TextInput handles them.
+
+Disabled fields reject user edits and clipboard mutations.
+Read-only fields support focus, selection, and copying, but reject edits, cut, paste, undo, and redo.
+`select-all()`, `clear-selection()`, and `set-selection-offsets(anchor, focus)` delegate to TextInput.
+Clipboard and history methods also delegate, preserving TextInput's password protections.
+
+Pointer clicks focus the field, unlike button-like controls.
+The base exposes `has-focus`, `has-selection`, and `hovered`.
+Long text scrolls horizontally to keep the caret visible.
+The field exposes one accessible text input, including its value, placeholder, and read-only state.
+
+Replace `background` and `placeholder`, or supply `leading` and `trailing` content, without replacing the TextInput.
+The placeholder appears only when the text and input-method preedit are empty.
+Content padding and spacing arrange the editor and adornments.
+The Basic style supplies foreground, selection, placeholder, border, and background colors.
+The initial component doesn't provide a context menu.
+
 ## ComboBox Behavior
 
 `ComboBoxBase` implements `ComboBoxInterface` from `std-widget-interfaces.slint`.
@@ -171,7 +196,7 @@ SliderBase {
 
 ## Example
 
-The standalone gallery has Button, CheckBox, ComboBox, Slider, and Switch pages, each with Base theme and custom sections.
+The standalone gallery has Button, CheckBox, ComboBox, Slider, Switch, and LineEdit pages, each with Base theme and custom sections.
 It includes default states, style overrides, replaced content, and custom headless visuals.
 Run it from the repository root:
 

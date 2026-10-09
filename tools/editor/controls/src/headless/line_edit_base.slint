@@ -1,0 +1,126 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEditInterface } from "std-widget-interfaces.slint";
+
+export component LineEditBase {
+    implement LineEditInterface <=> self;
+
+    in property <bool> enabled: true;
+    in-out property <string> text <=> input.text;
+    in property <bool> read-only;
+    in property <string> placeholder-text;
+    in property <InputType> input-type;
+    in property <InputMethodHints> input-method-hints;
+    in property <TextHorizontalAlignment> horizontal-alignment: left;
+    in property <string> font-family <=> input.font-family;
+    in property <length> font-size <=> input.font-size;
+    in property <bool> font-italic <=> input.font-italic;
+    in property <int> font-weight <=> input.font-weight;
+    in property <brush> foreground <=> input.color;
+    in property <color> selection-background-color <=> input.selection-background-color;
+    in property <color> selection-foreground-color <=> input.selection-foreground-color;
+    in property <length> content-padding;
+    in property <length> content-padding-left: root.content-padding;
+    in property <length> content-padding-right: root.content-padding;
+    in property <length> content-padding-top: root.content-padding;
+    in property <length> content-padding-bottom: root.content-padding;
+    in property <length> spacing: 8px;
+    out property <bool> has-focus: input.has-focus;
+    out property <bool> has-selection: input.has-selection;
+    out property <bool> hovered: root.enabled && pointer.has-hover;
+    callback accepted(text: string);
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
+
+    slot background;
+    slot placeholder;
+    slot leading;
+    slot trailing;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: input;
+    accessible-role: text-input;
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    accessible-placeholder-text: root.placeholder-text;
+    accessible-read-only: root.read-only;
+    accessible-action-default => { if root.enabled { input.focus(); } }
+    accessible-action-set-value(value) => {
+        if root.enabled && !root.read-only {
+            root.text = value;
+            root.edited(root.text);
+        }
+    }
+    accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
+
+    public function set-selection-offsets(anchor: int, focus: int) { input.set-selection-offsets(anchor, focus); }
+    public function select-all() { input.select-all(); }
+    public function clear-selection() { input.clear-selection(); }
+    public function copy() { if root.enabled { input.copy(); } }
+    public function cut() { if root.enabled && !root.read-only { input.cut(); } }
+    public function paste() { if root.enabled && !root.read-only { input.paste(); } }
+    public function undo() { if root.enabled && !root.read-only { input.undo(); } }
+    public function redo() { if root.enabled && !root.read-only { input.redo(); } }
+
+    background { }
+
+    pointer := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+
+        HorizontalLayout {
+            padding-left: root.content-padding-left;
+            padding-right: root.content-padding-right;
+            padding-top: root.content-padding-top;
+            padding-bottom: root.content-padding-bottom;
+            spacing: root.spacing;
+            leading { }
+
+            viewport := Rectangle {
+                horizontal-stretch: 1;
+                min-width: 1px;
+                preferred-width: 0px;
+                min-height: input.preferred-height;
+                clip: true;
+
+                Rectangle {
+                    visible: root.text == "" && input.preedit-text == "";
+                    placeholder { }
+                }
+
+                input := TextInput {
+                    private property <length> scroll-offset;
+                    x: min(0px, max(viewport.width - self.width - self.text-cursor-width, self.scroll-offset));
+                    width: max(viewport.width - self.text-cursor-width, self.preferred-width);
+                    height: viewport.height;
+                    single-line: true;
+                    wrap: no-wrap;
+                    vertical-alignment: center;
+                    enabled: root.enabled;
+                    read-only: root.read-only;
+                    input-type: root.input-type;
+                    input-method-hints: root.input-method-hints;
+                    horizontal-alignment: root.horizontal-alignment;
+                    accessible-role: none;
+                    cursor-position-changed(position) => {
+                        if position.x + self.scroll-offset < 0px {
+                            self.scroll-offset = -position.x;
+                        } else if position.x + self.scroll-offset > viewport.width - self.text-cursor-width {
+                            self.scroll-offset = viewport.width - position.x - self.text-cursor-width;
+                        }
+                    }
+                    accepted => { root.accepted(root.text); }
+                    edited => { root.edited(root.text); }
+                    key-pressed(event) => { return root.key-pressed(event); }
+                    key-released(event) => { return root.key-released(event); }
+                }
+            }
+
+            trailing { }
+        }
+    }
+}

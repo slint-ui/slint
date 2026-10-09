@@ -84,6 +84,29 @@ assert_eq!(headless_switch.accessible_checked(), Some(true));
 let custom_switch = find("Custom switch content", AccessibleRole::Switch);
 custom_switch.mock_single_click(PointerEventButton::Left);
 assert_eq!(custom_switch.accessible_checked(), Some(true));
+find("LineEdit", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_page(), 5);
+let field = find("Name", AccessibleRole::TextInput);
+field.set_accessible_value("Slint");
+assert_eq!(field.accessible_value().as_deref(), Some("Slint"));
+let headless_field = find("Headless field", AccessibleRole::TextInput);
+headless_field.set_accessible_value("Headless");
+assert_eq!(headless_field.accessible_value().as_deref(), Some("Headless"));
+let decorated_field = find("File name", AccessibleRole::TextInput);
+decorated_field.set_accessible_value("component");
+assert_eq!(decorated_field.accessible_value().as_deref(), Some("component"));
+for field in [&field, &decorated_field] {
+    field.set_accessible_value("");
+    slint::platform::update_timers_and_animations();
+    let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
+    let placeholder = field.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
+    assert!((placeholder.absolute_position().x - viewport.absolute_position().x).abs() < 0.01);
+    assert!((placeholder.size().width - viewport.size().width).abs() < 0.01);
+    assert!(viewport.absolute_position().x >= field.absolute_position().x + 12. - 0.01);
+    assert!(viewport.absolute_position().x + viewport.size().width
+        <= field.absolute_position().x + field.size().width - 12. + 0.01);
+}
 find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_page(), 0);
 assert!(instance.get_test());

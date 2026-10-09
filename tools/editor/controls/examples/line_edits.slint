@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, BasicTheme } from "../src/basic.slint";
+import { LineEditBase } from "../src/headless.slint";
+import { ExampleSection } from "section.slint";
+
+export component LineEditExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in-out property <int> edits;
+    in-out property <int> submissions;
+    in-out property <string> last-value;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 20px;
+        ExampleSection {
+            title: "Base theme";
+            description: "Editable, disabled, read-only, and password fields using BasicTheme.";
+            HorizontalLayout {
+                spacing: 16px;
+                LineEdit {
+                    accessible-label: "Name";
+                    placeholder-text: "Enter a name";
+                    edited(value) => { root.edits += 1; root.last-value = value; }
+                    accepted(value) => { root.submissions += 1; root.last-value = value; }
+                }
+
+                LineEdit {
+                    accessible-label: "Disabled field";
+                    text: "Disabled";
+                    enabled: false;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 16px;
+                LineEdit {
+                    accessible-label: "Read-only field";
+                    text: "Read-only text";
+                    read-only: true;
+                }
+
+                LineEdit {
+                    accessible-label: "Password";
+                    placeholder-text: "Enter a password";
+                    input-type: password;
+                    text: "slint";
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Edits: \{root.edits} · Submissions: \{root.submissions} · Last value: \{root.last-value}";
+                    color: BasicTheme.foreground;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom fields";
+            description: "Override style properties, supply headless visuals, or add leading and trailing content.";
+            HorizontalLayout {
+                spacing: 16px;
+                LineEdit {
+                    accessible-label: "Color override field";
+                    placeholder-text: "Green field";
+                    background-color: #f0fdfa;
+                    border-color: #0f766e;
+                    foreground: #0f766e;
+                    placeholder-color: #0f766e;
+                    border-radius: 16px;
+                    min-height: 40px;
+                }
+
+                bare := LineEditBase {
+                    accessible-label: "Headless field";
+                    placeholder-text: "Headless field";
+                    foreground: #7c3aed;
+                    font-size: 14px;
+                    content-padding: 8px;
+                    min-height: 40px;
+                    background << Rectangle {
+                        background: #faf5ff;
+                        Rectangle {
+                            y: parent.height - self.height;
+                            height: bare.has-focus ? 2px : 1px;
+                            background: #7c3aed;
+                        }
+                    }
+                    placeholder << Text {
+                        x: 0px;
+                        y: 0px;
+                        width: 100%;
+                        height: 100%;
+                        text: bare.placeholder-text;
+                        color: #7c3aed;
+                        font-size: bare.font-size;
+                        horizontal-alignment: bare.horizontal-alignment;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            LineEdit {
+                accessible-label: "File name";
+                placeholder-text: "my-component";
+                min-height: 40px;
+                leading << Text {
+                    text: "File:";
+                    color: BasicTheme.disabled-foreground;
+                    vertical-alignment: center;
+                }
+                trailing << Text {
+                    text: ".slint";
+                    color: BasicTheme.disabled-foreground;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Text {
+            text: "Click or Tab to focus. Enter submits; selection, clipboard shortcuts, and undo/redo use TextInput behavior.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}

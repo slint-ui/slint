@@ -1,0 +1,67 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEditBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+
+export component LineEdit inherits LineEditBase {
+    private property <brush> state-background: BasicTheme.background;
+    private property <brush> state-foreground: BasicTheme.foreground;
+    private property <brush> state-border: BasicTheme.border;
+    in property <brush> background-color: root.state-background;
+    in property <brush> border-color: root.state-border;
+    in property <length> border-width: root.has-focus ? 2px : 1px;
+    in property <length> border-radius: 4px;
+    in property <brush> placeholder-color: BasicTheme.disabled-foreground;
+
+    foreground: root.state-foreground;
+    selection-background-color: BasicTheme.accent;
+    selection-foreground-color: BasicTheme.accent-foreground;
+    font-size: 14px;
+    font-weight: 400;
+    content-padding: 6px;
+    content-padding-left: 12px;
+    content-padding-right: 12px;
+    min-width: 160px;
+    min-height: 34px;
+
+    states [
+        disabled when !root.enabled: {
+            root.state-background: BasicTheme.disabled-background;
+            root.state-foreground: BasicTheme.disabled-foreground;
+        }
+        focused when root.has-focus: {
+            root.state-border: BasicTheme.focus;
+        }
+        hover when root.hovered: {
+            root.state-border: BasicTheme.foreground;
+        }
+    ]
+
+    background {
+        Rectangle {
+            background: root.background-color;
+            border-color: root.border-color;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
+        }
+    }
+
+    placeholder {
+        placeholder-label := Text {
+            x: 0px;
+            y: 0px;
+            width: 100%;
+            height: 100%;
+            text: root.placeholder-text;
+            color: root.placeholder-color;
+            font-family: root.font-family;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-italic: root.font-italic;
+            horizontal-alignment: root.horizontal-alignment;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
