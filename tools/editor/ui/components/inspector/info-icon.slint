@@ -5,7 +5,7 @@ import { Style, Metrics, InfoIconStyle } from "../../style.slint";
 
 export component InspectorInfoIcon inherits Rectangle {
     in property <InfoIconStyle> style: Style.info-icon;
-    in property <string> label: "More information";
+    in property <string> label: @tr("More information");
     callback activated;
 
     width: root.style.size;

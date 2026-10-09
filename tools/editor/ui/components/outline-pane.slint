@@ -35,7 +35,7 @@ export component OutlinePane inherits Rectangle {
             padding-left: Metrics.space-large;
 
             SectionTitle {
-                label: "OUTLINE";
+                label: @tr("OUTLINE");
             }
         }
 
@@ -45,7 +45,7 @@ export component OutlinePane inherits Rectangle {
             Text {
                 x: Metrics.space-large;
                 width: parent.width - 2 * Metrics.space-large;
-                text: root.image-mode ? "Nothing to Outline" : "No outline available";
+                text: root.image-mode ? @tr("Nothing to Outline") : @tr("No outline available");
                 color: Colors.muted;
                 font-size: Typography.control.size;
                 horizontal-alignment: center;
@@ -103,7 +103,7 @@ export component OutlinePane inherits Rectangle {
                             : transparent;
                         property <bool> drop-allowed: false;
                         accessible-role: AccessibleRole.list-item;
-                        accessible-label: "Outline root drop target";
+                        accessible-label: @tr("Outline root drop target");
 
                         root-drop-area := DropArea {
                             width: parent.width;
@@ -153,7 +153,7 @@ export component OutlinePane inherits Rectangle {
                             visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
                             x: root.style.row.padding-inline;
                             width: parent.width - 2 * self.x;
-                            text: "Drop as child of root";
+                            text: @tr("Drop as child of root");
                             color: root.style.row.foreground;
                             font-size: Typography.control.size;
                             horizontal-alignment: center;
@@ -165,7 +165,7 @@ export component OutlinePane inherits Rectangle {
                     outline-tree := EditorTreeView {
                         horizontal-stretch: 1;
                         vertical-stretch: 1;
-                        accessible-name: "Current file outline";
+                        accessible-name: @tr("Current file outline");
                         rows: root.outline-data;
                         current-source-uri: Api.current-element.source-uri;
                         current-offset: Api.current-element.offset;

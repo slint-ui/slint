@@ -75,7 +75,7 @@ export component InspectorGradientStops inherits Rectangle {
                 active: index == root.selected-index;
                 z: self.active ? 1 : 0;
                 accessible-role: AccessibleRole.slider;
-                accessible-label: "Gradient stop " + (index + 1);
+                accessible-label: @tr("Gradient stop {}", index + 1);
                 accessible-value: (stop.position * root.units).to-fixed(1);
                 accessible-action-set-value(text) => {
                     if text.is-float() {
@@ -127,13 +127,13 @@ export component InspectorGradientStops inherits Rectangle {
             }
         }
         HorizontalLayout {
-            Text { text: "Stops"; color: Colors.foreground; font-size: Typography.control.size; vertical-alignment: center; }
+            Text { text: @tr("Stops"); color: Colors.foreground; font-size: Typography.control.size; vertical-alignment: center; }
             Rectangle { }
             InspectorSegment {
                 kind: "text";
                 label: "+";
                 width: root.style.row.action-width;
-                accessible-label: "Add gradient stop";
+                accessible-label: @tr("Add gradient stop");
                 clicked => {
                     FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops));
                 }
@@ -141,9 +141,9 @@ export component InspectorGradientStops inherits Rectangle {
         }
         HorizontalLayout {
             spacing: Metrics.space-compact;
-            Text { text: "Position " + root.suffix; width: root.style.row.position-width; color: Colors.muted; font-size: Typography.caption.size; }
-            Text { text: "Color"; horizontal-stretch: 1; color: Colors.muted; font-size: Typography.caption.size; }
-            Text { text: "Opacity"; width: Style.color-field.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: @tr("Position {}", root.suffix); width: root.style.row.position-width; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: @tr("Color"); horizontal-stretch: 1; color: Colors.muted; font-size: Typography.caption.size; }
+            Text { text: @tr("Opacity"); width: Style.color-field.opacity-width; color: Colors.muted; font-size: Typography.caption.size; }
             Rectangle { width: root.style.row.action-width; }
         }
         EditorScrollView {
@@ -162,7 +162,7 @@ export component InspectorGradientStops inherits Rectangle {
                         spacing: Metrics.space-compact;
                         InspectorTextFieldBase {
                             width: root.style.row.position-width;
-                            accessible-name: "Stop " + (index + 1) + " position";
+                            accessible-name: @tr("Stop {} position", index + 1);
                             value: (stop.position * root.units).to-fixed(1);
                             commit-key: root.session-key;
                             accepted(text) => {
@@ -176,8 +176,8 @@ export component InspectorGradientStops inherits Rectangle {
                         }
                         stop-color-field := InspectorColorValueField {
                             horizontal-stretch: 1;
-                            accessible-name: "Stop " + (index + 1) + " color";
-                            swatch-accessible-name: "Edit stop " + (index + 1) + " color";
+                            accessible-name: @tr("Stop {} color", index + 1);
+                            swatch-accessible-name: @tr("Edit stop {} color", index + 1);
                             value: stop.color;
                             enabled: FillSession.editable;
                             live-edit: true;
@@ -203,7 +203,7 @@ export component InspectorGradientStops inherits Rectangle {
                             width: root.style.row.action-width;
                             kind: "text";
                             label: "−";
-                            accessible-label: "Remove stop " + (index + 1);
+                            accessible-label: @tr("Remove stop {}", index + 1);
                             clicked => {
                                 FillSession.remove-stop(index);
                             }

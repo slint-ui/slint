@@ -586,7 +586,7 @@ export component EditorUi inherits Window {
                         SidebarToggleButton {
                             active: true;
                             accessible-role: AccessibleRole.button;
-                            accessible-label: "Expand sidebars";
+                            accessible-label: @tr("Expand sidebars");
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }

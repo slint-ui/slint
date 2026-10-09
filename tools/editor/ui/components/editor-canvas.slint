@@ -21,7 +21,7 @@ component CanvasChrome inherits Rectangle {
         width: parent.width - (2 * root.style.padding);
         height: parent.height - (2 * root.style.padding);
         accessible-role: AccessibleRole.region;
-        accessible-label: "Artboard";
+        accessible-label: @tr("Artboard");
 
         @children
     }
@@ -41,7 +41,7 @@ export component EditorCanvas inherits TouchArea {
     changed viewport-size => { CanvasView.viewport-size = root.viewport-size; }
 
     accessible-role: AccessibleRole.main;
-    accessible-label: "Editor canvas";
+    accessible-label: @tr("Editor canvas");
     accessible-value: "\{(CanvasView.zoom * 100).round()}%";
 
     callback real-element-selected();
@@ -145,7 +145,7 @@ export component EditorCanvas inherits TouchArea {
             border-color: root.style.drop-indicator.foreground;
             background: root.style.drop-indicator.background;
             accessible-role: AccessibleRole.region;
-            accessible-label: "Canvas drop marker";
+            accessible-label: @tr("Canvas drop marker");
         }
 
         if Diagnostics.preview-editable: CanvasInteractionLayer {

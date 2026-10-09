@@ -44,7 +44,7 @@ export component InspectorEffectSlider inherits Rectangle {
             canceled => { root.canceled(); }
         }
         InspectorValueField {
-            accessible-name: root.accessible-name + " value";
+            accessible-name: @tr("{} value", root.accessible-name);
             prefix: "";
             value: "\{slider.visual-value}";
             commit-key: root.commit-key;

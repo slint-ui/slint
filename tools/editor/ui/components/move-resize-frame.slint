@@ -17,7 +17,7 @@ export component MoveResizeFrame inherits Rectangle {
     in property <bool> show-outline: true;
     in property <bool> show-outline-while-moving;
     callback control-hovered();
-    in property <string> accessible-prefix: "Selection";
+    in property <string> accessible-prefix: @tr("Selection");
     in property <bool> active;
     in property <bool> shift-pressed;
     in property <angle> rotation;
@@ -64,15 +64,15 @@ export component MoveResizeFrame inherits Rectangle {
 
     public pure function corner-name(corner: CanvasCorner) -> string {
         if corner == CanvasCorner.top-left {
-            return "top-left";
+            return @tr("top-left");
         }
         if corner == CanvasCorner.top-right {
-            return "top-right";
+            return @tr("top-right");
         }
         if corner == CanvasCorner.bottom-right {
-            return "bottom-right";
+            return @tr("bottom-right");
         }
-        return "bottom-left";
+        return @tr("bottom-left");
     }
 
     pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
@@ -88,10 +88,10 @@ export component MoveResizeFrame inherits Rectangle {
     }
 
     pure function edge-name(edge: CanvasEdge) -> string {
-        if edge == CanvasEdge.top { return "top"; }
-        if edge == CanvasEdge.right { return "right"; }
-        if edge == CanvasEdge.bottom { return "bottom"; }
-        return "left";
+        if edge == CanvasEdge.top { return @tr("top"); }
+        if edge == CanvasEdge.right { return @tr("right"); }
+        if edge == CanvasEdge.bottom { return @tr("bottom"); }
+        return @tr("left");
     }
 
     pure function edge-corner(edge: CanvasEdge) -> CanvasCorner {
@@ -314,7 +314,7 @@ export component MoveResizeFrame inherits Rectangle {
             enabled: root.enabled;
             mouse-cursor: EditorCursors.canvas-default;
             accessible-role: AccessibleRole.button;
-            accessible-label: root.accessible-prefix + " move handle";
+            accessible-label: @tr("{} move handle", root.accessible-prefix);
             accessible-enabled: root.moveable;
             private property <Point> move-start-position;
             private property <Point> move-start-pointer;
@@ -414,7 +414,7 @@ export component MoveResizeFrame inherits Rectangle {
                 TouchArea {
                     mouse-cursor: MouseCursor.custom(EditorCursors.rotation-image(root.rotation-cursor-angle(corner)), 12, 12);
                     accessible-role: AccessibleRole.button;
-                    accessible-label: root.accessible-prefix + " rotate " + root.corner-name(corner);
+                    accessible-label: @tr("{} rotate {}", root.accessible-prefix, root.corner-name(corner));
                     changed has-hover => {
                         if self.has-hover { root.control-hovered(); }
                     }
@@ -490,7 +490,7 @@ export component MoveResizeFrame inherits Rectangle {
                             root.rotation + (root.edge-horizontal(edge) ? 0deg : 90deg)
                         ), 16, 16);
                     accessible-role: AccessibleRole.button;
-                    accessible-label: root.accessible-prefix + " resize " + root.edge-name(edge);
+                    accessible-label: @tr("{} resize {}", root.accessible-prefix, root.edge-name(edge));
                     accessible-enabled: root.resizable;
                     changed has-hover => {
                         if self.has-hover { root.control-hovered(); }
@@ -548,7 +548,7 @@ export component MoveResizeFrame inherits Rectangle {
                                 ? (root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize)
                                 : MouseCursor.custom(EditorCursors.resize-image(root.corner-resize-cursor-angle(corner)), 16, 16);
                         accessible-role: AccessibleRole.button;
-                        accessible-label: root.accessible-prefix + " resize " + root.corner-name(corner);
+                        accessible-label: @tr("{} resize {}", root.accessible-prefix, root.corner-name(corner));
                         changed has-hover => {
                             if self.has-hover { root.control-hovered(); }
                         }
