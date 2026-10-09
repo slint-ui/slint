@@ -1,0 +1,265 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Inner {
+    in-out property <int> value: 0;
+}
+
+export component TestCase inherits Rectangle {
+    in-out property <int> idx: 0;
+    in-out property <int> prop_1: 0;
+    in-out property <int> prop_2: 0;
+    in-out property <float> prop_3: 100.0;
+    in-out property <color> prop_4: #000000;
+    in-out property <length> prop_5: 0px;
+    in-out property <bool> not_animatable: false;
+    in-out property <int> standalone: 0;
+    in-out property <int> named: 0;
+    in-out property <int> fallback: 0;
+    out property <length> child_width: child.width;
+    out property <int> inner_value: inner.value;
+
+    animate standalone { duration: 1000ms; }
+
+    child := Rectangle {
+        width: 0px;
+    }
+    inner := Inner { }
+
+    states [
+        a when idx == 1: {
+            prop_1: 100;
+            prop_2: 100;
+            prop_3: 0.0;
+            prop_4: #ffffff;
+            prop_5: 100px;
+            not_animatable: true;
+            in {
+                animate prop_1 { duration: 300ms; }
+                animate * { duration: 100ms; }
+            }
+        }
+        b when idx == 2: {
+            standalone: 100;
+            named: 100;
+            fallback: 100;
+            child.width: 100px;
+            inner.value: 100;
+            in-out {
+                animate * { duration: 100ms; }
+            }
+            in {
+                animate named { duration: 400ms; }
+            }
+        }
+    ]
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_prop_1(), 0);
+assert_eq!(instance.get_prop_2(), 0);
+assert_eq!(instance.get_prop_3(), 100.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x00, 0x00, 0x00));
+assert_eq!(instance.get_prop_5(), 0.0);
+assert!(!instance.get_not_animatable());
+
+instance.set_idx(1);
+assert_eq!(instance.get_prop_1(), 0);
+assert_eq!(instance.get_prop_2(), 0);
+assert_eq!(instance.get_prop_3(), 100.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x00, 0x00, 0x00));
+assert_eq!(instance.get_prop_5(), 0.0);
+assert!(instance.get_not_animatable());
+
+slint_testing::mock_elapsed_time(50);
+assert_eq!(instance.get_prop_1(), 17);
+assert_eq!(instance.get_prop_2(), 50);
+assert_eq!(instance.get_prop_3(), 50.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0x7f, 0x7f, 0x7f));
+assert_eq!(instance.get_prop_5(), 50.0);
+
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_prop_1(), 50);
+assert_eq!(instance.get_prop_2(), 100);
+assert_eq!(instance.get_prop_3(), 0.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0xff, 0xff, 0xff));
+assert_eq!(instance.get_prop_5(), 100.0);
+
+slint_testing::mock_elapsed_time(150);
+assert_eq!(instance.get_prop_1(), 100);
+assert_eq!(instance.get_prop_2(), 100);
+assert_eq!(instance.get_prop_3(), 0.0);
+assert_eq!(instance.get_prop_4(), slint::Color::from_rgb_u8(0xff, 0xff, 0xff));
+assert_eq!(instance.get_prop_5(), 100.0);
+
+assert_eq!(instance.get_standalone(), 0);
+assert_eq!(instance.get_named(), 0);
+assert_eq!(instance.get_fallback(), 0);
+assert_eq!(instance.get_child_width(), 0.0);
+assert_eq!(instance.get_inner_value(), 0);
+instance.set_idx(2);
+slint_testing::mock_elapsed_time(40);
+assert_eq!(instance.get_standalone(), 4);
+assert_eq!(instance.get_named(), 10);
+assert_eq!(instance.get_fallback(), 40);
+assert_eq!(instance.get_child_width(), 40.0);
+assert_eq!(instance.get_inner_value(), 40);
+
+slint_testing::mock_elapsed_time(960);
+assert_eq!(instance.get_standalone(), 100);
+assert_eq!(instance.get_named(), 100);
+assert_eq!(instance.get_fallback(), 100);
+assert_eq!(instance.get_child_width(), 100.0);
+assert_eq!(instance.get_inner_value(), 100);
+
+// Leaving the state, `named` only has an `in` animation so the `in-out` catch-all applies
+instance.set_idx(0);
+slint_testing::mock_elapsed_time(40);
+assert_eq!(instance.get_standalone(), 96);
+assert_eq!(instance.get_named(), 60);
+assert_eq!(instance.get_fallback(), 60);
+assert_eq!(instance.get_child_width(), 60.0);
+assert_eq!(instance.get_inner_value(), 60);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_prop_1(), 0);
+assert_eq(instance.get_prop_2(), 0);
+assert_eq(instance.get_prop_3(), 100.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x00, 0x00, 0x00));
+assert_eq(instance.get_prop_5(), 0.0);
+assert(!instance.get_not_animatable());
+
+instance.set_idx(1);
+assert_eq(instance.get_prop_1(), 0);
+assert_eq(instance.get_prop_2(), 0);
+assert_eq(instance.get_prop_3(), 100.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x00, 0x00, 0x00));
+assert_eq(instance.get_prop_5(), 0.0);
+assert(instance.get_not_animatable());
+
+slint_testing::mock_elapsed_time(50);
+assert_eq(instance.get_prop_1(), 17);
+assert_eq(instance.get_prop_2(), 50);
+assert_eq(instance.get_prop_3(), 50.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0x7f, 0x7f, 0x7f));
+assert_eq(instance.get_prop_5(), 50.0);
+
+slint_testing::mock_elapsed_time(100);
+assert_eq(instance.get_prop_1(), 50);
+assert_eq(instance.get_prop_2(), 100);
+assert_eq(instance.get_prop_3(), 0.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0xff, 0xff, 0xff));
+assert_eq(instance.get_prop_5(), 100.0);
+
+slint_testing::mock_elapsed_time(150);
+assert_eq(instance.get_prop_1(), 100);
+assert_eq(instance.get_prop_2(), 100);
+assert_eq(instance.get_prop_3(), 0.0);
+assert_eq(instance.get_prop_4(), slint::Color::from_rgb_uint8(0xff, 0xff, 0xff));
+assert_eq(instance.get_prop_5(), 100.0);
+
+assert_eq(instance.get_standalone(), 0);
+assert_eq(instance.get_named(), 0);
+assert_eq(instance.get_fallback(), 0);
+assert_eq(instance.get_child_width(), 0.0);
+assert_eq(instance.get_inner_value(), 0);
+instance.set_idx(2);
+slint_testing::mock_elapsed_time(40);
+assert_eq(instance.get_standalone(), 4);
+assert_eq(instance.get_named(), 10);
+assert_eq(instance.get_fallback(), 40);
+assert_eq(instance.get_child_width(), 40.0);
+assert_eq(instance.get_inner_value(), 40);
+
+slint_testing::mock_elapsed_time(960);
+assert_eq(instance.get_standalone(), 100);
+assert_eq(instance.get_named(), 100);
+assert_eq(instance.get_fallback(), 100);
+assert_eq(instance.get_child_width(), 100.0);
+assert_eq(instance.get_inner_value(), 100);
+
+instance.set_idx(0);
+slint_testing::mock_elapsed_time(40);
+assert_eq(instance.get_standalone(), 96);
+assert_eq(instance.get_named(), 60);
+assert_eq(instance.get_fallback(), 60);
+assert_eq(instance.get_child_width(), 60.0);
+assert_eq(instance.get_inner_value(), 60);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.prop_1, 0);
+assert.equal(instance.prop_2, 0);
+assert.equal(instance.prop_3, 100.0);
+assert.equal(instance.prop_4.toString(), "#000000");
+assert.equal(instance.prop_5, 0.0);
+assert(!instance.not_animatable);
+
+instance.idx = 1;
+assert.equal(instance.prop_1, 0);
+assert.equal(instance.prop_2, 0);
+assert.equal(instance.prop_3, 100.0);
+assert.equal(instance.prop_4.toString(), "#000000");
+assert.equal(instance.prop_5, 0.0);
+assert(instance.not_animatable);
+
+slintlib.private_api.mock_elapsed_time(50);
+assert.equal(instance.prop_1, 17);
+assert.equal(instance.prop_2, 50);
+assert.equal(instance.prop_3, 50.0);
+assert.equal(instance.prop_4.toString(), "#7f7f7f");
+assert.equal(instance.prop_5, 50.0);
+
+slintlib.private_api.mock_elapsed_time(100);
+assert.equal(instance.prop_1, 50);
+assert.equal(instance.prop_2, 100);
+assert.equal(instance.prop_3, 0.0);
+assert.equal(instance.prop_4.toString(), "#ffffff");
+assert.equal(instance.prop_5, 100.0);
+
+slintlib.private_api.mock_elapsed_time(150);
+assert.equal(instance.prop_1, 100);
+assert.equal(instance.prop_2, 100);
+assert.equal(instance.prop_3, 0.0);
+assert.equal(instance.prop_4.toString(), "#ffffff");
+assert.equal(instance.prop_5, 100.0);
+
+assert.equal(instance.standalone, 0);
+assert.equal(instance.named, 0);
+assert.equal(instance.fallback, 0);
+assert.equal(instance.child_width, 0.0);
+assert.equal(instance.inner_value, 0);
+instance.idx = 2;
+slintlib.private_api.mock_elapsed_time(40);
+assert.equal(instance.standalone, 4);
+assert.equal(instance.named, 10);
+assert.equal(instance.fallback, 40);
+assert.equal(instance.child_width, 40.0);
+assert.equal(instance.inner_value, 40);
+
+slintlib.private_api.mock_elapsed_time(960);
+assert.equal(instance.standalone, 100);
+assert.equal(instance.named, 100);
+assert.equal(instance.fallback, 100);
+assert.equal(instance.child_width, 100.0);
+assert.equal(instance.inner_value, 100);
+
+instance.idx = 0;
+slintlib.private_api.mock_elapsed_time(40);
+assert.equal(instance.standalone, 96);
+assert.equal(instance.named, 60);
+assert.equal(instance.fallback, 60);
+assert.equal(instance.child_width, 60.0);
+assert.equal(instance.inner_value, 60);
+```
+
+*/

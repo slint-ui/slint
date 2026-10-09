@@ -6,6 +6,8 @@
 
 #![allow(dead_code, unused_macros)]
 
+extern crate std;
+
 use std::boxed::Box;
 use std::format;
 
@@ -25,6 +27,9 @@ macro_rules! screenshot {
     };
 }
 
+/// The error type of the test's `main`.
+pub type Error = Box<dyn std::error::Error>;
+
 const WIDTH: u32 = 64;
 const HEIGHT: u32 = 64;
 
@@ -34,7 +39,7 @@ pub const WINDOW_SIZE: slint_sc::Size = slint_sc::Size::new(WIDTH, HEIGHT);
 pub fn save_screenshot(
     render: impl FnOnce(&mut [u8]) -> Result<(), slint_sc::RenderError>,
     state: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Error> {
     let mut buffer = [0u8; (WIDTH * HEIGHT * 3) as usize];
     render(&mut buffer)?;
     let name = std::env::var("SLINT_TEST_NAME")?;

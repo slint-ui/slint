@@ -80,14 +80,7 @@ impl TextShaper for PixelFont {
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let glyph_index = self
-                .bitmap_font
-                .character_map
-                .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
-                .ok()
-                .map(|char_map_index| {
-                    self.bitmap_font.character_map[char_map_index].glyph_index as usize
-                });
+            let glyph_index = self.bitmap_font.character_map.binary_search(&char).ok();
             let x_advance = glyph_index.map_or_else(
                 || self.pixel_size,
                 |glyph_index| {
@@ -110,26 +103,20 @@ impl TextShaper for PixelFont {
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        self.bitmap_font
-            .character_map
-            .binary_search_by_key(&ch, |char_map_entry| char_map_entry.code_point)
-            .ok()
-            .map(|char_map_index| {
-                let glyph_index =
-                    self.bitmap_font.character_map[char_map_index].glyph_index as usize;
-                let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
-                let x_advance = ((self.pixel_size.cast() * bitmap_glyph.x_advance as i32
-                    / self.glyphs.pixel_size as i32
-                    + euclid::Length::new(32))
-                    / 64)
-                    .cast();
-                Glyph {
-                    glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
-                    advance: x_advance,
-                    text_byte_offset: 0,
-                    ..Default::default()
-                }
-            })
+        self.bitmap_font.character_map.binary_search(&ch).ok().map(|glyph_index| {
+            let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
+            let x_advance = ((self.pixel_size.cast() * bitmap_glyph.x_advance as i32
+                / self.glyphs.pixel_size as i32
+                + euclid::Length::new(32))
+                / 64)
+                .cast();
+            Glyph {
+                glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
+                advance: x_advance,
+                text_byte_offset: 0,
+                ..Default::default()
+            }
+        })
     }
 }
 

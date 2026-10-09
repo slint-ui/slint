@@ -1,0 +1,79 @@
+---
+title: Development Process
+description: Tools, processes, and infrastructure used for Slint SC development.
+---
+
+This chapter describes the tools we use and the processes we follow to develop Slint SC.
+The chapter addresses the supporting processes of ISO 26262-8, Clauses 5 to 16.
+[Standards Compliance](/safety-plan/standards-compliance/#iso-26262-clause-map) maps each clause to its section.
+
+## Language and Compiler
+
+The `slint-compiler` translates `.slint` files into Rust code.
+Slint SC is itself written in Rust.
+
+Evidence runs use a Rust toolchain qualified for ISO 26262 at ASIL B or higher, within the use its safety manual allows.
+Each evidence run records the toolchain that built and ran it in the [Test Results](/qualification-report/test-results/) chapter.
+Because the run records the toolchain itself, the recorded version can't drift from reality.
+Day-to-day development builds with stable Rust.
+
+:::caution[TODO]
+`scripts/slint_sc_test_suite.sh` doesn't check yet that it runs on a qualified toolchain.
+:::
+
+The confidence level each tool needs, and how the tool reaches that level, is in [Tool Classification](/evaluation-report/tool-classification/).
+
+## Configuration Management
+
+**Addresses:** ISO 26262-8 Clause 7
+
+Slint SC uses a structured configuration management process, so that artifacts are reproducible and traceable.
+
+* **Version Control:** Slint is hosted on GitHub ([https://github.com/slint-ui/slint](https://github.com/slint-ui/slint)).
+* **Baselining:** Each release of Slint SC is tagged `slint-sc-vMajor.Minor.Patch`.
+  The tag is the baseline: the qualification evidence of a release is produced from the tagged commit.
+  The [Test Results](/qualification-report/test-results/) chapter records the commit and the toolchain of the run.
+* **Nightly Builds:** Automated nightly builds generate documentation, examples, and release artifacts to provide continuous visibility into the master branch's stability.
+
+## Change Management
+
+**Addresses:** ISO 26262-8 Clause 8
+
+We manage modifications to the Slint SC codebase so that they preserve the safety and integrity of the system.
+
+* **Reporting and Tracking:** Planned work and bugs are tracked via GitHub Issues, labeled `a:slint-sc` ([https://github.com/slint-ui/slint/issues](https://github.com/slint-ui/slint/issues)).
+* **Authorization and Traceability:** See [Development Phases](/safety-plan/development-phases/), which describes how a change is reviewed, merged, and traced.
+
+## CI System and Infrastructure
+
+We run Continuous Integration (CI) on [GitHub Actions](https://github.com/slint-ui/slint/actions).
+Workflows run for every Pull Request (PR) and every push to the `master` branch.
+A failing workflow blocks merging the PR.
+
+The CI system doesn't generate code that ships.
+But a CI run that reports green without having run the tests would hide exactly the errors the tests exist to catch.
+In tool classification, that's the case of a tool failing to detect an error.
+The CI system's classification belongs with the rest of the test tooling in [Tool Classification](/evaluation-report/tool-classification/).
+
+## Distributed Development
+
+**Addresses:** ISO 26262-8 Clause 5
+
+Clause 5 governs development distributed across organizations: the interfaces between a supplier and its customers.
+
+SixtyFPS GmbH develops Slint SC.
+Its employees work remotely in different countries, but that doesn't create distributed development in the sense of Clause 5.
+The employees are one organization, working under one process.
+
+Development happens in the open, on the public [slint-ui/slint](https://github.com/slint-ui/slint) repository.
+That repository hosts both the general-purpose Slint product and the code Slint SC is built from: the same compiler, and a separate runtime library.
+Every commit in a release of Slint SC has been through an approved pull request, which [R-02](/safety-plan/release/#on-every-release) checks.
+
+The repository accepts pull requests from anyone, under an inbound MIT-0 license, including from contributors outside SixtyFPS.
+Clause 5.2, Note 2 excludes from its scope "procurement which does not place any responsibility for safety on the supplier."
+SixtyFPS reviews, verifies, and tests every change before integrating the change.
+SixtyFPS keeps full responsibility for all safety lifecycle activities, requirements, design, verification, and the safety case, whoever authored a change.
+SixtyFPS delegates no safety responsibility to external contributors, so accepting community PRs doesn't by itself constitute distributed development under Clause 5.
+
+The interface that Clause 5 does reach is the one between SixtyFPS and the integrator.
+Slint SC is an SEooC, and the [User Manual](/user-manual/) states what each side is responsible for.

@@ -509,6 +509,10 @@ impl Connection {
                                 opening,
                             ));
                             current_session = Some((sink, handle, sealing));
+                            encode_and_send(&inner_message_sender, &PreviewToLspMessage::RequestState {
+                                files: Vec::new(),
+                                settings: Vec::new(),
+                            }).ok();
                         }
                         _ = &mut quit_receiver => {
                             tracing::info!("Quit signal received, shutting down connection thread.");
@@ -526,13 +530,29 @@ impl Connection {
                                         }
                                     },
                                 };
-                                if let Some(frame) = frame
-                                    && let Err(err) = sink.send(frame).await {
-                                    tracing::error!("Failed sending message to Websocket: {err}");
+                                if let Some(frame) = frame {
+                                    tokio::select! {
+                                        result = sink.send(frame) => {
+                                            if let Err(error) = result {
+                                                tracing::error!("Failed sending message to Websocket: {error}");
+                                            }
+                                        }
+                                        _ = &mut quit_receiver => break 'listen,
+                                    }
                                 }
                             }
                         }
                     }
+                }
+                if let Some((mut sink, reader, _)) = current_session {
+                    let _ = tokio::time::timeout(
+                        Duration::from_secs(1),
+                        sink.send(Message::Close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "".into(),
+                        }))),
+                    ).await;
+                    reader.abort();
                 }
             });
         });
@@ -1423,6 +1443,15 @@ mod session_tests {
     }
 
     impl Paired {
+        async fn admitted(client: Client, secrets: &pairing::Secrets) -> Self {
+            let (sealing, opening) = secrets.session();
+            let mut paired = Self { client, sealing, opening };
+            assert!(
+                matches!(paired.recv().await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
+            );
+            paired
+        }
+
         async fn send(&mut self, message: &LspToPreviewMessage) {
             let bytes = postcard::to_allocvec(message).unwrap();
             let sealed = self.sealing.seal(bytes).unwrap();
@@ -1442,8 +1471,8 @@ mod session_tests {
         let (mut client, element) = knock(viewer).await;
         let code = viewer.next_code().await;
         let secrets = answer_code(&mut client, &code, &element).await.expect("accepted");
-        let (sealing, opening) = secrets.session();
-        (Paired { client, sealing, opening }, secrets)
+        let paired = Paired::admitted(client, &secrets).await;
+        (paired, secrets)
     }
 
     /// Dial again and run the token exchange, as a reconnecting editor would.
@@ -1456,8 +1485,7 @@ mod session_tests {
         };
         let handshake = pairing::Handshake::with_token(pairing::Role::Editor, &secrets.token);
         let fresh = answer_with(&mut client, handshake, &element).await.expect("accepted");
-        let (sealing, opening) = fresh.session();
-        Paired { client, sealing, opening }
+        Paired::admitted(client, &fresh).await
     }
 
     macro_rules! local_test {
@@ -1468,6 +1496,34 @@ mod session_tests {
             }
         };
     }
+
+    local_test!(viewer_shutdown_sends_normal_websocket_close, {
+        for policy in [PairingPolicy::Generated, PairingPolicy::Disabled] {
+            let paired = policy == PairingPolicy::Generated;
+            let mut viewer = Viewer::start(policy).await;
+            let mut client = if paired {
+                pair(&mut viewer).await.0.client
+            } else {
+                let mut client = viewer.dial().await;
+                hello(&mut client, None).await;
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::PairingAccepted)
+                ));
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::RequestState { .. })
+                ));
+                client
+            };
+            drop(viewer);
+            let frame =
+                tokio::time::timeout(REPLY_TIMEOUT, client.next()).await.unwrap().unwrap().unwrap();
+            assert!(
+                matches!(frame, Message::Close(Some(frame)) if frame.code == tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode::Normal)
+            );
+        }
+    });
 
     local_test!(correct_code_is_accepted_and_session_works, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
@@ -1842,6 +1898,9 @@ mod session_tests {
         hello(&mut client, None).await;
 
         assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
+        assert!(
+            matches!(recv(&mut client).await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
+        );
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
     });
 
