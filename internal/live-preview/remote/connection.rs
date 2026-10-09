@@ -411,6 +411,14 @@ impl Connection {
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
         session_handle: PreviewSessionHandle,
     ) -> anyhow::Result<Self> {
+        if let PairingPolicy::Fixed(code) = &pairing_policy {
+            anyhow::ensure!(
+                pairing::is_valid_code(code),
+                "A pinned pairing code must be {} to {} digits",
+                pairing::CODE_DIGITS,
+                pairing::MAX_CODE_DIGITS
+            );
+        }
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_message_sender = message_sender.clone();
@@ -717,6 +725,8 @@ impl Connection {
             PairingPolicy::Fixed(code) => code.clone(),
             _ => pairing::generate::code(),
         };
+        let code_digits = u8::try_from(code.len())
+            .expect("listen_with_session_handle refuses pinned codes that fail is_valid_code");
 
         // From here on the prompt is up, so every exit has to take it down.
         let mut guard = PromptGuard::begin(pairing_state, message_handler, remote_addr, &code)
@@ -736,6 +746,7 @@ impl Connection {
                 &PreviewToLspMessage::PairingRequired {
                     attempts_left,
                     expires_in_seconds: remaining().as_secs() as u16,
+                    code_digits,
                     element: handshake.element().clone(),
                 },
             )
@@ -1890,6 +1901,36 @@ mod session_tests {
         let (mut client, element) = knock(&viewer).await;
 
         answer_code(&mut client, "1357", &element).await.expect("accepted");
+    });
+
+    #[tokio::test]
+    async fn an_invalid_fixed_code_is_refused_at_listen() {
+        for code in ["123", "1234567890123", "12a4"] {
+            let (session_handle, _session_commands) = PreviewSessionHandle::new();
+            let result = Connection::listen_with_session_handle(
+                Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
+                None,
+                PairingPolicy::Fixed(code.into()),
+                |_| {},
+                session_handle,
+            )
+            .await;
+            assert!(result.is_err(), "{code} was accepted");
+        }
+    }
+
+    local_test!(a_longer_fixed_code_announces_its_length, {
+        let viewer = Viewer::start(PairingPolicy::Fixed("135792468".into())).await;
+        let mut client = viewer.dial().await;
+        hello(&mut client, None).await;
+        let Some(PreviewToLspMessage::PairingRequired { code_digits, element, .. }) =
+            recv(&mut client).await
+        else {
+            panic!("expected a code prompt");
+        };
+        assert_eq!(code_digits, 9);
+
+        answer_code(&mut client, "135792468", &element).await.expect("accepted");
     });
 
     local_test!(pairing_disabled_admits_without_a_code, {

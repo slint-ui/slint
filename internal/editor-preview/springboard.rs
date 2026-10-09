@@ -65,6 +65,7 @@ struct SpringboardTask {
     displayed_endpoints: Arc<Mutex<Vec<EndpointIdentity>>>,
     state: ui::SpringboardState,
     connection_state: ui::ConnectionState,
+    pairing_code_digits: u8,
     error: String,
     preview: Option<Endpoint>,
     highlight: Option<LspToPreviewMessage>,
@@ -112,6 +113,7 @@ impl Springboard {
             displayed_endpoints,
             state: ui::SpringboardState::Stopped,
             connection_state: ui::ConnectionState::None,
+            pairing_code_digits: 0,
             error: String::new(),
             preview: None,
             highlight: None,
@@ -345,8 +347,9 @@ impl SpringboardTask {
                 };
                 *pairing_answer = Some(answer);
                 match prompt {
-                    PairingPrompt::Code { attempts_left, expires_in_seconds } => {
+                    PairingPrompt::Code { attempts_left, expires_in_seconds, code_digits } => {
                         self.connection_state = ui::ConnectionState::PairingRequired;
+                        self.pairing_code_digits = code_digits;
                         self.error = if attempts_left < pairing::MAX_ATTEMPTS {
                             format!(
                                 "Incorrect code. {attempts_left} attempts left, {expires_in_seconds}s remaining"
@@ -429,8 +432,10 @@ impl SpringboardTask {
             PairingAnswer::Code(code)
                 if self.connection_state == ui::ConnectionState::PairingRequired =>
             {
-                if !pairing::is_valid_code(code) {
-                    self.error = "Enter four numeric digits".into();
+                if !pairing::is_valid_code(code)
+                    || code.len() != usize::from(self.pairing_code_digits)
+                {
+                    self.error = format!("Enter {} numeric digits", self.pairing_code_digits);
                     self.update_ui();
                     return;
                 }
@@ -509,6 +514,7 @@ impl SpringboardTask {
         let mapping = self.displayed_endpoints.clone();
         let state = self.state;
         let connection = self.connection_state;
+        let pairing_code_digits = self.pairing_code_digits;
         let error = self.error.clone();
         let _ = self.global.upgrade_in_event_loop(move |global| {
             let mut identities = vec![EndpointIdentity::Local];
@@ -536,6 +542,7 @@ impl SpringboardTask {
             global.set_selected_endpoint_index(selected);
             global.set_state(state);
             global.set_connection_state(connection);
+            global.set_pairing_code_digits(pairing_code_digits.into());
             global.set_error_message(error.into());
         });
     }
@@ -1052,7 +1059,7 @@ mod tests {
             let ConnectionMessage::PairingStarted { code, .. } = viewer.event(|event| matches!(event, ConnectionMessage::PairingStarted { .. })).await else { unreachable!() };
             wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::PairingRequired).await;
             answer(&controller, PairingAnswer::Code("12".into()));
-            assert!(inspect(&controller, |task| matches!(&task.preview, Some(Endpoint::Remote { pairing_answer: Some(_), .. })) && task.error == "Enter four numeric digits").await);
+            assert!(inspect(&controller, |task| matches!(&task.preview, Some(Endpoint::Remote { pairing_answer: Some(_), .. })) && task.error == "Enter 4 numeric digits").await);
             answer(&controller, PairingAnswer::Code(if code == "0000" { "0001" } else { "0000" }.into()));
             wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::PairingRequired && task.error.contains("Incorrect code")).await;
             answer(&controller, PairingAnswer::Code(code));
@@ -1482,6 +1489,7 @@ mod tests {
                         &PreviewToLspMessage::PairingRequired {
                             attempts_left: pairing::MAX_ATTEMPTS,
                             expires_in_seconds: 0,
+                            code_digits: 4,
                             element: handshake.element().clone(),
                         },
                     )

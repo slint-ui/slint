@@ -149,7 +149,7 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--check` | Compile the file, print diagnostics, and exit without opening a window. Incompatible with the options above. |
 | `--remote` | Start in remote mode and wait for the editor to connect. See [Remote Viewer](#remote-viewer). |
 | `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
-| `--pairing-code <code>` | Always require this four-digit pairing code instead of showing a generated one, for devices with no usable display. |
+| `--pairing-code <code>` | Always require this pairing code of 4 to 12 digits instead of showing a generated one, for devices with no usable display. Use at least 8 digits on networks you don't control. |
 | `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Defaults to `fluent`. |
